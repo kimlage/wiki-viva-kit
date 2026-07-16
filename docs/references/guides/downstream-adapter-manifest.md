@@ -63,7 +63,7 @@ git add wiki.adapter-manifest.json adapters/ scripts/wiki_private_snapshot_adapt
   apps/wiki-cockpit/public/wiki-cockpit.config.json
 git commit -m "adopt: bind downstream adapters"
 python3 scripts/wiki_adapter_manifest.py check
-python3 scripts/wiki_node_workspace.py run test:e2e:operator
+npm --prefix apps/wiki-cockpit run test:e2e:operator
 ```
 
 The check and Node preflight independently reopen every file, compare

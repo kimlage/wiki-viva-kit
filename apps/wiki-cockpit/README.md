@@ -432,7 +432,7 @@ times, the pre/post Git subjects and either a hashed passing gate or an explicit
 blocked stage. Thus an early build, Playwright or checker failure remains durable
 blocked evidence rather than leaving an older green file at the current run
 location. The passing gate can be consumed by
-[wiki_release_receipt.py](../../scripts/wiki_release_receipt.py); the public and
+the consumer PR; the public and
 downstream gates are closed in their own repository receipts, while only a
 future external authority may combine them into E5.
 

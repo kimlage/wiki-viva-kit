@@ -1,443 +1,86 @@
 # Wiki Viva Kit
 
-Reusable kit for a **living operational wiki** in Markdown/Git, with source
-ingestion, a per-PR honesty gate, secret/PII detection, karma gamification
-and a perceptive layer. The deterministic code lives in Python; the deep
-reading (LLM) is delegated to the **agent that runs the repo** (Claude, Codex, Gemini or
-another) via skills — there is no embedded LLM client.
+Reusable Markdown/Git kit for a living operational wiki. Deterministic work
+lives in Python and TypeScript; contextual LLM reading is delegated to the
+agent operating the repository.
 
-## Active v8 release rule (2026-07-15)
+## Working contract
 
-- The rc41 subject/capsule/attestation/exact-matrix machinery is closed as
-  historical evidence and is no longer a release or downstream-adoption gate.
-  Do not create rc42 and do not run the prepared rc41 exact script.
-- The current repository tree is the v8 source. Validate it once through the
-  normal kit CI surface: audits, Python tests, frontend tests, TypeScript and
-  production build.
-- A downstream adoption uses a readable B0 dry-run, verbatim sync of kit-owned
-  paths from the consumer inventory (C1), deterministic regeneration (C2) and
-  explicit consumer-owned migration (C3). Reversibility is the reviewable PR;
-  no clone canary, receipts, capsule or attestation is required.
-- Promotion requires normal consumer gates, impact acknowledgements and the
-  human PR gate. Privacy, access-secret and corruption checks remain
-  fail-closed and are never waivable.
-- The detailed two-lane material below is frozen historical context until a
-  separate post-v8 PR removes it and introduces the simpler idempotent sync.
-- Tests that exercise only the retired certification state machine remain
-  collected under the registered `retired` marker and are skipped by the
-  normal Phase-1 gate. Do not make historical package YAML pretend to be an
-  active candidate merely to satisfy those tests; Phase 2 deletes both the
-  machine and its retired coverage.
+- `main` is approved truth. Work in `wiki/<theme>` (or another focused branch),
+  run the project gates, review the conceptual diff and use a human-reviewed PR.
+- Public-kit corrections are proved here with public synthetic fixtures before
+  downstream use. Never copy private personal, financial or client data into
+  this repository.
+- Canonical memory lives in [memories/](memories/index.md). References and
+  templates live in [docs/](docs/README.md); [data/raw and data/derived](data/README.md)
+  are ignored cache.
+- Source ingestion enters through [scripts/wiki_ingest.py](scripts/wiki_ingest.py).
+  The agent writes the delegated LLM result through
+  [.skills/wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md).
 
-## How the agent should operate
+## Upgrades and releases
 
-- `main` is the approved wiki. Relevant changes go into a `wiki/<theme>` branch and
-  pass through a **PR (human gate)**. The `wiki/` prefix is tool-neutral.
-- The consolidated memory lives in [memories/](memories/index.md). [docs/](docs/README.md) holds
-  references, templates and snapshots; [data/raw](data/raw) and
-  [data/derived](data/derived) are cache (gitignored).
-- The configured root entity is [memories/system/wiki-viva-kit.md](memories/system/wiki-viva-kit.md).
-  It is the semantic top page of the wiki; [memories/index.md](memories/index.md)
-  remains the technical MOC. The generated input stage is
-  [memories/system/input-stage.md](memories/system/input-stage.md).
-- Every source ingestion uses the orchestrator [scripts/wiki_ingest.py](scripts/wiki_ingest.py):
-  manifest, text/chunks, index, pre-scan, input-stage-aware LLM context package
-  and score-event. The LLM pass is written to the cache by the agent (skill
-  [wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md)).
-- Core/toolkit corrections belong here first. Changes to [wiki_core/](wiki_core/README.md),
-  [scripts/](scripts/README.md), [.skills/](.skills/README.md), templates, gates or shared
-  ingestion behavior must be implemented in this open-source repo, covered by a
-  synthetic fixture or unit test, and pass CI before being applied to private
-  downstream repos.
-- If a core bug is discovered in a private repo, reproduce the behavior here
-  with minimized synthetic data. Do not use private financial, personal or
-  client data as the proving ground for shared core behavior.
-- Historical two-lane downstream evidence followed the
-  [two-lane migration strategy](docs/references/guides/downstream-migration-two-lane-strategy.md):
-  certify an immutable portable subject once, then prove only the exact
-  consumer delta, current privacy/semantic invariants and a reversible canary.
-  Validating a receipt or resuming an unfinished run requires exact equality of
-  `source_sha`, `package_sha256`, `portable_tree_sha256`, `consumer_B0`,
-  `consumer_C3`, `command_registry_sha256` and `toolchain_sha256`; a completed
-  receipt is historical PR evidence and cannot be resumed or promoted twice.
-  The toolchain binds the actual runner interpreter (not an unrelated
-  `python3` binary), its resolved Python dependencies and the Chromium engine
-  actually launched by Playwright; uncertainty escalates to the full lane.
-  Every Python alias in the command registry must resolve to that same probed
-  interpreter. An ambient `python3` that resolves elsewhere is a certification
-  failure, even when the probe itself reports a complete environment.
-  Release-bearing Node commands never execute through ambient `npm`. The
-  tracked `apps/wiki-cockpit/node-workspace.lock.json` is the portable
-  `wiki_viva_node_workspace_policy.v2`: it binds package/lock hashes,
-  `packageManager`, allowed scripts/arguments and the fixed install policy, but
-  contains no host path, platform, installed Node/npm or `node_modules` digest.
-  Lane A alone runs `wiki_node_workspace.py capture-authority` from the exact
-  clean source. That forced-install step writes a path-free,
-  platform-scoped `wiki_viva_node_workspace_authority.v1` outside the Git
-  subject, binding the policy, source, resolved Node/npm and materialized
-  dependency tree. Capsule v2 embeds that authority and its digest alongside
-  `toolchain_probe_entry_count=5` and the canonical probe identities
-  `browser`, `node`, `npm`, `python`, `runner`. A
-  downstream consumer may only materialize C1 and run the wrapper with that
-  sealed authority; it may not capture a replacement locally. Another
-  platform/toolchain requires a new Lane A capsule. Capsule v1 remains
-  verification-only immutable history and is never relabeled as v2.
-  Lane A visual authority must be generated by
-  [scripts/wiki_visual_evidence.py](scripts/wiki_visual_evidence.py) `capture`
-  from the exact clean source and
-  must cover every package `visual_profile` with record-backed PNG,
-  source/package/browser, console and network evidence. After `certify`, run
-  [scripts/wiki_upgrade.py](scripts/wiki_upgrade.py) `verify-capsule` with the
-  sealed authority and the separately
-  carried attestation SHA-256 before any downstream plan. Successful upstream
-  gate logs must also pass the public-evidence scanner; quiet/TAP reporters are
-  part of the versioned command registry, not cosmetic output choices.
-  Native Lane A records use `wiki_visual_evidence_capture.v2` and bind the
-  exact profile route, view, `data-runtime-mode="v8"` and viewport. Lane B
-  canary bundles use `wiki_viva_canary_visual_summary.v2` and bind each
-  profile's canonical native operator route, view, runtime and exact
-  `canary_viewport`; v1, missing, compat, legacy or coherently resealed
-  mismatches fail closed. Positional deep links are compatibility evidence
-  only and must assert `compat` explicitly.
-  Until a package and runner implement gate classes, every gate
-  declared in `migration.required_gates` remains blocking. A migration already
-  started under the v2 contract keeps that complete gate set even after v3
-  exists; never rewrite historical evidence into a reduced run. Toolkit-owned
-  [wiki skill packages](.skills/README.md) stay byte-equal in C1; downstream
-  [AGENTS.md](AGENTS.md), the consumer's [.skills/README.md](.skills/README.md) and non-`wiki-*`
-  repo-local skills are C3 consumer routing and invalidate every C3-bound
-  receipt when changed. New v3 runs must
-  also own consumer base/`.local` page-type and template registries in C3 and
-  may add localized technical pages only through the exact config-bound C3
-  authority derived from the immutable Git blob at
-  `consumer_B0:wiki.config.yaml`. That authority has exactly three roles:
-  `command_reference_page`, `operational_pass_page` and `release_records`
-  (the configured `references_root/releases/**` subtree). It is never derived
-  from the live worktree, C1, C2 or C3, so a later config edit cannot widen its
-  own ownership. Every authorized artifact is inert UTF-8 Markdown committed as
-  a regular `100644` blob; executable, binary, secret-bearing or non-Markdown
-  descendants fail closed. These paths may exist only in C3, never C1 or C2,
-  and the derived-authority digest is bound to plan, resumable state, receipt
-  and report.
-  Rc21 and rc22 are immutable historical non-promotional evidence. Rc21's
-  downstream rehearsal exposed the missing localized C3 authority and the
-  over-broad release-record surface. Rc22 corrected that boundary, but its
-  first productive Chromium capture stopped fail-closed because the legacy
-  mobile route normalized to Quadrants instead of Timeline; no visual
-  manifest, capsule, attestation or Lane B authority was minted. Never retry,
-  relabel, promote or import either subject. Rc23 corrected the native routes,
-  but its first complete validation stopped on one stale synthetic CLI route
-  helper before any candidate, manifest, capsule or adoption authority existed;
-  preserve that subject without retry or relabel. Rc24 exact source
-  `39d490231c00cbc0cf0374c6b1dd3d16f23a2406` passed exact validation and its
-  four-profile productive capture, but its first Lane A certification stopped
-  fail-closed when `demo_drift` and `portable_python` executed through an
-  ambient `python3` different from the probed Python 3.12.4 interpreter. Rc24
-  is immutable `historical_certification_failed`: no capsule, receipt, trust or
-  Lane B authority was minted, and it must never be retried, reused, relabeled
-  or imported. Rc25 exact source
-  `c741e3d0ad409ac9baea8b136e3819952bb0657b` then failed its first complete
-  validation with 1,708 passed, 3 skips and 5 public synthetic contract
-  failures; the strict browser matrix was not started and no candidate,
-  capture or capsule exists. Rc25 is immutable
-  `historical_validation_failed`. Rc26 exact source
-  `da3a9a0495db974e409f5af6413401c31851e071` passed complete validation, its
-  first productive four-profile capture and all six Lane A commands, but the
-  strict public-evidence scanner rejected a host-local interpreter-library
-  path in the successful Python warning summary before attestation. Rc26 is
-  immutable `historical_certification_failed`: no capsule, receipt, trust or
-  Lane B authority exists, and its capture/results must never be retried or
-  reused. Rc27 exact source `ba7ee19457436993edc7ff8a838b34c5b864fd98`
-  failed its first complete warnings-as-errors validation with 46 public
-  synthetic subprocess/thread/pipe lifecycle failures after 1,693 passes and
-  3 skips. Its browser and later stages were not started; rc27 is immutable
-  `historical_validation_failed`. Rc28 source
-  `31cad3bc8aa9cf45d4842103307baff678ddeeb7` was rejected before validation
-  because its portable guides still carried stale transition wording. Rc29
-  source `905e377220a409bee6e1977d3c0e6262bdc27914` was also rejected before
-  validation because one portable skill remained state-stale and public
-  fixtures retained private-lineage labels. Rc30 source
-  `bc44255b22d65b8c9869ec45759afd4dac1355b9` was pinned only for exact
-  validation, then rejected before its complete matrix when downstream
-  real-data visual QA exposed four distinct root-quadrant family controls with
-  the same visible and accessible label. No rc30 browser, candidate, capture,
-  capsule or adoption authority exists. Rc31 exact source
-  `6fa9b907d5dfc748e94d182ac3704b226142552e` passed 1,740 Python and
-  517 frontend checks, then failed its first complete validation because the
-  deterministic operational-pass artifact was stale; browser and every later
-  stage were not started. Rc31 is immutable `historical_validation_failed`.
-  Rc32 exact source `ed073dee5fbf05343b36db1fdc061a24d0220cb9`
-  closed the operational-pass fixed point and CI ordering, then its first full
-  Python validation stopped with 2 contract failures after 1,744 passes and 3
-  skips; frontend, browser and every later stage were not started. Rc32 is
-  immutable `historical_validation_failed`. Rc33 exact source
-  `539eb19b958a4159eecb2c5a7afd6ceaabcbb086` passed 1,746 Python checks with
-  3 declared skips, all 517 frontend and 115 Node checks, and every applicable
-  static gate. Its first strict browser matrix then stopped at 98/102 with four
-  failures: three focus-scope accessible-name/breadcrumb regressions and one
-  short-phone pointer collision caused by applying root-quadrant
-  disambiguation inside a focused lens. An extra adapter-manifest diagnostic
-  appended outside the Lane A registry was an
-  `inapplicable_gate/orchestration_invalid` check, not an rc33 gate failure:
-  adapter identity is consumer-owned and cannot certify an upstream source.
-  Rc33 is immutable `historical_validation_failed`; no candidate, productive
-  capture, capsule, receipt, attestation, trust anchor or Lane B authority
-  exists. Rc34 exact source
-  `533d286869c478bd157b066d7882388b99fde2f7` passed its wholly new exact
-  validation at metadata subject
-  `2afd435c7cc955ae7a922b1d46eac355472ca0e6`: 1,746 Python checks with 3
-  declared skips in 1,113.61 seconds, all 518 frontend and 115 Node checks,
-  every applicable static gate, and first/only strict browser run
-  `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with no
-  failure, skip, retry or flaky cell in 6.5 minutes. Its separately reviewed
-  local-QA candidate metadata subject was
-  `59be853af5416ce84c4ca89e7272bb64eb909b2b`, but read-only downstream QA
-  exposed RT-170 before any productive capture or certification attempt. Rc34
-  is immutable `historical_precapture_rejected`: no visual manifest,
-  certification result, capsule, receipt, attestation, trust anchor, downstream
-  plan, import or Lane B authority exists. Never retry, reuse, relabel, promote
-  or import it. Rc35 exact source
-  `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0` passed its wholly new exact
-  validation at metadata subject
-  `55910c379b64060451fb8fb93eb85d47b9245122`: 1,754 Python checks with 3
-  declared skips in 1,271.55 seconds, 518 frontend checks, 115 Node checks,
-  every applicable static gate, and first/only strict browser run
-  `public-mrlderie-ab48db4f-1355-47e9-bdc2-69f96f4bda85` at 102/102 with no
-  failure, skip, retry or flaky cell in 386.565 seconds. The separately
-  reviewed but uncommitted local-QA candidate package-file/canonical/tree
-  identities were
-  `3cea5015b2be7bfc34b951553c5d2ab0a4d45098f6360699b5a66c36d929e636` /
-  `e7a3c44876ed8265db0123cce6cfd23ce8cb9d1d6579a4fb89ba27ea29eef0e8` /
-  `1c8e6f696ce705a3a5be04633051d793785bea9a2933b6f103c236c401d0255c`,
-  521 entries; no candidate metadata subject was committed. Pre-capture static
-  contract review plus focused public synthetic tests then exposed RT-171:
-  capture record v1 did not bind the rendered view/runtime, while canary
-  summary v1 used positional routes and did not bind exact native route, view,
-  runtime or `canary_viewport`. Rc35 is therefore immutable
-  `historical_precapture_rejected`. Its exact validation remains historical
-  evidence, but no capture directory, visual manifest, capsule, receipt,
-  attestation, trust anchor, downstream plan, import or Lane B authority was
-  created. Never retry, relabel, promote or import rc35.
+The certification state machine is retired. Rc41, subjects, lanes, capsules,
+attestations, exact release matrices and receipts are historical records, not
+release gates. [upgrade-package.yaml](docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml)
+is frozen history and must not be edited to satisfy retired tests.
 
-  Rc36 exact source `8f96e1fd58258df64174229d81ee6a330ba9d2b1`
-  passed its first and only complete exact validation at metadata subject
-  `3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd`: 23/23 recorded gates, 1,782
-  Python checks with 3 declared skips in 1,082.23 seconds, 518 frontend checks,
-  123 Node checks and browser run
-  `public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651` at 102/102 with no
-  failure, skip, retry or flaky cell. Those exact-validation receipts remain
-  valid historical evidence. Their validation result / toolchain / runner
-  payload identities are
-  `5585819e60c5f7550f06e9990c4de23b42e5eb3113f2bdf5036cac563465a267` /
-  `6728f4644bc18da8602f1c3ea982f6b5584c7e949716e2e3c2bb58110fba7083` /
-  `03a75c4072048b8150e95737bb7c458562bd29da184286c09a3cea7699955424`;
-  validation-subject package-file / canonical-package / portable-tree
-  identities are
-  `47c3dc7dff8336c7707a4c43cc37275aef3721e2b1a54109b94e64cbed6992f1` /
-  `81a3b600f4cd6cd0f0d3abac0b886e9db15fdd3ad0120c9442ce7fc76cc07832` /
-  `53ffdf8bc0a2c61f1bf7f426ba12e7e9a0c4995e92703a7264596b9f9a81594c`.
-  The corrected candidate metadata subject
-  `ac0f49afe28a5bf84003b58c537ac1727dab7008` bound package-file /
-  canonical-package / portable-tree identities
-  `8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b` /
-  `8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2` /
-  `4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3`
-  and produced the first/only four-profile manifest
-  `6199d1001ba98c2c772323069765ddc695cc8971f6d7e03390e496de64551808`.
-  Its first/only Lane A run stopped fail-closed at 101/102 browser cells: after
-  drill-down and back in the desktop dense-stress case, the camera was still
-  settling after the released cue and one visible semantic target was not the
-  hit-test owner at its center. The certification stream / browser gate log /
-  browser run result / Playwright report SHA-256 values are
-  `a95d70853be927ad29a6e98e619f62faad1dffa3dfc60f11299ca803f2e8f545` /
-  `2d5405db94d8ba9af0d72d3cad564205d5af660513be29c1f7953cf746e77256` /
-  `2b1c678a7e3bd46d7dc1a27c0e8cbf9a21269c781b8cb1b4bd17fc3bcd1ffa33` /
-  `bb69c7acb697bbd33619765f30b6dc32851ef16c3675c5f4eaac1c7a29601c05`.
-  Rc36 is therefore immutable `historical_certification_failed`: no capsule,
-  receipt, attestation, trust anchor, downstream plan, import, adoption or
-  Lane B authority exists. Never retry, reuse, relabel, promote or import it.
-  The earlier metadata subject `7f1c859d2b666f320b319094d02a551e94542926`
-  and manifest `e314296c...` remain separately rejected and non-reusable.
+Current downstream adoption is one reviewable PR:
 
-  RT-172 tracks the shared-core settlement defect. Rc37 binds spatial readiness
-  to the current morph and camera sequence, rejects stale acknowledgements and
-  exposes separate morph/camera/spatial settled states before the compositor
-  barrier releases interaction. Exact source
-  `d87af15b4aa850d1a50dc867f74e07ba09d0e89f` passed the first and only rc37
-  validation at metadata `775fe5bc9437da5ec9311704731f4342d515fc16`:
-  23/23 gates in 1,652 seconds, 1,782 Python passes plus 3 declared skips, 522
-  frontend passes, 123 Node passes and browser 102/102 first-attempt with zero
-  skip or retry. Validation result `e409a148...` and identity `68d11b2a...`
-  remain attached to that validation subject. Historical rc37 was
-  `wiki-viva-v8-rc37` / `candidate`, with candidate package-file/canonical/tree
-  `6d409da4...` / `1af897ce...` / `77799ece...` (521 entries) and
-  `package_is_pinned=true`. Rc37 then completed its first and only productive
-  four-profile capture, Lane A 11/11 and independent fail-closed capsule
-  verification. Its visual manifest was `3be7599a...`; immutable
-  capsule/receipt/attestation were `f5ae8e04...` / `90cd0c27...` /
-  `c7a1a4fe...`, with positive verifier `762171b5...` and negative
-  `1d820969...`. Those bytes and receipts remain valid historical rc37 evidence
-  and must never be rerun, amended, relabeled or projected onto another subject.
+```sh
+python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
+  --kit /path/to/wiki-viva-kit --consumer . --dry-run
+python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
+  --kit /path/to/wiki-viva-kit --consumer . \
+  --c3-command "python3 scripts/consumer_migration.py"
+```
 
-  RT-173 was discovered by the first disposable clean-C1 downstream execution:
-  the portable Git projection correctly omitted `node_modules`, but rc37 had no
-  sealed Node dependency materialization authority, so the registered visual
-  generator could not resolve TypeScript. A manual `npm ci` made the same
-  command executable, proving a missing portable-policy/external-authority
-  contract rather than an application defect. Rc37 therefore remains
-  cryptographically verified history but is not executable Lane B adoption or
-  promotion authority. Rc38 exact validation then stopped fail-closed at the
-  fifth gate because its deterministic operational-pass page was stale; its
-  validation result `7441b7ef...` and stable Git subjects remain immutable
-  failed-validation evidence. Rc39 then passed 14/15 in its one exact matrix
-  before default Vitest cache output changed the sealed dependency tree; result
-  `a9aaad50...` and both stable Git subjects remain immutable chronology under
-  non-invalidating `WAIVER-CLASS-B-RC39`. Rc40 was then pinned at source
-  `0e24881aff89f3ae0624fa3e5d27d600248e37a3` and metadata
-  `1bfcfe3f72e54ea8d592554a625d8f3ff606c088`. Its only exact validation
-  passed the first 13 gates, then `portable_python` ended with `1942 passed, 3
-  skipped, 1 failed`: the runner dependency-wave test completed every gate,
-  canary, rollback and receipt but exceeded its 180-second outer bound while
-  the final verifier reread 115 C1 paths through 358 separately audited Git
-  processes. Validation-result / identity / failing-log SHA-256 are
-  `4e6035d9...` / `c711fa41...` / `547c004d...`; both Git subjects remained
-  stable and no browser result, candidate or capsule exists.
-  `WAIVER-CLASS-B-RC40` classifies this outer-bound timeout as non-invalidating
-  performance/harness evidence. Rc40 remains immutable chronology and is not
-  retried. The one authorized corrective formation batches
-  exact Git mode/blob reads per commit, retains symlink/submodule rejection and
-  passes the complete focused component at 181/181 in 2161.24 seconds. It is
-  separately pinned as `wiki-viva-v8-rc41` / `validation_pending` at exact
-  source `f42b624049e310100218bf4f99e3ea418b066689`. Package-file / canonical /
-  portable-tree SHA-256 are `2908e9e8...` / `9eee2d18...` / `0b7063d0...`
-  with 528 entries; no exact matrix has started.
+- B0 is the read-only plan.
+- C1 copies Git-tracked kit-owned files byte-for-byte and preserves executable
+  mode. Only paths previously owned in `kit.lock` may be pruned.
+- C2 runs deterministic generators declared in the sync manifest.
+- C3 is explicit consumer-owned migration; the kit never guesses domain edits.
+- `kit.lock` records source SHA, manifest/tree digests and managed files without
+  host paths or private evidence.
+- Reversibility is the PR. Promotion requires the kit's normal CI, the
+  consumer's own gates and the human PR gate.
 
-  Rc41 is the last subject. `RT-174-DEFERRED-APPARATUS` freezes
-  [scripts/wiki_upgrade.py](scripts/wiki_upgrade.py),
-  [wiki_core/upgrade_lanes.py](wiki_core/upgrade_lanes.py) and lane tests until
-  the canonical scoreboard reaches private-main readback. Its one exact run
-  records cache, harness, performance, timeout, visual-baseline and flake
-  observations as non-invalidating Class B waivers; only Class A identity,
-  privacy, secret or data-corruption evidence invalidates the subject and
-  permits one direct fix plus one exact rerun.
+A kit release is a tag, release notes and an **Upgrading** section describing
+consumer migrations. No capsule or certification ceremony is required.
 
-  The single current operational scoreboard is for rc41: `source pinned` is
-  complete; `exact validation`, `capsule verified`, `private canary` and
-  `private main readback` are pending or blocked (`1/5`). The earlier rc37
-  `3/5` plus rejected
-  rc38/rc39/rc40 states remain chronology, not competing live scoreboards. Draft
-  PR #61 remains stale and does not represent this local truth. Public
-  push/publication remains unauthorized. Private PR #211 remains historical v2
-  and must not be promoted as the future v3 adoption; a fresh private v3 run
-  starts only after the rc41 capsule and attestation verify
-  fail-closed.
-  Standing approval for incremental private-main merges
-  is downstream-specific: it removes only that consumer's human-authorization
-  blocker after every technical gate passes and does not alter the generic
-  public PR/human-gate policy.
-  Existing v2 subjects and receipts remain frozen and must not be amended or
-  reclassified. Every
-  new v3 run must
-  keep B0->C1->C2->C3 as three direct single-parent edges with no intermediate
-  or merge commit. The receipt and resumable state bind all four subjects, and
-  verification recomputes each edge, changed path, mode and blob from Git.
-  Gate selection is recomputed from the sealed registry and package; a caller
-  cannot omit a package-required background promotion gate. New runs must
-  execute the byte-equal runner closure certified in the capsule and preserve
-  the first-write plan-clock SHA-256 outside the exact consumer
-  evidence/plan-parent root;
-  `adopt` may verify that anchor but never regenerate it. After the real canary,
-  preserve the separately emitted first-write canary-completion SHA-256 outside
-  that exact root and pass it to every post-canary resume; a result
-  ledger cannot mint or rewrite its own completion authority.
-  The externally anchored acceptance-attempt identity includes the canonical
-  digest of the complete exact preflight object, not only its internal
-  self-digest; coherently resealing a changed preflight therefore creates a
-  different attempt. B0 preflight runs only `diff_check`; it must not depend on
-  CLIs imported only by C1. Expected pre-C1 portable drift is bound as the
-  prospective C1 import inventory rather than treated as a failed toolkit
-  gate. Final C3 `toolkit_drift` and `semantic_inventory` remain mandatory,
-  blocking and never reusable. The parent of the exact `plan --out` path owns
-  every ignored mutation/evidence artifact; do not hide versioned
-  `.wiki-viva/packs/**`. Domain-content debt is repaired and merged before a
-  fresh B0 in its own consumer change, never inside C1/C2/C3. Whenever a
-  materialized execution plan already exists,
-  every `--resume` must replay all registered C2 generators from C1 in a
-  disposable clone and prove the complete C2 path set, Git modes and blob
-  digests before any stored gate result may be reused.
-  Public evidence redaction checks mapping keys, values, canary routes and gate
-  output both literally and through bounded repeated percent-decoding; an
-  encoding that remains nested at the bound fails closed.
-- Before opening a PR, run the local gates (see below) and review the conceptual diff.
+## Privacy
 
-## Privacy (two axes)
+- Personal data is valid in private consumer pages. It is blocked only at a
+  public/public-export boundary.
+- Access secrets (tokens, passwords, keys, cookies) are blocked everywhere.
+- Privacy and secret failures are fail-closed and never waivable.
 
-- **Personal data (PII)** — names, values, counterparties, dates, CPF/CNPJ: they are
-  **welcome on private pages**, without warning (that is the goal of operational
-  memory). They only become an error at the **public boundary** (public page/
-  `public_candidate` or `--public-export` export).
-- **Access secrets** — tokens, passwords, API keys, private keys, cookies:
-  **always blocked, in any file** (detectors + auditor).
+## Core structure
 
-## Structure
+- [wiki_core/](wiki_core/README.md): deterministic contracts.
+- [scripts/](scripts/README.md): `wiki_*` command-line tools.
+- [apps/wiki-cockpit/](apps/wiki-cockpit/README.md): web cockpit.
+- [packs/](packs/registry.yaml): versioned public synthetic experience packs.
+- [.skills/](.skills/README.md): portable agent skills.
+- [docs/references/templates/wiki/](docs/references/templates/wiki/README.md):
+  page contracts and templates.
 
-- [wiki_core/](wiki_core/README.md) — deterministic core (config, chunking, detectors,
-  extractors, gate, index, ingest, input_stage, insight, llm, paths, score,
-  source_manifest).
-- [scripts/](scripts/README.md) — `wiki_*` CLIs (ingest, audit, coverage, cockpit, gate,
-  score, insight job, LLM pass).
-- [packs/](packs/registry.yaml) — versioned declarative experience packs and
-  public synthetic conformance fixtures; consumer installation state stays in
-  its own `wiki.packs.lock.yaml`/`.wiki-viva/` boundary.
-- [.skills/](.skills/README.md) — portable `wiki-*` skills for the agent.
-- [docs/references/templates/wiki/](docs/references/templates/wiki/README.md) — page
-  contracts and templates.
-- [memories/system/](memories/system/wiki/index.md) — method pages (ingestion process,
-  contract, approvals, coverage, log, perception).
-
-## Gates (run before the PR)
-
-For the Node commands below, Lane A first captures the external authority from
-the exact clean source and every later invocation consumes that same authority
-and its separately trusted digest through the documented
-`WIKI_VIVA_NODE_WORKSPACE_*` environment. A consumer never captures its own
-replacement authority.
+## Gates before a PR
 
 ```sh
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_audit.py --public-export --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
-python3 scripts/wiki_operational_pass.py --check
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_semantic_inventory.py --check
 python3 scripts/wiki_web_snapshot.py --check-contract
 python3 scripts/wiki_pack.py validate --all
-python3 -m pytest -q -W error tests/
-python3 scripts/wiki_node_workspace.py run test
-python3 scripts/wiki_node_workspace.py run test:gates
-python3 scripts/wiki_node_workspace.py run check:architecture
-python3 scripts/wiki_node_workspace.py run check:assets
-python3 scripts/wiki_node_workspace.py run check:bundle
-python3 scripts/wiki_node_workspace.py run check:release-matrix
+python3 -m pytest tests/
+npm --prefix apps/wiki-cockpit test
+npm --prefix apps/wiki-cockpit exec -- tsc -p apps/wiki-cockpit/tsconfig.json --noEmit
+npm --prefix apps/wiki-cockpit run build
 ```
 
-- Audit: frontmatter, clickable links, secrets, PII at the public boundary,
-  LLM pass gate, proposal gate_state — [scripts/wiki_audit.py](scripts/wiki_audit.py).
-- Coverage: presence AND content of the method, real use of the perceptive layer —
-  [scripts/wiki_check_methodology_coverage.py](scripts/wiki_check_methodology_coverage.py).
-- Cockpit: [memories/operations.md](memories/operations.md) equal to the one recompiled at
-  HEAD — [scripts/wiki_operation_compile.py](scripts/wiki_operation_compile.py).
-- Input stage: [memories/system/input-stage.md](memories/system/input-stage.md) equal to the
-  root entity/channel/source compilation at HEAD —
-  [scripts/wiki_input_stage.py](scripts/wiki_input_stage.py).
-- Semantic inventory: authored YAML relations and ingestion events equal the
-  closure, temporal and graph read models —
-  [scripts/wiki_semantic_inventory.py](scripts/wiki_semantic_inventory.py).
-
-## Per-repo configuration
-
-Adjust [wiki.config.yaml](wiki.config.yaml): `repo_id`, `owner_label`,
-`root_entity`, `contexts` (one hub per context, in [memories/](memories/index.md)),
-privacy policy, gate and LLM parameters. The auditor and the coverage read the
-config — no context is hardcoded in the code.
+Configure each consumer through `wiki.config.yaml`; no context, owner or memory
+root may be hardcoded in shared core.

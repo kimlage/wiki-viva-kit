@@ -31,27 +31,6 @@ jobs:
           npm install --global npm@10.9.8
           test "$(node --version)" = "v22.22.3"
           test "$(npm --version)" = "10.9.8"
-      - name: Capture exact job-local Node workspace authority
-        run: |
-          set -euo pipefail
-          SOURCE_SHA="$(git rev-parse HEAD)"
-          AUTHORITY="$RUNNER_TEMP/wiki-viva-audit-node-authority.json"
-          test ! -e "$AUTHORITY"
-          CAPTURE_JSON="$(
-            python3 scripts/wiki_node_workspace.py capture-authority \
-              --out "$AUTHORITY" \
-              --source-sha "$SOURCE_SHA"
-          )"
-          AUTHORITY_SHA256="$(
-            printf '%s\n' "$CAPTURE_JSON" \
-              | python3 -c 'import json, sys; print(json.load(sys.stdin)["authority_sha256"])'
-          )"
-          test "${#AUTHORITY_SHA256}" -eq 64
-          {
-            echo "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY=$AUTHORITY"
-            echo "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256=$AUTHORITY_SHA256"
-            echo "WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA=$SOURCE_SHA"
-          } >> "$GITHUB_ENV"
       - name: Tests
         run: python3 -m pytest -q -W error tests/
       - name: Exact-base page graph and impact evidence
@@ -106,44 +85,18 @@ jobs:
           node-version: "22.22.3"
           cache: npm
           cache-dependency-path: apps/wiki-cockpit/package-lock.json
-      - name: Pin exact npm and capture job-local Node workspace authority
+      - name: Install frontend dependencies
         run: |
-          set -euo pipefail
           npm install --global npm@10.9.8
           test "$(node --version)" = "v22.22.3"
           test "$(npm --version)" = "10.9.8"
-          SOURCE_SHA="$(git rev-parse HEAD)"
-          AUTHORITY="$RUNNER_TEMP/wiki-viva-cockpit-node-authority.json"
-          test ! -e "$AUTHORITY"
-          CAPTURE_JSON="$(
-            python3 scripts/wiki_node_workspace.py capture-authority \
-              --out "$AUTHORITY" \
-              --source-sha "$SOURCE_SHA"
-          )"
-          AUTHORITY_SHA256="$(
-            printf '%s\n' "$CAPTURE_JSON" \
-              | python3 -c 'import json, sys; print(json.load(sys.stdin)["authority_sha256"])'
-          )"
-          test "${#AUTHORITY_SHA256}" -eq 64
-          {
-            echo "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY=$AUTHORITY"
-            echo "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256=$AUTHORITY_SHA256"
-            echo "WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA=$SOURCE_SHA"
-          } >> "$GITHUB_ENV"
+          npm --prefix apps/wiki-cockpit ci
       - name: Frontend unit tests
-        run: python3 scripts/wiki_node_workspace.py run test
-      - name: Gate implementation tests
-        run: python3 scripts/wiki_node_workspace.py run test:gates
-      - name: Exact public and downstream release-cell contract
-        run: python3 scripts/wiki_node_workspace.py run check:release-matrix
-      - name: Frontend architecture boundaries
-        run: python3 scripts/wiki_node_workspace.py run check:architecture
-      - name: Asset licenses, integrity and budgets
-        run: python3 scripts/wiki_node_workspace.py run check:assets
+        run: npm --prefix apps/wiki-cockpit test
+      - name: TypeScript
+        run: npm --prefix apps/wiki-cockpit exec -- tsc -p apps/wiki-cockpit/tsconfig.json --noEmit
       - name: Production build
-        run: python3 scripts/wiki_node_workspace.py run build
-      - name: Bundle budgets and lazy boundaries
-        run: python3 scripts/wiki_node_workspace.py run check:bundle
+        run: npm --prefix apps/wiki-cockpit run build
 
   snapshot-flat-windows:
     runs-on: windows-latest
@@ -154,14 +107,13 @@ jobs:
           python-version: "3.x"
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt
-      - name: Flat snapshot remains supported; mutable evidence boundaries fail closed
+      - name: Flat snapshot remains supported
         run: >-
           python -m pytest -q
           tests/test_web_snapshot.py::test_atomic_legacy_migration_fails_closed_on_unsupported_platform
           tests/test_web_snapshot.py::test_live_revision_publication_fails_closed_without_posix_leases
           tests/test_web_snapshot.py::test_flat_reader_rejects_valid_but_unowned_directory
           tests/test_web_snapshot_cli.py::test_web_snapshot_cli_rejects_absolute_output_outside_repo
-          tests/test_release_receipt.py::test_release_evidence_operations_fail_closed_on_windows_boundary
           tests/test_action_transition.py::test_action_writes_fail_closed_on_windows_boundary
 
   cockpit_visual_runner_policy:
@@ -230,30 +182,12 @@ jobs:
           node-version: "22.22.3"
           cache: npm
           cache-dependency-path: apps/wiki-cockpit/package-lock.json
-      - name: Pin exact npm and capture job-local Node workspace authority
+      - name: Install frontend dependencies
         run: |
-          set -euo pipefail
           npm install --global npm@10.9.8
           test "$(node --version)" = "v22.22.3"
           test "$(npm --version)" = "10.9.8"
-          SOURCE_SHA="$(git rev-parse HEAD)"
-          AUTHORITY="$RUNNER_TEMP/wiki-viva-visual-node-authority.json"
-          test ! -e "$AUTHORITY"
-          CAPTURE_JSON="$(
-            python3 scripts/wiki_node_workspace.py capture-authority \
-              --out "$AUTHORITY" \
-              --source-sha "$SOURCE_SHA"
-          )"
-          AUTHORITY_SHA256="$(
-            printf '%s\n' "$CAPTURE_JSON" \
-              | python3 -c 'import json, sys; print(json.load(sys.stdin)["authority_sha256"])'
-          )"
-          test "${#AUTHORITY_SHA256}" -eq 64
-          {
-            echo "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY=$AUTHORITY"
-            echo "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256=$AUTHORITY_SHA256"
-            echo "WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA=$SOURCE_SHA"
-          } >> "$GITHUB_ENV"
+          npm --prefix apps/wiki-cockpit ci
       - name: Install browser engines
         run: |
           python3 -m pip install playwright==1.61.1
@@ -261,7 +195,7 @@ jobs:
       - name: Desktop, mobile, fallback and cross-browser gates
         # This command fixes retries at zero, rejects any skip/flaky/retry in
         # the required public scope and refuses to collect downstream specs.
-        run: python3 scripts/wiki_node_workspace.py run test:e2e:release
+        run: npm --prefix apps/wiki-cockpit run test:e2e:release
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v7

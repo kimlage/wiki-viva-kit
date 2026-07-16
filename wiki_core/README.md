@@ -5,13 +5,10 @@ Deterministic Python core for the wiki viva kit.
 This package owns configuration loading, source manifests, extraction, chunking,
 indexes, gates, graph checks, page types, score events, quality telemetry,
 Wilber/AQAL quadrant contracts, the local web cockpit read/action model and
-portable export/import helpers. [upgrade.py](upgrade.py) owns the deterministic
-v8 consumer inventory, portable allowlist/drift, preflight and migration-report
-contracts; it never performs the import itself.
-[release_receipt.py](release_receipt.py) binds normalized public/downstream
-gate results and artifact hashes to one exact Git SHA/tree/worktree fingerprint.
-Its v1 contract is closure-only and refuses every local E5 promotion until an
-external signed authority exists. The web package also owns safe source triage,
+portable export/import helpers. [upgrade.py](upgrade.py) retains deterministic
+inventory and drift compatibility helpers for historical readers. The retired
+release-certification state machine and receipt writer are removed; downstream
+adoption uses `scripts/wiki_sync_from_kit.py`. The web package also owns safe source triage,
 ingestion wizard planning and proposal-branch Git workflow contracts for the
 localhost operator API. It intentionally does not embed an LLM client.
 
@@ -25,9 +22,6 @@ Windows until handle-pinned reparse-point traversal exists; static flat
 snapshot builds remain supported there. The temporary file is fsynced before
 atomic replacement and POSIX also fsyncs the parent directory.
 
-Release receipt evidence reads/validation likewise fail closed on Windows.
-On supported POSIX systems, evidence is immutable/create-once, opened through
-no-follow descriptor chains, and may not be silently removed or overwritten.
 
 [adapter_manifest.py](adapter_manifest.py) compiles and verifies the
 consumer-owned `wiki_downstream_adapter_manifest.v1`: an ordered inventory of

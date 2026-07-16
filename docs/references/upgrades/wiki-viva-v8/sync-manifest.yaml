@@ -1,0 +1,33 @@
+schema_version: wiki_viva_sync_manifest.v1
+
+# The portable, kit-owned contract. Git-tracked regular files only; block wins.
+portable:
+  allow:
+    - wiki_core/**
+    - scripts/wiki_*.py
+    - scripts/_common.py
+    - scripts/_git_subject.py
+    - scripts/README.md
+    - apps/wiki-cockpit/**
+    - .skills/wiki-*/**
+    - packs/**
+    - docs/references/guides/**
+    - docs/references/templates/deploy/**
+    - docs/references/schemas/**
+    - docs/references/fixtures/demo-wiki/**
+  block:
+    - apps/wiki-cockpit/node_modules/**
+    - data/**
+    - memories/**
+    - memorias/**
+    - .wiki-viva/**
+    - wiki.config.yaml
+    - wiki.packs.lock.yaml
+    - wiki.templates.yaml
+    - wiki.page-types.yaml
+    - docs/references/upgrades/**
+
+# C2 is deterministic and kit-owned. C3 is always explicit on the CLI because
+# adapters, configuration and domain content belong to the consumer.
+c2_commands:
+  - [python3, scripts/wiki_build_demo.py]

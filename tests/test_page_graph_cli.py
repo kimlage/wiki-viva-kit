@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import shlex
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,10 +9,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from wiki_core.upgrade_lanes import verify_impact_registry
-
 ROOT = Path(__file__).resolve().parents[1]
-IMPACT_REGISTRY = ROOT / "docs/references/upgrades/wiki-viva-v8/impact-registry.yaml"
 
 
 def _load_script():
@@ -290,16 +286,7 @@ def test_full_graph_mode_does_not_resolve_or_require_a_base(
 def test_ci_wires_the_exact_event_base_sha_into_the_page_graph_gate() -> None:
     workflow_text = (ROOT / ".github/workflows/wiki.yml").read_text(encoding="utf-8")
     workflow = yaml.safe_load(workflow_text)
-    registry = yaml.safe_load(IMPACT_REGISTRY.read_text(encoding="utf-8"))
-    assert verify_impact_registry(registry) == registry["registry_sha256"]
-    catalog = {item["id"]: item["command"] for item in registry["gate_catalog"]}
-    page_graph_command = catalog["page_graph"]
-    command_tokens = shlex.split(page_graph_command)
-    assert command_tokens[-2:] == [
-        "scripts/wiki_page_graph.py",
-        "--check",
-    ]
-    python_alias = command_tokens[0]
+    page_graph_command = "python3 scripts/wiki_page_graph.py --check"
     step = next(
         item
         for item in workflow["jobs"]["audit-and-test"]["steps"]
@@ -313,5 +300,5 @@ def test_ci_wires_the_exact_event_base_sha_into_the_page_graph_gate() -> None:
         'test -n "$BASE_SHA"',
         f'{page_graph_command} --impact --base "$BASE_SHA" '
         "> /tmp/wiki-page-graph-impact.json",
-        f"{python_alias} -m json.tool /tmp/wiki-page-graph-impact.json",
+        "python3 -m json.tool /tmp/wiki-page-graph-impact.json",
     ]

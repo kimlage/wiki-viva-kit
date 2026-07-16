@@ -51,7 +51,6 @@ class OperatorCommandCard:
 PYTHON_SCRIPTS: dict[str, set[tuple[str, ...]]] = {
     "scripts/wiki_operation_compile.py": {("--check",), ("--write",)},
     "scripts/wiki_operational_pass.py": {("--check",), ("--write",)},
-    "scripts/wiki_upgrade.py": {("verify-rollback-report", "--check")},
     "scripts/wiki_source_registry.py": {("--check",), ("--write",)},
     "scripts/wiki_input_stage.py": {("--check",), ("--write",)},
     "scripts/wiki_audit.py": {("--check",)},

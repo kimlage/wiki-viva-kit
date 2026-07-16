@@ -91,6 +91,51 @@ still collected and reported as skipped in Phase 1; they are not made green by
 changing historical YAML. Their source and test modules are deleted together
 in the separate Phase-2 simplification PR.
 
+### Phase-1 closeout and Phase-2 simplification — 2026-07-15
+
+Phase 1 is complete under the smaller product release contract. The public v8
+tree passed one normal local CI round (audit/public audit, 1,296 Python tests
+with 652 retired skips, 522 frontend tests, TypeScript and production build).
+The downstream consumer then adopted that exact tree from its current approved
+main through one B0/C1/C2/C3 PR: 525 portable files were byte/mode equal, 834
+derived artifacts were regenerated, consumer adapters/configuration were kept
+consumer-owned, the consumer audit/test/build/operator gates passed, and the PR
+was merged. Readback of the merged main used its newly generated atomic
+snapshot (27 artifacts, zero contract errors) and verified the distinct
+Q1/Q2/Q3/Q4 labels plus Quadrants, Timeline, Radar, Sources and Work views.
+Private screenshots, routes, repository identity and console/network evidence
+remain in ignored private storage; no downstream data is copied into this
+public plan.
+
+The replacement operational scoreboard is therefore **5/5**:
+
+`v8 source pinned → normal kit CI → downstream PR adoption → downstream main merge → merged-main visual readback`.
+
+Phase 2 now removes the apparatus that no longer represents product value. The
+old workflow, lane runner, capsule/receipt/evidence schemas and their tests are
+deleted rather than made green by changing historical YAML. The frozen
+`upgrade-package.yaml` remains byte-unchanged history. A new public-synthetic
+`wiki_sync_from_kit.py` supplies:
+
+- mutation-free B0 in text or JSON;
+- Git-tracked, allowlisted, byte/mode-equal C1 with safe pruning limited to
+  paths already owned by the previous lock;
+- manifest-declared deterministic C2;
+- explicit consumer-owned C3 commands;
+- portable, host-path-free `kit.lock`;
+- clean-worktree refusal by default and idempotent reapplication.
+
+The focused public fixture proves dry-run non-mutation, C1/C2/C3, idempotence,
+dirty-consumer refusal, blocklist precedence, executable-mode preservation and
+safe removal of previously managed paths. Releases are now tags plus release
+notes and an Upgrading section, gated by normal project CI and human PR review.
+The Phase-2 tree passed 1,298 active Python tests, all 522 frontend tests,
+TypeScript, production build, normal audit and public-export audit. This
+Phase-2 branch then ran a read-only real-consumer QA B0: 2,194 managed public
+paths were classified as 2,177 unchanged, 16 changed and one new, with zero
+consumer dirt and no mutation. Consumer path details remained private. The
+branch remains local until explicit publication authorization.
+
 The public/private pair remains blocked. Historical S19 source
 `198471c3cf4176d7a046c5ceb8dd053f1be1ee58`, packaged as
 `wiki-viva-v8-rc16`, completed the then-declared public stack and received a
