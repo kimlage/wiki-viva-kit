@@ -136,7 +136,20 @@ paths were classified as 2,177 unchanged, 16 changed and one new, with zero
 consumer dirt and no mutation. Consumer path details remained private. The
 branch remains local until explicit publication authorization.
 
-The public/private pair remains blocked. Historical S19 source
+After the v8 merge/readback, the two deliberately separated downstream domain
+PRs were reconciled sequentially against that merged main rather than folded
+into C1/C2/C3. The final consumer gate reported 1,101 Python passes with 20
+declared skips, zero audit errors, a current operational pass and a successful
+production build. The fresh merged-main snapshot then exposed 580 real pages
+and 923/923 dated timeline events with zero imprecise, conflicting or rejected
+events. Browser readback at the same compact viewport exercised Quadrants,
+Radar, Sources, Work and Timeline; it found four distinct quadrant-qualified
+workspace labels, zero rendered alerts and zero current-page console errors.
+The local operator and API snapshot endpoints returned successfully. Exact
+consumer SHAs, route, screenshots and private content remain downstream-only.
+
+The following public/private pair records the historical blocked state that
+preceded the active Phase-1 closeout above. Historical S19 source
 `198471c3cf4176d7a046c5ceb8dd053f1be1ee58`, packaged as
 `wiki-viva-v8-rc16`, completed the then-declared public stack and received a
 current-run E3 inspection on 2026-07-13. Those results remain immutable,
