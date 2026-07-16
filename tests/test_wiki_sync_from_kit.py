@@ -124,3 +124,27 @@ def test_blocklist_wins_and_executable_mode_is_preserved(tmp_path: Path) -> None
     assert result.returncode == 0, result.stderr
     assert os.access(consumer / "portable/tool.txt", os.X_OK)
     assert not (consumer / "private/secret.txt").exists()
+
+
+def test_recursive_glob_prefix_syncs_kit_skills_without_local_skills(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    (kit / ".skills/wiki-viva").mkdir(parents=True)
+    (kit / ".skills/wiki-viva/SKILL.md").write_text("portable skill\n", encoding="utf-8")
+    (kit / ".skills/local-private").mkdir(parents=True)
+    (kit / ".skills/local-private/SKILL.md").write_text("consumer-owned\n", encoding="utf-8")
+    manifest.write_text(
+        "schema_version: wiki_viva_sync_manifest.v1\n"
+        "portable:\n  allow: ['.skills/wiki-*/**']\n  block: []\n"
+        "c2_commands: []\n",
+        encoding="utf-8",
+    )
+    _git(kit, "add", ".")
+    _git(kit, "commit", "-qm", "portable skill fixture")
+
+    result = _run(kit, consumer, manifest)
+
+    assert result.returncode == 0, result.stderr
+    assert (consumer / ".skills/wiki-viva/SKILL.md").read_bytes() == (
+        kit / ".skills/wiki-viva/SKILL.md"
+    ).read_bytes()
+    assert not (consumer / ".skills/local-private").exists()

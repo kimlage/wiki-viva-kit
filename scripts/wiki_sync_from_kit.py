@@ -68,7 +68,8 @@ def _matches(path: str, pattern: str) -> bool:
     pattern = pattern.strip("/")
     if pattern.endswith("/**"):
         prefix = pattern[:-3]
-        return path == prefix or path.startswith(prefix + "/")
+        ancestors = ("/".join(path.split("/")[:depth]) for depth in range(1, path.count("/") + 2))
+        return any(fnmatch.fnmatchcase(ancestor, prefix) for ancestor in ancestors)
     return fnmatch.fnmatchcase(path, pattern) or PurePosixPath(path).match(pattern)
 
 
