@@ -54,6 +54,15 @@ Updated on: 2026-07-13.
 
 ## Executive Decision
 
+The 2026-07-13 downstream rehearsal is now accepted as exact-subject E4
+pressure evidence and its bounded private-main test integration is authorized.
+This supersedes every earlier statement in this document that no current
+private acceptance had occurred. It does **not** promote the public package,
+publish private evidence, close manual VoiceOver/E5, or turn a private merge
+into open-source release authority. The plan therefore remains `blocked` at
+the public-release level while the accepted private result becomes the new
+implementation baseline.
+
 The public/private pair remains blocked. Historical S19 source
 `198471c3cf4176d7a046c5ceb8dd053f1be1ee58`, packaged as
 `wiki-viva-v8-rc16`, completed the then-declared public stack and received a
@@ -4362,6 +4371,595 @@ merges with S22 history preserved and the separate promotion passes CI/review
 and merges. Private-main integration is authorized after that public-first
 boundary; public push, PR mutation, merge, tag and E5 remain outside the current
 authorization.
+
+## Post-Acceptance Downstream Rehearsal — Public-Redacted Closure
+
+### Closure decision
+
+Accept the downstream rehearsal as current E4 implementation pressure and as
+the authorized basis for a bounded private-main test integration. Keep public
+promotion, release tagging, manual assistive-technology review and external E5
+separate. No private route, page identity, source identity, local path,
+screenshot or unredacted receipt crosses into this public plan.
+
+This section is additive. Earlier negative attempts remain immutable evidence;
+they are not rewritten as passes. Where an older paragraph says private
+acceptance is still absent, this section is the current authority.
+
+### Authority and non-authority
+
+1. The downstream baseline was frozen in an isolated worktree before import.
+2. `B0` is the rollback baseline, not a fourth migration commit.
+3. `C1`, `C2` and `C3` are the only migration commits and remain consecutive.
+4. The imported package is bound to public subject
+   `0c2bb290347365560f3769913fc22f0111f87ab7` and canonical package digest
+   `7cd66decae883857da263f5fa3ddead171ba387eac06e8f18c5258277a9588c2`.
+5. Private-main test integration proves consumer pressure and operability. It
+   does not prove that the public branch has been reviewed, merged, tagged or
+   released.
+6. Exact private commit identities, paths, routes and captures remain in
+   ignored private receipts. Public evidence retains only safe counts,
+   deterministic public-source identity and redacted report identifiers.
+7. Any change to the package digest, public source, B0 tree or C1/C2/C3 trees
+   invalidates the downstream receipt, screenshots and rollback proof.
+
+### Immutable migration topology
+
+| Boundary | Public-safe meaning | Scope | Closure |
+|---|---|---:|---|
+| `B0` | frozen downstream baseline and rollback target | zero imported paths | clean, reproducible and verified as the reverse target |
+| `C1` | faithful package-owned authorial import | 53 paths | exact allowlist partition preserved |
+| `C2` | deterministic regenerated artifacts | 836 paths | generated-only boundary preserved |
+| `C3` | downstream adaptations | 15 paths | consumer configuration, release record, memory compatibility and test adapters only |
+
+The private migration report is complete. Its public-redacted projection is
+`migration:cf5ec84d787d928c0666`, also complete. The disposable rollback
+reversed `C3`, `C2`, then `C1`; the resulting Git tree was byte-identical to
+`B0`, and the disposable worktree matched its index. The report validates all
+15 adaptation paths rather than merely counting them.
+
+### Negative evidence stays negative
+
+| Attempt | Result | Finding | Disposition |
+|---|---:|---|---|
+| First complete downstream matrix | 21/22 package gates | 13 downstream fixtures/expectations still expressed the previous provenance, semantic-receipt and migration-evidence contracts | immutable negative evidence |
+| Browser surface in that attempt | 102/102 | runtime behavior already held under the exact public browser matrix | historical only; a full rerun on corrected `C3` remained mandatory |
+| Focused corrective slice | 36/36 | consumer-owned test adapters were updated without relaxing shared contracts | created a new final subject |
+| Final complete package matrix | 22/22 | every declared package gate passed on final `C3` | accepted exact-subject rehearsal evidence |
+| First additional downstream runner attempt | blocked before cells | cold snapshot generation exceeded the fail-closed 15-second preflight | preserved performance/operability evidence |
+| Second additional downstream runner attempt | blocked before cells | expected snapshot identity was stale after restart and regeneration | correct fail-closed identity rejection |
+| Bound additional downstream runner | 2/2 | exact live snapshot, consumer head, public release, adapter, composition and capabilities matched | accepted first attempt for that newly bound subject; zero skip/retry |
+
+A later correction never converts an earlier failed attempt into a pass. It
+creates a new subject, requires a complete rerun and retains the failure as a
+diagnostic. Cold snapshot assembly took approximately 119 seconds in the
+observed real corpus; subsequent snapshot endpoints were fast enough for the
+runner. This is a product-operability debt, not a reason to increase the
+fail-closed timeout silently.
+
+### Accepted exact-subject evidence ledger
+
+| Proof | Current result | Binding / invalidation rule |
+|---|---|---|
+| Package gates | 22/22 pass | invalid after any `C3`, package or gate-command change |
+| Python | 1,120 passed, 2 skipped | skips stay visible; invalid after source or environment change |
+| Focused downstream adapters | 36/36 pass | bound to the final consumer test adaptation |
+| Public browser matrix | 102/102, first attempt on final `C3`, zero skip/retry | invalid after runtime, matrix, route contract or subject change |
+| Downstream browser matrix | 2/2, 35.0 s, zero skip/retry | invalid after consumer head, snapshot, adapter, composition or capability change |
+| Private migration report | complete, zero validation errors | private ignored evidence only |
+| Public-redacted projection | complete, zero validation errors | fails closed on private value/path/identity leakage |
+| Disposable rollback | pass, previous tree equals rollback tree | invalid after any boundary or baseline change |
+| Visual QA | desktop, 390×844, fallback and two-step collection captured on final `C3`; Timeline inspected separately | invalid after selected state, route, viewport, snapshot or subject change |
+| Console/network | final observed console clean; no unresolved UI request failure | invalid after runtime or server restart unless replayed |
+
+The declared package gates cover toolkit drift, audit, synthetic public
+redaction, methodology, quality, operation compilation, source registry,
+input stage, semantic inventory, full Python, frontend, build, Node gates,
+snapshot contract, pack validation, architecture, assets, bundle, release
+matrix inventory, public Playwright, demo drift and conceptual diff hygiene.
+The 2-cell downstream runner is intentionally auxiliary to the 22-gate package
+receipt rather than being inserted retroactively into the package registry.
+
+### Branch and concurrent-authoring reconciliation
+
+The final branch audit found four distinct classes:
+
+- the third downstream acceptance line is the only complete migration
+  candidate;
+- two earlier acceptance attempts are superseded siblings and contain no
+  independent delta that should be merged;
+- one bounded five-page authorial delta produced concurrently remains useful
+  and must be applied only after the runtime migration, in a separate content
+  PR;
+- historical open-source extraction branches do not share the appropriate
+  ancestry and a direct merge would delete thousands of private files. They
+  are archive evidence, never integration inputs.
+
+The concurrent authoring delta overlaps the migration only in one append-only
+operational log. The safe sequence is runtime PR first; a fresh branch from the
+updated private `main`; one bounded cherry-pick or equivalent patch; a manual
+log resolution retaining both histories; deterministic regeneration; then a
+second PR with audit, registry, input, semantic and conceptual-diff evidence.
+No live scratch tree is a patch source and no agent consensus substitutes for
+source-backed review.
+
+### Semantic, event and temporal closure
+
+The accepted real corpus exposes 571 pages and 906 dated events. The temporal
+surface reports all 906 as represented, with zero imprecise events, zero
+conflicts and zero rejected records in the inspected snapshot. The observed
+lane distribution is:
+
+| Lane | Count | Interpretation |
+|---|---:|---|
+| Pages | 571 | page lifecycle dominates the corpus |
+| Sources | 263 | source acquisition and evidence history |
+| Actions | 33 | operational execution |
+| System | 19 | system/runtime transitions |
+| Decisions | 12 | explicit decision history |
+| Receipts | 8 | verification and release evidence |
+| **Total** | **906** | reconciles with the complete dated set |
+
+The semantic inventory, authored events, closure, temporal read model and
+source-emission relations pass on final `C3`. That closes the migration-level
+parity requirement. It does not imply that the current Timeline is already a
+strong sensemaking tool: raw completeness and useful emphasis are different
+product contracts.
+
+### Real-data UX findings
+
+| Surface | Strength to preserve | Observed debt | Priority |
+|---|---|---|---|
+| Desktop living world | futuristic, dense, operational and navigable; world and instruments coexist | repeated generic collection labels wrap excessively and weaken scan speed | P2 |
+| 390×844 mobile | controls fit and remain usable; no horizontal overflow observed | header consumes too much vertical space, the world becomes visually secondary, and context identity weakens | P1 before broad mobile-quality claim |
+| Forced 2D fallback | functional route parity and no WebGL dependency | excess empty space, sparse unlabeled marks and weak hierarchy make interpretation harder than the 3D surface | P1 before accessibility-parity claim |
+| Two-step quadrant collection | journey is understandable, stateful and browser-addressable | labels remain dense and stale-state copy uses mechanical grammar | P2 |
+| Timeline | strongest information-dense surface; event inspector and canonical evidence links work | generic commit/page-update events dominate decisions, actions and receipts | strategic P1 |
+| Timeline corpus | complete dated set and lane counts are visible | priority, bundling, comparison and temporal narrative remain shallow | strategic P1 |
+| Cold operator start | strict identity and capability checks fail closed | first snapshot assembly is too expensive for a responsive operator start | P1 reliability/performance |
+
+Private screenshots, routes, selected IDs and image hashes stay in the private
+evidence manifest. This plan records only the experience class, viewport,
+result and sanitized observation.
+
+### Immediate product correction queue
+
+| ID | Change | Owner | Acceptance evidence |
+|---|---|---|---|
+| `UX-L1` | compress the mobile header and reserve a minimum useful world viewport | frontend + product design | 390×844 capture, touch targets, no overflow, keyboard and reduced-motion pass |
+| `UX-L2` | replace repeated generic collection headings with short contextual labels and progressive detail | information architecture + frontend | dense synthetic fixture plus real-corpus scan-time review |
+| `UX-L3` | replace mechanical stale/plural copy with locale-aware i18n | content design + frontend | PT-BR/EN singular, plural and zero-state tests |
+| `UX-L4` | give fallback named regions, legend, grouping and density equivalent to the main world | frontend + accessibility | 2D/WebGL semantic parity and 200–400% zoom evidence |
+| `TW-L1` | rank semantically important events above generic repository churn | temporal core + product design | deterministic ranking fixture with no hidden events |
+| `TW-L2` | bundle repeated page/commit events into expandable change sets | temporal core + frontend | bundle expands to every original event and totals reconcile |
+| `OPS-L1` | cache or precompile the first operator snapshot without weakening identity checks | web runtime + performance | cold-start budget, warm-start budget and stale-snapshot rejection test |
+
+Do not start with visual spectacle. First make hierarchy, mobile use, fallback,
+semantic prominence and cold-start behavior trustworthy. Preserve the current
+luminous visual language and evolve it through its existing tokens and
+components.
+
+## Temporal Workbench program
+
+### Product thesis
+
+Timeline should become a temporal workbench: one shared grammar that lets a
+person answer **what happened, what changed, what was known then, what is valid
+now, what depends on what, and what requires action**. It is not a decorative
+chronology and it must never manufacture continuity from missing evidence.
+
+The same temporal kernel should power ordinary wiki memory and every
+experience pack. Packs may contribute lanes, facets, semantic rankings and
+operations; they may not fork the event truth model.
+
+### View portfolio
+
+| View | Primary question | Visual form | Required fallback |
+|---|---|---|---|
+| Chronoscope | what changed across years, months, days or instants? | zoomable linear time with semantic density | grouped accessible table |
+| Swimlanes | which actor/domain/state carried the work? | typed lanes for source, claim, decision, action, receipt and pack-specific entities | lane-filtered list |
+| Calendar / rhythm heatmap | where are cadence, gaps, bursts and overdue cycles? | calendar cells and intensity bands | date-grouped table with exact counts |
+| Change-set tape | which repeated changes belong together? | compact bundles expandable to original events | nested disclosure list |
+| Revision compare | what changed between two known states? | before/after diff with event bridge | textual diff plus source links |
+| Bitemporal compare | when did it happen, when was it recorded, and when was it considered valid? | three aligned time axes | explicit occurred/recorded/valid columns |
+| Dependency / critical path | which typed dependency blocks the outcome? | directed path with blocker emphasis | ordered dependency table |
+| Evidence braid | how did a source become a claim, decision, action and receipt? | braided provenance lanes | addressable lineage list |
+| Freshness horizon | what is becoming stale or unverified? | future horizon and confidence decay | sortable freshness table |
+| Narrative chapters | how can a period be read coherently? | authored chapters over immutable events | outline with cited event links |
+| Optional spatial replay | how did the world change? | ghosted previous world and revision scrubber | 2D compare with reduced motion |
+
+### Temporal slices
+
+| Slice | Capability | Truth guardrail | Definition of done |
+|---|---|---|---|
+| `TW-0` | normalization and semantic prominence | no hidden drop, invented class or undocumented priority | totals/classes reconcile across authored and read models |
+| `TW-1` | deterministic change-set bundling | every bundle expands to original event identities | repeated noise reduced without information loss |
+| `TW-2` | Chronoscope, semantic lanes and multi-scale zoom | returned/full counts and truncation remain visible | keyboard, URL, reload and share round-trip |
+| `TW-3` | calendar, rhythm and cadence views | missing precision and timezone ambiguity remain explicit | accessible table yields identical totals |
+| `TW-4` | revision and bitemporal compare | no interpolation of undocumented history | result cites revisions and source evidence |
+| `TW-5` | dependency and critical path | causal edges only from typed relations | blocker path is traceable end to end |
+| `TW-6` | evidence braid and narrative chapters | narrative never outranks source evidence | source → claim → decision → action → receipt is addressable |
+| `TW-7` | pack-contributed temporal profiles | deterministic slot registry and one shared event grammar | two packs compose without semantic drift |
+| `TW-8` | optional spatial replay | Git or immutable snapshot proof required | 2D fallback, reduced motion and semantic parity pass |
+
+### Temporal interaction contract
+
+- Zoom from decades to instants without changing event identity.
+- Keep `full_count`, `returned_count`, truncation and imprecision visible.
+- Preserve canonical route state for view, range, lanes, facets, selected event,
+  comparison pair and pack profile.
+- Support keyboard range movement, lane navigation, selection, disclosure and
+  return-to-origin.
+- Provide temporal search facets for class, source, context, precision,
+  confidence, owner, pack and freshness.
+- Allow “what changed since?” from any immutable revision or verified receipt.
+- Distinguish occurred time, recorded time, valid-from/to and superseded time.
+- Expose conflicts and uncertain dates rather than forcing them onto an exact
+  coordinate.
+- Use motion to preserve orientation; reduced-motion mode changes animation,
+  never information.
+- Treat every constellation point, lane segment and heatmap cell as a derived
+  view of addressable events, never as decorative data.
+
+## Experience Pack SDK program
+
+### Product thesis
+
+Wiki Viva should behave as an experience and operations kit. The kernel owns
+truth, safety, routing, time, permissions, composition and receipts. A pack
+contributes a coherent visual language, templates, flows, operations, demo and
+failure stories for one use case through registered declarative slots. It is
+not an arbitrary remote-code plugin system.
+
+```text
+living-wiki kernel
+  -> semantic and temporal contracts
+    -> experience-pack composition
+      -> views + flows + operations + templates
+        -> synthetic conformance demo
+          -> consumer install / upgrade / rollback receipt
+```
+
+### Pack contract
+
+Every versioned pack must declare:
+
+- manifest identity, semantic version and core compatibility range;
+- page types, relation types, blocks, templates and example content;
+- registered view, overlay, dock, command and reader slots;
+- operations, permissions, confirmation policy and human gates;
+- temporal lanes, facets, rankings, cadence and comparison profiles;
+- source adapters and normalization rules;
+- privacy, publication and public-export policy;
+- semantic visual tokens and governed asset slots;
+- PT-BR/EN strings, plural rules and content density modes;
+- synthetic fixtures, executable happy path and failure stories;
+- migration steps, lockfile entries, receipts and rollback behavior;
+- install, upgrade, disable and remove semantics that preserve user data;
+- accessibility, performance, asset and offline budgets;
+- conformance tests and catalog metadata.
+
+### SDK delivery slices
+
+1. **Schema and deterministic resolver** — canonical manifest, capability
+   registry, compatibility resolver and composition digest.
+2. **Authoring scaffold** — generator, template set, local preview, fixture
+   builder and documentation.
+3. **Slot and conflict registry** — explicit ownership for views, commands,
+   tokens, routes, relations and temporal profiles.
+4. **Preview and conceptual diff** — dry run showing files, operations,
+   migrations, capability changes, privacy surface and rollback.
+5. **Conformance harness** — schema, lifecycle, composition, a11y, i18n,
+   performance, privacy and deterministic demo gates.
+6. **Catalog with live synthetic demos** — searchable pack cards, capability
+   matrix, screenshots and executable isolated scenarios.
+7. **Lifecycle receipts** — install, upgrade, disable, remove and rollback
+   evidence tied to package, consumer and immutable state.
+8. **Supply-chain governance** — license, integrity, provenance, asset and
+   secret/PII scanners.
+
+Any command named below is a design target until its script, `--help`, tests,
+documentation and gate-registry entry exist. The plan must not present future
+CLI syntax as already executable.
+
+### Vertical pack portfolio
+
+| Pack | Product promise | Core flow | Temporal signature | Hero surfaces | Mandatory failure stories |
+|---|---|---|---|---|---|
+| Finance | close and understand a financial period truthfully | import → classify → reconcile → close → forecast | due horizon, financial calendar, closing tape and month comparison | cashflow, reconciliation, variance, obligations and close cockpit | missing source, duplicate, ambiguous classification, late close, unsafe export |
+| Team OS | convert cadence into accountable decisions and commitments | meeting → decision → owner → action → review | cadence, role history, decision-to-action and commitment aging | team map, commitment board, decision ledger and risk radar | missing owner, blocked handoff, stale decision, quorum failure |
+| PDLC | preserve evidence from opportunity through outcome | opportunity → research → hypothesis → experiment → release → outcome | hypothesis-to-outcome, experiment and release history | discovery funnel, evidence map, roadmap, experiment board and outcome loop | stale assumption, failed experiment, unsupported release, metric regression |
+| Study | turn reading into traceable learning and synthesis | capture → annotate → question → claim → cite → synthesize → review | claim evolution, spaced review and learning history | concept graph, evidence matrix, reading queue and synthesis desk | conflicting evidence, unsupported claim, overdue review, citation drift |
+| Notes / Life OS | make daily memory operational without forcing premature structure | inbox → note/journal → connect → review → commitment | personal chronicle, habit cadence and weekly review | daily cockpit, life areas, commitments and relationship map | overloaded inbox, overdue commitment, weak link, private/public confusion |
+| References | provide a quiet, trustworthy reference library | capture → normalize → deduplicate → tag → retrieve → cite | acquisition, revisit and freshness history | library shelves, provenance trail, citation map and source inspector | duplicate work, missing metadata, broken origin, stale reference |
+
+Study and References remain distinct: Study owns interpretation, learning,
+claims and synthesis; References owns custody, provenance, normalization,
+deduplication and calm retrieval.
+
+### Pack blueprints
+
+#### Finance
+
+- **Objects:** account, transaction, obligation, category, budget, statement,
+  reconciliation, close and forecast.
+- **Operations:** ingest, classify, split, reconcile, acknowledge exception,
+  close period, reopen with reason and publish redacted aggregate.
+- **Views:** cashflow river, calendar horizon, category variance, obligation
+  radar, reconciliation desk and immutable close tape.
+- **Permissions:** source import and write operations are separate; close/reopen
+  require explicit receipt and reviewer policy.
+- **Demo:** synthetic household/business month with duplicates, one ambiguous
+  transaction, one missing statement and one successful close.
+- **Truth rule:** forecasts and classifications never masquerade as posted or
+  reconciled facts.
+
+#### Team OS
+
+- **Objects:** person, role, circle/team, meeting, proposal, decision,
+  commitment, dependency, risk and retrospective.
+- **Operations:** convene, propose, consent/vote, assign, hand off, escalate,
+  review and supersede.
+- **Views:** living organization map, cadence calendar, decision-to-action
+  braid, workload/ownership map and risk radar.
+- **Permissions:** governance mode is configurable, but the active decision
+  rule, quorum and dissent record must be visible.
+- **Demo:** synthetic cross-functional team with one blocked handoff, one
+  superseded decision and one quorum failure.
+- **Truth rule:** a discussion is not a decision; a decision is not execution;
+  a named owner is not proof of delivery.
+
+#### PDLC
+
+- **Objects:** opportunity, user evidence, insight, assumption, hypothesis,
+  experiment, initiative, release, metric and outcome.
+- **Operations:** frame, prioritize, approve experiment, record result, stop,
+  ship, monitor and learn.
+- **Views:** opportunity tree, evidence graph, experiment board, temporal
+  roadmap, release train and outcome loop.
+- **Permissions:** evidence and interpretation are separate; releases require
+  explicit supporting claims and operational readiness.
+- **Demo:** synthetic product slice with one falsified hypothesis, one stopped
+  experiment and one release whose metric later regresses.
+- **Truth rule:** output, release and outcome remain separate states.
+
+#### Study
+
+- **Objects:** work, source, excerpt, annotation, question, concept, claim,
+  counterclaim, citation, synthesis and review.
+- **Operations:** capture, annotate, connect, evaluate evidence, synthesize,
+  schedule review and supersede a claim.
+- **Views:** evidence-strength matrix, concept graph, provenance braid,
+  spaced-review calendar and synthesis canvas.
+- **Permissions:** generated interpretation is labeled; source custody and
+  claim authorship remain visible.
+- **Demo:** synthetic literature set with two conflicting sources, one inferred
+  claim and one unsupported claim that the gate rejects.
+- **Truth rule:** cited, considered, inferred and generated are distinct
+  provenance states.
+
+#### Notes / Life OS
+
+- **Objects:** inbox item, note, journal entry, area, goal, commitment, habit,
+  relationship and review.
+- **Operations:** capture, clarify, connect, schedule, commit, reflect, archive
+  and selectively publish.
+- **Views:** today cockpit, weekly review, chronicle, life-area constellation,
+  commitment horizon and relationship memory.
+- **Permissions:** private by default; publication always previews the exact
+  redacted derivative.
+- **Demo:** synthetic week with inbox overload, one overdue commitment and a
+  journal item that must never enter the public derivative.
+- **Truth rule:** reflection, intention, commitment and completed action remain
+  separate.
+
+#### References
+
+- **Objects:** work, edition, file, URL, author, identifier, collection,
+  citation, annotation and freshness check.
+- **Operations:** capture, fingerprint, normalize metadata, deduplicate, link
+  editions, verify origin, cite and refresh.
+- **Views:** shelves, source inspector, provenance trail, duplicate resolver,
+  citation map and freshness queue.
+- **Permissions:** custody may be private even when bibliographic metadata is
+  public; license and redistribution rules remain explicit.
+- **Demo:** synthetic library with duplicate editions, broken origin, missing
+  metadata and a successful citation round-trip.
+- **Truth rule:** file count, edition count and unique intellectual work count
+  are different measures.
+
+Recommended order: Study/Research as the minimal conformance pack, Finance as
+the first complete operational vertical, then Team, PDLC, Notes and References.
+This order tests evidence semantics before high-risk operations and then tests
+composition across progressively different use cases.
+
+## Visual system and external-asset governance
+
+The desired direction is **clear luminous futurism**: an observatory for
+evidence and operations, not decorative science fiction. Density should come
+from meaningful relationships, progressive disclosure and multi-scale views,
+not from repeated labels or ambient clutter.
+
+### Visual grammar
+
+- Preserve the current dark/light token foundation, luminous depth, world
+  orientation and semantic status colors.
+- Use typography, spacing and hierarchy before adding glow, texture or motion.
+- Let packs contribute semantic accents, icons, data marks and hero surfaces
+  through registered slots; critical status, focus, privacy and contrast
+  tokens remain kernel-owned.
+- Use the same information architecture in WebGL, fallback, reduced-motion and
+  zoomed layouts.
+- Make state transitions legible with restrained motion and stable anchors.
+- Treat mobile as an authored composition, not a desktop world scaled down.
+- Provide a calm reader and reference mode alongside dense operational views.
+
+### Asset policy
+
+- No runtime hotlinking. Vendor approved assets into governed package paths.
+- Record source, author, license, attribution, retrieval date, content hash and
+  semantic slot.
+- Strip EXIF, text chunks and unnecessary metadata; evidence PNGs use the
+  strict allowlisted screenshot profile.
+- Enforce CSP, offline and no-asset behavior.
+- Set byte, texture, triangle/draw-call, animation and motion budgets.
+- Use an approved icon library; do not replace icons with emoji, ASCII or CSS
+  drawings.
+- Record prompt/model/provenance for generated artwork and require human
+  accept/reject rationale.
+- Admit KTX2/GLB only when the asset adds semantic value and has 2D/no-asset
+  parity.
+- Never make an asset the sole carrier of status, action or evidence.
+- Scan license, integrity, path, secret and PII boundaries in conformance.
+
+### Asset approval board
+
+Each asset proposal should show the target slot at its measured dimensions,
+source/provenance, light/dark/fallback variants, accessibility role, runtime
+cost and license. The reviewer records `accept`, `revise` or `reject` with one
+reason. This keeps visual experimentation creative without allowing an
+untraceable asset supply chain.
+
+## Execution program
+
+| Phase | Owner roles | Depends on | Exit evidence |
+|---|---|---|---|
+| `A` Evidence closure | release lead + QA/evidence | final private/public reports and rollback | topology, negative/final matrices and integration receipt bound |
+| `B` Legibility repair | product design + frontend + accessibility | A | mobile, fallback, labels, i18n and cold-start fixes accepted |
+| `C` Temporal foundation | core graph + temporal lead | A | normalized, complete and ranked event contract |
+| `D` Temporal Workbench | frontend + product design + accessibility | B, C | Chronoscope, lanes, compare and fallbacks pass |
+| `E` Pack SDK kernel | pack platform + privacy/security | C | lifecycle, composition and conformance pass |
+| `F` Conformance + Finance | pack maintainers + domain reviewers | D, E | Study conformance and Finance full vertical pass |
+| `G` Team/PDLC/Notes/References | independent domain pack maintainers | F | one reviewed PR/release series per pack |
+| `H` Productization | release + docs + accessibility + QA | D–G | gallery, authoring docs, performance, VoiceOver and promotion evidence |
+
+### Dependency rules
+
+- `A` must close before feature expansion because evidence identities cannot
+  move under an active migration.
+- `B` and `C` may run in parallel after `A`.
+- `D` requires both temporal truth and the repaired responsive/fallback frame.
+- `E` may define schema during `C`, but no pack is promoted before composition
+  and rollback are executable.
+- Each vertical is a separate release series with its own synthetic demo,
+  domain review and failure stories.
+- `H` cannot reinterpret E4 as E5; manual review and public promotion stay
+  explicit gates.
+
+### Definition of done — immediate closure
+
+- [x] B0/C1/C2/C3 roles and path counts are bound.
+- [x] The first 21/22 attempt remains visible as negative evidence.
+- [x] The final package matrix passes 22/22.
+- [x] Python, browser and focused-adapter counts are recorded on the final
+  subject.
+- [x] Private and public-redacted migration reports are complete.
+- [x] Disposable rollback reproduces B0.
+- [x] Real-data desktop, mobile, fallback, collection and Timeline states were
+  inspected.
+- [x] Other branches were classified; superseded and unrelated histories are
+  excluded.
+- [ ] Private runtime PR CI, human conceptual review and merge are recorded.
+- [ ] Concurrent authorial delta is replayed and validated on post-runtime
+  private `main`.
+- [ ] Manual VoiceOver, external E5 and public promotion remain open.
+
+### Definition of done — temporal workbench
+
+- [ ] Authored, closure, temporal and graph totals reconcile.
+- [ ] Semantic ranking is deterministic and preserves every event.
+- [ ] Bundles expand to original events and expose full/returned counts.
+- [ ] Chronoscope, lanes, calendar, compare and dependency views round-trip
+  through canonical routes.
+- [ ] Imprecision, conflicts, timezone and bitemporal states remain explicit.
+- [ ] Keyboard, 200–400% zoom, reduced motion and 2D fallback have parity.
+- [ ] Performance budgets pass on synthetic dense and real pressure fixtures.
+
+### Definition of done — each experience pack
+
+- [ ] Manifest, compatibility and composition digest validate.
+- [ ] Templates, operations, permissions and temporal profile are complete.
+- [ ] PT-BR and EN strings/plurals pass.
+- [ ] Happy path and mandatory failure stories execute in the synthetic demo.
+- [ ] Install, upgrade, disable, remove and rollback preserve consumer data.
+- [ ] Privacy/publication, license, asset and supply-chain gates pass.
+- [ ] Pack composes with at least one other pack without route, command, token
+  or relation conflict.
+- [ ] Accessibility, fallback, offline and performance budgets pass.
+- [ ] Domain reviewer and human release gate approve.
+
+## Risk and blocker register
+
+| Risk / blocker | Current status | Mitigation / next proof |
+|---|---|---|
+| Public release authority absent | open | public PR/CI/human review/merge and separate promotion boundary |
+| Manual VoiceOver and external E5 | open | named manual protocol and independent review receipt |
+| Cold snapshot generation exceeds operator preflight | open P1 | precompile/cache with stale-identity rejection and cold/warm budgets |
+| Mobile world loses priority | open P1 | `UX-L1` before broad mobile-quality claim |
+| Fallback has weaker hierarchy | open P1 | `UX-L4` with semantic parity and zoom evidence |
+| Timeline noise hides decisions/actions/receipts | open strategic P1 | `TW-0` and `TW-1` before spectacle |
+| Concurrent authoring can conflict with migration log | controlled | separate post-runtime PR and append-only resolution |
+| Historical extraction branches could erase private state | closed by decision | archive only; never merge into private main |
+| Pack extension could become unsafe arbitrary code | architecture blocker | declarative slots, capability registry and lifecycle receipts |
+| External assets create license/privacy/performance risk | controlled by future gate | vendor, hash, license, strip metadata, budgets and fallback |
+
+## RT disposition after downstream rehearsal
+
+| RT | Status | Evidence / next action |
+|---|---|---|
+| RT-09 / RT-10 | closed for this rehearsal | final private authored/closure/temporal/source-emission gates pass; reopen on schema or corpus-boundary change |
+| RT-29 | partial | public browser contract and real navigation pressure pass; complete the full real dense-search/facet/keyboard E4 manifest |
+| RT-33 | closed for private rehearsal, open for public release | deep private/public-redacted reports and rollback pass; public promotion remains separate |
+| RT-36 | closed for this rehearsal | semantic inventory passes on final `C3` |
+| RT-47 | partial | current full private suite passes; retain the named lifecycle conflict/redaction diagnostic as an explicit replay |
+| RT-48 | partial | live v6/security/capability downstream contract passes and restart rejects stale identity; cold-start performance remains open |
+| RT-125 / RT-146 / RT-147 | closed for rehearsal | canonical package, pinned source tree, inert release record and private drift pass |
+| RT-148 / RT-149 | closed publicly, private spot-check only | guided-tour isolation passes public matrix; repeat full modal/reader/tour E4 cell if changed |
+| RT-150 | open at public authority | private rehearsal package is valid, but publication/promotion boundaries remain unmerged |
+| RT-12 / RT-37 / RT-59 / RT-85 / RT-91 / RT-119 | partial/open | automated and E4 pressure evidence exists; human, VoiceOver, public promotion and E5 remain |
+
+## Public-safe evidence matrix
+
+| Claim | Public evidence | Private evidence | Invalidation |
+|---|---|---|---|
+| Migration topology | B0/C1/C2/C3 roles and safe counts | exact SHAs, paths and trees | any boundary/tree change |
+| First attempt | 21/22 and failure class | complete logs | never overwritten |
+| Final gates | 22/22 and safe aggregate counts | receipts, logs and digests | `C3`, package or command change |
+| Browser | 102/102 public, 2/2 downstream, zero retry/skip | routes, runtime identity and visual hashes | head/snapshot/route/config change |
+| Rollback | pass and tree-equality class | exact reverse-tree comparison | baseline or commit change |
+| UX | sanitized findings and priority | screenshots, routes and selected IDs | subject/state change |
+| Temporal | 906/906 and lane aggregates | event identities and contents | schema/revision change |
+| Pack lifecycle | target contracts and future conformance results | install trees and receipts | pack/core version change |
+| Privacy | public projection complete | unredacted source report | scanner/policy/package change |
+| Human release | pending or approved only | named review receipt | any relevant product change |
+
+## Decision log additions
+
+22. A downstream rehearsal is E4 pressure evidence, not public release
+    authority.
+23. `B0` is the rollback baseline; migration remains exactly `C1`–`C3`.
+24. Negative first attempts remain immutable and subject-bound.
+25. Timeline reduces generic event noise before adding visual spectacle.
+26. Pack temporal profiles extend one shared event grammar.
+27. Study and References remain distinct product experiences.
+28. Pack visuals contribute only through governed semantic slots.
+29. External assets are vendored, licensed, hashed, optional and offline-safe.
+30. Concurrent authoring is integrated as a bounded post-runtime content PR,
+    never as a scratch-tree merge.
+31. Cold-start performance is a release property; identity checks remain
+    fail-closed while snapshot assembly is optimized.
+32. A private-main test merge never grants permission to publish public source
+    or private evidence.
+
+### Operational disposition
+
+Proceed with the authorized bounded private-main runtime integration, then
+replay the concurrent authorial delta as a separate content PR. Preserve the
+21/22, timeout and stale-snapshot attempts as negative evidence; bind the
+accepted 22/22, 102/102 and 2/2 results to their final subjects. Continue next
+with legibility, cold-start and temporal prominence before the larger Temporal
+Workbench and Experience Pack SDK program. Public promotion, VoiceOver and E5
+remain explicit human/release gates.
 
 ## Final Recommendation
 
