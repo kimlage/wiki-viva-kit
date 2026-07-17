@@ -2,8 +2,10 @@
 
 Reads the true source-of-truth — source pages (identity + machine `sync` block),
 their `source_config` recipes (platform/pipelines/streams), and the per-source
-cursor state — and rolls them into `source_entities.json` v2: one rich record
-per source with sync telemetry and per-stream freshness vs its cadence. Also
+cursor state — and rolls them into `source_entities.json`
+(`wiki_web_source_entities.v1`, grown additively — no version bump): one rich
+record per source with sync telemetry, event closure, the resolved lifecycle
+projection, and per-stream freshness vs its cadence. Also
 composes an ingestion brief for a source's stale streams (the agent's executable
 manual becomes the grounding).
 

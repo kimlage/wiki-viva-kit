@@ -649,6 +649,38 @@ export type SourceStream = {
   filters?: Record<string, unknown>;
 };
 
+// Closure of the newest ingestion event for a source: where it consolidated,
+// whether review found no change, and the gate state of that event.
+export type SourceEventClosure = {
+  consolidated_into: string[];
+  reviewed_no_change: boolean;
+  no_change: string[];
+  gate_state: string;
+};
+
+// Read-only lifecycle projection resolved server-side (wiki_core/web/sources.py).
+// Empty strings mean "not authored/resolved" — the backend never omits keys.
+export type SourceLifecycleProjection = {
+  state: string;
+  freshness_state: string;
+  last_attempt_state: string;
+  pipeline_stage: string;
+  pipeline_stage_timestamps: Record<string, string>;
+  adoption_state: string;
+  last_sync_success_at: string;
+  last_ingested_at: string;
+  last_attempt_at: string;
+  emitted_page_ids: string[];
+  emitted_action_ids: string[];
+  proposal_ids: string[];
+  raw_artifact_count: number;
+  secret_safe_log_refs: string[];
+  reviewed_no_change_receipt: string;
+  accepted_ref: string;
+  blocked_reason: string;
+  authoring_error_codes: string[];
+};
+
 export type SourceEntity = {
   source_id: string;
   path: string;
@@ -667,7 +699,11 @@ export type SourceEntity = {
     derived_from_event?: boolean;
     streams_fresh: number;
     streams_total: number;
+    // Optional for older snapshots; current backends always emit it.
+    event_closure?: SourceEventClosure;
   };
+  // Optional for older snapshots; current backends always emit it.
+  lifecycle?: SourceLifecycleProjection;
   recipe_ok: boolean;
   recipe_errors: string[];
   how_to_export: string;
