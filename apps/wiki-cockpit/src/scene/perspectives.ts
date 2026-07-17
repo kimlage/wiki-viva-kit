@@ -2021,7 +2021,7 @@ export function sourceFoundationLayout(request: SourceFoundationWorldRequest): W
   const emissionWeight = new Map<string, number>();
   sortedEmissions.forEach((emission) => {
     if (!emission.target_page_id) return;
-    const key = `${emission.source_id} ${emission.target_page_id}`;
+    const key = `${emission.source_id}\u0000${emission.target_page_id}`;
     const weight = emission.closure_state === "accepted" ? 2 : 1;
     emissionWeight.set(key, Math.max(emissionWeight.get(key) ?? 0, weight));
   });
@@ -2255,7 +2255,7 @@ export function sourceFoundationLayout(request: SourceFoundationWorldRequest): W
     let x = 0;
     let z = 0;
     supports.forEach(({ sourceId, place }) => {
-      const weight = emissionWeight.get(`${sourceId} ${node.id}`) ?? 1;
+      const weight = emissionWeight.get(`${sourceId}\u0000${node.id}`) ?? 1;
       weightSum += weight;
       x += place.x * weight;
       z += place.z * weight;
@@ -2441,7 +2441,7 @@ export function sourceFoundationLayout(request: SourceFoundationWorldRequest): W
     const flowGroups = new Map<string, { sourceId: string; targetId: string; emissions: typeof sortedEmissions }>();
     sortedEmissions.forEach((emission) => {
       if (!emission.target_page_id) return;
-      const key = `${emission.source_id} ${emission.target_page_id}`;
+      const key = `${emission.source_id}\u0000${emission.target_page_id}`;
       const group = flowGroups.get(key) ?? { sourceId: emission.source_id, targetId: emission.target_page_id, emissions: [] };
       group.emissions.push(emission);
       flowGroups.set(key, group);
