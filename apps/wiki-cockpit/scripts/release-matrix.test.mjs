@@ -443,7 +443,7 @@ const VALID_ENV = {
   WIKI_COCKPIT_EXPECT_COMPOSITION_SHA256: EMPTY_COMPOSITION.composition_sha256,
   WIKI_COCKPIT_EXPECT_ACTIVE_PACKS: "[]",
   WIKI_COCKPIT_EXPECT_CAPABILITIES:
-    "operator_security_v2,cors_default_deny_v1,action_state_transitions_v1,admin_capabilities_v1,admin_session_v1",
+    "operator_security_v2,cors_default_deny_v1,action_state_transitions_v1,admin_capabilities_v1,admin_session_v1,admin_commands_v1",
   WIKI_COCKPIT_MIN_PAGES: "42"
 };
 
@@ -531,7 +531,8 @@ function validHealth(overrides = {}) {
       "cors_default_deny_v1",
       "action_state_transitions_v1",
       "admin_capabilities_v1",
-      "admin_session_v1"
+      "admin_session_v1",
+      "admin_commands_v1"
     ],
     operator_security: {
       version: "wiki_operator_security.v2",

@@ -8,14 +8,30 @@
 // unlock/lock — every other mutation waits for the command bus milestone.
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { KeyRound, Lock, RefreshCw, X } from "lucide-react";
+import { KeyRound, ListChecks, Lock, RefreshCw, X } from "lucide-react";
 import { t } from "../data/i18n";
-import { loadAdminAccess, lockAdminSession } from "../data/admin";
-import type { AdminAccess, AdminSessionState } from "../data/admin";
+import {
+  fetchAdminCommandCatalog,
+  loadAdminAccess,
+  lockAdminSession,
+  planAdminCommand
+} from "../data/admin";
+import type {
+  AdminAccess,
+  AdminCommandCatalogEntry,
+  AdminPlan,
+  AdminSessionState
+} from "../data/admin";
 import {
   getAdminSessionDescription,
   subscribeAdminSession
 } from "../application/adminSession";
+import {
+  consumeAdminCommandIntent,
+  getAdminCommandIntent,
+  subscribeAdminCommandIntent
+} from "../application/adminCommandIntent";
+import { AdminPlanReview } from "./AdminPlanReview";
 import { AdminUnlockDialog } from "./AdminUnlockDialog";
 import {
   REQUIRED_OPERATOR_SERVER_VERSION
@@ -64,6 +80,12 @@ export function AdminDock({
   const [access, setAccess] = useState<AdminAccess | null>(null);
   const [probe, setProbe] = useState(0);
   const [unlockOpen, setUnlockOpen] = useState(false);
+  // Command bus (plan §11, PR4): the reviewable catalog, one in-flight
+  // planning request, and the materialized plan under review.
+  const [catalog, setCatalog] = useState<AdminCommandCatalogEntry[] | null>(null);
+  const [planningId, setPlanningId] = useState<string | null>(null);
+  const [dryRunIds, setDryRunIds] = useState<ReadonlySet<string>>(new Set());
+  const [activePlan, setActivePlan] = useState<AdminPlan | null>(null);
   // Any session transition (unlock, renew, lock, expiry) re-probes so the
   // dock always shows the server's CURRENT answer, never a hopeful one.
   const localSession = useSyncExternalStore(
@@ -97,6 +119,63 @@ export function AdminDock({
   const stateLabel = access === null ? t("admin.state.loading") : t(STATE_LABEL_KEYS[state]);
   const granted = payload ? payload.capabilities.filter((entry) => entry.granted).length : 0;
   const total = payload ? payload.capabilities.length : 0;
+  const sessionActive = Boolean(payload?.session);
+
+  // Load the command catalog only for an active session: locked/unavailable
+  // states have nothing plannable, and the section must not imply otherwise.
+  useEffect(() => {
+    let cancelled = false;
+    if (!sessionActive || demo) {
+      setCatalog(null);
+      return () => undefined;
+    }
+    void fetchAdminCommandCatalog().then((result) => {
+      if (!cancelled) setCatalog(result.ok ? result.commands : []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionActive, demo, probe]);
+
+  const startPlan = (entry: AdminCommandCatalogEntry, dryRun: boolean) => {
+    if (planningId !== null) return;
+    setPlanningId(entry.id);
+    void planAdminCommand(entry.id, {}, { dryRun }).then((result) => {
+      setPlanningId(null);
+      if (result.ok) {
+        setActivePlan(result.plan);
+        return;
+      }
+      onNotice?.(t(`admin.plan.error.${result.errorCode}`));
+    });
+  };
+
+  // Typed-command intent (plan §10.5): a "> admin …" invocation recorded the
+  // target bus command before (or while) this dock is open. Consume it exactly
+  // once, and only against the server's own catalog answer — the intent grants
+  // nothing. Subscribing keeps an ALREADY-open dock reactive to new commands.
+  const pendingIntent = useSyncExternalStore(
+    subscribeAdminCommandIntent,
+    getAdminCommandIntent
+  );
+  useEffect(() => {
+    if (catalog === null || pendingIntent === null) return;
+    const intent = consumeAdminCommandIntent();
+    if (!intent) return;
+    const entry = catalog.find((item) => item.id === intent);
+    if (!entry) {
+      onNotice?.(t("admin.commands.unknown"));
+      return;
+    }
+    if (!entry.granted) {
+      onNotice?.(t("admin.commands.notGranted"));
+      return;
+    }
+    startPlan(entry, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog, pendingIntent]);
+  // NOTE: no clear-on-unmount here — StrictMode's dev double-mount would wipe
+  // a just-armed intent. Unconsumed intents expire in the store instead.
 
   return (
     <>
@@ -219,6 +298,70 @@ export function AdminDock({
           </dl>
         </section>
 
+        {sessionActive && !demo && (
+          <section className="adminSection" aria-label={t("admin.section.commands")}>
+            <h3>{t("admin.section.commands")}</h3>
+            <p className="dockIntro">{t("admin.commands.intro")}</p>
+            {catalog === null && <p role="status">{t("admin.commands.loading")}</p>}
+            {catalog !== null && catalog.length === 0 && <p>{t("admin.commands.unavailable")}</p>}
+            {catalog !== null && catalog.length > 0 && (
+              <ul className="adminCommandList" aria-label={t("admin.section.commands")}>
+                {catalog.map((entry) => {
+                  const reason = reasonLabel(entry.reason);
+                  return (
+                    <li
+                      key={entry.id}
+                      className={entry.granted ? "adminCommand granted" : "adminCommand absent"}
+                    >
+                      <div className="adminCommandHead">
+                        <strong>{entry.title}</strong>
+                        <code>{entry.id}</code>
+                        <span className={`pill pill-muted adminRisk-${entry.riskLevel}`}>
+                          {t(`admin.commands.risk.${entry.riskLevel}`)}
+                        </span>
+                      </div>
+                      {entry.granted ? (
+                        <div className="dockActions">
+                          {entry.supportsDryRun && (
+                            <label className="adminDryRunToggle">
+                              <input
+                                type="checkbox"
+                                checked={dryRunIds.has(entry.id)}
+                                onChange={(event) => {
+                                  const next = new Set(dryRunIds);
+                                  if (event.target.checked) next.add(entry.id);
+                                  else next.delete(entry.id);
+                                  setDryRunIds(next);
+                                }}
+                              />
+                              <span>{t("admin.commands.dryRun")}</span>
+                            </label>
+                          )}
+                          <button
+                            className="secondaryButton"
+                            type="button"
+                            disabled={planningId !== null}
+                            onClick={() => startPlan(entry, dryRunIds.has(entry.id))}
+                          >
+                            <ListChecks size={14} aria-hidden />
+                            <span>
+                              {planningId === entry.id
+                                ? t("admin.commands.planning")
+                                : t("admin.commands.plan")}
+                            </span>
+                          </button>
+                        </div>
+                      ) : (
+                        <small>{reason ?? t("admin.capability.notGranted")}</small>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        )}
+
         <section className="adminSection" aria-label={t("admin.section.system")}>
           <h3>{t("admin.section.system")}</h3>
           <dl className="adminFacts">
@@ -280,6 +423,17 @@ export function AdminDock({
               <span>{t("admin.dock.refresh")}</span>
             </button>
           </div>
+        )}
+        {activePlan && !demo && (
+          <AdminPlanReview
+            plan={activePlan}
+            onClose={() => setActivePlan(null)}
+            // A successful execution may have invalidated the snapshot or
+            // consumed session time — re-probe so the dock shows the server's
+            // CURRENT answer while the result stays on screen.
+            onExecuted={() => setProbe((value) => value + 1)}
+            onNotice={onNotice}
+          />
         )}
         {unlockOpen && !demo && (
           <AdminUnlockDialog

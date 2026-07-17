@@ -4,19 +4,32 @@
 // locked/unavailable, an old operator is reported as outdated, and the whole
 // surface is read-only — there is no control that could mutate anything.
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SnapshotBundle } from "../types";
-import type { AdminAccess } from "../data/admin";
+import type {
+  AdminAccess,
+  AdminCatalogResult,
+  AdminPlanResult
+} from "../data/admin";
 import { configureLanguage, t } from "../data/i18n";
+import { setAdminCommandIntent } from "../application/adminCommandIntent";
 
-const { loadAdminAccess } = vi.hoisted(() => ({
-  loadAdminAccess: vi.fn(async (): Promise<AdminAccess> => ({ kind: "unavailable", reason: "operator_unreachable" }))
+const { loadAdminAccess, fetchAdminCommandCatalog, planAdminCommand } = vi.hoisted(() => ({
+  loadAdminAccess: vi.fn(async (): Promise<AdminAccess> => ({ kind: "unavailable", reason: "operator_unreachable" })),
+  fetchAdminCommandCatalog: vi.fn(
+    async (): Promise<AdminCatalogResult> => ({ ok: true, commands: [] })
+  ),
+  planAdminCommand: vi.fn(
+    async (): Promise<AdminPlanResult> => ({ ok: false, errorCode: "operator_unreachable" })
+  )
 }));
 
 vi.mock("../data/admin", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../data/admin")>()),
-  loadAdminAccess
+  loadAdminAccess,
+  fetchAdminCommandCatalog,
+  planAdminCommand
 }));
 
 import { AdminDock } from "./AdminDock";
@@ -67,6 +80,75 @@ function lockedAccess(): AdminAccess {
         { id: "config.inspect", granted: false, reason: "session_not_authorized" },
         { id: "break_glass.local", granted: false, reason: "disabled_by_config" }
       ]
+    }
+  };
+}
+
+function activeAccess(): AdminAccess {
+  const access = lockedAccess();
+  if (access.kind === "capabilities") {
+    access.payload.session_state = "active_full";
+    access.payload.read_only = false;
+    access.payload.session = {
+      session_id: "session_1234",
+      role: "admin",
+      state: "active_full",
+      expires_in_s: 900
+    };
+    for (const entry of access.payload.capabilities) {
+      if (entry.id !== "break_glass.local") {
+        entry.granted = true;
+        entry.reason = undefined;
+      }
+    }
+  }
+  return access;
+}
+
+function catalogResult(): AdminCatalogResult {
+  return {
+    ok: true,
+    commands: [
+      {
+        id: "system.inspect",
+        title: "Inspect system state",
+        capability: ["system.inspect"],
+        riskLevel: "read",
+        supportsDryRun: false,
+        undoStrategy: null,
+        granted: true
+      },
+      {
+        id: "snapshot.rebuild",
+        title: "Rebuild the published web snapshot",
+        capability: ["snapshot.rebuild"],
+        riskLevel: "derive",
+        supportsDryRun: true,
+        undoStrategy: "restore_previous_snapshot_revision",
+        granted: false,
+        reason: "role_not_authorized"
+      }
+    ]
+  };
+}
+
+function plannedResult(): AdminPlanResult {
+  return {
+    ok: true,
+    plan: {
+      planId: "plan_ab12cd34",
+      planSha: `sha256:${"a".repeat(64)}`,
+      commandId: "system.inspect",
+      title: "Inspect system state",
+      riskLevel: "read",
+      dryRun: false,
+      summary: "Read-only inspection.",
+      preconditions: [{ id: "branch", expected: "wiki/topic" }],
+      effects: { filesRead: [".git"], filesWrite: [], externalCalls: [], snapshotInvalidated: false },
+      diff: null,
+      validation: { kind: "none" },
+      undo: { kind: null, available: false },
+      confirmation: { kind: "none", text: null }
     }
   };
 }
@@ -140,6 +222,58 @@ describe("AdminDock — §6.3 states, read-only", () => {
     expect(
       screen.getByText(t("admin.system.frontendRequires", { version: "wiki_web_server.v7" }))
     ).toBeTruthy();
+  });
+});
+
+describe("AdminDock — command bus section (plan §11/§14, PR4)", () => {
+  it("locked dock has no commands section and never fetches the catalog", async () => {
+    loadAdminAccess.mockResolvedValue(lockedAccess());
+    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText(t("admin.state.locked"))).toBeTruthy());
+    expect(screen.queryByText(t("admin.section.commands"))).toBeNull();
+    expect(fetchAdminCommandCatalog).not.toHaveBeenCalled();
+  });
+
+  it("active session lists the catalog with per-command grants and plans on click", async () => {
+    loadAdminAccess.mockResolvedValue(activeAccess());
+    fetchAdminCommandCatalog.mockResolvedValue(catalogResult());
+    planAdminCommand.mockResolvedValue(plannedResult());
+    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Inspect system state")).toBeTruthy());
+    // The denied command renders present-but-absent, with its reason text.
+    expect(screen.getByText("Rebuild the published web snapshot")).toBeTruthy();
+    expect(screen.getByText(t("admin.capabilityReason.role_not_authorized"))).toBeTruthy();
+    // Exactly one plannable command -> exactly one plan button.
+    const buttons = screen.getAllByRole("button", { name: new RegExp(t("admin.commands.plan")) });
+    expect(buttons).toHaveLength(1);
+    fireEvent.click(buttons[0]);
+    await waitFor(() => expect(planAdminCommand).toHaveBeenCalledWith("system.inspect", {}, { dryRun: false }));
+    // The materialized plan opens the review dialog with the §11.3 contract.
+    expect(await screen.findByText(t("admin.plan.contract"))).toBeTruthy();
+  });
+
+  it("a typed-command intent plans automatically once the catalog answers", async () => {
+    loadAdminAccess.mockResolvedValue(activeAccess());
+    fetchAdminCommandCatalog.mockResolvedValue(catalogResult());
+    planAdminCommand.mockResolvedValue(plannedResult());
+    setAdminCommandIntent("system.inspect");
+    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    await waitFor(() =>
+      expect(planAdminCommand).toHaveBeenCalledWith("system.inspect", {}, { dryRun: false })
+    );
+    expect(await screen.findByText(t("admin.plan.contract"))).toBeTruthy();
+  });
+
+  it("an intent for a non-granted command becomes a notice, never a request", async () => {
+    loadAdminAccess.mockResolvedValue(activeAccess());
+    fetchAdminCommandCatalog.mockResolvedValue(catalogResult());
+    const onNotice = vi.fn();
+    setAdminCommandIntent("snapshot.rebuild");
+    render(
+      <AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} onNotice={onNotice} />
+    );
+    await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.commands.notGranted")));
+    expect(planAdminCommand).not.toHaveBeenCalled();
   });
 });
 

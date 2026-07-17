@@ -48,4 +48,9 @@ export type AdminCommandDefinition = {
   parameters: CommandParameter[];
   helpKey: string;
   hidden?: boolean;
+  // Server-side command-bus id (wiki_core/web/admin/commands.py) this parser
+  // command materializes into via POST /api/admin/commands/plan. Absent while
+  // the command has no bus adapter yet — invoking it then stays an honest
+  // notice instead of a request that would 404.
+  busCommandId?: string;
 };

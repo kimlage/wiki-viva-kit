@@ -22,9 +22,14 @@ vi.mock("../world/clients/operatorClient", () => ({
 
 import {
   ADMIN_SESSION_HEADER,
+  executeAdminPlan,
+  fetchAdminCommandCatalog,
   loadAdminAccess,
   lockAdminSession,
   parseAdminCapabilities,
+  parseAdminExecuteOutcome,
+  parseAdminPlan,
+  planAdminCommand,
   renewAdminSession,
   requestAdminChallenge,
   unlockAdminSession
@@ -44,7 +49,8 @@ function v7Health() {
       "cors_default_deny_v1",
       "action_state_transitions_v1",
       "admin_capabilities_v1",
-      "admin_session_v1"
+      "admin_session_v1",
+      "admin_commands_v1"
     ],
     operator_security: {
       version: "wiki_operator_security.v2",
@@ -255,5 +261,205 @@ describe("admin session lifecycle (§13, §22.2)", () => {
     );
     const result = await unlockAdminSession("ch-1", "AAAA-2222");
     expect(result).toEqual({ ok: false, errorCode: "admin_rate_limited" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Command bus client (plan §11, §12.2, PR4)
+// ---------------------------------------------------------------------------
+
+function planPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    ok: true,
+    plan_id: "plan_ab12cd34",
+    plan_sha: `sha256:${"a".repeat(64)}`,
+    expires_in_s: 600,
+    plan: {
+      schema_version: "wiki_admin_plan.v1",
+      command_id: "snapshot.rebuild",
+      title: "Rebuild the published web snapshot",
+      params: {},
+      dry_run: false,
+      risk_level: "derive",
+      capability: ["snapshot.rebuild"],
+      summary: "Rebuild the derived web snapshot.",
+      preconditions: [
+        { id: "branch", expected: "wiki/topic" },
+        { id: "worktree_fingerprint", expected: "sha256:beef" }
+      ],
+      effects: {
+        files_read: ["memories"],
+        files_write: ["data/derived/wiki/web-snapshot"],
+        external_calls: [],
+        snapshot_invalidated: true
+      },
+      diff: null,
+      validation: { kind: "deterministic_rebuild" },
+      undo: {
+        kind: "restore_previous_snapshot_revision",
+        available: false,
+        previous_revision: null
+      },
+      confirmation: { kind: "simple", text: "RUN snapshot.rebuild" },
+      ...overrides
+    }
+  };
+}
+
+async function unlockForBus(token: string) {
+  operatorPost.mockResolvedValueOnce(unlockedResponse(token));
+  await unlockAdminSession("ch-1", "AAAA-2222");
+}
+
+describe("command bus client (§11, §12.2)", () => {
+  it("planAdminCommand refuses locally without a session — no request leaves", async () => {
+    const result = await planAdminCommand("system.inspect");
+    expect(result).toEqual({ ok: false, errorCode: "admin_session_invalid" });
+    expect(operatorPost).not.toHaveBeenCalled();
+  });
+
+  it("planAdminCommand sends command_id + params only, with the session header", async () => {
+    await unlockForBus("tok-bus");
+    operatorPost.mockResolvedValueOnce(jsonResponse(200, planPayload()));
+    const result = await planAdminCommand("snapshot.rebuild", {}, { dryRun: false });
+    expect(operatorPost).toHaveBeenLastCalledWith(
+      "/admin/commands/plan",
+      { command_id: "snapshot.rebuild", params: {}, dry_run: false },
+      expect.objectContaining({ headers: { [ADMIN_SESSION_HEADER]: "tok-bus" } })
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.plan.planSha).toBe(`sha256:${"a".repeat(64)}`);
+      expect(result.plan.effects.snapshotInvalidated).toBe(true);
+      expect(result.plan.confirmation).toEqual({ kind: "simple", text: "RUN snapshot.rebuild" });
+    }
+  });
+
+  it("parseAdminPlan refuses malformed payloads instead of inventing a plan", () => {
+    expect(parseAdminPlan(null)).toBeNull();
+    expect(parseAdminPlan({ ok: false })).toBeNull();
+    const noEffects = planPayload({ effects: "everything" });
+    expect(parseAdminPlan(noEffects)).toBeNull();
+    const weirdConfirmation = planPayload({ confirmation: { kind: "shout", text: "GO" } });
+    expect(parseAdminPlan(weirdConfirmation)).toBeNull();
+  });
+
+  it("executeAdminPlan binds plan_id + plan_sha + confirmation to the request", async () => {
+    await unlockForBus("tok-bus");
+    const plan = parseAdminPlan(planPayload());
+    expect(plan).not.toBeNull();
+    operatorPost.mockResolvedValueOnce(
+      jsonResponse(200, {
+        ok: true,
+        plan_id: plan!.planId,
+        plan_sha: plan!.planSha,
+        command_id: "snapshot.rebuild",
+        risk_level: "derive",
+        dry_run: false,
+        status: "success",
+        output: { files: [] },
+        affected_paths: ["data/derived/wiki/web-snapshot"],
+        branch: "wiki/topic",
+        snapshot_invalidated: true,
+        undo: { kind: "restore_previous_snapshot_revision", available: true, previous_revision: "rev-1" }
+      })
+    );
+    const result = await executeAdminPlan(plan!, "RUN snapshot.rebuild");
+    expect(operatorPost).toHaveBeenLastCalledWith(
+      "/admin/commands/execute",
+      {
+        plan_id: plan!.planId,
+        plan_sha: plan!.planSha,
+        confirmation: "RUN snapshot.rebuild"
+      },
+      expect.objectContaining({ headers: { [ADMIN_SESSION_HEADER]: "tok-bus" } })
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.outcome.snapshotInvalidated).toBe(true);
+      expect(result.outcome.undo).toEqual({
+        kind: "restore_previous_snapshot_revision",
+        available: true,
+        previousRevision: "rev-1"
+      });
+    }
+  });
+
+  it("maps a stale-plan refusal with its failed preconditions (§9.3)", async () => {
+    await unlockForBus("tok-bus");
+    const plan = parseAdminPlan(planPayload());
+    operatorPost.mockResolvedValueOnce(
+      jsonResponse(409, {
+        ok: false,
+        error_code: "admin_plan_stale",
+        failed_preconditions: ["branch", "worktree_fingerprint"]
+      })
+    );
+    const result = await executeAdminPlan(plan!, "RUN snapshot.rebuild");
+    expect(result).toEqual({
+      ok: false,
+      errorCode: "admin_plan_stale",
+      failedPreconditions: ["branch", "worktree_fingerprint"]
+    });
+  });
+
+  it("parseAdminExecuteOutcome never invents an available undo", () => {
+    expect(
+      parseAdminExecuteOutcome({
+        ok: true,
+        plan_id: "plan_1",
+        command_id: "system.inspect",
+        status: "success",
+        undo: { kind: "restore_previous_snapshot_revision", available: "yes" }
+      })!.undo.available
+    ).toBe(false);
+    expect(parseAdminExecuteOutcome({ ok: false })).toBeNull();
+  });
+
+  it("fetchAdminCommandCatalog carries the token and refuses malformed catalogs", async () => {
+    await unlockForBus("tok-bus");
+    operatorRequest.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        schema_version: "wiki_admin_commands.v1",
+        commands: [
+          {
+            id: "system.inspect",
+            title: "Inspect system state",
+            capability: ["system.inspect"],
+            risk_level: "read",
+            supports_dry_run: false,
+            undo_strategy: null,
+            granted: true
+          }
+        ]
+      })
+    });
+    const result = await fetchAdminCommandCatalog();
+    expect(operatorRequest).toHaveBeenLastCalledWith(
+      "/admin/commands",
+      expect.objectContaining({
+        headers: expect.objectContaining({ [ADMIN_SESSION_HEADER]: "tok-bus" })
+      })
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.commands).toEqual([
+        {
+          id: "system.inspect",
+          title: "Inspect system state",
+          capability: ["system.inspect"],
+          riskLevel: "read",
+          supportsDryRun: false,
+          undoStrategy: null,
+          granted: true,
+          reason: undefined
+        }
+      ]);
+    }
+    operatorRequest.mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, commands: "all" }) });
+    const malformed = await fetchAdminCommandCatalog();
+    expect(malformed.ok).toBe(false);
   });
 });

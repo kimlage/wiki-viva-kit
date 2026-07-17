@@ -1,8 +1,9 @@
 // Initial admin command table (god-mode plan §10.5). Declaring a command here
 // only teaches the parser its shape: capabilities are granted by the server
 // per session and revalidated on execute (plan §8.2); no command accepts raw
-// shell by construction. Until the admin session lands (PR2/PR3), every
-// invocation routes to the locked placeholder handler.
+// shell by construction. Commands with a busCommandId materialize a reviewed
+// plan through the server-side command bus (PR4); the rest keep an honest
+// "not wired yet" notice until their adapters ship.
 
 import { buildCommandRegistry } from "./registry";
 import type { AdminCommandDefinition } from "./types";
@@ -34,7 +35,8 @@ export const ADMIN_COMMANDS: readonly AdminCommandDefinition[] = [
     capability: ["system.inspect"],
     risk: "read",
     parameters: [],
-    helpKey: "command.help.admin_inspect_system"
+    helpKey: "command.help.admin_inspect_system",
+    busCommandId: "system.inspect"
   },
   {
     id: "admin.inspect_config",
@@ -42,7 +44,8 @@ export const ADMIN_COMMANDS: readonly AdminCommandDefinition[] = [
     capability: ["config.inspect"],
     risk: "read",
     parameters: [],
-    helpKey: "command.help.admin_inspect_config"
+    helpKey: "command.help.admin_inspect_config",
+    busCommandId: "config.inspect"
   },
   {
     id: "admin.config_validate",
@@ -50,7 +53,8 @@ export const ADMIN_COMMANDS: readonly AdminCommandDefinition[] = [
     capability: ["config.validate"],
     risk: "derive",
     parameters: [],
-    helpKey: "command.help.admin_config_validate"
+    helpKey: "command.help.admin_config_validate",
+    busCommandId: "config.validate"
   },
   {
     id: "admin.config_diff",

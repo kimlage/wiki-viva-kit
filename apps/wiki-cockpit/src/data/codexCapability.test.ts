@@ -55,6 +55,7 @@ const health = (codex: Record<string, unknown> | null, nonce = "capability-curre
       "action_state_transitions_v1",
       "admin_capabilities_v1",
       "admin_session_v1",
+      "admin_commands_v1",
       "codex",
       "briefs"
     ],

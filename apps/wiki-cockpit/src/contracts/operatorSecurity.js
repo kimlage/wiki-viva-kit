@@ -20,7 +20,12 @@ export const REQUIRED_OPERATOR_CAPABILITIES = Object.freeze([
   // lock endpoints plus the X-Wiki-Admin-Session header composing with the
   // nonce + attempt-key contract. A process without it predates sessions;
   // the unlock dialog must say "restart", never POST into a 404.
-  "admin_session_v1"
+  "admin_session_v1",
+  // God-mode plan §11/§12.2 (PR4): the plan->review->execute command bus
+  // (GET /api/admin/commands, POST /api/admin/commands/{plan,execute}). An
+  // operator without it predates materialized plans; the cockpit reports
+  // "outdated — restart" instead of planning into a 404.
+  "admin_commands_v1"
 ]);
 
 function record(value) {

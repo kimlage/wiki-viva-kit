@@ -8,7 +8,8 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
-import { GOD_MODE_COMMAND_ID } from "../commands/adminCommands";
+import { ADMIN_COMMAND_REGISTRY, GOD_MODE_COMMAND_ID } from "../commands/adminCommands";
+import { setAdminCommandIntent } from "../application/adminCommandIntent";
 import { isExplicitCommandDraft } from "../commands/parser";
 import type { CommandInvocation } from "../commands/types";
 import { adminSessionActive } from "../application/adminSession";
@@ -1479,7 +1480,21 @@ export function WorldView({
       openAdminDock();
       return;
     }
-    onNotice?.(t("command.admin.locked"));
+    const definition = ADMIN_COMMAND_REGISTRY.byId.get(input.commandId);
+    if (definition?.busCommandId) {
+      // Bus-backed command (plan §10.5 -> §11): record the intent in memory
+      // only (never the URL — it never authorizes and never carries admin
+      // intent) and open the dock, which plans against the server's REAL
+      // session/capability answer. Typing a command grants nothing.
+      setAdminCommandIntent(definition.busCommandId);
+      openAdminDock();
+      return;
+    }
+    // Recognized command without a bus adapter yet: the notice depends on
+    // whether the honest blocker is the missing session or the missing wiring.
+    onNotice?.(
+      t(adminSessionActive() ? "command.admin.notWiredYet" : "command.admin.locked")
+    );
   };
 
   const refreshAction =
