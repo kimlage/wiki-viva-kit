@@ -53,6 +53,9 @@ import type { SceneEdge, SceneFallbackReason, TrustKey } from "../renderers/scen
 import { CenterSignalSprites, ClusterStars, GlowSprites, GroupChildOrbits, GroupShells, HorizonBeacons, NodeInstances, RingSprites, SemanticPageDetails, StarField, morphAttachmentOpacity, overlayCrossfadeWeights, semanticRootBodyPrimitive, visibleSceneNodesForQuadrantLens } from "../renderers/scene/parts/nodes";
 import type { MorphState, OverlayTransitionState, SemanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
 import { AmbientDriver, isEvidenceGap, SceneParticles } from "../renderers/scene/parts/particles-layer";
+import { isFoundationProfile, portAriaText, portFocusPatch, SourceFoundationPart } from "../renderers/scene/parts/source-foundation";
+import type { GapMarkerSpec, GovernancePlateSpec, LaneRenderSpec } from "../renderers/scene/parts/source-foundation";
+import type { SourceStreamPort } from "../scene/perspectives";
 import { DEFAULT_VISUAL_CONTROL_CONFIG } from "./visualControl";
 import type { VisualControlConfig } from "./visualControl";
 import {
@@ -106,6 +109,9 @@ export type ScenePatch = {
   quadrant?: string | null;
   center?: string | null;
   dock?: string | null;
+  // SourceDock scope (?src=): set by derived source-foundation controls —
+  // a stream-port activation focuses the source's stream table (§16.5).
+  src?: string | null;
 };
 
 export type SceneMotionSnapshot = {
@@ -267,6 +273,40 @@ function spacedPoint(point: [number, number, number], center: [number, number, n
 
 function applyVisualSpacing(layout: WorldLayout, spacing: number): WorldLayout {
   if (Math.abs(spacing - 1) < 0.01) return layout;
+  if (layout.planeProfile?.active === "foundation") {
+    // §10.12/ADR-003: inside the foundation profile the Y between bands is a
+    // structural role, so the spacing control widens X/Z ONLY — every node
+    // keeps its exact band level and the derived primitives (ports, lanes,
+    // bundles) follow their stations with the same scale.
+    const scaleXZ = (point: [number, number, number]): [number, number, number] => [
+      point[0] * spacing,
+      point[1],
+      point[2] * spacing
+    ];
+    return {
+      ...layout,
+      nodes: layout.nodes.map((node) => ({ ...node, position: scaleXZ(node.position) })),
+      wedges: layout.wedges.map((wedge) => ({ ...wedge, rimPosition: scaleXZ(wedge.rimPosition) })),
+      groups: layout.groups.map((group) => ({ ...group, anchor: scaleXZ(group.anchor) })),
+      clusterStars: layout.clusterStars.map((star) => ({ ...star, position: scaleXZ(star.position) })),
+      beacons: layout.beacons.map((beacon) => ({ ...beacon, position: scaleXZ(beacon.position) })),
+      rInner: layout.rInner * spacing,
+      rOuter: layout.rOuter * spacing,
+      unknownR: layout.unknownR === null ? null : layout.unknownR * spacing,
+      cameraTarget: layout.cameraTarget ? scaleXZ(layout.cameraTarget) : undefined,
+      drillOrigin: layout.drillOrigin ? scaleXZ(layout.drillOrigin) : undefined,
+      foundationPrimitives: layout.foundationPrimitives?.map((primitive) => ({
+        ...primitive,
+        position: scaleXZ(primitive.position),
+        ...(primitive.kind === "flow-bundle"
+          ? { from: scaleXZ(primitive.from), to: scaleXZ(primitive.to) }
+          : {}),
+        ...(primitive.kind === "pipeline-lane"
+          ? { radius: primitive.radius * spacing, bounds: { radius: primitive.bounds.radius * spacing } }
+          : {})
+      }))
+    };
+  }
   const center = layout.nodes.find((node) => node.isRoot)?.position ?? ([0, 0, 0] as [number, number, number]);
   const scaleRadius = (value: number | null) => value === null ? null : value * spacing;
   return {
@@ -688,7 +728,11 @@ function SceneContent({
   onLockPacket,
   onLockTrails,
   onLockClose,
-  onRetreat
+  onRetreat,
+  onPortFocus,
+  onLaneInspect,
+  onGapInspect,
+  onPlateOpen
 }: {
   layout: WorldLayout;
   layoutRequestResolved: boolean;
@@ -738,6 +782,12 @@ function SceneContent({
   onLockTrails: () => void;
   onLockClose: () => void;
   onRetreat: () => void;
+  // Source-foundation derived controls (§16.5): ports focus the SourceDock,
+  // lanes/gaps are inspection, plates open the real config page.
+  onPortFocus: (port: SourceStreamPort) => void;
+  onLaneInspect: (lane: LaneRenderSpec) => void;
+  onGapInspect: (marker: GapMarkerSpec) => void;
+  onPlateOpen: (plate: GovernancePlateSpec) => void;
 }) {
   const [hoveredId, setHoveredId] = useState("");
   // First-frame kick: in `frameloop="demand"` a freshly mounted scene can sit
@@ -921,7 +971,12 @@ function SceneContent({
     layout.beacons.length +
     (missionMarkers?.length ?? 0) +
     (plateNode ? 1 : 0);
-  const interactiveNodeCount = sceneNodes.length + sceneClusterStars.length + layout.beacons.length;
+  // Foundation primitives are pickable objects too — the performance evidence
+  // must count what the renderer actually mounts.
+  const foundationActive = isFoundationProfile(layout);
+  const foundationPrimitiveCount = foundationActive ? layout.foundationPrimitives?.length ?? 0 : 0;
+  const interactiveNodeCount =
+    sceneNodes.length + sceneClusterStars.length + layout.beacons.length + foundationPrimitiveCount;
   useEffect(() => {
     onPerformanceEvidence(
       performanceTelemetry.updateCounters(
@@ -973,9 +1028,24 @@ function SceneContent({
       {/* No data, no instrument: the EMPTY world is a pure void — no rings,
           no wedges, no gate torus. The founding rite is its only interface. */}
       {layout.nodes.length > 0 && <WorldGuides layout={layout} />}
-      {layout.nodes.length > 0 && layout.level === 0 && <GateRing git={git} />}
+      {/* §10.12: the upper-profile ground guides never mount in the foundation
+          profile — it owns per-band plane guides, and the global ground-anchored
+          proposal stems are re-expressed within-band by SourceFoundationPart. */}
+      {layout.nodes.length > 0 && layout.level === 0 && !foundationActive && <GateRing git={git} />}
       <DensityReliefField layout={layout} motion={motion} />
-      <ProposalStems nodes={sceneNodes} morph={morph} />
+      {!foundationActive && <ProposalStems nodes={sceneNodes} morph={morph} />}
+      {foundationActive && (
+        <SourceFoundationPart
+          layout={layout}
+          quality={profile.quality}
+          selectedId={selectedId}
+          morph={morph}
+          onPortFocus={onPortFocus}
+          onLaneInspect={onLaneInspect}
+          onGapInspect={onGapInspect}
+          onPlateOpen={onPlateOpen}
+        />
+      )}
       <EdgeArcs edges={sceneEdges} layout={layout} quality={profile.quality} morph={morph} />
       <RouteLine route={route} morph={morph} />
       {walkRoute.length > 1 && <RouteLine route={walkRoute} morph={morph} color={edgeStyle("source_ref").color} />}
@@ -1996,6 +2066,35 @@ export function SystemScene({
     [announce, navigate]
   );
 
+  // Source-foundation derived controls (§16.5). A port is a derived control:
+  // it patches the SourceDock scope and NEVER the page selection, so derived
+  // ids cannot enter the PageEntityIndex. Lanes are inspection-only. A gap
+  // marker opens its owning source's dock when the subject is a station;
+  // otherwise it only announces the diagnostic. A governance plate opens the
+  // REAL config page it represents.
+  const handlePortFocus = useCallback(
+    (port: SourceStreamPort) => {
+      navigate(portFocusPatch(port));
+      announce(portAriaText(port));
+    },
+    [announce, navigate]
+  );
+  const handleLaneInspect = useCallback((lane: LaneRenderSpec) => announce(lane.aria), [announce]);
+  const handleGapInspect = useCallback(
+    (marker: GapMarkerSpec) => {
+      announce(marker.aria);
+      if (marker.sourceId) navigate({ dock: "source", src: marker.sourceId });
+    },
+    [announce, navigate]
+  );
+  const handlePlateOpen = useCallback(
+    (plate: GovernancePlateSpec) => {
+      announce(plate.aria);
+      if (plate.canonicalEntityId) navigate({ pageId: plate.canonicalEntityId, reader: true });
+    },
+    [announce, navigate]
+  );
+
   // Full keyboard scheme — the accessibility requirement and the game-feel
   // backbone. Global keys guard against typing contexts.
   useEffect(() => {
@@ -2339,6 +2438,10 @@ export function SystemScene({
                 onLockPacket={() => route.pageId && onTogglePacket?.(route.pageId)}
                 onLockTrails={() => navigate({ perspective: "trails" })}
                 onLockClose={() => navigate({ pageId: null, reader: false })}
+                onPortFocus={handlePortFocus}
+                onLaneInspect={handleLaneInspect}
+                onGapInspect={handleGapInspect}
+                onPlateOpen={handlePlateOpen}
                 onRetreat={() => {
                   onRetreat?.();
                   announce(t("scene.levelUp"));
