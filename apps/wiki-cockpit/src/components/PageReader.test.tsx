@@ -380,6 +380,68 @@ describe("PageReader", () => {
     expect(document.activeElement).toBe(dialog);
   });
 
+  // Regression (2026-07-17 boot loop): a wiki whose revision churns between
+  // reads mints a NEW snapshot_id on every host refetch, so a per-revision
+  // guard never latches and every refetched bundle fires another refetch —
+  // /api/snapshot/boot hammered forever behind the world-loading screen. The
+  // recovery must be bounded per mismatch episode, and re-armed only by a
+  // coherent (ok) content read.
+  it("recovers at most once per episode while the wiki churns a new revision on every refetch", async () => {
+    let content: PageContent = {
+      ok: false,
+      error: "page changed since snapshot; refresh required",
+      error_code: "snapshot_revision_mismatch",
+      snapshot_id: "churn-server-1",
+      expected_snapshot_id: "churn-A",
+      page_id: "alpha"
+    };
+    const loadPageContent = vi.fn(async () => content);
+    const onSnapshotMismatch = vi.fn();
+    const bundleFor = (snapshotId: string) => ({
+      ...bundle,
+      manifest: { snapshot_id: snapshotId, integrity: {} }
+    } as unknown as SnapshotBundle);
+    const props = { ...baseProps, pageId: "alpha", loadPageContent, onSnapshotMismatch };
+
+    const { rerender } = render(<PageReader {...props} bundle={bundleFor("churn-A")} />);
+    await screen.findByText("Wiki changed while this page was open.");
+    expect(onSnapshotMismatch).toHaveBeenCalledTimes(1);
+
+    // The host refetch lands on a wiki that has ALREADY moved again: the new
+    // bundle revision still mismatches. The reader must settle, not refire.
+    rerender(<PageReader {...props} bundle={bundleFor("churn-B")} />);
+    await waitFor(() => expect(loadPageContent).toHaveBeenCalledTimes(2));
+    expect(onSnapshotMismatch).toHaveBeenCalledTimes(1);
+
+    rerender(<PageReader {...props} bundle={bundleFor("churn-C")} />);
+    await waitFor(() => expect(loadPageContent).toHaveBeenCalledTimes(3));
+    expect(onSnapshotMismatch).toHaveBeenCalledTimes(1);
+
+    // Coherence re-arms the latch: after one ok read on the SAME page, a
+    // LATER legitimate wiki change may recover again.
+    content = {
+      ok: true,
+      snapshot_id: "churn-D",
+      body: "# alpha\n\nSettled content.",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    rerender(<PageReader {...props} bundle={bundleFor("churn-D")} />);
+    await screen.findByText("Settled content.");
+    expect(onSnapshotMismatch).toHaveBeenCalledTimes(1);
+    content = {
+      ok: false,
+      error: "page changed since snapshot; refresh required",
+      error_code: "snapshot_revision_mismatch",
+      snapshot_id: "churn-server-2",
+      expected_snapshot_id: "churn-E",
+      page_id: "alpha"
+    };
+    rerender(<PageReader {...props} bundle={bundleFor("churn-E")} />);
+    await waitFor(() => expect(onSnapshotMismatch).toHaveBeenCalledTimes(2));
+  });
+
   it("shows populated typed relations with true counts and omits empty groups", async () => {
     contentByCase.current = { ok: true, body: "corpo", resolved_links: [], backlinks: [], source_refs: [] };
     render(<PageReader {...baseProps} pageId="alpha" />);

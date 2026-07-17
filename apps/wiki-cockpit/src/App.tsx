@@ -1287,7 +1287,12 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     };
   }, [loadSnapshotBundle, markRealRevalidationFailure, markRealSnapshotSuccess, route.demo]);
   // Refetch the real bundle after a mutating action (e.g. running gates writes
-  // receipts) so the world reacts. Keeps the same runtime/source.
+  // receipts) so the world reacts. Keeps the same runtime/source. Settle
+  // logic: when the refetched revision is identical to the mounted one, the
+  // current bundle object is kept, so downstream identity-keyed effects
+  // (world runtime hydration, reader content reloads) never re-fire for a
+  // world that did not actually change — one trigger yields at most one new
+  // revision instead of an endless bundle-replacement cascade.
   const refetchReal = () => {
     if (route.demo) return;
     const controller = new AbortController();
@@ -1300,7 +1305,12 @@ export function App({ ports }: { ports: ApplicationPorts }) {
         realBundleLoadedRef.current = true;
         markRealSnapshotSuccess();
         if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
-        setRealState({ status: "ready", bundle, source, runtime });
+        setRealState((current) => {
+          if (current.status === "ready" && snapshotRevisionKey(current.bundle) === snapshotRevisionKey(bundle)) {
+            return current;
+          }
+          return { status: "ready", bundle, source, runtime };
+        });
       })
       .catch(() => {
         if (controller.signal.aborted) return;

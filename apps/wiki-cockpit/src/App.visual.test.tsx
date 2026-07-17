@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { loadSnapshotBundle } from "./data/snapshot";
+import { loadPageContent, loadSnapshotBundle } from "./data/snapshot";
 import { browserApplication } from "./infrastructure/browserApplication";
 import type { SnapshotBundle } from "./types";
 
@@ -747,6 +747,68 @@ describe("visual route contract", () => {
     } finally {
       now.mockRestore();
       loadSnapshotMock.mockImplementation(defaultImplementation!);
+    }
+  });
+
+  // Regression (2026-07-17): with a real operator whose snapshot revision
+  // churns between reads, an open reader's mismatch recovery refetched the
+  // boot aggregate, received a NEW snapshot_id, mismatched again and refired —
+  // /api/snapshot/boot hammered in a tight loop (each 200 OK) while the app
+  // never settled out of the world-loading screen. The recovery must be
+  // bounded: one boot refetch per mismatch episode, then an honest settle.
+  it("bounds boot refetches when the operator revision churns behind an open reader", async () => {
+    const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
+    const contentMock = vi.mocked(loadPageContent);
+    const defaultImplementation = loadSnapshotMock.getMockImplementation();
+    const defaultContent = contentMock.getMockImplementation();
+    expect(defaultImplementation).toBeTruthy();
+    expect(defaultContent).toBeTruthy();
+    let revision = 0;
+    loadSnapshotMock.mockClear();
+    loadSnapshotMock.mockImplementation(async (options) => {
+      const loaded = await defaultImplementation!(options);
+      if (options?.demo) return loaded;
+      revision += 1;
+      return {
+        ...loaded,
+        bundle: {
+          ...bundle,
+          manifest: {
+            ...bundle.manifest,
+            snapshot_id: `churn-${revision}`,
+            bundle_hash: `bundle-churn-${revision}`
+          }
+        } as SnapshotBundle
+      };
+    });
+    contentMock.mockClear();
+    contentMock.mockImplementation(async (pageId, options) => ({
+      ok: false,
+      error: "page changed since snapshot; refresh required",
+      error_code: "snapshot_revision_mismatch",
+      snapshot_id: "operator-moved-on",
+      expected_snapshot_id: options?.snapshotId,
+      page_id: pageId
+    }));
+
+    try {
+      await renderRoute("/w?view=atlas&page=root&reader=1&runtime=compat");
+      expect(await screen.findByText("Wiki changed while this page was open.")).toBeTruthy();
+      // Give the would-be loop room to spin: each broken cycle is only a
+      // resolved microtask plus one effect pass, so this window covers many
+      // cycles when the recovery is unbounded.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      });
+      const realBoots = loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false);
+      // Initial world load + exactly one bounded mismatch recovery.
+      expect(realBoots.length).toBeLessThanOrEqual(2);
+      expect(contentMock.mock.calls.length).toBeLessThanOrEqual(3);
+      // The reader stays on its honest terminal state instead of thrashing.
+      expect(screen.getByText("Wiki changed while this page was open.")).toBeTruthy();
+    } finally {
+      loadSnapshotMock.mockImplementation(defaultImplementation!);
+      contentMock.mockImplementation(defaultContent!);
     }
   });
 

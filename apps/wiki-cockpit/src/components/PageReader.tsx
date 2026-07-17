@@ -537,7 +537,17 @@ export function PageReader({
   const readerScrollRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const snapshotMismatchRef = useRef(onSnapshotMismatch);
-  const recoveredSnapshotRef = useRef<string | null>(null);
+  // One snapshot-mismatch recovery per mismatch EPISODE, not per revision.
+  // The latch disarms the moment a mismatch triggers the host refetch and
+  // re-arms only after a coherent (ok) content read. A wiki whose revision is
+  // churning mints a fresh snapshot_id on every refetch, so the previous
+  // per-revision guard could never settle: mismatch → host boot refetch →
+  // new snapshot_id → mismatch → … hammered /api/snapshot/boot in a tight
+  // loop while the world thrashed behind the "Building one continuous world"
+  // fallback. Bounded by episode, the second consecutive mismatch becomes a
+  // terminal honest state; the focus/visibility revalidation adopts the next
+  // stable revision later and an ok read re-arms the recovery.
+  const mismatchRecoveryArmedRef = useRef(true);
   snapshotMismatchRef.current = onSnapshotMismatch;
 
   // The reader is one persistent surface while its page changes. Reset its
@@ -545,6 +555,11 @@ export function PageReader({
   // inherits the previous document's reading position.
   useLayoutEffect(() => {
     if (readerScrollRef.current) readerScrollRef.current.scrollTop = 0;
+  }, [pageId]);
+
+  // A newly opened page is its own episode and deserves one recovery chance.
+  useEffect(() => {
+    mismatchRecoveryArmedRef.current = true;
   }, [pageId]);
 
   useEffect(() => {
@@ -583,12 +598,13 @@ export function PageReader({
       if (!active) return;
       setContent(payload);
       setLoading(false);
-      if (
-        payload.error_code === "snapshot_revision_mismatch"
-        && recoveredSnapshotRef.current !== bundle.manifest?.snapshot_id
-      ) {
-        recoveredSnapshotRef.current = bundle.manifest?.snapshot_id || "unknown";
-        snapshotMismatchRef.current?.();
+      if (payload.error_code === "snapshot_revision_mismatch") {
+        if (mismatchRecoveryArmedRef.current) {
+          mismatchRecoveryArmedRef.current = false;
+          snapshotMismatchRef.current?.();
+        }
+      } else if (payload.ok) {
+        mismatchRecoveryArmedRef.current = true;
       }
     });
     return () => {
