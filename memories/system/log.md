@@ -14,6 +14,14 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-12] System | Configured-language CLI regression coverage
+
+- The quadrant contract CLI regression test now compares output with the
+  repository-configured language instead of assuming English, so localized
+  downstream wikis exercise the same contract without patching the shared suite.
+- [Operational pass](operational-pass.md) was regenerated for the current
+  source/action/context state required by CI.
+
 ## [2026-07-12] System | V8 rc8 pins S9 with exact public and private automated proof
 
 - Current public payload `S9` is
