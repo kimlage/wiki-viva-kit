@@ -8,6 +8,9 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { GOD_MODE_COMMAND_ID } from "../commands/adminCommands";
+import { isExplicitCommandDraft } from "../commands/parser";
+import type { CommandInvocation } from "../commands/types";
 import { t } from "../data/i18n";
 import { experiencePackView } from "../data/experiencePacks";
 import { contextLabel, pageTypeLabel, pageTypeStyle, perspectiveLabel, worldGroupDescription, worldGroupLabel } from "../data/presentation";
@@ -1152,6 +1155,10 @@ export function WorldView({
     }
     if (searchDraft === route.query.q) return undefined;
     if (isVisualControlCommand(searchDraft)) return undefined;
+    // Explicit command drafts are interpretation-layer input, not search
+    // state: they never mirror into ?q= (plan §10.4 — command text stays out
+    // of URL/storage).
+    if (isExplicitCommandDraft(searchDraft)) return undefined;
     // A direct Enter submission owns this draft. Its one route transaction
     // already wrote `q`, `page`, `reader` and `dock=null`; never let a later
     // debounce reduce that state back to a query-only route.
@@ -1398,6 +1405,29 @@ export function WorldView({
   };
   const toggleMissions = () => {
     navigateWorld({ tray: missionsOpen ? null : "missions" });
+  };
+  // Interpretation results from the CommandBar (god-mode plan §10). Until the
+  // admin session exists (PR2/PR3), every invocation lands on an honest locked
+  // placeholder: no administrative request is ever issued from here, and the
+  // ritual/commands grant nothing (plan §3.2). Wired further in G3.
+  const onCommandInvocation = (input: CommandInvocation) => {
+    if (input.kind === "easter_egg") {
+      onNotice?.(t("command.takezo.placeholder"));
+      return;
+    }
+    if (input.kind === "invalid_command") {
+      onNotice?.(t(input.messageKey));
+      return;
+    }
+    if (input.commandId === GOD_MODE_COMMAND_ID && input.args.subcommand === "off") {
+      onNotice?.(t("command.godMode.alreadyLocked"));
+      return;
+    }
+    if (input.commandId === GOD_MODE_COMMAND_ID) {
+      onNotice?.(t("command.godMode.locked"));
+      return;
+    }
+    onNotice?.(t("command.admin.locked"));
   };
 
   const refreshAction =
@@ -2547,6 +2577,7 @@ export function WorldView({
               setSearchDraft(value);
             }}
             onSearchKeyDown={onSearchKeyDown}
+            onCommand={onCommandInvocation}
             onNavigateWorld={navigateWorld}
             onToggleTray={toggleTray}
             onToggleMissions={toggleMissions}

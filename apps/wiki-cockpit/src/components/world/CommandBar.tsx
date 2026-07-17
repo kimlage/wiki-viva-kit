@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
+import { commandHistoryEntry, isExplicitCommandDraft, parseCommandInput } from "../../commands/parser";
+import type { CommandInvocation } from "../../commands/types";
 import { t } from "../../data/i18n";
 import { perspectiveLabel } from "../../data/presentation";
 import { isNativeWorldViewId } from "../../world/experience";
@@ -27,6 +29,36 @@ import type { PerspectiveId, WorldPatch, WorldRoute } from "../../router";
 import type { WorldCondition } from "../../scene/condition";
 
 const COMPATIBILITY_PERSPECTIVE_ORDER = ["radar", "atlas", "districts", "trails", "quadrants"] as const satisfies readonly PerspectiveId[];
+
+// Command history (plan §10.4): session memory only — never persisted, never
+// mirrored to URL or storage, recallable with ↑/↓ only while the draft is in
+// explicit command mode.
+const COMMAND_HISTORY_LIMIT = 50;
+
+export function pushCommandHistory(history: string[], entry: string): void {
+  if (history[history.length - 1] === entry) return;
+  history.push(entry);
+  if (history.length > COMMAND_HISTORY_LIMIT) {
+    history.splice(0, history.length - COMMAND_HISTORY_LIMIT);
+  }
+}
+
+export function stepCommandHistory(
+  history: readonly string[],
+  cursor: number | null,
+  direction: -1 | 1
+): { cursor: number | null; value: string | null } {
+  if (history.length === 0) return { cursor: null, value: null };
+  if (direction === -1) {
+    const next = cursor === null ? history.length - 1 : Math.max(0, cursor - 1);
+    return { cursor: next, value: history[next] };
+  }
+  if (cursor === null) return { cursor: null, value: null };
+  const next = cursor + 1;
+  // Stepping past the newest entry returns to a fresh prompt.
+  if (next >= history.length) return { cursor: null, value: "" };
+  return { cursor: next, value: history[next] };
+}
 
 export function visibleCompatibilityPerspectives(
   activePerspective: string,
@@ -59,6 +91,7 @@ export function CommandBar({
   searchActiveDescendant,
   onSearchDraft,
   onSearchKeyDown,
+  onCommand,
   onNavigateWorld,
   onToggleTray,
   onToggleMissions,
@@ -81,6 +114,7 @@ export function CommandBar({
   searchActiveDescendant?: string;
   onSearchDraft: (value: string) => void;
   onSearchKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
+  onCommand: (input: CommandInvocation) => void;
   onNavigateWorld: (patch: WorldPatch) => void;
   onToggleTray: () => void;
   onToggleMissions: () => void;
@@ -89,6 +123,59 @@ export function CommandBar({
   const pressedPerspective = activePerspective ?? route.perspective;
   const compatibilityPerspectives = visibleCompatibilityPerspectives(pressedPerspective, instruments.perspectives);
   const barRef = useRef<HTMLDivElement>(null);
+  const commandHistoryRef = useRef<string[]>([]);
+  const historyCursorRef = useRef<number | null>(null);
+
+  // Interpretation layer (plan §10.1): runs only on this focused input, on
+  // Enter, BEFORE search navigation. Search keeps its whole existing keyboard
+  // behavior for anything the interpreter does not claim.
+  const onInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    // IME composition must never trigger a command (§10.1); delegate so the
+    // search flow keeps its own composition behavior unchanged.
+    if (event.nativeEvent.isComposing) {
+      onSearchKeyDown(event);
+      return;
+    }
+    const value = event.currentTarget.value;
+    const commandMode = isExplicitCommandDraft(value);
+    if (commandMode && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      // ↑/↓ recall session history ONLY in explicit command mode (§10.4);
+      // search-result navigation is untouched outside it.
+      event.preventDefault();
+      const step = stepCommandHistory(
+        commandHistoryRef.current,
+        historyCursorRef.current,
+        event.key === "ArrowUp" ? -1 : 1
+      );
+      historyCursorRef.current = step.cursor;
+      if (step.value !== null) onSearchDraft(step.value);
+      return;
+    }
+    if (commandMode && event.key === "Escape") {
+      // First rung of the existing Esc ladder: leave command mode back to an
+      // empty search field. Later Esc presses keep walking tray → dock →
+      // reader → retreat exactly as before.
+      event.preventDefault();
+      historyCursorRef.current = null;
+      onSearchDraft("");
+      return;
+    }
+    if (event.key === "Enter") {
+      const parsed = parseCommandInput(value);
+      if (parsed.kind !== "search") {
+        event.preventDefault();
+        const entry = commandHistoryEntry(value);
+        if (entry) pushCommandHistory(commandHistoryRef.current, entry);
+        historyCursorRef.current = null;
+        // The field clears without any persistent trace (§5.1); the host
+        // decides what the invocation does.
+        onSearchDraft("");
+        onCommand(parsed);
+        return;
+      }
+    }
+    onSearchKeyDown(event);
+  };
 
   // The command bar wraps according to both the available width and the
   // platform's font metrics. Publish its measured height to the scene shell so
@@ -122,8 +209,12 @@ export function CommandBar({
         <input
           ref={searchRef}
           value={searchDraft}
-          onChange={(event) => onSearchDraft(event.target.value)}
-          onKeyDown={onSearchKeyDown}
+          onChange={(event) => {
+            // A manual edit abandons any in-flight history recall.
+            historyCursorRef.current = null;
+            onSearchDraft(event.target.value);
+          }}
+          onKeyDown={onInputKeyDown}
           placeholder={t("world.searchPlaceholder")}
           aria-label={t("world.searchAria")}
           role="combobox"
