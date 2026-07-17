@@ -17,11 +17,6 @@ const { executeAdminPlan } = vi.hoisted(() => ({
   )
 }));
 
-vi.mock("../data/admin", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../data/admin")>()),
-  executeAdminPlan
-}));
-
 import { AdminPlanReview } from "./AdminPlanReview";
 
 function plan(overrides: Partial<AdminPlan> = {}): AdminPlan {
@@ -76,7 +71,7 @@ afterEach(() => {
 
 describe("AdminPlanReview — reviewed plan is the executed plan", () => {
   it("renders the contract line, effects, risk and preconditions", () => {
-    render(<AdminPlanReview plan={plan()} onClose={() => undefined} />);
+    render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={plan()} onClose={() => undefined} />);
     expect(screen.getByText(t("admin.plan.contract"))).toBeTruthy();
     expect(screen.getByText("Rebuild the derived web snapshot.")).toBeTruthy();
     expect(screen.getByText("data/derived/wiki/web-snapshot")).toBeTruthy();
@@ -89,7 +84,7 @@ describe("AdminPlanReview — reviewed plan is the executed plan", () => {
   it("simple confirmation: the execute button carries the exact phrase and sends it", async () => {
     executeAdminPlan.mockResolvedValueOnce(successOutcome());
     const reviewed = plan();
-    render(<AdminPlanReview plan={reviewed} onClose={() => undefined} />);
+    render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={reviewed} onClose={() => undefined} />);
     const button = screen.getByRole("button", { name: /RUN snapshot\.rebuild/ });
     fireEvent.click(button);
     await waitFor(() => expect(executeAdminPlan).toHaveBeenCalledTimes(1));
@@ -101,7 +96,7 @@ describe("AdminPlanReview — reviewed plan is the executed plan", () => {
   it("typed confirmation gates execution until the exact phrase is typed", async () => {
     executeAdminPlan.mockResolvedValueOnce(successOutcome());
     const typed = plan({ confirmation: { kind: "typed", text: "PUBLISH snapshot.rebuild" } });
-    render(<AdminPlanReview plan={typed} onClose={() => undefined} />);
+    render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={typed} onClose={() => undefined} />);
     const execute = screen.getByRole("button", { name: t("admin.plan.execute") });
     expect((execute as HTMLButtonElement).disabled).toBe(true);
     const input = screen.getByLabelText(
@@ -123,7 +118,7 @@ describe("AdminPlanReview — reviewed plan is the executed plan", () => {
       effects: { filesRead: [".git"], filesWrite: [], externalCalls: [], snapshotInvalidated: false },
       confirmation: { kind: "none", text: null }
     });
-    render(<AdminPlanReview plan={read} onClose={() => undefined} />);
+    render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={read} onClose={() => undefined} />);
     fireEvent.click(screen.getByRole("button", { name: t("admin.plan.execute") }));
     await waitFor(() => expect(executeAdminPlan).toHaveBeenCalledWith(read, null));
   });
@@ -134,7 +129,7 @@ describe("AdminPlanReview — reviewed plan is the executed plan", () => {
       errorCode: "admin_plan_stale",
       failedPreconditions: ["worktree_fingerprint"]
     });
-    render(<AdminPlanReview plan={plan()} onClose={() => undefined} />);
+    render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={plan()} onClose={() => undefined} />);
     fireEvent.click(screen.getByRole("button", { name: /RUN snapshot\.rebuild/ }));
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain(t("admin.plan.error.admin_plan_stale"));
@@ -145,7 +140,7 @@ describe("AdminPlanReview — reviewed plan is the executed plan", () => {
 
   it("Escape closes the dialog without executing", () => {
     const onClose = vi.fn();
-    render(<AdminPlanReview plan={plan()} onClose={onClose} />);
+    render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={plan()} onClose={onClose} />);
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(executeAdminPlan).not.toHaveBeenCalled();

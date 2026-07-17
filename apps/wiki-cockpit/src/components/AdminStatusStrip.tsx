@@ -19,7 +19,7 @@ import {
   getAdminSessionDescription,
   subscribeAdminSession
 } from "../application/adminSession";
-import { lockAdminSession, renewAdminSession } from "../data/admin";
+import type { AdminPort } from "../application/ports";
 
 const TICK_MS = 15_000;
 
@@ -31,9 +31,14 @@ const STATE_LABEL_KEYS: Record<string, string> = {
 };
 
 export function AdminStatusStrip({
+  lockAdminSession,
+  renewAdminSession,
   onNotice,
   onOpenDock
 }: {
+  // Injected from the composition root — the strip never imports transport.
+  lockAdminSession: AdminPort["lockAdminSession"];
+  renewAdminSession: AdminPort["renewAdminSession"];
   onNotice?: (text: string) => void;
   onOpenDock?: () => void;
 }) {

@@ -13,7 +13,6 @@ import { setAdminCommandIntent } from "../application/adminCommandIntent";
 import { isExplicitCommandDraft } from "../commands/parser";
 import type { CommandInvocation } from "../commands/types";
 import { adminSessionActive } from "../application/adminSession";
-import { lockAdminSession } from "../data/admin";
 import { t } from "../data/i18n";
 import { experiencePackView } from "../data/experiencePacks";
 import { contextLabel, pageTypeLabel, pageTypeStyle, perspectiveLabel, worldGroupDescription, worldGroupLabel } from "../data/presentation";
@@ -28,7 +27,7 @@ import { searchPages } from "../scene/search";
 import { canonicalWorldUrl, hydrateWorldRoute } from "../world/state/routeHydration";
 import type { OverlayId, RuntimeEvent } from "../world/contracts";
 import type { WorldPatch, WorldRoute } from "../router";
-import type { NavigationPort, OperatorPort } from "../application/ports";
+import type { AdminPort, NavigationPort, OperatorPort } from "../application/ports";
 import { anchorRecord, anchorSupportsQuadrants, focusAnchorId } from "../data/blocks";
 import { composeInstruments, rootAnchor } from "../data/surfaces";
 import { regionPayloadByKey } from "../data/visualPrimitives";
@@ -469,6 +468,7 @@ export function WorldView({
   navigation,
   loadPageContent,
   loadTemporalGraph,
+  lockAdminSession,
   onSnapshotMismatch,
   worldRuntime,
   worldState
@@ -485,6 +485,9 @@ export function WorldView({
   navigation: NavigationPort;
   loadPageContent: OperatorPort["loadPageContent"];
   loadTemporalGraph: OperatorPort["loadTemporalGraph"];
+  // Injected admin transport (composition root): `god_mode off` really locks
+  // through the server — the component itself never imports the admin client.
+  lockAdminSession: AdminPort["lockAdminSession"];
   onSnapshotMismatch?: () => void;
   worldRuntime: import("../world/WorldRuntime").WorldRuntime;
   worldState: import("../world/contracts").WorldState;

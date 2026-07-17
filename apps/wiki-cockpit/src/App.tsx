@@ -1138,7 +1138,7 @@ function GitWorkflowPanel({
 // here until the 2026-07 cleanup.
 
 export function App({ ports }: { ports: ApplicationPorts }) {
-  const { navigation, operator } = ports;
+  const { navigation, operator, admin } = ports;
   const [url, setUrl] = useState(() => navigation.getSnapshot());
   useEffect(
     () => navigation.subscribe(() => setUrl(navigation.getSnapshot())),
@@ -1847,6 +1847,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             navigation={navigation}
             loadPageContent={operator.loadPageContent}
             loadTemporalGraph={operator.loadTemporalGraph}
+            lockAdminSession={admin.lockAdminSession}
             onSnapshotMismatch={worldRoute.demo ? undefined : refetchReal}
           />
           </Suspense>
@@ -2020,6 +2021,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             (unavailable / locked / read-only) and has no write affordance. */}
         {adminDockOpen && worldRoute && loadState.status === "ready" && (
           <AdminDock
+            admin={admin}
             bundle={loadState.bundle}
             demo={route.demo}
             runtimeMode={loadState.runtime.mode || loadState.bundle.manifest.mode}
@@ -2077,6 +2079,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
         {/* Persistent session indicator (plan §14.4): renders only while an
             administrative session is active; its absence IS the locked state. */}
         <AdminStatusStrip
+          lockAdminSession={admin.lockAdminSession}
+          renewAdminSession={admin.renewAdminSession}
           onNotice={notify}
           onOpenDock={() => navigate(hrefForWorldPatch(navWorld, { dock: "admin" }))}
         />

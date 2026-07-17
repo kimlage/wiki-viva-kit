@@ -25,14 +25,23 @@ const { loadAdminAccess, fetchAdminCommandCatalog, planAdminCommand } = vi.hoist
   )
 }));
 
-vi.mock("../data/admin", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../data/admin")>()),
-  loadAdminAccess,
-  fetchAdminCommandCatalog,
-  planAdminCommand
-}));
-
 import { AdminDock } from "./AdminDock";
+import type { AdminPort } from "../application/ports";
+
+// The dock takes its transport as an injected port (composition root); the
+// tests hand it this fake — no module mocking, no network anywhere.
+function adminPort(): AdminPort {
+  return {
+    loadAdminAccess,
+    fetchAdminCommandCatalog,
+    planAdminCommand,
+    requestAdminChallenge: vi.fn(async () => ({ ok: false as const, errorCode: "operator_unreachable" as const })),
+    unlockAdminSession: vi.fn(async () => ({ ok: false as const, errorCode: "operator_unreachable" as const })),
+    renewAdminSession: vi.fn(async () => ({ ok: false as const, errorCode: "operator_unreachable" as const })),
+    lockAdminSession: vi.fn(async () => ({ ok: true as const })),
+    executeAdminPlan: vi.fn(async () => ({ ok: false as const, errorCode: "operator_unreachable" as const }))
+  };
+}
 
 function bundle(): SnapshotBundle {
   return {
@@ -162,7 +171,7 @@ afterEach(() => {
 describe("AdminDock — §6.3 states, read-only", () => {
   it("shows LOCKED with zero granted capability chips when the URL opened it without a session (§22.2)", async () => {
     loadAdminAccess.mockResolvedValue(lockedAccess());
-    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText(t("admin.state.locked"))).toBeTruthy());
     expect(screen.getByText(t("admin.locked.note"))).toBeTruthy();
     expect(screen.getByText(t("admin.overview.capabilities", { granted: 0, total: 3 }))).toBeTruthy();
@@ -177,7 +186,7 @@ describe("AdminDock — §6.3 states, read-only", () => {
   });
 
   it("stays sealed in the demo: unavailable copy and no discovery request at all", () => {
-    render(<AdminDock bundle={bundle()} demo runtimeMode="static_demo" onClose={() => {}} />);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo runtimeMode="static_demo" onClose={() => {}} />);
     expect(screen.getByText(t("admin.state.unavailable"))).toBeTruthy();
     expect(screen.getByText(t("admin.reason.demo"))).toBeTruthy();
     expect(loadAdminAccess).not.toHaveBeenCalled();
@@ -187,7 +196,7 @@ describe("AdminDock — §6.3 states, read-only", () => {
 
   it("reports an unreachable operator as unavailable, not locked", async () => {
     loadAdminAccess.mockResolvedValue({ kind: "unavailable", reason: "operator_unreachable" });
-    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="sample_fallback" onClose={() => {}} />);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="sample_fallback" onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText(t("admin.state.unavailable"))).toBeTruthy());
     expect(screen.getByText(t("admin.reason.operator_unreachable"))).toBeTruthy();
   });
@@ -198,7 +207,7 @@ describe("AdminDock — §6.3 states, read-only", () => {
       reason: "operator_outdated",
       detail: "the local operator is outdated; restart it"
     });
-    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText(t("admin.reason.operator_outdated"))).toBeTruthy());
     expect(screen.getByText("the local operator is outdated; restart it")).toBeTruthy();
   });
@@ -207,14 +216,14 @@ describe("AdminDock — §6.3 states, read-only", () => {
     const access = lockedAccess();
     if (access.kind === "capabilities") access.payload.session_state = "active_readonly";
     loadAdminAccess.mockResolvedValue(access);
-    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText(t("admin.state.active_readonly"))).toBeTruthy());
     expect(screen.getByText(t("admin.readonly.note"))).toBeTruthy();
   });
 
   it("shows snapshot age, branch and version facts from the bundle", async () => {
     loadAdminAccess.mockResolvedValue(lockedAccess());
-    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText("wiki_admin.v1")).toBeTruthy());
     expect(screen.getByText(t("admin.overview.snapshotAge", { when: "2026-07-17 10:00" }))).toBeTruthy();
     expect(screen.getByText("wiki/topic")).toBeTruthy();
@@ -228,7 +237,7 @@ describe("AdminDock — §6.3 states, read-only", () => {
 describe("AdminDock — command bus section (plan §11/§14, PR4)", () => {
   it("locked dock has no commands section and never fetches the catalog", async () => {
     loadAdminAccess.mockResolvedValue(lockedAccess());
-    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText(t("admin.state.locked"))).toBeTruthy());
     expect(screen.queryByText(t("admin.section.commands"))).toBeNull();
     expect(fetchAdminCommandCatalog).not.toHaveBeenCalled();
@@ -238,7 +247,7 @@ describe("AdminDock — command bus section (plan §11/§14, PR4)", () => {
     loadAdminAccess.mockResolvedValue(activeAccess());
     fetchAdminCommandCatalog.mockResolvedValue(catalogResult());
     planAdminCommand.mockResolvedValue(plannedResult());
-    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText("Inspect system state")).toBeTruthy());
     // The denied command renders present-but-absent, with its reason text.
     expect(screen.getByText("Rebuild the published web snapshot")).toBeTruthy();
@@ -257,7 +266,7 @@ describe("AdminDock — command bus section (plan §11/§14, PR4)", () => {
     fetchAdminCommandCatalog.mockResolvedValue(catalogResult());
     planAdminCommand.mockResolvedValue(plannedResult());
     setAdminCommandIntent("system.inspect");
-    render(<AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
     await waitFor(() =>
       expect(planAdminCommand).toHaveBeenCalledWith("system.inspect", {}, { dryRun: false })
     );
@@ -270,7 +279,7 @@ describe("AdminDock — command bus section (plan §11/§14, PR4)", () => {
     const onNotice = vi.fn();
     setAdminCommandIntent("snapshot.rebuild");
     render(
-      <AdminDock bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} onNotice={onNotice} />
+      <AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} onNotice={onNotice} />
     );
     await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.commands.notGranted")));
     expect(planAdminCommand).not.toHaveBeenCalled();

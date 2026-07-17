@@ -14,13 +14,15 @@ const { lockAdminSession, renewAdminSession } = vi.hoisted(() => ({
   renewAdminSession: vi.fn(async (): Promise<unknown> => ({ ok: false, errorCode: "admin_session_expired" }))
 }));
 
-vi.mock("../data/admin", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../data/admin")>()),
-  lockAdminSession,
-  renewAdminSession
-}));
-
 import { AdminStatusStrip } from "./AdminStatusStrip";
+import type { AdminPort } from "../application/ports";
+
+// The strip takes its transport as injected props (composition root); the
+// tests hand it these fakes — no module mocking, no network anywhere.
+const sessionPorts = {
+  lockAdminSession: lockAdminSession as AdminPort["lockAdminSession"],
+  renewAdminSession: renewAdminSession as AdminPort["renewAdminSession"]
+};
 
 function activate(expiresInMs: number, state = "active_full") {
   setAdminSession("tok-strip", {
@@ -42,13 +44,13 @@ afterEach(() => {
 
 describe("AdminStatusStrip", () => {
   it("renders nothing while locked — absence IS the locked indicator", () => {
-    const { container } = render(<AdminStatusStrip />);
+    const { container } = render(<AdminStatusStrip {...sessionPorts} />);
     expect(container.innerHTML).toBe("");
   });
 
   it("shows the state and remaining time as text with a lock button (§14.4)", () => {
     activate(10 * 60 * 1000);
-    render(<AdminStatusStrip />);
+    render(<AdminStatusStrip {...sessionPorts} />);
     expect(screen.getByText(t("admin.state.active_full"))).toBeTruthy();
     expect(screen.getByText(t("admin.strip.timeLeft", { m: 10 }))).toBeTruthy();
     expect(screen.getByText(t("admin.strip.lock"))).toBeTruthy();
@@ -57,7 +59,7 @@ describe("AdminStatusStrip", () => {
 
   it("switches to the expiring label under the threshold", () => {
     activate(90 * 1000);
-    render(<AdminStatusStrip />);
+    render(<AdminStatusStrip {...sessionPorts} />);
     expect(screen.getByText(t("admin.state.expiring"))).toBeTruthy();
   });
 
@@ -68,7 +70,7 @@ describe("AdminStatusStrip", () => {
       return { ok: true };
     });
     const onNotice = vi.fn();
-    render(<AdminStatusStrip onNotice={onNotice} />);
+    render(<AdminStatusStrip {...sessionPorts} onNotice={onNotice} />);
     fireEvent.click(screen.getByText(t("admin.strip.lock")));
     await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.strip.locked")));
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
@@ -77,7 +79,7 @@ describe("AdminStatusStrip", () => {
   it("clears a locally expired session instead of showing a false active (§22.2)", async () => {
     activate(-1000);
     const onNotice = vi.fn();
-    const { container } = render(<AdminStatusStrip onNotice={onNotice} />);
+    const { container } = render(<AdminStatusStrip {...sessionPorts} onNotice={onNotice} />);
     await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.strip.expired")));
     expect(container.querySelector(".adminStatusStrip")).toBeNull();
   });
@@ -86,7 +88,7 @@ describe("AdminStatusStrip", () => {
     activate(10 * 60 * 1000);
     renewAdminSession.mockResolvedValue({ ok: true, session: {} });
     const onNotice = vi.fn();
-    render(<AdminStatusStrip onNotice={onNotice} />);
+    render(<AdminStatusStrip {...sessionPorts} onNotice={onNotice} />);
     fireEvent.click(screen.getByText(t("admin.strip.renew")));
     await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.strip.renewed")));
     expect(renewAdminSession).toHaveBeenCalledTimes(1);

@@ -10,12 +10,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { KeyRound, ListChecks, Lock, RefreshCw, X } from "lucide-react";
 import { t } from "../data/i18n";
-import {
-  fetchAdminCommandCatalog,
-  loadAdminAccess,
-  lockAdminSession,
-  planAdminCommand
-} from "../data/admin";
+import type { AdminPort } from "../application/ports";
 import type {
   AdminAccess,
   AdminCommandCatalogEntry,
@@ -65,12 +60,16 @@ function reasonLabel(reason: string | undefined): string | null {
 }
 
 export function AdminDock({
+  admin,
   bundle,
   demo,
   runtimeMode,
   onClose,
   onNotice
 }: {
+  // Injected transport port (composition root): the dock never imports the
+  // admin client, and holding the port grants nothing — the server answers.
+  admin: AdminPort;
   bundle: SnapshotBundle;
   demo: boolean;
   runtimeMode: string;
@@ -102,7 +101,7 @@ export function AdminDock({
       return () => undefined;
     }
     setAccess(null);
-    loadAdminAccess()
+    admin.loadAdminAccess()
       .then((result) => {
         if (!cancelled) setAccess(result);
       })
@@ -129,7 +128,7 @@ export function AdminDock({
       setCatalog(null);
       return () => undefined;
     }
-    void fetchAdminCommandCatalog().then((result) => {
+    void admin.fetchAdminCommandCatalog().then((result) => {
       if (!cancelled) setCatalog(result.ok ? result.commands : []);
     });
     return () => {
@@ -140,7 +139,7 @@ export function AdminDock({
   const startPlan = (entry: AdminCommandCatalogEntry, dryRun: boolean) => {
     if (planningId !== null) return;
     setPlanningId(entry.id);
-    void planAdminCommand(entry.id, {}, { dryRun }).then((result) => {
+    void admin.planAdminCommand(entry.id, {}, { dryRun }).then((result) => {
       setPlanningId(null);
       if (result.ok) {
         setActivePlan(result.plan);
@@ -250,7 +249,7 @@ export function AdminDock({
                       className="secondaryButton"
                       type="button"
                       onClick={() => {
-                        void lockAdminSession().then(() => {
+                        void admin.lockAdminSession().then(() => {
                           onNotice?.(t("admin.strip.locked"));
                           setProbe((value) => value + 1);
                         });
@@ -426,6 +425,7 @@ export function AdminDock({
         )}
         {activePlan && !demo && (
           <AdminPlanReview
+            executeAdminPlan={admin.executeAdminPlan}
             plan={activePlan}
             onClose={() => setActivePlan(null)}
             // A successful execution may have invalidated the snapshot or
@@ -437,6 +437,8 @@ export function AdminDock({
         )}
         {unlockOpen && !demo && (
           <AdminUnlockDialog
+            requestAdminChallenge={admin.requestAdminChallenge}
+            unlockAdminSession={admin.unlockAdminSession}
             onUnlocked={() => {
               setUnlockOpen(false);
               onNotice?.(t("admin.unlock.success"));

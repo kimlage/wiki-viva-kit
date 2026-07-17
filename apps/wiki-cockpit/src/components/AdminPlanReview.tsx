@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ClipboardCheck, Play, X } from "lucide-react";
 import { t } from "../data/i18n";
-import { executeAdminPlan } from "../data/admin";
+import type { AdminPort } from "../application/ports";
 import type {
   AdminCommandErrorCode,
   AdminExecuteOutcome,
@@ -33,11 +33,14 @@ function shortExpected(value: unknown): string {
 }
 
 export function AdminPlanReview({
+  executeAdminPlan,
   plan,
   onClose,
   onExecuted,
   onNotice
 }: {
+  // Injected from the composition root — this dialog never imports transport.
+  executeAdminPlan: AdminPort["executeAdminPlan"];
   plan: AdminPlan;
   onClose: () => void;
   onExecuted?: (outcome: AdminExecuteOutcome) => void;

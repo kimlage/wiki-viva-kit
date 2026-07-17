@@ -13,13 +13,15 @@ const { requestAdminChallenge, unlockAdminSession } = vi.hoisted(() => ({
   unlockAdminSession: vi.fn(async (): Promise<unknown> => ({ ok: false, errorCode: "admin_unlock_code_rejected" }))
 }));
 
-vi.mock("../data/admin", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../data/admin")>()),
-  requestAdminChallenge,
-  unlockAdminSession
-}));
-
 import { AdminUnlockDialog } from "./AdminUnlockDialog";
+import type { AdminPort } from "../application/ports";
+
+// The dialog takes its transport as injected props (composition root); the
+// tests hand it these fakes — no module mocking, no network anywhere.
+const sessionPorts = {
+  requestAdminChallenge: requestAdminChallenge as AdminPort["requestAdminChallenge"],
+  unlockAdminSession: unlockAdminSession as AdminPort["unlockAdminSession"]
+};
 
 const session = {
   sessionId: "session_1",
@@ -47,7 +49,7 @@ describe("AdminUnlockDialog", () => {
   it("requests a challenge on mount and unlocks with the typed code", async () => {
     unlockAdminSession.mockResolvedValue({ ok: true, session });
     const onUnlocked = vi.fn();
-    render(<AdminUnlockDialog onUnlocked={onUnlocked} onClose={() => {}} />);
+    render(<AdminUnlockDialog {...sessionPorts} onUnlocked={onUnlocked} onClose={() => {}} />);
     await waitFor(() => expect(requestAdminChallenge).toHaveBeenCalledTimes(1));
     await typeAndSubmit("AAAA-2222");
     await waitFor(() => expect(onUnlocked).toHaveBeenCalledWith(session));
@@ -57,7 +59,7 @@ describe("AdminUnlockDialog", () => {
   it("shows the typed error for a wrong code and arms a FRESH challenge", async () => {
     unlockAdminSession.mockResolvedValue({ ok: false, errorCode: "admin_unlock_code_rejected" });
     const onUnlocked = vi.fn();
-    render(<AdminUnlockDialog onUnlocked={onUnlocked} onClose={() => {}} />);
+    render(<AdminUnlockDialog {...sessionPorts} onUnlocked={onUnlocked} onClose={() => {}} />);
     await typeAndSubmit("WRNG-CODE");
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toBe(
@@ -71,7 +73,7 @@ describe("AdminUnlockDialog", () => {
 
   it("turns rate limiting into a blocked state with only retry/cancel", async () => {
     unlockAdminSession.mockResolvedValue({ ok: false, errorCode: "admin_rate_limited" });
-    render(<AdminUnlockDialog onUnlocked={() => {}} onClose={() => {}} />);
+    render(<AdminUnlockDialog {...sessionPorts} onUnlocked={() => {}} onClose={() => {}} />);
     await typeAndSubmit("AAAA-2222");
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toBe(
@@ -84,7 +86,7 @@ describe("AdminUnlockDialog", () => {
 
   it("reports an unreachable operator without pretending a form could help", async () => {
     requestAdminChallenge.mockResolvedValue({ ok: false, errorCode: "operator_unreachable" });
-    render(<AdminUnlockDialog onUnlocked={() => {}} onClose={() => {}} />);
+    render(<AdminUnlockDialog {...sessionPorts} onUnlocked={() => {}} onClose={() => {}} />);
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toBe(
         t("admin.unlock.error.operator_unreachable")
@@ -94,7 +96,7 @@ describe("AdminUnlockDialog", () => {
 
   it("closes on Escape (ladder respected: stopPropagation keeps the dock open)", async () => {
     const onClose = vi.fn();
-    render(<AdminUnlockDialog onUnlocked={() => {}} onClose={onClose} />);
+    render(<AdminUnlockDialog {...sessionPorts} onUnlocked={() => {}} onClose={onClose} />);
     const input = await screen.findByLabelText(t("admin.unlock.codeLabel"));
     fireEvent.keyDown(input, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);

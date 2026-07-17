@@ -10,10 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyRound, X } from "lucide-react";
 import { t } from "../data/i18n";
-import {
-  requestAdminChallenge,
-  unlockAdminSession
-} from "../data/admin";
+import type { AdminPort } from "../application/ports";
 import type { AdminSessionErrorCode } from "../data/admin";
 import type { AdminSessionDescription } from "../application/adminSession";
 
@@ -27,9 +24,14 @@ const TERMINAL_ERRORS: ReadonlySet<AdminSessionErrorCode> = new Set([
 ]);
 
 export function AdminUnlockDialog({
+  requestAdminChallenge,
+  unlockAdminSession,
   onUnlocked,
   onClose
 }: {
+  // Injected from the composition root — this dialog never imports transport.
+  requestAdminChallenge: AdminPort["requestAdminChallenge"];
+  unlockAdminSession: AdminPort["unlockAdminSession"];
   onUnlocked: (session: AdminSessionDescription) => void;
   onClose: () => void;
 }) {
@@ -51,7 +53,7 @@ export function AdminUnlockDialog({
     setChallenge(null);
     setErrorCode(result.errorCode);
     setPhase(TERMINAL_ERRORS.has(result.errorCode) ? "blocked" : "ready");
-  }, []);
+  }, [requestAdminChallenge]);
 
   useEffect(() => {
     void fetchChallenge();
