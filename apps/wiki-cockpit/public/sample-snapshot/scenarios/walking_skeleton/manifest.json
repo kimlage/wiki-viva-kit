@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "ed5d757b88438fb3da5c28cb88df2a55796a265da3ccc0c0fb488dcc7401142a",
+  "bundle_hash": "8a14472d1a216ad27df916b49ca77afd77214ffccfa902e9bcd8bd7965c6a4e8",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -16,6 +16,7 @@
     "snapshot_warnings",
     "temporal_graph",
     "experience_packs",
+    "source_foundation_v1",
     "content_sidecars"
   ],
   "content_sidecars": true,
@@ -48,6 +49,7 @@
     "region_groups.json",
     "source_lifecycle.json",
     "snapshot_warnings.json",
+    "source_foundation.json",
     "content/action-enviar-proposta.05a0afa6.json",
     "content/artifact-relatorio-recon.8b3a520f.json",
     "content/claim-custos-sobem.0be31ee0.json",
@@ -71,7 +73,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "091455d35dfca333f56232035f69d48195eebac55f4f9552e867144e2d7d20bb"
+    "source_input_sha256": "13721880636a8a248b1397eb68cc17a27f5237d9cb38f02a9627bcd156cf97df"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -93,35 +95,35 @@
     },
     "content/action-enviar-proposta.05a0afa6.json": {
       "bytes": 2113,
-      "sha256": "272da4e6fca1ae10a69bf95492abe0fe6b86c23241c63b10864838f71918a64e"
+      "sha256": "de1356887d7ee21e0c99094b6d8c89f57fe9a8258edfe73cf0ea5c7288cfcb20"
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1494,
-      "sha256": "5084c733a692dbfe84f0a16880a7af15c694a8d571678b69f85ef7ca2764d774"
+      "sha256": "dc841954f37dba1c666e058ea036ff3040bd33ac3f9d4060d7662769e7923bfb"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 1462,
-      "sha256": "19b315d735aa37afc53425689e5e8d3a56bf2b6096e406c9c67e0dc148a99adc"
+      "sha256": "a4db29dbde095779f14d430fbbef780825055ebbe0ef4756ccd8e7bb423c5a9f"
     },
     "content/event-ingest-banco-2026-05.60d41f0b.json": {
       "bytes": 1968,
-      "sha256": "3fd9bc38502380b175aa3e96415d173207af688d0a415c47cf278b335690aed3"
+      "sha256": "10afd944ac47f7311f8f423ad4effafc50bec39a4fbcd592615af3984f9081c7"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1979,
-      "sha256": "87b1204920a01fc004ba64d814a198048a53b2bc3f6c869856ed1e1672691de8"
+      "sha256": "42259f67f737f4a51f5031c497e5c479a82630ba5eec1f7207db650ab1f33faa"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "2d978e4e3a9d319e9e8dde0dd19680b5edd231deeb881dc36739541f43f457f4"
+      "sha256": "586d7ce8219c255aac00e131238c644f84955c648d7ec2407c85f9bca1b6ba5b"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2429,
-      "sha256": "62a7df52beceab2cab176ec71b3881e8fc4188a3a1cccdaff610bff70f48fb80"
+      "sha256": "388e6c148d86227b71d3fb9cbba5667e5b451ba2daf6cab4b1909145394bbe2c"
     },
     "content/source-banco-export.21d8fe1f.json": {
       "bytes": 2978,
-      "sha256": "2debb1d3becf94548d9add6004986bfec9a6ab87cb6ea1a38eb4166d11f35906"
+      "sha256": "78c0887451d731c31b4de3f8a5db215ecdab7e09f91ad32996a1efa75d563712"
     },
     "decisions.json": {
       "bytes": 57,
@@ -187,6 +189,10 @@
       "bytes": 1451,
       "sha256": "966c893ec21553b7bb3ce3592efdf2c8139501c3371a69d4f013d886821d0a7e"
     },
+    "source_foundation.json": {
+      "bytes": 3344,
+      "sha256": "2b67d2374eadd434d7edb0cff091c1d20219d89a5fb383feb0e6b98c78be79c5"
+    },
     "source_lifecycle.json": {
       "bytes": 851,
       "sha256": "2cc7905a39f3b22c113a063e7b416f9307e51d9804c0e1c177cdae00af475d58"
@@ -224,7 +230,7 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-ed5d757b88438fb3",
+  "snapshot_id": "wiki-viva-demo-8a14472d1a216ad2",
   "source_commit": null,
   "source_sha": "uncommitted:512054484a28323be6121e22f1e6fe77d577a82f780abe33ab159cc4ca091bcc",
   "versions": {
@@ -237,6 +243,7 @@
     "runtime_contract": "wiki_world_runtime.v8",
     "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
     "snapshot": "wiki_web_snapshot.v2",
+    "source_foundation": "wiki_web_source_foundation.v1",
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",

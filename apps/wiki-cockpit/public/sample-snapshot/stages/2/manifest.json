@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "5d97598761c861f4b106e7a288a65094a53f61bd4e0b7a0ba78920dae40a5db7",
+  "bundle_hash": "f589d22db738f5dcd4e2953ad3c53a9c77f24db83f68db37c7d95067a3d166d1",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -16,6 +16,7 @@
     "snapshot_warnings",
     "temporal_graph",
     "experience_packs",
+    "source_foundation_v1",
     "content_sidecars"
   ],
   "content_sidecars": true,
@@ -48,6 +49,7 @@
     "region_groups.json",
     "source_lifecycle.json",
     "snapshot_warnings.json",
+    "source_foundation.json",
     "content/root-alex-rivera.f4a10886.json"
   ],
   "fixture": {
@@ -65,7 +67,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "2b0c8aa9f31d3f50713f513885253a44ecd0a4c36ed0019662b40819a8775793"
+    "source_input_sha256": "0cca125e627c1e3dc8b53ec215012943d656157b5921668f21d321aea8c2d2c2"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -87,7 +89,7 @@
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1749,
-      "sha256": "4c6ae663633b66f68c90f6e715f2e3d3eb1e8a0a33ae3014c9717697b5d3dd31"
+      "sha256": "ce6b58a17d310f554da35a6af8cd085495f567bd3e6def8799608cff9ab39e4c"
     },
     "decisions.json": {
       "bytes": 57,
@@ -153,6 +155,10 @@
       "bytes": 111,
       "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
     },
+    "source_foundation.json": {
+      "bytes": 515,
+      "sha256": "f418a1645d1d29637a826cad6a6d81a12cd91ebe4f87357a8b406eed5b689b3b"
+    },
     "source_lifecycle.json": {
       "bytes": 58,
       "sha256": "fae2169dc386a6fc7caaaa74d1990c34433b478868cb06deaa288d176fe214ff"
@@ -190,7 +196,7 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-5d97598761c861f4",
+  "snapshot_id": "wiki-viva-demo-f589d22db738f5dc",
   "source_commit": null,
   "source_sha": "uncommitted:6d41486e5f6cc01c8df891bc0bff0b716e2d856ecc3d704744b8e61105f3e1c7",
   "versions": {
@@ -203,6 +209,7 @@
     "runtime_contract": "wiki_world_runtime.v8",
     "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
     "snapshot": "wiki_web_snapshot.v2",
+    "source_foundation": "wiki_web_source_foundation.v1",
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",

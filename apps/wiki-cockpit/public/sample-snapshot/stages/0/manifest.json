@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "13c1d3e208c80b15aa4c65b8839ac36a1d2f6e3734fbac7f4ede1eda46d1dc2a",
+  "bundle_hash": "61735ffa4801859eb9e629cbe42dcb9e00800b08b064e4f9ad86b19109e517dc",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -16,6 +16,7 @@
     "snapshot_warnings",
     "temporal_graph",
     "experience_packs",
+    "source_foundation_v1",
     "empty_world_compat",
     "content_sidecars"
   ],
@@ -48,7 +49,8 @@
     "work_items.json",
     "region_groups.json",
     "source_lifecycle.json",
-    "snapshot_warnings.json"
+    "snapshot_warnings.json",
+    "source_foundation.json"
   ],
   "fixture": {
     "fixture_id": "wiki-viva-demo-v8",
@@ -65,7 +67,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "ad867bf4b7b0a58341362e309e1c6b8a9214a35454e7fb1a702c823d74bf01fb"
+    "source_input_sha256": "6a6033faf39b7c0810d17e6e2ad899d3606854553ee808c1e219a87b7cdb9f03"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -149,6 +151,10 @@
       "bytes": 111,
       "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
     },
+    "source_foundation.json": {
+      "bytes": 515,
+      "sha256": "5e31ef27729d2cfb640f85c4bc3e25f9e80ac1f752d4e637a09627f663222c0c"
+    },
     "source_lifecycle.json": {
       "bytes": 58,
       "sha256": "fae2169dc386a6fc7caaaa74d1990c34433b478868cb06deaa288d176fe214ff"
@@ -186,7 +192,7 @@
   },
   "root_page_id": null,
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-13c1d3e208c80b15",
+  "snapshot_id": "wiki-viva-demo-61735ffa4801859e",
   "source_commit": null,
   "source_sha": "uncommitted:13c1d3e208c80b15aa4c65b8839ac36a1d2f6e3734fbac7f4ede1eda46d1dc2a",
   "versions": {
@@ -199,6 +205,7 @@
     "runtime_contract": "wiki_world_runtime.v8",
     "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
     "snapshot": "wiki_web_snapshot.v2",
+    "source_foundation": "wiki_web_source_foundation.v1",
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",

@@ -30,6 +30,10 @@
     "participants": [
       "person-joao-mendes"
     ],
+    "source_refs": [
+      "source-agenda",
+      "source-chat-export"
+    ],
     "stale_after_days": 30,
     "sub_lens": "encontros",
     "title": "Weekly sync \u2014 Product Ops",
@@ -65,6 +69,29 @@
     }
   ],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-a37e032ac50307f2",
-  "source_refs": []
+  "snapshot_id": "wiki-viva-demo-28cdc7d4f2e28d6c",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "page_id": "source-agenda",
+      "page_type": "source",
+      "path": "memories/sources/source-agenda.md",
+      "ref": "source-agenda",
+      "resolved": true,
+      "title": "Agenda"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-chat-export",
+      "page_type": "source",
+      "path": "memories/sources/source-chat-export.md",
+      "ref": "source-chat-export",
+      "resolved": true,
+      "title": "Export do Chat"
+    }
+  ]
 }

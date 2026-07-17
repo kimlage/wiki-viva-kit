@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "3a66ac816be915d4ae85c0ded51c282060ebbf395a79a0455ee910a08ff36180",
+  "bundle_hash": "6e5cf1e8647eb9b1aca7054eddeed4fcf28525f81da2396591377ddfd32f55a6",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -16,6 +16,7 @@
     "snapshot_warnings",
     "temporal_graph",
     "experience_packs",
+    "source_foundation_v1",
     "content_sidecars"
   ],
   "content_sidecars": true,
@@ -48,6 +49,7 @@
     "region_groups.json",
     "source_lifecycle.json",
     "snapshot_warnings.json",
+    "source_foundation.json",
     "content/artifact-relatorio-recon.8b3a520f.json",
     "content/claim-custos-sobem.0be31ee0.json",
     "content/event-ingest-banco-2026-05.60d41f0b.json",
@@ -71,7 +73,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "7ca886c59a85ac143a70d110f676eafb61ef73649744d6446ea354e270d2411c"
+    "source_input_sha256": "36809110ef32aa22e577a3976a05258073826bd0d2bfeab0434546cfc79b4864"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -93,31 +95,31 @@
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1494,
-      "sha256": "db20957f9ee0095b61527d9501e08139201db3d8651c842048e62fa237817ecd"
+      "sha256": "68d09fa685c56e4994967ec67fcea91da252a405380cd03b10e05de8f0df1236"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 1462,
-      "sha256": "8c65cd65d80a354added68df26d8f8c95f79c56c53e14aeb51a805ec28946e49"
+      "sha256": "f26cb3383f071d24975959c90e3fd031689ffa09f111649a7bd0b78b99134d6c"
     },
     "content/event-ingest-banco-2026-05.60d41f0b.json": {
       "bytes": 1968,
-      "sha256": "48f4a18a1d57e9238a25b83b64bb7ab2fed0402b877786a6430052ae2339fd0a"
+      "sha256": "e69d5711e4e1824d0389e4aec992f696dbd86e4d6e885c62932f5b438ed50752"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1979,
-      "sha256": "e62f8908be272d17f8f514ce67483d8bc68f284eaf05fd7ec2880165a40e1c45"
+      "sha256": "8228079faac39fae0aec538f611aee62febb2f3b8a68a75a8f9867daf8f5e993"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "0601f17512e46ee08f84142026a17dea862877e9f229d6ba5a0fef233b9e18ed"
+      "sha256": "de2e1e71e1eb60ac5e47356e33fc913d868edd77fde022fef986a3b302681e94"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2270,
-      "sha256": "69b0ac26a17c926e528b5381df5e4813754ce6924584ae7c10913abdf147a86f"
+      "sha256": "a53ceabf9f033c6301b3c2f539fb6f8fb93ce3b9041d5de257b20257ddb3b50e"
     },
     "content/source-banco-export.21d8fe1f.json": {
       "bytes": 2978,
-      "sha256": "dc5c2e106589d48b1d5d91bc15a10d6fedb648ce19c1019af633344e07d9ea6d"
+      "sha256": "8d629f94edb7a814ccd60eb537cab3a2dc3f779990ab905a0af3f9cb6ea2a48c"
     },
     "decisions.json": {
       "bytes": 57,
@@ -183,6 +185,10 @@
       "bytes": 1451,
       "sha256": "966c893ec21553b7bb3ce3592efdf2c8139501c3371a69d4f013d886821d0a7e"
     },
+    "source_foundation.json": {
+      "bytes": 3344,
+      "sha256": "3b4c719c45bc98f059c1ce6435f644e94d3c6374df270fac1a5e7e02a5af7ebd"
+    },
     "source_lifecycle.json": {
       "bytes": 851,
       "sha256": "2cc7905a39f3b22c113a063e7b416f9307e51d9804c0e1c177cdae00af475d58"
@@ -220,7 +226,7 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-3a66ac816be915d4",
+  "snapshot_id": "wiki-viva-demo-6e5cf1e8647eb9b1",
   "source_commit": null,
   "source_sha": "uncommitted:0e813c36f504240f65434f83ff1eeb49245d9327ff8080711adae9bec65bf717",
   "versions": {
@@ -233,6 +239,7 @@
     "runtime_contract": "wiki_world_runtime.v8",
     "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
     "snapshot": "wiki_web_snapshot.v2",
+    "source_foundation": "wiki_web_source_foundation.v1",
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",

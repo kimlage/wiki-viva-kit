@@ -12,6 +12,16 @@
     },
     {
       "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "page_id": "source-config-agenda",
+      "page_type": "source_config",
+      "path": "memories/sources/config/source-agenda.md",
+      "relation": "moc_parent",
+      "title": "Source config: Agenda"
+    },
+    {
+      "approved_state": "approved",
       "context": "sistema",
       "freshness_state": "fresh",
       "page_id": "event-ingest-agenda-2026-07",
@@ -19,10 +29,21 @@
       "path": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
       "relation": "source_ref",
       "title": "Ingest\u00e3o: agenda"
+    },
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "page_id": "source-config-agenda",
+      "page_type": "source_config",
+      "path": "memories/sources/config/source-agenda.md",
+      "relation": "source_ref",
+      "title": "Source config: Agenda"
     }
   ],
   "body": "\n# Agenda\n\nA live Google Calendar source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `ingested`, freshness `fresh` and last attempt `ok`.\n",
   "frontmatter": {
+    "config_ref": "memories/sources/config/source-agenda.md",
     "context": "pessoal",
     "moc_parent": "memories/index.md",
     "owner": "root-alex-rivera",
@@ -77,6 +98,6 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-4a586c36ae581e46",
+  "snapshot_id": "wiki-viva-demo-a838345c33803777",
   "source_refs": []
 }
