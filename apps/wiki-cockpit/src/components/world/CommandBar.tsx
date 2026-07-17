@@ -89,6 +89,7 @@ export function CommandBar({
   searchExpanded,
   searchResultsId,
   searchActiveDescendant,
+  easterEggEnabled = true,
   onSearchDraft,
   onSearchKeyDown,
   onCommand,
@@ -112,6 +113,9 @@ export function CommandBar({
   searchExpanded: boolean;
   searchResultsId: string;
   searchActiveDescendant?: string;
+  // Runtime presentation flag (plan §17.2): with the easter egg disabled the
+  // ritual phrase stays ordinary search input.
+  easterEggEnabled?: boolean;
   onSearchDraft: (value: string) => void;
   onSearchKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   onCommand: (input: CommandInvocation) => void;
@@ -161,7 +165,7 @@ export function CommandBar({
       return;
     }
     if (event.key === "Enter") {
-      const parsed = parseCommandInput(value);
+      const parsed = parseCommandInput(value, { easterEggEnabled });
       if (parsed.kind !== "search") {
         event.preventDefault();
         const entry = commandHistoryEntry(value);

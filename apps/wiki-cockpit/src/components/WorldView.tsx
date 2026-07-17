@@ -33,6 +33,8 @@ import type { RuntimeConfig } from "../data/runtimeConfig";
 import type { OperatorCommandCard, BriefSpec, PageRecord, RegionGroupPayload, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
 import { CreateDock } from "./CreateDock";
+import { TakezoRitualFallback, takezoRuntimeKind } from "./TakezoRitualFallback";
+import type { TakezoRuntimeKind } from "../renderers/scene/parts/TakezoWizard";
 import { deriveMissions, missionBriefSpec, MissionsPanel } from "./MissionsPanel";
 import type { RelationGroupKey } from "./PageReader";
 import { sceneFallbackPreferred } from "../renderers/scene/parts/materials";
@@ -1406,13 +1408,32 @@ export function WorldView({
   const toggleMissions = () => {
     navigateWorld({ tray: missionsOpen ? null : "missions" });
   };
+  // The abrachaindabra ritual (plan §5): pure presentation state, never
+  // authorization. It lives in memory only — no URL, no storage — and the
+  // demo stays sealed: nothing here issues an administrative request.
+  const [takezoRitual, setTakezoRitual] = useState<TakezoRuntimeKind | null>(null);
+  const closeTakezoRitual = useCallback(() => {
+    setTakezoRitual(null);
+    // Closing hands keyboard focus back to the command bar (plan §23).
+    searchRef.current?.focus();
+  }, []);
+  // G2 placeholder for the local-operator unlock action: the real challenge
+  // dialog arrives with the operator session work (PR3). Honest copy, zero
+  // requests, nothing unlocked.
+  const takezoUnlock = useCallback(() => {
+    onNotice?.(t("takezo.unlockSoon"));
+  }, [onNotice]);
+
   // Interpretation results from the CommandBar (god-mode plan §10). Until the
   // admin session exists (PR2/PR3), every invocation lands on an honest locked
   // placeholder: no administrative request is ever issued from here, and the
   // ritual/commands grant nothing (plan §3.2). Wired further in G3.
   const onCommandInvocation = (input: CommandInvocation) => {
     if (input.kind === "easter_egg") {
-      onNotice?.(t("command.takezo.placeholder"));
+      // Feature-flag guard (plan §17.2): the CommandBar already parses with
+      // the flag, so a disabled egg never reaches here — this is fail-closed.
+      if (!runtime.features.takezoEasterEgg) return;
+      setTakezoRitual(takezoRuntimeKind(route.demo, runtime.mode || bundle.manifest.mode));
       return;
     }
     if (input.kind === "invalid_command") {
@@ -1686,6 +1707,14 @@ export function WorldView({
       // The Brief Studio is a text-editing modal with its own close affordance
       // — Esc must not mutate the layers UNDER it.
       if (document.querySelector(".briefStudio")) return;
+      // The Takezo ritual is the topmost surface while open: Escape closes it
+      // first (plan §5.4/§22.3) and the rest of the ladder is untouched.
+      if (takezoRitual) {
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        closeTakezoRitual();
+        return;
+      }
       if (visualPanelOpen) {
         event.stopImmediatePropagation();
         event.stopPropagation();
@@ -1736,7 +1765,7 @@ export function WorldView({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [trayOpen, missionsOpen, visualPanelOpen, worldNavigatorOpen]);
+  }, [closeTakezoRitual, takezoRitual, trayOpen, missionsOpen, visualPanelOpen, worldNavigatorOpen]);
 
   // An EMPTY world has exactly one interface: the founding rite. A dock in the
   // URL there (deep link, stale history) would open a surface over nothing.
@@ -2109,6 +2138,15 @@ export function WorldView({
         founding={foundingFallbackActive ? null : founding}
         seed={fallbackActive ? null : seed}
         guide={fallbackActive ? null : guide}
+        takezo={
+          takezoRitual && !fallbackActive
+            ? {
+                runtime: takezoRitual,
+                onUnlock: takezoRitual === "local" ? takezoUnlock : undefined,
+                onClose: closeTakezoRitual
+              }
+            : null
+        }
         onMarkerResolve={
           !route.demo && onComposeBrief
             ? (pageId) => {
@@ -2566,6 +2604,7 @@ export function WorldView({
             searchExpanded={Boolean(searchDraft)}
             searchResultsId={SEARCH_RESULTS_ID}
             searchActiveDescendant={visibleHits.length > 0 ? searchResultOptionId(effectiveActiveHit) : undefined}
+            easterEggEnabled={runtime.features.takezoEasterEgg}
             onSearchDraft={(value) => {
               // Reset synchronously. The result list can sit under the pointer
               // and update activeHit through hover while filters reshape it;
@@ -2648,6 +2687,14 @@ export function WorldView({
         <FoundingFallback demo={route.demo} skipHref={route.demo ? skipHref : undefined} onFound={foundWorld} />
       )}
       {fallbackActive && guide && !founding && <GuideFallback guide={guide} />}
+      {/* The ritual's declared 2D twin (plan §15.6): same copy, same flow. */}
+      {takezoRitual && fallbackActive && (
+        <TakezoRitualFallback
+          runtime={takezoRitual}
+          onUnlock={takezoRitual === "local" ? takezoUnlock : undefined}
+          onClose={closeTakezoRitual}
+        />
+      )}
       <CoachMarks
         open={tourOpen}
         returnFocusTo={tourOpenerRef.current}

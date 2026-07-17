@@ -253,6 +253,7 @@ vi.mock("./data/snapshot", () => ({
       language: "",
       strings: {},
       presentation: {},
+      features: { takezoEasterEgg: true, takezoCompanion: false },
       codexEnabled: true
     }
   })),

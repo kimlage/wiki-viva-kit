@@ -28,6 +28,17 @@ describe("parseCommandInput — easter egg (plan §5.2, §22.1)", () => {
   it("does not enable the spaced alias in v1", () => {
     expect(parseCommandInput("abra chain dabra")).toEqual({ kind: "search", query: "abra chain dabra" });
   });
+
+  it("stays plain search when the takezo_easter_egg presentation flag is off", () => {
+    expect(parseCommandInput("abrachaindabra", { easterEggEnabled: false })).toEqual({
+      kind: "search",
+      query: "abrachaindabra"
+    });
+    expect(parseCommandInput("abrachaindabra", { easterEggEnabled: true })).toEqual({
+      kind: "easter_egg",
+      id: "takezo_ritual"
+    });
+  });
 });
 
 describe("parseCommandInput — bare god_mode invocations (plan §10.5)", () => {
@@ -152,7 +163,6 @@ describe("command copy (i18n EN/PT)", () => {
   const messageKeys = [
     ...Object.values(COMMAND_MESSAGE_KEYS),
     ...ADMIN_COMMANDS.map((definition) => definition.helpKey),
-    "command.takezo.placeholder",
     "command.godMode.locked",
     "command.godMode.alreadyLocked",
     "command.admin.locked"

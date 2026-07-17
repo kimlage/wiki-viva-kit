@@ -10594,6 +10594,59 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 }
 .guideSkip:hover { color: #eaf4fa; }
 
+/* --- Takezo ritual (plan §15) ----------------------------------------------
+   Decorative easter-egg layer. The plate speaks the anchored-plate language;
+   the costume colors (robe blue, ribbon red) are OUTSIDE the data legend and
+   the veil is a gentle fade — never a flash. */
+.takezoPlateWrap { pointer-events: auto; }
+.takezoPlate {
+  display: grid;
+  gap: 8px;
+  min-width: 240px;
+  max-width: 300px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #3b5bc0;
+  background: rgba(8, 13, 24, 0.95);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.6), 0 0 26px rgba(90, 110, 200, 0.16);
+  color: #eaf4fa;
+  position: relative;
+  animation: platePop var(--motion-duration-control) var(--motion-easing-control) both;
+}
+.takezoPlate:focus { outline: 2px solid #79c7e8; outline-offset: 2px; }
+.takezoName { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; color: #a8b8ea; }
+.takezoSpeech { margin: 0; font-size: 12.5px; line-height: 1.45; }
+.takezoNote { font-size: 10.5px; color: #9fb4c2; line-height: 1.4; }
+.takezoActions { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { .takezoPlate { animation: none; } }
+
+.takezoRitualFallback {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  background: rgba(4, 7, 12, 0.62);
+}
+.takezoRitualFallback .takezoFigure { width: 136px; height: auto; }
+
+/* Ritual atmosphere: the scene dims slightly while Takezo is on stage. */
+.sceneShell[data-takezo-ritual="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background: radial-gradient(ellipse at center, rgba(6, 10, 20, 0) 42%, rgba(6, 10, 20, 0.38) 100%);
+  animation: takezoVeil var(--motion-duration-feedback, 200ms) var(--motion-easing-feedback, ease-out) both;
+}
+@keyframes takezoVeil { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sceneShell[data-takezo-ritual="true"]::after { animation: none; }
+}
+
 .seedTitle {
   display: flex;
   align-items: center;

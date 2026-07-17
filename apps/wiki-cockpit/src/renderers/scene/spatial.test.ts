@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { worldPlatePose } from "./spatial";
+import { activeWorldPlateNode, worldPlatePose } from "./spatial";
 import type { LayoutNode } from "../../scene/layout";
 
 function layoutNode(overrides: Partial<LayoutNode> & Pick<LayoutNode, "id">): LayoutNode {
@@ -60,5 +60,22 @@ describe("world plate pose", () => {
     const dense = worldPlatePose(layoutNode({ id: "dense", isRoot: true, inbound_links: 80, outbound_links: 24, source_ref_count: 12 }));
 
     expect(Math.abs(dense.anchor[0] - dense.subject[0])).toBeGreaterThan(Math.abs(quiet.anchor[0] - quiet.subject[0]));
+  });
+});
+
+describe("activeWorldPlateNode — SpatialUI singleton (plan §22.3)", () => {
+  const locked = layoutNode({ id: "locked-page" });
+
+  it("shows the node summary plate only while nothing else owns the slot", () => {
+    expect(activeWorldPlateNode(locked, false, false)).toBe(locked);
+  });
+
+  it("suppresses the plate while the reader is open", () => {
+    expect(activeWorldPlateNode(locked, true, false)).toBeNull();
+  });
+
+  it("hands the slot to the Takezo speech plate — one plate at a time", () => {
+    expect(activeWorldPlateNode(locked, false, true)).toBeNull();
+    expect(activeWorldPlateNode(null, false, true)).toBeNull();
   });
 });

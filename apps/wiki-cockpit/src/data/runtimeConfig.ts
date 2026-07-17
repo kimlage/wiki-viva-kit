@@ -1,6 +1,15 @@
 import { configurePresentation } from "./presentation";
 import type { PresentationOverrides } from "./presentation";
 
+// Presentation feature flags (plan §17.2): the public runtime file may only
+// toggle how things LOOK — it can never grant capability, role or session.
+// The easter egg ships on by default; the companion waits for the operator
+// session work and stays off until then.
+export type RuntimeFeatureFlags = {
+  takezoEasterEgg: boolean;
+  takezoCompanion: boolean;
+};
+
 export type RuntimeConfig = {
   apiBase: string;
   snapshotBase: string;
@@ -9,6 +18,7 @@ export type RuntimeConfig = {
   language: string;
   strings: Record<string, string>;
   presentation: PresentationOverrides;
+  features: RuntimeFeatureFlags;
   codexEnabled: boolean;
 };
 
@@ -22,6 +32,7 @@ type RawRuntimeConfig = {
   page_types?: PresentationOverrides["page_types"];
   contexts?: PresentationOverrides["contexts"];
   trust_colors?: PresentationOverrides["trust_colors"];
+  features?: { takezo_easter_egg?: boolean; takezo_companion?: boolean };
   codex?: { enabled?: boolean };
 };
 
@@ -33,6 +44,7 @@ const DEFAULT_CONFIG: RuntimeConfig = {
   language: "",
   strings: {},
   presentation: {},
+  features: { takezoEasterEgg: true, takezoCompanion: false },
   codexEnabled: true
 };
 
@@ -55,6 +67,10 @@ export function normalizeRuntimeConfig(raw: RawRuntimeConfig): RuntimeConfig {
       page_types: raw.page_types || {},
       contexts: raw.contexts || {},
       trust_colors: raw.trust_colors || {}
+    },
+    features: {
+      takezoEasterEgg: raw.features?.takezo_easter_egg !== false,
+      takezoCompanion: raw.features?.takezo_companion === true
     },
     codexEnabled: raw.codex?.enabled !== false
   };

@@ -21,8 +21,15 @@ export function isExplicitCommandDraft(value: string): boolean {
   return lead === EXPLICIT_ADMIN_PREFIX || lead.startsWith(`${EXPLICIT_ADMIN_PREFIX} `);
 }
 
-export function parseCommandInput(raw: string): ParsedInput {
-  const egg = matchEasterEgg(raw);
+export type ParseCommandOptions = {
+  // Presentation flag (plan §17.2/§28): when the runtime config disables the
+  // easter egg, the ritual phrase behaves as plain search — no reveal, no
+  // rebuild required to turn it off.
+  easterEggEnabled?: boolean;
+};
+
+export function parseCommandInput(raw: string, options: ParseCommandOptions = {}): ParsedInput {
+  const egg = options.easterEggEnabled === false ? null : matchEasterEgg(raw);
   if (egg) return { kind: "easter_egg", id: egg.id };
 
   const trimmed = raw.trim();

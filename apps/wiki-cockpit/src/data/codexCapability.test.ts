@@ -13,6 +13,7 @@ const runtime = (over: Partial<RuntimeConfig> = {}): RuntimeConfig => ({
   language: "",
   strings: {},
   presentation: {},
+  features: { takezoEasterEgg: true, takezoCompanion: false },
   codexEnabled: true,
   ...over
 });
