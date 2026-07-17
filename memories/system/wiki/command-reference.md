@@ -6,7 +6,7 @@ tags: [wiki/meta, status/active]
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-15
+updated_at: 2026-07-16
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -56,6 +56,7 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 | [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py) | Compile sources/actions/contexts |
 | [wiki_pack.py](../../../scripts/wiki_pack.py) | Validate/operate experience packs |
 | [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) | Check graph reachability and impact |
+| [wiki_performance.py](../../../scripts/wiki_performance.py) | Plan, run and verify fail-closed performance evidence |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarize a PR |
 | [wiki_quadrant_contract.py](../../../scripts/wiki_quadrant_contract.py) | Print the AQAL quadrant contract |
 | [wiki_quadrant_projection_report.py](../../../scripts/wiki_quadrant_projection_report.py) | Review quadrant projections |
@@ -74,6 +75,7 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 python3 scripts/wiki_ingest.py --source data/raw/example.pdf --context system
 python3 scripts/wiki_sync_from_kit.py --kit . --consumer /path/to/consumer --dry-run
 python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_performance.py plan --profile cycle1 --out /tmp/wiki-performance-plan.json
 python3 scripts/wiki_semantic_inventory.py --check
 python3 scripts/wiki_audit.py --check
 ```
@@ -82,3 +84,8 @@ python3 scripts/wiki_audit.py --check
 explicit C3 and writes portable `kit.lock`. The consumer PR is the review and
 rollback boundary. The retired lane/capsule/receipt runner is not part of the
 catalog.
+
+`wiki_performance.py` uses only deterministic public-synthetic fixtures. The
+`standard`, `stress` and `soak` profiles remain inert unless the exact plan SHA
+and explicit heavy-run authorization are both supplied; evidence is written
+outside the Git subject.
