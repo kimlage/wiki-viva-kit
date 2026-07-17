@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-web-source-foundation-v1.schema.json",
+  "title": "Wiki Viva web source foundation v1",
+  "description": "Deterministic, layout-ready source topology (wiki_web_source_foundation.v1) compiled by wiki_core.web.source_foundation from already-built read models. Many-to-many provenance is preserved, secrets are fail-closed (locators, filter values, manuals and auth pointers never enter this payload) and topology_sha256 seals the canonical-JSON topology independent of revision/generated_at.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "repo_id",
+    "revision",
+    "generated_at",
+    "topology_sha256",
+    "summary",
+    "stations",
+    "streams",
+    "pipelines",
+    "emissions",
+    "targets",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_web_source_foundation.v1"},
+    "repo_id": {"type": "string"},
+    "revision": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "topology_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "summary": {"$ref": "#/$defs/summary"},
+    "stations": {"type": "array", "items": {"$ref": "#/$defs/station"}},
+    "streams": {"type": "array", "items": {"$ref": "#/$defs/stream"}},
+    "pipelines": {"type": "array", "items": {"$ref": "#/$defs/pipeline"}},
+    "emissions": {"type": "array", "items": {"$ref": "#/$defs/emission"}},
+    "targets": {"type": "array", "items": {"$ref": "#/$defs/target"}},
+    "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "summary": {
+      "type": "object",
+      "required": [
+        "sources",
+        "channels",
+        "streams",
+        "pipelines",
+        "emissions",
+        "targets",
+        "gaps",
+        "blocked_sources",
+        "pending_streams"
+      ],
+      "properties": {
+        "sources": {"type": "integer", "minimum": 0},
+        "channels": {"type": "integer", "minimum": 0},
+        "streams": {"type": "integer", "minimum": 0},
+        "pipelines": {"type": "integer", "minimum": 0},
+        "emissions": {"type": "integer", "minimum": 0},
+        "targets": {"type": "integer", "minimum": 0},
+        "gaps": {"type": "integer", "minimum": 0},
+        "blocked_sources": {"type": "integer", "minimum": 0},
+        "pending_streams": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "station": {
+      "type": "object",
+      "required": [
+        "station_id",
+        "kind",
+        "canonical_page_id",
+        "path",
+        "title",
+        "context",
+        "platform",
+        "owner_ref",
+        "config_page_id",
+        "channel_station_id",
+        "recipe_state",
+        "sync_state",
+        "lifecycle_state",
+        "adoption_state",
+        "pipeline_stage",
+        "pending_stream_count",
+        "next_due_days",
+        "stream_ids",
+        "pipeline_ids",
+        "emission_ids",
+        "target_page_ids",
+        "diagnostic_codes"
+      ],
+      "properties": {
+        "station_id": {"type": "string", "pattern": "^(station|channel):"},
+        "kind": {"enum": ["source", "input_channel"]},
+        "canonical_page_id": {"type": "string", "minLength": 1},
+        "path": {"type": "string"},
+        "title": {"type": "string"},
+        "context": {"type": "string"},
+        "platform": {"type": "string"},
+        "owner_ref": {"type": "string"},
+        "config_page_id": {"type": ["string", "null"]},
+        "channel_station_id": {
+          "description": "Real channel grouping (plan §10.3 item 1): the `channel:` station this source station belongs to, resolved from the channel page's source_refs; null when only the context fallback applies.",
+          "type": ["string", "null"],
+          "pattern": "^channel:"
+        },
+        "recipe_state": {"enum": ["valid", "missing", "invalid", "secret_blocked"]},
+        "sync_state": {"type": "string"},
+        "lifecycle_state": {"type": "string"},
+        "adoption_state": {"type": "string"},
+        "pipeline_stage": {"type": "string"},
+        "pending_stream_count": {"type": "integer", "minimum": 0},
+        "next_due_days": {"type": ["integer", "null"]},
+        "stream_ids": {"type": "array", "items": {"type": "string", "pattern": "^stream:"}},
+        "pipeline_ids": {"type": "array", "items": {"type": "string", "pattern": "^pipeline:"}},
+        "emission_ids": {"type": "array", "items": {"type": "string", "pattern": "^emission:"}},
+        "target_page_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "diagnostic_codes": {"type": "array", "items": {"$ref": "#/$defs/diagnostic_code"}}
+      },
+      "additionalProperties": false
+    },
+    "stream": {
+      "type": "object",
+      "required": [
+        "stream_id",
+        "source_id",
+        "recipe_stream_id",
+        "label",
+        "selected",
+        "privacy",
+        "cadence_days",
+        "cursor_age_days",
+        "freshness_state",
+        "breached",
+        "target_page_ids",
+        "filter_keys",
+        "skip_reason_code"
+      ],
+      "properties": {
+        "stream_id": {"type": "string", "pattern": "^stream:"},
+        "source_id": {"type": "string", "minLength": 1},
+        "recipe_stream_id": {"type": "string", "minLength": 1},
+        "label": {"type": "string"},
+        "selected": {"type": "boolean"},
+        "privacy": {"type": "string"},
+        "cadence_days": {"type": "integer", "minimum": 0},
+        "cursor_age_days": {"type": ["integer", "null"]},
+        "freshness_state": {"enum": ["fresh", "stale", "never", "disabled"]},
+        "breached": {"type": "boolean"},
+        "target_page_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "filter_keys": {
+          "description": "Filter KEYS only — filter values stay inside the private detailed read model (plan §8.4).",
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "skip_reason_code": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "pipeline": {
+      "type": "object",
+      "required": [
+        "pipeline_id",
+        "source_id",
+        "kind",
+        "cadence_days",
+        "stream_ids",
+        "current_stage",
+        "last_transition_at"
+      ],
+      "properties": {
+        "pipeline_id": {"type": "string", "pattern": "^pipeline:"},
+        "source_id": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "cadence_days": {"type": "integer", "minimum": 0},
+        "stream_ids": {"type": "array", "items": {"type": "string", "pattern": "^stream:"}},
+        "current_stage": {"type": "string"},
+        "last_transition_at": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "emission": {
+      "type": "object",
+      "required": [
+        "emission_id",
+        "source_id",
+        "stream_id",
+        "event_page_id",
+        "proposal_page_ids",
+        "target_page_id",
+        "relation_type",
+        "observed_at",
+        "closure_state",
+        "evidence_refs",
+        "provenance_basis"
+      ],
+      "properties": {
+        "emission_id": {"type": "string", "pattern": "^emission:[0-9a-f]{20}$"},
+        "source_id": {"type": "string", "minLength": 1},
+        "stream_id": {"type": ["string", "null"], "pattern": "^stream:"},
+        "event_page_id": {"type": ["string", "null"]},
+        "proposal_page_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "target_page_id": {"type": ["string", "null"]},
+        "relation_type": {
+          "enum": [
+            "source_ref",
+            "source_emission",
+            "evidence_supports",
+            "impact",
+            "proposal_transition"
+          ]
+        },
+        "observed_at": {"type": ["string", "null"]},
+        "closure_state": {
+          "enum": ["accepted", "reviewed_no_change", "pending", "blocked", "unknown"]
+        },
+        "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "provenance_basis": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "page_id",
+        "source_ids",
+        "event_page_ids",
+        "emission_count",
+        "accepted_count",
+        "pending_count",
+        "closure_state",
+        "target_declared_by_stream_ids"
+      ],
+      "properties": {
+        "page_id": {"type": "string", "minLength": 1},
+        "source_ids": {
+          "description": "Every supporting source — a two-source target keeps both (plan §9.7), never collapsed to one.",
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "event_page_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "emission_count": {"type": "integer", "minimum": 0},
+        "accepted_count": {"type": "integer", "minimum": 0},
+        "pending_count": {"type": "integer", "minimum": 0},
+        "closure_state": {"enum": ["accepted", "pending", "mixed", "declared_only"]},
+        "target_declared_by_stream_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^stream:"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": [
+        "gap_id",
+        "code",
+        "severity",
+        "subject_ref",
+        "related_refs",
+        "message_key",
+        "count"
+      ],
+      "properties": {
+        "gap_id": {
+          "description": "Deterministic gap identity (plan §9.6): gap:<code>:<sha256(subject|refs)[:16]>. Never a page ID.",
+          "type": "string",
+          "pattern": "^gap:[a-z0-9_]+:[0-9a-f]{16}$"
+        },
+        "code": {"$ref": "#/$defs/diagnostic_code"},
+        "severity": {"enum": ["info", "warning", "error"]},
+        "subject_ref": {"type": "string", "minLength": 1},
+        "related_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "message_key": {"type": "string", "pattern": "^source_foundation\\.diagnostics\\."},
+        "count": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "diagnostic_code": {
+      "description": "Safe diagnostic vocabulary — codes and canonical refs only, never tokens, private queries or secret values. The secret code is the canonical recipe-validator code (one vocabulary, plan §8.8).",
+      "enum": [
+        "source_recipe_missing",
+        "source_recipe_invalid",
+        "source_recipe_secret_detected",
+        "source_lifecycle_missing",
+        "source_never_synced",
+        "source_sync_failed",
+        "source_blocked",
+        "stream_never_observed",
+        "stream_past_cadence",
+        "stream_target_missing",
+        "target_without_emission",
+        "emission_without_source",
+        "emission_without_target",
+        "event_without_closure",
+        "multiple_sources_supported",
+        "relation_outside_source_vocabulary",
+        "unresolved_canonical_page"
+      ]
+    }
+  }
+}
