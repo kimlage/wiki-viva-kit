@@ -14,6 +14,24 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-16] System | Public branches consolidated before main review
+
+- `wiki/integracao-final-20260716` now contains the complete v8 living-world
+  line, the simple B0/C1/C2/C3 kit-sync flow and the current `origin/main`
+  fixes for configured language, audit newline preservation and atomic job
+  records. The branch has not been promoted to `main`.
+- The isolated Cycle 1 performance work was ported as a public-synthetic,
+  fail-closed evidence harness. It instruments ingestion and snapshot loading,
+  provides deterministic fixture profiles and keeps heavy profiles behind
+  explicit plan and authorization checks.
+- Superseded public plan, rehearsal, package and portability branches were
+  joined by ancestry while retaining the integration tree. Their historical
+  commits remain reachable, but retired lanes, capsules and certification
+  files were not restored.
+- The separate private-mirror lineage remains excluded from the public
+  integration boundary. Branch and worktree deletion follows only after the
+  consolidated tree passes the normal project gates.
+
 ## [2026-07-12] System | Configured-language CLI regression coverage
 
 - The quadrant contract CLI regression test now compares output with the
