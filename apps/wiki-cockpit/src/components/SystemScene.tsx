@@ -27,7 +27,8 @@ import { computeWorldLayout } from "../scene/perspectives";
 import type { ClusterStar, PerspectiveId, WorldGroup, WorldLayout, WorldRequest } from "../scene/perspectives";
 import { FoundingRite, GuideBeacon, SeedFlow, WorldPlate } from "../renderers/scene/spatial";
 import type { FoundingSpec, GuideSpec, SeedSpec } from "../renderers/scene/spatial";
-import { CameraDirector } from "../renderers/scene/parts/camera";
+import { CameraDirector, cameraHemisphereForLayout, cameraQaAttributes, sceneFogDensity } from "../renderers/scene/parts/camera";
+import type { CameraQaAttributes } from "../renderers/scene/parts/camera";
 import { FallbackPlanView, SceneFallback } from "../renderers/scene/parts/fallback";
 import { AggregateStateRim, DensityPressureField, DensityReliefField, DrillContextTethers, DrillOriginEcho, DrillWaypoints, FocusContextField, GateRing, HiddenDepthHalo, InspectionBeams, ParentDrillGate, ParentDrillPath, ProposalStems, QuadrantPlanes, RelationLanes, TravelWake, travelWakeLevel, WorldGuides } from "../renderers/scene/parts/guides";
 import { HoverTooltip, sceneCensus, StatusStrip } from "../renderers/scene/parts/hud";
@@ -963,7 +964,9 @@ function SceneContent({
   return (
     <>
       <color attach="background" args={[sky]} />
-      <fogExp2 attach="fog" args={[sky, 0.032]} />
+      {/* §11.6: the foundation profile frames from farther below; its thinner
+          fog keeps the knowledge/core bands readable from the lower pose. */}
+      <fogExp2 attach="fog" args={[sky, sceneFogDensity(layout)]} />
       <hemisphereLight args={["#1a3040", "#05080c", 0.45 + visualTuning.contrast * 0.08]} />
       <directionalLight position={[4, 6, 3]} intensity={1.02 + visualTuning.contrast * 0.18} color="#cfeaff" />
       <StarField quality={profile.quality} />
@@ -1454,6 +1457,17 @@ export function SystemScene({
     () => applyVisualSpacing(enrichedLayout, visualTuning.spacing),
     [enrichedLayout, visualTuning.spacing]
   );
+  // §11.7 QA readback: hemisphere/profile/plane mirror the RESOLVED layout
+  // (a stale request never flips them) and the path names the transition the
+  // camera used to reach the current hemisphere. Diagnostics only, no route
+  // semantics. The ref only advances when the hemisphere actually changes, so
+  // re-renders inside one hemisphere keep reporting the same settled path.
+  const cameraQaRef = useRef<CameraQaAttributes | null>(null);
+  const layoutCameraHemisphere = cameraHemisphereForLayout(layout);
+  if (cameraQaRef.current?.hemisphere !== layoutCameraHemisphere) {
+    cameraQaRef.current = cameraQaAttributes(layout, cameraQaRef.current?.hemisphere ?? null);
+  }
+  const cameraQa = cameraQaRef.current ?? cameraQaAttributes(layout, null);
   const presentationParts = {
     view: layout.perspective,
     lens: route.lens || route.quadrant || "",
@@ -2211,6 +2225,10 @@ export function SystemScene({
       data-morph-motion-settled={morphMotionSettled ? "true" : "false"}
       data-camera-motion-settled={cameraMotionSettled ? "true" : "false"}
       data-spatial-motion-settled={spatialMotionSettled ? "true" : "false"}
+      data-camera-hemisphere={cameraQa.hemisphere}
+      data-world-spatial-profile={cameraQa.spatialProfile}
+      data-world-plane={cameraQa.plane}
+      data-camera-path={cameraQa.path}
       aria-label={t("scene.relationshipMapAria")}
     >
       <div className="visuallyHidden" aria-live="polite" role="status">

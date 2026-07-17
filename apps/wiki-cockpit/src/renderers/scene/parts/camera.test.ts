@@ -1,17 +1,47 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  FOUNDATION_PROFILE_FOG_DENSITY,
+  HEMISPHERE_CROSSING_POLAR_LIMITS,
+  OUTER_ARC_CROSSING_END,
+  OUTER_ARC_RETREAT_END,
+  UPPER_PROFILE_FOG_DENSITY,
+  cameraHemisphereForLayout,
+  cameraPositionForPose,
+  cameraQaAttributes,
+  cameraRequestMustWait,
+  cameraTransitionPath,
   centeredCollectionCameraTheta,
   centeredGroupCameraDistance,
   centeredGroupCameraLift,
   centeredGroupCameraPhi,
   centeredGroupSafeAreaDistanceMultiplier,
+  clampPhiToHemisphere,
+  foundationCameraPose,
   hoverInspectionCameraTarget,
   hoverInspectionCameraWeight,
   hoverInspectionDistanceMultiplier,
+  interruptCameraMotion,
+  mirrorPhiForHemisphere,
+  outerArcClearanceRadius,
+  outerArcPose,
+  phiHemisphere,
+  polarLimitsForHemisphere,
+  sceneFogDensity,
+  settleCameraMotion,
   travelThetaFromWorldPoint
 } from "./camera";
+import type { CameraPose } from "./camera";
 import type { LayoutNode } from "../../../scene/layout";
 import type { WorldLayout } from "../../../scene/perspectives";
+import {
+  LOWER_MAX_POLAR_ANGLE,
+  LOWER_MIN_POLAR_ANGLE,
+  SOURCE_FOUNDATION_CAMERA,
+  SOURCE_FOUNDATION_LEVELS,
+  UPPER_MAX_POLAR_ANGLE,
+  UPPER_MIN_POLAR_ANGLE
+} from "../../../world/contracts";
+import { createDefaultKernel } from "../../../world/registries/RegistryKernel";
 
 function quadrantLayout(scale: number, level: 1 | 2, memberCount = 1): WorldLayout {
   return {
@@ -173,5 +203,233 @@ describe("quadrant camera travel", () => {
     expect(hoverInspectionDistanceMultiplier(center, navigable)).toBe(1);
     expect(hoverInspectionDistanceMultiplier(center, conceptual)).toBe(1);
     expect(hoverInspectionDistanceMultiplier(center, root)).toBe(1);
+  });
+});
+
+// --- Lower-hemisphere camera profile (§11, tests per §19.5) -----------------
+
+const FOUNDATION_R_OUTER = 5.75;
+
+function foundationLayout(): WorldLayout {
+  return {
+    ...quadrantLayout(0.4, 1),
+    perspective: "sources",
+    level: 0,
+    group: undefined,
+    rInner: 1.0,
+    rOuter: FOUNDATION_R_OUTER,
+    planeProfile: {
+      active: "foundation",
+      levels: { ...SOURCE_FOUNDATION_LEVELS },
+      cameraHemisphere: "lower",
+      transitionPath: "outer_arc",
+      occlusionPolicy: "foundation-first",
+      labelPolicy: "camera-facing"
+    }
+  };
+}
+
+function upperLayout(): WorldLayout {
+  return { ...quadrantLayout(0.4, 1), level: 0, group: undefined };
+}
+
+describe("hemisphere resolution (§11.2)", () => {
+  it("resolves sources to the lower hemisphere and every other view to upper", () => {
+    const kernel = createDefaultKernel();
+    for (const view of kernel.views.values()) {
+      expect(view.cameraProfile.hemisphere).toBe(view.id === "sources" ? "lower" : "upper");
+      expect(view.cameraProfile.allowUserHemisphereCrossing).toBe(false);
+    }
+    expect(cameraHemisphereForLayout(foundationLayout())).toBe("lower");
+    expect(cameraHemisphereForLayout(upperLayout())).toBe("upper");
+    // A sources layout WITHOUT the foundation payload is the v8 compat world
+    // and stays upper.
+    expect(cameraHemisphereForLayout({ ...foundationLayout(), planeProfile: undefined })).toBe("upper");
+  });
+
+  it("applies dynamic per-view polar limits mirrored across the horizon", () => {
+    expect(polarLimitsForHemisphere("upper")).toEqual({ min: 0.3, max: 1.25 });
+    expect(polarLimitsForHemisphere("lower")).toEqual({ min: Math.PI - 1.25, max: Math.PI - 0.3 });
+    expect(polarLimitsForHemisphere("upper")).toEqual({ min: UPPER_MIN_POLAR_ANGLE, max: UPPER_MAX_POLAR_ANGLE });
+    expect(polarLimitsForHemisphere("lower")).toEqual({ min: LOWER_MIN_POLAR_ANGLE, max: LOWER_MAX_POLAR_ANGLE });
+  });
+
+  it("makes manual hemisphere crossing impossible inside either profile", () => {
+    // The horizon sits strictly between the two bands…
+    expect(UPPER_MAX_POLAR_ANGLE).toBeLessThan(Math.PI / 2);
+    expect(LOWER_MIN_POLAR_ANGLE).toBeGreaterThan(Math.PI / 2);
+    // …so any user phi, clamped to the view's own limits, keeps its hemisphere.
+    expect(phiHemisphere(clampPhiToHemisphere(Math.PI - 0.05, "upper"))).toBe("upper");
+    expect(phiHemisphere(clampPhiToHemisphere(0.05, "lower"))).toBe("lower");
+    expect(clampPhiToHemisphere(Math.PI / 2, "upper")).toBe(UPPER_MAX_POLAR_ANGLE);
+    expect(clampPhiToHemisphere(Math.PI / 2, "lower")).toBe(LOWER_MIN_POLAR_ANGLE);
+  });
+
+  it("mirrors the upper framing poses across the horizon for the lower profile", () => {
+    expect(mirrorPhiForHemisphere(0.95, "lower")).toBeCloseTo(Math.PI - 0.95);
+    expect(mirrorPhiForHemisphere(0.95, "upper")).toBe(0.95);
+    // Every upper framing pose lands inside the lower limits once mirrored.
+    for (const phi of [0.72, 0.95, 1.02, 1.08]) {
+      const mirrored = clampPhiToHemisphere(mirrorPhiForHemisphere(phi, "lower"), "lower");
+      expect(mirrored).toBeGreaterThanOrEqual(LOWER_MIN_POLAR_ANGLE);
+      expect(mirrored).toBeLessThanOrEqual(LOWER_MAX_POLAR_ANGLE);
+      expect(mirrored).toBeCloseTo(Math.PI - phi);
+    }
+  });
+
+  it("frames the foundation from below at the registered §6.4 pose on any viewport fit", () => {
+    const wide = foundationCameraPose(foundationLayout(), 17.6);
+    const mobile = foundationCameraPose(foundationLayout(), 11.2);
+    expect(wide).not.toBeNull();
+    expect(wide!.target).toEqual([0, SOURCE_FOUNDATION_LEVELS.foundation + 0.25, 0]);
+    expect(wide!.target[1]).toBe(SOURCE_FOUNDATION_CAMERA.targetY);
+    expect(wide!.phi).toBeCloseTo(Math.PI - 0.72);
+    expect(wide!.distance).toBeCloseTo(17.6 * 1.08);
+    // Resize/aspect: the pose scales with the layout fit, nothing else.
+    expect(mobile!.distance).toBeCloseTo(11.2 * 1.08);
+    expect(mobile!.phi).toBe(wide!.phi);
+    // The camera really sits below the foundation band, looking up.
+    const eye = cameraPositionForPose({ target: wide!.target, distance: wide!.distance, phi: wide!.phi, theta: 0 });
+    expect(eye[1]).toBeLessThan(SOURCE_FOUNDATION_LEVELS.foundation);
+    expect(foundationCameraPose(upperLayout(), 17.6)).toBeNull();
+  });
+});
+
+describe("outer_arc transition (§11.3)", () => {
+  const from: CameraPose = { target: [0, 0, 0], distance: 8, phi: 0.72, theta: 0.4 };
+  const to: CameraPose = {
+    target: [0, SOURCE_FOUNDATION_CAMERA.targetY, 0],
+    distance: 19,
+    phi: Math.PI - 0.72,
+    theta: -0.6
+  };
+  const clearance = outerArcClearanceRadius(FOUNDATION_R_OUTER, 17.6, from.distance);
+
+  it("registers outer_arc exactly for hemisphere changes, in both directions", () => {
+    expect(cameraTransitionPath("upper", "lower")).toBe("outer_arc");
+    expect(cameraTransitionPath("lower", "upper")).toBe("outer_arc");
+    expect(cameraTransitionPath("upper", "upper")).toBe("direct");
+    expect(cameraTransitionPath("lower", "lower")).toBe("direct");
+    // The physical boot pose is upper: a deep link into sources still arcs.
+    expect(cameraTransitionPath(null, "lower")).toBe("outer_arc");
+    expect(cameraTransitionPath(null, "upper")).toBe("direct");
+  });
+
+  it("retreats beyond the world before crossing and lands exactly on both endpoints", () => {
+    expect(clearance).toBeGreaterThan(FOUNDATION_R_OUTER + 1.5);
+    const start = outerArcPose(from, to, clearance, 0);
+    const end = outerArcPose(from, to, clearance, 1);
+    expect(start).toEqual(from);
+    expect(end.target).toEqual(to.target);
+    expect(end.distance).toBeCloseTo(to.distance);
+    expect(end.phi).toBeCloseTo(to.phi);
+    // During the whole crossing phase the orbit radius holds the clearance.
+    for (let t = OUTER_ARC_RETREAT_END + 0.001; t < OUTER_ARC_CROSSING_END; t += 0.05) {
+      expect(outerArcPose(from, to, clearance, t).distance).toBeCloseTo(clearance);
+    }
+  });
+
+  it("crosses the horizon outside world bounds, away from the center and the label plane", () => {
+    for (let t = 0; t <= 1.0001; t += 0.01) {
+      const pose = outerArcPose(from, to, clearance, t);
+      const eye = cameraPositionForPose(pose);
+      const eyeHorizontal = Math.hypot(eye[0], eye[2]);
+      const bandTop = SOURCE_FOUNDATION_LEVELS.core + 0.4;
+      const bandBottom = SOURCE_FOUNDATION_LEVELS.foundation - 0.4;
+      if (eye[1] < bandTop && eye[1] > bandBottom) {
+        // Whenever the camera's height is inside the world's band span it must
+        // be far outside the world's horizontal extent.
+        expect(eyeHorizontal).toBeGreaterThan(FOUNDATION_R_OUTER + 1);
+      }
+      if (t > OUTER_ARC_RETREAT_END && t < OUTER_ARC_CROSSING_END) {
+        // The look target rides the outer corridor: never the world center.
+        const targetHorizontal = Math.hypot(pose.target[0], pose.target[2]);
+        expect(targetHorizontal).toBeGreaterThan(FOUNDATION_R_OUTER);
+      }
+    }
+  });
+
+  it("runs the return trip lower→upper as the same safe arc", () => {
+    const start = outerArcPose(to, from, clearance, 0);
+    const end = outerArcPose(to, from, clearance, 1);
+    expect(start).toEqual(to);
+    expect(end.phi).toBeCloseTo(from.phi);
+    expect(end.target).toEqual(from.target);
+    for (let t = 0; t <= 1.0001; t += 0.01) {
+      const eye = cameraPositionForPose(outerArcPose(to, from, clearance, t));
+      if (eye[1] < SOURCE_FOUNDATION_LEVELS.core + 0.4 && eye[1] > SOURCE_FOUNDATION_LEVELS.foundation - 0.4) {
+        expect(Math.hypot(eye[0], eye[2])).toBeGreaterThan(FOUNDATION_R_OUTER + 1);
+      }
+    }
+    // Round trip sources→quadrants→sources restores the hemisphere contract.
+    const trip = ["lower", "upper", "lower"] as const;
+    expect(cameraTransitionPath(trip[0], trip[1])).toBe("outer_arc");
+    expect(cameraTransitionPath(trip[1], trip[2])).toBe("outer_arc");
+    expect(polarLimitsForHemisphere(trip[2])).toEqual(polarLimitsForHemisphere(trip[0]));
+  });
+
+  it("only the crossing corridor spans both hemispheres and it is bounded by the profile limits", () => {
+    expect(HEMISPHERE_CROSSING_POLAR_LIMITS).toEqual({ min: UPPER_MIN_POLAR_ANGLE, max: LOWER_MAX_POLAR_ANGLE });
+  });
+});
+
+describe("settlement handshake (§11.4/§11.5)", () => {
+  it("settles an interrupted transition into the interrupting sequence", () => {
+    const reports: Array<[number, string]> = [];
+    const subject = { sequence: 3, active: true, start: 0.25 };
+    const settled = interruptCameraMotion(subject, 5, (sequence, state) => reports.push([sequence, state]));
+    expect(settled).toBe(5);
+    expect(subject.active).toBe(false);
+    expect(reports).toEqual([[5, "settled"]]);
+  });
+
+  it("acknowledges a no-op with the newest sequence when nothing is moving", () => {
+    const report = vi.fn();
+    expect(interruptCameraMotion(null, 7, report)).toBe(7);
+    expect(settleCameraMotion(null, 7, report)).toBe(7);
+    expect(report).toHaveBeenCalledWith(7, "settled");
+  });
+
+  it("never confirms a stale request: an unresolved layout keeps the camera pending", () => {
+    expect(cameraRequestMustWait(false)).toBe(true);
+    expect(cameraRequestMustWait(true)).toBe(false);
+  });
+
+  it("reduced motion cuts straight to the destination pose with no residual arc", () => {
+    // The instant cut is by definition the t=1 pose of the same subject: one
+    // clock, one sequence, labels correct on first paint.
+    const from: CameraPose = { target: [0, 0, 0], distance: 8, phi: 0.72, theta: 0 };
+    const to: CameraPose = { target: [0, SOURCE_FOUNDATION_CAMERA.targetY, 0], distance: 19, phi: SOURCE_FOUNDATION_CAMERA.phi, theta: 0 };
+    const cut = outerArcPose(from, to, outerArcClearanceRadius(FOUNDATION_R_OUTER, 17.6), 1);
+    expect(cut.target).toEqual(to.target);
+    expect(cut.phi).toBe(to.phi);
+    expect(cut.distance).toBe(to.distance);
+    expect(phiHemisphere(cut.phi)).toBe("lower");
+  });
+});
+
+describe("near/far/fog and QA diagnostics (§11.6/§11.7)", () => {
+  it("thins the fog only inside the sources foundation profile", () => {
+    expect(sceneFogDensity(foundationLayout())).toBe(FOUNDATION_PROFILE_FOG_DENSITY);
+    expect(sceneFogDensity(upperLayout())).toBe(UPPER_PROFILE_FOG_DENSITY);
+    expect(FOUNDATION_PROFILE_FOG_DENSITY).toBeLessThan(UPPER_PROFILE_FOG_DENSITY);
+  });
+
+  it("exposes hemisphere/profile/plane/path readback for the resolved layout only", () => {
+    expect(cameraQaAttributes(foundationLayout(), "upper")).toEqual({
+      hemisphere: "lower",
+      spatialProfile: "source-foundation",
+      plane: "foundation",
+      path: "outer_arc"
+    });
+    expect(cameraQaAttributes(upperLayout(), "lower")).toEqual({
+      hemisphere: "upper",
+      spatialProfile: "knowledge-upper",
+      plane: "knowledge",
+      path: "outer_arc"
+    });
+    expect(cameraQaAttributes(upperLayout(), "upper").path).toBe("direct");
+    expect(cameraQaAttributes(upperLayout(), null).path).toBe("direct");
+    expect(cameraQaAttributes(foundationLayout(), null).path).toBe("outer_arc");
   });
 });
