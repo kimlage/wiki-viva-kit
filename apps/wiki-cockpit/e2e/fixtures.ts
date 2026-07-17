@@ -24,6 +24,13 @@ export type RuntimePerformanceEvidence = {
     relationLines: number;
     labels: number;
     particles: number;
+    sourceStations: number;
+    sourceStreamPorts: number;
+    sourcePipelineLanes: number;
+    sourceFlowSegments: number;
+    sourceGapMarkers: number;
+    foundationLabels: number;
+    foundationProfile: "compact" | "balanced" | "rich" | null;
     fallbackReason: string | null;
     frameTimeMedianMs: number | null;
     frameTimeP95Ms: number | null;
@@ -36,6 +43,12 @@ export type RuntimePerformanceEvidence = {
     violations: string[];
     degradationReasons: string[];
   }>>>;
+  foundation: {
+    profile: "compact" | "balanced" | "rich";
+    budget: { sourceStations: number; sourceStreamPorts: number; sourceConduits: number; foundationLabels: number };
+    conduits: number;
+    violations: string[];
+  } | null;
 };
 
 function performanceEvidenceInPage(): RuntimePerformanceEvidence | null {

@@ -64,6 +64,36 @@ export function isFoundationProfile(layout: WorldLayout): boolean {
   return layout.planeProfile?.active === "foundation";
 }
 
+// §20 density counters over the DERIVED foundation scene. Stations are the
+// mounted source-station page nodes; every other counter measures derived
+// primitives directly (plan §20 rule 10 — telemetry must not stop at source
+// GraphNodes). The aggregated "+N" overflow port counts as ONE port while its
+// hiddenCount stays visible in-scene, and grouped emissions already arrive as
+// one flow bundle carrying its count — aggregation never inflates these
+// counters and port pressure never hides a station (ports/conduits are
+// budgeted separately from stations in FOUNDATION_DENSITY_BUDGETS).
+export function foundationDensityCounters(layout: WorldLayout): {
+  sourceStations: number;
+  sourceStreamPorts: number;
+  sourcePipelineLanes: number;
+  sourceFlowSegments: number;
+  sourceGapMarkers: number;
+} {
+  if (!isFoundationProfile(layout)) {
+    return { sourceStations: 0, sourceStreamPorts: 0, sourcePipelineLanes: 0, sourceFlowSegments: 0, sourceGapMarkers: 0 };
+  }
+  const primitives = layout.foundationPrimitives ?? [];
+  const byKind = (kind: SourceFoundationPrimitive["kind"]): number =>
+    primitives.filter((primitive) => primitive.kind === kind).length;
+  return {
+    sourceStations: layout.nodes.filter((node) => node.foundationRole === "source-station").length,
+    sourceStreamPorts: byKind("stream-port"),
+    sourcePipelineLanes: byKind("pipeline-lane"),
+    sourceFlowSegments: byKind("flow-bundle"),
+    sourceGapMarkers: byKind("gap-marker")
+  };
+}
+
 // §10.10 opacity policy per band. Foundation stays fully present, provenance
 // reads at 0.75–0.9, knowledge recedes to 0.35–0.65 until selected, the core
 // stays legible without covering stations.

@@ -1,6 +1,92 @@
 export type RuntimeDeviceClass = "desktop" | "mobile";
 export type RuntimeScenarioClass = "walking_skeleton" | "normal" | "stress";
 
+// §20: the source-foundation profile mounts DERIVED primitives (stations,
+// stream ports, pipeline lanes, flow bundles, gap markers) that the generic
+// node/edge counters cannot see. Telemetry must measure the derived scene
+// (plan §20 rule 10), so the foundation view reports its own density counters
+// against the renderer's active quality tier (compact/balanced/rich — the
+// same tiers scenePerformanceProfile already resolves from device capability).
+export type FoundationDensityProfile = "compact" | "balanced" | "rich";
+
+export type FoundationDensityCounters = {
+  sourceStations: number;
+  sourceStreamPorts: number;
+  sourcePipelineLanes: number;
+  sourceFlowSegments: number;
+  sourceGapMarkers: number;
+  foundationLabels: number;
+};
+
+export type FoundationDensityBudget = {
+  sourceStations: number;
+  sourceStreamPorts: number;
+  // The plan's single "conduits/bundles" column bounds every line-like
+  // derived primitive together: pipeline lanes + flow segments + gap markers.
+  sourceConduits: number;
+  foundationLabels: number;
+};
+
+// Plan §20 table (compact/balanced/rich). Rules encoded around it:
+// 1. a real station never disappears because ports consumed budget — ports,
+//    conduits and labels have their OWN budgets and can never count against
+//    the station budget;
+// 2. the total source count always stays visible (layout cluster stars);
+// 3. hidden ports become one aggregated "+N" port per station, which counts
+//    as a single port here while carrying its TRUE hidden count in-scene;
+// 4. hidden emissions become a bundle with a count (one flow segment);
+// 8. the automatic 2D fallback stays driven by real frame evidence only —
+//    foundation count violations are diagnostic and never feed
+//    sustainedPerformanceFallbackRequired().
+export const FOUNDATION_DENSITY_BUDGETS: Record<FoundationDensityProfile, FoundationDensityBudget> = {
+  compact: { sourceStations: 32, sourceStreamPorts: 64, sourceConduits: 80, foundationLabels: 40 },
+  balanced: { sourceStations: 70, sourceStreamPorts: 180, sourceConduits: 200, foundationLabels: 90 },
+  rich: { sourceStations: 120, sourceStreamPorts: 360, sourceConduits: 320, foundationLabels: 150 }
+};
+
+export type FoundationDensityEvaluation = {
+  profile: FoundationDensityProfile;
+  budget: FoundationDensityBudget;
+  // The combined conduit load actually measured (lanes + flows + gaps).
+  conduits: number;
+  violations: string[];
+};
+
+// Structural zeros for every view that is NOT the foundation profile — and
+// for the 2D fallback, which mounts no derived 3D primitives.
+export const EMPTY_FOUNDATION_DENSITY: Readonly<FoundationDensityCounters & { foundationProfile: null }> =
+  Object.freeze({
+    sourceStations: 0,
+    sourceStreamPorts: 0,
+    sourcePipelineLanes: 0,
+    sourceFlowSegments: 0,
+    sourceGapMarkers: 0,
+    foundationLabels: 0,
+    foundationProfile: null
+  });
+
+export function evaluateFoundationDensity(
+  counters: FoundationDensityCounters,
+  profile: FoundationDensityProfile
+): FoundationDensityEvaluation {
+  const budget = FOUNDATION_DENSITY_BUDGETS[profile];
+  const conduits = counters.sourcePipelineLanes + counters.sourceFlowSegments + counters.sourceGapMarkers;
+  const violations: string[] = [];
+  if (counters.sourceStations > budget.sourceStations) {
+    violations.push(`sourceStations:${counters.sourceStations}>${budget.sourceStations}`);
+  }
+  if (counters.sourceStreamPorts > budget.sourceStreamPorts) {
+    violations.push(`sourceStreamPorts:${counters.sourceStreamPorts}>${budget.sourceStreamPorts}`);
+  }
+  if (conduits > budget.sourceConduits) {
+    violations.push(`sourceConduits:${conduits}>${budget.sourceConduits}`);
+  }
+  if (counters.foundationLabels > budget.foundationLabels) {
+    violations.push(`foundationLabels:${counters.foundationLabels}>${budget.foundationLabels}`);
+  }
+  return { profile, budget, conduits, violations };
+}
+
 export type DensityBudget = {
   interactiveNodes: number;
   relationLines: number;
@@ -12,12 +98,15 @@ export type DensityBudget = {
   interactionFeedbackMs: number;
 };
 
-export type RuntimeRenderCounters = {
+export type RuntimeRenderCounters = FoundationDensityCounters & {
   sourceNodes: number;
   interactiveNodes: number;
   relationLines: number;
   labels: number;
   particles: number;
+  // null outside the source-foundation profile: the foundation counters above
+  // are then structural zeros and no foundation evaluation is produced.
+  foundationProfile: FoundationDensityProfile | null;
   fallbackReason: string | null;
   frameTimeMedianMs: number | null;
   frameTimeP95Ms: number | null;
@@ -92,6 +181,10 @@ export type RuntimePerformanceEvidence = {
   sampleCount: number;
   counters: RuntimeRenderCounters;
   evaluations: Partial<RuntimeBudgetMatrix>;
+  // §20: present only while the source-foundation profile is mounted. Its
+  // violations are diagnostic — the session 2D fallback keeps requiring real
+  // sustained frame evidence (rule 8), never a count alone.
+  foundation: FoundationDensityEvaluation | null;
 };
 
 const COMMON_DESKTOP = {
@@ -227,6 +320,9 @@ export function runtimePerformanceEvidence(
     samplePolicy,
     sampleCount,
     counters: { ...counters },
+    foundation: counters.foundationProfile
+      ? evaluateFoundationDensity(counters, counters.foundationProfile)
+      : null,
     // Device profiles change the renderer itself (LOD, particles, labels), so
     // only evaluate the counters against the device that produced them. The
     // Playwright desktop/mobile projects together prove the full matrix.
@@ -334,6 +430,13 @@ const EMPTY_COUNTERS: RuntimeRenderCounters = {
   relationLines: 0,
   labels: 0,
   particles: 0,
+  sourceStations: 0,
+  sourceStreamPorts: 0,
+  sourcePipelineLanes: 0,
+  sourceFlowSegments: 0,
+  sourceGapMarkers: 0,
+  foundationLabels: 0,
+  foundationProfile: null,
   fallbackReason: null,
   frameTimeMedianMs: null,
   frameTimeP95Ms: null,

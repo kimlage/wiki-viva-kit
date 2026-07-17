@@ -33,6 +33,7 @@ import {
   flowBundleSpecs,
   flowSeverityColor,
   foundationBandOpacity,
+  foundationDensityCounters,
   foundationDimFactor,
   foundationPlaneGuides,
   foundationProposalStems,
@@ -879,5 +880,37 @@ describe("source_state lens emphasis (§12.7/§19.6)", () => {
     const dimmed = lensed.find((spec) => spec.id === "flow:source-b:note-multi")!;
     const bright = lensed.find((spec) => spec.id === "flow:source-a:note-multi")!;
     expect(dimmed.opacity).toBeLessThan(bright.opacity);
+  });
+});
+
+describe("foundation density counters (\u00a720)", () => {
+  it("counts stations and derived primitives per kind, aggregated +N port as one", () => {
+    const layout = foundationLayout();
+    const density = foundationDensityCounters(layout);
+    const primitives = layout.foundationPrimitives ?? [];
+    expect(density.sourceStations).toBe(layout.nodes.filter((node) => node.foundationRole === "source-station").length);
+    expect(density.sourceStations).toBeGreaterThan(0);
+    expect(density.sourceStreamPorts).toBe(primitives.filter((primitive) => primitive.kind === "stream-port").length);
+    expect(density.sourcePipelineLanes).toBe(primitives.filter((primitive) => primitive.kind === "pipeline-lane").length);
+    expect(density.sourceFlowSegments).toBe(primitives.filter((primitive) => primitive.kind === "flow-bundle").length);
+    expect(density.sourceGapMarkers).toBe(primitives.filter((primitive) => primitive.kind === "gap-marker").length);
+    // The aggregated overflow port is a stream-port primitive: it counts once
+    // regardless of the hidden streams it summarizes (\u00a720 rule 3).
+    const overflow = primitives.filter(
+      (primitive) => primitive.kind === "stream-port" && primitive.streamId === null
+    );
+    overflow.forEach((port) => {
+      expect(port.kind === "stream-port" && port.hiddenCount).toBeGreaterThan(0);
+    });
+  });
+
+  it("returns structural zeros outside the foundation profile", () => {
+    expect(foundationDensityCounters(upperLayout())).toEqual({
+      sourceStations: 0,
+      sourceStreamPorts: 0,
+      sourcePipelineLanes: 0,
+      sourceFlowSegments: 0,
+      sourceGapMarkers: 0
+    });
   });
 });

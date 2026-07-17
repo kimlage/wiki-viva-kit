@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  EMPTY_FOUNDATION_DENSITY,
+  evaluateFoundationDensity,
   evaluateRuntimeBudget,
   evaluateRuntimeBudgetMatrix,
   BoundedFrameTimeSampler,
   FRAME_SAMPLE_POLICY,
   percentile,
   RUNTIME_DENSITY_BUDGETS,
+  FOUNDATION_DENSITY_BUDGETS,
   runtimeDeviceClass,
   runtimeFrameMeasurementAllowed,
   RuntimePerformanceTelemetry,
@@ -21,6 +24,7 @@ const counters = (patch: Partial<RuntimeRenderCounters> = {}): RuntimeRenderCoun
   relationLines: 200,
   labels: 30,
   particles: 60,
+  ...EMPTY_FOUNDATION_DENSITY,
   fallbackReason: null,
   frameTimeMedianMs: 16.67,
   frameTimeP95Ms: 20,
@@ -95,6 +99,77 @@ describe("v8 runtime performance contract", () => {
     });
     expect(mobileEvidence.evaluations.mobile?.normal.status).toBe("within_budget");
     expect(mobileEvidence.evaluations.desktop).toBeUndefined();
+  });
+
+  it("encodes the plan \u00a720 foundation density table exactly", () => {
+    expect(FOUNDATION_DENSITY_BUDGETS).toEqual({
+      compact: { sourceStations: 32, sourceStreamPorts: 64, sourceConduits: 80, foundationLabels: 40 },
+      balanced: { sourceStations: 70, sourceStreamPorts: 180, sourceConduits: 200, foundationLabels: 90 },
+      rich: { sourceStations: 120, sourceStreamPorts: 360, sourceConduits: 320, foundationLabels: 150 }
+    });
+  });
+
+  it("evaluates foundation density per counter with a shared conduit budget", () => {
+    const dense = counters({
+      foundationProfile: "compact",
+      sourceStations: 30,
+      sourceStreamPorts: 70,
+      sourcePipelineLanes: 30,
+      sourceFlowSegments: 40,
+      sourceGapMarkers: 20,
+      foundationLabels: 41
+    });
+    const evaluation = evaluateFoundationDensity(dense, "compact");
+    expect(evaluation.profile).toBe("compact");
+    expect(evaluation.conduits).toBe(90);
+    expect(evaluation.violations).toEqual([
+      "sourceStreamPorts:70>64",
+      "sourceConduits:90>80",
+      "foundationLabels:41>40"
+    ]);
+    // The same census fits the balanced tier.
+    expect(evaluateFoundationDensity(dense, "balanced").violations).toEqual([]);
+  });
+
+  it("never lets port pressure count against the station budget (\u00a720 rule 1)", () => {
+    // Ports far over budget: the station counter stays independent — no
+    // sourceStations violation is manufactured, matching the layout invariant
+    // that a real station never disappears because ports consumed budget.
+    const portHeavy = counters({
+      foundationProfile: "compact",
+      sourceStations: 32,
+      sourceStreamPorts: 500
+    });
+    const evaluation = evaluateFoundationDensity(portHeavy, "compact");
+    expect(evaluation.violations).toEqual(["sourceStreamPorts:500>64"]);
+    expect(evaluation.violations.some((violation) => violation.startsWith("sourceStations"))).toBe(false);
+  });
+
+  it("publishes a foundation evaluation only while the profile is active", () => {
+    const active = runtimePerformanceEvidence(
+      counters({ foundationProfile: "rich", sourceStations: 29, sourceStreamPorts: 4, sourceFlowSegments: 23 }),
+      1280,
+      30
+    );
+    expect(active.foundation).toMatchObject({
+      profile: "rich",
+      conduits: 23,
+      violations: [],
+      budget: FOUNDATION_DENSITY_BUDGETS.rich
+    });
+    const inactive = runtimePerformanceEvidence(counters(), 1280, 30);
+    expect(inactive.counters.foundationProfile).toBeNull();
+    expect(inactive.foundation).toBeNull();
+  });
+
+  it("keeps the session 2D fallback frame-driven: foundation count violations never latch (\u00a720 rule 8)", () => {
+    const countBlocked = runtimePerformanceEvidence(
+      counters({ foundationProfile: "compact", sourceStreamPorts: 500, sourceFlowSegments: 400 }),
+      1280,
+      FRAME_SAMPLE_POLICY.capacity
+    );
+    expect(countBlocked.foundation?.violations.length).toBeGreaterThan(0);
+    expect(sustainedPerformanceFallbackRequired(countBlocked)).toBe(false);
   });
 
   it("requests 2D fallback only after a full window proves a frame-time-only block", () => {

@@ -54,6 +54,8 @@ import { CenterSignalSprites, ClusterStars, GlowSprites, GroupChildOrbits, Group
 import type { MorphState, OverlayTransitionState, SemanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
 import { AmbientDriver, isEvidenceGap, SceneParticles } from "../renderers/scene/parts/particles-layer";
 import {
+  foundationDensityCounters,
+  foundationPlaneGuides,
   isFoundationProfile,
   portAriaText,
   portFocusPatch,
@@ -68,6 +70,7 @@ import type { SourceStreamPort } from "../scene/perspectives";
 import { DEFAULT_VISUAL_CONTROL_CONFIG } from "./visualControl";
 import type { VisualControlConfig } from "./visualControl";
 import {
+  EMPTY_FOUNDATION_DENSITY,
   latchRuntimePerformanceFallback,
   RUNTIME_PERFORMANCE_RESET_EVENT,
   RuntimePerformanceTelemetry,
@@ -993,6 +996,20 @@ function SceneContent({
   const foundationPrimitiveCount = foundationActive ? layout.foundationPrimitives?.length ?? 0 : 0;
   const interactiveNodeCount =
     sceneNodes.length + sceneClusterStars.length + layout.beacons.length + foundationPrimitiveCount;
+  // §20: the foundation profile also reports per-kind derived density against
+  // the renderer's active quality tier (compact/balanced/rich). Outside the
+  // profile the counters are structural zeros and no evaluation is produced.
+  const foundationDensity = useMemo(
+    () =>
+      foundationActive
+        ? {
+            ...foundationDensityCounters(layout),
+            foundationLabels: labelCount + foundationPlaneGuides(layout).length,
+            foundationProfile: profile.quality
+          }
+        : EMPTY_FOUNDATION_DENSITY,
+    [foundationActive, labelCount, layout, profile.quality]
+  );
   useEffect(() => {
     onPerformanceEvidence(
       performanceTelemetry.updateCounters(
@@ -1001,6 +1018,7 @@ function SceneContent({
           interactiveNodes: interactiveNodeCount,
           relationLines: relationLineCount,
           labels: labelCount,
+          ...foundationDensity,
           fallbackReason: null,
           routeUsabilityMs
         },
@@ -1008,6 +1026,7 @@ function SceneContent({
       )
     );
   }, [
+    foundationDensity,
     interactiveNodeCount,
     labelCount,
     onPerformanceEvidence,
@@ -1449,6 +1468,15 @@ export function SystemScene({
     output.dataset.performanceFallbackReason = evidence.counters.fallbackReason ?? "";
     output.dataset.performanceFrameMedian = evidence.counters.frameTimeMedianMs?.toFixed(2) ?? "";
     output.dataset.performanceFrameP95 = evidence.counters.frameTimeP95Ms?.toFixed(2) ?? "";
+    // §20: foundation density counters ride on the same evidence element so
+    // browser QA can read the derived-primitive census without new plumbing.
+    output.dataset.performanceFoundationProfile = evidence.counters.foundationProfile ?? "";
+    output.dataset.performanceSourceStations = String(evidence.counters.sourceStations);
+    output.dataset.performanceSourceStreamPorts = String(evidence.counters.sourceStreamPorts);
+    output.dataset.performanceSourcePipelineLanes = String(evidence.counters.sourcePipelineLanes);
+    output.dataset.performanceSourceFlowSegments = String(evidence.counters.sourceFlowSegments);
+    output.dataset.performanceSourceGapMarkers = String(evidence.counters.sourceGapMarkers);
+    output.dataset.performanceFoundationLabels = String(evidence.counters.foundationLabels);
     if (sustainedPerformanceFallbackRequired(evidence) && !performanceFallbackLatchedRef.current) {
       performanceFallbackLatchedRef.current = true;
       latchRuntimePerformanceFallback();
@@ -1727,6 +1755,8 @@ export function SystemScene({
           interactiveNodes: layout.nodes.length + layout.clusterStars.length + layout.beacons.length,
           relationLines: visibleRelations,
           labels: layout.nodes.length + layout.groups.length + layout.clusterStars.length + layout.beacons.length,
+          // The 2D fallback mounts none of the derived foundation primitives.
+          ...EMPTY_FOUNDATION_DENSITY,
           particles: 0,
           fallbackReason: fallbackReason ?? sceneFallbackReason() ?? "runtime_fallback",
           ...(fallbackReason === "performance_budget"
