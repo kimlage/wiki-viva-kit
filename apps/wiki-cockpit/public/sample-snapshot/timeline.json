@@ -1,7 +1,7 @@
 {
   "bands": {
     "last_30_days": 0,
-    "last_7_days": 99,
+    "last_7_days": 101,
     "older": 9,
     "undated": 0
   },
@@ -11,7 +11,7 @@
     "replacement_payload": "temporal_graph.json"
   },
   "contract_version": "activity_timeline.v1",
-  "event_count": 108,
+  "event_count": 110,
   "events": [
     {
       "commit": "",
@@ -273,6 +273,28 @@
       "kind": "page_updated",
       "label": "CRM accounts export",
       "path": "memories/sources/source-crm-accounts.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-source-config-error-traces",
+      "kind": "page_updated",
+      "label": "Source config: Error traces",
+      "path": "memories/sources/config/source-error-traces.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "pessoal",
+      "id": "page-source-config-agenda",
+      "kind": "page_updated",
+      "label": "Source config: Agenda",
+      "path": "memories/sources/config/source-agenda.md",
       "status": "fresh",
       "timestamp": "2026-07-03T00:00:00Z",
       "weight": 2
@@ -1205,22 +1227,22 @@
   "generated_at": "2026-07-09T00:00:00Z",
   "next_cursor": null,
   "repo_id": "wiki-viva-demo",
-  "returned_count": 108,
+  "returned_count": 110,
   "schema_version": "wiki_web_timeline.v1",
   "summary": {
     "by_context": {
-      "clientes": 54,
+      "clientes": 55,
       "estudio": 7,
       "financeiro": 7,
-      "pessoal": 10,
+      "pessoal": 11,
       "sistema": 29,
       "system": 1
     },
     "by_kind": {
-      "page_updated": 107,
+      "page_updated": 109,
       "snapshot": 1
     },
-    "event_count": 108,
+    "event_count": 110,
     "first_at": "2026-05-04T00:00:00Z",
     "last_at": "2026-07-11T00:00:00Z"
   },

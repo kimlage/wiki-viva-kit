@@ -1,0 +1,1583 @@
+{
+  "diagnostics": [
+    {
+      "code": "emission_without_target",
+      "count": 1,
+      "gap_id": "gap:emission_without_target:810a177ddb79aadb",
+      "message_key": "source_foundation.diagnostics.emission_without_target",
+      "related_refs": [
+        "event-ingest-agenda-2026-07"
+      ],
+      "severity": "warning",
+      "subject_ref": "emission:401293b6b35bb8e0ec3e"
+    },
+    {
+      "code": "emission_without_target",
+      "count": 1,
+      "gap_id": "gap:emission_without_target:3b211c4bfb603960",
+      "message_key": "source_foundation.diagnostics.emission_without_target",
+      "related_refs": [
+        "event-ingest-product-analytics-2026-07"
+      ],
+      "severity": "warning",
+      "subject_ref": "emission:d3b9fdc5b2ee94337107"
+    },
+    {
+      "code": "emission_without_target",
+      "count": 1,
+      "gap_id": "gap:emission_without_target:1cf7a596af96fb3b",
+      "message_key": "source_foundation.diagnostics.emission_without_target",
+      "related_refs": [
+        "event-ingest-banco-2026-05"
+      ],
+      "severity": "warning",
+      "subject_ref": "emission:fadb4cb83fc1efe4f386"
+    },
+    {
+      "code": "event_without_closure",
+      "count": 1,
+      "gap_id": "gap:event_without_closure:fe4494f46a0d3275",
+      "message_key": "source_foundation.diagnostics.event_without_closure",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "event-ingest-chat-2026-07"
+    },
+    {
+      "code": "event_without_closure",
+      "count": 1,
+      "gap_id": "gap:event_without_closure:dbb9f90ebaafe84f",
+      "message_key": "source_foundation.diagnostics.event_without_closure",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "event-ingest-support-tickets-2026-06"
+    },
+    {
+      "code": "source_blocked",
+      "count": 1,
+      "gap_id": "gap:source_blocked:20abc5e6c7650ddb",
+      "message_key": "source_foundation.diagnostics.source_blocked",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-crm-accounts"
+    },
+    {
+      "code": "source_blocked",
+      "count": 1,
+      "gap_id": "gap:source_blocked:a4d745bfb9b66d92",
+      "message_key": "source_foundation.diagnostics.source_blocked",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-error-traces"
+    },
+    {
+      "code": "source_blocked",
+      "count": 1,
+      "gap_id": "gap:source_blocked:b07ae5bb47620861",
+      "message_key": "source_foundation.diagnostics.source_blocked",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-health-checks"
+    },
+    {
+      "code": "source_blocked",
+      "count": 1,
+      "gap_id": "gap:source_blocked:cc700f90123866ba",
+      "message_key": "source_foundation.diagnostics.source_blocked",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-publication-queue"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:3674fe0e2c9b5606",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-action-ledger"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:1b78ce59a8fbe5d0",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-calendar-archive"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:c5eee3cfb7ac3bff",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-call-recordings"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:361a6af248087c17",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-clearpath-billing"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:b61c60a1b8a49084",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-clearpath-risk-log"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:135087f6442b6b40",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-clearpath-roadmap"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:ae96fbf6eaf68b40",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-clearpath-support"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:6011137868266fa2",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-evidence-ledger"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:7c7dd0353ca228e1",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-feature-flags"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:98c68f4455e95c18",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-inbox-capture"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:4b11cb9f052a0332",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-notes-vault"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:6101280867f7d82d",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-nps-surveys"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:a90ae5508e6fd157",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-reading-queue"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:46791b1dad954156",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-reference-folder"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:ee02f36e83858657",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-relation-cadence"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:16235d16e246adce",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-sales-pipeline"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:a69b67bac2a53f64",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-template-registry"
+    },
+    {
+      "code": "source_never_synced",
+      "count": 1,
+      "gap_id": "gap:source_never_synced:c18afd5de0d39f72",
+      "message_key": "source_foundation.diagnostics.source_never_synced",
+      "related_refs": [],
+      "severity": "info",
+      "subject_ref": "source-usage-warehouse"
+    },
+    {
+      "code": "source_recipe_invalid",
+      "count": 1,
+      "gap_id": "gap:source_recipe_invalid:941326b2e5b61a6d",
+      "message_key": "source_foundation.diagnostics.source_recipe_invalid",
+      "related_refs": [
+        "recipe.locator is required (platform-native id)",
+        "recipe.pipelines is empty (declare at least one typed pipeline)",
+        "unknown platform `observability` (use ['calendar', 'drive', 'file', 'gchat', 'gmail', 'manual', 'repo', 'slack', 'web', 'whatsapp'])"
+      ],
+      "severity": "error",
+      "subject_ref": "source-error-traces"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:3674fe0e2c9b5606",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-action-ledger"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:2b3b518380b33374",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-banco-export"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:1b78ce59a8fbe5d0",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-calendar-archive"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:c5eee3cfb7ac3bff",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-call-recordings"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:b8119f9213e9e946",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-chat-export"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:361a6af248087c17",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-clearpath-billing"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:b61c60a1b8a49084",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-clearpath-risk-log"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:135087f6442b6b40",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-clearpath-roadmap"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:ae96fbf6eaf68b40",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-clearpath-support"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:20abc5e6c7650ddb",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-crm-accounts"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:58fce1ff3d8b00ee",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-decision-log"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:6011137868266fa2",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-evidence-ledger"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:7c7dd0353ca228e1",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-feature-flags"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:b07ae5bb47620861",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-health-checks"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:98c68f4455e95c18",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-inbox-capture"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:4b11cb9f052a0332",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-notes-vault"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:6101280867f7d82d",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-nps-surveys"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:f20e547846d340b0",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-product-analytics"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:cc700f90123866ba",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-publication-queue"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:a90ae5508e6fd157",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-reading-queue"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:46791b1dad954156",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-reference-folder"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:ee02f36e83858657",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-relation-cadence"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:59330cec24d07691",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-release-notes"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:16235d16e246adce",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-sales-pipeline"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:453e9844c898ce29",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-support-tickets"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:a69b67bac2a53f64",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-template-registry"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:c18afd5de0d39f72",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-usage-warehouse"
+    },
+    {
+      "code": "source_sync_failed",
+      "count": 1,
+      "gap_id": "gap:source_sync_failed:20abc5e6c7650ddb",
+      "message_key": "source_foundation.diagnostics.source_sync_failed",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-crm-accounts"
+    },
+    {
+      "code": "source_sync_failed",
+      "count": 1,
+      "gap_id": "gap:source_sync_failed:a4d745bfb9b66d92",
+      "message_key": "source_foundation.diagnostics.source_sync_failed",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-error-traces"
+    },
+    {
+      "code": "source_sync_failed",
+      "count": 1,
+      "gap_id": "gap:source_sync_failed:b07ae5bb47620861",
+      "message_key": "source_foundation.diagnostics.source_sync_failed",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-health-checks"
+    },
+    {
+      "code": "source_sync_failed",
+      "count": 1,
+      "gap_id": "gap:source_sync_failed:cc700f90123866ba",
+      "message_key": "source_foundation.diagnostics.source_sync_failed",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-publication-queue"
+    },
+    {
+      "code": "stream_never_observed",
+      "count": 1,
+      "gap_id": "gap:stream_never_observed:29755199f11fc88f",
+      "message_key": "source_foundation.diagnostics.stream_never_observed",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "stream:source-agenda:focus-retro"
+    },
+    {
+      "code": "stream_never_observed",
+      "count": 1,
+      "gap_id": "gap:stream_never_observed:a979b924f52857b7",
+      "message_key": "source_foundation.diagnostics.stream_never_observed",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "stream:source-agenda:weekly-sync"
+    },
+    {
+      "code": "stream_never_observed",
+      "count": 1,
+      "gap_id": "gap:stream_never_observed:15b8449e645eb56b",
+      "message_key": "source_foundation.diagnostics.stream_never_observed",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "stream:source-error-traces:traces"
+    },
+    {
+      "code": "stream_target_missing",
+      "count": 1,
+      "gap_id": "gap:stream_target_missing:255b8e26d630781f",
+      "message_key": "source_foundation.diagnostics.stream_target_missing",
+      "related_refs": [
+        "insight-calendario-calmo"
+      ],
+      "severity": "warning",
+      "subject_ref": "stream:source-agenda:focus-retro"
+    },
+    {
+      "code": "stream_target_missing",
+      "count": 1,
+      "gap_id": "gap:stream_target_missing:2bbdb924be051536",
+      "message_key": "source_foundation.diagnostics.stream_target_missing",
+      "related_refs": [
+        "meeting-weekly-sync"
+      ],
+      "severity": "warning",
+      "subject_ref": "stream:source-agenda:weekly-sync"
+    },
+    {
+      "code": "unresolved_canonical_page",
+      "count": 1,
+      "gap_id": "gap:unresolved_canonical_page:1860fc16e0013af7",
+      "message_key": "source_foundation.diagnostics.unresolved_canonical_page",
+      "related_refs": [
+        "meeting-weekly-sync"
+      ],
+      "severity": "warning",
+      "subject_ref": "event-ingest-agenda-2026-07"
+    },
+    {
+      "code": "unresolved_canonical_page",
+      "count": 2,
+      "gap_id": "gap:unresolved_canonical_page:0c00342ae5d779b4",
+      "message_key": "source_foundation.diagnostics.unresolved_canonical_page",
+      "related_refs": [
+        "artifact-relatorio-recon",
+        "claim-custos-sobem"
+      ],
+      "severity": "warning",
+      "subject_ref": "event-ingest-banco-2026-05"
+    },
+    {
+      "code": "unresolved_canonical_page",
+      "count": 1,
+      "gap_id": "gap:unresolved_canonical_page:34579bc3d40cdf00",
+      "message_key": "source_foundation.diagnostics.unresolved_canonical_page",
+      "related_refs": [
+        "dashboard-clearpath-activation"
+      ],
+      "severity": "warning",
+      "subject_ref": "event-ingest-product-analytics-2026-07"
+    }
+  ],
+  "emissions": [
+    {
+      "closure_state": "accepted",
+      "emission_id": "emission:401293b6b35bb8e0ec3e",
+      "event_page_id": "event-ingest-agenda-2026-07",
+      "evidence_refs": [],
+      "observed_at": "2026-07-03",
+      "proposal_page_ids": [],
+      "provenance_basis": "ingestion_event",
+      "relation_type": "source_emission",
+      "source_id": "source-agenda",
+      "stream_id": null,
+      "target_page_id": null
+    },
+    {
+      "closure_state": "accepted",
+      "emission_id": "emission:fadb4cb83fc1efe4f386",
+      "event_page_id": "event-ingest-banco-2026-05",
+      "evidence_refs": [],
+      "observed_at": "2026-05-04",
+      "proposal_page_ids": [],
+      "provenance_basis": "ingestion_event",
+      "relation_type": "source_emission",
+      "source_id": "source-banco-export",
+      "stream_id": null,
+      "target_page_id": null
+    },
+    {
+      "closure_state": "pending",
+      "emission_id": "emission:31ee29fc369152bf8bd5",
+      "event_page_id": "event-ingest-chat-2026-07",
+      "evidence_refs": [],
+      "observed_at": "2026-07-03",
+      "proposal_page_ids": [],
+      "provenance_basis": "ingestion_event",
+      "relation_type": "source_emission",
+      "source_id": "source-chat-export",
+      "stream_id": null,
+      "target_page_id": null
+    },
+    {
+      "closure_state": "accepted",
+      "emission_id": "emission:d3b9fdc5b2ee94337107",
+      "event_page_id": "event-ingest-product-analytics-2026-07",
+      "evidence_refs": [],
+      "observed_at": "2026-07-03",
+      "proposal_page_ids": [
+        "proposal-ingest-product-analytics-2026-07"
+      ],
+      "provenance_basis": "ingestion_event",
+      "relation_type": "source_emission",
+      "source_id": "source-product-analytics",
+      "stream_id": null,
+      "target_page_id": null
+    },
+    {
+      "closure_state": "pending",
+      "emission_id": "emission:d533cc14f433f7f5a8bb",
+      "event_page_id": "event-ingest-support-tickets-2026-06",
+      "evidence_refs": [],
+      "observed_at": "2026-05-04",
+      "proposal_page_ids": [],
+      "provenance_basis": "ingestion_event",
+      "relation_type": "source_emission",
+      "source_id": "source-support-tickets",
+      "stream_id": null,
+      "target_page_id": null
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "pipelines": [
+    {
+      "cadence_days": 7,
+      "current_stage": "complete",
+      "kind": "content",
+      "last_transition_at": "",
+      "pipeline_id": "pipeline:source-agenda:content",
+      "source_id": "source-agenda",
+      "stream_ids": [
+        "stream:source-agenda:focus-retro",
+        "stream:source-agenda:weekly-sync"
+      ]
+    }
+  ],
+  "repo_id": "wiki-viva-demo",
+  "revision": "uncommitted:cfedfcc3559313ce5872c79568a33db0304f5bdd0f4a331750d485dc133d02ac",
+  "schema_version": "wiki_web_source_foundation.v1",
+  "stations": [
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-action-ledger",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "sistema",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "configured",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-action-ledger.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Action tracker",
+      "recipe_state": "missing",
+      "station_id": "station:source-action-ledger",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Action ledger export"
+    },
+    {
+      "adoption_state": "accepted",
+      "canonical_page_id": "source-agenda",
+      "channel_station_id": null,
+      "config_page_id": "source-config-agenda",
+      "context": "pessoal",
+      "diagnostic_codes": [
+        "emission_without_target",
+        "stream_never_observed",
+        "stream_target_missing"
+      ],
+      "emission_ids": [
+        "emission:401293b6b35bb8e0ec3e"
+      ],
+      "kind": "source",
+      "lifecycle_state": "ingested",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-agenda.md",
+      "pending_stream_count": 2,
+      "pipeline_ids": [
+        "pipeline:source-agenda:content"
+      ],
+      "pipeline_stage": "complete",
+      "platform": "Google Calendar",
+      "recipe_state": "valid",
+      "station_id": "station:source-agenda",
+      "stream_ids": [
+        "stream:source-agenda:focus-retro",
+        "stream:source-agenda:weekly-sync"
+      ],
+      "sync_state": "ok",
+      "target_page_ids": [],
+      "title": "Agenda"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-banco-export",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "financeiro",
+      "diagnostic_codes": [
+        "emission_without_target",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [
+        "emission:fadb4cb83fc1efe4f386"
+      ],
+      "kind": "source",
+      "lifecycle_state": "consolidated",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-banco-export.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "gate_pending",
+      "platform": "Banco",
+      "recipe_state": "missing",
+      "station_id": "station:source-banco-export",
+      "stream_ids": [],
+      "sync_state": "ok",
+      "target_page_ids": [],
+      "title": "Extrato do Banco"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-calendar-archive",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "pessoal",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-calendar-archive.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Calendar",
+      "recipe_state": "missing",
+      "station_id": "station:source-calendar-archive",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Calendar archive"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-call-recordings",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-call-recordings.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Call archive",
+      "recipe_state": "missing",
+      "station_id": "station:source-call-recordings",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Call recordings archive"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-chat-export",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_recipe_missing"
+      ],
+      "emission_ids": [
+        "emission:31ee29fc369152bf8bd5"
+      ],
+      "kind": "source",
+      "lifecycle_state": "proposed",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-chat-export.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "proposal_ready",
+      "platform": "WhatsApp",
+      "recipe_state": "missing",
+      "station_id": "station:source-chat-export",
+      "stream_ids": [],
+      "sync_state": "ok",
+      "target_page_ids": [],
+      "title": "Export do Chat"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-clearpath-billing",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-clearpath-billing.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Billing",
+      "recipe_state": "missing",
+      "station_id": "station:source-clearpath-billing",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Clearpath billing feed"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-clearpath-risk-log",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-clearpath-risk-log.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Risk register",
+      "recipe_state": "missing",
+      "station_id": "station:source-clearpath-risk-log",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Clearpath risk log"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-clearpath-roadmap",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-clearpath-roadmap.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Roadmap",
+      "recipe_state": "missing",
+      "station_id": "station:source-clearpath-roadmap",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Clearpath roadmap archive"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-clearpath-support",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-clearpath-support.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Helpdesk",
+      "recipe_state": "missing",
+      "station_id": "station:source-clearpath-support",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Clearpath support feed"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-crm-accounts",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_blocked",
+        "source_recipe_missing",
+        "source_sync_failed"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "blocked",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-crm-accounts.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "CRM",
+      "recipe_state": "missing",
+      "station_id": "station:source-crm-accounts",
+      "stream_ids": [],
+      "sync_state": "needs_auth",
+      "target_page_ids": [],
+      "title": "CRM accounts export"
+    },
+    {
+      "adoption_state": "reviewed_no_change",
+      "canonical_page_id": "source-decision-log",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "sistema",
+      "diagnostic_codes": [
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ingested",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-decision-log.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "complete",
+      "platform": "Decision ledger",
+      "recipe_state": "missing",
+      "station_id": "station:source-decision-log",
+      "stream_ids": [],
+      "sync_state": "ok",
+      "target_page_ids": [],
+      "title": "Decision log export"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-error-traces",
+      "channel_station_id": null,
+      "config_page_id": "source-config-error-traces",
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_blocked",
+        "source_recipe_invalid",
+        "source_sync_failed",
+        "stream_never_observed"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "blocked",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-error-traces.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "extracted",
+      "platform": "Observability",
+      "recipe_state": "invalid",
+      "station_id": "station:source-error-traces",
+      "stream_ids": [
+        "stream:source-error-traces:traces"
+      ],
+      "sync_state": "parser_error",
+      "target_page_ids": [],
+      "title": "Error trace export"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-evidence-ledger",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "sistema",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-evidence-ledger.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Evidence ledger",
+      "recipe_state": "missing",
+      "station_id": "station:source-evidence-ledger",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Evidence ledger export"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-feature-flags",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-feature-flags.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Feature flags",
+      "recipe_state": "missing",
+      "station_id": "station:source-feature-flags",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Feature flag audit"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-health-checks",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "sistema",
+      "diagnostic_codes": [
+        "source_blocked",
+        "source_recipe_missing",
+        "source_sync_failed"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "blocked",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-health-checks.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "manifested",
+      "platform": "Checks",
+      "recipe_state": "missing",
+      "station_id": "station:source-health-checks",
+      "stream_ids": [],
+      "sync_state": "failed",
+      "target_page_ids": [],
+      "title": "Health checks output"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-inbox-capture",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "pessoal",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-inbox-capture.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Inbox",
+      "recipe_state": "missing",
+      "station_id": "station:source-inbox-capture",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Inbox capture stream"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-notes-vault",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "pessoal",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-notes-vault.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Markdown vault",
+      "recipe_state": "missing",
+      "station_id": "station:source-notes-vault",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Notes vault index"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-nps-surveys",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-nps-surveys.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Survey tool",
+      "recipe_state": "missing",
+      "station_id": "station:source-nps-surveys",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "NPS survey export"
+    },
+    {
+      "adoption_state": "accepted",
+      "canonical_page_id": "source-product-analytics",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "emission_without_target",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [
+        "emission:d3b9fdc5b2ee94337107"
+      ],
+      "kind": "source",
+      "lifecycle_state": "ingested",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-product-analytics.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "complete",
+      "platform": "Analytics",
+      "recipe_state": "missing",
+      "station_id": "station:source-product-analytics",
+      "stream_ids": [],
+      "sync_state": "ok",
+      "target_page_ids": [],
+      "title": "Product analytics export"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-publication-queue",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "sistema",
+      "diagnostic_codes": [
+        "source_blocked",
+        "source_recipe_missing",
+        "source_sync_failed"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "blocked",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-publication-queue.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "extracted",
+      "platform": "Review queue",
+      "recipe_state": "missing",
+      "station_id": "station:source-publication-queue",
+      "stream_ids": [],
+      "sync_state": "secret_blocked",
+      "target_page_ids": [],
+      "title": "Publication queue"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-reading-queue",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "estudio",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-reading-queue.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Read-it-later",
+      "recipe_state": "missing",
+      "station_id": "station:source-reading-queue",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Reading queue export"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-reference-folder",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "estudio",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-reference-folder.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Drive folder",
+      "recipe_state": "missing",
+      "station_id": "station:source-reference-folder",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Reference folder mirror"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-relation-cadence",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "pessoal",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-relation-cadence.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Relations",
+      "recipe_state": "missing",
+      "station_id": "station:source-relation-cadence",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Relation cadence export"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-release-notes",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "syncing",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-release-notes.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "indexed",
+      "platform": "Docs",
+      "recipe_state": "missing",
+      "station_id": "station:source-release-notes",
+      "stream_ids": [],
+      "sync_state": "running",
+      "target_page_ids": [],
+      "title": "Release notes archive"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-sales-pipeline",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-sales-pipeline.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "CRM",
+      "recipe_state": "missing",
+      "station_id": "station:source-sales-pipeline",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Sales pipeline export"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-support-tickets",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_recipe_missing"
+      ],
+      "emission_ids": [
+        "emission:d533cc14f433f7f5a8bb"
+      ],
+      "kind": "source",
+      "lifecycle_state": "proposed",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-support-tickets.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "proposal_ready",
+      "platform": "Helpdesk",
+      "recipe_state": "missing",
+      "station_id": "station:source-support-tickets",
+      "stream_ids": [],
+      "sync_state": "ok",
+      "target_page_ids": [],
+      "title": "Support tickets export"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-template-registry",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "sistema",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-template-registry.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Template registry",
+      "recipe_state": "missing",
+      "station_id": "station:source-template-registry",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Template registry snapshot"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-usage-warehouse",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_never_synced",
+        "source_recipe_missing"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "ready",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-usage-warehouse.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "configured",
+      "platform": "Warehouse",
+      "recipe_state": "missing",
+      "station_id": "station:source-usage-warehouse",
+      "stream_ids": [],
+      "sync_state": "never",
+      "target_page_ids": [],
+      "title": "Usage warehouse extract"
+    }
+  ],
+  "streams": [
+    {
+      "breached": true,
+      "cadence_days": 7,
+      "cursor_age_days": null,
+      "filter_keys": [
+        "calendar"
+      ],
+      "freshness_state": "never",
+      "label": "Focus retrospective",
+      "privacy": "private_self",
+      "recipe_stream_id": "focus-retro",
+      "selected": true,
+      "skip_reason_code": "",
+      "source_id": "source-agenda",
+      "stream_id": "stream:source-agenda:focus-retro",
+      "target_page_ids": []
+    },
+    {
+      "breached": true,
+      "cadence_days": 7,
+      "cursor_age_days": null,
+      "filter_keys": [
+        "calendar"
+      ],
+      "freshness_state": "never",
+      "label": "Weekly sync events",
+      "privacy": "private_self",
+      "recipe_stream_id": "weekly-sync",
+      "selected": true,
+      "skip_reason_code": "",
+      "source_id": "source-agenda",
+      "stream_id": "stream:source-agenda:weekly-sync",
+      "target_page_ids": []
+    },
+    {
+      "breached": false,
+      "cadence_days": 0,
+      "cursor_age_days": null,
+      "filter_keys": [],
+      "freshness_state": "never",
+      "label": "Error traces",
+      "privacy": "private_self",
+      "recipe_stream_id": "traces",
+      "selected": true,
+      "skip_reason_code": "",
+      "source_id": "source-error-traces",
+      "stream_id": "stream:source-error-traces:traces",
+      "target_page_ids": []
+    }
+  ],
+  "summary": {
+    "blocked_sources": 4,
+    "channels": 0,
+    "emissions": 5,
+    "gaps": 68,
+    "pending_streams": 2,
+    "pipelines": 1,
+    "sources": 29,
+    "streams": 3,
+    "targets": 0
+  },
+  "targets": [],
+  "topology_sha256": "9dd8af78d919e6227c583212251a1f8a1b1b4ddc3cbcf50bba74dd2480971f44"
+}

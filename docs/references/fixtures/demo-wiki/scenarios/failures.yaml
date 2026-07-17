@@ -11,15 +11,17 @@ source_pages:
   - memories/index.md
   - memories/sources/source-health-checks.md
   - memories/sources/source-error-traces.md
+  - memories/sources/config/source-error-traces.md
 composition:
   include_ids:
     - root-alex-rivera
     - source-health-checks
     - source-error-traces
+    - source-config-error-traces
     - action-region-sync-support
 expected:
-  page_count: 4
-  page_id_sha256: 31360e1f7e2eeecd7cb34c7cc9bc0d17f82351ecdf4dfad49a55fb71d4ec16eb
+  page_count: 5
+  page_id_sha256: 57eeaac8163eec2b2327970cbd6c194f6cc8bf36ae61f9074b06a991aaf4d076
   required_artifact_capabilities: [content_sidecars, validated_runtime_boundary]
 versions:
   snapshot: wiki_web_snapshot.v2

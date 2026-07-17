@@ -1,0 +1,47 @@
+{
+  "backlinks": [],
+  "body": "\n# Source config: Agenda\n\n## Ingestion rules\n\nIngest on demand from the fenced recipe below.\n\n## Search rules\n\nSearch normalized events before raw exports.\n\n## Business rules\n\nConsolidation happens only through reviewed proposals.\n\n## Privacy boundaries\n\nStructural metadata only \u2014 never credentials or message bodies.\n\n```yaml\nrecipe:\n  schema_version: wiki_source_recipe.v1\n  platform: calendar\n  locator: demo-calendar/alex-rivera-primary\n  auth:\n    method: none\n    ref: ''\n  pipelines:\n  - kind: content\n    cadence_days: 7\n  streams:\n  - id: weekly-sync\n    label: Weekly sync events\n    selected: true\n    filters:\n      calendar: primary\n    privacy: private_self\n    target_pages:\n    - meeting-weekly-sync\n  - id: focus-retro\n    label: Focus retrospective\n    selected: true\n    filters:\n      calendar: focus-blocks\n    privacy: private_self\n    target_pages:\n    - insight-calendario-calmo\n  how_to_export: Export the demo calendar as ICS and drop it in data/raw.\n```\n",
+  "frontmatter": {
+    "context": "pessoal",
+    "moc_parent": "memories/sources/source-agenda.md",
+    "page_id": "source-config-agenda",
+    "page_type": "source_config",
+    "source_refs": [
+      "source-agenda"
+    ],
+    "stale_after_days": 30,
+    "title": "Source config: Agenda",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "pessoal",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sources/source-agenda.md",
+    "page_id": "source-config-agenda",
+    "page_type": "source_config",
+    "path": "memories/sources/config/source-agenda.md",
+    "summary": "Ingest on demand from the fenced recipe below. Search normalized events before raw exports. Consolidation happens only through reviewed proposals. Structural metadata only \u2014 never credentials or message bodies.",
+    "summary_truncated": false,
+    "title": "Source config: Agenda",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-d1d3435fdb9916b4",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "page_id": "source-agenda",
+      "page_type": "source",
+      "path": "memories/sources/source-agenda.md",
+      "ref": "source-agenda",
+      "resolved": true,
+      "title": "Agenda"
+    }
+  ]
+}

@@ -37,6 +37,19 @@
     {
       "body_links": 0,
       "context": "clientes",
+      "estimated_tokens": 78,
+      "information_density_per_1000_words": 66.67,
+      "link_density_per_1000_words": 16.67,
+      "outbound_links": 1,
+      "page_type": "source_config",
+      "path": "memories/sources/config/source-error-traces.md",
+      "quality_exempt": [],
+      "useful_lines": 4,
+      "words": 60
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
       "estimated_tokens": 39,
       "information_density_per_1000_words": 33.33,
       "link_density_per_1000_words": 33.33,
@@ -99,7 +112,7 @@
     "chunk_sources": 0,
     "chunks_total": 0,
     "contexts": {
-      "clientes": 2,
+      "clientes": 3,
       "pessoal": 1,
       "sistema": 1
     },
@@ -113,9 +126,10 @@
     "page_types": {
       "action": 1,
       "root_entity": 1,
-      "source": 2
+      "source": 2,
+      "source_config": 1
     },
-    "pages_total": 4,
+    "pages_total": 5,
     "pending_calls": 0,
     "quality_exempt_pages": 0,
     "quality_exemption_missing_reason": 0,

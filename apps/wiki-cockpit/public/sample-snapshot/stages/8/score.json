@@ -26,15 +26,15 @@
       "indicadores": {
         "acoes_com_resultado": 0.0,
         "aprovacoes_no_sla": 0.0,
-        "fontes_recentes": 16.0,
+        "fontes_recentes": 17.0,
         "insights_revisados": 0.0,
-        "paginas_atualizadas": 49.0,
+        "paginas_atualizadas": 50.0,
         "paginas_orfas": 0.0,
         "pendencias": 5.0,
         "responsabilidades_sem_dono": 0.0,
         "riscos_privacidade_resolvidos": 0.0
       },
-      "indice_vitalidade": 99.2,
+      "indice_vitalidade": 99.3,
       "participacao_distribuida": 0,
       "participantes": [],
       "score_aggregado": 0.0
@@ -83,15 +83,15 @@
       "indicadores": {
         "acoes_com_resultado": 0.0,
         "aprovacoes_no_sla": 0.0,
-        "fontes_recentes": 5.0,
+        "fontes_recentes": 6.0,
         "insights_revisados": 0.0,
-        "paginas_atualizadas": 10.0,
+        "paginas_atualizadas": 11.0,
         "paginas_orfas": 1.0,
         "pendencias": 0.0,
         "responsabilidades_sem_dono": 0.0,
         "riscos_privacidade_resolvidos": 0.0
       },
-      "indice_vitalidade": 67.9,
+      "indice_vitalidade": 72.8,
       "participacao_distribuida": 0,
       "participantes": [],
       "score_aggregado": 0.0

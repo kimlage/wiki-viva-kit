@@ -1286,6 +1286,38 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
+      "id": "a36e7d702b5ab379a58b",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "meeting-weekly-sync",
+        "path": "memories/meetings/meeting-weekly-sync.md"
+      },
+      "source": "meeting-weekly-sync",
+      "status": "valid",
+      "target": "source-agenda",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "073a444ecce416e3d345",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "meeting-weekly-sync",
+        "path": "memories/meetings/meeting-weekly-sync.md"
+      },
+      "source": "meeting-weekly-sync",
+      "status": "valid",
+      "target": "source-chat-export",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
       "id": "8522080ff61afb4f341c",
       "observed_at": "2026-07-03",
       "provenance": {
@@ -1954,6 +1986,70 @@
       "target": "company-clearpath-labs",
       "type": "moc_parent",
       "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "0abbe2486fcdd634febb",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-config-agenda",
+        "path": "memories/sources/config/source-agenda.md"
+      },
+      "source": "source-config-agenda",
+      "status": "valid",
+      "target": "source-agenda",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "32bf591811190372e54c",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "source-config-agenda",
+        "path": "memories/sources/config/source-agenda.md"
+      },
+      "source": "source-config-agenda",
+      "status": "valid",
+      "target": "source-agenda",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "ac243c0366c9c1cefc07",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-config-error-traces",
+        "path": "memories/sources/config/source-error-traces.md"
+      },
+      "source": "source-config-error-traces",
+      "status": "valid",
+      "target": "source-error-traces",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "c70627ba423f53abfa90",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "source-config-error-traces",
+        "path": "memories/sources/config/source-error-traces.md"
+      },
+      "source": "source-config-error-traces",
+      "status": "valid",
+      "target": "source-error-traces",
+      "type": "source_ref",
+      "weight": 2
     },
     {
       "basis": "frontmatter",
@@ -5839,8 +5935,8 @@
       "id": "meeting-weekly-sync",
       "metrics": {
         "inbound_links": 1,
-        "outbound_links": 2,
-        "source_ref_count": 0
+        "outbound_links": 4,
+        "source_ref_count": 2
       },
       "overlay_metrics": {
         "actions": {
@@ -5858,13 +5954,16 @@
           "value": 0
         },
         "evidence": {
-          "count": 0,
+          "count": 2,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-agenda",
+            "source-chat-export"
+          ],
+          "state": "linked",
+          "value": 2
         },
         "freshness": {
           "count": 1,
@@ -7835,7 +7934,7 @@
       "freshness_state": "fresh",
       "id": "source-agenda",
       "metrics": {
-        "inbound_links": 2,
+        "inbound_links": 4,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -8133,7 +8232,7 @@
       "freshness_state": "fresh",
       "id": "source-chat-export",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 2,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -8563,6 +8662,152 @@
     },
     {
       "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "source-config-agenda",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-agenda"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "source_config",
+      "path": "memories/sources/config/source-agenda.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Source config: Agenda",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-config-error-traces",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-error-traces"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "source_config",
+      "path": "memories/sources/config/source-error-traces.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Source config: Error traces",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-crm-accounts",
@@ -8714,7 +8959,7 @@
       "freshness_state": "fresh",
       "id": "source-error-traces",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 2,
         "source_ref_count": 0
       },

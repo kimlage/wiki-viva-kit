@@ -1,6 +1,6 @@
 {
   "diagnostics": [],
-  "event_count": 141,
+  "event_count": 143,
   "event_schema_version": "wiki_temporal_event.v1",
   "events": [
     {
@@ -1108,6 +1108,52 @@
       "source_refs": [],
       "subject_refs": [
         "page:process-fechamento-mensal"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "source_config"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:clientes"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_1560dc7f8e66be80403ba1d0",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:source-error-traces"
+      ],
+      "subject_refs": [
+        "page:source-config-error-traces"
       ],
       "superseded_at": null,
       "supersedes": [],
@@ -3160,6 +3206,52 @@
     {
       "actor": null,
       "after": {
+        "page_type": "source_config"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:pessoal"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_97e29ea943ad0014977f7460",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:source-agenda"
+      ],
+      "subject_refs": [
+        "page:source-config-agenda"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
         "page_type": "person"
       },
       "anchor": {
@@ -4519,7 +4611,10 @@
       },
       "recorded_at": "2026-07-03",
       "schema_version": "wiki_temporal_event.v1",
-      "source_refs": [],
+      "source_refs": [
+        "source:source-agenda",
+        "source:source-chat-export"
+      ],
       "subject_refs": [
         "page:meeting-weekly-sync"
       ],
@@ -6271,15 +6366,15 @@
   "generated_at": "2026-07-09T00:00:00Z",
   "next_cursor": null,
   "page": {
-    "fingerprint": "5dfab7667d3bc80c37297bce53757c63ae125608f327f97a0c08db5dbc07d138",
-    "limit": 141,
+    "fingerprint": "cdb6dd84c88140a9832ef69ddc558a9633bc6ae0046d4a8eaac0577d4531add6",
+    "limit": 143,
     "offset": 0,
     "remaining_count": 0
   },
   "range": {
     "basis": "full_result",
-    "dated_count": 141,
-    "event_count": 141,
+    "dated_count": 143,
+    "event_count": 143,
     "from": "2026-05-04",
     "from_precision": "day",
     "to": "2026-07-11",
@@ -6287,25 +6382,25 @@
     "undated_count": 0
   },
   "repo_id": "wiki-viva-demo",
-  "returned_count": 141,
+  "returned_count": 143,
   "returned_range": {
     "basis": "returned_page",
-    "dated_count": 141,
-    "event_count": 141,
+    "dated_count": 143,
+    "event_count": 143,
     "from": "2026-05-04",
     "from_precision": "day",
     "to": "2026-07-11",
     "to_precision": "day",
     "undated_count": 0
   },
-  "revision": "sha256:5dfab7667d3bc80c37297bce53757c63ae125608f327f97a0c08db5dbc07d138",
+  "revision": "sha256:cdb6dd84c88140a9832ef69ddc558a9633bc6ae0046d4a8eaac0577d4531add6",
   "schema_version": "wiki_temporal_graph.v1",
   "summary": {
     "by_context": {
-      "context:clientes": 73,
+      "context:clientes": 74,
       "context:estudio": 7,
       "context:financeiro": 8,
-      "context:pessoal": 12,
+      "context:pessoal": 13,
       "context:sistema": 40,
       "context:system": 1
     },
@@ -6314,7 +6409,7 @@
       "action_state_canonicalized": 1,
       "decision_recorded": 3,
       "ingestion_recorded": 5,
-      "page_updated": 107,
+      "page_updated": 109,
       "receipt_recorded": 2,
       "snapshot_recorded": 1,
       "source_configured": 1,
@@ -6324,10 +6419,10 @@
     },
     "conflict_count": 0,
     "diagnostic_count": 0,
-    "event_count": 141,
+    "event_count": 143,
     "imprecise_count": 0,
     "scope": "full_result"
   },
-  "total_count": 141,
+  "total_count": 143,
   "truncated": false
 }

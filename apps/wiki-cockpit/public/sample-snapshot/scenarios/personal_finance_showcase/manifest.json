@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "2eb12e105b54c3c8c9d78962f25e32b5aaa8c2cfaa65e4edad1f36ee7194b902",
+  "bundle_hash": "021fd3ac9d5dfdd15fc33f016f235ddd6d05098525f0176f5dd7977bf16c350d",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -16,6 +16,7 @@
     "snapshot_warnings",
     "temporal_graph",
     "experience_packs",
+    "source_foundation_v1",
     "content_sidecars"
   ],
   "content_sidecars": true,
@@ -48,6 +49,7 @@
     "region_groups.json",
     "source_lifecycle.json",
     "snapshot_warnings.json",
+    "source_foundation.json",
     "content/finance-account-main.2a8dc59f.json",
     "content/finance-category-housing.03667aaa.json",
     "content/finance-category-income.60654ab4.json",
@@ -82,7 +84,7 @@
       "accessibility"
     ],
     "seed": 8012,
-    "source_input_sha256": "39d3b090499742564b9a7dae4a2edb250d925219480d76e8ef63647ba934d04b"
+    "source_input_sha256": "3843e3b9470421d35d880a623f084573c97d78bb45ee80c5b120af149f52eaf0"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -104,47 +106,47 @@
     },
     "content/finance-account-main.2a8dc59f.json": {
       "bytes": 2693,
-      "sha256": "bd916db4b0b26673021ef23a470db97990515ff0cebc3affda325bdeed5b26e1"
+      "sha256": "845b284ebd6ad8dda8b1c543c4c7422a1c2bfd8956d982b9d2efc68c8ec7a2bb"
     },
     "content/finance-category-housing.03667aaa.json": {
       "bytes": 2276,
-      "sha256": "6f1470851a3c666d27b1c7b7caa335253cb49ed3ac76a3112d88b139d708424e"
+      "sha256": "2e95c88183747f33c70e66cb8caa62a58cef78f5f287e77e6a16841998aa7ae1"
     },
     "content/finance-category-income.60654ab4.json": {
       "bytes": 1942,
-      "sha256": "d12dc402d7ab4b6524d09784437aee65fb2330c89c6733619da9ce8ae15a0778"
+      "sha256": "774f19959645334303c8a74114f2bc9058fe07e464a195b17571b6a863a257eb"
     },
     "content/finance-closing-july.3648e0c4.json": {
       "bytes": 2196,
-      "sha256": "ba89adbe984d1029a4d636f47045945ae7178e2ac4d6cfefbfdf90386dc11be4"
+      "sha256": "1b91f8dc98bbb590813e5799c192cbc2e4b7cf3bfa8ed8c282503c96c71f5339"
     },
     "content/finance-obligation-rent.36ef27dc.json": {
       "bytes": 2142,
-      "sha256": "d53420086ba0e5fd63a6fcee160608fd97f191d4c46c18d6cfab70c3526a1b5b"
+      "sha256": "8acdf88ea2e2ea0a90bba41886a971a600208fce9b1be3c727ed942b0baba604"
     },
     "content/finance-reconciliation-july.f405412a.json": {
       "bytes": 2469,
-      "sha256": "4111e566249413ebaf2e41a15425a9a9b9af62fdb9596db04738a8d8aede5fcf"
+      "sha256": "04f98f7dc904f7fa84eabcfb629c44055fce6a9c422af7e16f420340147b3d42"
     },
     "content/finance-review-july.114a4d29.json": {
       "bytes": 2067,
-      "sha256": "30856f877c93752766cefb7ee8a20d052adffe7cd261223d97866a0359200896"
+      "sha256": "6bcf05f50289683bc717342e1e8588a4f5034b36132594df61ae78d711dd45ef"
     },
     "content/finance-source-july.01b4ab62.json": {
       "bytes": 3440,
-      "sha256": "1bd943cc1f5a8983d1c07f0b3673604caef264503ecc9b0885220b70dd18c122"
+      "sha256": "1c61f670a6c0eb520e3d09efb0dcc91f7aad7aaf8ef97be5980c2abba94d32b9"
     },
     "content/finance-transaction-housing.f96d7d0a.json": {
       "bytes": 2293,
-      "sha256": "a0a0ce60c6f932cba620ec45a0185b672953191e7a3bd9146915bc5fcd73ea87"
+      "sha256": "da5b1e144af94750529cacb505cfd05c680b208b03f305dbb8c972bc3279f18d"
     },
     "content/finance-transaction-income.00cded94.json": {
       "bytes": 2283,
-      "sha256": "f351089d185aa19829d2588c28e8f2c59e498053b6fd1d21a085b9d55eb090cf"
+      "sha256": "8f8858b0df95eb58733e4e4ef497b6873a3c6a62c7abcea721814e3030035389"
     },
     "content/root-personal-finance-showcase.745a5dc3.json": {
       "bytes": 12278,
-      "sha256": "3f8414d79bd0abd4fb7bf40ce50d8a45e0b85e4ce357e0eb96a8fe3d6a278b4a"
+      "sha256": "a35d64ece31db742fc004d3bbc228bf6aa68804f4198021b0a8062dc87f1a4a2"
     },
     "decisions.json": {
       "bytes": 1080,
@@ -210,6 +212,10 @@
       "bytes": 111,
       "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
     },
+    "source_foundation.json": {
+      "bytes": 541,
+      "sha256": "0aaf2ab5fffd1061ad79e8dbcf3a96cf6bd85349ae387e192bb785eeca5ee358"
+    },
     "source_lifecycle.json": {
       "bytes": 58,
       "sha256": "fae2169dc386a6fc7caaaa74d1990c34433b478868cb06deaa288d176fe214ff"
@@ -247,7 +253,7 @@
   },
   "root_page_id": "root-personal-finance-showcase",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-2eb12e105b54c3c8",
+  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-021fd3ac9d5dfdd1",
   "source_commit": null,
   "source_sha": "uncommitted:a39f9c0e08c1e756aec8ed87eb47b24be531af63d8f8854e7b273d56588ebd51",
   "versions": {
@@ -260,6 +266,7 @@
     "runtime_contract": "wiki_world_runtime.v8",
     "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
     "snapshot": "wiki_web_snapshot.v2",
+    "source_foundation": "wiki_web_source_foundation.v1",
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",

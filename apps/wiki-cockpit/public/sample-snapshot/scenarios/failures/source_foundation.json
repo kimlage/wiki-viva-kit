@@ -1,0 +1,168 @@
+{
+  "diagnostics": [
+    {
+      "code": "source_blocked",
+      "count": 1,
+      "gap_id": "gap:source_blocked:a4d745bfb9b66d92",
+      "message_key": "source_foundation.diagnostics.source_blocked",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-error-traces"
+    },
+    {
+      "code": "source_blocked",
+      "count": 1,
+      "gap_id": "gap:source_blocked:b07ae5bb47620861",
+      "message_key": "source_foundation.diagnostics.source_blocked",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-health-checks"
+    },
+    {
+      "code": "source_recipe_invalid",
+      "count": 1,
+      "gap_id": "gap:source_recipe_invalid:941326b2e5b61a6d",
+      "message_key": "source_foundation.diagnostics.source_recipe_invalid",
+      "related_refs": [
+        "recipe.locator is required (platform-native id)",
+        "recipe.pipelines is empty (declare at least one typed pipeline)",
+        "unknown platform `observability` (use ['calendar', 'drive', 'file', 'gchat', 'gmail', 'manual', 'repo', 'slack', 'web', 'whatsapp'])"
+      ],
+      "severity": "error",
+      "subject_ref": "source-error-traces"
+    },
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:b07ae5bb47620861",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-health-checks"
+    },
+    {
+      "code": "source_sync_failed",
+      "count": 1,
+      "gap_id": "gap:source_sync_failed:a4d745bfb9b66d92",
+      "message_key": "source_foundation.diagnostics.source_sync_failed",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-error-traces"
+    },
+    {
+      "code": "source_sync_failed",
+      "count": 1,
+      "gap_id": "gap:source_sync_failed:b07ae5bb47620861",
+      "message_key": "source_foundation.diagnostics.source_sync_failed",
+      "related_refs": [],
+      "severity": "error",
+      "subject_ref": "source-health-checks"
+    },
+    {
+      "code": "stream_never_observed",
+      "count": 1,
+      "gap_id": "gap:stream_never_observed:15b8449e645eb56b",
+      "message_key": "source_foundation.diagnostics.stream_never_observed",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "stream:source-error-traces:traces"
+    }
+  ],
+  "emissions": [],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "pipelines": [],
+  "repo_id": "wiki-viva-demo",
+  "revision": "uncommitted:4800c9d0450de793c5d6fbfeaa2c8860ac0a64baeb8f23622b7b441ab5d70c22",
+  "schema_version": "wiki_web_source_foundation.v1",
+  "stations": [
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-error-traces",
+      "channel_station_id": null,
+      "config_page_id": "source-config-error-traces",
+      "context": "clientes",
+      "diagnostic_codes": [
+        "source_blocked",
+        "source_recipe_invalid",
+        "source_sync_failed",
+        "stream_never_observed"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "blocked",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-error-traces.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "extracted",
+      "platform": "Observability",
+      "recipe_state": "invalid",
+      "station_id": "station:source-error-traces",
+      "stream_ids": [
+        "stream:source-error-traces:traces"
+      ],
+      "sync_state": "parser_error",
+      "target_page_ids": [],
+      "title": "Error trace export"
+    },
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-health-checks",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "sistema",
+      "diagnostic_codes": [
+        "source_blocked",
+        "source_recipe_missing",
+        "source_sync_failed"
+      ],
+      "emission_ids": [],
+      "kind": "source",
+      "lifecycle_state": "blocked",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-health-checks.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "manifested",
+      "platform": "Checks",
+      "recipe_state": "missing",
+      "station_id": "station:source-health-checks",
+      "stream_ids": [],
+      "sync_state": "failed",
+      "target_page_ids": [],
+      "title": "Health checks output"
+    }
+  ],
+  "streams": [
+    {
+      "breached": false,
+      "cadence_days": 0,
+      "cursor_age_days": null,
+      "filter_keys": [],
+      "freshness_state": "never",
+      "label": "Error traces",
+      "privacy": "private_self",
+      "recipe_stream_id": "traces",
+      "selected": true,
+      "skip_reason_code": "",
+      "source_id": "source-error-traces",
+      "stream_id": "stream:source-error-traces:traces",
+      "target_page_ids": []
+    }
+  ],
+  "summary": {
+    "blocked_sources": 2,
+    "channels": 0,
+    "emissions": 0,
+    "gaps": 7,
+    "pending_streams": 0,
+    "pipelines": 0,
+    "sources": 2,
+    "streams": 1,
+    "targets": 0
+  },
+  "targets": [],
+  "topology_sha256": "63319b925ea5868915615fb110c3ed7819e6f3145b263d32b974b9f82c78b16e"
+}

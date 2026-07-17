@@ -12,7 +12,7 @@
       "page_count": 0,
       "page_id_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "root_attachments": {},
-      "source_input_sha256": "ad867bf4b7b0a58341362e309e1c6b8a9214a35454e7fb1a702c823d74bf01fb",
+      "source_input_sha256": "6a6033faf39b7c0810d17e6e2ad899d3606854553ee808c1e219a87b7cdb9f03",
       "stage": 0
     },
     {
@@ -24,7 +24,7 @@
       "page_count": 1,
       "page_id_sha256": "9157a76f27bdc0cbd3fa6b8df504b883e4922ce8c36ae8f11591462161f6e55b",
       "root_attachments": {},
-      "source_input_sha256": "4557d799a3a76ae5078f97b5aa2961215efc41e886813bb46b887533d26ff21b",
+      "source_input_sha256": "e5c52e9c850d1925db6be5095758a60f812a94af5337dc10aa9a3174626261bd",
       "stage": 1
     },
     {
@@ -41,7 +41,7 @@
           }
         ]
       },
-      "source_input_sha256": "2b0c8aa9f31d3f50713f513885253a44ecd0a4c36ed0019662b40819a8775793",
+      "source_input_sha256": "0cca125e627c1e3dc8b53ec215012943d656157b5921668f21d321aea8c2d2c2",
       "stage": 2
     },
     {
@@ -62,7 +62,7 @@
           }
         ]
       },
-      "source_input_sha256": "51296f119747d5bed0cf3d51833fd6be7844b88c1b7951670e071988f66679d1",
+      "source_input_sha256": "9fa865f5ec9f1c6654e20eed93fc5eb3205fd17c542ed1361615e7d3dab0c5a2",
       "stage": 3
     },
     {
@@ -85,7 +85,7 @@
           }
         ]
       },
-      "source_input_sha256": "d07fd00e2101746e48ffabdcf5ef2ea4d75db78d9004a09ea14b9ca7549eceea",
+      "source_input_sha256": "cc7588bac902bcdd5250e72f76ccacd83b2f231f2c740122e6b61f1c1f00a6aa",
       "stage": 4
     },
     {
@@ -109,7 +109,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "d4e7d6e06306eadf0613c27602009bb017fc9df017dc134ee17a21b9de1d28aa",
+      "source_input_sha256": "9e4dfb14ddcf659ed290fafc3b7cb8cf31343b406bedb0a350a43affc08838f3",
       "stage": 5
     },
     {
@@ -136,7 +136,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "7ca886c59a85ac143a70d110f676eafb61ef73649744d6446ea354e270d2411c",
+      "source_input_sha256": "36809110ef32aa22e577a3976a05258073826bd0d2bfeab0434546cfc79b4864",
       "stage": 6
     },
     {
@@ -172,7 +172,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "0f7323e72eb6f6beeb9ba34d65a66c1a803b786fee2360cc1ad52910ac352ec6",
+      "source_input_sha256": "21ce105b953b7d9cb201907d115f3154eb421faea391091af3a06f03f8db496b",
       "stage": 7
     },
     {
@@ -244,6 +244,8 @@
         "source-clearpath-risk-log",
         "source-clearpath-roadmap",
         "source-clearpath-support",
+        "source-config-agenda",
+        "source-config-error-traces",
         "source-crm-accounts",
         "source-decision-log",
         "source-error-traces",
@@ -269,8 +271,8 @@
       ],
       "dir": "stages/8",
       "focus": "root-alex-rivera",
-      "page_count": 107,
-      "page_id_sha256": "c3a7e172bbd0c57271eea9c99e1a8e0a90d98ee59545f07ce268619f3d5129e6",
+      "page_count": 109,
+      "page_id_sha256": "5eb585ecfa4bad8f443fd96440c7920364a027d89bd60393f8e92f2e4a4e8f83",
       "root_attachments": {
         "blocks": [
           {
@@ -298,7 +300,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "b86696bc9928cf71b30d44336922e6f8d816e2d0321efd1b2fbc3be5e975444a",
+      "source_input_sha256": "6ded1aeaca98a46c6d30149b2107d82a8df5b3a4d2aa28befc634c9fe28d60c5",
       "stage": 8
     }
   ]

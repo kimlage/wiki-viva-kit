@@ -10,6 +10,7 @@ moc_parent: memories/index.md
 source_type: live
 platform: Google Calendar
 owner: root-alex-rivera
+config_ref: memories/sources/config/source-agenda.md
 sync:
   last_run_at: '2026-07-03'
   last_status: ok

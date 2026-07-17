@@ -7,6 +7,7 @@ from wiki_core.temporal import (
     TEMPORAL_EVENT_SCHEMA_VERSION,
     TEMPORAL_GRAPH_SCHEMA_VERSION,
 )
+from wiki_core.web.source_foundation import SOURCE_FOUNDATION_SCHEMA_VERSION
 
 WEB_SNAPSHOT_SCHEMA_VERSION = "wiki_web_snapshot.v2"
 WEB_RUNTIME_CONTRACT_VERSION = "wiki_world_runtime.v8"
@@ -14,6 +15,7 @@ WEB_BLOCK_VOCABULARY_VERSION = "wiki_blocks.v2"
 WEB_VISUAL_GRAMMAR_VERSION = "wiki_visual_grammar.v8"
 WEB_SEMANTIC_VISUAL_TOKENS_VERSION = "wiki_semantic_visual_tokens.v1"
 WEB_SOURCE_LIFECYCLE_VERSION = "wiki_source_lifecycle.v2"
+WEB_SOURCE_FOUNDATION_VERSION = SOURCE_FOUNDATION_SCHEMA_VERSION
 WEB_SOURCE_FRESHNESS_VERSION = "wiki_source_freshness.v1"
 WEB_SOURCE_LAST_ATTEMPT_VERSION = "wiki_source_last_attempt.v1"
 WEB_REGISTRY_MODULE_API_VERSION = "wiki_registry_module_api.v1"
@@ -41,6 +43,12 @@ CORS_DEFAULT_DENY_CAPABILITY = "cors_default_deny_v1"
 ACTION_STATE_TRANSITION_CAPABILITY = "action_state_transitions_v1"
 SNAPSHOT_PUBLICATION_CAPABILITY = "filesystem_snapshot_publication_v1"
 SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY = "snapshot_external_freshness_v1"
+# Manifest CONTENT capability (plan §8.10): advertised by a snapshot whose
+# `source_foundation.json` payload was built and validated — it is not an
+# operator endpoint, so it never enters SCHEMA_CAPABILITIES. A snapshot
+# without it falls back to the legacy sources layout; a snapshot WITH it and
+# without a valid payload is a contract error, never an empty fake topology.
+SOURCE_FOUNDATION_CAPABILITY = "source_foundation_v1"
 SCHEMA_CAPABILITIES = (
     OPERATOR_SECURITY_CAPABILITY,  # nonce + bounded/idempotent POST + browser-origin policy
     CORS_DEFAULT_DENY_CAPABILITY,  # no browser CORS trust unless exact loopback origins opt in
@@ -83,4 +91,8 @@ SNAPSHOT_FILES = (
     "region_groups.json",
     "source_lifecycle.json",
     "snapshot_warnings.json",
+    # Last on purpose: its `revision` is the source identity derived from the
+    # payload set built before it (see build_snapshot), so it is compiled and
+    # appended after every other payload exists.
+    "source_foundation.json",
 )

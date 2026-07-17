@@ -9,6 +9,9 @@ updated_at: '2026-07-03'
 moc_parent: memories/clientes/product-ops/index.md
 participants:
 - person-joao-mendes
+source_refs:
+- source-agenda
+- source-chat-export
 sub_lens: encontros
 ---
 

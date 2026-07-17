@@ -1288,6 +1288,272 @@ def test_canonical_and_legacy_source_lifecycle_values_publish_atomically(
     assert (out / OUTPUT_OWNER_FILENAME).is_file()
 
 
+def _write_source_foundation_chain_fixture(root: Path) -> None:
+    """A minimal real chain on disk: source + valid recipe + closed event.
+
+    The stream declares the page the event consolidates into, so the walking
+    skeleton (source -> stream -> event -> target) is exercised through the
+    real build_snapshot wiring (config resolution, raw event frontmatter,
+    graph provenance edges) rather than through hand-built payloads.
+    """
+
+    _write(
+        root / "memories/sources/bank.md",
+        "---\n"
+        "page_id: source-bank\n"
+        "page_type: source\n"
+        "title: Bank statements\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-07-01\n"
+        "stale_after_days: 30\n"
+        "moc_parent: memories/index.md\n"
+        "source_type: live\n"
+        "config_ref: memories/sources/config/bank.md\n"
+        "sync:\n"
+        "  last_run_at: 2026-07-01\n"
+        "  last_status: ok\n"
+        "source_lifecycle:\n"
+        "  state: ingested\n"
+        "  freshness_state: fresh\n"
+        "  last_attempt_state: ok\n"
+        "  pipeline_stage: complete\n"
+        "  adoption_state: accepted\n"
+        "  accepted_ref: 'sha:bank-accepted'\n"
+        # Quoted on purpose: lifecycle instants are declared as STRINGS; an
+        # unquoted YAML date would parse as a date object and be rejected.
+        "  last_sync_success_at: '2026-07-01'\n"
+        "  last_ingested_at: '2026-07-01'\n"
+        "  last_attempt_at: '2026-07-01'\n"
+        "  emitted_page_ids: [example-hub]\n"
+        "---\n\n"
+        "# Bank statements\n",
+    )
+    _write(
+        root / "memories/sources/config/bank.md",
+        "---\n"
+        "page_id: source-config-bank\n"
+        "page_type: source_config\n"
+        "title: Bank statements config\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-07-01\n"
+        "stale_after_days: 30\n"
+        "moc_parent: memories/sources/bank.md\n"
+        "source_refs: [source-bank]\n"
+        "---\n\n"
+        "# Bank statements config\n\n"
+        "```yaml\n"
+        "recipe:\n"
+        "  schema_version: wiki_source_recipe.v1\n"
+        "  platform: file\n"
+        "  locator: data/raw/bank\n"
+        "  pipelines:\n"
+        "    - kind: content\n"
+        "      cadence_days: 30\n"
+        "  streams:\n"
+        "    - id: statements\n"
+        "      label: Monthly statements\n"
+        "      selected: true\n"
+        "      privacy: private_self\n"
+        "      target_pages: [memories/example/index.md]\n"
+        "```\n",
+    )
+    _write(
+        root / "memories/system/ingestion/events/event-bank-2026-07.md",
+        "---\n"
+        "page_id: event-bank-2026-07\n"
+        "event_id: event-bank-2026-07\n"
+        "page_type: ingestion_event\n"
+        "title: 'Ingest: bank statements'\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-07-01\n"
+        "stale_after_days: 365\n"
+        "moc_parent: memories/sources/bank.md\n"
+        "source_id: source-bank\n"
+        "source_refs: [source-bank]\n"
+        "consolidated_into: [example-hub]\n"
+        "gate_state: approved\n"
+        "---\n\n"
+        "# Ingest: bank statements\n",
+    )
+
+
+def _reseal_manifest(artifacts: dict[str, dict[str, object]]) -> None:
+    """Recompute integrity, bundle hash and snapshot id after a tamper/strip,
+    so a test observes only the contract error it introduced on purpose."""
+
+    manifest = artifacts["manifest.json"]
+    manifest["integrity"] = {
+        name: snapshot_module._payload_integrity(payload)
+        for name, payload in artifacts.items()
+        if name != "manifest.json"
+    }
+    bundle_hash = snapshot_module._bundle_hash_for_artifacts(artifacts)
+    manifest["bundle_hash"] = bundle_hash
+    manifest["snapshot_id"] = f"{manifest['repo']['repo_id']}-{bundle_hash[:16]}"
+
+
+def test_source_foundation_is_included_atomically_with_coherent_capability(
+    tmp_path: Path,
+) -> None:
+    config = _sample_repo(tmp_path)
+    _write_source_foundation_chain_fixture(tmp_path)
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-01T00:00:00Z",
+    )
+
+    # Atomic inclusion: same envelope, declared file, correct integrity.
+    assert tuple(snapshot) == SNAPSHOT_FILES
+    manifest = snapshot["manifest.json"]
+    payload = snapshot["source_foundation.json"]
+    assert "source_foundation.json" in manifest["files"]
+    assert manifest["integrity"]["source_foundation.json"] == (
+        snapshot_module._payload_integrity(payload)
+    )
+    # Capability coherence: capability, version and payload agree.
+    assert "source_foundation_v1" in manifest["capabilities"]
+    assert manifest["versions"]["source_foundation"] == (
+        "wiki_web_source_foundation.v1"
+    )
+    assert payload["schema_version"] == "wiki_web_source_foundation.v1"
+    assert payload["revision"] == manifest["source_sha"]
+    assert payload["generated_at"] == manifest["generated_at"]
+    assert manifest["contract_errors"] == []
+
+    # The chain came from the real repo: config resolved, stream declared,
+    # event read raw from the canonical events directory.
+    station = next(
+        row for row in payload["stations"] if row["station_id"] == "station:source-bank"
+    )
+    assert station["recipe_state"] == "valid"
+    assert station["config_page_id"] == "source-config-bank"
+    assert station["stream_ids"] == ["stream:source-bank:statements"]
+    emission = next(
+        row
+        for row in payload["emissions"]
+        if row["event_page_id"] == "event-bank-2026-07"
+        and row["target_page_id"] == "example-hub"
+    )
+    assert emission["closure_state"] == "accepted"
+    assert emission["provenance_basis"] == "ingestion_event"
+    assert emission["stream_id"] == "stream:source-bank:statements"
+    target = next(
+        row for row in payload["targets"] if row["page_id"] == "example-hub"
+    )
+    assert target["source_ids"] == ["source-bank"]
+    assert target["closure_state"] == "accepted"
+    assert target["target_declared_by_stream_ids"] == [
+        "stream:source-bank:statements"
+    ]
+
+
+def test_source_foundation_capability_without_payload_fails_honestly(
+    tmp_path: Path,
+) -> None:
+    config = _sample_repo(tmp_path)
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-01T00:00:00Z",
+    )
+    del snapshot["source_foundation.json"]
+    errors = snapshot_contract_errors(snapshot)
+    assert "source foundation payload missing" in errors
+    assert "missing payload: source_foundation.json" in errors
+
+
+def test_source_foundation_tampered_topology_breaks_the_seal(
+    tmp_path: Path,
+) -> None:
+    config = _sample_repo(tmp_path)
+    _write_source_foundation_chain_fixture(tmp_path)
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-01T00:00:00Z",
+    )
+    station = snapshot["source_foundation.json"]["stations"][0]
+    station["title"] = "tampered"
+    _reseal_manifest(snapshot)
+    errors = snapshot_contract_errors(snapshot)
+    assert errors == ["source foundation topology hash mismatch"]
+
+
+def test_source_foundation_builder_failure_degrades_without_capability(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _sample_repo(tmp_path)
+
+    def _boom(**_kwargs: object) -> dict[str, object]:
+        raise RuntimeError("synthetic foundation failure")
+
+    monkeypatch.setattr(
+        snapshot_module, "build_source_foundation_payload", _boom
+    )
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-01T00:00:00Z",
+    )
+    payload = snapshot["source_foundation.json"]
+    assert payload["error"] == "source_foundation_unavailable"
+    assert payload["error_code"] == "source_foundation_unavailable"
+    manifest = snapshot["manifest.json"]
+    # §8.10: never advertise what is not there — and never fake an empty
+    # topology. The degraded payload itself stays publishable.
+    assert "source_foundation_v1" not in manifest["capabilities"]
+    assert "source_foundation.json" in manifest["files"]
+    assert manifest["contract_errors"] == []
+
+
+def test_old_snapshot_without_source_foundation_stays_valid(
+    tmp_path: Path,
+) -> None:
+    config = _sample_repo(tmp_path)
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-01T00:00:00Z",
+    )
+    # Reproduce a pre-foundation snapshot: no payload, no declaration, no
+    # capability, no version. It must keep loading with zero contract errors.
+    del snapshot["source_foundation.json"]
+    manifest = snapshot["manifest.json"]
+    manifest["files"] = [
+        name for name in manifest["files"] if name != "source_foundation.json"
+    ]
+    manifest["capabilities"] = [
+        name for name in manifest["capabilities"] if name != "source_foundation_v1"
+    ]
+    manifest["versions"].pop("source_foundation")
+    _reseal_manifest(snapshot)
+    assert snapshot_contract_errors(snapshot) == []
+
+
+def test_source_foundation_payload_without_capability_is_flagged(
+    tmp_path: Path,
+) -> None:
+    config = _sample_repo(tmp_path)
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-01T00:00:00Z",
+    )
+    manifest = snapshot["manifest.json"]
+    manifest["capabilities"] = [
+        name for name in manifest["capabilities"] if name != "source_foundation_v1"
+    ]
+    _reseal_manifest(snapshot)
+    assert snapshot_contract_errors(snapshot) == [
+        "source foundation capability missing"
+    ]
+
+
 def test_snapshot_warnings_detect_core_overload_and_wrong_semantic_buckets() -> None:
     pages = {
         "pages": [

@@ -12,11 +12,11 @@ source_pages:
   - memories/system/ingestion/events
 composition:
   include_ids: [root-alex-rivera]
-  include_page_types: [source, ingestion_event]
+  include_page_types: [source, ingestion_event, source_config]
 expected:
-  page_count: 36
-  page_id_sha256: 24084240cfd0383c6120beb3fb7d35d1dccf6a170fb29f15c591021bb819b0ed
-  required_artifact_capabilities: [source_lifecycle]
+  page_count: 38
+  page_id_sha256: ece7929b92a53b271c2b04fd2cc9ba18ddc942146a6730192630284a136f6d27
+  required_artifact_capabilities: [source_foundation_v1, source_lifecycle]
 versions:
   snapshot: wiki_web_snapshot.v2
   runtime: wiki_world_runtime.v8

@@ -1,7 +1,7 @@
 {
   "bands": {
     "last_30_days": 0,
-    "last_7_days": 4,
+    "last_7_days": 5,
     "older": 1,
     "undated": 0
   },
@@ -11,7 +11,7 @@
     "replacement_payload": "temporal_graph.json"
   },
   "contract_version": "activity_timeline.v1",
-  "event_count": 5,
+  "event_count": 6,
   "events": [
     {
       "commit": "",
@@ -48,6 +48,17 @@
     },
     {
       "commit": "",
+      "context": "clientes",
+      "id": "page-source-config-error-traces",
+      "kind": "page_updated",
+      "label": "Source config: Error traces",
+      "path": "memories/sources/config/source-error-traces.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
       "context": "pessoal",
       "id": "page-root-alex-rivera",
       "kind": "page_updated",
@@ -72,20 +83,20 @@
   "generated_at": "2026-07-09T00:00:00Z",
   "next_cursor": null,
   "repo_id": "wiki-viva-demo",
-  "returned_count": 5,
+  "returned_count": 6,
   "schema_version": "wiki_web_timeline.v1",
   "summary": {
     "by_context": {
-      "clientes": 2,
+      "clientes": 3,
       "pessoal": 1,
       "sistema": 1,
       "system": 1
     },
     "by_kind": {
-      "page_updated": 4,
+      "page_updated": 5,
       "snapshot": 1
     },
-    "event_count": 5,
+    "event_count": 6,
     "first_at": "2026-05-04T00:00:00Z",
     "last_at": "2026-07-09T00:00:00Z"
   },

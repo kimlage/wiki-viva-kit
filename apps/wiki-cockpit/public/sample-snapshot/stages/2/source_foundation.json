@@ -1,0 +1,24 @@
+{
+  "diagnostics": [],
+  "emissions": [],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "pipelines": [],
+  "repo_id": "wiki-viva-demo",
+  "revision": "uncommitted:ae13858354618a80e3e1186b3e49b94eacda5c0a4335c48ddc6ddb57de1b07b1",
+  "schema_version": "wiki_web_source_foundation.v1",
+  "stations": [],
+  "streams": [],
+  "summary": {
+    "blocked_sources": 0,
+    "channels": 0,
+    "emissions": 0,
+    "gaps": 0,
+    "pending_streams": 0,
+    "pipelines": 0,
+    "sources": 0,
+    "streams": 0,
+    "targets": 0
+  },
+  "targets": [],
+  "topology_sha256": "e123aa2a61b961861711d82f105fc7f331784b75fcab0bf53c86003c96fd6466"
+}

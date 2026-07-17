@@ -928,3 +928,43 @@ def build_source_foundation_payload(
         "targets": targets_out,
         "diagnostics": diagnostics_out,
     }
+
+
+_TOPOLOGY_KEYS = ("stations", "streams", "pipelines", "emissions", "targets", "diagnostics")
+
+
+def source_foundation_payload_errors(payload: Any) -> list[str]:
+    """Contract errors for an already-built (or parsed-back) payload.
+
+    §8.10 item 3: a snapshot that advertises `source_foundation_v1` must carry
+    a valid, sealed topology — a missing, torn or error-marked payload is an
+    honest contract error, never a silently empty foundation. The hash check
+    recomputes `topology_sha256` over the same canonical JSON the builder
+    sealed, so a payload edited after build cannot keep its seal.
+    """
+
+    if not isinstance(payload, Mapping):
+        return ["source foundation payload must be an object"]
+    errors: list[str] = []
+    if payload.get("schema_version") != SOURCE_FOUNDATION_SCHEMA_VERSION:
+        errors.append("source foundation schema version mismatch")
+    if payload.get("error") or payload.get("error_code"):
+        # An explicit degraded payload can never validate as a topology.
+        errors.append("source foundation payload carries an error marker")
+        return errors
+    topology: dict[str, Any] = {}
+    for key in _TOPOLOGY_KEYS:
+        value = payload.get(key)
+        if not isinstance(value, list):
+            errors.append(f"source foundation {key} must be a list")
+        topology[key] = value
+    summary = payload.get("summary")
+    if not isinstance(summary, Mapping):
+        errors.append("source foundation summary must be an object")
+    topology["summary"] = dict(summary) if isinstance(summary, Mapping) else summary
+    if errors:
+        return errors
+    expected = hashlib.sha256(_canonical_json(topology)).hexdigest()
+    if payload.get("topology_sha256") != expected:
+        errors.append("source foundation topology hash mismatch")
+    return errors

@@ -2339,7 +2339,7 @@
                 "raw": 0,
                 "risk": 0,
                 "shown": 3,
-                "source_backed": 0,
+                "source_backed": 1,
                 "stale": 0,
                 "total": 3,
                 "unsourced": 0
@@ -9897,22 +9897,8 @@
     },
     "source-agenda": {
       "derived": {
-        "empty_quadrants": [
-          "q3",
-          "q4"
-        ],
-        "missions": [
-          {
-            "anchor": "source-agenda",
-            "provider": "quadrant_absence",
-            "quadrant": "q3"
-          },
-          {
-            "anchor": "source-agenda",
-            "provider": "quadrant_absence",
-            "quadrant": "q4"
-          }
-        ],
+        "empty_quadrants": [],
+        "missions": [],
         "quadrant_assignments": {
           "q0_core": [],
           "q1": [
@@ -9921,8 +9907,12 @@
           "q2": [
             "event-ingest-agenda-2026-07"
           ],
-          "q3": [],
-          "q4": []
+          "q3": [
+            "meeting-weekly-sync"
+          ],
+          "q4": [
+            "source-config-agenda"
+          ]
         },
         "quadrant_nested_mode": "summarize",
         "quadrant_projections": {
@@ -9957,6 +9947,38 @@
               "subject_center": "source-agenda",
               "through_center": ""
             }
+          ],
+          "meeting-weekly-sync": [
+            {
+              "basis": "page_semantics",
+              "center": "source-agenda",
+              "facet": "relacoes",
+              "local_facet_under_subject": "relacoes",
+              "local_quadrant_under_subject": "q3",
+              "local_sub_lens_under_subject": "encontros",
+              "page": "meeting-weekly-sync",
+              "quadrant": "q3",
+              "reason": "",
+              "sub_lens": "encontros",
+              "subject_center": "source-agenda",
+              "through_center": ""
+            }
+          ],
+          "source-config-agenda": [
+            {
+              "basis": "page_semantics",
+              "center": "source-agenda",
+              "facet": "sistemas",
+              "local_facet_under_subject": "sistemas",
+              "local_quadrant_under_subject": "q4",
+              "local_sub_lens_under_subject": "fontes",
+              "page": "source-config-agenda",
+              "quadrant": "q4",
+              "reason": "",
+              "sub_lens": "fontes",
+              "subject_center": "source-agenda",
+              "through_center": ""
+            }
           ]
         },
         "quadrant_sub_lens": {
@@ -9970,8 +9992,16 @@
               "event-ingest-agenda-2026-07"
             ]
           },
-          "q3": {},
-          "q4": {}
+          "q3": {
+            "encontros": [
+              "meeting-weekly-sync"
+            ]
+          },
+          "q4": {
+            "fontes": [
+              "source-config-agenda"
+            ]
+          }
         },
         "region_groups": {
           "anchor": "source-agenda",
@@ -10097,7 +10127,9 @@
               "id": "quadrant:relacoes",
               "kind": "quadrant",
               "label_key": "relacoes",
-              "member_ids": [],
+              "member_ids": [
+                "meeting-weekly-sync"
+              ],
               "purpose": "navigate",
               "summary": {
                 "hidden": 0,
@@ -10105,13 +10137,19 @@
                 "proposal": 0,
                 "raw": 0,
                 "risk": 0,
-                "shown": 0,
-                "source_backed": 0,
+                "shown": 1,
+                "source_backed": 1,
                 "stale": 0,
-                "total": 0,
+                "total": 1,
                 "unsourced": 0
               },
-              "type_mix": [],
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "event",
+                  "page_type": "meeting"
+                }
+              ],
               "visual": {
                 "emphasis": [
                   "healthy"
@@ -10132,36 +10170,57 @@
               "visual_role": "quadrant"
             },
             {
-              "action_hints": [],
-              "attention_hints": [],
+              "action_hints": [
+                {
+                  "count": 1,
+                  "kind": "inspect_sources",
+                  "label_key": "region.action.inspectSources"
+                }
+              ],
+              "attention_hints": [
+                {
+                  "count": 1,
+                  "kind": "raw"
+                }
+              ],
               "id": "quadrant:sistemas",
               "kind": "quadrant",
               "label_key": "sistemas",
-              "member_ids": [],
+              "member_ids": [
+                "source-config-agenda"
+              ],
               "purpose": "navigate",
               "summary": {
                 "hidden": 0,
                 "open_actions": 0,
                 "proposal": 0,
-                "raw": 0,
+                "raw": 1,
                 "risk": 0,
-                "shown": 0,
-                "source_backed": 0,
+                "shown": 1,
+                "source_backed": 1,
                 "stale": 0,
-                "total": 0,
+                "total": 1,
                 "unsourced": 0
               },
-              "type_mix": [],
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "source",
+                  "page_type": "source_config"
+                }
+              ],
               "visual": {
                 "emphasis": [
                   "healthy"
                 ],
                 "grammar_id": "wiki.visual_grammar.v1",
-                "pack_id": "region_operations",
+                "pack_id": "evidence_first",
                 "slots": {
                   "cluster.tooltip": "hidden_histogram",
+                  "dock.action": "action_lane",
                   "fallback.card": "region_work_card",
                   "legend.entry": "legend_key",
+                  "reader.badge": "source_badge",
                   "region.card": "region_card",
                   "region.empty": "empty_region_affordance",
                   "region.marker": "action_lane",
@@ -12005,7 +12064,6 @@
       "derived": {
         "empty_quadrants": [
           "q1",
-          "q3",
           "q4"
         ],
         "missions": [
@@ -12013,11 +12071,6 @@
             "anchor": "source-chat-export",
             "provider": "quadrant_absence",
             "quadrant": "q1"
-          },
-          {
-            "anchor": "source-chat-export",
-            "provider": "quadrant_absence",
-            "quadrant": "q3"
           },
           {
             "anchor": "source-chat-export",
@@ -12031,7 +12084,9 @@
           "q2": [
             "event-ingest-chat-2026-07"
           ],
-          "q3": [],
+          "q3": [
+            "meeting-weekly-sync"
+          ],
           "q4": []
         },
         "quadrant_nested_mode": "summarize",
@@ -12051,6 +12106,22 @@
               "subject_center": "source-chat-export",
               "through_center": ""
             }
+          ],
+          "meeting-weekly-sync": [
+            {
+              "basis": "page_semantics",
+              "center": "source-chat-export",
+              "facet": "relacoes",
+              "local_facet_under_subject": "relacoes",
+              "local_quadrant_under_subject": "q3",
+              "local_sub_lens_under_subject": "encontros",
+              "page": "meeting-weekly-sync",
+              "quadrant": "q3",
+              "reason": "",
+              "sub_lens": "encontros",
+              "subject_center": "source-chat-export",
+              "through_center": ""
+            }
           ]
         },
         "quadrant_sub_lens": {
@@ -12060,7 +12131,11 @@
               "event-ingest-chat-2026-07"
             ]
           },
-          "q3": {},
+          "q3": {
+            "encontros": [
+              "meeting-weekly-sync"
+            ]
+          },
           "q4": {}
         },
         "region_groups": {
@@ -12173,7 +12248,9 @@
               "id": "quadrant:relacoes",
               "kind": "quadrant",
               "label_key": "relacoes",
-              "member_ids": [],
+              "member_ids": [
+                "meeting-weekly-sync"
+              ],
               "purpose": "navigate",
               "summary": {
                 "hidden": 0,
@@ -12181,13 +12258,19 @@
                 "proposal": 0,
                 "raw": 0,
                 "risk": 0,
-                "shown": 0,
-                "source_backed": 0,
+                "shown": 1,
+                "source_backed": 1,
                 "stale": 0,
-                "total": 0,
+                "total": 1,
                 "unsourced": 0
               },
-              "type_mix": [],
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "event",
+                  "page_type": "meeting"
+                }
+              ],
               "visual": {
                 "emphasis": [
                   "healthy"
@@ -15990,8 +16073,7 @@
         "empty_quadrants": [
           "q1",
           "q2",
-          "q3",
-          "q4"
+          "q3"
         ],
         "missions": [
           {
@@ -16008,11 +16090,6 @@
             "anchor": "source-error-traces",
             "provider": "quadrant_absence",
             "quadrant": "q3"
-          },
-          {
-            "anchor": "source-error-traces",
-            "provider": "quadrant_absence",
-            "quadrant": "q4"
           }
         ],
         "quadrant_assignments": {
@@ -16020,15 +16097,38 @@
           "q1": [],
           "q2": [],
           "q3": [],
-          "q4": []
+          "q4": [
+            "source-config-error-traces"
+          ]
         },
         "quadrant_nested_mode": "summarize",
-        "quadrant_projections": {},
+        "quadrant_projections": {
+          "source-config-error-traces": [
+            {
+              "basis": "page_semantics",
+              "center": "source-error-traces",
+              "facet": "sistemas",
+              "local_facet_under_subject": "sistemas",
+              "local_quadrant_under_subject": "q4",
+              "local_sub_lens_under_subject": "fontes",
+              "page": "source-config-error-traces",
+              "quadrant": "q4",
+              "reason": "",
+              "sub_lens": "fontes",
+              "subject_center": "source-error-traces",
+              "through_center": ""
+            }
+          ]
+        },
         "quadrant_sub_lens": {
           "q1": {},
           "q2": {},
           "q3": {},
-          "q4": {}
+          "q4": {
+            "fontes": [
+              "source-config-error-traces"
+            ]
+          }
         },
         "region_groups": {
           "anchor": "source-error-traces",
@@ -16154,36 +16254,57 @@
               "visual_role": "quadrant"
             },
             {
-              "action_hints": [],
-              "attention_hints": [],
+              "action_hints": [
+                {
+                  "count": 1,
+                  "kind": "inspect_sources",
+                  "label_key": "region.action.inspectSources"
+                }
+              ],
+              "attention_hints": [
+                {
+                  "count": 1,
+                  "kind": "raw"
+                }
+              ],
               "id": "quadrant:sistemas",
               "kind": "quadrant",
               "label_key": "sistemas",
-              "member_ids": [],
+              "member_ids": [
+                "source-config-error-traces"
+              ],
               "purpose": "navigate",
               "summary": {
                 "hidden": 0,
                 "open_actions": 0,
                 "proposal": 0,
-                "raw": 0,
+                "raw": 1,
                 "risk": 0,
-                "shown": 0,
-                "source_backed": 0,
+                "shown": 1,
+                "source_backed": 1,
                 "stale": 0,
-                "total": 0,
+                "total": 1,
                 "unsourced": 0
               },
-              "type_mix": [],
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "source",
+                  "page_type": "source_config"
+                }
+              ],
               "visual": {
                 "emphasis": [
                   "healthy"
                 ],
                 "grammar_id": "wiki.visual_grammar.v1",
-                "pack_id": "region_operations",
+                "pack_id": "evidence_first",
                 "slots": {
                   "cluster.tooltip": "hidden_histogram",
+                  "dock.action": "action_lane",
                   "fallback.card": "region_work_card",
                   "legend.entry": "legend_key",
+                  "reader.badge": "source_badge",
                   "region.card": "region_card",
                   "region.empty": "empty_region_affordance",
                   "region.marker": "action_lane",

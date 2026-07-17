@@ -1613,6 +1613,10 @@ keeping a calm calendar.
             },
         },
         "source-agenda": {
+            # Source-foundation fixture: the one demo source with a VALID
+            # recipe — its streams declare real targets so the foundation can
+            # show a full declared→emitted chain plus one declared-only gap.
+            "config_ref": "memories/sources/config/source-agenda.md",
             "sync": {"last_run_at": FRESH, "last_status": "ok", "last_event_ref": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md"},
             "source_lifecycle": {
                 "state": "ingested", "freshness_state": "fresh", "last_attempt_state": "ok",
@@ -1664,6 +1668,10 @@ keeping a calm calendar.
             },
         },
         "source-error-traces": {
+            # Source-foundation fixture: a syntactically well-formed recipe
+            # whose CONTENT is invalid (unknown platform, missing locator,
+            # no pipelines) — recipe_state `invalid`, never `missing`.
+            "config_ref": "memories/sources/config/source-error-traces.md",
             "relation_cases": [
                 {
                     "type": "markdown_link", "target": "source-health-checks", "direction": "directed",
@@ -1803,6 +1811,109 @@ keeping a calm calendar.
         )
     )
 
+    # --- Source configs: executable recipes for the source foundation ------
+    # Governance plates, never emitters. One VALID recipe (source-agenda) whose
+    # streams declare a fulfilled target (meeting-weekly-sync, emitted by the
+    # agenda ingest event) and a declared-only target (insight-calendario-calmo,
+    # never emitted); and one INVALID recipe (source-error-traces) so the
+    # failure fixture shows `source_recipe_invalid` instead of `missing`.
+    # Everything is fictional and secret-free: locators are demo ids and the
+    # auth pointer method is `none`.
+    agenda_recipe = yaml.safe_dump(
+        {
+            "recipe": {
+                "schema_version": "wiki_source_recipe.v1",
+                "platform": "calendar",
+                "locator": "demo-calendar/alex-rivera-primary",
+                "auth": {"method": "none", "ref": ""},
+                "pipelines": [{"kind": "content", "cadence_days": 7}],
+                "streams": [
+                    {
+                        "id": "weekly-sync",
+                        "label": "Weekly sync events",
+                        "selected": True,
+                        "filters": {"calendar": "primary"},
+                        "privacy": "private_self",
+                        "target_pages": ["meeting-weekly-sync"],
+                    },
+                    {
+                        "id": "focus-retro",
+                        "label": "Focus retrospective",
+                        "selected": True,
+                        "filters": {"calendar": "focus-blocks"},
+                        "privacy": "private_self",
+                        "target_pages": ["insight-calendario-calmo"],
+                    },
+                ],
+                "how_to_export": "Export the demo calendar as ICS and drop it in data/raw.",
+            }
+        },
+        sort_keys=False,
+    )
+    error_traces_recipe = yaml.safe_dump(
+        {
+            "recipe": {
+                "schema_version": "wiki_source_recipe.v1",
+                # Deliberately invalid: unknown platform, no locator and an
+                # empty pipeline list — a recipe the validator must reject
+                # with typed errors, not a secret and not a parse crash.
+                "platform": "observability",
+                "locator": "",
+                "pipelines": [],
+                "streams": [
+                    {
+                        "id": "traces",
+                        "label": "Error traces",
+                        "selected": True,
+                        "privacy": "private_self",
+                        "target_pages": [],
+                    }
+                ],
+            }
+        },
+        sort_keys=False,
+    )
+    config_sections = (
+        "\n\n## Ingestion rules\n\nIngest on demand from the fenced recipe below."
+        "\n\n## Search rules\n\nSearch normalized events before raw exports."
+        "\n\n## Business rules\n\nConsolidation happens only through reviewed proposals."
+        "\n\n## Privacy boundaries\n\nStructural metadata only — never credentials or message bodies."
+    )
+    source_configs = [
+        (
+            "source-config-agenda",
+            "Source config: Agenda",
+            "pessoal",
+            "source-agenda",
+            agenda_recipe,
+        ),
+        (
+            "source-config-error-traces",
+            "Source config: Error traces",
+            "clientes",
+            "source-error-traces",
+            error_traces_recipe,
+        ),
+    ]
+    for cid, title, context, governed_source, recipe_yaml in source_configs:
+        pages.append(
+            page(
+                f"memories/sources/config/{governed_source}.md",
+                fm(
+                    page_id=cid,
+                    page_type="source_config",
+                    title=title,
+                    context=context,
+                    updated_at=FRESH,
+                    moc_parent=f"memories/sources/{governed_source}.md",
+                    # PLURAL source_refs: which source this config GOVERNS —
+                    # a governance declaration, never an emission.
+                    source_refs=[governed_source],
+                ),
+                f"# {title}{config_sections}\n\n```yaml\n{recipe_yaml}```",
+            )
+        )
+
     # --- Leaves that populate the quadrant interiors -----------------------
     leaves = [
         # q1 perception
@@ -1862,7 +1973,11 @@ keeping a calm calendar.
         ("artifact-dashboard-atlas", "artifact", "Dashboard do Atlas", "clientes", "memories/clientes/product-ops/atlas-launch/index.md", {}, "producao"),
         ("artifact-relatorio-recon", "artifact", "Relatório de reconciliação", "financeiro", "memories/financeiro/index.md", {"source_refs": ["source-banco-export"]}, "producao"),
         # q3 relations/meetings/culture
-        ("meeting-weekly-sync", "meeting", "Weekly sync — Product Ops", "clientes", "memories/clientes/product-ops/index.md", {"participants": ["person-joao-mendes"]}, "encontros"),
+        # Source-foundation fixture: a target supported by TWO sources (the
+        # calendar event that created it plus the chat export that enriched
+        # it). The foundation view must keep both emissions — never collapse
+        # a multi-source target to one provenance line.
+        ("meeting-weekly-sync", "meeting", "Weekly sync — Product Ops", "clientes", "memories/clientes/product-ops/index.md", {"participants": ["person-joao-mendes"], "source_refs": ["source-agenda", "source-chat-export"]}, "encontros"),
         ("role-consultora", "role", "Consultora líder", "clientes", "memories/clientes/product-ops/index.md", {}, "pessoas"),
         # q4 systems/process/governance
         ("process-fechamento-mensal", "process", "Fechamento mensal", "financeiro", "memories/financeiro/index.md", {"cadence": "monthly"}, "processos"),

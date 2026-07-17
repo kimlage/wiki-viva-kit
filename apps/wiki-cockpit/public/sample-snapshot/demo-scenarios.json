@@ -185,7 +185,7 @@
         }
       ],
       "id": "normal_operations",
-      "page_count": 107,
+      "page_count": 109,
       "snapshot_base": "/sample-snapshot",
       "test_capabilities": [
         {
@@ -398,7 +398,7 @@
         }
       ],
       "id": "source_lifecycle",
-      "page_count": 36,
+      "page_count": 38,
       "snapshot_base": "/sample-snapshot/scenarios/source_lifecycle",
       "test_capabilities": [
         {
@@ -516,7 +516,7 @@
         }
       ],
       "id": "failures",
-      "page_count": 4,
+      "page_count": 5,
       "snapshot_base": "/sample-snapshot/scenarios/failures",
       "test_capabilities": [
         {

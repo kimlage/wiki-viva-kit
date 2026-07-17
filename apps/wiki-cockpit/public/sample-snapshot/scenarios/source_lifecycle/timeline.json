@@ -1,7 +1,7 @@
 {
   "bands": {
     "last_30_days": 0,
-    "last_7_days": 34,
+    "last_7_days": 36,
     "older": 3,
     "undated": 0
   },
@@ -11,7 +11,7 @@
     "replacement_payload": "temporal_graph.json"
   },
   "contract_version": "activity_timeline.v1",
-  "event_count": 37,
+  "event_count": 39,
   "events": [
     {
       "commit": "",
@@ -236,6 +236,28 @@
     {
       "commit": "",
       "context": "clientes",
+      "id": "page-source-config-error-traces",
+      "kind": "page_updated",
+      "label": "Source config: Error traces",
+      "path": "memories/sources/config/source-error-traces.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "pessoal",
+      "id": "page-source-config-agenda",
+      "kind": "page_updated",
+      "label": "Source config: Agenda",
+      "path": "memories/sources/config/source-agenda.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
       "id": "page-source-clearpath-support",
       "kind": "page_updated",
       "label": "Clearpath support feed",
@@ -424,22 +446,22 @@
   "generated_at": "2026-07-09T00:00:00Z",
   "next_cursor": null,
   "repo_id": "wiki-viva-demo",
-  "returned_count": 37,
+  "returned_count": 39,
   "schema_version": "wiki_web_timeline.v1",
   "summary": {
     "by_context": {
-      "clientes": 16,
+      "clientes": 17,
       "estudio": 2,
       "financeiro": 1,
-      "pessoal": 6,
+      "pessoal": 7,
       "sistema": 11,
       "system": 1
     },
     "by_kind": {
-      "page_updated": 36,
+      "page_updated": 38,
       "snapshot": 1
     },
-    "event_count": 37,
+    "event_count": 39,
     "first_at": "2026-05-04T00:00:00Z",
     "last_at": "2026-07-09T00:00:00Z"
   },

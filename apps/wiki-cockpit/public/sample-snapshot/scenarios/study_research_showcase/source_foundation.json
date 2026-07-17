@@ -1,0 +1,24 @@
+{
+  "diagnostics": [],
+  "emissions": [],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "pipelines": [],
+  "repo_id": "wiki-viva-demo-study-research-showcase",
+  "revision": "uncommitted:fb87d1907245d751b35845193d7e89670d19e54e936cd8390a497459b801f504",
+  "schema_version": "wiki_web_source_foundation.v1",
+  "stations": [],
+  "streams": [],
+  "summary": {
+    "blocked_sources": 0,
+    "channels": 0,
+    "emissions": 0,
+    "gaps": 0,
+    "pending_streams": 0,
+    "pipelines": 0,
+    "sources": 0,
+    "streams": 0,
+    "targets": 0
+  },
+  "targets": [],
+  "topology_sha256": "e123aa2a61b961861711d82f105fc7f331784b75fcab0bf53c86003c96fd6466"
+}

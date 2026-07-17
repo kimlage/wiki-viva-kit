@@ -36,6 +36,32 @@
     },
     {
       "body_links": 0,
+      "context": "pessoal",
+      "estimated_tokens": 144,
+      "information_density_per_1000_words": 36.04,
+      "link_density_per_1000_words": 9.01,
+      "outbound_links": 1,
+      "page_type": "source_config",
+      "path": "memories/sources/config/source-agenda.md",
+      "quality_exempt": [],
+      "useful_lines": 4,
+      "words": 111
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 78,
+      "information_density_per_1000_words": 66.67,
+      "link_density_per_1000_words": 16.67,
+      "outbound_links": 1,
+      "page_type": "source_config",
+      "path": "memories/sources/config/source-error-traces.md",
+      "quality_exempt": [],
+      "useful_lines": 4,
+      "words": 60
+    },
+    {
+      "body_links": 0,
       "context": "sistema",
       "estimated_tokens": 40,
       "information_density_per_1000_words": 32.26,
@@ -543,10 +569,10 @@
     "chunk_sources": 0,
     "chunks_total": 0,
     "contexts": {
-      "clientes": 16,
+      "clientes": 17,
       "estudio": 2,
       "financeiro": 1,
-      "pessoal": 6,
+      "pessoal": 7,
       "sistema": 11
     },
     "contexts_without_role": 4,
@@ -559,9 +585,10 @@
     "page_types": {
       "ingestion_event": 5,
       "root_entity": 1,
-      "source": 30
+      "source": 30,
+      "source_config": 2
     },
-    "pages_total": 36,
+    "pages_total": 38,
     "pending_calls": 0,
     "quality_exempt_pages": 0,
     "quality_exemption_missing_reason": 0,

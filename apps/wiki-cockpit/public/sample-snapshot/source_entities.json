@@ -2,6 +2,112 @@
   "schema_version": "wiki_web_source_entities.v1",
   "sources": [
     {
+      "auth": {
+        "method": "none",
+        "note": "",
+        "ref": "",
+        "scopes": []
+      },
+      "config_ref": "memories/sources/config/source-agenda.md",
+      "context": "pessoal",
+      "how_to_export": "Export the demo calendar as ICS and drop it in data/raw.",
+      "lifecycle": {
+        "accepted_ref": "demo-sha:agenda-accepted",
+        "adoption_state": "accepted",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
+        "emitted_action_ids": [],
+        "emitted_page_ids": [
+          "meeting-weekly-sync"
+        ],
+        "freshness_state": "fresh",
+        "last_attempt_at": "2026-07-03",
+        "last_attempt_state": "ok",
+        "last_ingested_at": "2026-07-03",
+        "last_sync_success_at": "2026-07-03",
+        "pipeline_stage": "complete",
+        "pipeline_stage_timestamps": {},
+        "proposal_ids": [
+          "event-ingest-agenda-2026-07"
+        ],
+        "raw_artifact_count": 1,
+        "reviewed_no_change_receipt": "",
+        "secret_safe_log_refs": [
+          "logs/demo/source-agenda-attempt"
+        ],
+        "state": "ingested"
+      },
+      "locator": "demo-calendar/alex-rivera-primary",
+      "next_due_days": null,
+      "owner": "root-alex-rivera",
+      "path": "memories/sources/source-agenda.md",
+      "pending_streams": 2,
+      "pipelines": [
+        {
+          "cadence_days": 7,
+          "kind": "content"
+        }
+      ],
+      "platform": "Google Calendar",
+      "recipe_errors": [],
+      "recipe_ok": true,
+      "schedule": null,
+      "source_id": "source-agenda",
+      "stewards": [],
+      "streams": [
+        {
+          "breached": true,
+          "cadence_days": 7,
+          "cursor_age_days": null,
+          "filters": {
+            "calendar": "primary"
+          },
+          "id": "weekly-sync",
+          "label": "Weekly sync events",
+          "privacy": "private_self",
+          "selected": true,
+          "skip_reason": "",
+          "target_pages": [
+            "meeting-weekly-sync"
+          ]
+        },
+        {
+          "breached": true,
+          "cadence_days": 7,
+          "cursor_age_days": null,
+          "filters": {
+            "calendar": "focus-blocks"
+          },
+          "id": "focus-retro",
+          "label": "Focus retrospective",
+          "privacy": "private_self",
+          "selected": true,
+          "skip_reason": "",
+          "target_pages": [
+            "insight-calendario-calmo"
+          ]
+        }
+      ],
+      "sync": {
+        "derived_from_event": false,
+        "event_closure": {
+          "consolidated_into": [
+            "meeting-weekly-sync"
+          ],
+          "gate_state": "",
+          "no_change": [],
+          "reviewed_no_change": false
+        },
+        "last_event_ref": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
+        "last_run_at": "2026-07-03",
+        "last_status": "ok",
+        "streams_fresh": 0,
+        "streams_total": 2
+      },
+      "title": "Agenda",
+      "updated_at": "2026-07-03"
+    },
+    {
       "auth": null,
       "config_ref": "",
       "context": "sistema",
@@ -54,69 +160,6 @@
         "streams_total": 0
       },
       "title": "Action ledger export",
-      "updated_at": "2026-07-03"
-    },
-    {
-      "auth": null,
-      "config_ref": "",
-      "context": "pessoal",
-      "how_to_export": "",
-      "lifecycle": {
-        "accepted_ref": "demo-sha:agenda-accepted",
-        "adoption_state": "accepted",
-        "authoring_error_codes": [],
-        "blocked_reason": "",
-        "emitted_action_ids": [],
-        "emitted_page_ids": [
-          "meeting-weekly-sync"
-        ],
-        "freshness_state": "fresh",
-        "last_attempt_at": "2026-07-03",
-        "last_attempt_state": "ok",
-        "last_ingested_at": "2026-07-03",
-        "last_sync_success_at": "2026-07-03",
-        "pipeline_stage": "complete",
-        "pipeline_stage_timestamps": {},
-        "proposal_ids": [
-          "event-ingest-agenda-2026-07"
-        ],
-        "raw_artifact_count": 1,
-        "reviewed_no_change_receipt": "",
-        "secret_safe_log_refs": [
-          "logs/demo/source-agenda-attempt"
-        ],
-        "state": "ingested"
-      },
-      "locator": "",
-      "next_due_days": null,
-      "owner": "root-alex-rivera",
-      "path": "memories/sources/source-agenda.md",
-      "pending_streams": 0,
-      "pipelines": [],
-      "platform": "Google Calendar",
-      "recipe_errors": [],
-      "recipe_ok": false,
-      "schedule": null,
-      "source_id": "source-agenda",
-      "stewards": [],
-      "streams": [],
-      "sync": {
-        "derived_from_event": false,
-        "event_closure": {
-          "consolidated_into": [
-            "meeting-weekly-sync"
-          ],
-          "gate_state": "",
-          "no_change": [],
-          "reviewed_no_change": false
-        },
-        "last_event_ref": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
-        "last_run_at": "2026-07-03",
-        "last_status": "ok",
-        "streams_fresh": 0,
-        "streams_total": 0
-      },
-      "title": "Agenda",
       "updated_at": "2026-07-03"
     },
     {
@@ -689,7 +732,7 @@
     },
     {
       "auth": null,
-      "config_ref": "",
+      "config_ref": "memories/sources/config/source-error-traces.md",
       "context": "clientes",
       "how_to_export": "",
       "lifecycle": {
@@ -721,12 +764,29 @@
       "pending_streams": 0,
       "pipelines": [],
       "platform": "Observability",
-      "recipe_errors": [],
+      "recipe_errors": [
+        "unknown platform `observability` (use ['calendar', 'drive', 'file', 'gchat', 'gmail', 'manual', 'repo', 'slack', 'web', 'whatsapp'])",
+        "recipe.locator is required (platform-native id)",
+        "recipe.pipelines is empty (declare at least one typed pipeline)"
+      ],
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-error-traces",
       "stewards": [],
-      "streams": [],
+      "streams": [
+        {
+          "breached": false,
+          "cadence_days": 0,
+          "cursor_age_days": null,
+          "filters": {},
+          "id": "traces",
+          "label": "Error traces",
+          "privacy": "private_self",
+          "selected": true,
+          "skip_reason": "",
+          "target_pages": []
+        }
+      ],
       "sync": {
         "derived_from_event": false,
         "event_closure": {
@@ -738,8 +798,8 @@
         "last_event_ref": "",
         "last_run_at": "2026-07-03",
         "last_status": "parser_error",
-        "streams_fresh": 0,
-        "streams_total": 0
+        "streams_fresh": 1,
+        "streams_total": 1
       },
       "title": "Error trace export",
       "updated_at": "2026-07-03"
@@ -1648,8 +1708,8 @@
     }
   ],
   "summary": {
-    "pending": 0,
+    "pending": 2,
     "total": 29,
-    "with_recipe": 0
+    "with_recipe": 1
   }
 }

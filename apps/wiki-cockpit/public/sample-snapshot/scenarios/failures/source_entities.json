@@ -3,7 +3,7 @@
   "sources": [
     {
       "auth": null,
-      "config_ref": "",
+      "config_ref": "memories/sources/config/source-error-traces.md",
       "context": "clientes",
       "how_to_export": "",
       "lifecycle": {
@@ -35,12 +35,29 @@
       "pending_streams": 0,
       "pipelines": [],
       "platform": "Observability",
-      "recipe_errors": [],
+      "recipe_errors": [
+        "unknown platform `observability` (use ['calendar', 'drive', 'file', 'gchat', 'gmail', 'manual', 'repo', 'slack', 'web', 'whatsapp'])",
+        "recipe.locator is required (platform-native id)",
+        "recipe.pipelines is empty (declare at least one typed pipeline)"
+      ],
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-error-traces",
       "stewards": [],
-      "streams": [],
+      "streams": [
+        {
+          "breached": false,
+          "cadence_days": 0,
+          "cursor_age_days": null,
+          "filters": {},
+          "id": "traces",
+          "label": "Error traces",
+          "privacy": "private_self",
+          "selected": true,
+          "skip_reason": "",
+          "target_pages": []
+        }
+      ],
       "sync": {
         "derived_from_event": false,
         "event_closure": {
@@ -52,8 +69,8 @@
         "last_event_ref": "",
         "last_run_at": "2026-07-03",
         "last_status": "parser_error",
-        "streams_fresh": 0,
-        "streams_total": 0
+        "streams_fresh": 1,
+        "streams_total": 1
       },
       "title": "Error trace export",
       "updated_at": "2026-07-03"

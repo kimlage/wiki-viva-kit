@@ -1,6 +1,6 @@
 {
   "diagnostics": [],
-  "event_count": 8,
+  "event_count": 9,
   "event_schema_version": "wiki_temporal_event.v1",
   "events": [
     {
@@ -129,6 +129,52 @@
       "source_refs": [],
       "subject_refs": [
         "page:root-alex-rivera"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "source_config"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:clientes"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_1560dc7f8e66be80403ba1d0",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:source-error-traces"
+      ],
+      "subject_refs": [
+        "page:source-config-error-traces"
       ],
       "superseded_at": null,
       "supersedes": [],
@@ -364,15 +410,15 @@
   "generated_at": "2026-07-09T00:00:00Z",
   "next_cursor": null,
   "page": {
-    "fingerprint": "3e34e80851376d6ab65bbca67a5679992d2e365cda86a5aacf5df2cab234cbea",
-    "limit": 8,
+    "fingerprint": "55a98519d4ebc95b72a5258b71ba3e4ef27e3ea9c4374b91524b9e35c0a93c52",
+    "limit": 9,
     "offset": 0,
     "remaining_count": 0
   },
   "range": {
     "basis": "full_result",
-    "dated_count": 8,
-    "event_count": 8,
+    "dated_count": 9,
+    "event_count": 9,
     "from": "2026-05-04",
     "from_precision": "day",
     "to": "2026-07-09T00:00:00Z",
@@ -380,38 +426,38 @@
     "undated_count": 0
   },
   "repo_id": "wiki-viva-demo",
-  "returned_count": 8,
+  "returned_count": 9,
   "returned_range": {
     "basis": "returned_page",
-    "dated_count": 8,
-    "event_count": 8,
+    "dated_count": 9,
+    "event_count": 9,
     "from": "2026-05-04",
     "from_precision": "day",
     "to": "2026-07-09T00:00:00Z",
     "to_precision": "instant",
     "undated_count": 0
   },
-  "revision": "sha256:3e34e80851376d6ab65bbca67a5679992d2e365cda86a5aacf5df2cab234cbea",
+  "revision": "sha256:55a98519d4ebc95b72a5258b71ba3e4ef27e3ea9c4374b91524b9e35c0a93c52",
   "schema_version": "wiki_temporal_graph.v1",
   "summary": {
     "by_context": {
-      "context:clientes": 4,
+      "context:clientes": 5,
       "context:pessoal": 1,
       "context:sistema": 2,
       "context:system": 1
     },
     "by_kind": {
       "action_created": 1,
-      "page_updated": 4,
+      "page_updated": 5,
       "snapshot_recorded": 1,
       "source_refreshed": 2
     },
     "conflict_count": 0,
     "diagnostic_count": 0,
-    "event_count": 8,
+    "event_count": 9,
     "imprecise_count": 0,
     "scope": "full_result"
   },
-  "total_count": 8,
+  "total_count": 9,
   "truncated": false
 }

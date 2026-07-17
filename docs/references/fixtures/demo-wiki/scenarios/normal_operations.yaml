@@ -15,9 +15,9 @@ composition:
   include_all: true
   exclude_id_prefixes: [artifact-region-pressure-, action-region-pressure-, claim-region-pressure-]
 expected:
-  page_count: 107
-  page_id_sha256: c3a7e172bbd0c57271eea9c99e1a8e0a90d98ee59545f07ce268619f3d5129e6
-  required_artifact_capabilities: [integrity_sha256, region_groups, source_lifecycle, stable_page_ids]
+  page_count: 109
+  page_id_sha256: 5eb585ecfa4bad8f443fd96440c7920364a027d89bd60393f8e92f2e4a4e8f83
+  required_artifact_capabilities: [integrity_sha256, region_groups, source_foundation_v1, source_lifecycle, stable_page_ids]
 versions:
   snapshot: wiki_web_snapshot.v2
   runtime: wiki_world_runtime.v8

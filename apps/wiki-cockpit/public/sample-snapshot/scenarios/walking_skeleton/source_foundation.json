@@ -1,0 +1,151 @@
+{
+  "diagnostics": [
+    {
+      "code": "source_recipe_missing",
+      "count": 1,
+      "gap_id": "gap:source_recipe_missing:2b3b518380b33374",
+      "message_key": "source_foundation.diagnostics.source_recipe_missing",
+      "related_refs": [],
+      "severity": "warning",
+      "subject_ref": "source-banco-export"
+    }
+  ],
+  "emissions": [
+    {
+      "closure_state": "accepted",
+      "emission_id": "emission:06f8d5eba79dcebf468c",
+      "event_page_id": null,
+      "evidence_refs": [],
+      "observed_at": "2026-07-03",
+      "proposal_page_ids": [],
+      "provenance_basis": "frontmatter",
+      "relation_type": "source_ref",
+      "source_id": "source-banco-export",
+      "stream_id": null,
+      "target_page_id": "artifact-relatorio-recon"
+    },
+    {
+      "closure_state": "accepted",
+      "emission_id": "emission:02515f7d46842bdeff32",
+      "event_page_id": "event-ingest-banco-2026-05",
+      "evidence_refs": [],
+      "observed_at": "2026-05-04",
+      "proposal_page_ids": [],
+      "provenance_basis": "ingestion_event",
+      "relation_type": "source_emission",
+      "source_id": "source-banco-export",
+      "stream_id": null,
+      "target_page_id": "artifact-relatorio-recon"
+    },
+    {
+      "closure_state": "accepted",
+      "emission_id": "emission:20f59f033882314d8355",
+      "event_page_id": null,
+      "evidence_refs": [],
+      "observed_at": "2026-07-03",
+      "proposal_page_ids": [],
+      "provenance_basis": "frontmatter",
+      "relation_type": "source_ref",
+      "source_id": "source-banco-export",
+      "stream_id": null,
+      "target_page_id": "claim-custos-sobem"
+    },
+    {
+      "closure_state": "accepted",
+      "emission_id": "emission:278e2ec90b4f90efd34b",
+      "event_page_id": "event-ingest-banco-2026-05",
+      "evidence_refs": [],
+      "observed_at": "2026-05-04",
+      "proposal_page_ids": [],
+      "provenance_basis": "ingestion_event",
+      "relation_type": "source_emission",
+      "source_id": "source-banco-export",
+      "stream_id": null,
+      "target_page_id": "claim-custos-sobem"
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "pipelines": [],
+  "repo_id": "wiki-viva-demo",
+  "revision": "uncommitted:bfaa4d63350973dc045beff907c17192e2a7c5079573f5ee831228d43dc96187",
+  "schema_version": "wiki_web_source_foundation.v1",
+  "stations": [
+    {
+      "adoption_state": "pending",
+      "canonical_page_id": "source-banco-export",
+      "channel_station_id": null,
+      "config_page_id": null,
+      "context": "financeiro",
+      "diagnostic_codes": [
+        "source_recipe_missing"
+      ],
+      "emission_ids": [
+        "emission:02515f7d46842bdeff32",
+        "emission:06f8d5eba79dcebf468c",
+        "emission:20f59f033882314d8355",
+        "emission:278e2ec90b4f90efd34b"
+      ],
+      "kind": "source",
+      "lifecycle_state": "consolidated",
+      "next_due_days": null,
+      "owner_ref": "root-alex-rivera",
+      "path": "memories/sources/source-banco-export.md",
+      "pending_stream_count": 0,
+      "pipeline_ids": [],
+      "pipeline_stage": "gate_pending",
+      "platform": "Banco",
+      "recipe_state": "missing",
+      "station_id": "station:source-banco-export",
+      "stream_ids": [],
+      "sync_state": "ok",
+      "target_page_ids": [
+        "artifact-relatorio-recon",
+        "claim-custos-sobem"
+      ],
+      "title": "Extrato do Banco"
+    }
+  ],
+  "streams": [],
+  "summary": {
+    "blocked_sources": 0,
+    "channels": 0,
+    "emissions": 4,
+    "gaps": 1,
+    "pending_streams": 0,
+    "pipelines": 0,
+    "sources": 1,
+    "streams": 0,
+    "targets": 2
+  },
+  "targets": [
+    {
+      "accepted_count": 2,
+      "closure_state": "accepted",
+      "emission_count": 2,
+      "event_page_ids": [
+        "event-ingest-banco-2026-05"
+      ],
+      "page_id": "artifact-relatorio-recon",
+      "pending_count": 0,
+      "source_ids": [
+        "source-banco-export"
+      ],
+      "target_declared_by_stream_ids": []
+    },
+    {
+      "accepted_count": 2,
+      "closure_state": "accepted",
+      "emission_count": 2,
+      "event_page_ids": [
+        "event-ingest-banco-2026-05"
+      ],
+      "page_id": "claim-custos-sobem",
+      "pending_count": 0,
+      "source_ids": [
+        "source-banco-export"
+      ],
+      "target_declared_by_stream_ids": []
+    }
+  ],
+  "topology_sha256": "bb025dab846551ef46e1c26d267dc9def5f25701edfa0bbf4262c1226e3bbdcb"
+}

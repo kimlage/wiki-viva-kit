@@ -1,6 +1,38 @@
 {
   "edges": [
     {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "ac243c0366c9c1cefc07",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-config-error-traces",
+        "path": "memories/sources/config/source-error-traces.md"
+      },
+      "source": "source-config-error-traces",
+      "status": "valid",
+      "target": "source-error-traces",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "c70627ba423f53abfa90",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "source-config-error-traces",
+        "path": "memories/sources/config/source-error-traces.md"
+      },
+      "source": "source-config-error-traces",
+      "status": "valid",
+      "target": "source-error-traces",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
       "basis": "synthetic_allowed_cycle",
       "direction": "directed",
       "id": "8c306c885039d896e76e",
@@ -205,9 +237,82 @@
       "approved_state": "approved",
       "context": "clientes",
       "freshness_state": "fresh",
-      "id": "source-error-traces",
+      "id": "source-config-error-traces",
       "metrics": {
         "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-error-traces"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "source_config",
+      "path": "memories/sources/config/source-error-traces.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Source config: Error traces",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-error-traces",
+      "metrics": {
+        "inbound_links": 1,
         "outbound_links": 1,
         "source_ref_count": 0
       },

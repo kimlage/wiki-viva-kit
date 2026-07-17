@@ -47,7 +47,7 @@ from wiki_core.experience_packs import (
     temporal_adapter_projection,
     validate_installation as validate_experience_pack_installation,
 )
-from wiki_core.events import resolve_ingestion_event_identity
+from wiki_core.events import event_pages, resolve_ingestion_event_identity
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph import build_page_graph
@@ -77,6 +77,7 @@ from wiki_core.web.diff import build_diff_payload
 from wiki_core.web.git_ops import build_git_state
 from wiki_core.web.schemas import (
     SNAPSHOT_FILES,
+    SOURCE_FOUNDATION_CAPABILITY,
     WEB_ACTIVITY_TIMELINE_VERSION,
     WEB_BLOCK_VOCABULARY_VERSION,
     WEB_EXPERIENCE_PACK_COMPOSITION_VERSION,
@@ -86,12 +87,17 @@ from wiki_core.web.schemas import (
     WEB_RUNTIME_CONTRACT_VERSION,
     WEB_SEMANTIC_VISUAL_TOKENS_VERSION,
     WEB_SNAPSHOT_SCHEMA_VERSION,
+    WEB_SOURCE_FOUNDATION_VERSION,
     WEB_SOURCE_FRESHNESS_VERSION,
     WEB_SOURCE_LAST_ATTEMPT_VERSION,
     WEB_SOURCE_LIFECYCLE_VERSION,
     WEB_TEMPORAL_EVENT_VERSION,
     WEB_TEMPORAL_GRAPH_VERSION,
     WEB_VISUAL_GRAMMAR_VERSION,
+)
+from wiki_core.web.source_foundation import (
+    build_source_foundation_payload,
+    source_foundation_payload_errors,
 )
 from wiki_core.web.temporal import (
     build_temporal_graph_payload,
@@ -1828,6 +1834,72 @@ def _safe_source_entities(
         }
 
 
+def _ingestion_event_records(root: Path, config: WikiConfig) -> list[dict[str, Any]]:
+    """Raw `{path, values}` records for every canonical-events-directory page.
+
+    The foundation builder needs the authored frontmatter — the legacy SINGULAR
+    `source_ref` field and the gate/closure fields survive here, while the pages
+    payload merges refs and drops the gate. One unreadable event never kills the
+    read model; it simply contributes nothing (the honest absence).
+    """
+
+    paths = WikiPaths(root, config)
+    records: list[dict[str, Any]] = []
+    for path in event_pages(paths):
+        try:
+            values, _body = parse_frontmatter(path)
+        except Exception:  # noqa: BLE001 — one broken page must not kill the snapshot
+            continue
+        if not isinstance(values, dict):
+            continue
+        records.append({"path": paths.rel(path), "values": values})
+    return records
+
+
+def _safe_source_foundation(
+    root: Path,
+    config: WikiConfig,
+    *,
+    pages_payload: dict[str, Any],
+    graph_payload: dict[str, Any],
+    source_entities_payload: dict[str, Any],
+    source_lifecycle_payload: dict[str, Any],
+    revision: str,
+    generated_at: str,
+) -> dict[str, Any]:
+    """Layout-ready source topology (`wiki_web_source_foundation.v1`).
+
+    Wrapped like _safe_source_entities, but per plan §8.10 a failure yields an
+    EXPLICIT error payload and build_snapshot then withholds the
+    `source_foundation_v1` capability — the cockpit falls back to the legacy
+    sources layout instead of rendering a fake empty topology.
+    """
+
+    paths = WikiPaths(root, config)
+    try:
+        return build_source_foundation_payload(
+            repo_id=config.repo_id,
+            revision=revision,
+            generated_at=generated_at,
+            pages_payload=pages_payload,
+            graph_payload=graph_payload,
+            source_entities_payload=source_entities_payload,
+            source_lifecycle_payload=source_lifecycle_payload,
+            ingestion_events=_ingestion_event_records(root, config),
+            events_dir=paths.rel(paths.ingest_events_dir),
+            # The topology is sanitized by construction; static snapshots always
+            # use the public projection (a future private mode may only ADD
+            # detail inside the private boundary — see the builder contract).
+            mode="public",
+        )
+    except Exception:  # noqa: BLE001
+        return {
+            "schema_version": WEB_SOURCE_FOUNDATION_VERSION,
+            "error": "source_foundation_unavailable",
+            "error_code": "source_foundation_unavailable",
+        }
+
+
 def _safe_templates(
     root: Path, config: WikiConfig, pages_payload: dict[str, Any]
 ) -> dict[str, Any]:
@@ -2525,6 +2597,30 @@ def snapshot_contract_errors(payloads: dict[str, dict[str, Any]]) -> list[str]:
             errors.extend(
                 _experience_pack_composition_errors(payloads["experience_packs.json"])
             )
+    # Source foundation coherence (§8.10). Old snapshots predate the payload
+    # entirely (no capability, no file, no version) and stay valid; the moment
+    # any advertisement exists, capability, declaration, version and a sealed
+    # topology must all agree — an advertised-but-absent foundation fails
+    # honestly instead of pretending an empty topology.
+    foundation_capability = SOURCE_FOUNDATION_CAPABILITY in capabilities
+    foundation_payload = payloads.get("source_foundation.json")
+    foundation_errored = isinstance(foundation_payload, dict) and bool(
+        foundation_payload.get("error") or foundation_payload.get("error_code")
+    )
+    if foundation_capability:
+        if "source_foundation.json" not in declared_files:
+            errors.append("source foundation file declaration missing")
+        if versions.get("source_foundation") != WEB_SOURCE_FOUNDATION_VERSION:
+            errors.append("source foundation manifest version mismatch")
+        if foundation_payload is None:
+            errors.append("source foundation payload missing")
+        else:
+            errors.extend(source_foundation_payload_errors(foundation_payload))
+    elif foundation_payload is not None and not foundation_errored:
+        # A valid topology must advertise itself: loaders key the native
+        # foundation view off the capability, and a silent payload would
+        # disable it without any honest signal.
+        errors.append("source foundation capability missing")
     graph_payload = payloads.get("graph.json") or {}
     if (
         graph_payload.get("overlay_metrics_version")
@@ -3139,19 +3235,20 @@ def build_snapshot(
     )
     quality_payload = _safe_quality(root, config)
     gates_payload = _gates_payload(root, config)
+    graph_payload = _graph_payload(
+        root,
+        config,
+        pages,
+        collection_compilation,
+        quality_payload,
+        snapshot_warnings_payload,
+        gates_payload,
+        source_lifecycle_payload,
+        today=reference_date,
+    )
     payloads = {
         "operations.json": operations,
-        "graph.json": _graph_payload(
-            root,
-            config,
-            pages,
-            collection_compilation,
-            quality_payload,
-            snapshot_warnings_payload,
-            gates_payload,
-            source_lifecycle_payload,
-            today=reference_date,
-        ),
+        "graph.json": graph_payload,
         "pages.json": pages,
         "sources.json": _sources_payload(pages),
         "source_entities.json": source_entities_payload,
@@ -3177,11 +3274,29 @@ def build_snapshot(
         "source_lifecycle.json": source_lifecycle_payload,
         "snapshot_warnings.json": snapshot_warnings_payload,
     }
+    # Source identity is resolved BEFORE the foundation payload so the topology
+    # can carry it as its `revision`. For a Git checkout the identity comes from
+    # the tree (head or hashed dirty worktree) and is unaffected by this order;
+    # for a non-Git root the `uncommitted:` fallback hashes the payload set the
+    # topology is a pure function of, so it still covers every source change.
+    source_sha, source_commit = _source_identity(
+        root, _bundle_hash_for_artifacts(payloads)
+    )
+    source_foundation_payload = _safe_source_foundation(
+        root,
+        config,
+        pages_payload=pages,
+        graph_payload=graph_payload,
+        source_entities_payload=source_entities_payload,
+        source_lifecycle_payload=source_lifecycle_payload,
+        revision=source_sha,
+        generated_at=generated_at,
+    )
+    payloads["source_foundation.json"] = source_foundation_payload
     integrity = {
         name: _payload_integrity(payload) for name, payload in payloads.items()
     }
     bundle_hash = _bundle_hash_for_artifacts(payloads)
-    source_sha, source_commit = _source_identity(root, bundle_hash)
     snapshot_id = f"{config.repo_id}-{bundle_hash[:16]}"
     capabilities = [
         "atomic_envelope",
@@ -3199,6 +3314,11 @@ def build_snapshot(
         "temporal_graph",
         "experience_packs",
     ]
+    if "error" not in source_foundation_payload:
+        # §8.10: advertised only while the payload is present AND valid — a
+        # degraded build keeps its explicit error payload and loaders fall back
+        # to the legacy sources layout instead of an empty fake topology.
+        capabilities.append(SOURCE_FOUNDATION_CAPABILITY)
     if content_sidecars:
         capabilities.append("content_sidecars")
     if not pages.get("pages"):
@@ -3231,6 +3351,7 @@ def build_snapshot(
             "visual_grammar": WEB_VISUAL_GRAMMAR_VERSION,
             "semantic_visual_tokens": WEB_SEMANTIC_VISUAL_TOKENS_VERSION,
             "source_lifecycle": WEB_SOURCE_LIFECYCLE_VERSION,
+            "source_foundation": WEB_SOURCE_FOUNDATION_VERSION,
             "source_freshness": WEB_SOURCE_FRESHNESS_VERSION,
             "source_last_attempt": WEB_SOURCE_LAST_ATTEMPT_VERSION,
             "registry_module_api": WEB_REGISTRY_MODULE_API_VERSION,

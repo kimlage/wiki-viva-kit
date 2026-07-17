@@ -1,7 +1,7 @@
 {
   "by_context": {
     "clientes": {
-      "fresh": 49,
+      "fresh": 50,
       "stale": 5,
       "unknown": 0
     },
@@ -16,7 +16,7 @@
       "unknown": 0
     },
     "pessoal": {
-      "fresh": 10,
+      "fresh": 11,
       "stale": 0,
       "unknown": 0
     },
@@ -65,7 +65,7 @@
     }
   ],
   "summary": {
-    "fresh": 100,
+    "fresh": 102,
     "stale": 7,
     "unknown": 0
   }

@@ -10,6 +10,7 @@ moc_parent: memories/clientes/product-ops/index.md
 source_type: live
 platform: Observability
 owner: root-alex-rivera
+config_ref: memories/sources/config/source-error-traces.md
 relation_cases:
 - type: markdown_link
   target: source-health-checks
