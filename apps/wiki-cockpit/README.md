@@ -267,7 +267,8 @@ must call the operator directly, explicitly set an exact trusted origin such as
 server. Wildcards, remote hosts and URL credentials/path/query/fragment values
 are rejected. The `/api/health` handshake advertises `wiki_web_server.v7`,
 `operator_security_v2`, `cors_default_deny_v1`,
-`action_state_transitions_v1`, `admin_capabilities_v1` and
+`action_state_transitions_v1`, `admin_capabilities_v1`, `admin_session_v1`,
+`admin_commands_v1` and
 `wiki_operator_security.v2`; the cockpit refuses writes through a still-running
 older process and asks for a restart. Origin-less same-origin proxy and CLI clients
 continue to work, and explicitly allowlisted loopback origins retain direct

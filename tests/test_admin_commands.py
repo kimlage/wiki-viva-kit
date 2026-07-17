@@ -384,6 +384,27 @@ def test_plans_are_single_use(server: _Server) -> None:
     assert body["error_code"] == "admin_plan_already_executed"
 
 
+def test_concurrent_executes_cannot_both_consume_one_plan(
+    server: _Server,
+) -> None:
+    """The single-use gate is the ATOMIC store transition, not the advisory
+    peek: even when two racing requests both saw status "planned" on their
+    stale peeked copies, only one can win `consume` (plan §11.3)."""
+
+    from wiki_core.web.admin.plans import AdminPlanStore
+
+    store = AdminPlanStore()
+    store.put("plan_race", "sha256:" + "0" * 64, {"command_id": "x"}, "session_1")
+    # Both threads have already peeked "planned" — the interleaving the
+    # request path can hit between its peek and the checkout lock.
+    assert store.peek("plan_race")["status"] == "planned"
+    assert store.consume("plan_race") is True
+    assert store.consume("plan_race") is False
+    assert store.peek("plan_race")["status"] == "executed"
+    # Unknown plans never consume.
+    assert store.consume("plan_missing") is False
+
+
 def test_unknown_plan_is_not_found(server: _Server) -> None:
     token = _unlock_admin(server)
     status, body = server.post(

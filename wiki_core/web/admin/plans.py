@@ -603,11 +603,22 @@ class AdminPlanStore:
             record = self._plans.get(str(plan_id or ""))
             return dict(record) if record is not None else None
 
-    def mark_executed(self, plan_id: str) -> None:
+    def consume(self, plan_id: str) -> bool:
+        """Atomically transition one plan from planned to executed.
+
+        The status check and the transition share the store lock, so exactly
+        ONE caller can ever win. Two racing execute requests that both passed
+        the earlier peek-based checks (taken from a stale copy) still cannot
+        both run the plan — the single-use invariant is enforced here, not by
+        the advisory status check on the peeked record.
+        """
+
         with self._lock:
             record = self._plans.get(plan_id)
-            if record is not None:
-                record["status"] = "executed"
+            if record is None or record["status"] != "planned":
+                return False
+            record["status"] = "executed"
+            return True
 
     def discard(self, plan_id: str) -> None:
         with self._lock:
@@ -729,7 +740,10 @@ def execute_admin_plan(
                 "error_code": ERROR_PLAN_STALE,
                 "failed_preconditions": failed,
             }
-        store.mark_executed(plan_id)
+        if not store.consume(plan_id):
+            # A concurrent execute for the same plan won the race after our
+            # earlier peek: refuse instead of running the reviewed plan twice.
+            return {"ok": False, "error_code": ERROR_PLAN_ALREADY_EXECUTED}
         dry_run = bool(content.get("dry_run"))
         try:
             outcome = _EXECUTORS[spec.executor](root, config, dry_run)

@@ -264,7 +264,7 @@ gates.
 The local mutation handshake is `wiki_web_server.v7` with
 `operator_security_v2`, `cors_default_deny_v1`,
 `action_state_transitions_v1`, `filesystem_snapshot_publication_v1`,
-`admin_capabilities_v1`, `admin_session_v1` and
+`admin_capabilities_v1`, `admin_session_v1`, `admin_commands_v1` and
 `wiki_operator_security.v2`. It preserves origin-less CLI and same-origin proxy
 requests, denies browser CORS trust by default, and permits only exact loopback
 origins configured explicitly at startup. A cockpit paired with the prior v1
