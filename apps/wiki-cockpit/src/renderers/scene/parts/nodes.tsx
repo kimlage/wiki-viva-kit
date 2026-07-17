@@ -159,6 +159,17 @@ export function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
+/**
+ * Invisible pick-sphere radius for a node body. Every node gets a generous
+ * uniform floor; source stations in the foundation profile get an even fatter
+ * target (>= ~2.5x the visual radius, R3) because they are the primary
+ * operator handle in a dense ring and must never demand pixel hunting.
+ */
+export function nodeHitRadius(node: Pick<LayoutNode, "foundationRole">, visualScale: number): number {
+  if (node.foundationRole === "source-station") return Math.max(visualScale * 2.6, 0.5);
+  return Math.max(visualScale * 1.7, 0.34);
+}
+
 export function groupDrillGrowthScale(
   node: Pick<LayoutNode, "isRoot" | "isGroup">,
   layoutLevel: number,
@@ -199,7 +210,7 @@ function InstancedNodeMesh({
   // hover flickers between adjacent instanced meshes; a fat, uniform hit target
   // makes clicking/hovering reliable without changing the visuals.
   const hitRef = useRef<THREE.InstancedMesh>(null);
-  const { invalidate } = useThree();
+  const { invalidate, gl } = useThree();
   const matrix = useMemo(() => new THREE.Matrix4(), []);
   const hitMatrix = useMemo(() => new THREE.Matrix4(), []);
   const quaternion = useMemo(() => new THREE.Quaternion(), []);
@@ -225,8 +236,9 @@ function InstancedNodeMesh({
         posVec.set(x, y, z);
         matrix.compose(posVec, quaternion, scaleVec.set(visScale, visScale, visScale));
         ref.current?.setMatrixAt(index, matrix);
-        // Hit sphere: at least a comfortable minimum radius, ~1.7× the node.
-        const hit = Math.max(visScale * 1.7, 0.34);
+        // Hit sphere: at least a comfortable minimum radius, ~1.7× the node
+        // (≥ ~2.5× for source stations, R3).
+        const hit = nodeHitRadius(node, visScale);
         hitMatrix.compose(posVec, quaternion, scaleVec.set(hit, hit, hit));
         hitRef.current?.setMatrixAt(index, hitMatrix);
       });
@@ -388,9 +400,16 @@ function InstancedNodeMesh({
         }}
         onPointerMove={(event) => {
           event.stopPropagation();
-          if (typeof event.instanceId === "number" && group.items[event.instanceId]) onHover(group.items[event.instanceId], event);
+          if (typeof event.instanceId === "number" && group.items[event.instanceId]) {
+            // R3: pickable things read as pickable — cursor + hover tooltip.
+            gl.domElement.style.cursor = "pointer";
+            onHover(group.items[event.instanceId], event);
+          }
         }}
-        onPointerOut={() => onHover(null)}
+        onPointerOut={() => {
+          gl.domElement.style.cursor = "";
+          onHover(null);
+        }}
       >
         <sphereGeometry args={[1, 8, 8]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />

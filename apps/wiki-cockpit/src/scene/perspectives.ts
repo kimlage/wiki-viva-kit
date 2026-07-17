@@ -2481,13 +2481,24 @@ export function sourceFoundationLayout(request: SourceFoundationWorldRequest): W
     sortedDiagnostics.forEach((diagnostic, index) => {
       const angle = -Math.PI / 2 + (index / Math.max(sortedDiagnostics.length, 1)) * Math.PI * 2;
       const subjectNode = byKey.get(diagnostic.subject_ref);
+      // Related SOURCE stations stay countable on the marker (safe canonical
+      // refs only) so the renderer can badge each affected station with its
+      // TRUE per-station gap total (R2) instead of anonymous ring markers.
+      const relatedStations = [
+        ...new Set(
+          diagnostic.related_refs
+            .map((ref) => byKey.get(ref))
+            .filter((node): node is GraphNode => Boolean(node && stationBySourcePage.has(node.id)))
+            .map((node) => node.id)
+        )
+      ].sort();
       primitives.push({
         kind: "gap-marker",
         id: diagnostic.gap_id,
         code: diagnostic.code,
         subjectRef: diagnostic.subject_ref,
         count: diagnostic.count,
-        sourceIds: [],
+        sourceIds: relatedStations,
         pageIds: subjectNode ? [subjectNode.id] : [],
         ...(subjectNode ? { canonicalEntityId: subjectNode.id } : {}),
         position: [

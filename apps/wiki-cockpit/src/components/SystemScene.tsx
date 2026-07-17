@@ -58,15 +58,17 @@ import { AmbientDriver, isEvidenceGap, SceneParticles } from "../renderers/scene
 import {
   foundationDensityCounters,
   foundationPlaneGuides,
+  foundationRestDim,
   isFoundationProfile,
   portAriaText,
   portFocusPatch,
+  sourceGapSummary,
   sourceStateEmphasis,
   stationSelectPatch,
   traceHighlightIds,
   SourceFoundationPart
 } from "../renderers/scene/parts/source-foundation";
-import type { GapMarkerSpec, GovernancePlateSpec, LaneRenderSpec, TraceHighlight } from "../renderers/scene/parts/source-foundation";
+import type { GapMarkerSpec, GovernancePlateSpec, LaneRenderSpec, SourceGapSummary, TraceHighlight } from "../renderers/scene/parts/source-foundation";
 import { dispatchSourceStreamFocus, subscribeSourceTrace } from "../world/sourceSignals";
 import type { SourceStreamPort } from "../scene/perspectives";
 import { DEFAULT_VISUAL_CONTROL_CONFIG } from "./visualControl";
@@ -933,6 +935,7 @@ function SceneContent({
   }, [layout, walk]);
   const walkTargetId = walk && walk.step >= 0 ? walk.ids[walk.step] ?? "" : "";
 
+  const foundationActiveForDim = isFoundationProfile(layout);
   const dimTest = useCallback(
     (node: LayoutNode) => {
       // A4 — a selected AQAL quadrant scopes the SPATIAL views (radar/districts)
@@ -951,9 +954,18 @@ function SceneContent({
       if (highlightedIds.size > 0) {
         return outsideQuadrant || (!highlightedIds.has(node.id) && !highlightedIds.has(node.path) && !node.isRoot && !node.isHub);
       }
+      // R1 calm entry: inside the foundation profile the knowledge/provenance
+      // pages rest as heavily dimmed aggregates and individualize on
+      // selection/hover/trace or their owning station's focus. Presence only.
+      if (
+        foundationActiveForDim &&
+        foundationRestDim(node, { selectedId, hoveredId, highlightedIds })
+      ) {
+        return true;
+      }
       return outsideQuadrant;
     },
-    [filter, highlightedIds, activeQuadrant, quadrantHomes, layout.perspective]
+    [filter, foundationActiveForDim, highlightedIds, hoveredId, selectedId, activeQuadrant, quadrantHomes, layout.perspective]
   );
 
   const registerMaterial = useCallback((trust: TrustKey | "root", dimmed: boolean, material: THREE.MeshStandardMaterial | null) => {
@@ -1080,6 +1092,7 @@ function SceneContent({
           layout={layout}
           quality={profile.quality}
           selectedId={selectedId}
+          hoveredId={hoveredId}
           lens={lens}
           trace={trace}
           morph={morph}
@@ -1367,6 +1380,7 @@ export function SystemScene({
   seed = null,
   guide = null,
   takezo = null,
+  onSourceGapSummary,
   onMarkerResolve,
   onMarkerDismiss,
   onNavigate,
@@ -1421,6 +1435,10 @@ export function SystemScene({
   // The abrachaindabra ritual (plan §5/§15): lazy-mounted only while active.
   // The scene owns reduced-motion/degradation policy; the host owns the flow.
   takezo?: TakezoSpeechHandlers | null;
+  // R2: the aggregated, sorted gap census of the resolved foundation layout
+  // (severity → occurrence count, grouped by diagnostic code, TRUE totals).
+  // The HUD milestone wires this into the "Lacunas" panel.
+  onSourceGapSummary?: (summary: SourceGapSummary) => void;
   onMarkerResolve?: (pageId: string) => void;
   onMarkerDismiss?: (pageId: string) => void;
   onNavigate?: (patch: ScenePatch) => void;
@@ -1734,6 +1752,16 @@ export function SystemScene({
   }, [highlightedPageIds, lensEmphasis, traceIds]);
   const approvalIds = useMemo(() => new Set(approvalPageIds), [approvalPageIds]);
   const census = useMemo(() => sceneCensus(nodes, edges, layout, overlay), [edges, layout, nodes, overlay]);
+  // R2: the aggregated gap census of the RESOLVED foundation layout. The chip
+  // below prints the TRUE occurrence total; the sorted per-code groups flow to
+  // the host so the HUD milestone can open them as a panel.
+  const gapSummary = useMemo(
+    () => (isFoundationProfile(layout) ? sourceGapSummary(layout) : null),
+    [layout]
+  );
+  useEffect(() => {
+    if (gapSummary) onSourceGapSummary?.(gapSummary);
+  }, [gapSummary, onSourceGapSummary]);
   const layoutPositionSignature = useMemo(
     () => layout.nodes.map((node) => `${node.id}@${node.position.join(",")}`).sort().join("|"),
     [layout]
@@ -2609,6 +2637,14 @@ export function SystemScene({
               to filter. */}
           {census.total >= 3 && (
             <StatusStrip census={census} filter={filter} onFilter={(key) => navigate({ filter: key })} />
+          )}
+          {/* R2: the world shows at most a bounded set of gap markers; the
+              complete census lives here with its TRUE total. The HUD milestone
+              wires this chip into the gaps panel. */}
+          {gapSummary && gapSummary.total > 0 && (
+            <output className="worldGapChip" data-testid="world-gap-chip" data-gap-total={gapSummary.total}>
+              {t("source_foundation.gaps.chip", { n: gapSummary.total })}
+            </output>
           )}
           {/* Minimap: persistent overview disc; M or click expands it as an
               instant, motion-free zoom-to-galaxy. Hidden while the reader dock

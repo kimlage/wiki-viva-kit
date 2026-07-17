@@ -339,6 +339,29 @@ export function cameraRequestMustWait(layoutRequestResolved: boolean): boolean {
   return !layoutRequestResolved;
 }
 
+/**
+ * R3 click safety: releasing a selection inside the foundation profile (click
+ * on empty space / Escape) must ONLY release the lock — the camera holds its
+ * exact pose instead of retreating to the resting fit. True exactly when the
+ * profile is active, a lock existed, nothing is locked or witnessed now, and
+ * the world itself did not change (same base framing subject).
+ */
+export function foundationSelectionReleaseHold(args: {
+  foundationProfile: boolean;
+  previousLockedId: string;
+  lockedId: string;
+  flyToId: string;
+  baseKeyUnchanged: boolean;
+}): boolean {
+  return (
+    args.foundationProfile &&
+    args.baseKeyUnchanged &&
+    args.previousLockedId !== "" &&
+    args.lockedId === "" &&
+    args.flyToId === ""
+  );
+}
+
 export function CameraDirector({
   layout,
   layoutRequestResolved,
@@ -394,6 +417,8 @@ export function CameraDirector({
     arc: { from: CameraPose; to: CameraPose; clearance: number } | null;
   } | null>(null);
   const lastKey = useRef("");
+  const lastBaseKey = useRef("");
+  const lastLockedId = useRef("");
   const lastTransitionSequence = useRef(0);
   const lastMotionReport = useRef<{ sequence: number; state: CameraMotionState } | null>(null);
   const reportMotionState = useCallback((sequence: number, state: CameraMotionState) => {
@@ -470,7 +495,8 @@ export function CameraDirector({
             : fitDistance;
     const desiredDistance = foundationPose ? foundationPose.distance : baseDesiredDistance;
     const centerId = layout.nodes.find((node) => node.isRoot)?.id ?? "";
-    const key = `${hemisphere}:${layout.perspective}:${layout.level}:${layout.group ?? ""}:${centerId}:${lockedNode?.id ?? ""}:${flyToNode?.id ?? ""}:${(layout.cameraTarget ?? []).map((n) => n.toFixed(1)).join(",")}:${(travelVia ?? []).map((n) => n.toFixed(1)).join(",")}:${fitDistance.toFixed(2)}`;
+    const baseKey = `${hemisphere}:${layout.perspective}:${layout.level}:${layout.group ?? ""}:${centerId}:${(layout.cameraTarget ?? []).map((n) => n.toFixed(1)).join(",")}:${fitDistance.toFixed(2)}`;
+    const key = `${baseKey}:${lockedNode?.id ?? ""}:${flyToNode?.id ?? ""}:${(travelVia ?? []).map((n) => n.toFixed(1)).join(",")}`;
     if (cameraRequestMustWait(layoutRequestResolved)) {
       // Route state is ahead of the exact worker result. Cancel the obsolete
       // camera subject and keep this sequence pending; neither a moving old
@@ -480,6 +506,27 @@ export function CameraDirector({
       if (animation.current) animation.current.active = false;
       animation.current = null;
       reportMotionState(transition.sequence, "pending");
+      return;
+    }
+    // R3 click safety: deselecting inside the foundation profile releases the
+    // lock only. The camera keeps its exact pose — no zoom change, no retreat
+    // to the resting fit — and the sequence settles immediately.
+    const releaseHold = foundationSelectionReleaseHold({
+      foundationProfile: Boolean(layout.planeProfile) && hemisphere === "lower",
+      previousLockedId: lastLockedId.current,
+      lockedId: lockedNode?.id ?? "",
+      flyToId: flyToNode?.id ?? "",
+      baseKeyUnchanged: baseKey === lastBaseKey.current
+    });
+    lastBaseKey.current = baseKey;
+    lastLockedId.current = lockedNode?.id ?? "";
+    if (releaseHold) {
+      lastKey.current = key;
+      if (animation.current) animation.current.active = false;
+      animation.current = null;
+      lastTransitionSequence.current = transition.sequence;
+      settleCameraMotion(null, transition.sequence, reportMotionState);
+      invalidate();
       return;
     }
     if (key === lastKey.current && motion) {

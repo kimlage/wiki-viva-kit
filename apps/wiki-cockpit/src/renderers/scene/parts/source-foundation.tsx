@@ -115,20 +115,105 @@ export type FoundationBandGuide = {
   radius: number;
   labelKey: string;
   opacity: number;
+  /** Honest band aggregate ("305 páginas alimentadas" style): the TRUE total
+   * of the band's population from the layout census — never the visible
+   * slice. Null when the band has no countable population (core) or the
+   * census group is absent (stations-only drill without groups). */
+  countText: string | null;
 };
+
+const BAND_CENSUS_GROUP: Partial<Record<WorldPlaneId, string>> = {
+  foundation: "source-emitters",
+  provenance: "provenance",
+  knowledge: "emitted"
+};
+
+const BAND_COUNT_KEY: Partial<Record<WorldPlaneId, string>> = {
+  foundation: "source_foundation.band.count.foundation",
+  provenance: "source_foundation.band.count.provenance",
+  knowledge: "source_foundation.band.count.knowledge"
+};
+
+const BAND_ROLE: Partial<Record<WorldPlaneId, string>> = {
+  foundation: "source-station",
+  provenance: "provenance-page",
+  knowledge: "knowledge-page"
+};
+
+/** TRUE band population: the census group's full count (includes hidden
+ * members); falls back to counting mounted role nodes when the census group
+ * does not exist for the current drill. Honest either way. */
+export function foundationBandCount(layout: WorldLayout, plane: WorldPlaneId): number | null {
+  const groupKey = BAND_CENSUS_GROUP[plane];
+  if (!groupKey) return null;
+  const group = layout.groups.find((candidate) => candidate.key === groupKey);
+  if (group) return group.count;
+  const role = BAND_ROLE[plane];
+  const mounted = layout.nodes.filter((node) => node.foundationRole === role).length;
+  return mounted > 0 ? mounted : null;
+}
 
 // One quiet ring per band at the band's EXACT structural level (§10.12: the
 // profile owns its plane guides; radii follow the layout so the visual
-// spacing control flows through).
+// spacing control flows through). R1: every band carries a STRONG name plus
+// its honest aggregate count — the 5-second read of the world.
 export function foundationPlaneGuides(layout: WorldLayout): FoundationBandGuide[] {
   if (!isFoundationProfile(layout) || !layout.planeProfile) return [];
   const levels = layout.planeProfile.levels;
+  const countText = (plane: WorldPlaneId): string | null => {
+    const key = BAND_COUNT_KEY[plane];
+    const count = foundationBandCount(layout, plane);
+    return key && count !== null ? t(key, { n: count }) : null;
+  };
   return [
-    { plane: "foundation", y: levels.foundation, radius: layout.rOuter * 0.66, labelKey: "source_foundation.band.foundation", opacity: 0.3 },
-    { plane: "provenance", y: levels.provenance, radius: layout.rOuter * 0.82, labelKey: "source_foundation.band.provenance", opacity: 0.22 },
-    { plane: "knowledge", y: levels.knowledge, radius: layout.rOuter * 0.9, labelKey: "source_foundation.band.knowledge", opacity: 0.16 },
-    { plane: "core", y: levels.core, radius: Math.max(layout.rInner * 1.1, 1.1), labelKey: "source_foundation.band.core", opacity: 0.2 }
+    { plane: "foundation", y: levels.foundation, radius: layout.rOuter * 0.66, labelKey: "source_foundation.band.foundation", opacity: 0.3, countText: countText("foundation") },
+    { plane: "provenance", y: levels.provenance, radius: layout.rOuter * 0.82, labelKey: "source_foundation.band.provenance", opacity: 0.22, countText: countText("provenance") },
+    { plane: "knowledge", y: levels.knowledge, radius: layout.rOuter * 0.9, labelKey: "source_foundation.band.knowledge", opacity: 0.16, countText: countText("knowledge") },
+    { plane: "core", y: levels.core, radius: Math.max(layout.rInner * 1.1, 1.1), labelKey: "source_foundation.band.core", opacity: 0.2, countText: null }
   ];
+}
+
+// --- R1 progressive disclosure ----------------------------------------------
+// The calm entry contract: at rest the world is core anchor + labeled bands +
+// stations. Stream ports and pipeline lanes mount ONLY for a focused station
+// (selected, hovered or the active trace subject); knowledge/provenance pages
+// rest as heavily dimmed aggregates and individualize on focus.
+
+export function foundationFocusStationIds(
+  layout: WorldLayout,
+  selectedId: string,
+  hoveredId = "",
+  trace: TraceHighlight | null = null
+): Set<string> {
+  const ids = new Set<string>();
+  if (!isFoundationProfile(layout)) return ids;
+  const stations = new Set(
+    layout.nodes.filter((node) => node.foundationRole === "source-station").flatMap((node) => [node.id, node.path])
+  );
+  [selectedId, hoveredId, trace?.subjectId ?? ""].forEach((id) => {
+    if (id && stations.has(id)) ids.add(id);
+  });
+  return ids;
+}
+
+/** True when the node rests as part of a dimmed aggregate: knowledge and
+ * provenance pages recede until selection/hover/trace (or their owning
+ * station's focus) individualizes them. Never hides — presence only. */
+export function foundationRestDim(
+  node: Pick<LayoutNode, "id" | "path" | "foundationRole" | "sourceIds">,
+  context: { selectedId?: string; hoveredId?: string; highlightedIds?: ReadonlySet<string> }
+): boolean {
+  if (node.foundationRole !== "knowledge-page" && node.foundationRole !== "provenance-page") return false;
+  const selectedId = context.selectedId ?? "";
+  const hoveredId = context.hoveredId ?? "";
+  const highlighted = context.highlightedIds;
+  if (selectedId && (node.id === selectedId || node.path === selectedId)) return false;
+  if (hoveredId && (node.id === hoveredId || node.path === hoveredId)) return false;
+  if (highlighted && (highlighted.has(node.id) || highlighted.has(node.path))) return false;
+  const owners = node.sourceIds ?? [];
+  if (selectedId && owners.includes(selectedId)) return false;
+  if (hoveredId && owners.includes(hoveredId)) return false;
+  return true;
 }
 
 export type PortRenderGroups = {
@@ -140,10 +225,13 @@ export type PortRenderGroups = {
 
 // §10.4: selected streams solid, unselected outline, the aggregated "+N" port
 // carries the TRUE hidden count, breach is an overlay symbol (never position).
-export function portRenderGroups(layout: WorldLayout): PortRenderGroups {
-  const ports = (layout.foundationPrimitives ?? []).filter(
+// R1: when a focus set is given, only ports of focused stations mount — the
+// resting world shows stations, not their port crowns.
+export function portRenderGroups(layout: WorldLayout, focus?: ReadonlySet<string> | null): PortRenderGroups {
+  const allPorts = (layout.foundationPrimitives ?? []).filter(
     (primitive): primitive is SourceStreamPort => primitive.kind === "stream-port"
   );
+  const ports = focus ? allPorts.filter((port) => port.sourceIds.some((id) => focus.has(id))) : allPorts;
   return {
     solid: ports.filter((port) => port.streamId !== null && port.selected),
     outline: ports.filter((port) => port.streamId !== null && !port.selected),
@@ -316,10 +404,13 @@ export type LaneRenderSpec = {
   sourceIds: string[];
 };
 
-export function laneRenderSpecs(layout: WorldLayout): LaneRenderSpec[] {
-  const lanes = (layout.foundationPrimitives ?? []).filter(
+// R1: lanes follow the same focus contract as ports — no focus set means the
+// unfiltered census (tests/telemetry), a set means only focused stations mount.
+export function laneRenderSpecs(layout: WorldLayout, focus?: ReadonlySet<string> | null): LaneRenderSpec[] {
+  const allLanes = (layout.foundationPrimitives ?? []).filter(
     (primitive): primitive is SourcePipelineLane => primitive.kind === "pipeline-lane"
   );
+  const lanes = focus ? allLanes.filter((lane) => lane.sourceIds.some((id) => focus.has(id))) : allLanes;
   return lanes.map((lane) => {
     const label = t(lane.labelKey);
     return {
@@ -473,6 +564,32 @@ export function flowBundleSpecs(
   });
 }
 
+// R1 calm entry: individual emission curves mount only when something focuses
+// them — the selected/hovered page or station, an active trace, or the
+// source_state lens (which keeps its attention subjects). At rest the
+// knowledge band's honest aggregate label carries the count instead of a
+// serrated tangle of unlabeled curves. Presence only: specs are filtered,
+// never moved.
+export function visibleFlowBundleSpecs(
+  specs: FlowBundleSpec[],
+  context: {
+    selectedId?: string;
+    hoveredId?: string;
+    traceIds?: ReadonlySet<string>;
+    emphasis?: SourceStateEmphasis | null;
+  }
+): FlowBundleSpec[] {
+  const selectedId = context.selectedId ?? "";
+  const hoveredId = context.hoveredId ?? "";
+  return specs.filter((spec) => {
+    if (context.traceIds?.has(spec.id)) return true;
+    const focuses = (id: string) => Boolean(id) && (spec.pageIds.includes(id) || spec.sourceIds.includes(id));
+    if (focuses(selectedId) || focuses(hoveredId)) return true;
+    if (context.emphasis) return !context.emphasis.dimmedPrimitiveIds.has(spec.id);
+    return false;
+  });
+}
+
 // Typed gap severity reuses the quality overlay tokens; informational entries
 // use the quiet attention token (gray, honest "no alarm" mark).
 export function gapSeverityToken(severity: SourceGapMarker["severity"]): SemanticVisualToken {
@@ -520,6 +637,169 @@ export function gapMarkerSpecs(layout: WorldLayout): GapMarkerSpec[] {
           : marker.sourceIds.find((id) => stationIds.has(id)) ?? null
     };
   });
+}
+
+// --- R2: gap markers → per-station badges + bounded world markers + panel ---
+// The flood of one marker per diagnostic is replaced by (a) one severity badge
+// per affected station carrying the TRUE per-station occurrence total, (b) at
+// most WORLD_GAP_MARKER_BUDGET world markers — the single worst diagnostic of
+// the worst stations — and (c) the complete aggregated census exposed to the
+// HUD via sourceGapSummary. Nothing is dropped silently: every diagnostic is
+// counted in a badge, a summary group, or both.
+
+export const WORLD_GAP_MARKER_BUDGET = 12;
+
+const GAP_SEVERITY_RANK: Record<SourceGapMarker["severity"], number> = {
+  error: 3,
+  warning: 2,
+  info: 1,
+  none: 0
+};
+
+function gapSeverityRank(severity: SourceGapMarker["severity"]): number {
+  return GAP_SEVERITY_RANK[severity] ?? 0;
+}
+
+type SeveritySpec = GapMarkerSpec & { severity: SourceGapMarker["severity"] };
+
+function compareGapSpecs(a: SeveritySpec, b: SeveritySpec): number {
+  return (
+    gapSeverityRank(b.severity) - gapSeverityRank(a.severity) ||
+    b.count - a.count ||
+    a.id.localeCompare(b.id)
+  );
+}
+
+export type StationGapBadge = {
+  stationId: string;
+  stationTitle: string;
+  position: [number, number, number];
+  severity: SourceGapMarker["severity"];
+  /** TRUE sum of occurrence counts across every diagnostic on this station. */
+  total: number;
+  markerCount: number;
+  aria: string;
+  /** The station's single worst diagnostic — the badge's activation subject
+   * and the candidate for the bounded world-marker budget. */
+  topMarker: SeveritySpec;
+};
+
+function gapSpecsWithSeverity(layout: WorldLayout): SeveritySpec[] {
+  const markers = (layout.foundationPrimitives ?? []).filter(
+    (primitive): primitive is SourceGapMarker => primitive.kind === "gap-marker"
+  );
+  const severityById = new Map(markers.map((marker) => [marker.id, marker.severity]));
+  return gapMarkerSpecs(layout).map((spec) => ({ ...spec, severity: severityById.get(spec.id) ?? "info" }));
+}
+
+export function stationGapBadges(layout: WorldLayout): StationGapBadge[] {
+  if (!isFoundationProfile(layout)) return [];
+  const stations = new Map(
+    layout.nodes.filter((node) => node.foundationRole === "source-station").map((node) => [node.id, node])
+  );
+  const byStation = new Map<string, SeveritySpec[]>();
+  gapSpecsWithSeverity(layout).forEach((spec) => {
+    if (!spec.sourceId || !stations.has(spec.sourceId)) return;
+    byStation.set(spec.sourceId, [...(byStation.get(spec.sourceId) ?? []), spec]);
+  });
+  return [...byStation.entries()]
+    .map(([stationId, specs]) => {
+      const sorted = [...specs].sort(compareGapSpecs);
+      const top = sorted[0];
+      const station = stations.get(stationId)!;
+      const total = specs.reduce((sum, spec) => sum + spec.count, 0);
+      return {
+        stationId,
+        stationTitle: station.title,
+        position: [
+          station.position[0],
+          Number((station.position[1] + Math.max(station.scale, 0.2) + 0.18).toFixed(4)),
+          station.position[2]
+        ] as [number, number, number],
+        severity: top.severity,
+        total,
+        markerCount: specs.length,
+        aria: t("source_foundation.gaps.stationBadge", { label: station.title, n: total }),
+        topMarker: top
+      };
+    })
+    .sort(
+      (a, b) =>
+        gapSeverityRank(b.severity) - gapSeverityRank(a.severity) ||
+        b.total - a.total ||
+        a.stationId.localeCompare(b.stationId)
+    );
+}
+
+/** The bounded in-world marker set: the single worst diagnostic of the worst
+ * stations, repositioned above their station. Everything else stays counted
+ * in badges and the HUD summary. */
+export function worldGapMarkers(layout: WorldLayout): GapMarkerSpec[] {
+  return stationGapBadges(layout)
+    .slice(0, WORLD_GAP_MARKER_BUDGET)
+    .map((badge) => ({
+      ...badge.topMarker,
+      position: [badge.position[0], Number((badge.position[1] + 0.18).toFixed(4)), badge.position[2]] as [
+        number,
+        number,
+        number
+      ]
+    }));
+}
+
+export type SourceGapGroup = {
+  code: string;
+  severity: SourceGapMarker["severity"];
+  label: string;
+  /** Number of diagnostics carrying this code. */
+  markerCount: number;
+  /** TRUE sum of occurrence counts across those diagnostics. */
+  occurrenceCount: number;
+  markers: SeveritySpec[];
+};
+
+export type SourceGapSummary = {
+  /** TRUE total of occurrences across every diagnostic — the HUD chip number. */
+  total: number;
+  markerTotal: number;
+  worldMarkerCount: number;
+  stationCount: number;
+  groups: SourceGapGroup[];
+};
+
+// The complete aggregated census for the HUD panel: grouped by diagnostic
+// code, sorted by severity then occurrence count. Sum of group occurrence
+// counts always equals `total` — the honesty invariant the tests enforce.
+export function sourceGapSummary(layout: WorldLayout): SourceGapSummary {
+  const specs = gapSpecsWithSeverity(layout);
+  const byCode = new Map<string, SeveritySpec[]>();
+  specs.forEach((spec) => byCode.set(spec.code, [...(byCode.get(spec.code) ?? []), spec]));
+  const groups: SourceGapGroup[] = [...byCode.entries()]
+    .map(([code, members]) => {
+      const sorted = [...members].sort(compareGapSpecs);
+      return {
+        code,
+        severity: sorted[0].severity,
+        label: sorted[0].text,
+        markerCount: members.length,
+        occurrenceCount: members.reduce((sum, spec) => sum + spec.count, 0),
+        markers: sorted
+      };
+    })
+    .sort(
+      (a, b) =>
+        gapSeverityRank(b.severity) - gapSeverityRank(a.severity) ||
+        b.occurrenceCount - a.occurrenceCount ||
+        a.code.localeCompare(b.code)
+    );
+  const badges = stationGapBadges(layout);
+  return {
+    total: specs.reduce((sum, spec) => sum + spec.count, 0),
+    markerTotal: specs.length,
+    worldMarkerCount: Math.min(badges.length, WORLD_GAP_MARKER_BUDGET),
+    stationCount: badges.length,
+    groups
+  };
 }
 
 export type GovernancePlateSpec = {
@@ -592,6 +872,24 @@ export function foundationProposalStems(layout: WorldLayout): FoundationProposal
 
 const CONDUIT_COLOR = edgeStyle("ingestion_chain").color;
 const PORT_COLOR = edgeStyle("source_ref").color;
+
+// R3: every interactive scene object flips the canvas cursor on hover so
+// pickable things read as pickable. The canvas element is shared, so the
+// helpers are idempotent.
+function useSceneCursor(): { over: () => void; out: () => void } {
+  const { gl } = useThree();
+  return useMemo(
+    () => ({
+      over: () => {
+        gl.domElement.style.cursor = "pointer";
+      },
+      out: () => {
+        gl.domElement.style.cursor = "";
+      }
+    }),
+    [gl]
+  );
+}
 
 function FadingLineSegments({
   segments,
@@ -666,6 +964,8 @@ function FoundationBandGuides({ layout, morph }: { layout: WorldLayout; morph: R
   return (
     <group>
       <FadingLineSegments segments={segments} color="#22303a" baseOpacity={0.55} morph={morph} renderOrder={1} />
+      {/* R1: STRONG band names + honest aggregate counts — the 5-second read.
+          The label is the band's identity, the count line is its true census. */}
       {guides.map((guide) => (
         <Html
           key={guide.plane}
@@ -673,21 +973,32 @@ function FoundationBandGuides({ layout, morph }: { layout: WorldLayout; morph: R
           center
           distanceFactor={6.4}
           wrapperClass="sceneHtmlLabel"
-          className="radarDeadlineCaption"
+          className="foundationBandLabel"
           zIndexRange={[18, 0]}
         >
-          <span style={{ opacity: Math.min(guide.opacity * 3, 1) }}>{t(guide.labelKey)}</span>
+          <span>
+            <strong>{t(guide.labelKey)}</strong>
+            {guide.countText && <small>{guide.countText}</small>}
+          </span>
         </Html>
       ))}
     </group>
   );
 }
 
-function FoundationConduits({ layout, morph }: { layout: WorldLayout; morph: RefObject<MorphState> }) {
+function FoundationConduits({
+  layout,
+  morph,
+  focusIds
+}: {
+  layout: WorldLayout;
+  morph: RefObject<MorphState>;
+  focusIds: ReadonlySet<string>;
+}) {
   const conduits = useMemo(() => conduitSpecs(layout), [layout]);
-  const segments = useMemo(() => {
+  const buildSegments = useCallback((members: ConduitSpec[]): number[] => {
     const out: number[] = [];
-    conduits.forEach((conduit) => {
+    members.forEach((conduit) => {
       out.push(...conduit.base, ...conduit.top);
       conduit.members.forEach((member) => {
         // One-bend split from the trunk top toward the member: relations
@@ -702,16 +1013,30 @@ function FoundationConduits({ layout, morph }: { layout: WorldLayout; morph: Ref
       });
     });
     return out;
-  }, [conduits]);
+  }, []);
+  // R1: at rest the towers read as a quiet aggregate; a focused station's
+  // trunk comes forward with its member splits at full presence.
+  const focusedSegments = useMemo(
+    () => buildSegments(conduits.filter((conduit) => focusIds.has(conduit.stationId))),
+    [buildSegments, conduits, focusIds]
+  );
+  const restSegments = useMemo(
+    () => buildSegments(conduits.filter((conduit) => !focusIds.has(conduit.stationId))),
+    [buildSegments, conduits, focusIds]
+  );
   const bundleBadges = useMemo(
-    () => conduits.filter((conduit) => conduit.bundledCount > 0),
-    [conduits]
+    () => conduits.filter((conduit) => conduit.bundledCount > 0 && focusIds.has(conduit.stationId)),
+    [conduits, focusIds]
   );
   if (conduits.length === 0) return null;
-  const opacity = foundationBandOpacity("provenance") * 0.42;
+  const restOpacity = foundationBandOpacity("provenance") * 0.16;
+  const focusOpacity = foundationBandOpacity("provenance", true) * 0.6;
   return (
     <group>
-      <FadingLineSegments segments={segments} color={CONDUIT_COLOR} baseOpacity={opacity} morph={morph} renderOrder={2} />
+      <FadingLineSegments segments={restSegments} color={CONDUIT_COLOR} baseOpacity={restOpacity} morph={morph} renderOrder={2} />
+      {focusedSegments.length > 0 && (
+        <FadingLineSegments segments={focusedSegments} color={CONDUIT_COLOR} baseOpacity={focusOpacity} morph={morph} renderOrder={2} />
+      )}
       {bundleBadges.map((conduit) => (
         <Html
           key={conduit.id}
@@ -735,6 +1060,7 @@ const FLOW_COUNT_LABEL_BUDGET = 24;
 function FoundationFlowBundles({
   layout,
   selectedId,
+  hoveredId,
   quality,
   morph,
   traceIds,
@@ -742,14 +1068,21 @@ function FoundationFlowBundles({
 }: {
   layout: WorldLayout;
   selectedId: string;
+  hoveredId: string;
   quality: string;
   morph: RefObject<MorphState>;
   traceIds: Set<string>;
   emphasis: SourceStateEmphasis | null;
 }) {
+  // R1: only focused/traced/attention bundles mount — the resting knowledge
+  // band speaks through its labeled aggregate count instead.
   const specs = useMemo(
-    () => flowBundleSpecs(layout, selectedId, { traceIds, dimmedIds: emphasis?.dimmedPrimitiveIds }),
-    [emphasis, layout, selectedId, traceIds]
+    () =>
+      visibleFlowBundleSpecs(
+        flowBundleSpecs(layout, selectedId, { traceIds, dimmedIds: emphasis?.dimmedPrimitiveIds }),
+        { selectedId, hoveredId, traceIds, emphasis }
+      ),
+    [emphasis, hoveredId, layout, selectedId, traceIds]
   );
   const { segments, colors } = useMemo(() => {
     const positions: number[] = [];
@@ -905,14 +1238,18 @@ function FoundationStreamPorts({
   layout,
   morph,
   emphasis,
+  focusIds,
   onPortFocus
 }: {
   layout: WorldLayout;
   morph: RefObject<MorphState>;
   emphasis: SourceStateEmphasis | null;
+  // R1: ports mount only for focused stations.
+  focusIds: ReadonlySet<string>;
   onPortFocus: (port: SourceStreamPort) => void;
 }) {
-  const groups = useMemo(() => portRenderGroups(layout), [layout]);
+  const cursor = useSceneCursor();
+  const groups = useMemo(() => portRenderGroups(layout, focusIds), [focusIds, layout]);
   // §12.7 lens: nominal ports recede by presence only — their instance
   // transforms are identical to the bright layers, so nothing moves.
   const splitByDim = useCallback(
@@ -1002,6 +1339,8 @@ function FoundationStreamPorts({
             onPortFocus(allPorts[event.instanceId]);
           }
         }}
+        onPointerOver={cursor.over}
+        onPointerOut={cursor.out}
       >
         <sphereGeometry args={[1, 8, 8]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
@@ -1014,14 +1353,18 @@ function FoundationPipelineLanes({
   layout,
   morph,
   emphasis,
+  focusIds,
   onLaneInspect
 }: {
   layout: WorldLayout;
   morph: RefObject<MorphState>;
   emphasis: SourceStateEmphasis | null;
+  // R1: lanes mount only for focused stations.
+  focusIds: ReadonlySet<string>;
   onLaneInspect: (lane: LaneRenderSpec) => void;
 }) {
-  const specs = useMemo(() => laneRenderSpecs(layout), [layout]);
+  const cursor = useSceneCursor();
+  const specs = useMemo(() => laneRenderSpecs(layout, focusIds), [focusIds, layout]);
   const { segments, colors } = useMemo(() => {
     const positions: number[] = [];
     const vertexColors: number[] = [];
@@ -1100,6 +1443,8 @@ function FoundationPipelineLanes({
               event.stopPropagation();
               onLaneInspect(spec);
             }}
+            onPointerOver={cursor.over}
+            onPointerOut={cursor.out}
           >
             <torusGeometry args={[spec.radius, 0.06, 6, 40]} />
             <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
@@ -1110,6 +1455,10 @@ function FoundationPipelineLanes({
   );
 }
 
+// R2: the world mounts (a) one severity badge per affected station with its
+// TRUE occurrence total and (b) at most WORLD_GAP_MARKER_BUDGET markers for
+// the worst stations' single worst diagnostic. The full census lives in
+// sourceGapSummary for the HUD — nothing is silently dropped.
 function FoundationGapMarkers({
   layout,
   morph,
@@ -1121,8 +1470,9 @@ function FoundationGapMarkers({
   emphasis: SourceStateEmphasis | null;
   onGapInspect: (marker: GapMarkerSpec) => void;
 }) {
-  const specs = useMemo(() => gapMarkerSpecs(layout), [layout]);
-  if (specs.length === 0) return null;
+  const specs = useMemo(() => worldGapMarkers(layout), [layout]);
+  const badges = useMemo(() => stationGapBadges(layout), [layout]);
+  if (specs.length === 0 && badges.length === 0) return null;
   return (
     <group>
       {specs.map((spec) => (
@@ -1134,6 +1484,25 @@ function FoundationGapMarkers({
           onGapInspect={onGapInspect}
         />
       ))}
+      {badges.map((badge) => {
+        const token = gapSeverityToken(badge.severity);
+        return (
+          <Html
+            key={`gap-badge-${badge.stationId}`}
+            position={badge.position}
+            center
+            distanceFactor={5}
+            wrapperClass="sceneHtmlLabel"
+            className="clusterStarLabel"
+            zIndexRange={[25, 0]}
+          >
+            <button type="button" aria-label={badge.aria} title={badge.aria} onClick={() => onGapInspect(badge.topMarker)}>
+              <span aria-hidden style={{ color: token.color }}>{token.symbol}</span>
+              <strong>{badge.total}</strong>
+            </button>
+          </Html>
+        );
+      })}
     </group>
   );
 }
@@ -1150,6 +1519,7 @@ function GapMarkerMesh({
   onGapInspect: (marker: GapMarkerSpec) => void;
 }) {
   const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  const cursor = useSceneCursor();
   useFrame((state) => {
     if (!materialRef.current) return;
     materialRef.current.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, 0.96 * dim);
@@ -1162,6 +1532,8 @@ function GapMarkerMesh({
           event.stopPropagation();
           onGapInspect(spec);
         }}
+        onPointerOver={cursor.over}
+        onPointerOut={cursor.out}
       >
         <octahedronGeometry args={[0.09, 0]} />
         <meshStandardMaterial
@@ -1225,6 +1597,7 @@ function GovernancePlateMesh({
   onPlateOpen: (plate: GovernancePlateSpec) => void;
 }) {
   const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  const cursor = useSceneCursor();
   useFrame((state) => {
     if (!materialRef.current) return;
     materialRef.current.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, 0.92 * dim);
@@ -1237,6 +1610,8 @@ function GovernancePlateMesh({
           event.stopPropagation();
           onPlateOpen(spec);
         }}
+        onPointerOver={cursor.over}
+        onPointerOut={cursor.out}
       >
         <boxGeometry args={[0.24, 0.05, 0.16]} />
         <meshStandardMaterial
@@ -1260,31 +1635,50 @@ function GovernancePlateMesh({
 }
 
 // The accessible twin (§16.5): one visually-hidden DOM list mirrors every
-// derived control so keyboard and screen-reader users reach the exact same
-// actions the pointer reaches — ports focus the SourceDock, lanes announce,
-// gap markers open their diagnostic, plates open the real config page.
+// MOUNTED derived control so keyboard and screen-reader users reach the exact
+// same actions the pointer reaches — focused ports focus the SourceDock,
+// focused lanes announce, station gap badges open the worst diagnostic with
+// TRUE totals, stationless diagnostics stay reachable as aggregated groups,
+// plates open the real config page. R2: the twin never floods with one button
+// per diagnostic occurrence — aggregates carry the honest counts instead.
 function FoundationAccessTwin({
   layout,
+  focusIds,
   onPortFocus,
   onLaneInspect,
   onGapInspect,
   onPlateOpen
 }: {
   layout: WorldLayout;
+  focusIds: ReadonlySet<string>;
   onPortFocus: (port: SourceStreamPort) => void;
   onLaneInspect: (lane: LaneRenderSpec) => void;
   onGapInspect: (marker: GapMarkerSpec) => void;
   onPlateOpen: (plate: GovernancePlateSpec) => void;
 }) {
-  const groups = useMemo(() => portRenderGroups(layout), [layout]);
+  const groups = useMemo(() => portRenderGroups(layout, focusIds), [focusIds, layout]);
   const ports = useMemo(
     () => [...groups.solid, ...groups.outline, ...groups.overflow],
     [groups.outline, groups.overflow, groups.solid]
   );
-  const lanes = useMemo(() => laneRenderSpecs(layout), [layout]);
-  const gaps = useMemo(() => gapMarkerSpecs(layout), [layout]);
+  const lanes = useMemo(() => laneRenderSpecs(layout, focusIds), [focusIds, layout]);
+  const gapBadges = useMemo(() => stationGapBadges(layout), [layout]);
+  const stationlessGapGroups = useMemo(() => {
+    const stationIds = new Set(gapBadges.map((badge) => badge.stationId));
+    const summary = sourceGapSummary(layout);
+    return summary.groups
+      .map((group) => ({
+        ...group,
+        markers: group.markers.filter((marker) => !marker.sourceId || !stationIds.has(marker.sourceId))
+      }))
+      .map((group) => ({
+        ...group,
+        occurrenceCount: group.markers.reduce((sum, marker) => sum + marker.count, 0)
+      }))
+      .filter((group) => group.markers.length > 0);
+  }, [gapBadges, layout]);
   const plates = useMemo(() => governancePlateSpecs(layout), [layout]);
-  if (ports.length + lanes.length + gaps.length + plates.length === 0) return null;
+  if (ports.length + lanes.length + gapBadges.length + stationlessGapGroups.length + plates.length === 0) return null;
   return (
     <Html position={[0, 0, 0]} wrapperClass="sceneHtmlLabel" className="visuallyHidden" zIndexRange={[10, 0]}>
       <nav aria-label={t("source_foundation.twin.title")}>
@@ -1303,10 +1697,17 @@ function FoundationAccessTwin({
               </button>
             </li>
           ))}
-          {gaps.map((gap) => (
-            <li key={`twin-${gap.id}`}>
-              <button type="button" onClick={() => onGapInspect(gap)}>
-                {gap.aria}
+          {gapBadges.map((badge) => (
+            <li key={`twin-gap-station-${badge.stationId}`}>
+              <button type="button" onClick={() => onGapInspect(badge.topMarker)}>
+                {badge.aria}
+              </button>
+            </li>
+          ))}
+          {stationlessGapGroups.map((group) => (
+            <li key={`twin-gap-code-${group.code}`}>
+              <button type="button" onClick={() => onGapInspect(group.markers[0])}>
+                {t("source_foundation.gaps.aggregate", { label: group.label, n: group.occurrenceCount })}
               </button>
             </li>
           ))}
@@ -1331,6 +1732,7 @@ export function SourceFoundationPart({
   layout,
   quality,
   selectedId,
+  hoveredId = "",
   lens = "",
   trace = null,
   morph,
@@ -1342,6 +1744,9 @@ export function SourceFoundationPart({
   layout: WorldLayout;
   quality: string;
   selectedId: string;
+  // R1: hover shares the focus contract with selection for progressive
+  // disclosure (ports/lanes of the hovered station mount).
+  hoveredId?: string;
   // §12.7: the source_state lens emphasizes/dims presence only.
   lens?: string;
   // §12.6: selection-driven trace highlight — ephemeral, never route state.
@@ -1355,26 +1760,32 @@ export function SourceFoundationPart({
   const handlePortFocus = useCallback((port: SourceStreamPort) => onPortFocus(port), [onPortFocus]);
   const emphasis = useMemo(() => sourceStateEmphasis(layout, lens), [layout, lens]);
   const traceIds = useMemo(() => traceHighlightIds(layout, trace), [layout, trace]);
+  const focusIds = useMemo(
+    () => foundationFocusStationIds(layout, selectedId, hoveredId, trace),
+    [hoveredId, layout, selectedId, trace]
+  );
   if (!isFoundationProfile(layout)) return null;
   return (
     <group>
       <FoundationBandGuides layout={layout} morph={morph} />
       <FoundationProposalStemsLayer layout={layout} morph={morph} />
-      <FoundationConduits layout={layout} morph={morph} />
+      <FoundationConduits layout={layout} morph={morph} focusIds={focusIds} />
       <FoundationFlowBundles
         layout={layout}
         selectedId={selectedId}
+        hoveredId={hoveredId}
         quality={quality}
         morph={morph}
         traceIds={traceIds}
         emphasis={emphasis}
       />
-      <FoundationStreamPorts layout={layout} morph={morph} emphasis={emphasis} onPortFocus={handlePortFocus} />
-      <FoundationPipelineLanes layout={layout} morph={morph} emphasis={emphasis} onLaneInspect={onLaneInspect} />
+      <FoundationStreamPorts layout={layout} morph={morph} emphasis={emphasis} focusIds={focusIds} onPortFocus={handlePortFocus} />
+      <FoundationPipelineLanes layout={layout} morph={morph} emphasis={emphasis} focusIds={focusIds} onLaneInspect={onLaneInspect} />
       <FoundationGapMarkers layout={layout} morph={morph} emphasis={emphasis} onGapInspect={onGapInspect} />
       <FoundationGovernancePlates layout={layout} morph={morph} emphasis={emphasis} onPlateOpen={onPlateOpen} />
       <FoundationAccessTwin
         layout={layout}
+        focusIds={focusIds}
         onPortFocus={handlePortFocus}
         onLaneInspect={onLaneInspect}
         onGapInspect={onGapInspect}

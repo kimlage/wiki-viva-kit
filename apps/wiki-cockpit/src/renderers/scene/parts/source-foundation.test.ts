@@ -29,14 +29,18 @@ import { SOURCE_FOUNDATION_LEVELS, SOURCE_FOUNDATION_WITHIN_BAND_LIFT } from "..
 import {
   CONDUIT_SPLIT_BUDGET,
   FOUNDATION_BAND_OPACITY,
+  WORLD_GAP_MARKER_BUDGET,
   conduitSpecs,
   flowBundleSpecs,
   flowSeverityColor,
+  foundationBandCount,
   foundationBandOpacity,
   foundationDensityCounters,
   foundationDimFactor,
+  foundationFocusStationIds,
   foundationPlaneGuides,
   foundationProposalStems,
+  foundationRestDim,
   gapMarkerSpecs,
   gapSeverityToken,
   governancePlateSpecs,
@@ -47,9 +51,13 @@ import {
   portBreachToken,
   portFocusPatch,
   portRenderGroups,
+  sourceGapSummary,
   sourceStateEmphasis,
+  stationGapBadges,
   stationSelectPatch,
   traceHighlightIds,
+  visibleFlowBundleSpecs,
+  worldGapMarkers,
   PIPELINE_KIND_SYMBOLS,
   PIPELINE_STAGE_ORDER
 } from "./source-foundation";
@@ -458,6 +466,165 @@ describe("per-band plane guides (§10.12)", () => {
     }
     configureLanguage("en");
   });
+
+  it("carries the honest band aggregate counts (R1 — nothing dominant unlabeled)", () => {
+    const layout = foundationLayout();
+    // TRUE census totals from the layout groups (hidden members included).
+    expect(foundationBandCount(layout, "foundation")).toBe(3);
+    expect(foundationBandCount(layout, "provenance")).toBe(3);
+    expect(foundationBandCount(layout, "knowledge")).toBe(3);
+    expect(foundationBandCount(layout, "core")).toBeNull();
+    const guides = foundationPlaneGuides(layout);
+    const byPlane = new Map(guides.map((guide) => [guide.plane, guide]));
+    expect(byPlane.get("foundation")!.countText).toContain("3");
+    expect(byPlane.get("knowledge")!.countText).toContain("3");
+    expect(byPlane.get("core")!.countText).toBeNull();
+    // Both languages resolve the count line.
+    for (const language of ["en", "pt"] as const) {
+      configureLanguage(language);
+      const knowledge = foundationPlaneGuides(layout).find((guide) => guide.plane === "knowledge")!;
+      expect(knowledge.countText).toBeTruthy();
+      expect(knowledge.countText).not.toContain("source_foundation.");
+    }
+    configureLanguage("en");
+  });
+});
+
+describe("calm entry / progressive disclosure (R1)", () => {
+  it("resolves the focus set from selection, hover and trace — stations only", () => {
+    const layout = foundationLayout();
+    expect(foundationFocusStationIds(layout, "", "", null).size).toBe(0);
+    expect([...foundationFocusStationIds(layout, "source-a")]).toEqual(["source-a"]);
+    expect([...foundationFocusStationIds(layout, "", "source-b")]).toEqual(["source-b"]);
+    expect([...foundationFocusStationIds(layout, "", "", { mode: "downstream", subjectId: "source-c" })]).toEqual([
+      "source-c"
+    ]);
+    // Pages never become a station focus; other profiles resolve nothing.
+    expect(foundationFocusStationIds(layout, "note-multi").size).toBe(0);
+    expect(foundationFocusStationIds(upperLayout(), "source-a").size).toBe(0);
+  });
+
+  it("mounts ports and lanes ONLY for focused stations", () => {
+    const layout = foundationLayout();
+    const rest = portRenderGroups(layout, new Set<string>());
+    expect(rest.solid.length + rest.outline.length + rest.overflow.length).toBe(0);
+    expect(laneRenderSpecs(layout, new Set<string>())).toHaveLength(0);
+    const focused = portRenderGroups(layout, new Set(["source-b"]));
+    const focusedPorts = [...focused.solid, ...focused.outline, ...focused.overflow];
+    expect(focusedPorts.length).toBeGreaterThan(0);
+    focusedPorts.forEach((port) => expect(port.sourceIds).toContain("source-b"));
+    // The aggregated "+N" port keeps its TRUE hidden count under focus.
+    expect(focused.overflow.find((port) => port.sourceIds[0] === "source-b")!.hiddenCount).toBe(3);
+    const focusedLanes = laneRenderSpecs(layout, new Set(["source-a"]));
+    expect(focusedLanes.length).toBeGreaterThan(0);
+    focusedLanes.forEach((lane) => expect(lane.sourceIds).toContain("source-a"));
+    // No focus argument = the full census (telemetry/tests contract).
+    expect(laneRenderSpecs(layout).length).toBeGreaterThanOrEqual(focusedLanes.length);
+  });
+
+  it("rests knowledge/provenance pages as dimmed aggregates and individualizes on focus", () => {
+    const layout = foundationLayout();
+    const knowledge = layout.nodes.find((node) => node.foundationRole === "knowledge-page")!;
+    const provenance = layout.nodes.find((node) => node.foundationRole === "provenance-page")!;
+    const station = layout.nodes.find((node) => node.id === "source-a")!;
+    const none = { selectedId: "", hoveredId: "", highlightedIds: new Set<string>() };
+    expect(foundationRestDim(knowledge, none)).toBe(true);
+    expect(foundationRestDim(provenance, none)).toBe(true);
+    // Stations, channels, governance and the core never rest-dim.
+    expect(foundationRestDim(station, none)).toBe(false);
+    // Selection/hover/highlight (trace) individualizes the page itself…
+    expect(foundationRestDim(knowledge, { ...none, selectedId: knowledge.id })).toBe(false);
+    expect(foundationRestDim(knowledge, { ...none, hoveredId: knowledge.id })).toBe(false);
+    expect(foundationRestDim(knowledge, { ...none, highlightedIds: new Set([knowledge.id]) })).toBe(false);
+    // …and focusing an owning station individualizes its pages.
+    const owner = (knowledge.sourceIds ?? [])[0]!;
+    expect(foundationRestDim(knowledge, { ...none, selectedId: owner })).toBe(false);
+  });
+
+  it("mounts emission curves only under focus/trace/lens — at rest the band label carries the count", () => {
+    const layout = foundationLayout();
+    const specs = flowBundleSpecs(layout);
+    expect(specs.length).toBeGreaterThan(0);
+    // Rest: nothing focuses the bundles → none mount.
+    expect(visibleFlowBundleSpecs(specs, {})).toHaveLength(0);
+    // A selected page mounts exactly its own tethers.
+    const selected = visibleFlowBundleSpecs(specs, { selectedId: "note-multi" });
+    expect(selected.length).toBe(2);
+    selected.forEach((spec) => expect(spec.pageIds).toContain("note-multi"));
+    // A hovered station mounts its outgoing bundles.
+    const hovered = visibleFlowBundleSpecs(specs, { hoveredId: "source-c" });
+    expect(hovered.length).toBeGreaterThan(0);
+    hovered.forEach((spec) => expect(spec.sourceIds).toContain("source-c"));
+    // Trace ids mount their bundles; the lens keeps its attention subjects.
+    const traceIds = new Set([specs[0].id]);
+    expect(visibleFlowBundleSpecs(specs, { traceIds }).map((spec) => spec.id)).toEqual([specs[0].id]);
+    const emphasis = sourceStateEmphasis(layout, "source_state");
+    const lensVisible = visibleFlowBundleSpecs(specs, { emphasis });
+    lensVisible.forEach((spec) => expect(emphasis!.dimmedPrimitiveIds.has(spec.id)).toBe(false));
+  });
+});
+
+describe("gap aggregation (R2)", () => {
+  it("bounds the world markers and keeps only the worst diagnostic per worst station", () => {
+    const layout = foundationLayout();
+    const markers = worldGapMarkers(layout);
+    expect(markers.length).toBeLessThanOrEqual(WORLD_GAP_MARKER_BUDGET);
+    // The fixture has exactly two station-subject diagnostic chains:
+    // source-c (error, count 2) and source-a (warning via insight-declared).
+    expect(markers.length).toBe(2);
+    expect(markers[0].sourceId).toBe("source-c");
+    expect(markers[0].count).toBe(2);
+    // Markers sit above their station, never on an outer anonymous ring.
+    const station = layout.nodes.find((node) => node.id === "source-c")!;
+    expect(markers[0].position[0]).toBeCloseTo(station.position[0]);
+    expect(markers[0].position[2]).toBeCloseTo(station.position[2]);
+    expect(markers[0].position[1]).toBeGreaterThan(station.position[1]);
+  });
+
+  it("gives every affected station a badge with its TRUE occurrence total", () => {
+    const layout = foundationLayout();
+    const badges = stationGapBadges(layout);
+    expect(badges.length).toBe(2);
+    // Sorted by severity then total: source-c (error, 2) first.
+    expect(badges[0].stationId).toBe("source-c");
+    expect(badges[0].severity).toBe("error");
+    expect(badges[0].total).toBe(2);
+    expect(badges[0].aria).toContain("2");
+    expect(badges[0].aria).toContain("source-c");
+    // source-a carries the warning (target_without_emission) plus the info
+    // (multiple_sources_supported attributed via related refs): TRUE total 2,
+    // worst severity leads the badge.
+    const sourceA = badges.find((badge) => badge.stationId === "source-a")!;
+    expect(sourceA.total).toBe(2);
+    expect(sourceA.markerCount).toBe(2);
+    expect(sourceA.topMarker.severity).toBe("warning");
+  });
+
+  it("exposes the aggregated, sorted census with honest totals for the HUD", () => {
+    const layout = foundationLayout();
+    const summary = sourceGapSummary(layout);
+    // TRUE total = sum of every diagnostic's occurrence count (2 + 1 + 1).
+    expect(summary.total).toBe(4);
+    expect(summary.markerTotal).toBe(3);
+    expect(summary.stationCount).toBe(2);
+    expect(summary.worldMarkerCount).toBe(2);
+    // Groups sorted severity → occurrences → code; sum of groups equals total
+    // (nothing silently dropped).
+    expect(summary.groups.map((group) => group.code)).toEqual([
+      "source_never_synced",
+      "target_without_emission",
+      "multiple_sources_supported"
+    ]);
+    expect(summary.groups.reduce((sum, group) => sum + group.occurrenceCount, 0)).toBe(summary.total);
+    summary.groups.forEach((group) => {
+      expect(group.label).not.toContain("source_foundation.");
+      expect(group.markers.length).toBe(group.markerCount);
+    });
+    // Outside the foundation profile the summary is structurally empty.
+    const empty = sourceGapSummary(upperLayout());
+    expect(empty.total).toBe(0);
+    expect(empty.groups).toHaveLength(0);
+  });
 });
 
 describe("occlusion policy per band (§10.10)", () => {
@@ -697,11 +864,32 @@ describe("typed gap markers (§9.8/§16.5)", () => {
     expect(neverSynced.aria).toContain("2");
   });
 
-  it("routes station-subject gaps to their source and leaves others announce-only", () => {
+  it("routes station-subject AND related-station gaps to their source; unrelated stay announce-only", () => {
     const layout = foundationLayout();
     const specs = gapMarkerSpecs(layout);
     expect(specs.find((spec) => spec.code === "source_never_synced")!.sourceId).toBe("source-c");
-    expect(specs.find((spec) => spec.code === "target_without_emission")!.sourceId).toBeNull();
+    // R2: a page-subject diagnostic that names a related source routes to that
+    // station (its badge carries the count), never lost on an anonymous ring.
+    expect(specs.find((spec) => spec.code === "target_without_emission")!.sourceId).toBe("source-a");
+    // A diagnostic without any station relation stays announce-only.
+    const orphanLayout = bareFoundationLayout({
+      foundationPrimitives: [
+        {
+          kind: "gap-marker",
+          id: "gap:orphan",
+          code: "unresolved_canonical_page",
+          subjectRef: "ghost-page",
+          count: 3,
+          sourceIds: [],
+          pageIds: [],
+          position: [0, 0, 0],
+          bounds: { radius: 0.1 },
+          labelKey: "source_foundation.diagnostics.unresolved_canonical_page",
+          severity: "warning"
+        }
+      ]
+    });
+    expect(gapMarkerSpecs(orphanLayout)[0]!.sourceId).toBeNull();
   });
 
   it("uses existing severity tokens", () => {

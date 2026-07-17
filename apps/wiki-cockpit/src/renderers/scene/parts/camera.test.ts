@@ -17,6 +17,7 @@ import {
   centeredGroupSafeAreaDistanceMultiplier,
   clampPhiToHemisphere,
   foundationCameraPose,
+  foundationSelectionReleaseHold,
   hoverInspectionCameraTarget,
   hoverInspectionCameraWeight,
   hoverInspectionDistanceMultiplier,
@@ -284,14 +285,92 @@ describe("hemisphere resolution (§11.2)", () => {
     expect(wide!.target).toEqual([0, SOURCE_FOUNDATION_LEVELS.foundation + 0.25, 0]);
     expect(wide!.target[1]).toBe(SOURCE_FOUNDATION_CAMERA.targetY);
     expect(wide!.phi).toBeCloseTo(Math.PI - 0.72);
-    expect(wide!.distance).toBeCloseTo(17.6 * 1.08);
+    expect(wide!.distance).toBeCloseTo(17.6 * SOURCE_FOUNDATION_CAMERA.distanceMultiplier);
+    // R3 framing: the resting pose frames the CONTENT (station ring foreground,
+    // core up-frame), noticeably closer than the full retreat fit but always
+    // safely above the orbit minimum, so nothing clips against the near plane.
+    expect(SOURCE_FOUNDATION_CAMERA.distanceMultiplier).toBeLessThan(1);
+    expect(SOURCE_FOUNDATION_CAMERA.distanceMultiplier).toBeGreaterThan(0.18 * 2);
     // Resize/aspect: the pose scales with the layout fit, nothing else.
-    expect(mobile!.distance).toBeCloseTo(11.2 * 1.08);
+    expect(mobile!.distance).toBeCloseTo(11.2 * SOURCE_FOUNDATION_CAMERA.distanceMultiplier);
     expect(mobile!.phi).toBe(wide!.phi);
     // The camera really sits below the foundation band, looking up.
     const eye = cameraPositionForPose({ target: wide!.target, distance: wide!.distance, phi: wide!.phi, theta: 0 });
     expect(eye[1]).toBeLessThan(SOURCE_FOUNDATION_LEVELS.foundation);
+    // The core anchor stays inside the 40° vertical FOV at the resting pose:
+    // the angle between the view axis and the core direction is < vFov/2.
+    const target = wide!.target;
+    const core: [number, number, number] = [0, SOURCE_FOUNDATION_LEVELS.core, 0];
+    const view = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]];
+    const toCore = [core[0] - eye[0], core[1] - eye[1], core[2] - eye[2]];
+    const dot = view[0] * toCore[0] + view[1] * toCore[1] + view[2] * toCore[2];
+    const angle = Math.acos(dot / (Math.hypot(...view) * Math.hypot(...toCore)));
+    expect(angle).toBeLessThan((40 / 2) * (Math.PI / 180));
     expect(foundationCameraPose(upperLayout(), 17.6)).toBeNull();
+  });
+
+  it("holds the exact camera pose when a foundation selection is released (R3)", () => {
+    // Click on empty space / Escape releases the lock ONLY: same base framing
+    // subject, lock removed → the camera must not retreat or change zoom.
+    expect(
+      foundationSelectionReleaseHold({
+        foundationProfile: true,
+        previousLockedId: "source-a",
+        lockedId: "",
+        flyToId: "",
+        baseKeyUnchanged: true
+      })
+    ).toBe(true);
+    // Selecting another station is a focus glide, never a hold.
+    expect(
+      foundationSelectionReleaseHold({
+        foundationProfile: true,
+        previousLockedId: "source-a",
+        lockedId: "source-b",
+        flyToId: "",
+        baseKeyUnchanged: true
+      })
+    ).toBe(false);
+    // A world change (view/level/fit) re-frames even when the lock drops.
+    expect(
+      foundationSelectionReleaseHold({
+        foundationProfile: true,
+        previousLockedId: "source-a",
+        lockedId: "",
+        flyToId: "",
+        baseKeyUnchanged: false
+      })
+    ).toBe(false);
+    // Outside the foundation profile the existing contract stays untouched.
+    expect(
+      foundationSelectionReleaseHold({
+        foundationProfile: false,
+        previousLockedId: "page-1",
+        lockedId: "",
+        flyToId: "",
+        baseKeyUnchanged: true
+      })
+    ).toBe(false);
+    // A newborn being witnessed still owns the camera.
+    expect(
+      foundationSelectionReleaseHold({
+        foundationProfile: true,
+        previousLockedId: "source-a",
+        lockedId: "",
+        flyToId: "born-1",
+        baseKeyUnchanged: true
+      })
+    ).toBe(false);
+    // No previous lock: entering the view frames normally.
+    expect(
+      foundationSelectionReleaseHold({
+        foundationProfile: true,
+        previousLockedId: "",
+        lockedId: "",
+        flyToId: "",
+        baseKeyUnchanged: true
+      })
+    ).toBe(false);
   });
 });
 

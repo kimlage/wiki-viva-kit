@@ -77,12 +77,16 @@ export const UPPER_MAX_POLAR_ANGLE = 1.25;
 export const LOWER_MIN_POLAR_ANGLE = Math.PI - UPPER_MAX_POLAR_ANGLE;
 export const LOWER_MAX_POLAR_ANGLE = Math.PI - UPPER_MIN_POLAR_ANGLE;
 
-// Recommended initial lower pose (§6.4). Consumed by the camera director in a
-// later milestone; registered here so the numbers exist exactly once.
+// Recommended initial lower pose (§6.4), registered here so the numbers exist
+// exactly once. R-SCENE framing: the resting distance frames the CONTENT — the
+// station ring as foreground with the core visible up-frame — instead of the
+// full retreat fit (which read as a tiny distant ring). 0.7 of the layout fit
+// keeps the whole band span inside the 40° vertical FOV at the registered phi
+// while staying far above the orbit minimum (0.18 × fit), so nothing clips.
 export const SOURCE_FOUNDATION_CAMERA = {
   hemisphere: "lower",
   phi: Math.PI - 0.72,
-  distanceMultiplier: 1.08,
+  distanceMultiplier: 0.7,
   targetY: SOURCE_FOUNDATION_LEVELS.foundation + 0.25,
   transitionPath: "outer_arc",
   labels: "billboard"

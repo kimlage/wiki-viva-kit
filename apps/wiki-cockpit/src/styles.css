@@ -1101,6 +1101,56 @@ button.stripChip:hover {
   white-space: nowrap;
 }
 
+/* Source-foundation band labels (R1): STRONG band name + honest aggregate
+   count — the 5-second read of the vertical world. */
+.foundationBandLabel span {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(107, 215, 255, 0.28);
+  background: rgba(5, 9, 14, 0.78);
+  white-space: nowrap;
+}
+
+.foundationBandLabel strong {
+  color: #dff8ff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.foundationBandLabel small {
+  color: #9fc3d8;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Gap census chip (R2): the world mounts a bounded marker set; this chip
+   carries the TRUE occurrence total for the HUD panel to open. */
+.worldGapChip {
+  position: absolute;
+  z-index: 6;
+  /* Clear of the minimap disc (bottom-right) and the status strip (bottom). */
+  right: 148px;
+  bottom: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 180, 84, 0.45);
+  background: rgba(8, 13, 17, 0.85);
+  color: #ffcf94;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+}
+
 .radarLabel.selected span {
   border-color: rgba(223, 248, 255, 0.55);
   box-shadow: 0 0 12px rgba(107, 215, 255, 0.25);

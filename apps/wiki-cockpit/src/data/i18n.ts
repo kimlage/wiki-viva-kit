@@ -448,6 +448,11 @@ const EN: Dict = {
   "source_foundation.band.provenance": "Provenance",
   "source_foundation.band.knowledge": "Knowledge",
   "source_foundation.band.core": "Core",
+  // Honest band aggregates (R1): each band names its TRUE total, so nothing
+  // dominant stays unlabeled and nothing hidden goes uncounted.
+  "source_foundation.band.count.foundation": "{n} sources",
+  "source_foundation.band.count.provenance": "{n} provenance records",
+  "source_foundation.band.count.knowledge": "{n} pages fed",
   "source_foundation.port.selectedState": "selected",
   "source_foundation.port.unselectedState": "not selected",
   "source_foundation.port.breachedState": "cadence breached",
@@ -455,6 +460,11 @@ const EN: Dict = {
   "source_foundation.lane.stage": "stage {stage} · {ticks} cadence ticks",
   "source_foundation.conduit.bundle": "{n} bundled provenance pages",
   "source_foundation.gap.count": "{n} occurrences",
+  // R2 gap aggregation: per-station badges, world-marker budget and the HUD
+  // chip all speak TRUE totals — nothing is dropped silently.
+  "source_foundation.gaps.chip": "Gaps — {n}",
+  "source_foundation.gaps.stationBadge": "{label}: {n} gap occurrences",
+  "source_foundation.gaps.aggregate": "{label} — {n} occurrences",
   "source_foundation.twin.title": "Source foundation controls",
   "source_foundation.station.open": "opening source {label}",
   // Foundation 2D fallback (§14.2/§14.3/§14.5): navigable sections and
@@ -2046,6 +2056,10 @@ const PT: Dict = {
   "source_foundation.band.provenance": "Proveniência",
   "source_foundation.band.knowledge": "Conhecimento",
   "source_foundation.band.core": "Núcleo",
+  // Agregados honestos por banda (R1): cada banda nomeia seu total VERDADEIRO.
+  "source_foundation.band.count.foundation": "{n} fontes",
+  "source_foundation.band.count.provenance": "{n} registros de proveniência",
+  "source_foundation.band.count.knowledge": "{n} páginas alimentadas",
   "source_foundation.port.selectedState": "selecionado",
   "source_foundation.port.unselectedState": "não selecionado",
   "source_foundation.port.breachedState": "cadência estourada",
@@ -2053,6 +2067,11 @@ const PT: Dict = {
   "source_foundation.lane.stage": "estágio {stage} · {ticks} marcas de cadência",
   "source_foundation.conduit.bundle": "{n} páginas de proveniência agrupadas",
   "source_foundation.gap.count": "{n} ocorrências",
+  // Agregação de lacunas (R2): badges por estação, orçamento de marcadores no
+  // mundo e chip do HUD sempre com totais VERDADEIROS.
+  "source_foundation.gaps.chip": "Lacunas — {n}",
+  "source_foundation.gaps.stationBadge": "{label}: {n} ocorrências de lacunas",
+  "source_foundation.gaps.aggregate": "{label} — {n} ocorrências",
   "source_foundation.twin.title": "Controles da fundação de fontes",
   "source_foundation.station.open": "abrindo fonte {label}",
   "source_foundation.fallback.sections": "Seções da fundação de fontes",
