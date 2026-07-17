@@ -77,6 +77,29 @@ const REQUIRED_V2_PAYLOADS = new Set([
   "block_stacks.json"
 ]);
 
+export type SnapshotPerformanceMetric = {
+  name: string;
+  durationMs: number;
+  bytes?: number;
+  url?: string;
+};
+
+declare global {
+  // The cycle-1 smoke installs this callback before application code. Normal
+  // product execution has no callback and therefore no timing side effects.
+  var __WIKI_SNAPSHOT_PERFORMANCE_OBSERVER__:
+    | ((metric: SnapshotPerformanceMetric) => void)
+    | undefined;
+}
+
+function performanceObserver(): ((metric: SnapshotPerformanceMetric) => void) | undefined {
+  return globalThis.__WIKI_SNAPSHOT_PERFORMANCE_OBSERVER__;
+}
+
+function emitPerformanceMetric(metric: SnapshotPerformanceMetric): void {
+  performanceObserver()?.(metric);
+}
+
 export type SnapshotCompatibility = NonNullable<SnapshotBundle["manifest"]["compatibility"]>;
 export type SnapshotLoadErrorCode = "unsupported" | "partial" | "integrity" | "torn";
 
@@ -127,10 +150,13 @@ export function demoSnapshotBase(
 }
 
 async function fetchJson<T>(url: string, signal?: AbortSignal, operatorBoundary = false): Promise<T> {
+  const observed = Boolean(performanceObserver());
+  const fetchStarted = observed ? performance.now() : 0;
   const init = { headers: { accept: "application/json" }, signal };
   const response = operatorBoundary
     ? await operatorRequestUrl(url, init)
     : await fetch(url, init);
+  if (observed) emitPerformanceMetric({ name: "fetch_ttfb", durationMs: performance.now() - fetchStarted, url });
   const contentType = response.headers.get("content-type") || "";
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);
@@ -138,7 +164,15 @@ async function fetchJson<T>(url: string, signal?: AbortSignal, operatorBoundary 
   if (!contentType.toLowerCase().includes("application/json")) {
     throw new Error(`${url} returned ${contentType || "unknown content type"} instead of application/json`);
   }
-  return (await response.json()) as T;
+  if (!observed) return (await response.json()) as T;
+  const transferStarted = observed ? performance.now() : 0;
+  const body = await response.text();
+  const bodyBytes = observed ? new TextEncoder().encode(body).byteLength : undefined;
+  if (observed) emitPerformanceMetric({ name: "fetch_transfer", durationMs: performance.now() - transferStarted, ...(bodyBytes === undefined ? {} : { bytes: bodyBytes }), url });
+  const parseStarted = observed ? performance.now() : 0;
+  const parsed = JSON.parse(body) as T;
+  if (observed) emitPerformanceMetric({ name: "json_parse", durationMs: performance.now() - parseStarted, ...(bodyBytes === undefined ? {} : { bytes: bodyBytes }), url });
+  return parsed;
 }
 
 const EMPTY_SCORE = {
@@ -176,7 +210,14 @@ export function isDeclaredGenesisEmptyWorld(
 
 async function sha256(value: unknown): Promise<string> {
   if (!globalThis.crypto?.subtle) throw new Error("Snapshot integrity verification is unavailable in this browser");
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(value)));
+  const observed = Boolean(performanceObserver());
+  const canonicalStarted = observed ? performance.now() : 0;
+  const canonical = canonicalJson(value);
+  const encoded = new TextEncoder().encode(canonical);
+  if (observed) emitPerformanceMetric({ name: "canonical_json", durationMs: performance.now() - canonicalStarted, bytes: encoded.byteLength });
+  const digestStarted = observed ? performance.now() : 0;
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", encoded);
+  if (observed) emitPerformanceMetric({ name: "sha256_integrity", durationMs: performance.now() - digestStarted, bytes: encoded.byteLength });
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
@@ -184,6 +225,8 @@ export async function validateSnapshotEnvelope(
   manifest: SnapshotBundle["manifest"],
   payloads: Record<string, unknown>
 ): Promise<void> {
+  const observed = Boolean(performanceObserver());
+  const validationStarted = observed ? performance.now() : 0;
   classifySnapshotManifest(manifest);
   if (manifest.schema_version !== "wiki_web_snapshot.v2") return;
   const emptyCompat = manifest.capabilities?.includes("empty_world_compat") ?? false;
@@ -243,6 +286,7 @@ export async function validateSnapshotEnvelope(
   }
   if (!emptyCompat && !ids.has(manifest.root_page_id!)) throw new SnapshotLoadError("integrity", `Snapshot ${manifest.snapshot_id} root page is missing from pages.json`);
   if (manifest.contract_errors?.length) throw new SnapshotLoadError("integrity", `Snapshot ${manifest.snapshot_id} contract errors: ${manifest.contract_errors.join("; ")}`);
+  if (observed) emitPerformanceMetric({ name: "contract_validation", durationMs: performance.now() - validationStarted });
 }
 
 async function loadFromBase(base: string, signal?: AbortSignal, operatorBoundary = false): Promise<SnapshotBundle> {

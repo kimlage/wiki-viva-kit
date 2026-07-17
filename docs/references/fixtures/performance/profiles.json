@@ -1,0 +1,11 @@
+{
+  "schema_version": "wiki_performance_fixture_profiles.v1",
+  "privacy": "public_synthetic_only",
+  "seed": 469,
+  "profiles": {
+    "cycle1": {"pages": 100, "relations": 1000, "events": 100, "soak_iterations": 1, "heavy": false},
+    "standard": {"pages": 1000, "relations": 10000, "events": 10000, "soak_iterations": 1, "heavy": true},
+    "stress": {"pages": 10000, "relations": 100000, "events": 100000, "soak_iterations": 1, "heavy": true},
+    "soak": {"pages": 10000, "relations": 100000, "events": 100000, "soak_iterations": 12, "heavy": true}
+  }
+}
