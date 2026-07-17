@@ -39,8 +39,10 @@ import { t } from "../../../data/i18n";
 import { edgeStyle, trustColor } from "../../../data/presentation";
 import { SEMANTIC_VISUAL_TOKENS } from "../../../data/visualEncoding";
 import type { SemanticVisualToken } from "../../../data/visualEncoding";
+import type { LayoutNode } from "../../../scene/layout";
 import type {
   SourceFlowBundle,
+  SourceFoundationPrimitive,
   SourceGapMarker,
   SourceGovernancePlate,
   SourcePipelineLane,
@@ -49,6 +51,7 @@ import type {
 } from "../../../scene/perspectives";
 import { SOURCE_FOUNDATION_WITHIN_BAND_LIFT } from "../../../world/contracts";
 import type { WorldPlaneId } from "../../../world/contracts";
+import type { SourceTraceMode } from "../../../world/sourceSignals";
 import { morphAttachmentOpacity } from "./nodes";
 import type { MorphState } from "./nodes";
 
@@ -138,6 +141,106 @@ export function portAriaText(port: SourceStreamPort): string {
   parts.push(t(port.selected ? "source_foundation.port.selectedState" : "source_foundation.port.unselectedState"));
   if (port.breached) parts.push(t("source_foundation.port.breachedState"));
   return parts.join(" — ");
+}
+
+// §12.2: activating a source station dispatches the EXISTING openSource
+// grammar (dock=source&src=<id>) plus a normal page selection for visual focus
+// and trace emphasis. It never touches `center`, so no recenter can happen
+// implicitly. Every other foundation role returns null and keeps the normal
+// selection contract (§12.4/§12.5: provenance/knowledge pages are ordinary
+// selections; recenter stays an explicit action).
+export function stationSelectPatch(
+  node: Pick<LayoutNode, "id" | "foundationRole">
+): { pageId: string; dock: "source"; src: string } | null {
+  return node.foundationRole === "source-station" ? { pageId: node.id, dock: "source", src: node.id } : null;
+}
+
+export type TraceHighlight = { mode: SourceTraceMode; subjectId: string };
+
+// §12.6 trace modes as SELECTION-DRIVEN highlights over relations the layout
+// already resolved — never a new view, never movement:
+// - upstream: page → its emission bundles → owning source stations;
+// - downstream: source → its provenance/knowledge pages via bundles + node
+//   ownership (LayoutNode.sourceIds keeps many-to-many countable);
+// - closure: source → targets whose every emission is accepted (bundle
+//   severity "none" is the layout's closed-closure encoding).
+export function traceHighlightIds(layout: WorldLayout, trace: TraceHighlight | null): Set<string> {
+  const ids = new Set<string>();
+  if (!trace || !trace.subjectId || !isFoundationProfile(layout)) return ids;
+  const bundles = (layout.foundationPrimitives ?? []).filter(
+    (primitive): primitive is SourceFlowBundle => primitive.kind === "flow-bundle"
+  );
+  const addBundle = (bundle: SourceFlowBundle) => {
+    ids.add(bundle.id);
+    bundle.sourceIds.forEach((id) => ids.add(id));
+    bundle.pageIds.forEach((id) => ids.add(id));
+  };
+  if (trace.mode === "upstream") {
+    bundles.filter((bundle) => bundle.pageIds.includes(trace.subjectId)).forEach(addBundle);
+    const subject = layout.nodes.find((node) => node.id === trace.subjectId);
+    (subject?.sourceIds ?? []).forEach((id) => ids.add(id));
+    if (ids.size > 0) ids.add(trace.subjectId);
+    return ids;
+  }
+  const closureOnly = trace.mode === "closure";
+  bundles
+    .filter((bundle) => bundle.sourceIds.includes(trace.subjectId) && (!closureOnly || bundle.severity === "none"))
+    .forEach(addBundle);
+  if (!closureOnly) {
+    layout.nodes
+      .filter(
+        (node) =>
+          (node.foundationRole === "provenance-page" || node.foundationRole === "knowledge-page") &&
+          (node.sourceIds ?? []).includes(trace.subjectId)
+      )
+      .forEach((node) => ids.add(node.id));
+  }
+  ids.add(trace.subjectId);
+  return ids;
+}
+
+export type SourceStateEmphasis = {
+  /** Stations (and real pages named by diagnostics) needing operator attention. */
+  attentionIds: Set<string>;
+  /** Derived primitives that recede while the lens is active. */
+  dimmedPrimitiveIds: Set<string>;
+};
+
+const LENS_DIM_FACTOR = 0.3;
+
+function primitiveNeedsAttention(primitive: SourceFoundationPrimitive): boolean {
+  if (primitive.kind === "stream-port") return primitive.breached;
+  if (primitive.kind === "pipeline-lane") return primitive.severity === "error";
+  if (primitive.kind === "gap-marker") return primitive.severity === "warning" || primitive.severity === "error";
+  if (primitive.kind === "governance-plate") return primitive.severity !== "none";
+  return primitive.severity === "warning" || primitive.severity === "error";
+}
+
+// §12.7: lens=source_state filters/emphasizes state WITHOUT moving anything.
+// Geometry is untouched — attention states (breached/pending streams, failed
+// lanes, invalid recipes, warning/error gaps, blocked flows) come forward and
+// nominal primitives recede in presence only. No object ever changes band.
+export function sourceStateEmphasis(layout: WorldLayout, lens: string | undefined): SourceStateEmphasis | null {
+  if (lens !== "source_state" || !isFoundationProfile(layout)) return null;
+  const primitives = layout.foundationPrimitives ?? [];
+  const attentionIds = new Set<string>();
+  primitives.forEach((primitive) => {
+    if (!primitiveNeedsAttention(primitive)) return;
+    primitive.sourceIds.forEach((id) => attentionIds.add(id));
+    if (primitive.canonicalEntityId) attentionIds.add(primitive.canonicalEntityId);
+  });
+  const dimmedPrimitiveIds = new Set<string>();
+  primitives.forEach((primitive) => {
+    const related =
+      primitive.sourceIds.some((id) => attentionIds.has(id)) ||
+      (primitive.canonicalEntityId ? attentionIds.has(primitive.canonicalEntityId) : false);
+    if (!primitiveNeedsAttention(primitive) && !related) dimmedPrimitiveIds.add(primitive.id);
+  });
+  return { attentionIds, dimmedPrimitiveIds };
+}
+
+export function foundationDimFactor(id: string, emphasis: SourceStateEmphasis | null): number {
+  return emphasis?.dimmedPrimitiveIds.has(id) ? LENS_DIM_FACTOR : 1;
 }
 
 // Deterministic ingestion stage order (wiki_source_lifecycle.v2 vocabulary):
@@ -294,8 +397,14 @@ function bezierPoint(
 // page keeps two tethers. The control point pushes the midpoint radially
 // OUTWARD from the world axis so the curve clears the dense station core, and
 // the arrowhead is placed near the target end: direction is derived from the
-// real emission direction, never from animation.
-export function flowBundleSpecs(layout: WorldLayout, selectedId = ""): FlowBundleSpec[] {
+// real emission direction, never from animation. Trace highlights (§12.6) and
+// the source_state lens (§12.7) only modulate presence — from/to/control stay
+// byte-identical, nothing moves.
+export function flowBundleSpecs(
+  layout: WorldLayout,
+  selectedId = "",
+  emphasis: { traceIds?: Set<string>; dimmedIds?: Set<string> } = {}
+): FlowBundleSpec[] {
   const bundles = (layout.foundationPrimitives ?? []).filter(
     (primitive): primitive is SourceFlowBundle => primitive.kind === "flow-bundle"
   );
@@ -311,16 +420,19 @@ export function flowBundleSpecs(layout: WorldLayout, selectedId = ""): FlowBundl
     const control: [number, number, number] =
       radial < 0.001 ? [push, mid[1], 0] : [mid[0] * scale, mid[1], mid[2] * scale];
     const selected =
-      Boolean(selectedId) && (bundle.pageIds.includes(selectedId) || bundle.sourceIds.includes(selectedId));
+      (Boolean(selectedId) && (bundle.pageIds.includes(selectedId) || bundle.sourceIds.includes(selectedId))) ||
+      Boolean(emphasis.traceIds?.has(bundle.id));
+    const dim = !selected && emphasis.dimmedIds?.has(bundle.id) ? LENS_DIM_FACTOR : 1;
     return {
       id: bundle.id,
       from: bundle.from,
       to: bundle.to,
       control,
       color: flowSeverityColor(bundle.severity),
-      opacity: selected
-        ? foundationBandOpacity("knowledge", true) * 0.62
-        : foundationBandOpacity("knowledge") * 0.62,
+      opacity:
+        (selected
+          ? foundationBandOpacity("knowledge", true) * 0.62
+          : foundationBandOpacity("knowledge") * 0.62) * dim,
       traceCount: bundle.traceCount,
       arrowAt: bezierPoint(bundle.from, control, bundle.to, 0.82),
       arrowToward: bezierPoint(bundle.from, control, bundle.to, 0.94),
@@ -594,14 +706,21 @@ function FoundationFlowBundles({
   layout,
   selectedId,
   quality,
-  morph
+  morph,
+  traceIds,
+  emphasis
 }: {
   layout: WorldLayout;
   selectedId: string;
   quality: string;
   morph: RefObject<MorphState>;
+  traceIds: Set<string>;
+  emphasis: SourceStateEmphasis | null;
 }) {
-  const specs = useMemo(() => flowBundleSpecs(layout, selectedId), [layout, selectedId]);
+  const specs = useMemo(
+    () => flowBundleSpecs(layout, selectedId, { traceIds, dimmedIds: emphasis?.dimmedPrimitiveIds }),
+    [emphasis, layout, selectedId, traceIds]
+  );
   const { segments, colors } = useMemo(() => {
     const positions: number[] = [];
     const vertexColors: number[] = [];
@@ -703,9 +822,12 @@ type PortInstancedLayerProps = {
   ports: SourceStreamPort[];
   wireframe: boolean;
   morph: RefObject<MorphState>;
+  // §12.7 lens dim — presence only; instance matrices (positions) are shared
+  // with the bright layer and never change.
+  opacityScale?: number;
 };
 
-function PortInstancedLayer({ ports, wireframe, morph }: PortInstancedLayerProps) {
+function PortInstancedLayer({ ports, wireframe, morph, opacityScale = 1 }: PortInstancedLayerProps) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   const { invalidate } = useThree();
@@ -725,7 +847,7 @@ function PortInstancedLayer({ ports, wireframe, morph }: PortInstancedLayerProps
     mesh.instanceMatrix.needsUpdate = true;
     invalidate();
   }, [invalidate, matrix, ports, position, quaternionIdentity, scale]);
-  const baseOpacity = wireframe ? 0.85 : 1;
+  const baseOpacity = (wireframe ? 0.85 : 1) * opacityScale;
   useFrame((state) => {
     if (!materialRef.current) return;
     materialRef.current.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, baseOpacity);
@@ -752,13 +874,29 @@ function PortInstancedLayer({ ports, wireframe, morph }: PortInstancedLayerProps
 function FoundationStreamPorts({
   layout,
   morph,
+  emphasis,
   onPortFocus
 }: {
   layout: WorldLayout;
   morph: RefObject<MorphState>;
+  emphasis: SourceStateEmphasis | null;
   onPortFocus: (port: SourceStreamPort) => void;
 }) {
   const groups = useMemo(() => portRenderGroups(layout), [layout]);
+  // §12.7 lens: nominal ports recede by presence only — their instance
+  // transforms are identical to the bright layers, so nothing moves.
+  const splitByDim = useCallback(
+    (ports: SourceStreamPort[]): { bright: SourceStreamPort[]; dim: SourceStreamPort[] } => {
+      if (!emphasis) return { bright: ports, dim: [] };
+      return {
+        bright: ports.filter((port) => !emphasis.dimmedPrimitiveIds.has(port.id)),
+        dim: ports.filter((port) => emphasis.dimmedPrimitiveIds.has(port.id))
+      };
+    },
+    [emphasis]
+  );
+  const solidSplit = useMemo(() => splitByDim(groups.solid), [groups.solid, splitByDim]);
+  const outlineSplit = useMemo(() => splitByDim(groups.outline), [groups.outline, splitByDim]);
   const allPorts = useMemo(
     () => [...groups.solid, ...groups.outline, ...groups.overflow],
     [groups.outline, groups.overflow, groups.solid]
@@ -785,8 +923,14 @@ function FoundationStreamPorts({
   if (allPorts.length === 0) return null;
   return (
     <group>
-      <PortInstancedLayer ports={groups.solid} wireframe={false} morph={morph} />
-      <PortInstancedLayer ports={groups.outline} wireframe morph={morph} />
+      <PortInstancedLayer ports={solidSplit.bright} wireframe={false} morph={morph} />
+      <PortInstancedLayer ports={outlineSplit.bright} wireframe morph={morph} />
+      {solidSplit.dim.length > 0 && (
+        <PortInstancedLayer ports={solidSplit.dim} wireframe={false} morph={morph} opacityScale={0.3} />
+      )}
+      {outlineSplit.dim.length > 0 && (
+        <PortInstancedLayer ports={outlineSplit.dim} wireframe morph={morph} opacityScale={0.3} />
+      )}
       {/* Breach = overlay symbol from the existing freshness token, never a
           different position (§10.4). aria-hidden: the accessible twin speaks. */}
       {groups.breached.map((port) => (
@@ -839,10 +983,12 @@ function FoundationStreamPorts({
 function FoundationPipelineLanes({
   layout,
   morph,
+  emphasis,
   onLaneInspect
 }: {
   layout: WorldLayout;
   morph: RefObject<MorphState>;
+  emphasis: SourceStateEmphasis | null;
   onLaneInspect: (lane: LaneRenderSpec) => void;
 }) {
   const specs = useMemo(() => laneRenderSpecs(layout), [layout]);
@@ -851,7 +997,7 @@ function FoundationPipelineLanes({
     const vertexColors: number[] = [];
     const color = new THREE.Color();
     specs.forEach((spec) => {
-      color.set(spec.color);
+      color.set(spec.color).multiplyScalar(foundationDimFactor(spec.id, emphasis));
       const before = positions.length;
       circleSegments(spec.center, spec.radius, positions, 40);
       // Discrete cadence ticks (§10.5): short radial marks, never a temporal
@@ -871,7 +1017,7 @@ function FoundationPipelineLanes({
       for (let index = 0; index < vertices; index += 1) vertexColors.push(color.r, color.g, color.b);
     });
     return { segments: positions, colors: vertexColors };
-  }, [specs]);
+  }, [emphasis, specs]);
   if (specs.length === 0) return null;
   return (
     <group>
@@ -888,7 +1034,13 @@ function FoundationPipelineLanes({
               renderOrder={4}
             >
               <octahedronGeometry args={[0.05, 0]} />
-              <meshBasicMaterial color={spec.color} transparent opacity={0.9} depthWrite={false} toneMapped={false} />
+              <meshBasicMaterial
+                color={spec.color}
+                transparent
+                opacity={0.9 * foundationDimFactor(spec.id, emphasis)}
+                depthWrite={false}
+                toneMapped={false}
+              />
             </mesh>
           )}
           {/* Kind symbol keeps content/deep_read visually distinguishable; the
@@ -901,7 +1053,13 @@ function FoundationPipelineLanes({
             className="radarDeadlineCaption"
             zIndexRange={[21, 0]}
           >
-            <span aria-hidden title={spec.aria} style={{ color: spec.color }}>{spec.symbol}</span>
+            <span
+              aria-hidden
+              title={spec.aria}
+              style={{ color: spec.color, opacity: foundationDimFactor(spec.id, emphasis) }}
+            >
+              {spec.symbol}
+            </span>
           </Html>
           {/* Inspection-only hit ring (§16.5): click announces, never navigates. */}
           <mesh
@@ -925,10 +1083,12 @@ function FoundationPipelineLanes({
 function FoundationGapMarkers({
   layout,
   morph,
+  emphasis,
   onGapInspect
 }: {
   layout: WorldLayout;
   morph: RefObject<MorphState>;
+  emphasis: SourceStateEmphasis | null;
   onGapInspect: (marker: GapMarkerSpec) => void;
 }) {
   const specs = useMemo(() => gapMarkerSpecs(layout), [layout]);
@@ -936,7 +1096,13 @@ function FoundationGapMarkers({
   return (
     <group>
       {specs.map((spec) => (
-        <GapMarkerMesh key={spec.id} spec={spec} morph={morph} onGapInspect={onGapInspect} />
+        <GapMarkerMesh
+          key={spec.id}
+          spec={spec}
+          morph={morph}
+          dim={foundationDimFactor(spec.id, emphasis)}
+          onGapInspect={onGapInspect}
+        />
       ))}
     </group>
   );
@@ -945,16 +1111,18 @@ function FoundationGapMarkers({
 function GapMarkerMesh({
   spec,
   morph,
+  dim,
   onGapInspect
 }: {
   spec: GapMarkerSpec;
   morph: RefObject<MorphState>;
+  dim: number;
   onGapInspect: (marker: GapMarkerSpec) => void;
 }) {
   const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   useFrame((state) => {
     if (!materialRef.current) return;
-    materialRef.current.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, 0.96);
+    materialRef.current.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, 0.96 * dim);
   });
   return (
     <group position={spec.position}>
@@ -970,9 +1138,9 @@ function GapMarkerMesh({
           ref={materialRef}
           color={spec.color}
           emissive={spec.color}
-          emissiveIntensity={0.45}
+          emissiveIntensity={0.45 * dim}
           transparent
-          opacity={0.96}
+          opacity={0.96 * dim}
           flatShading
           toneMapped={false}
         />
@@ -990,10 +1158,12 @@ function GapMarkerMesh({
 function FoundationGovernancePlates({
   layout,
   morph,
+  emphasis,
   onPlateOpen
 }: {
   layout: WorldLayout;
   morph: RefObject<MorphState>;
+  emphasis: SourceStateEmphasis | null;
   onPlateOpen: (plate: GovernancePlateSpec) => void;
 }) {
   const specs = useMemo(() => governancePlateSpecs(layout), [layout]);
@@ -1001,7 +1171,13 @@ function FoundationGovernancePlates({
   return (
     <group>
       {specs.map((spec) => (
-        <GovernancePlateMesh key={spec.id} spec={spec} morph={morph} onPlateOpen={onPlateOpen} />
+        <GovernancePlateMesh
+          key={spec.id}
+          spec={spec}
+          morph={morph}
+          dim={foundationDimFactor(spec.id, emphasis)}
+          onPlateOpen={onPlateOpen}
+        />
       ))}
     </group>
   );
@@ -1010,16 +1186,18 @@ function FoundationGovernancePlates({
 function GovernancePlateMesh({
   spec,
   morph,
+  dim,
   onPlateOpen
 }: {
   spec: GovernancePlateSpec;
   morph: RefObject<MorphState>;
+  dim: number;
   onPlateOpen: (plate: GovernancePlateSpec) => void;
 }) {
   const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   useFrame((state) => {
     if (!materialRef.current) return;
-    materialRef.current.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, 0.92);
+    materialRef.current.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, 0.92 * dim);
   });
   return (
     <group position={spec.position}>
@@ -1035,9 +1213,9 @@ function GovernancePlateMesh({
           ref={materialRef}
           color={spec.color}
           emissive={spec.color}
-          emissiveIntensity={spec.severity === "none" ? 0.16 : 0.4}
+          emissiveIntensity={(spec.severity === "none" ? 0.16 : 0.4) * dim}
           transparent
-          opacity={0.92}
+          opacity={0.92 * dim}
           flatShading
           toneMapped={false}
         />
@@ -1123,6 +1301,8 @@ export function SourceFoundationPart({
   layout,
   quality,
   selectedId,
+  lens = "",
+  trace = null,
   morph,
   onPortFocus,
   onLaneInspect,
@@ -1132,6 +1312,10 @@ export function SourceFoundationPart({
   layout: WorldLayout;
   quality: string;
   selectedId: string;
+  // §12.7: the source_state lens emphasizes/dims presence only.
+  lens?: string;
+  // §12.6: selection-driven trace highlight — ephemeral, never route state.
+  trace?: TraceHighlight | null;
   morph: RefObject<MorphState>;
   onPortFocus: (port: SourceStreamPort) => void;
   onLaneInspect: (lane: LaneRenderSpec) => void;
@@ -1139,17 +1323,26 @@ export function SourceFoundationPart({
   onPlateOpen: (plate: GovernancePlateSpec) => void;
 }) {
   const handlePortFocus = useCallback((port: SourceStreamPort) => onPortFocus(port), [onPortFocus]);
+  const emphasis = useMemo(() => sourceStateEmphasis(layout, lens), [layout, lens]);
+  const traceIds = useMemo(() => traceHighlightIds(layout, trace), [layout, trace]);
   if (!isFoundationProfile(layout)) return null;
   return (
     <group>
       <FoundationBandGuides layout={layout} morph={morph} />
       <FoundationProposalStemsLayer layout={layout} morph={morph} />
       <FoundationConduits layout={layout} morph={morph} />
-      <FoundationFlowBundles layout={layout} selectedId={selectedId} quality={quality} morph={morph} />
-      <FoundationStreamPorts layout={layout} morph={morph} onPortFocus={handlePortFocus} />
-      <FoundationPipelineLanes layout={layout} morph={morph} onLaneInspect={onLaneInspect} />
-      <FoundationGapMarkers layout={layout} morph={morph} onGapInspect={onGapInspect} />
-      <FoundationGovernancePlates layout={layout} morph={morph} onPlateOpen={onPlateOpen} />
+      <FoundationFlowBundles
+        layout={layout}
+        selectedId={selectedId}
+        quality={quality}
+        morph={morph}
+        traceIds={traceIds}
+        emphasis={emphasis}
+      />
+      <FoundationStreamPorts layout={layout} morph={morph} emphasis={emphasis} onPortFocus={handlePortFocus} />
+      <FoundationPipelineLanes layout={layout} morph={morph} emphasis={emphasis} onLaneInspect={onLaneInspect} />
+      <FoundationGapMarkers layout={layout} morph={morph} emphasis={emphasis} onGapInspect={onGapInspect} />
+      <FoundationGovernancePlates layout={layout} morph={morph} emphasis={emphasis} onPlateOpen={onPlateOpen} />
       <FoundationAccessTwin
         layout={layout}
         onPortFocus={handlePortFocus}

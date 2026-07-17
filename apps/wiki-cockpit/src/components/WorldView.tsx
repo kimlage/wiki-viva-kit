@@ -2077,6 +2077,7 @@ export function WorldView({
         centerableIds={centerableIds}
         quadrantHomes={quadrantHomes}
         sourceFoundation={bundle.sourceFoundation}
+        worldLens={worldState.lens}
         founding={foundingFallbackActive ? null : founding}
         seed={fallbackActive ? null : seed}
         guide={fallbackActive ? null : guide}

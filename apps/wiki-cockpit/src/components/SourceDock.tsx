@@ -5,13 +5,21 @@
 // the grounding), open the config. The source page's machine sync block and the
 // human recipe stay clearly separated. Everything t()'d EN+PT.
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Database, ExternalLink, Lock, RefreshCw, X } from "lucide-react";
 import { t } from "../data/i18n";
 import { contextLabel } from "../data/presentation";
+import type { SourceTraceMode } from "../world/sourceSignals";
 import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import { ExpandablePre } from "./ExpandablePre";
 import type { BriefSpec, SnapshotBundle, SourceEntity } from "../types";
+
+const TRACE_MODES: SourceTraceMode[] = ["upstream", "downstream", "closure"];
+const EMITTED_PAGE_LINK_BUDGET = 5;
+
+function formatWhen(when: string): string {
+  return when.replace("T", " ").slice(0, 16);
+}
 
 const SYNC_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   ok: "good",
@@ -73,6 +81,9 @@ export function SourceDock({
   bundle,
   sourceId,
   demo = false,
+  focusedStreamId = null,
+  traceMode = null,
+  onHighlightTrace,
   onComposeBrief,
   onRequestBrief,
   onNotice,
@@ -83,6 +94,12 @@ export function SourceDock({
   bundle: SnapshotBundle;
   sourceId: string;
   demo?: boolean;
+  // §12.3: ephemeral stream focus from a scene port activation — a RECIPE
+  // stream id (never a derived id, never a URL parameter).
+  focusedStreamId?: string | null;
+  // §12.6/§13.2: selection-driven trace highlight over the scene.
+  traceMode?: SourceTraceMode | null;
+  onHighlightTrace?: (mode: SourceTraceMode | null) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
   onRequestBrief?: (sourceId: string) => Promise<{ ok: boolean; spec?: BriefSpec; error?: string }>;
   onNotice: (text: string) => void;
@@ -96,6 +113,33 @@ export function SourceDock({
     [sources, sourceId]
   );
 
+  // §14.4 focus restore: remember what opened the dock and give focus back on
+  // close — but only when nothing else (the route-driven WorldView restore, a
+  // reader) has claimed focus meanwhile. Captured once per dock lifetime.
+  const dockRef = useRef<HTMLElement | null>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      const opener = openerRef.current;
+      if (!opener || !opener.isConnected) return;
+      const active = document.activeElement;
+      const unclaimed = !active || active === document.body || Boolean(dockRef.current?.contains(active));
+      if (unclaimed) opener.focus({ preventScroll: true });
+    };
+  }, []);
+
+  // §12.3: scroll/focus the stream row named by the ephemeral port signal.
+  // The row's aria-label announces cadence/freshness/privacy on focus.
+  const streamRowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  useEffect(() => {
+    if (!focusedStreamId) return;
+    const row = streamRowRefs.current.get(focusedStreamId);
+    if (!row) return;
+    row.focus({ preventScroll: true });
+    if (typeof row.scrollIntoView === "function") row.scrollIntoView({ block: "nearest" });
+  }, [focusedStreamId, source?.source_id]);
+
   // LIST MODE — no specific source selected: every source, sorted by attention
   // (pending streams first), each a button that drills into its detail.
   if (!sourceId) {
@@ -106,7 +150,7 @@ export function SourceDock({
     return (
       <>
         <div className="dockBackdrop" onClick={onClose} aria-hidden />
-        <aside className="sourceDock worldDock" role="dialog" aria-label={t("source.list.title")}>
+        <aside ref={dockRef} className="sourceDock worldDock" role="dialog" aria-label={t("source.list.title")}>
           <header className="dockHeader">
             <Database size={15} aria-hidden />
             <strong>{t("source.list.title", { n: sources.length })}</strong>
@@ -151,7 +195,7 @@ export function SourceDock({
     return (
       <>
         <div className="dockBackdrop" onClick={onClose} aria-hidden />
-        <aside className="sourceDock worldDock" role="dialog" aria-label={t("source.title")}>
+        <aside ref={dockRef} className="sourceDock worldDock" role="dialog" aria-label={t("source.title")}>
           <header className="dockHeader">
             <strong>{t("source.title")}</strong>
             <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
@@ -187,7 +231,7 @@ export function SourceDock({
   return (
     <>
       <div className="dockBackdrop" onClick={onClose} aria-hidden />
-      <aside className="sourceDock worldDock" role="dialog" aria-label={t("source.title")}>
+      <aside ref={dockRef} className="sourceDock worldDock" role="dialog" aria-label={t("source.title")}>
         <header className="dockHeader">
           <Database size={15} aria-hidden />
           <strong>{source.title}</strong>
@@ -230,6 +274,26 @@ export function SourceDock({
           )}
         </div>
 
+        {/* §12.6: trace toggles — selection-driven highlights over the scene's
+            real emission relations. Inspection only: nothing moves, nothing
+            enters the URL, and toggling the active mode clears it. */}
+        {onHighlightTrace && (
+          <div className="sourceTrace" role="group" aria-label={t("source.trace.title")} title={t("source.trace.tip")}>
+            <span>{t("source.trace.title")}</span>
+            {TRACE_MODES.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={traceMode === mode ? "sourceTraceButton active" : "sourceTraceButton"}
+                aria-pressed={traceMode === mode}
+                onClick={() => onHighlightTrace(traceMode === mode ? null : mode)}
+              >
+                {t(`source.trace.${mode}`)}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Auth is a POINTER, never a value — where the operator's credential lives. */}
         {source.auth && source.auth.method !== "none" && (
           <div className="sourceAuth" title={t("source.auth.tip")}>
@@ -259,7 +323,27 @@ export function SourceDock({
             </thead>
             <tbody>
               {source.streams.map((stream) => (
-                <tr key={stream.id} className={stream.breached ? "streamBreached" : stream.selected ? "" : "streamSkipped"}>
+                <tr
+                  key={stream.id}
+                  ref={(row) => {
+                    if (row) streamRowRefs.current.set(stream.id, row);
+                    else streamRowRefs.current.delete(stream.id);
+                  }}
+                  tabIndex={-1}
+                  data-stream-id={stream.id}
+                  aria-label={t("source.stream.rowAria", {
+                    id: stream.id,
+                    freshness: stream.selected ? ageLabel(stream.cursor_age_days) : t("source.streams.unselected"),
+                    cadence: stream.cadence_days ? t("source.streams.cadence", { n: stream.cadence_days }) : "—",
+                    privacy: stream.privacy
+                  })}
+                  className={[
+                    stream.breached ? "streamBreached" : stream.selected ? "" : "streamSkipped",
+                    focusedStreamId === stream.id ? "streamFocused" : ""
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
                   <td>
                     <code>{stream.id}</code>
                     {!stream.selected && stream.skip_reason && <small> · {stream.skip_reason}</small>}
@@ -289,6 +373,130 @@ export function SourceDock({
             </tbody>
           </table>
         </div>
+
+        {/* §13.1 lifecycle parity — read-only projection resolved server-side
+            (wiki_core/web/sources.py); the dock only renders what the payload
+            already says. Raw vocabulary tokens are shown as code, never
+            re-translated into something the server did not say. */}
+        {source.lifecycle && (
+          <div className="sourceSection sourceLifecycle">
+            <h4>{t("source.lifecycle.title")}</h4>
+            <dl className="sourceLifecycleGrid">
+              {source.lifecycle.state && (
+                <>
+                  <dt>{t("source.lifecycle.state")}</dt>
+                  <dd><code>{source.lifecycle.state}</code></dd>
+                </>
+              )}
+              {source.lifecycle.pipeline_stage && (
+                <>
+                  <dt>{t("source.lifecycle.stage")}</dt>
+                  <dd><code>{source.lifecycle.pipeline_stage}</code></dd>
+                </>
+              )}
+              {source.lifecycle.adoption_state && (
+                <>
+                  <dt>{t("source.lifecycle.adoption")}</dt>
+                  <dd><code>{source.lifecycle.adoption_state}</code></dd>
+                </>
+              )}
+              {(source.lifecycle.last_attempt_state || source.lifecycle.last_attempt_at) && (
+                <>
+                  <dt>{t("source.lifecycle.lastAttempt")}</dt>
+                  <dd>
+                    {source.lifecycle.last_attempt_state && <code>{source.lifecycle.last_attempt_state}</code>}
+                    {source.lifecycle.last_attempt_at && <small> {formatWhen(source.lifecycle.last_attempt_at)}</small>}
+                  </dd>
+                </>
+              )}
+              {source.lifecycle.accepted_ref && onOpenPage && (
+                <>
+                  <dt>{t("source.lifecycle.acceptedRef")}</dt>
+                  <dd>
+                    <button
+                      className="sourceLifecycleLink"
+                      onClick={() => onOpenPage(source.lifecycle!.accepted_ref)}
+                      type="button"
+                    >
+                      {source.lifecycle.accepted_ref}
+                    </button>
+                  </dd>
+                </>
+              )}
+              {source.lifecycle.reviewed_no_change_receipt && (
+                <>
+                  <dt>{t("source.lifecycle.receipt")}</dt>
+                  <dd>
+                    {onOpenPage ? (
+                      <button
+                        className="sourceLifecycleLink"
+                        onClick={() => onOpenPage(source.lifecycle!.reviewed_no_change_receipt)}
+                        type="button"
+                      >
+                        {source.lifecycle.reviewed_no_change_receipt}
+                      </button>
+                    ) : (
+                      <code>{source.lifecycle.reviewed_no_change_receipt}</code>
+                    )}
+                  </dd>
+                </>
+              )}
+            </dl>
+            <p className="sourceLifecycleEmitted">
+              {t("source.lifecycle.emitted", {
+                pages: source.lifecycle.emitted_page_ids.length,
+                actions: source.lifecycle.emitted_action_ids.length,
+                proposals: source.lifecycle.proposal_ids.length
+              })}
+            </p>
+            {source.lifecycle.emitted_page_ids.length > 0 && onOpenPage && (
+              <div className="sourceLifecycleChips">
+                {source.lifecycle.emitted_page_ids.slice(0, EMITTED_PAGE_LINK_BUDGET).map((pageId) => (
+                  <button key={pageId} className="sourceLifecycleLink" onClick={() => onOpenPage(pageId)} type="button">
+                    {pageId}
+                  </button>
+                ))}
+                {source.lifecycle.emitted_page_ids.length > EMITTED_PAGE_LINK_BUDGET && (
+                  <small>
+                    {t("source.lifecycle.morePages", {
+                      n: source.lifecycle.emitted_page_ids.length - EMITTED_PAGE_LINK_BUDGET
+                    })}
+                  </small>
+                )}
+              </div>
+            )}
+            {/* Closure summary of the newest ingestion event (§13.1). */}
+            {source.sync.event_closure &&
+              (source.sync.event_closure.gate_state ||
+                source.sync.event_closure.consolidated_into.length > 0 ||
+                source.sync.event_closure.reviewed_no_change) && (
+                <p className="sourceLifecycleClosure">
+                  <strong>{t("source.lifecycle.closure")}</strong>
+                  {source.sync.event_closure.gate_state && (
+                    <span> · {t("source.lifecycle.gate", { state: source.sync.event_closure.gate_state })}</span>
+                  )}
+                  {source.sync.event_closure.consolidated_into.length > 0 && (
+                    <span>
+                      {" "}· {t("source.lifecycle.consolidatedInto", { n: source.sync.event_closure.consolidated_into.length })}
+                    </span>
+                  )}
+                  {source.sync.event_closure.reviewed_no_change && <span> · {t("source.lifecycle.noChange")}</span>}
+                </p>
+              )}
+            {/* Safe diagnostic codes only — never free-form secrets. */}
+            {(source.lifecycle.authoring_error_codes.length > 0 || source.lifecycle.blocked_reason) && (
+              <div className="sourceLifecycleDiagnostics">
+                <strong>{t("source.lifecycle.diagnostics")}</strong>
+                {source.lifecycle.authoring_error_codes.map((code) => (
+                  <code key={code}>{code}</code>
+                ))}
+                {source.lifecycle.blocked_reason && (
+                  <small>{t("source.lifecycle.blockedReason", { reason: source.lifecycle.blocked_reason })}</small>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {source.how_to_export && (
           <details className="sourceSection sourceManual">

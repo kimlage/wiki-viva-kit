@@ -41,6 +41,8 @@ import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/pres
 import type { RuntimeConfig } from "./data/runtimeConfig";
 import type { Route, WorldPatch, WorldRoute } from "./router";
 import { isNativeWorldViewId } from "./world/experience";
+import { dispatchSourceTrace, resolveFocusedStreamId, subscribeSourceStreamFocus } from "./world/sourceSignals";
+import type { SourceStreamFocusDetail, SourceTraceMode } from "./world/sourceSignals";
 import type { ApplicationPorts } from "./application/ports";
 import { groupKeyForPage } from "./scene/perspectives";
 import type { OperatorCommandCard, BriefRecord, BriefSpec, CodexCapability, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
@@ -1194,6 +1196,12 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const [codexCapability, setCodexCapability] = useState<CodexCapability>(CODEX_UNAVAILABLE);
   const [codexBusy, setCodexBusy] = useState(false);
   const [realRevalidationFailure, setRealRevalidationFailure] = useState<{ lastSuccessAt: number | null } | null>(null);
+  // §12.3/§12.6 ephemeral SourceDock companions: the scene's port focus and
+  // the dock's trace mode never enter the URL — they live and die with the
+  // open dock.
+  const [streamFocus, setStreamFocus] = useState<SourceStreamFocusDetail | null>(null);
+  const [sourceTraceMode, setSourceTraceMode] = useState<SourceTraceMode | null>(null);
+  useEffect(() => subscribeSourceStreamFocus(setStreamFocus), []);
   const realLoadControllerRef = useRef<AbortController | null>(null);
   const realBundleLoadedRef = useRef(false);
   const lastRealLoadStartedAtRef = useRef(0);
@@ -1861,6 +1869,20 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const workDockOpen = dockPresence.mounted && renderedDock === "work";
   const sourceDockOpen = dockPresence.mounted && renderedDock === "source";
   const blocksDockOpen = dockPresence.mounted && renderedDock === "blocks";
+  // Closing the SourceDock (or leaving its source) retires both ephemeral
+  // signals — the scene highlight is withdrawn explicitly, never leaked.
+  const sourceDockSrc = sourceDockOpen && worldRoute ? worldRoute.query.src || "" : "";
+  useEffect(() => {
+    if (!sourceDockOpen) {
+      setStreamFocus(null);
+      setSourceTraceMode(null);
+      // Idempotent: clearing an already-clear trace is a no-op in the scene.
+      dispatchSourceTrace(null);
+    }
+  }, [sourceDockOpen]);
+  useEffect(() => {
+    setStreamFocus((current) => (current && current.sourceId !== sourceDockSrc ? null : current));
+  }, [sourceDockSrc]);
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -2004,6 +2026,25 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             bundle={loadState.bundle}
             sourceId={worldRoute.query.src}
             demo={route.demo}
+            focusedStreamId={
+              streamFocus && streamFocus.sourceId === worldRoute.query.src
+                ? resolveFocusedStreamId(loadState.bundle.sourceFoundation, streamFocus)
+                : null
+            }
+            traceMode={sourceTraceMode}
+            onHighlightTrace={(mode) => {
+              setSourceTraceMode(mode);
+              const src = worldRoute.query.src;
+              if (!mode || !src) {
+                dispatchSourceTrace(null);
+                return;
+              }
+              // Upstream is a page question (§12.6: page → events → sources):
+              // use the current scene selection when one exists, else the
+              // source's own page.
+              const subjectId = mode === "upstream" && worldRoute.pageId ? worldRoute.pageId : src;
+              dispatchSourceTrace({ mode, subjectId });
+            }}
             onComposeBrief={runBrief}
             onRequestBrief={composeSourceBrief}
             onNotice={notify}

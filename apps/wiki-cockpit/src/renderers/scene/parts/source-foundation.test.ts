@@ -33,6 +33,7 @@ import {
   flowBundleSpecs,
   flowSeverityColor,
   foundationBandOpacity,
+  foundationDimFactor,
   foundationPlaneGuides,
   foundationProposalStems,
   gapMarkerSpecs,
@@ -45,6 +46,9 @@ import {
   portBreachToken,
   portFocusPatch,
   portRenderGroups,
+  sourceStateEmphasis,
+  stationSelectPatch,
+  traceHighlightIds,
   PIPELINE_KIND_SYMBOLS,
   PIPELINE_STAGE_ORDER
 } from "./source-foundation";
@@ -745,5 +749,135 @@ describe("within-band proposal stems (§10.12)", () => {
     // Only proposals get stems — the core anchor never grows a fake one.
     expect(stems.find((stem) => stem.id === "world-root")).toBeUndefined();
     expect(stems).toHaveLength(1);
+  });
+});
+
+describe("station select dispatch (§12.2/§19.6)", () => {
+  it("opens the correct source via the existing openSource grammar, never a recenter", () => {
+    const layout = foundationLayout();
+    const station = layout.nodes.find((node) => node.foundationRole === "source-station")!;
+    const patch = stationSelectPatch(station);
+    expect(patch).toEqual({ pageId: station.id, dock: "source", src: station.id });
+    // The patch has NO center key at all — recenter stays an explicit action.
+    expect(Object.keys(patch!)).toEqual(["pageId", "dock", "src"]);
+  });
+
+  it("keeps every other foundation role on the normal selection contract (§12.4/§12.5)", () => {
+    const layout = foundationLayout();
+    for (const role of ["knowledge-page", "provenance-page", "channel-station", "governance-control", "core-anchor"]) {
+      const node = layout.nodes.find((candidate) => candidate.foundationRole === role);
+      if (!node) continue;
+      expect(stationSelectPatch(node)).toBeNull();
+    }
+    expect(stationSelectPatch(layoutNode("plain", {}))).toBeNull();
+  });
+});
+
+describe("trace highlights (§12.6/§19.6)", () => {
+  it("downstream from a source lights its bundles, provenance and knowledge pages only", () => {
+    const layout = foundationLayout();
+    const ids = traceHighlightIds(layout, { mode: "downstream", subjectId: "source-a" });
+    expect(ids.has("flow:source-a:note-multi")).toBe(true);
+    expect(ids.has("note-multi")).toBe(true);
+    expect(ids.has("event-1")).toBe(true);
+    expect(ids.has("proposal-1")).toBe(true);
+    expect(ids.has("insight-declared")).toBe(true);
+    expect(ids.has("source-a")).toBe(true);
+    // Nothing of source-c's chain is dragged in.
+    expect(ids.has("flow:source-c:note-single")).toBe(false);
+    expect(ids.has("note-single")).toBe(false);
+  });
+
+  it("upstream from a page lights the sources that prove its origin", () => {
+    const layout = foundationLayout();
+    const ids = traceHighlightIds(layout, { mode: "upstream", subjectId: "note-multi" });
+    expect(ids.has("source-a")).toBe(true);
+    expect(ids.has("source-b")).toBe(true);
+    expect(ids.has("flow:source-a:note-multi")).toBe(true);
+    expect(ids.has("flow:source-b:note-multi")).toBe(true);
+    expect(ids.has("note-multi")).toBe(true);
+    expect(ids.has("source-c")).toBe(false);
+  });
+
+  it("closure lights only fully accepted emission chains", () => {
+    const layout = foundationLayout();
+    const closedA = traceHighlightIds(layout, { mode: "closure", subjectId: "source-a" });
+    expect(closedA.has("flow:source-a:note-multi")).toBe(true);
+    expect(closedA.has("note-multi")).toBe(true);
+    // source-b's only emission is pending — no closed chain to show.
+    const closedB = traceHighlightIds(layout, { mode: "closure", subjectId: "source-b" });
+    expect(closedB.has("flow:source-b:note-multi")).toBe(false);
+    expect(closedB.has("note-multi")).toBe(false);
+  });
+
+  it("is inert outside the foundation profile and for empty subjects", () => {
+    expect(traceHighlightIds(upperLayout(), { mode: "downstream", subjectId: "source-a" }).size).toBe(0);
+    expect(traceHighlightIds(foundationLayout(), null).size).toBe(0);
+    expect(traceHighlightIds(foundationLayout(), { mode: "downstream", subjectId: "" }).size).toBe(0);
+  });
+
+  it("raises trace bundles to selection contrast without moving them", () => {
+    const layout = foundationLayout();
+    const baseline = flowBundleSpecs(layout);
+    const traced = flowBundleSpecs(layout, "", {
+      traceIds: traceHighlightIds(layout, { mode: "downstream", subjectId: "source-b" })
+    });
+    const before = baseline.find((spec) => spec.id === "flow:source-b:note-multi")!;
+    const after = traced.find((spec) => spec.id === "flow:source-b:note-multi")!;
+    expect(after.opacity).toBeGreaterThan(before.opacity);
+    expect(after.opacity).toBeCloseTo(foundationBandOpacity("knowledge", true) * 0.62, 10);
+    expect(after.from).toEqual(before.from);
+    expect(after.to).toEqual(before.to);
+    expect(after.control).toEqual(before.control);
+  });
+});
+
+describe("source_state lens emphasis (§12.7/§19.6)", () => {
+  it("collects attention subjects from breached ports and warning/error diagnostics", () => {
+    const emphasis = sourceStateEmphasis(foundationLayout(), "source_state")!;
+    expect(emphasis.attentionIds.has("source-a")).toBe(true); // breached stream s2
+    expect(emphasis.attentionIds.has("source-c")).toBe(true); // source_never_synced error
+    expect(emphasis.attentionIds.has("insight-declared")).toBe(true); // declared target without emission
+    expect(emphasis.attentionIds.has("source-b")).toBe(false); // nominal
+  });
+
+  it("dims only nominal primitives unrelated to any attention subject", () => {
+    const layout = foundationLayout();
+    const emphasis = sourceStateEmphasis(layout, "source_state")!;
+    const somePortB = (layout.foundationPrimitives ?? []).find(
+      (primitive) => primitive.kind === "stream-port" && primitive.sourceIds.includes("source-b")
+    )!;
+    expect(emphasis.dimmedPrimitiveIds.has(somePortB.id)).toBe(true);
+    expect(emphasis.dimmedPrimitiveIds.has("flow:source-b:note-multi")).toBe(true);
+    // source-a's primitives stay bright: the station holds attention.
+    expect(emphasis.dimmedPrimitiveIds.has("stream:source-a:s1")).toBe(false);
+    expect(emphasis.dimmedPrimitiveIds.has("pipeline:source-a:content")).toBe(false);
+    expect(emphasis.dimmedPrimitiveIds.has("flow:source-a:note-multi")).toBe(false);
+    // The dim factor is presence-only and total for untouched ids.
+    expect(foundationDimFactor(somePortB.id, emphasis)).toBeLessThan(1);
+    expect(foundationDimFactor("stream:source-a:s1", emphasis)).toBe(1);
+    expect(foundationDimFactor("anything", null)).toBe(1);
+  });
+
+  it("never activates for other lenses or outside the foundation profile", () => {
+    expect(sourceStateEmphasis(foundationLayout(), "all")).toBeNull();
+    expect(sourceStateEmphasis(foundationLayout(), undefined)).toBeNull();
+    expect(sourceStateEmphasis(upperLayout(), "source_state")).toBeNull();
+  });
+
+  it("filters presence only — geometry stays byte-identical under the lens (§12.7)", () => {
+    const layout = foundationLayout();
+    const emphasis = sourceStateEmphasis(layout, "source_state")!;
+    const baseline = flowBundleSpecs(layout);
+    const lensed = flowBundleSpecs(layout, "", { dimmedIds: emphasis.dimmedPrimitiveIds });
+    lensed.forEach((spec, index) => {
+      expect(spec.from).toEqual(baseline[index].from);
+      expect(spec.to).toEqual(baseline[index].to);
+      expect(spec.control).toEqual(baseline[index].control);
+      expect(spec.arrowAt).toEqual(baseline[index].arrowAt);
+    });
+    const dimmed = lensed.find((spec) => spec.id === "flow:source-b:note-multi")!;
+    const bright = lensed.find((spec) => spec.id === "flow:source-a:note-multi")!;
+    expect(dimmed.opacity).toBeLessThan(bright.opacity);
   });
 });

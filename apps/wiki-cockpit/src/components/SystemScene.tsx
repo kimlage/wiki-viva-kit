@@ -53,8 +53,17 @@ import type { SceneEdge, SceneFallbackReason, TrustKey } from "../renderers/scen
 import { CenterSignalSprites, ClusterStars, GlowSprites, GroupChildOrbits, GroupShells, HorizonBeacons, NodeInstances, RingSprites, SemanticPageDetails, StarField, morphAttachmentOpacity, overlayCrossfadeWeights, semanticRootBodyPrimitive, visibleSceneNodesForQuadrantLens } from "../renderers/scene/parts/nodes";
 import type { MorphState, OverlayTransitionState, SemanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
 import { AmbientDriver, isEvidenceGap, SceneParticles } from "../renderers/scene/parts/particles-layer";
-import { isFoundationProfile, portAriaText, portFocusPatch, SourceFoundationPart } from "../renderers/scene/parts/source-foundation";
-import type { GapMarkerSpec, GovernancePlateSpec, LaneRenderSpec } from "../renderers/scene/parts/source-foundation";
+import {
+  isFoundationProfile,
+  portAriaText,
+  portFocusPatch,
+  sourceStateEmphasis,
+  stationSelectPatch,
+  traceHighlightIds,
+  SourceFoundationPart
+} from "../renderers/scene/parts/source-foundation";
+import type { GapMarkerSpec, GovernancePlateSpec, LaneRenderSpec, TraceHighlight } from "../renderers/scene/parts/source-foundation";
+import { dispatchSourceStreamFocus, subscribeSourceTrace } from "../world/sourceSignals";
 import type { SourceStreamPort } from "../scene/perspectives";
 import { DEFAULT_VISUAL_CONTROL_CONFIG } from "./visualControl";
 import type { VisualControlConfig } from "./visualControl";
@@ -688,6 +697,8 @@ function SceneContent({
   git,
   profile,
   selectedId,
+  lens,
+  trace,
   highlightedIds,
   approvalIds,
   focusedGroupKey,
@@ -741,6 +752,11 @@ function SceneContent({
   git: GitState;
   profile: ScenePerformanceProfile;
   selectedId: string;
+  // §12.7 lens (source_state emphasizes without moving) + §12.6 ephemeral
+  // trace highlight — both resolved by the outer SystemScene, never route
+  // state beyond `lens`.
+  lens: string;
+  trace: TraceHighlight | null;
   highlightedIds: Set<string>;
   approvalIds: Set<string>;
   focusedGroupKey: string;
@@ -1039,6 +1055,8 @@ function SceneContent({
           layout={layout}
           quality={profile.quality}
           selectedId={selectedId}
+          lens={lens}
+          trace={trace}
           morph={morph}
           onPortFocus={onPortFocus}
           onLaneInspect={onLaneInspect}
@@ -1319,6 +1337,7 @@ export function SystemScene({
   centerableIds,
   quadrantHomes,
   sourceFoundation,
+  worldLens = "",
   founding = null,
   seed = null,
   guide = null,
@@ -1363,6 +1382,11 @@ export function SystemScene({
   // view computes the vertical foundation profile in the layout worker; absent
   // = the v8 sources layout, unchanged.
   sourceFoundation?: SourceFoundationPayload;
+  // The runtime's ACTIVE world lens (§12.7). sceneRoute.lens carries only the
+  // quadrant facet channel, so the source_state lens arrives on its own prop
+  // — it emphasizes/filters presence in the foundation profile and never
+  // moves a node.
+  worldLens?: string;
   // Spatial surfaces (R1/R4/R5): the founding rite of an empty world, the
   // in-world create flow, the tutorial guide beacon.
   founding?: FoundingSpec | null;
@@ -1655,7 +1679,21 @@ export function SystemScene({
   const [focusedNodeIndex, setFocusedNodeIndex] = useState<number>(-1);
   const [minimapExpanded, setMinimapExpanded] = useState(false);
   const [announcement, setAnnouncement] = useState("");
-  const highlightedIds = useMemo(() => new Set(highlightedPageIds), [highlightedPageIds]);
+  // §12.6 trace highlight: ephemeral inspection state dispatched by the
+  // SourceDock (never a URL parameter, never a breadcrumb change).
+  const [trace, setTrace] = useState<TraceHighlight | null>(null);
+  useEffect(() => subscribeSourceTrace(setTrace), []);
+  const traceIds = useMemo(() => traceHighlightIds(layout, trace), [layout, trace]);
+  // §12.7 lens=source_state: attention stations join the highlight set so the
+  // scene emphasizes them (and dims the rest) without moving a single node.
+  const lensEmphasis = useMemo(() => sourceStateEmphasis(layout, worldLens), [layout, worldLens]);
+  const highlightedIds = useMemo(() => {
+    if (traceIds.size === 0 && !lensEmphasis) return new Set(highlightedPageIds);
+    const ids = new Set(highlightedPageIds);
+    traceIds.forEach((id) => ids.add(id));
+    lensEmphasis?.attentionIds.forEach((id) => ids.add(id));
+    return ids;
+  }, [highlightedPageIds, lensEmphasis, traceIds]);
   const approvalIds = useMemo(() => new Set(approvalPageIds), [approvalPageIds]);
   const census = useMemo(() => sceneCensus(nodes, edges, layout, overlay), [edges, layout, nodes, overlay]);
   const layoutPositionSignature = useMemo(
@@ -1941,6 +1979,8 @@ export function SystemScene({
   useEffect(() => {
     setFocusedGroupIndex(-1);
     setFocusedNodeIndex(-1);
+    // A view/level change invalidates the ephemeral trace subject.
+    setTrace(null);
   }, [layout.perspective, layout.level, layout.context, layout.group]);
 
   const selectNode = useCallback(
@@ -1970,6 +2010,18 @@ export function SystemScene({
         announce(t("scene.opening", { label: node.title, n: node.groupMemberIds?.length ?? 0 }));
         return;
       }
+      // §12.2: a source station keeps the EXISTING openSource dispatch —
+      // selection for visual focus + dock=source&src=<id>. No recenter ever
+      // happens implicitly (the patch never touches `center`); provenance and
+      // knowledge pages fall through to the normal selection contract below.
+      if (layout.planeProfile?.active === "foundation") {
+        const stationPatch = stationSelectPatch(node);
+        if (stationPatch) {
+          navigate(stationPatch);
+          announce(t("source_foundation.station.open", { label: node.title }));
+          return;
+        }
+      }
       if (layout.perspective === "quadrants" && centerableIds?.has(node.id) && node.id !== route.centerId) {
         queueTravelOrigin(node.position);
         navigate({ center: node.id, lens: "all", group: null, worldGroup: null, pageId: null, reader: false });
@@ -1982,7 +2034,7 @@ export function SystemScene({
       navigate(fallback || layout.perspective === "quadrants" ? { pageId: node.id, reader: true } : { pageId: node.id });
       announce(`${node.title}, ${contextStyle(node.context).label}, ${freshnessLabel(node.freshness_state)}`);
     },
-    [announce, centerableIds, fallback, layout.perspective, navigate, queueTravelOrigin, route.centerId]
+    [announce, centerableIds, fallback, layout.perspective, layout.planeProfile, navigate, queueTravelOrigin, route.centerId]
   );
 
   const handleHover = useCallback((node: LayoutNode | null, event?: ThreeEvent<PointerEvent>) => {
@@ -2075,6 +2127,9 @@ export function SystemScene({
   const handlePortFocus = useCallback(
     (port: SourceStreamPort) => {
       navigate(portFocusPatch(port));
+      // §12.3: the focused stream travels as an EPHEMERAL signal (never a URL
+      // parameter) so the SourceDock can scroll/focus that stream's row.
+      dispatchSourceStreamFocus({ sourceId: port.sourceIds[0] ?? "", streamId: port.streamId });
       announce(portAriaText(port));
     },
     [announce, navigate]
@@ -2222,7 +2277,14 @@ export function SystemScene({
       }
       if (event.key === "Enter") {
         if (route.pageId) {
-          navigate({ reader: true });
+          // §14.4 "Enter opens source/reader": a selected source station opens
+          // its SourceDock (the openSource dispatch); every other page opens
+          // the reader as before.
+          const selectedNode = nodeIndex.get(route.pageId);
+          const stationPatch =
+            layout.planeProfile?.active === "foundation" && selectedNode ? stationSelectPatch(selectedNode) : null;
+          if (stationPatch) navigate({ dock: "source", src: stationPatch.src });
+          else navigate({ reader: true });
           return;
         }
         const group = layout.groups[focusedGroupIndex];
@@ -2255,6 +2317,7 @@ export function SystemScene({
     handleGroupSelect,
     layout.groups,
     layout.nodes,
+    layout.planeProfile,
     navigate,
     nodeIndex,
     onFocusSearch,
@@ -2398,6 +2461,8 @@ export function SystemScene({
                 git={git}
                 profile={profile}
                 selectedId={selectedId}
+                lens={worldLens}
+                trace={trace}
                 highlightedIds={highlightedIds}
                 approvalIds={approvalIds}
                 focusedGroupKey={focusedGroupKey}
