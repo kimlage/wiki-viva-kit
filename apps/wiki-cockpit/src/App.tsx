@@ -1795,6 +1795,25 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     }, 0);
   };
 
+  const sourceDockOpen = dockPresence.mounted && renderedDock === "source";
+  // Closing the SourceDock (or leaving its source) retires both ephemeral
+  // signals — the scene highlight is withdrawn explicitly, never leaked.
+  // These effects MUST run before the demoGate early return below: hooks after
+  // a conditional return change App's hook order when /demo enters the world
+  // ("Rendered more hooks than during the previous render" crash).
+  const sourceDockSrc = sourceDockOpen && worldRoute ? worldRoute.query.src || "" : "";
+  useEffect(() => {
+    if (!sourceDockOpen) {
+      setStreamFocus(null);
+      setSourceTraceMode(null);
+      // Idempotent: clearing an already-clear trace is a no-op in the scene.
+      dispatchSourceTrace(null);
+    }
+  }, [sourceDockOpen]);
+  useEffect(() => {
+    setStreamFocus((current) => (current && current.sourceId !== sourceDockSrc ? null : current));
+  }, [sourceDockSrc]);
+
   // The demo TITLE SCREEN: /demo asks how you want to enter — found a world
   // from zero (genesis tutorial) or explore the full one. No bundle needed.
   if (route.kind === "demoGate") {
@@ -1870,23 +1889,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const gatesDockOpen = dockPresence.mounted && renderedDock === "gates";
   const intakeDockOpen = dockPresence.mounted && renderedDock === "intake";
   const workDockOpen = dockPresence.mounted && renderedDock === "work";
-  const sourceDockOpen = dockPresence.mounted && renderedDock === "source";
   const blocksDockOpen = dockPresence.mounted && renderedDock === "blocks";
   const adminDockOpen = dockPresence.mounted && renderedDock === "admin";
-  // Closing the SourceDock (or leaving its source) retires both ephemeral
-  // signals — the scene highlight is withdrawn explicitly, never leaked.
-  const sourceDockSrc = sourceDockOpen && worldRoute ? worldRoute.query.src || "" : "";
-  useEffect(() => {
-    if (!sourceDockOpen) {
-      setStreamFocus(null);
-      setSourceTraceMode(null);
-      // Idempotent: clearing an already-clear trace is a no-op in the scene.
-      dispatchSourceTrace(null);
-    }
-  }, [sourceDockOpen]);
-  useEffect(() => {
-    setStreamFocus((current) => (current && current.sourceId !== sourceDockSrc ? null : current));
-  }, [sourceDockSrc]);
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
