@@ -130,6 +130,7 @@ class _Server:
         attempt_key: str | None = None,
         nonce: str | None = None,
         origin: str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> tuple[int, dict[str, Any]]:
         status, body, _headers = self.post_response(
             path,
@@ -137,6 +138,7 @@ class _Server:
             attempt_key=attempt_key,
             nonce=nonce,
             origin=origin,
+            headers=headers,
         )
         return status, body
 
@@ -148,12 +150,15 @@ class _Server:
         attempt_key: str | None = None,
         nonce: str | None = None,
         origin: str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> tuple[int, dict[str, Any], dict[str, str]]:
         data = json.dumps(body).encode("utf-8")
+        extra_headers = dict(headers or {})
         headers = {
             "content-type": "application/json",
             "X-Wiki-Operator-Nonce": nonce if nonce is not None else self.server.operator_nonce,
             "X-Wiki-Attempt-Key": attempt_key or f"test-{uuid.uuid4()}",
+            **extra_headers,
         }
         if origin is not None:
             headers["Origin"] = origin
@@ -213,7 +218,7 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     status, body = server.get("/api/health")
     assert status == 200
     # The handshake lets the cockpit detect a stale operator (old process).
-    assert body["server_version"] == "wiki_web_server.v6"
+    assert body["server_version"] == "wiki_web_server.v7"
     assert "codex" in body["schema_capabilities"]
     assert "briefs" in body["schema_capabilities"]
     assert "operator_security_v2" in body["schema_capabilities"]
@@ -221,6 +226,7 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     assert "action_state_transitions_v1" in body["schema_capabilities"]
     assert "filesystem_snapshot_publication_v1" in body["schema_capabilities"]
     assert "snapshot_external_freshness_v1" in body["schema_capabilities"]
+    assert "admin_capabilities_v1" in body["schema_capabilities"]
     assert "operator_security_v1" not in body["schema_capabilities"]
     assert body["operator_security"]["version"] == "wiki_operator_security.v2"
     assert body["operator_security"]["nonce"] == server.server.operator_nonce
@@ -308,7 +314,7 @@ def test_operator_restart_rotates_nonce_and_refuses_the_stale_process_nonce(
         assert second_status == 200
         new_nonce = second_health["operator_security"]["nonce"]
         assert new_nonce != old_nonce
-        assert second_health["server_version"] == "wiki_web_server.v6"
+        assert second_health["server_version"] == "wiki_web_server.v7"
         assert second_health["operator_security"]["version"] == (
             "wiki_operator_security.v2"
         )

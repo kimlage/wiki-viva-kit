@@ -159,8 +159,15 @@ async function installDelayedOperatorRuntime(page: Page, delayMs = 150) {
         contentType: "application/json",
         body: JSON.stringify({
           ok: true,
-          server_version: "wiki_web_server.v6",
-          schema_capabilities: ["operator_security_v2", "cors_default_deny_v1", "action_state_transitions_v1"],
+          server_version: "wiki_web_server.v7",
+          schema_capabilities: [
+            "operator_security_v2",
+            "cors_default_deny_v1",
+            "action_state_transitions_v1",
+            "admin_capabilities_v1",
+            "admin_session_v1",
+            "admin_commands_v1"
+          ],
           operator_security: {
             version: "wiki_operator_security.v2",
             nonce_header: "X-Wiki-Operator-Nonce",

@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AdminDock } from "./components/AdminDock";
+import { AdminStatusStrip } from "./components/AdminStatusStrip";
 import { BlocksDock } from "./components/BlocksDock";
 import { AppearanceControl } from "./components/AppearanceControl";
 // CreateDock and the genesis guide render inside WorldView now — the create
@@ -1138,7 +1140,7 @@ function GitWorkflowPanel({
 // here until the 2026-07 cleanup.
 
 export function App({ ports }: { ports: ApplicationPorts }) {
-  const { navigation, operator } = ports;
+  const { navigation, operator, admin } = ports;
   const [url, setUrl] = useState(() => navigation.getSnapshot());
   useEffect(
     () => navigation.subscribe(() => setUrl(navigation.getSnapshot())),
@@ -1770,7 +1772,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
 
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
-  const requestedDock = worldRoute && ["codex", "approve", "gates", "intake", "work", "source", "blocks"].includes(worldRoute.query.dock || "")
+  const requestedDock = worldRoute && ["codex", "approve", "gates", "intake", "work", "source", "blocks", "admin"].includes(worldRoute.query.dock || "")
     ? worldRoute.query.dock
     : null;
   const dockPresence = useSurfacePresence(Boolean(requestedDock));
@@ -1853,6 +1855,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             navigation={navigation}
             loadPageContent={operator.loadPageContent}
             loadTemporalGraph={operator.loadTemporalGraph}
+            lockAdminSession={admin.lockAdminSession}
             onSnapshotMismatch={worldRoute.demo ? undefined : refetchReal}
           />
           </Suspense>
@@ -1869,6 +1872,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const workDockOpen = dockPresence.mounted && renderedDock === "work";
   const sourceDockOpen = dockPresence.mounted && renderedDock === "source";
   const blocksDockOpen = dockPresence.mounted && renderedDock === "blocks";
+  const adminDockOpen = dockPresence.mounted && renderedDock === "admin";
   // Closing the SourceDock (or leaving its source) retires both ephemeral
   // signals — the scene highlight is withdrawn explicitly, never leaked.
   const sourceDockSrc = sourceDockOpen && worldRoute ? worldRoute.query.src || "" : "";
@@ -2053,6 +2057,19 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onClose={closeRequestedDock}
           />
         )}
+        {/* The read-only god-mode surface (?dock=admin). The URL opens it but
+            NEVER authorizes: the dock only renders the operator's own answer
+            (unavailable / locked / read-only) and has no write affordance. */}
+        {adminDockOpen && worldRoute && loadState.status === "ready" && (
+          <AdminDock
+            admin={admin}
+            bundle={loadState.bundle}
+            demo={route.demo}
+            runtimeMode={loadState.runtime.mode || loadState.bundle.manifest.mode}
+            onClose={closeRequestedDock}
+            onNotice={notify}
+          />
+        )}
         {/* dock=create is answered INSIDE WorldView: the spatial seed flow in
             the canvas, or the bottom sheet as its declared 2D fallback. */}
         {blocksDockOpen && worldRoute && loadState.status === "ready" && (
@@ -2100,6 +2117,14 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             <CommandOutput result={commandResult} />
           </div>
         )}
+        {/* Persistent session indicator (plan §14.4): renders only while an
+            administrative session is active; its absence IS the locked state. */}
+        <AdminStatusStrip
+          lockAdminSession={admin.lockAdminSession}
+          renewAdminSession={admin.renewAdminSession}
+          onNotice={notify}
+          onOpenDock={() => navigate(hrefForWorldPatch(navWorld, { dock: "admin" }))}
+        />
         {busyAction && (
           <div className="actionToast running" role="status">
             <span className="toastSpinner" aria-hidden />

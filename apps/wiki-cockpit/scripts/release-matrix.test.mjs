@@ -436,13 +436,14 @@ const VALID_ENV = {
   WIKI_COCKPIT_EXPECT_ADAPTER_HASH: ADAPTER_HASH,
   WIKI_COCKPIT_EXPECT_SNAPSHOT_VERSION: "wiki_web_snapshot.v2",
   WIKI_COCKPIT_EXPECT_RUNTIME_VERSION: "wiki_world_runtime.v8",
-  WIKI_COCKPIT_EXPECT_SERVER_VERSION: "wiki_web_server.v6",
+  WIKI_COCKPIT_EXPECT_SERVER_VERSION: "wiki_web_server.v7",
   WIKI_COCKPIT_EXPECT_TEMPORAL_GRAPH_VERSION: "wiki_temporal_graph.v1",
   WIKI_COCKPIT_EXPECT_TEMPORAL_EVENT_VERSION: "wiki_temporal_event.v1",
   WIKI_COCKPIT_EXPECT_EXPERIENCE_PACK_COMPOSITION_VERSION: "wiki_experience_pack_composition.v1",
   WIKI_COCKPIT_EXPECT_COMPOSITION_SHA256: EMPTY_COMPOSITION.composition_sha256,
   WIKI_COCKPIT_EXPECT_ACTIVE_PACKS: "[]",
-  WIKI_COCKPIT_EXPECT_CAPABILITIES: "operator_security_v2,cors_default_deny_v1,action_state_transitions_v1",
+  WIKI_COCKPIT_EXPECT_CAPABILITIES:
+    "operator_security_v2,cors_default_deny_v1,action_state_transitions_v1,admin_capabilities_v1,admin_session_v1,admin_commands_v1",
   WIKI_COCKPIT_MIN_PAGES: "42"
 };
 
@@ -524,11 +525,14 @@ function validHealth(overrides = {}) {
   return {
     ok: true,
     repo: "private-pilot",
-    server_version: "wiki_web_server.v6",
+    server_version: "wiki_web_server.v7",
     schema_capabilities: [
       "operator_security_v2",
       "cors_default_deny_v1",
-      "action_state_transitions_v1"
+      "action_state_transitions_v1",
+      "admin_capabilities_v1",
+      "admin_session_v1",
+      "admin_commands_v1"
     ],
     operator_security: {
       version: "wiki_operator_security.v2",
@@ -711,7 +715,7 @@ test("downstream environment cannot bless an obsolete version by declaring it ex
     WIKI_COCKPIT_EXPECT_SERVER_VERSION: "wiki_web_server.v5"
   });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some((message) => message.includes("release-required wiki_web_server.v6")));
+  assert.ok(result.errors.some((message) => message.includes("release-required wiki_web_server.v7")));
 });
 
 test("downstream preflight validates the complete shared operator security handshake", async () => {

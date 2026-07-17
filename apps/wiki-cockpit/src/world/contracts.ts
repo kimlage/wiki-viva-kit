@@ -1,4 +1,7 @@
-export const DOCK_IDS = ["approve", "intake", "gates", "codex", "work", "source", "create", "blocks"] as const;
+// "admin" is the god-mode surface (plan §14.1): registered here like every
+// dock so ?dock=admin can open it, but it never joins the default navigation —
+// discoverability comes from the ui_admin block, authorization from the server.
+export const DOCK_IDS = ["approve", "intake", "gates", "codex", "work", "source", "create", "blocks", "admin"] as const;
 export type DockId = "" | (typeof DOCK_IDS)[number];
 
 export const NATIVE_VIEWS = ["quadrants", "radar", "sources", "work", "timeline"] as const;

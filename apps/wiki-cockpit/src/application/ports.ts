@@ -1,3 +1,13 @@
+import type {
+  AdminAccess,
+  AdminCatalogResult,
+  AdminChallengeResult,
+  AdminExecuteResult,
+  AdminLockResult,
+  AdminPlan,
+  AdminPlanResult,
+  AdminSessionResult
+} from "../data/admin";
 import type { RuntimeConfig } from "../data/runtimeConfig";
 import type { Route, WorldPatch, WorldRoute } from "../router";
 import type {
@@ -104,7 +114,28 @@ export interface NavigationPort {
   dispatch(intent: NavigationIntent): void;
 }
 
+// The god-mode admin surface (plan §12–§14) reaches the operator through the
+// SAME composition-root injection as every other transport capability: UI
+// surfaces receive this port (or a narrower member) as a prop and never import
+// the admin client module. The port grants nothing — every call still answers
+// with the server's own session/capability verdict.
+export interface AdminPort {
+  loadAdminAccess(options?: OperatorReadOptions): Promise<AdminAccess>;
+  requestAdminChallenge(): Promise<AdminChallengeResult>;
+  unlockAdminSession(challenge: string, code: string): Promise<AdminSessionResult>;
+  renewAdminSession(): Promise<AdminSessionResult>;
+  lockAdminSession(): Promise<AdminLockResult>;
+  fetchAdminCommandCatalog(): Promise<AdminCatalogResult>;
+  planAdminCommand(
+    commandId: string,
+    params?: Record<string, string>,
+    options?: { dryRun?: boolean }
+  ): Promise<AdminPlanResult>;
+  executeAdminPlan(plan: AdminPlan, confirmation: string | null): Promise<AdminExecuteResult>;
+}
+
 export type ApplicationPorts = {
   navigation: NavigationPort;
   operator: OperatorPort;
+  admin: AdminPort;
 };

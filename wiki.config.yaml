@@ -116,3 +116,33 @@ audit:
   require_source_refs_for_facts: true
   stale_check: true
   quality_max_relation_pages_without_parent: 0
+
+# Admin control surface (god-mode plan §17.1) — DEFAULTS DOCUMENTED, kit values
+# unchanged. No secret ever lives here: the local unlock is an ephemeral
+# startup code printed by the operator process, never a configured password.
+# `admin_password`, `admin_token`, `github_token` (or any secret) are rejected
+# anywhere in this file — the config loader fails loud. Parsing is strict:
+# unknown keys, ambiguous booleans, out-of-bound TTLs, unknown adapters and
+# unknown roles are all startup errors.
+# admin:
+#   enabled: true                # admin discovery surface on this operator
+#   local_unlock: startup_code   # only known adapter (ephemeral code at startup)
+#   session_ttl_minutes: 15      # 1-1440
+#   idle_lock_minutes: 5         # 1-1440
+#   allow_break_glass: false     # OFF by default, always explicit
+#   require_plan_sha: true
+#   default_role: admin          # observer|operator|maintainer|publisher|admin|rescue_admin
+#   audit:
+#     enabled: true
+#     hash_chain: true
+#     retain_events: 10000       # 1-1000000
+#   vision_lab:
+#     enabled: true
+#     discovery_threshold: 0.65  # 0-1
+#     allow_recipe_promotion: true
+
+# Presentation feature flags (god-mode plan §17.2): how things LOOK only —
+# a flag can never grant capability, role or session.
+# features:
+#   takezo_easter_egg: true
+#   takezo_companion: false

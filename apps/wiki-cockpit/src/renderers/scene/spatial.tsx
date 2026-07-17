@@ -562,6 +562,20 @@ function WorldPlateTether({ from, to }: { from: [number, number, number]; to: [n
   return <primitive object={object} />;
 }
 
+/**
+ * SpatialUI singleton — one plate at a time. The node summary plate exists
+ * only while a node is locked, the reader is closed AND no other spatial
+ * plate (the Takezo ritual's speech plate) owns the slot; opening a new plate
+ * therefore closes the previous one (plan §22.3).
+ */
+export function activeWorldPlateNode(
+  lockedNode: LayoutNode | null,
+  readerOpen: boolean,
+  takezoActive: boolean
+): LayoutNode | null {
+  return lockedNode && !readerOpen && !takezoActive ? lockedNode : null;
+}
+
 export function WorldPlate({ node, onOpen, onTrails, onPacket, onClose }: WorldPlateSpec) {
   const pose = worldPlatePose(node);
   const freshness =

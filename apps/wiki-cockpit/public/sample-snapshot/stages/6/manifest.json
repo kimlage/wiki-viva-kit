@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "d3e9121a7a925e6c3cf358fef801ffb9bad137cfd42141a70290f48d8358c91e",
+  "bundle_hash": "3a66ac816be915d4ae85c0ded51c282060ebbf395a79a0455ee910a08ff36180",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -16,7 +16,6 @@
     "snapshot_warnings",
     "temporal_graph",
     "experience_packs",
-    "source_foundation_v1",
     "content_sidecars"
   ],
   "content_sidecars": true,
@@ -49,7 +48,6 @@
     "region_groups.json",
     "source_lifecycle.json",
     "snapshot_warnings.json",
-    "source_foundation.json",
     "content/artifact-relatorio-recon.8b3a520f.json",
     "content/claim-custos-sobem.0be31ee0.json",
     "content/event-ingest-banco-2026-05.60d41f0b.json",
@@ -73,7 +71,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "36809110ef32aa22e577a3976a05258073826bd0d2bfeab0434546cfc79b4864"
+    "source_input_sha256": "7ca886c59a85ac143a70d110f676eafb61ef73649744d6446ea354e270d2411c"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -86,8 +84,8 @@
       "sha256": "f0511076923c8e6fd4d887f3eb55d1339c14b50ecfade2415c2c0c24910e696f"
     },
     "blocks.json": {
-      "bytes": 9051,
-      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+      "bytes": 9059,
+      "sha256": "39bce837ab1f62a449caa620726bf545eb3b3b600d63adbb57d23c55dd42db72"
     },
     "commands.json": {
       "bytes": 1296,
@@ -95,31 +93,31 @@
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1494,
-      "sha256": "e5aec7e5e059999fc59da8fe471904007456d8e82f02a78e26a95b08c4726f18"
+      "sha256": "db20957f9ee0095b61527d9501e08139201db3d8651c842048e62fa237817ecd"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 1462,
-      "sha256": "f865a3985f300cc88a717969ab1a653962f21caa4ed5801107d9d001a396d607"
+      "sha256": "8c65cd65d80a354added68df26d8f8c95f79c56c53e14aeb51a805ec28946e49"
     },
     "content/event-ingest-banco-2026-05.60d41f0b.json": {
       "bytes": 1968,
-      "sha256": "57b865ad9696fdc3009d9231648b61b7f21e37b33fea9a009ae5416546ba6b61"
+      "sha256": "48f4a18a1d57e9238a25b83b64bb7ab2fed0402b877786a6430052ae2339fd0a"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1979,
-      "sha256": "12715e02a731c3ea5704972aaf7a52cb115e1bb7b0d36d381e9786691beddc08"
+      "sha256": "e62f8908be272d17f8f514ce67483d8bc68f284eaf05fd7ec2880165a40e1c45"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "ddaf72420afe1e8dc220b8913869b2cef8c590f4d080e51a594541f18d759ef0"
+      "sha256": "0601f17512e46ee08f84142026a17dea862877e9f229d6ba5a0fef233b9e18ed"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2270,
-      "sha256": "5603daab20ea998e0e49a8bfec457cd4b921a0512c6652caf6993fca6cf2dbd4"
+      "sha256": "69b0ac26a17c926e528b5381df5e4813754ce6924584ae7c10913abdf147a86f"
     },
     "content/source-banco-export.21d8fe1f.json": {
       "bytes": 2978,
-      "sha256": "dd5d340dfe9581eab7b64f2e3a88759bdf8a0494417db1afc6ae098a94f9265e"
+      "sha256": "dc5c2e106589d48b1d5d91bc15a10d6fedb648ce19c1019af633344e07d9ea6d"
     },
     "decisions.json": {
       "bytes": 57,
@@ -185,10 +183,6 @@
       "bytes": 1451,
       "sha256": "966c893ec21553b7bb3ce3592efdf2c8139501c3371a69d4f013d886821d0a7e"
     },
-    "source_foundation.json": {
-      "bytes": 3344,
-      "sha256": "b0b7352c69343f127bb3d3848ad3c64339f0955fb2078f26078ff23569b4b57b"
-    },
     "source_lifecycle.json": {
       "bytes": 851,
       "sha256": "2cc7905a39f3b22c113a063e7b416f9307e51d9804c0e1c177cdae00af475d58"
@@ -226,9 +220,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-d3e9121a7a925e6c",
+  "snapshot_id": "wiki-viva-demo-3a66ac816be915d4",
   "source_commit": null,
-  "source_sha": "uncommitted:79b8e705a61a67ff025d278a1884fd57e00fee00c50454513aaaa3976ca8cc95",
+  "source_sha": "uncommitted:0e813c36f504240f65434f83ff1eeb49245d9327ff8080711adae9bec65bf717",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",
@@ -239,7 +233,6 @@
     "runtime_contract": "wiki_world_runtime.v8",
     "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
     "snapshot": "wiki_web_snapshot.v2",
-    "source_foundation": "wiki_web_source_foundation.v1",
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",

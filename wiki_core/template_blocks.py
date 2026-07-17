@@ -56,7 +56,10 @@ VISUAL_GRAMMAR_SCHEMA_VERSION = "wiki.visual_grammar.v1"
 BLOCK_KINDS = frozenset({"interpretation", "interface", "gate", "skill"})
 SCOPE_MODES = frozenset({"self", "children", "descendants", "context", "linked"})
 NESTED_MODES = frozenset({"summarize", "project_all", "hide_nested"})
-SURFACES = frozenset({"views", "missions", "create", "intake", "score", "panels"})
+# `admin` is presence-only discoverability (god-mode plan §17.3): an interface
+# block on this surface controls whether the admin surface APPEARS — it never
+# grants capability, role or session (authorization is always server-side).
+SURFACES = frozenset({"views", "missions", "create", "intake", "score", "panels", "admin"})
 MISSION_PROVIDERS = frozenset(
     {
         "stale",

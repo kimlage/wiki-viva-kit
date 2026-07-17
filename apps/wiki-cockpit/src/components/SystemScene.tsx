@@ -25,8 +25,10 @@ import { scenePerformanceProfile } from "../scene/layout";
 import type { LayoutNode, ScenePerformanceProfile } from "../scene/layout";
 import { computeWorldLayout } from "../scene/perspectives";
 import type { ClusterStar, PerspectiveId, WorldGroup, WorldLayout, WorldRequest } from "../scene/perspectives";
-import { FoundingRite, GuideBeacon, SeedFlow, WorldPlate } from "../renderers/scene/spatial";
+import { activeWorldPlateNode, FoundingRite, GuideBeacon, SeedFlow, WorldPlate } from "../renderers/scene/spatial";
 import type { FoundingSpec, GuideSpec, SeedSpec } from "../renderers/scene/spatial";
+import { TakezoRitual } from "../renderers/scene/parts/TakezoWizard";
+import type { TakezoSpeechHandlers } from "../renderers/scene/parts/TakezoWizard";
 import { CameraDirector, cameraHemisphereForLayout, cameraQaAttributes, sceneFogDensity } from "../renderers/scene/parts/camera";
 import type { CameraQaAttributes } from "../renderers/scene/parts/camera";
 import { FallbackPlanView, SceneFallback } from "../renderers/scene/parts/fallback";
@@ -252,7 +254,9 @@ const GLOBAL_SHORTCUT_BLOCKING_SURFACES = [
   ".packWorkbenchSurface",
   ".templateInspector",
   ".genesisCard",
-  ".genesisVoid"
+  ".genesisVoid",
+  ".takezoPlate",
+  ".takezoRitualFallback"
 ].join(", ");
 
 function globalSceneShortcutsBlocked(): boolean {
@@ -723,6 +727,7 @@ function SceneContent({
   missionMarkers,
   flyToId,
   readerOpen,
+  takezoActive,
   sourceNodeCount,
   performanceWidth,
   routeUsabilityMs,
@@ -781,6 +786,7 @@ function SceneContent({
   missionMarkers?: MissionMarker[];
   flyToId?: string;
   readerOpen: boolean;
+  takezoActive: boolean;
   sourceNodeCount: number;
   performanceWidth: number;
   routeUsabilityMs: number;
@@ -975,7 +981,7 @@ function SceneContent({
     const index = layoutNodeIndex(layout);
     return index.get(selectedId) ?? null;
   }, [layout, selectedId]);
-  const plateNode = lockedNode && !readerOpen ? lockedNode : null;
+  const plateNode = activeWorldPlateNode(lockedNode, readerOpen, takezoActive);
   const visibleLabels = useMemo(() => labelsForActivePlate(labels, plateNode), [labels, plateNode]);
   const relationLineCount =
     sceneEdges.length +
@@ -1360,6 +1366,7 @@ export function SystemScene({
   founding = null,
   seed = null,
   guide = null,
+  takezo = null,
   onMarkerResolve,
   onMarkerDismiss,
   onNavigate,
@@ -1411,6 +1418,9 @@ export function SystemScene({
   founding?: FoundingSpec | null;
   seed?: SceneSeed | null;
   guide?: SceneGuide | null;
+  // The abrachaindabra ritual (plan §5/§15): lazy-mounted only while active.
+  // The scene owns reduced-motion/degradation policy; the host owns the flow.
+  takezo?: TakezoSpeechHandlers | null;
   onMarkerResolve?: (pageId: string) => void;
   onMarkerDismiss?: (pageId: string) => void;
   onNavigate?: (patch: ScenePatch) => void;
@@ -2385,6 +2395,19 @@ export function SystemScene({
     return [0, 2.5, 0.2];
   }, [guide?.anchorId, layout, nodeIndex]);
 
+  // Takezo appears NEAR the root / camera center (plan §5.1), offset toward
+  // the camera so the character never sits inside the root body. Decorative
+  // layer only — no node moves for it.
+  const takezoAnchor = useMemo<[number, number, number]>(() => {
+    const root = layout.nodes.find((node) => node.isRoot);
+    if (!root) return [0, 0, 1.8];
+    return [root.position[0] + 2.2, root.position[1], root.position[2] + 1.5];
+  }, [layout]);
+  // Degradation policy (plan §15.4/§24.1): reduced motion collapses the
+  // choreography, and on a compact density budget Takezo is the first layer
+  // to degrade — static pose, no draw animation.
+  const takezoReduced = !visualMotion || profile.quality === "compact";
+
 
   return (
     <div
@@ -2406,6 +2429,7 @@ export function SystemScene({
       data-scene-performance-profile={profile.label}
       data-scene-fallback-reason={fallbackReason ?? ""}
       data-scene-suspended={suspended ? "true" : "false"}
+      data-takezo-ritual={takezo ? "true" : "false"}
       data-visual-density={visualTuning.density.toFixed(2)}
       data-visual-spacing={visualTuning.spacing.toFixed(2)}
       data-visual-glow={visualTuning.glow.toFixed(2)}
@@ -2520,6 +2544,7 @@ export function SystemScene({
                 missionMarkers={missionMarkers}
                 flyToId={flyToPageId}
                 readerOpen={route.reader}
+                takezoActive={Boolean(takezo)}
                 sourceNodeCount={sourceNodeCount}
                 performanceWidth={performanceWidth}
                 routeUsabilityMs={routeUsabilityMs}
@@ -2552,6 +2577,14 @@ export function SystemScene({
               {founding && <FoundingRite {...founding} />}
               {seed && <SeedFlow {...seed} portal={sceneShellRef} rOuter={layout.rOuter} />}
               {guide && <GuideBeacon {...guide} anchor={guideAnchor} />}
+              {/* The abrachaindabra ritual (plan §5/§15) — decorative layer,
+                  lazy-mounted, disposed on unmount, silent when idle. */}
+              {takezo && (
+                <TakezoRitual
+                  spec={{ ...takezo, reduced: takezoReduced, motionSpeed: visualTuning.motion }}
+                  anchor={takezoAnchor}
+                />
+              )}
             </Canvas>
             <div
               key={`scene-transition-${sceneTransition.sequence}`}

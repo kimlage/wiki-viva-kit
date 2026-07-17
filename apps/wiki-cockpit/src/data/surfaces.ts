@@ -30,6 +30,11 @@ export type Instruments = {
   createArrangement: string;
   createCatalog: string[];
   intakeForms: string[];
+  // Admin surface discoverability (god-mode plan §17.3): true only when the
+  // ui_admin block is on the root stack. Presence-only — it adds the admin
+  // destination to the bar but grants NO capability, role or session, and
+  // ?dock=admin can still open the (locked) surface without it.
+  adminSurfaceEnabled: boolean;
 };
 
 const BARE: Instruments = {
@@ -45,7 +50,8 @@ const BARE: Instruments = {
   hasQuadrants: false,
   createArrangement: "by_family",
   createCatalog: [],
-  intakeForms: []
+  intakeForms: [],
+  adminSurfaceEnabled: false
 };
 
 export function rootAnchor(bundle: SnapshotBundle): { id: string; record: AnchorRecord } | null {
@@ -81,6 +87,7 @@ export function composeInstruments(bundle: SnapshotBundle): Instruments {
   if (!perspectives.includes(defaultPerspective)) defaultPerspective = perspectives[0];
 
   const createEnabled = stackIds.has("wiki.block.ui_create.v1");
+  const adminSurfaceEnabled = stackIds.has("wiki.block.ui_admin.v1");
   const intakeForms = ui?.intake?.forms ?? [];
   const hasSources = pages.some((page) => String(page.page_type).startsWith("source"));
 
@@ -91,6 +98,9 @@ export function composeInstruments(bundle: SnapshotBundle): Instruments {
   if (root) destinations.push("blocks");
   if (hasSources || intakeForms.includes("source_sync")) destinations.push("source");
   destinations.push("gates"); // verification is law-tier, like approve
+  // Not in common navigation by default (plan §14.1): only a repo that
+  // attached ui_admin to its root advertises the admin surface here.
+  if (adminSurfaceEnabled) destinations.push("admin");
 
   return {
     worldEmpty: false,
@@ -105,6 +115,7 @@ export function composeInstruments(bundle: SnapshotBundle): Instruments {
     hasQuadrants,
     createArrangement: ui?.create?.arrangement ?? (hasQuadrants ? "by_quadrant" : "by_family"),
     createCatalog: ui?.create?.catalog ?? [],
-    intakeForms
+    intakeForms,
+    adminSurfaceEnabled
   };
 }

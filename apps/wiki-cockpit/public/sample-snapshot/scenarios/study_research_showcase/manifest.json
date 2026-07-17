@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "ccd7158e6b90411c60416d8814be274a2ea9bcf824d3f7493f2b2eb931bb246f",
+  "bundle_hash": "a65b93257944d08fd4769e017e8d9b58a3657253668a27a6fb9c33da355bfa66",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -16,7 +16,6 @@
     "snapshot_warnings",
     "temporal_graph",
     "experience_packs",
-    "source_foundation_v1",
     "content_sidecars"
   ],
   "content_sidecars": true,
@@ -49,7 +48,6 @@
     "region_groups.json",
     "source_lifecycle.json",
     "snapshot_warnings.json",
-    "source_foundation.json",
     "content/claim-review-cadence.03799cb8.json",
     "content/concept-feedback.ebb2f061.json",
     "content/concept-retention.ab0c20c0.json",
@@ -79,7 +77,7 @@
       "accessibility"
     ],
     "seed": 8011,
-    "source_input_sha256": "d333e63559c1566ae3d156b253217e4b69cc00c2d1c7389a7026f0c799936b2b"
+    "source_input_sha256": "d01a7091d8cba80acfa0459e68e622df86c21de8dbecf82abcc15e19cd444f28"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -92,8 +90,8 @@
       "sha256": "9f82be8d7a659dd0de2859a5014faf91f5899db3def971ed4b56d50c2913699a"
     },
     "blocks.json": {
-      "bytes": 9051,
-      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+      "bytes": 9059,
+      "sha256": "39bce837ab1f62a449caa620726bf545eb3b3b600d63adbb57d23c55dd42db72"
     },
     "commands.json": {
       "bytes": 1296,
@@ -101,27 +99,27 @@
     },
     "content/claim-review-cadence.03799cb8.json": {
       "bytes": 1823,
-      "sha256": "befbbd9ab64712ca6a6bcc4375b40fccc2eea06651b2c8ac710816d204cd58e2"
+      "sha256": "73782a2a84d03a89ce49ae2b69ac88a91a06dce6d57fc1a697ad4c08d6ec357c"
     },
     "content/concept-feedback.ebb2f061.json": {
       "bytes": 1965,
-      "sha256": "b8d0b0bc98a39390d2808ea1df8418908692bfde69099792782419adccc43538"
+      "sha256": "7b76b169f0a0cf2dd789c24b22b0e8bf499cb86b116ea922bc49665866135f06"
     },
     "content/concept-retention.ab0c20c0.json": {
       "bytes": 1988,
-      "sha256": "d0b69870524e1c804939b238ff2ce167aea9776cb4a2483227426669911abee2"
+      "sha256": "6f418b2dadb09c59c38813fc19fa00aec4b88212a09231de25589bd02307c560"
     },
     "content/question-next-review.c0501c50.json": {
       "bytes": 1788,
-      "sha256": "da11955b891c4adf645276e513c75136bccbfc5bcd2d91acd078bbc9d755f904"
+      "sha256": "633069cbc9cc3a149a026338ef0e6e35cd5c809f270b7508740228927c76881e"
     },
     "content/root-study-research-showcase.ca995dfd.json": {
       "bytes": 6522,
-      "sha256": "5690a3474ba1f5440ab3968eed8313cbfe863cb28d8f9233d484c8f0ec89630b"
+      "sha256": "d12915b0b87b5434be78340fd107a20b41149a647b523f7af213cdc0e526605d"
     },
     "content/source-learning-loops.ab164037.json": {
       "bytes": 1684,
-      "sha256": "c8779727413d9d808285f115d62402dd9403137d5cabbe669b4db1d44f19d232"
+      "sha256": "f605f8a708bdf6723efce8ce79f42dc80065ee080a69284f1d7d9f9263b77b80"
     },
     "decisions.json": {
       "bytes": 57,
@@ -187,10 +185,6 @@
       "bytes": 111,
       "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
     },
-    "source_foundation.json": {
-      "bytes": 539,
-      "sha256": "8b13bffa2cd96a2bb61727e587c09c9d784facf6fdaf7812037fbf81c2cafbf1"
-    },
     "source_lifecycle.json": {
       "bytes": 58,
       "sha256": "fae2169dc386a6fc7caaaa74d1990c34433b478868cb06deaa288d176fe214ff"
@@ -228,9 +222,9 @@
   },
   "root_page_id": "root-study-research-showcase",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-study-research-showcase-ccd7158e6b90411c",
+  "snapshot_id": "wiki-viva-demo-study-research-showcase-a65b93257944d08f",
   "source_commit": null,
-  "source_sha": "uncommitted:fb87d1907245d751b35845193d7e89670d19e54e936cd8390a497459b801f504",
+  "source_sha": "uncommitted:2184e89c5e6de927ee4d27f64d61b55b9b70f9b5d5279298a61e517d326a8bf0",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",
@@ -241,7 +235,6 @@
     "runtime_contract": "wiki_world_runtime.v8",
     "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
     "snapshot": "wiki_web_snapshot.v2",
-    "source_foundation": "wiki_web_source_foundation.v1",
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",

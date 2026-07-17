@@ -36,7 +36,7 @@ WEB_DIFF_SCHEMA_VERSION = "wiki_web_diff.v1"
 # cockpit can detect a stale operator (old process, newer code on disk) and show
 # an honest "operador desatualizado — reinicie" state instead of a raw 404. Add
 # a capability string here the moment its endpoint ships.
-WEB_SERVER_VERSION = "wiki_web_server.v6"
+WEB_SERVER_VERSION = "wiki_web_server.v7"
 WEB_OPERATOR_SECURITY_VERSION = "wiki_operator_security.v2"
 OPERATOR_SECURITY_CAPABILITY = "operator_security_v2"
 CORS_DEFAULT_DENY_CAPABILITY = "cors_default_deny_v1"
@@ -49,6 +49,21 @@ SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY = "snapshot_external_freshness_v1"
 # without it falls back to the legacy sources layout; a snapshot WITH it and
 # without a valid payload is a contract error, never an empty fake topology.
 SOURCE_FOUNDATION_CAPABILITY = "source_foundation_v1"
+# v7: administrative discovery only (god-mode plan §12.1/§12.6). The session,
+# command and audit endpoints get their own capability strings in the PRs that
+# ship them (§12.7) — never before.
+ADMIN_CAPABILITIES_CAPABILITY = "admin_capabilities_v1"
+# Local admin sessions (god-mode plan §13, PR3): challenge/unlock/renew/lock
+# endpoints plus the X-Wiki-Admin-Session header composing with the operator
+# nonce + attempt-key contract. The audit trail ships alongside but has no
+# read endpoint yet, so no admin_audit capability string exists until it does.
+ADMIN_SESSION_CAPABILITY = "admin_session_v1"
+# Command bus (god-mode plan §11, §12.2, PR4): GET /api/admin/commands +
+# /api/admin/plans/{id}, POST /api/admin/commands/{plan,execute}. Plans are
+# materialized server-side and executed only against a matching plan_sha —
+# the browser never sends argv. No admin_audit capability yet: the audit
+# trail still has no read endpoint (§12.7 rule: capability ships with it).
+ADMIN_COMMANDS_CAPABILITY = "admin_commands_v1"
 SCHEMA_CAPABILITIES = (
     OPERATOR_SECURITY_CAPABILITY,  # nonce + bounded/idempotent POST + browser-origin policy
     CORS_DEFAULT_DENY_CAPABILITY,  # no browser CORS trust unless exact loopback origins opt in
@@ -61,6 +76,9 @@ SCHEMA_CAPABILITIES = (
     "diff",  # /api/diff/file (per-file full diff)
     "intake",  # /api/intake/copy (add an external file into data/raw)
     "sources",  # /api/sources (entities) + /api/sources/{id}/brief
+    ADMIN_CAPABILITIES_CAPABILITY,  # GET /api/admin/capabilities + health admin summary (read-only discovery)
+    ADMIN_SESSION_CAPABILITY,  # POST /api/admin/session/{challenge,unlock,renew,lock} + session header
+    ADMIN_COMMANDS_CAPABILITY,  # plan->review->execute command bus with materialized plan_sha
 )
 
 SNAPSHOT_FILES = (

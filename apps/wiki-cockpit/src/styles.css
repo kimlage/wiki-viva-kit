@@ -8638,6 +8638,372 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   margin-top: auto;
   padding-top: 8px;
 }
+
+/* Admin Dock (read-only god-mode surface). State is always text + ARIA; the
+   chip tones only reinforce it (plan §14.4: never color-only). */
+.adminSection {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 1px solid #22323d;
+  border-radius: 10px;
+  background: rgba(10, 18, 25, 0.62);
+}
+.adminSection h3 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8fa8b8;
+}
+.adminSection p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #c8d8e2;
+}
+.adminDetail code {
+  font-size: 11.5px;
+  color: #9fb4c2;
+  overflow-wrap: anywhere;
+}
+.adminStateChip {
+  white-space: nowrap;
+}
+.adminState-locked { border-color: rgba(255, 180, 84, 0.5); color: #ffb454; }
+.adminState-unavailable { border-color: rgba(111, 129, 144, 0.5); color: #8fa8b8; }
+.adminState-active_readonly { border-color: rgba(127, 208, 232, 0.5); color: #7fd0e8; }
+.adminCapabilityChips {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.adminCapability {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid #2a3944;
+  border-radius: 999px;
+  font-size: 11px;
+}
+.adminCapability code {
+  color: #c8d8e2;
+  font-size: 11px;
+}
+.adminCapability small {
+  color: #8fa8b8;
+  font-size: 10px;
+}
+.adminCapability.granted {
+  border-color: rgba(88, 217, 155, 0.5);
+}
+.adminCapability.granted small {
+  color: #58d99b;
+}
+.adminCapability.absent {
+  opacity: 0.75;
+}
+.adminFacts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.adminFacts div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.adminFacts dt {
+  flex: 0 0 96px;
+  color: #8fa8b8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.adminFacts dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: #c8d8e2;
+  overflow-wrap: anywhere;
+}
+.adminState-active_full { border-color: rgba(88, 217, 155, 0.6); color: #58d99b; }
+.adminState-active_partial { border-color: rgba(127, 208, 232, 0.5); color: #7fd0e8; }
+.adminState-expiring { border-color: rgba(255, 180, 84, 0.6); color: #ffb454; }
+.adminState-revoked { border-color: rgba(255, 122, 138, 0.55); color: #ff7a8a; }
+
+/* Unlock dialog (plan §13.1): challenge -> one-time code -> session. */
+.adminUnlockOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.adminUnlockDialog {
+  position: relative;
+  z-index: 91;
+  width: min(420px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid #2a3944;
+  border-radius: 12px;
+  background: rgba(9, 16, 22, 0.97);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+.adminUnlockIntro {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #c8d8e2;
+}
+.adminUnlockError {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #ffb454;
+}
+.adminUnlockForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.adminUnlockForm label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8fa8b8;
+}
+.adminUnlockForm input {
+  padding: 8px 10px;
+  border: 1px solid #2a3944;
+  border-radius: 8px;
+  background: rgba(12, 21, 28, 0.9);
+  color: #e6f0f6;
+  font-family: inherit;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+}
+.adminUnlockForm input:focus {
+  outline: none;
+  border-color: rgba(127, 208, 232, 0.6);
+}
+
+/* Command bus (plan §11/§14, PR4): catalog list + plan review dialog. Risk
+   is always a text label; the tones only reinforce it (never color-only). */
+.adminCommandList {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.adminCommand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #2a3944;
+  border-radius: 10px;
+}
+.adminCommand.absent {
+  opacity: 0.75;
+}
+.adminCommandHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.adminCommandHead strong {
+  font-size: 12.5px;
+  color: #e6f0f6;
+}
+.adminCommandHead code {
+  font-size: 11px;
+  color: #9fb4c2;
+}
+.adminCommand small {
+  font-size: 11px;
+  color: #8fa8b8;
+}
+.adminDryRunToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #c8d8e2;
+  cursor: pointer;
+}
+.adminRisk-read { border-color: rgba(127, 208, 232, 0.5); color: #7fd0e8; }
+.adminRisk-derive { border-color: rgba(255, 214, 122, 0.5); color: #ffd67a; }
+.adminRisk-proposal_write { border-color: rgba(255, 180, 84, 0.55); color: #ffb454; }
+.adminRisk-external_write { border-color: rgba(255, 122, 138, 0.55); color: #ff7a8a; }
+.adminRisk-destructive { border-color: rgba(255, 122, 138, 0.7); color: #ff7a8a; }
+.adminPlanReview {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(82vh, 720px);
+  overflow-y: auto;
+}
+.adminPlanReview h4 {
+  margin: 4px 0 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8fa8b8;
+}
+.adminPlanContract {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #7fd0e8;
+}
+.adminPlanSummary {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #c8d8e2;
+}
+.adminPlanPreconditions {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.adminPlanPreconditions li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid #2a3944;
+  border-radius: 999px;
+  font-size: 11px;
+}
+.adminPlanPreconditions code {
+  color: #c8d8e2;
+  font-size: 11px;
+}
+.adminPlanPreconditions small {
+  color: #8fa8b8;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.adminPlanDiff,
+.adminPlanOutput {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #22323d;
+  border-radius: 8px;
+  background: rgba(12, 21, 28, 0.9);
+  color: #c8d8e2;
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.adminPlanConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.adminPlanConfirm label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8fa8b8;
+}
+.adminPlanConfirm input {
+  padding: 8px 10px;
+  border: 1px solid #2a3944;
+  border-radius: 8px;
+  background: rgba(12, 21, 28, 0.9);
+  color: #e6f0f6;
+  font-family: inherit;
+  font-size: 13px;
+}
+.adminPlanConfirm input:focus {
+  outline: none;
+  border-color: rgba(127, 208, 232, 0.6);
+}
+
+/* Persistent session strip (plan §14.4): text-first, never color-only.
+   Centered on the top strip so it never collides with the header pills at
+   either corner. */
+.adminStatusStrip {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Above the sticky top bar (z 130): the strip floats over the header's
+     empty center, clear of the pills at either corner. */
+  z-index: 140;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid rgba(88, 217, 155, 0.5);
+  border-radius: 999px;
+  background: rgba(9, 16, 22, 0.92);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  font-size: 11.5px;
+  color: #c8d8e2;
+}
+.adminStatusStrip.adminStrip-expiring {
+  border-color: rgba(255, 180, 84, 0.65);
+}
+.adminStripState {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: #58d99b;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+span.adminStripState { cursor: default; }
+.adminStrip-expiring .adminStripState { color: #ffb454; }
+.adminStripTime {
+  color: #8fa8b8;
+  white-space: nowrap;
+}
+.adminStripAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid #2a3944;
+  border-radius: 999px;
+  background: none;
+  color: #c8d8e2;
+  font-size: 11px;
+  cursor: pointer;
+}
+.adminStripAction:hover:not(:disabled) {
+  border-color: rgba(127, 208, 232, 0.6);
+}
+.adminStripAction:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.adminStripLock {
+  border-color: rgba(255, 180, 84, 0.5);
+}
 .codexLadder {
   list-style: none;
   margin: 4px 0;
@@ -10779,6 +11145,59 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   text-decoration: none;
 }
 .guideSkip:hover { color: #eaf4fa; }
+
+/* --- Takezo ritual (plan §15) ----------------------------------------------
+   Decorative easter-egg layer. The plate speaks the anchored-plate language;
+   the costume colors (robe blue, ribbon red) are OUTSIDE the data legend and
+   the veil is a gentle fade — never a flash. */
+.takezoPlateWrap { pointer-events: auto; }
+.takezoPlate {
+  display: grid;
+  gap: 8px;
+  min-width: 240px;
+  max-width: 300px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #3b5bc0;
+  background: rgba(8, 13, 24, 0.95);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.6), 0 0 26px rgba(90, 110, 200, 0.16);
+  color: #eaf4fa;
+  position: relative;
+  animation: platePop var(--motion-duration-control) var(--motion-easing-control) both;
+}
+.takezoPlate:focus { outline: 2px solid #79c7e8; outline-offset: 2px; }
+.takezoName { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; color: #a8b8ea; }
+.takezoSpeech { margin: 0; font-size: 12.5px; line-height: 1.45; }
+.takezoNote { font-size: 10.5px; color: #9fb4c2; line-height: 1.4; }
+.takezoActions { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { .takezoPlate { animation: none; } }
+
+.takezoRitualFallback {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  background: rgba(4, 7, 12, 0.62);
+}
+.takezoRitualFallback .takezoFigure { width: 136px; height: auto; }
+
+/* Ritual atmosphere: the scene dims slightly while Takezo is on stage. */
+.sceneShell[data-takezo-ritual="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background: radial-gradient(ellipse at center, rgba(6, 10, 20, 0) 42%, rgba(6, 10, 20, 0.38) 100%);
+  animation: takezoVeil var(--motion-duration-feedback, 200ms) var(--motion-easing-feedback, ease-out) both;
+}
+@keyframes takezoVeil { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sceneShell[data-takezo-ritual="true"]::after { animation: none; }
+}
 
 .seedTitle {
   display: flex;

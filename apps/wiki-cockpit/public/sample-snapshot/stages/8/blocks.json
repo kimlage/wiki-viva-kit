@@ -557,6 +557,7 @@
       ]
     },
     "surfaces": [
+      "admin",
       "create",
       "intake",
       "missions",

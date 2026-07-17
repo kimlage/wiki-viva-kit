@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "8815eb7204a10c43532536ebb6eaf2152a07a1eb4f795df5ae9a0511aa245d7e",
+  "bundle_hash": "07285cc7b1dd0a1c525d79d7484e65ababe30c85e6017fa5c82fb0b3fefc1069",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -16,7 +16,6 @@
     "snapshot_warnings",
     "temporal_graph",
     "experience_packs",
-    "source_foundation_v1",
     "content_sidecars"
   ],
   "content_sidecars": true,
@@ -49,7 +48,6 @@
     "region_groups.json",
     "source_lifecycle.json",
     "snapshot_warnings.json",
-    "source_foundation.json",
     "content/action-region-clean-unsourced.b1bf976d.json",
     "content/artifact-dashboard-atlas.528653ec.json",
     "content/claim-region-grouping-needed.3562287e.json",
@@ -71,7 +69,7 @@
       "accessibility"
     ],
     "seed": 8007,
-    "source_input_sha256": "df173f6806efab184cf75db3334d5a50cd785b87a408b142fb13f4f9366bd637"
+    "source_input_sha256": "ab2838afbc026f46f4eedad88ba72d5cdf4d5111dd933c52911bab3405f60aea"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -84,8 +82,8 @@
       "sha256": "56e46e16df927acbc2cbff684844c03944ce3ea06501ca5c28493e3dc8399608"
     },
     "blocks.json": {
-      "bytes": 9051,
-      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+      "bytes": 9059,
+      "sha256": "39bce837ab1f62a449caa620726bf545eb3b3b600d63adbb57d23c55dd42db72"
     },
     "commands.json": {
       "bytes": 1296,
@@ -93,27 +91,27 @@
     },
     "content/action-region-clean-unsourced.b1bf976d.json": {
       "bytes": 1537,
-      "sha256": "f6be00ecb5c4dc9755573ee336b252af6f5df9dc2027d0b7b3873c0296b2dcb7"
+      "sha256": "938198dc2520ba54d5c3c1b81c46e329c25107900ad72c6c0d3c83fa4dddf84c"
     },
     "content/artifact-dashboard-atlas.528653ec.json": {
       "bytes": 933,
-      "sha256": "77b241429cf3b46f7b9e4995f52970a9afc15a0d8f39a3ec31f733a38c3b56ae"
+      "sha256": "57aa550d71c844d2f22bbdda9cc32836b1ff26db1584410a31da21fd990ba5b2"
     },
     "content/claim-region-grouping-needed.3562287e.json": {
       "bytes": 1197,
-      "sha256": "7345fec6b2171685d214b864c513199ff5d6e2bc73dd4a4ea1c31b8f3596756b"
+      "sha256": "7a050efe33d4e0c7f6bfe089b78122f665a8159a8701460b49c86eb2f4c031e2"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "88cdaafa99b0c2e4e1c1c6515c62b04293dc3ccb6b023190431be57ab35a4129"
+      "sha256": "04c126023be7f9e368306bbfad23ab6687cd20fb94917586c854ab25a4168f58"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2214,
-      "sha256": "94d74c327f82c7ef129dff03e721a82363fcd0161bb45f7d5537258f281a543a"
+      "sha256": "fa402b2e60fce6b80e0baaf75f4a7810ff92e27de9f576472cc1ae1b5649c3e7"
     },
     "content/rule-nada-publica-sem-review.63750616.json": {
       "bytes": 968,
-      "sha256": "6dfa8a21b4bde4fa7500a57cd6495589dca8e51a6a572817ca91df187cd8b1df"
+      "sha256": "d0e2a6fad7da3dfc3cf623b29740265430727ec7b84364d3a2065360f21ff72e"
     },
     "decisions.json": {
       "bytes": 57,
@@ -179,10 +177,6 @@
       "bytes": 111,
       "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
     },
-    "source_foundation.json": {
-      "bytes": 515,
-      "sha256": "6da08ef8d4a83d622ebef06aa8bed38cc7303cb3589f0027fa028fa4b2011290"
-    },
     "source_lifecycle.json": {
       "bytes": 58,
       "sha256": "fae2169dc386a6fc7caaaa74d1990c34433b478868cb06deaa288d176fe214ff"
@@ -220,9 +214,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-8815eb7204a10c43",
+  "snapshot_id": "wiki-viva-demo-07285cc7b1dd0a1c",
   "source_commit": null,
-  "source_sha": "uncommitted:28982156cc108977b96d5a4626d304cbe77f1805ea9b65ffed9004ff699c069d",
+  "source_sha": "uncommitted:b9f14b3d43a650cdb374ce64a0a0dc7cc515fe117062386b9fa1c4b8210a83aa",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",
@@ -233,7 +227,6 @@
     "runtime_contract": "wiki_world_runtime.v8",
     "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
     "snapshot": "wiki_web_snapshot.v2",
-    "source_foundation": "wiki_web_source_foundation.v1",
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",

@@ -8,6 +8,11 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { ADMIN_COMMAND_REGISTRY, GOD_MODE_COMMAND_ID } from "../commands/adminCommands";
+import { setAdminCommandIntent } from "../application/adminCommandIntent";
+import { isExplicitCommandDraft } from "../commands/parser";
+import type { CommandInvocation } from "../commands/types";
+import { adminSessionActive } from "../application/adminSession";
 import { t } from "../data/i18n";
 import { experiencePackView } from "../data/experiencePacks";
 import { contextLabel, pageTypeLabel, pageTypeStyle, perspectiveLabel, worldGroupDescription, worldGroupLabel } from "../data/presentation";
@@ -22,7 +27,7 @@ import { searchPages } from "../scene/search";
 import { canonicalWorldUrl, hydrateWorldRoute } from "../world/state/routeHydration";
 import type { OverlayId, RuntimeEvent } from "../world/contracts";
 import type { WorldPatch, WorldRoute } from "../router";
-import type { NavigationPort, OperatorPort } from "../application/ports";
+import type { AdminPort, NavigationPort, OperatorPort } from "../application/ports";
 import { anchorRecord, anchorSupportsQuadrants, focusAnchorId } from "../data/blocks";
 import { composeInstruments, rootAnchor } from "../data/surfaces";
 import { regionPayloadByKey } from "../data/visualPrimitives";
@@ -30,6 +35,8 @@ import type { RuntimeConfig } from "../data/runtimeConfig";
 import type { OperatorCommandCard, BriefSpec, PageRecord, RegionGroupPayload, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
 import { CreateDock } from "./CreateDock";
+import { TakezoRitualFallback, takezoRuntimeKind } from "./TakezoRitualFallback";
+import type { TakezoRuntimeKind } from "../renderers/scene/parts/TakezoWizard";
 import { deriveMissions, missionBriefSpec, MissionsPanel } from "./MissionsPanel";
 import type { RelationGroupKey } from "./PageReader";
 import { sceneFallbackPreferred } from "../renderers/scene/parts/materials";
@@ -461,6 +468,7 @@ export function WorldView({
   navigation,
   loadPageContent,
   loadTemporalGraph,
+  lockAdminSession,
   onSnapshotMismatch,
   worldRuntime,
   worldState
@@ -477,6 +485,9 @@ export function WorldView({
   navigation: NavigationPort;
   loadPageContent: OperatorPort["loadPageContent"];
   loadTemporalGraph: OperatorPort["loadTemporalGraph"];
+  // Injected admin transport (composition root): `god_mode off` really locks
+  // through the server — the component itself never imports the admin client.
+  lockAdminSession: AdminPort["lockAdminSession"];
   onSnapshotMismatch?: () => void;
   worldRuntime: import("../world/WorldRuntime").WorldRuntime;
   worldState: import("../world/contracts").WorldState;
@@ -1152,6 +1163,10 @@ export function WorldView({
     }
     if (searchDraft === route.query.q) return undefined;
     if (isVisualControlCommand(searchDraft)) return undefined;
+    // Explicit command drafts are interpretation-layer input, not search
+    // state: they never mirror into ?q= (plan §10.4 — command text stays out
+    // of URL/storage).
+    if (isExplicitCommandDraft(searchDraft)) return undefined;
     // A direct Enter submission owns this draft. Its one route transaction
     // already wrote `q`, `page`, `reader` and `dock=null`; never let a later
     // debounce reduce that state back to a query-only route.
@@ -1398,6 +1413,91 @@ export function WorldView({
   };
   const toggleMissions = () => {
     navigateWorld({ tray: missionsOpen ? null : "missions" });
+  };
+  // The abrachaindabra ritual (plan §5): pure presentation state, never
+  // authorization. It lives in memory only — no URL, no storage — and the
+  // demo stays sealed: nothing here issues an administrative request.
+  const [takezoRitual, setTakezoRitual] = useState<TakezoRuntimeKind | null>(null);
+  const closeTakezoRitual = useCallback(() => {
+    setTakezoRitual(null);
+    // Closing hands keyboard focus back to the command bar (plan §23).
+    searchRef.current?.focus();
+  }, []);
+  // One route transaction that opens the admin surface AND clears the search
+  // state. Clearing q here matters: the typed command text was mirrored into
+  // ?q= while typing, and leaving it would arm the debounced search mirror,
+  // whose `dock: null` cleanup would silently close the dock again.
+  const openAdminDock = () => {
+    navigateWorld({
+      dock: "admin",
+      q: null,
+      searchType: null,
+      searchContext: null,
+      searchScope: null,
+      searchLimit: null
+    });
+  };
+
+  // The ritual's "Unlock advanced mode" action now leads to the REAL gate:
+  // the Admin Dock in whatever state the operator honestly reports (locked
+  // until the session milestone lands). Opening the dock authorizes nothing.
+  // Plain closure (like the other command handlers) so it never captures a
+  // stale navigateWorld/bundle.
+  const takezoUnlock = () => {
+    setTakezoRitual(null);
+    openAdminDock();
+  };
+
+  // Interpretation results from the CommandBar (god-mode plan §10). god_mode
+  // opens the Admin Dock in its real server-reported state (plan §6.1) — the
+  // command is navigation, never authorization (§3.2). The remaining admin
+  // commands stay on the honest locked notice until the command bus ships.
+  const onCommandInvocation = (input: CommandInvocation) => {
+    if (input.kind === "easter_egg") {
+      // Feature-flag guard (plan §17.2): the CommandBar already parses with
+      // the flag, so a disabled egg never reaches here — this is fail-closed.
+      if (!runtime.features.takezoEasterEgg) return;
+      setTakezoRitual(takezoRuntimeKind(route.demo, runtime.mode || bundle.manifest.mode));
+      return;
+    }
+    if (input.kind === "invalid_command") {
+      onNotice?.(t(input.messageKey));
+      return;
+    }
+    if (input.commandId === GOD_MODE_COMMAND_ID && input.args.subcommand === "off") {
+      // §5.4: with an active session, `god_mode off` REALLY locks — server
+      // revokes, client forgets the in-memory token. Without one, saying
+      // "already locked" is more honest than pretending a lock happened.
+      if (adminSessionActive()) {
+        void lockAdminSession().then(() => {
+          onNotice?.(t("command.godMode.lockedNow"));
+        });
+      } else {
+        onNotice?.(t("command.godMode.alreadyLocked"));
+      }
+      return;
+    }
+    if (input.commandId === GOD_MODE_COMMAND_ID) {
+      // Bare `god_mode` and `god_mode status` both land on the read-only
+      // overview surface — the dock IS the status report.
+      openAdminDock();
+      return;
+    }
+    const definition = ADMIN_COMMAND_REGISTRY.byId.get(input.commandId);
+    if (definition?.busCommandId) {
+      // Bus-backed command (plan §10.5 -> §11): record the intent in memory
+      // only (never the URL — it never authorizes and never carries admin
+      // intent) and open the dock, which plans against the server's REAL
+      // session/capability answer. Typing a command grants nothing.
+      setAdminCommandIntent(definition.busCommandId);
+      openAdminDock();
+      return;
+    }
+    // Recognized command without a bus adapter yet: the notice depends on
+    // whether the honest blocker is the missing session or the missing wiring.
+    onNotice?.(
+      t(adminSessionActive() ? "command.admin.notWiredYet" : "command.admin.locked")
+    );
   };
 
   const refreshAction =
@@ -1656,6 +1756,14 @@ export function WorldView({
       // The Brief Studio is a text-editing modal with its own close affordance
       // — Esc must not mutate the layers UNDER it.
       if (document.querySelector(".briefStudio")) return;
+      // The Takezo ritual is the topmost surface while open: Escape closes it
+      // first (plan §5.4/§22.3) and the rest of the ladder is untouched.
+      if (takezoRitual) {
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        closeTakezoRitual();
+        return;
+      }
       if (visualPanelOpen) {
         event.stopImmediatePropagation();
         event.stopPropagation();
@@ -1706,7 +1814,7 @@ export function WorldView({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [trayOpen, missionsOpen, visualPanelOpen, worldNavigatorOpen]);
+  }, [closeTakezoRitual, takezoRitual, trayOpen, missionsOpen, visualPanelOpen, worldNavigatorOpen]);
 
   // An EMPTY world has exactly one interface: the founding rite. A dock in the
   // URL there (deep link, stale history) would open a surface over nothing.
@@ -2081,6 +2189,15 @@ export function WorldView({
         founding={foundingFallbackActive ? null : founding}
         seed={fallbackActive ? null : seed}
         guide={fallbackActive ? null : guide}
+        takezo={
+          takezoRitual && !fallbackActive
+            ? {
+                runtime: takezoRitual,
+                onUnlock: takezoRitual === "local" ? takezoUnlock : undefined,
+                onClose: closeTakezoRitual
+              }
+            : null
+        }
         onMarkerResolve={
           !route.demo && onComposeBrief
             ? (pageId) => {
@@ -2538,6 +2655,7 @@ export function WorldView({
             searchExpanded={Boolean(searchDraft)}
             searchResultsId={SEARCH_RESULTS_ID}
             searchActiveDescendant={visibleHits.length > 0 ? searchResultOptionId(effectiveActiveHit) : undefined}
+            easterEggEnabled={runtime.features.takezoEasterEgg}
             onSearchDraft={(value) => {
               // Reset synchronously. The result list can sit under the pointer
               // and update activeHit through hover while filters reshape it;
@@ -2549,6 +2667,7 @@ export function WorldView({
               setSearchDraft(value);
             }}
             onSearchKeyDown={onSearchKeyDown}
+            onCommand={onCommandInvocation}
             onNavigateWorld={navigateWorld}
             onToggleTray={toggleTray}
             onToggleMissions={toggleMissions}
@@ -2619,6 +2738,14 @@ export function WorldView({
         <FoundingFallback demo={route.demo} skipHref={route.demo ? skipHref : undefined} onFound={foundWorld} />
       )}
       {fallbackActive && guide && !founding && <GuideFallback guide={guide} />}
+      {/* The ritual's declared 2D twin (plan §15.6): same copy, same flow. */}
+      {takezoRitual && fallbackActive && (
+        <TakezoRitualFallback
+          runtime={takezoRitual}
+          onUnlock={takezoRitual === "local" ? takezoUnlock : undefined}
+          onClose={closeTakezoRitual}
+        />
+      )}
       <CoachMarks
         open={tourOpen}
         returnFocusTo={tourOpenerRef.current}

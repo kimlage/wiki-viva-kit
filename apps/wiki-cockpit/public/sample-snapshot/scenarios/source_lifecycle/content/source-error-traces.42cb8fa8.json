@@ -9,31 +9,10 @@
       "path": "memories/sources/source-health-checks.md",
       "relation": "markdown_link",
       "title": "Health checks output"
-    },
-    {
-      "approved_state": "approved",
-      "context": "clientes",
-      "freshness_state": "fresh",
-      "page_id": "source-config-error-traces",
-      "page_type": "source_config",
-      "path": "memories/sources/config/source-error-traces.md",
-      "relation": "moc_parent",
-      "title": "Source config: Error traces"
-    },
-    {
-      "approved_state": "approved",
-      "context": "clientes",
-      "freshness_state": "fresh",
-      "page_id": "source-config-error-traces",
-      "page_type": "source_config",
-      "path": "memories/sources/config/source-error-traces.md",
-      "relation": "source_ref",
-      "title": "Source config: Error traces"
     }
   ],
   "body": "\n# Error trace export\n\nA live Observability source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `blocked`, freshness `stale` and last attempt `parser_error`.\n",
   "frontmatter": {
-    "config_ref": "memories/sources/config/source-error-traces.md",
     "context": "clientes",
     "moc_parent": "memories/clientes/product-ops/index.md",
     "owner": "root-alex-rivera",
@@ -109,6 +88,6 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-d1d3435fdb9916b4",
+  "snapshot_id": "wiki-viva-demo-4a586c36ae581e46",
   "source_refs": []
 }
