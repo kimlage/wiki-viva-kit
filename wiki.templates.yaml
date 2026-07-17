@@ -218,6 +218,22 @@ blocks:
     anchors: [root_entity, context_hub, source]
     config_schema: { forms: list, route_hint: string }
 
+  wiki.block.ui_admin.v1:
+    kind: interface
+    surface: admin
+    family: ui_admin
+    title: "Advanced administration"
+    summary: "Makes the admin control surface discoverable for authorized operators."
+    # Presence-only (god-mode plan §17.3): this block controls whether the
+    # admin surface appears in the world. It grants NO capability, role or
+    # session — authorization is decided by the operator, never by templates.
+    scope: { default_mode: self }
+    anchors: [root_entity]
+    config_schema:
+      sections: list
+      companion: enum:none,takezo
+      vision_lab: bool
+
   wiki.block.gamification.v1:
     kind: interface
     surface: score

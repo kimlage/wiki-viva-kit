@@ -265,11 +265,11 @@ the proxy or static private snapshot. If a separate loopback frontend
 must call the operator directly, explicitly set an exact trusted origin such as
 `WIKI_COCKPIT_CORS_ORIGINS=http://127.0.0.1:5173` before starting the Python
 server. Wildcards, remote hosts and URL credentials/path/query/fragment values
-are rejected. The `/api/health` handshake advertises `wiki_web_server.v6`,
+are rejected. The `/api/health` handshake advertises `wiki_web_server.v7`,
 `operator_security_v2`, `cors_default_deny_v1`,
-`action_state_transitions_v1` and
+`action_state_transitions_v1`, `admin_capabilities_v1` and
 `wiki_operator_security.v2`; the cockpit refuses writes through a still-running
-v1 process and asks for a restart. Origin-less same-origin proxy and CLI clients
+older process and asks for a restart. Origin-less same-origin proxy and CLI clients
 continue to work, and explicitly allowlisted loopback origins retain direct
 browser access. It exposes:
 
@@ -320,7 +320,7 @@ export WIKI_COCKPIT_EXPECT_PUBLIC_RELEASE_SHA=<exact-adopted-public-release-SHA>
 export WIKI_COCKPIT_EXPECT_ADAPTER_HASH=<exact-64-char-downstream-adapter-hash>
 export WIKI_COCKPIT_EXPECT_SNAPSHOT_VERSION=wiki_web_snapshot.v2
 export WIKI_COCKPIT_EXPECT_RUNTIME_VERSION=wiki_world_runtime.v8
-export WIKI_COCKPIT_EXPECT_SERVER_VERSION=wiki_web_server.v6
+export WIKI_COCKPIT_EXPECT_SERVER_VERSION=wiki_web_server.v7
 export WIKI_COCKPIT_EXPECT_TEMPORAL_GRAPH_VERSION=wiki_temporal_graph.v1
 export WIKI_COCKPIT_EXPECT_TEMPORAL_EVENT_VERSION=wiki_temporal_event.v1
 export WIKI_COCKPIT_EXPECT_EXPERIENCE_PACK_COMPOSITION_VERSION=wiki_experience_pack_composition.v1

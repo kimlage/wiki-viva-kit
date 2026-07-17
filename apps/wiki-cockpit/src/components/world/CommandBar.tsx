@@ -9,6 +9,7 @@ import {
   Database,
   GitPullRequest,
   Inbox,
+  KeyRound,
   ListChecks,
   Search,
   ShieldCheck,
@@ -259,7 +260,11 @@ export function CommandBar({
             icon: <ShieldCheck size={15} />,
             count: condition.gatesFailing.length,
             tone: "bad" as const
-          }
+          },
+          // Presence-only discoverability (plan §17.3): listed ONLY when the
+          // ui_admin block put "admin" into the destinations. Opening it
+          // shows the surface in its real (locked/unavailable) state.
+          { dock: "admin", label: t("nav.admin"), icon: <KeyRound size={15} />, count: 0, tone: "warn" as const }
         ] as const).filter((item) => instruments.destinations.includes(item.dock)).map((item) => (
           <button
             key={item.dock}

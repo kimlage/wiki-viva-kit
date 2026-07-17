@@ -34,13 +34,17 @@ WEB_DIFF_SCHEMA_VERSION = "wiki_web_diff.v1"
 # cockpit can detect a stale operator (old process, newer code on disk) and show
 # an honest "operador desatualizado — reinicie" state instead of a raw 404. Add
 # a capability string here the moment its endpoint ships.
-WEB_SERVER_VERSION = "wiki_web_server.v6"
+WEB_SERVER_VERSION = "wiki_web_server.v7"
 WEB_OPERATOR_SECURITY_VERSION = "wiki_operator_security.v2"
 OPERATOR_SECURITY_CAPABILITY = "operator_security_v2"
 CORS_DEFAULT_DENY_CAPABILITY = "cors_default_deny_v1"
 ACTION_STATE_TRANSITION_CAPABILITY = "action_state_transitions_v1"
 SNAPSHOT_PUBLICATION_CAPABILITY = "filesystem_snapshot_publication_v1"
 SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY = "snapshot_external_freshness_v1"
+# v7: administrative discovery only (god-mode plan §12.1/§12.6). The session,
+# command and audit endpoints get their own capability strings in the PRs that
+# ship them (§12.7) — never before.
+ADMIN_CAPABILITIES_CAPABILITY = "admin_capabilities_v1"
 SCHEMA_CAPABILITIES = (
     OPERATOR_SECURITY_CAPABILITY,  # nonce + bounded/idempotent POST + browser-origin policy
     CORS_DEFAULT_DENY_CAPABILITY,  # no browser CORS trust unless exact loopback origins opt in
@@ -53,6 +57,7 @@ SCHEMA_CAPABILITIES = (
     "diff",  # /api/diff/file (per-file full diff)
     "intake",  # /api/intake/copy (add an external file into data/raw)
     "sources",  # /api/sources (entities) + /api/sources/{id}/brief
+    ADMIN_CAPABILITIES_CAPABILITY,  # GET /api/admin/capabilities + health admin summary (read-only discovery)
 )
 
 SNAPSHOT_FILES = (

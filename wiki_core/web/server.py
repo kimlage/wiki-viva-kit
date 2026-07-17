@@ -25,6 +25,7 @@ from wiki_core.action_transition import (
 )
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
+from wiki_core.web.admin import admin_capabilities_payload, admin_health_summary
 from wiki_core.web.briefs import BriefStore, compose_and_save, compose_return_brief
 from wiki_core.web.codex_jobs import JobRunner
 from wiki_core.web.codex_probe import probe_codex_for
@@ -963,6 +964,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     },
                     "server_version": WEB_SERVER_VERSION,
                     "schema_capabilities": list(SCHEMA_CAPABILITIES),
+                    # Non-sensitive admin handshake (god-mode plan §12.6): no
+                    # token, code, role detail or policy — discovery only.
+                    "admin": admin_health_summary(self.server.config),
                     "operator_security": {
                         "version": WEB_OPERATOR_SECURITY_VERSION,
                         "nonce_header": OPERATOR_NONCE_HEADER,
@@ -976,6 +980,12 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     "codex": probe_codex_for(self.server.config),
                 }
             )
+            return
+        if path == "/api/admin/capabilities":
+            # Read-only discovery (plan §12.1). Requesting it never authorizes
+            # anything: without a session subsystem the state is always
+            # locked (or unavailable when the config disables admin).
+            self._send_json(admin_capabilities_payload(self.server.config))
             return
         if path == "/api/codex/capability":
             self._send_json(probe_codex_for(self.server.config))

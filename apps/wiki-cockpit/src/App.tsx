@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AdminDock } from "./components/AdminDock";
 import { BlocksDock } from "./components/BlocksDock";
 import { AppearanceControl } from "./components/AppearanceControl";
 // CreateDock and the genesis guide render inside WorldView now — the create
@@ -1762,7 +1763,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
 
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
-  const requestedDock = worldRoute && ["codex", "approve", "gates", "intake", "work", "source", "blocks"].includes(worldRoute.query.dock || "")
+  const requestedDock = worldRoute && ["codex", "approve", "gates", "intake", "work", "source", "blocks", "admin"].includes(worldRoute.query.dock || "")
     ? worldRoute.query.dock
     : null;
   const dockPresence = useSurfacePresence(Boolean(requestedDock));
@@ -1861,6 +1862,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const workDockOpen = dockPresence.mounted && renderedDock === "work";
   const sourceDockOpen = dockPresence.mounted && renderedDock === "source";
   const blocksDockOpen = dockPresence.mounted && renderedDock === "blocks";
+  const adminDockOpen = dockPresence.mounted && renderedDock === "admin";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -2009,6 +2011,17 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onNotice={notify}
             onOpenPage={(pathOrId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId: pathOrId, reader: true }))}
             onOpenSource={(id) => navigate(hrefForWorldPatch(worldRoute, { dock: "source", src: id || null }))}
+            onClose={closeRequestedDock}
+          />
+        )}
+        {/* The read-only god-mode surface (?dock=admin). The URL opens it but
+            NEVER authorizes: the dock only renders the operator's own answer
+            (unavailable / locked / read-only) and has no write affordance. */}
+        {adminDockOpen && worldRoute && loadState.status === "ready" && (
+          <AdminDock
+            bundle={loadState.bundle}
+            demo={route.demo}
+            runtimeMode={loadState.runtime.mode || loadState.bundle.manifest.mode}
             onClose={closeRequestedDock}
           />
         )}

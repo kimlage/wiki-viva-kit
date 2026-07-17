@@ -8556,6 +8556,100 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   margin-top: auto;
   padding-top: 8px;
 }
+
+/* Admin Dock (read-only god-mode surface). State is always text + ARIA; the
+   chip tones only reinforce it (plan §14.4: never color-only). */
+.adminSection {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 1px solid #22323d;
+  border-radius: 10px;
+  background: rgba(10, 18, 25, 0.62);
+}
+.adminSection h3 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8fa8b8;
+}
+.adminSection p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #c8d8e2;
+}
+.adminDetail code {
+  font-size: 11.5px;
+  color: #9fb4c2;
+  overflow-wrap: anywhere;
+}
+.adminStateChip {
+  white-space: nowrap;
+}
+.adminState-locked { border-color: rgba(255, 180, 84, 0.5); color: #ffb454; }
+.adminState-unavailable { border-color: rgba(111, 129, 144, 0.5); color: #8fa8b8; }
+.adminState-active_readonly { border-color: rgba(127, 208, 232, 0.5); color: #7fd0e8; }
+.adminCapabilityChips {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.adminCapability {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid #2a3944;
+  border-radius: 999px;
+  font-size: 11px;
+}
+.adminCapability code {
+  color: #c8d8e2;
+  font-size: 11px;
+}
+.adminCapability small {
+  color: #8fa8b8;
+  font-size: 10px;
+}
+.adminCapability.granted {
+  border-color: rgba(88, 217, 155, 0.5);
+}
+.adminCapability.granted small {
+  color: #58d99b;
+}
+.adminCapability.absent {
+  opacity: 0.75;
+}
+.adminFacts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.adminFacts div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.adminFacts dt {
+  flex: 0 0 96px;
+  color: #8fa8b8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.adminFacts dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: #c8d8e2;
+  overflow-wrap: anywhere;
+}
 .codexLadder {
   list-style: none;
   margin: 4px 0;

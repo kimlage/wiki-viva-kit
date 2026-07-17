@@ -91,8 +91,7 @@ describe("takezo copy — i18n parity (plan §15.7, §22.3)", () => {
     "takezo.action.unlock",
     "takezo.action.explore",
     "takezo.action.cancel",
-    "takezo.action.leave",
-    "takezo.unlockSoon"
+    "takezo.action.leave"
   ];
 
   it("resolves every ritual line in both languages", () => {

@@ -28,7 +28,8 @@ const INSTRUMENTS: Instruments = {
   hasQuadrants: true,
   createArrangement: "",
   createCatalog: [],
-  intakeForms: []
+  intakeForms: [],
+  adminSurfaceEnabled: false
 };
 
 const CONDITION: WorldCondition = {

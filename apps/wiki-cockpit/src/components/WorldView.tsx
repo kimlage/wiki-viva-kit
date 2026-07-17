@@ -1417,17 +1417,35 @@ export function WorldView({
     // Closing hands keyboard focus back to the command bar (plan §23).
     searchRef.current?.focus();
   }, []);
-  // G2 placeholder for the local-operator unlock action: the real challenge
-  // dialog arrives with the operator session work (PR3). Honest copy, zero
-  // requests, nothing unlocked.
-  const takezoUnlock = useCallback(() => {
-    onNotice?.(t("takezo.unlockSoon"));
-  }, [onNotice]);
+  // One route transaction that opens the admin surface AND clears the search
+  // state. Clearing q here matters: the typed command text was mirrored into
+  // ?q= while typing, and leaving it would arm the debounced search mirror,
+  // whose `dock: null` cleanup would silently close the dock again.
+  const openAdminDock = () => {
+    navigateWorld({
+      dock: "admin",
+      q: null,
+      searchType: null,
+      searchContext: null,
+      searchScope: null,
+      searchLimit: null
+    });
+  };
 
-  // Interpretation results from the CommandBar (god-mode plan §10). Until the
-  // admin session exists (PR2/PR3), every invocation lands on an honest locked
-  // placeholder: no administrative request is ever issued from here, and the
-  // ritual/commands grant nothing (plan §3.2). Wired further in G3.
+  // The ritual's "Unlock advanced mode" action now leads to the REAL gate:
+  // the Admin Dock in whatever state the operator honestly reports (locked
+  // until the session milestone lands). Opening the dock authorizes nothing.
+  // Plain closure (like the other command handlers) so it never captures a
+  // stale navigateWorld/bundle.
+  const takezoUnlock = () => {
+    setTakezoRitual(null);
+    openAdminDock();
+  };
+
+  // Interpretation results from the CommandBar (god-mode plan §10). god_mode
+  // opens the Admin Dock in its real server-reported state (plan §6.1) — the
+  // command is navigation, never authorization (§3.2). The remaining admin
+  // commands stay on the honest locked notice until the command bus ships.
   const onCommandInvocation = (input: CommandInvocation) => {
     if (input.kind === "easter_egg") {
       // Feature-flag guard (plan §17.2): the CommandBar already parses with
@@ -1441,11 +1459,15 @@ export function WorldView({
       return;
     }
     if (input.commandId === GOD_MODE_COMMAND_ID && input.args.subcommand === "off") {
+      // No session subsystem yet: there is nothing to lock, and saying so is
+      // more honest than pretending a lock happened.
       onNotice?.(t("command.godMode.alreadyLocked"));
       return;
     }
     if (input.commandId === GOD_MODE_COMMAND_ID) {
-      onNotice?.(t("command.godMode.locked"));
+      // Bare `god_mode` and `god_mode status` both land on the read-only
+      // overview surface — the dock IS the status report.
+      openAdminDock();
       return;
     }
     onNotice?.(t("command.admin.locked"));
