@@ -140,10 +140,17 @@ const BAND_ROLE: Partial<Record<WorldPlaneId, string>> = {
   knowledge: "knowledge-page"
 };
 
-/** TRUE band population: the census group's full count (includes hidden
- * members); falls back to counting mounted role nodes when the census group
- * does not exist for the current drill. Honest either way. */
+/** TRUE band population, by order of authority: the payload census the layout
+ * carries (foundationCensus — counts members that are hidden, aggregated at
+ * rest, or entirely outside an anchor-scoped graph slice), then the census
+ * group's full count, then the mounted role nodes (bare layouts carrying
+ * neither). The pill must never read the visible slice: layout groups count
+ * only the pages that survived graph scoping, which is exactly how a
+ * 50-source world once claimed "0 fontes". */
 export function foundationBandCount(layout: WorldLayout, plane: WorldPlaneId): number | null {
+  if (plane === "core") return null;
+  const census = layout.foundationCensus;
+  if (census) return census[plane];
   const groupKey = BAND_CENSUS_GROUP[plane];
   if (!groupKey) return null;
   const group = layout.groups.find((candidate) => candidate.key === groupKey);

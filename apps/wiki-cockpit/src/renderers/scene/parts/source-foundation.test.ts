@@ -468,15 +468,18 @@ describe("per-band plane guides (§10.12)", () => {
   });
 
   it("carries the honest band aggregate counts (R1 — nothing dominant unlabeled)", () => {
+    const { payload } = fixture();
     const layout = foundationLayout();
-    // TRUE census totals from the layout groups (hidden members included).
-    expect(foundationBandCount(layout, "foundation")).toBe(3);
-    expect(foundationBandCount(layout, "provenance")).toBe(3);
-    expect(foundationBandCount(layout, "knowledge")).toBe(3);
+    // TRUE census totals from the PAYLOAD (single source of truth): every
+    // station (source + channel), every distinct provenance page referenced
+    // by emissions, every fed target — never a mounted-node count.
+    expect(foundationBandCount(layout, "foundation")).toBe(payload.stations.length); // 4
+    expect(foundationBandCount(layout, "provenance")).toBe(3); // event-1, event-shared, proposal-1
+    expect(foundationBandCount(layout, "knowledge")).toBe(payload.targets.length); // 3
     expect(foundationBandCount(layout, "core")).toBeNull();
     const guides = foundationPlaneGuides(layout);
     const byPlane = new Map(guides.map((guide) => [guide.plane, guide]));
-    expect(byPlane.get("foundation")!.countText).toContain("3");
+    expect(byPlane.get("foundation")!.countText).toContain("4");
     expect(byPlane.get("knowledge")!.countText).toContain("3");
     expect(byPlane.get("core")!.countText).toBeNull();
     // Both languages resolve the count line.
@@ -487,6 +490,51 @@ describe("per-band plane guides (§10.12)", () => {
       expect(knowledge.countText).not.toContain("source_foundation.");
     }
     configureLanguage("en");
+  });
+
+  it("keeps the FULL payload census in the pills when the graph slice mounts almost nothing", () => {
+    // Regression: an anchor-scoped runtime graph (scopeGraphToCompiledAnchor)
+    // can drop most source/provenance/knowledge pages from request.nodes, and
+    // the R1 calm entry rests the remainder as dimmed aggregates. The band
+    // pills must still state the payload totals — a 50-source world must
+    // never read "0 fontes" because only one station survived scoping.
+    const { nodes, edges, payload } = fixture();
+    const scoped = nodes.filter((entry) => entry.id === "world-root" || entry.id === "source-a");
+    const layout = computeWorldLayout({
+      perspective: "sources",
+      nodes: scoped,
+      edges,
+      centerId: "world-root",
+      maxNodes: 60,
+      snapshotAt: SNAPSHOT,
+      sourceFoundation: payload
+    } satisfies SourceFoundationWorldRequest);
+    // Sanity: the scoped world really does mount a tiny slice…
+    expect(layout.nodes.filter((entry) => entry.foundationRole === "source-station")).toHaveLength(1);
+    expect(layout.nodes.filter((entry) => entry.foundationRole === "provenance-page")).toHaveLength(0);
+    expect(layout.nodes.filter((entry) => entry.foundationRole === "knowledge-page")).toHaveLength(0);
+    // …while the pills keep the payload totals, not the mounted census.
+    expect(foundationBandCount(layout, "foundation")).toBe(payload.stations.length); // 4
+    expect(foundationBandCount(layout, "provenance")).toBe(3);
+    expect(foundationBandCount(layout, "knowledge")).toBe(payload.targets.length); // 3
+    const byPlane = new Map(foundationPlaneGuides(layout).map((guide) => [guide.plane, guide]));
+    expect(byPlane.get("foundation")!.countText).toContain("4");
+    expect(byPlane.get("provenance")!.countText).toContain("3");
+    expect(byPlane.get("knowledge")!.countText).toContain("3");
+    // The stations-only drill (groups: []) keeps the same honest totals.
+    const drill = computeWorldLayout({
+      perspective: "sources",
+      nodes,
+      edges,
+      centerId: "world-root",
+      group: "family:source",
+      maxNodes: 60,
+      snapshotAt: SNAPSHOT,
+      sourceFoundation: payload
+    } satisfies SourceFoundationWorldRequest);
+    expect(drill.groups).toEqual([]);
+    expect(foundationBandCount(drill, "foundation")).toBe(payload.stations.length);
+    expect(foundationBandCount(drill, "knowledge")).toBe(payload.targets.length);
   });
 });
 

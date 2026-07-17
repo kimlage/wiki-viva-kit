@@ -513,6 +513,34 @@ describe("source foundation layout", () => {
     );
     expect(stationRoles.size).toBeGreaterThan(0);
     stationRoles.forEach((id) => expect(payload.stations.some((entry) => entry.canonical_page_id === id)).toBe(true));
+
+    // Honest band census (the pill numbers): the payload totals, byte-exact,
+    // independent of how many nodes actually mounted. The shipped 29-source
+    // demo must read 29 — never the mounted/visible slice.
+    const provenancePages = new Set(
+      payload.emissions.flatMap((entry) => [
+        ...(entry.event_page_id ? [entry.event_page_id] : []),
+        ...entry.proposal_page_ids
+      ])
+    );
+    expect(layout.foundationCensus).toEqual({
+      foundation: payload.stations.length,
+      provenance: provenancePages.size,
+      knowledge: payload.targets.length
+    });
+    expect(layout.foundationCensus).toEqual({ foundation: 29, provenance: 6, knowledge: 18 });
+
+    // Regression: scoping the graph to a tiny slice (compiled-anchor scoping)
+    // must NOT shrink the census — it derives from the payload alone.
+    const scoped = computeWorldLayout({
+      perspective: "sources",
+      nodes: graph.nodes.slice(0, 3),
+      edges: [],
+      maxNodes: 160,
+      snapshotAt: SNAPSHOT,
+      sourceFoundation: payload
+    });
+    expect(scoped.foundationCensus).toEqual(layout.foundationCensus);
   });
 
   it("scopes the family:source drill to stations without inventing groups", () => {

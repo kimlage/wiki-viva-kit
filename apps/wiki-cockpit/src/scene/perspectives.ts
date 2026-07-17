@@ -236,6 +236,21 @@ export type WorldLayout = {
   // Derived non-page primitives (stream ports, pipeline lanes, flow bundles,
   // gap markers, governance plates) of the foundation profile (§7.4).
   foundationPrimitives?: SourceFoundationPrimitive[];
+  // TRUE per-band population of the foundation profile, derived ONLY from the
+  // source_foundation payload — never from the graph slice, the visibility
+  // budget or mounted nodes. The band pills read THIS, so an anchor-scoped or
+  // aggregated world still reports the world's real totals.
+  foundationCensus?: FoundationBandCensus;
+};
+
+/** Honest band totals straight from the source_foundation payload. */
+export type FoundationBandCensus = {
+  /** Every station of the payload: source + input-channel. */
+  foundation: number;
+  /** Distinct provenance pages (ingestion events + proposals) across emissions. */
+  provenance: number;
+  /** Fed pages: the payload's full target census. */
+  knowledge: number;
 };
 
 const GUIDE_COLOR = "#22303a";
@@ -2552,6 +2567,16 @@ export function sourceFoundationLayout(request: SourceFoundationWorldRequest): W
 
   const shown = nodes.length;
   const reachableTotal = stationsOnly ? placeableStations.length + (center ? 1 : 0) : request.nodes.length;
+  // TRUE band census straight from the payload (single source of truth): the
+  // band pills must state the world's real population even when the graph
+  // slice is scoped to a compiled anchor, nodes rest as aggregates, or a
+  // drill mounts stations only. provenanceSourceIds already keys every
+  // distinct event/proposal page referenced by the payload emissions.
+  const foundationCensus: FoundationBandCensus = {
+    foundation: payload.stations.length,
+    provenance: provenanceSourceIds.size,
+    knowledge: payload.targets.length
+  };
   return {
     perspective: "sources",
     level: 0,
@@ -2581,7 +2606,8 @@ export function sourceFoundationLayout(request: SourceFoundationWorldRequest): W
       occlusionPolicy: "foundation-first",
       labelPolicy: "camera-facing"
     },
-    foundationPrimitives: primitives
+    foundationPrimitives: primitives,
+    foundationCensus
   };
 }
 
