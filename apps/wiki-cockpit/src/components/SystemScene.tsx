@@ -2416,6 +2416,10 @@ export function SystemScene({
             census={census}
             makeHref={hrefFor}
             centerableIds={centerableIds}
+            // §14.3: the foundation sections read stream/recipe/closure facts
+            // from the same payload the layout was built from, and fire the
+            // SAME semantic events as the 3D derived controls.
+            sourceFoundation={route.perspective === "sources" ? sourceFoundation : undefined}
             onNodeSelect={(id) => {
               const node = nodeIndex.get(id);
               if (node) selectNode(node);
@@ -2423,6 +2427,8 @@ export function SystemScene({
             }}
             onGroupSelect={handleGroupSelect}
             onStarDrill={handleStarDrill}
+            onPortFocus={handlePortFocus}
+            onGapInspect={handleGapInspect}
           />
         </>
       ) : (

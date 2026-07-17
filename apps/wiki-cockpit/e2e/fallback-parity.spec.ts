@@ -93,6 +93,33 @@ test("forced fallback preserves route, first viewport and source/action/person/r
   await attachViewportScreenshot(page, testInfo, "chromium-forced-fallback");
 });
 
+// §14.2/§14.3: under the foundation profile the 2D plan swaps the circular
+// map for four horizontal bands, and the fallback gains navigable sections
+// whose controls fire the SAME semantic events as the 3D scene — a source
+// entry opens the SourceDock through the existing dock=source grammar.
+test("foundation fallback renders four bands and navigable sections firing the dock event", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+    window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
+    window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
+  });
+  await page.goto("/demo/w?view=sources&center=root-alex-rivera&tour=0");
+  await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/, { timeout: 20_000 });
+  await expect(page.locator(".sceneFallback .fallbackPlan")).toHaveAttribute("data-plane-profile", "foundation");
+  const nav = page.locator(".fallbackFoundation");
+  await expect(nav).toBeVisible();
+  await expect(nav.locator("[data-section]")).toHaveCount(5);
+  await expect(nav.locator('[data-section="sources"] a').first()).toBeVisible();
+  // Every section control carries an accessible name (§14.4/§14.5).
+  const unnamed = await nav.locator("a, button").evaluateAll((controls) =>
+    controls.filter((control) => !(control.getAttribute("aria-label") || control.textContent || "").trim()).length
+  );
+  expect(unnamed).toBe(0);
+  await nav.locator('[data-section="sources"] a').first().click();
+  await expect(page).toHaveURL(/[?&]dock=source/);
+  await expect(page.locator(".sourceDock")).toBeVisible({ timeout: 10_000 });
+});
+
 test("forced fallback exposes all semantic overlay tokens without moving nodes", async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");

@@ -1290,6 +1290,88 @@ button.stripChip:hover {
   line-height: 1.45;
 }
 
+/* Foundation fallback sections (§14.3): navigable Sources / Streams needing
+   attention / Open provenance / Knowledge targets / Gaps. State is never
+   color-only — every entry pairs symbol + text + count (§14.7). */
+.fallbackFoundation {
+  display: grid;
+  gap: 12px;
+}
+
+.fallbackFoundationSection {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #2b3941;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.fallbackFoundationSection h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9fb3c0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fallbackFoundationSection ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.fallbackFoundationLink {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid #2b3941;
+  border-radius: 8px;
+  background: #121a1f;
+  color: #dce7ee;
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  flex-wrap: wrap;
+}
+
+.fallbackFoundationLink:hover,
+.fallbackFoundationLink:focus {
+  background: #182126;
+  outline: 2px solid #6bd7ff;
+  outline-offset: 2px;
+}
+
+.fallbackFoundationLink small {
+  color: #aebbc5;
+  font-size: 11px;
+}
+
+.fallbackFoundationTitle {
+  font-weight: 600;
+}
+
+.fallbackFoundationSymbol {
+  font-weight: 800;
+}
+
+.fallbackFoundationEmpty {
+  color: #7c8b96;
+  font-size: 12px;
+}
+
+.fallbackFoundationMore {
+  color: #aebbc5;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .fallbackNodeGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
