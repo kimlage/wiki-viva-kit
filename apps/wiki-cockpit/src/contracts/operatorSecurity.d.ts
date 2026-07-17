@@ -26,7 +26,8 @@ export const REQUIRED_OPERATOR_CAPABILITIES: readonly [
   "operator_security_v2",
   "cors_default_deny_v1",
   "action_state_transitions_v1",
-  "admin_capabilities_v1"
+  "admin_capabilities_v1",
+  "admin_session_v1"
 ];
 
 export function validateOperatorHandshake(health: unknown): OperatorHandshakeValidation;

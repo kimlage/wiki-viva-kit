@@ -1,23 +1,39 @@
-// Admin discovery client (plan §12.1, §22.2): the parser refuses to invent
-// state, the loader never contacts the operator from the sealed demo, and an
-// old (pre-v7) operator is reported as OUTDATED — never as "locked", which
-// would imply an unlock could succeed against a process with no admin surface.
+// Admin discovery + session client (plan §12.1, §13, §22.2): the parser
+// refuses to invent state, the loader never contacts the operator from the
+// sealed demo, an old operator is reported as OUTDATED — never as "locked",
+// which would imply an unlock could succeed against a process with no admin
+// surface — and the session lifecycle keeps the token exclusively in memory.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { demoRouteRequested, fetchOperatorHealth, operatorRequest } = vi.hoisted(() => ({
+const { demoRouteRequested, fetchOperatorHealth, operatorPost, operatorRequest } = vi.hoisted(() => ({
   demoRouteRequested: vi.fn(() => false),
   fetchOperatorHealth: vi.fn(async (): Promise<unknown> => null),
+  operatorPost: vi.fn(async (): Promise<unknown> => ({ ok: false, json: async () => ({}) })),
   operatorRequest: vi.fn(async (): Promise<unknown> => ({ ok: false }))
 }));
 
 vi.mock("../world/clients/operatorClient", () => ({
   demoRouteRequested,
   fetchOperatorHealth,
+  operatorPost,
   operatorRequest
 }));
 
-import { loadAdminAccess, parseAdminCapabilities } from "./admin";
+import {
+  ADMIN_SESSION_HEADER,
+  loadAdminAccess,
+  lockAdminSession,
+  parseAdminCapabilities,
+  renewAdminSession,
+  requestAdminChallenge,
+  unlockAdminSession
+} from "./admin";
+import {
+  adminSessionActive,
+  clearAdminSession,
+  getAdminSessionToken
+} from "../application/adminSession";
 
 function v7Health() {
   return {
@@ -27,7 +43,8 @@ function v7Health() {
       "operator_security_v2",
       "cors_default_deny_v1",
       "action_state_transitions_v1",
-      "admin_capabilities_v1"
+      "admin_capabilities_v1",
+      "admin_session_v1"
     ],
     operator_security: {
       version: "wiki_operator_security.v2",
@@ -61,7 +78,28 @@ function lockedPayload() {
 afterEach(() => {
   vi.clearAllMocks();
   demoRouteRequested.mockReturnValue(false);
+  clearAdminSession();
 });
+
+function jsonResponse(status: number, payload: unknown) {
+  return { ok: status >= 200 && status < 300, status, json: async () => payload };
+}
+
+function unlockedResponse(token: string) {
+  return jsonResponse(200, {
+    ok: true,
+    token,
+    session: {
+      session_id: "session_1234",
+      role: "admin",
+      state: "active_full",
+      expires_in_s: 900,
+      idle_remaining_s: 300,
+      ttl_s: 900,
+      idle_lock_s: 300
+    }
+  });
+}
 
 describe("parseAdminCapabilities", () => {
   it("parses the locked discovery payload without inventing grants", () => {
@@ -136,5 +174,86 @@ describe("loadAdminAccess", () => {
     operatorRequest.mockResolvedValue({ ok: true, json: async () => ({ hello: "world" }) });
     const access = await loadAdminAccess();
     expect(access).toEqual({ kind: "unavailable", reason: "malformed_response" });
+  });
+
+  it("clears a stale in-memory session when the server answers locked (§22.2 remote revocation)", async () => {
+    operatorPost.mockResolvedValue(unlockedResponse("tok-a"));
+    await unlockAdminSession("challenge-1", "AAAA-2222");
+    expect(adminSessionActive()).toBe(true);
+    fetchOperatorHealth.mockResolvedValue(v7Health());
+    operatorRequest.mockResolvedValue({ ok: true, json: async () => lockedPayload() });
+    const access = await loadAdminAccess();
+    expect(access.kind).toBe("capabilities");
+    expect(adminSessionActive()).toBe(false);
+    expect(getAdminSessionToken()).toBeNull();
+  });
+});
+
+describe("admin session lifecycle (§13, §22.2)", () => {
+  it("stores the unlock token in memory only — no browser storage is touched", async () => {
+    operatorPost.mockResolvedValueOnce(jsonResponse(200, { ok: true, challenge: "ch-1", expires_in_s: 120 }));
+    const challenge = await requestAdminChallenge();
+    expect(challenge).toEqual({ ok: true, challenge: "ch-1" });
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-memory-only"));
+    const result = await unlockAdminSession("ch-1", "AAAA-2222");
+    expect(result.ok).toBe(true);
+    expect(adminSessionActive()).toBe(true);
+    expect(getAdminSessionToken()).toBe("tok-memory-only");
+    // §22.2/§13.2: nothing persisted — a reload starts from a locked page.
+    expect(globalThis.localStorage?.length ?? 0).toBe(0);
+    expect(globalThis.sessionStorage?.length ?? 0).toBe(0);
+  });
+
+  it("keeps the UI locked after a rejected code (§22.2 no falsely-active state)", async () => {
+    operatorPost.mockResolvedValueOnce(
+      jsonResponse(403, { ok: false, error_code: "admin_unlock_code_rejected" })
+    );
+    const result = await unlockAdminSession("ch-1", "WRNG-CODE");
+    expect(result).toEqual({ ok: false, errorCode: "admin_unlock_code_rejected" });
+    expect(adminSessionActive()).toBe(false);
+    expect(getAdminSessionToken()).toBeNull();
+  });
+
+  it("renew sends the session header and adopts the rotated token", async () => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-old"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-new"));
+    const result = await renewAdminSession();
+    expect(result.ok).toBe(true);
+    expect(operatorPost).toHaveBeenLastCalledWith(
+      "/admin/session/renew",
+      {},
+      expect.objectContaining({ headers: { [ADMIN_SESSION_HEADER]: "tok-old" } })
+    );
+    expect(getAdminSessionToken()).toBe("tok-new");
+  });
+
+  it("a failed renew locks the client side immediately", async () => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-old"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    operatorPost.mockResolvedValueOnce(
+      jsonResponse(403, { ok: false, error_code: "admin_session_expired" })
+    );
+    const result = await renewAdminSession();
+    expect(result).toEqual({ ok: false, errorCode: "admin_session_expired" });
+    expect(adminSessionActive()).toBe(false);
+  });
+
+  it("lock forgets the token even when the transport fails (§5.4)", async () => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-old"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    operatorPost.mockRejectedValueOnce(new Error("network down"));
+    const result = await lockAdminSession();
+    expect(result).toEqual({ ok: false, errorCode: "operator_unreachable" });
+    expect(adminSessionActive()).toBe(false);
+    expect(getAdminSessionToken()).toBeNull();
+  });
+
+  it("maps rate limiting to its typed error", async () => {
+    operatorPost.mockResolvedValueOnce(
+      jsonResponse(429, { ok: false, error_code: "admin_rate_limited" })
+    );
+    const result = await unlockAdminSession("ch-1", "AAAA-2222");
+    expect(result).toEqual({ ok: false, errorCode: "admin_rate_limited" });
   });
 });

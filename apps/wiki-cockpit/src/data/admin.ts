@@ -1,9 +1,11 @@
-// Admin discovery client (god-mode plan §6.3, §12.1, §14). READ-ONLY by
-// construction: this module only ever issues the GET discovery request, it
-// holds no token (none exists before the session milestone) and nothing it
-// returns can grant capability — the session_state it reports is the server's
-// own honest answer. Opening ?dock=admin goes through here and can therefore
-// never authorize anything (plan §14.1).
+// Admin discovery + session client (god-mode plan §6.3, §12.1, §13, §14).
+// Discovery is read-only by construction; the session calls below go through
+// the SAME operator mutation boundary as every other write (nonce +
+// attempt-key), with the session token composed on top as a header — never
+// in a URL, never in a body echo, never in storage (the in-memory store in
+// application/adminSession.ts is the only place the token exists). Opening
+// ?dock=admin goes through here and can therefore never authorize anything
+// (plan §14.1): authorization is exclusively the challenge+code unlock.
 
 import {
   operatorRestartReason,
@@ -12,8 +14,19 @@ import {
 import {
   demoRouteRequested,
   fetchOperatorHealth,
+  operatorPost,
   operatorRequest
 } from "../world/clients/operatorClient";
+import {
+  clearAdminSession,
+  getAdminSessionToken,
+  setAdminSession
+} from "../application/adminSession";
+import type { AdminSessionDescription } from "../application/adminSession";
+
+// Mirror of wiki_core/web/admin/sessions.py (ADMIN_SESSION_HEADER): the
+// session header COMPOSES with the operator nonce + attempt-key headers.
+export const ADMIN_SESSION_HEADER = "X-Wiki-Admin-Session";
 
 // The §6.3 closed state vocabulary, mirrored from
 // wiki_core/web/admin/capabilities.py (ADMIN_SESSION_STATES).
@@ -35,12 +48,21 @@ export type AdminCapabilityRecord = {
   reason?: string;
 };
 
+// Public, token-free session description as answered by the server.
+export type AdminCapabilitySession = {
+  session_id: string;
+  role: string | null;
+  state: AdminSessionState;
+  expires_in_s: number | null;
+};
+
 // GET /api/admin/capabilities (wiki_admin_capabilities.v1).
 export type AdminCapabilities = {
   schema_version: string;
   server_version: string;
   adapter: string | null;
   session_state: AdminSessionState;
+  session: AdminCapabilitySession | null;
   read_only: boolean;
   capabilities: AdminCapabilityRecord[];
 };
@@ -79,11 +101,28 @@ export function parseAdminCapabilities(payload: unknown): AdminCapabilities | nu
       reason: typeof item.reason === "string" ? item.reason : undefined
     });
   }
+  let session: AdminCapabilitySession | null = null;
+  const rawSession = record.session;
+  if (rawSession && typeof rawSession === "object" && !Array.isArray(rawSession)) {
+    const item = rawSession as Record<string, unknown>;
+    if (typeof item.session_id === "string" && item.session_id) {
+      session = {
+        session_id: item.session_id,
+        role: typeof item.role === "string" && item.role ? item.role : null,
+        state: isSessionState(item.state) ? item.state : record.session_state,
+        expires_in_s:
+          typeof item.expires_in_s === "number" && Number.isFinite(item.expires_in_s)
+            ? item.expires_in_s
+            : null
+      };
+    }
+  }
   return {
     schema_version: String(record.schema_version || ""),
     server_version: String(record.server_version || ""),
     adapter: typeof record.adapter === "string" && record.adapter ? record.adapter : null,
     session_state: record.session_state,
+    session,
     read_only: record.read_only !== false,
     capabilities
   };
@@ -114,9 +153,17 @@ export async function loadAdminAccess(options: { signal?: AbortSignal } = {}): P
     };
   }
   try {
+    // The in-memory token (if any) rides along so the server can answer with
+    // the session's real granted state. Sending it never authorizes — the
+    // server validates it against its own store and answers "locked" for
+    // anything stale (remote revocation reflects on the next request, §22.2).
+    const token = getAdminSessionToken();
     const response = await operatorRequest("/admin/capabilities", {
       method: "GET",
-      headers: { accept: "application/json" },
+      headers: {
+        accept: "application/json",
+        ...(token ? { [ADMIN_SESSION_HEADER]: token } : {})
+      },
       cache: "no-store",
       signal: options.signal
     });
@@ -127,9 +174,161 @@ export async function loadAdminAccess(options: { signal?: AbortSignal } = {}): P
     if (!payload) {
       return { kind: "unavailable", reason: "malformed_response" };
     }
+    if (token && payload.session === null) {
+      // We believed we had a session; the server says otherwise (restart,
+      // expiry, revocation). Never keep a falsely "active" UI (§22.2).
+      clearAdminSession();
+    }
     return { kind: "capabilities", payload };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error;
     return { kind: "unavailable", reason: "operator_unreachable" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Session lifecycle (god-mode plan §13.1): challenge -> unlock -> renew/lock
+// ---------------------------------------------------------------------------
+
+// Closed error vocabulary mirrored from wiki_core/web/admin/sessions.py, plus
+// the client-side transport failure.
+export type AdminSessionErrorCode =
+  | "admin_disabled"
+  | "admin_rate_limited"
+  | "admin_challenge_rejected"
+  | "admin_unlock_code_rejected"
+  | "admin_session_invalid"
+  | "admin_session_expired"
+  | "operator_unreachable";
+
+export type AdminChallengeResult =
+  | { ok: true; challenge: string }
+  | { ok: false; errorCode: AdminSessionErrorCode };
+
+export type AdminSessionResult =
+  | { ok: true; session: AdminSessionDescription }
+  | { ok: false; errorCode: AdminSessionErrorCode };
+
+export type AdminLockResult =
+  | { ok: true }
+  | { ok: false; errorCode: AdminSessionErrorCode };
+
+function errorCodeOf(payload: unknown): AdminSessionErrorCode {
+  const code =
+    payload && typeof payload === "object"
+      ? String((payload as Record<string, unknown>).error_code || "")
+      : "";
+  switch (code) {
+    case "admin_disabled":
+    case "admin_rate_limited":
+    case "admin_challenge_rejected":
+    case "admin_unlock_code_rejected":
+    case "admin_session_invalid":
+    case "admin_session_expired":
+      return code;
+    default:
+      return "operator_unreachable";
+  }
+}
+
+function describeSession(payload: Record<string, unknown>): AdminSessionDescription | null {
+  const session = payload.session;
+  if (!session || typeof session !== "object" || Array.isArray(session)) return null;
+  const item = session as Record<string, unknown>;
+  if (typeof item.session_id !== "string" || !item.session_id) return null;
+  const expiresIn =
+    typeof item.expires_in_s === "number" && Number.isFinite(item.expires_in_s)
+      ? item.expires_in_s
+      : 0;
+  return {
+    sessionId: item.session_id,
+    role: typeof item.role === "string" ? item.role : "",
+    state: typeof item.state === "string" ? item.state : "active_partial",
+    expiresAtMs: Date.now() + expiresIn * 1000,
+    ttlS: typeof item.ttl_s === "number" ? item.ttl_s : expiresIn,
+    idleLockS: typeof item.idle_lock_s === "number" ? item.idle_lock_s : 0
+  };
+}
+
+export async function requestAdminChallenge(): Promise<AdminChallengeResult> {
+  try {
+    const response = await operatorPost("/admin/session/challenge", {});
+    const payload = (await response.json()) as Record<string, unknown>;
+    if (response.ok && payload.ok === true && typeof payload.challenge === "string") {
+      return { ok: true, challenge: payload.challenge };
+    }
+    return { ok: false, errorCode: errorCodeOf(payload) };
+  } catch {
+    return { ok: false, errorCode: "operator_unreachable" };
+  }
+}
+
+/**
+ * Exchange the printed startup code + a fresh challenge for a session.
+ * On success the token goes STRAIGHT into the in-memory store; it is not
+ * returned to the caller — components never touch it.
+ */
+export async function unlockAdminSession(
+  challenge: string,
+  code: string
+): Promise<AdminSessionResult> {
+  try {
+    const response = await operatorPost("/admin/session/unlock", { challenge, code });
+    const payload = (await response.json()) as Record<string, unknown>;
+    const description = describeSession(payload);
+    if (response.ok && payload.ok === true && typeof payload.token === "string" && description) {
+      setAdminSession(payload.token, description);
+      return { ok: true, session: description };
+    }
+    return { ok: false, errorCode: errorCodeOf(payload) };
+  } catch {
+    return { ok: false, errorCode: "operator_unreachable" };
+  }
+}
+
+/** Rotate the token and extend the TTL (plan §13.2). */
+export async function renewAdminSession(): Promise<AdminSessionResult> {
+  const token = getAdminSessionToken();
+  if (!token) return { ok: false, errorCode: "admin_session_invalid" };
+  try {
+    const response = await operatorPost("/admin/session/renew", {}, {
+      headers: { [ADMIN_SESSION_HEADER]: token }
+    });
+    const payload = (await response.json()) as Record<string, unknown>;
+    const description = describeSession(payload);
+    if (response.ok && payload.ok === true && typeof payload.token === "string" && description) {
+      setAdminSession(payload.token, description);
+      return { ok: true, session: description };
+    }
+    // A failed renew means the session is gone server-side (expired,
+    // revoked, restarted). The UI must never stay "active" on hope (§22.2).
+    clearAdminSession();
+    return { ok: false, errorCode: errorCodeOf(payload) };
+  } catch {
+    return { ok: false, errorCode: "operator_unreachable" };
+  }
+}
+
+/**
+ * Lock now (§5.4): ask the server to revoke, then always forget the token
+ * locally — even when the request fails, the client side of the session is
+ * gone, and the server's own TTL/idle lock is the backstop.
+ */
+export async function lockAdminSession(): Promise<AdminLockResult> {
+  const token = getAdminSessionToken();
+  if (!token) return { ok: false, errorCode: "admin_session_invalid" };
+  try {
+    const response = await operatorPost("/admin/session/lock", {}, {
+      headers: { [ADMIN_SESSION_HEADER]: token }
+    });
+    const payload = (await response.json()) as Record<string, unknown>;
+    if (response.ok && payload.ok === true) {
+      return { ok: true };
+    }
+    return { ok: false, errorCode: errorCodeOf(payload) };
+  } catch {
+    return { ok: false, errorCode: "operator_unreachable" };
+  } finally {
+    clearAdminSession();
   }
 }

@@ -130,6 +130,7 @@ class _Server:
         attempt_key: str | None = None,
         nonce: str | None = None,
         origin: str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> tuple[int, dict[str, Any]]:
         status, body, _headers = self.post_response(
             path,
@@ -137,6 +138,7 @@ class _Server:
             attempt_key=attempt_key,
             nonce=nonce,
             origin=origin,
+            headers=headers,
         )
         return status, body
 
@@ -148,12 +150,15 @@ class _Server:
         attempt_key: str | None = None,
         nonce: str | None = None,
         origin: str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> tuple[int, dict[str, Any], dict[str, str]]:
         data = json.dumps(body).encode("utf-8")
+        extra_headers = dict(headers or {})
         headers = {
             "content-type": "application/json",
             "X-Wiki-Operator-Nonce": nonce if nonce is not None else self.server.operator_nonce,
             "X-Wiki-Attempt-Key": attempt_key or f"test-{uuid.uuid4()}",
+            **extra_headers,
         }
         if origin is not None:
             headers["Origin"] = origin

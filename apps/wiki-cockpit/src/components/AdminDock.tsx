@@ -1,16 +1,22 @@
-// AdminDock (?dock=admin): the READ-ONLY god-mode surface (plan §14, PR2).
-// It renders exactly what the operator's discovery endpoint answers — session
-// state, capability chips, versions, snapshot age — and can change nothing:
-// there is no mutation affordance in this component and no session subsystem
-// behind it yet. Opening the dock (typed command, ritual gate or raw
-// ?dock=admin URL) NEVER authorizes anything (plan §14.1): the URL is just a
-// place, the server owns the state.
+// AdminDock (?dock=admin): the god-mode surface (plan §14, PR2/PR3). It
+// renders exactly what the operator's discovery endpoint answers — session
+// state, capability chips, versions, snapshot age. Opening the dock (typed
+// command, ritual gate or raw ?dock=admin URL) NEVER authorizes anything
+// (plan §14.1): the URL is just a place, the server owns the state. The only
+// door is the unlock dialog (challenge + the one-time code printed on the
+// operator terminal), and the only session controls here are renew-free
+// unlock/lock — every other mutation waits for the command bus milestone.
 
-import { useEffect, useState } from "react";
-import { KeyRound, RefreshCw, X } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { KeyRound, Lock, RefreshCw, X } from "lucide-react";
 import { t } from "../data/i18n";
-import { loadAdminAccess } from "../data/admin";
+import { loadAdminAccess, lockAdminSession } from "../data/admin";
 import type { AdminAccess, AdminSessionState } from "../data/admin";
+import {
+  getAdminSessionDescription,
+  subscribeAdminSession
+} from "../application/adminSession";
+import { AdminUnlockDialog } from "./AdminUnlockDialog";
 import {
   REQUIRED_OPERATOR_SERVER_VERSION
 } from "../contracts/operatorSecurity.js";
@@ -46,15 +52,24 @@ export function AdminDock({
   bundle,
   demo,
   runtimeMode,
-  onClose
+  onClose,
+  onNotice
 }: {
   bundle: SnapshotBundle;
   demo: boolean;
   runtimeMode: string;
   onClose: () => void;
+  onNotice?: (text: string) => void;
 }) {
   const [access, setAccess] = useState<AdminAccess | null>(null);
   const [probe, setProbe] = useState(0);
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  // Any session transition (unlock, renew, lock, expiry) re-probes so the
+  // dock always shows the server's CURRENT answer, never a hopeful one.
+  const localSession = useSyncExternalStore(
+    subscribeAdminSession,
+    getAdminSessionDescription
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +90,7 @@ export function AdminDock({
     return () => {
       cancelled = true;
     };
-  }, [demo, probe]);
+  }, [demo, probe, localSession?.sessionId]);
 
   const payload = access?.kind === "capabilities" ? access.payload : null;
   const state: AdminSessionState = payload ? payload.session_state : "unavailable";
@@ -119,6 +134,55 @@ export function AdminDock({
                 {state === "active_readonly" && t("admin.readonly.note")}
                 {state !== "locked" && state !== "active_readonly" && t("admin.overview.sessionState", { state: stateLabel })}
               </p>
+              {state === "locked" && !demo && payload.adapter === "local_startup_code" && (
+                <div className="dockActions">
+                  <button
+                    className="primaryButton"
+                    type="button"
+                    onClick={() => setUnlockOpen(true)}
+                  >
+                    <KeyRound size={14} aria-hidden />
+                    <span>{t("admin.dock.unlock")}</span>
+                  </button>
+                </div>
+              )}
+              {payload.session && (
+                <>
+                  <dl className="adminFacts">
+                    <div>
+                      <dt>{t("admin.session.role")}</dt>
+                      <dd>
+                        <code>{payload.session.role || t("misc.noDate")}</code>
+                      </dd>
+                    </div>
+                    {typeof payload.session.expires_in_s === "number" && (
+                      <div>
+                        <dt>{t("admin.session.expires")}</dt>
+                        <dd>
+                          {t("admin.session.expiresIn", {
+                            m: Math.max(Math.ceil(payload.session.expires_in_s / 60), 1)
+                          })}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                  <div className="dockActions">
+                    <button
+                      className="secondaryButton"
+                      type="button"
+                      onClick={() => {
+                        void lockAdminSession().then(() => {
+                          onNotice?.(t("admin.strip.locked"));
+                          setProbe((value) => value + 1);
+                        });
+                      }}
+                    >
+                      <Lock size={14} aria-hidden />
+                      <span>{t("admin.dock.lock")}</span>
+                    </button>
+                  </div>
+                </>
+              )}
               <p>{t("admin.overview.capabilities", { granted, total })}</p>
               <ul className="adminCapabilityChips" aria-label={t("admin.overview.capabilitiesAria")}>
                 {payload.capabilities.map((entry) => {
@@ -216,6 +280,16 @@ export function AdminDock({
               <span>{t("admin.dock.refresh")}</span>
             </button>
           </div>
+        )}
+        {unlockOpen && !demo && (
+          <AdminUnlockDialog
+            onUnlocked={() => {
+              setUnlockOpen(false);
+              onNotice?.(t("admin.unlock.success"));
+              setProbe((value) => value + 1);
+            }}
+            onClose={() => setUnlockOpen(false)}
+          />
         )}
       </aside>
     </>

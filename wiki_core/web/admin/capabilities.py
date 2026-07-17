@@ -1,13 +1,11 @@
 """Administrative capability discovery (god-mode plan §6.3, §8, §12.1, §12.6).
 
 The payloads here are deliberately boring: deterministic dictionaries built
-from the startup-pinned config, with no timestamps, no secrets and no session
-material. Discovery NEVER grants anything — it only tells the cockpit which
-capability groups exist on this operator and why none of them is granted yet
-(`locked`: an operator exists but no session is authorized; `unavailable`:
-the config turned the admin surface off). The unlock/session machinery is a
-later milestone (plan PR3); shipping discovery first lets the Admin Dock be
-honest about its own locked state instead of pretending.
+from the startup-pinned config plus an optional already-validated session
+description, with no secrets and no session token. Discovery NEVER grants
+anything by itself — grants only appear when the caller (the server) has
+validated a session header against the in-memory store (sessions.py), and
+even then the payload carries the grant flags, never the credential.
 """
 
 from __future__ import annotations
@@ -64,6 +62,51 @@ ADMIN_CAPABILITY_GROUPS = (
     "break_glass.local",
 )
 
+# Role -> capability groups (plan §8.3). Roles COMPOSE: each row builds on
+# the previous one. session.manage belongs to every role — a session may
+# always renew or lock itself.
+_OBSERVER_CAPABILITIES = (
+    "system.inspect",
+    "config.inspect",
+    "templates.inspect",
+    "views.inspect",
+    "graph.diagnose",
+    "sources.inspect",
+    "git.inspect",
+    "agents.inspect",
+    "audit.inspect",
+    "session.manage",
+)
+_OPERATOR_CAPABILITIES = _OBSERVER_CAPABILITIES + (
+    "gates.run",
+    "sources.plan",
+    "sources.execute",
+    "snapshot.rebuild",
+)
+_MAINTAINER_CAPABILITIES = _OPERATOR_CAPABILITIES + (
+    "config.validate",
+    "config.propose",
+    "templates.propose",
+    "views.discover",
+    "views.preview",
+    "views.propose",
+    "git.propose",
+)
+_PUBLISHER_CAPABILITIES = _MAINTAINER_CAPABILITIES + ("git.publish",)
+_ADMIN_CAPABILITIES = tuple(
+    capability
+    for capability in ADMIN_CAPABILITY_GROUPS
+    if capability != "break_glass.local"
+)
+ROLE_CAPABILITIES: dict[str, tuple[str, ...]] = {
+    "observer": _OBSERVER_CAPABILITIES,
+    "operator": _OPERATOR_CAPABILITIES,
+    "maintainer": _MAINTAINER_CAPABILITIES,
+    "publisher": _PUBLISHER_CAPABILITIES,
+    "admin": _ADMIN_CAPABILITIES,
+    "rescue_admin": ADMIN_CAPABILITY_GROUPS,
+}
+
 # config `admin.local_unlock` value -> adapter id advertised in discovery.
 _ADAPTER_IDS = {"startup_code": "local_startup_code"}
 
@@ -89,40 +132,70 @@ def admin_health_summary(config: WikiConfig) -> dict[str, Any]:
     }
 
 
-def admin_capabilities_payload(config: WikiConfig) -> dict[str, Any]:
-    """GET /api/admin/capabilities (plan §12.1) — locked/read-only aware.
+def admin_capabilities_payload(
+    config: WikiConfig, session: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """GET /api/admin/capabilities (plan §12.1) — session-state aware.
 
-    Without a session subsystem the state machine has exactly two honest
-    outputs: `unavailable` (admin disabled by config) and `locked` (operator
-    present, nothing authorized). Every capability group is listed with
-    `granted: false` plus the reason, so the read-only Admin Dock can render
-    present-vs-absent chips without inventing authority. The URL that fetches
-    this payload never authorizes anything (plan §14.1).
+    Without a validated session the honest outputs are `unavailable` (admin
+    disabled by config) and `locked` (operator present, nothing authorized).
+    With a session — validated by the caller against the in-memory store,
+    NEVER by this function — grants follow the session role (§8.3). Every
+    capability group is listed with a granted flag plus the reason when not
+    granted, so the Admin Dock renders present-vs-absent chips without
+    inventing authority. The URL that fetches this payload never authorizes
+    anything (plan §14.1), and no token ever appears in it: the session block
+    carries only public description fields.
     """
 
     available = config.admin_enabled
     break_glass_allowed = config.admin_break_glass_allowed
+    role = str(session.get("role") or "") if session else ""
+    granted_set = frozenset(ROLE_CAPABILITIES.get(role, ())) if session else frozenset()
     capabilities = []
     for capability_id in ADMIN_CAPABILITY_GROUPS:
         if not available:
-            reason = "admin_disabled"
+            granted, reason = False, "admin_disabled"
         elif capability_id == "break_glass.local" and not break_glass_allowed:
-            reason = "disabled_by_config"
+            granted, reason = False, "disabled_by_config"
+        elif session is None:
+            granted, reason = False, "session_not_authorized"
+        elif capability_id in granted_set:
+            granted, reason = True, None
         else:
-            reason = "session_not_authorized"
-        capabilities.append(
-            {"id": capability_id, "granted": False, "reason": reason}
-        )
+            granted, reason = False, "role_not_authorized"
+        entry: dict[str, Any] = {"id": capability_id, "granted": granted}
+        if reason is not None:
+            entry["reason"] = reason
+        capabilities.append(entry)
+
+    if not available:
+        session_state = "unavailable"
+    elif session is None:
+        session_state = "locked"
+    else:
+        session_state = str(session.get("state") or "active_partial")
+
+    session_block = None
+    if session is not None and available:
+        # Public description only (plan §13.2): the token stays in the
+        # client's memory and the server's digest store — never here.
+        session_block = {
+            "session_id": session.get("session_id"),
+            "role": role or None,
+            "state": session_state,
+            "expires_in_s": session.get("expires_in_s"),
+            "idle_remaining_s": session.get("idle_remaining_s"),
+        }
+
     return {
         "ok": True,
         "schema_version": ADMIN_CAPABILITY_SCHEMA_VERSION,
         "server_version": ADMIN_SERVER_VERSION,
         "adapter": _adapter_id(config),
-        "session_state": "locked" if available else "unavailable",
-        # Session material is structurally absent, not empty: there is no
-        # token, code or challenge anywhere in this payload by construction.
-        "session": None,
-        "read_only": True,
+        "session_state": session_state,
+        "session": session_block,
+        "read_only": session_block is None or role == "observer",
         "session_states": list(ADMIN_SESSION_STATES),
         "capabilities": capabilities,
     }

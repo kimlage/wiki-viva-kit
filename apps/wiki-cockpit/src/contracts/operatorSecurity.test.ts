@@ -61,6 +61,18 @@ describe("shared operator security contract", () => {
       "admin_capabilities_v1"
     ],
     [
+      "missing admin session support",
+      {
+        schema_capabilities: [
+          "operator_security_v2",
+          "cors_default_deny_v1",
+          "action_state_transitions_v1",
+          "admin_capabilities_v1"
+        ]
+      },
+      "admin_session_v1"
+    ],
+    [
       "malformed capability list",
       { schema_capabilities: [...REQUIRED_OPERATOR_CAPABILITIES, "operator_security_v2"] },
       "unique non-empty strings"

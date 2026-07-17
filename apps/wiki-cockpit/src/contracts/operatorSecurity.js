@@ -15,7 +15,12 @@ export const REQUIRED_OPERATOR_CAPABILITIES = Object.freeze([
   // v7 (god-mode plan §12.7): read-only admin discovery. An operator without
   // it is an old process; the cockpit reports "outdated — restart" honestly
   // instead of rendering an Admin Dock that would 404 underneath.
-  "admin_capabilities_v1"
+  "admin_capabilities_v1",
+  // God-mode plan §13 (PR3): local admin sessions — challenge/unlock/renew/
+  // lock endpoints plus the X-Wiki-Admin-Session header composing with the
+  // nonce + attempt-key contract. A process without it predates sessions;
+  // the unlock dialog must say "restart", never POST into a 404.
+  "admin_session_v1"
 ]);
 
 function record(value) {

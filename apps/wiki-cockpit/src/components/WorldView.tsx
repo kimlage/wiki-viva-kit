@@ -11,6 +11,8 @@ import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { GOD_MODE_COMMAND_ID } from "../commands/adminCommands";
 import { isExplicitCommandDraft } from "../commands/parser";
 import type { CommandInvocation } from "../commands/types";
+import { adminSessionActive } from "../application/adminSession";
+import { lockAdminSession } from "../data/admin";
 import { t } from "../data/i18n";
 import { experiencePackView } from "../data/experiencePacks";
 import { contextLabel, pageTypeLabel, pageTypeStyle, perspectiveLabel, worldGroupDescription, worldGroupLabel } from "../data/presentation";
@@ -1459,9 +1461,16 @@ export function WorldView({
       return;
     }
     if (input.commandId === GOD_MODE_COMMAND_ID && input.args.subcommand === "off") {
-      // No session subsystem yet: there is nothing to lock, and saying so is
-      // more honest than pretending a lock happened.
-      onNotice?.(t("command.godMode.alreadyLocked"));
+      // §5.4: with an active session, `god_mode off` REALLY locks — server
+      // revokes, client forgets the in-memory token. Without one, saying
+      // "already locked" is more honest than pretending a lock happened.
+      if (adminSessionActive()) {
+        void lockAdminSession().then(() => {
+          onNotice?.(t("command.godMode.lockedNow"));
+        });
+      } else {
+        onNotice?.(t("command.godMode.alreadyLocked"));
+      }
       return;
     }
     if (input.commandId === GOD_MODE_COMMAND_ID) {

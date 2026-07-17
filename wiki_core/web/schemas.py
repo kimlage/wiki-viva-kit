@@ -45,6 +45,11 @@ SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY = "snapshot_external_freshness_v1"
 # command and audit endpoints get their own capability strings in the PRs that
 # ship them (§12.7) — never before.
 ADMIN_CAPABILITIES_CAPABILITY = "admin_capabilities_v1"
+# Local admin sessions (god-mode plan §13, PR3): challenge/unlock/renew/lock
+# endpoints plus the X-Wiki-Admin-Session header composing with the operator
+# nonce + attempt-key contract. The audit trail ships alongside but has no
+# read endpoint yet, so no admin_audit capability string exists until it does.
+ADMIN_SESSION_CAPABILITY = "admin_session_v1"
 SCHEMA_CAPABILITIES = (
     OPERATOR_SECURITY_CAPABILITY,  # nonce + bounded/idempotent POST + browser-origin policy
     CORS_DEFAULT_DENY_CAPABILITY,  # no browser CORS trust unless exact loopback origins opt in
@@ -58,6 +63,7 @@ SCHEMA_CAPABILITIES = (
     "intake",  # /api/intake/copy (add an external file into data/raw)
     "sources",  # /api/sources (entities) + /api/sources/{id}/brief
     ADMIN_CAPABILITIES_CAPABILITY,  # GET /api/admin/capabilities + health admin summary (read-only discovery)
+    ADMIN_SESSION_CAPABILITY,  # POST /api/admin/session/{challenge,unlock,renew,lock} + session header
 )
 
 SNAPSHOT_FILES = (

@@ -264,11 +264,18 @@ gates.
 The local mutation handshake is `wiki_web_server.v7` with
 `operator_security_v2`, `cors_default_deny_v1`,
 `action_state_transitions_v1`, `filesystem_snapshot_publication_v1`,
-`admin_capabilities_v1` and
+`admin_capabilities_v1`, `admin_session_v1` and
 `wiki_operator_security.v2`. It preserves origin-less CLI and same-origin proxy
 requests, denies browser CORS trust by default, and permits only exact loopback
 origins configured explicitly at startup. A cockpit paired with the prior v1
 security contract fails closed and asks for an operator restart before POST.
+Admin sessions (`admin_session_v1`) are local-adapter only: a single-use,
+expiring unlock code printed to the operator's stdout is exchanged — together
+with a fresh challenge nonce — for an opaque in-memory session token sent as
+`X-Wiki-Admin-Session` ON TOP of the nonce + attempt-key headers. TTL and idle
+locks expire it server-side, renew rotates it, lock and process restart revoke
+it, and every lifecycle event lands in the redacted, hash-chained audit trail
+at `data/derived/wiki/admin/audit.jsonl`.
 
 ## Source lifecycle
 

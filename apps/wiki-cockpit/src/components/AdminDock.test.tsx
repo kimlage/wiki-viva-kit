@@ -60,6 +60,7 @@ function lockedAccess(): AdminAccess {
       server_version: "wiki_admin.v1",
       adapter: "local_startup_code",
       session_state: "locked",
+      session: null,
       read_only: true,
       capabilities: [
         { id: "system.inspect", granted: false, reason: "session_not_authorized" },
@@ -86,9 +87,11 @@ describe("AdminDock — §6.3 states, read-only", () => {
     // Every chip is text-labelled "not granted" — never a color-only signal.
     expect(screen.getAllByText(t("admin.capability.notGranted"))).toHaveLength(3);
     expect(screen.getByText("system.inspect")).toBeTruthy();
-    // Read-only surface: the only buttons are close and the read-only re-check.
+    // Locked surface: close, the unlock gate (PR3) and the read-only
+    // re-check — still zero mutation affordances beyond the session door.
     const buttons = screen.getAllByRole("button").map((el) => el.getAttribute("aria-label") || el.textContent);
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(3);
+    expect(buttons).toContain(t("admin.dock.unlock"));
   });
 
   it("stays sealed in the demo: unavailable copy and no discovery request at all", () => {

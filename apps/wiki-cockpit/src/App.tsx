@@ -21,6 +21,7 @@ import {
 import type { ReactNode } from "react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminDock } from "./components/AdminDock";
+import { AdminStatusStrip } from "./components/AdminStatusStrip";
 import { BlocksDock } from "./components/BlocksDock";
 import { AppearanceControl } from "./components/AppearanceControl";
 // CreateDock and the genesis guide render inside WorldView now — the create
@@ -2023,6 +2024,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             demo={route.demo}
             runtimeMode={loadState.runtime.mode || loadState.bundle.manifest.mode}
             onClose={closeRequestedDock}
+            onNotice={notify}
           />
         )}
         {/* dock=create is answered INSIDE WorldView: the spatial seed flow in
@@ -2072,6 +2074,12 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             <CommandOutput result={commandResult} />
           </div>
         )}
+        {/* Persistent session indicator (plan §14.4): renders only while an
+            administrative session is active; its absence IS the locked state. */}
+        <AdminStatusStrip
+          onNotice={notify}
+          onOpenDock={() => navigate(hrefForWorldPatch(navWorld, { dock: "admin" }))}
+        />
         {busyAction && (
           <div className="actionToast running" role="status">
             <span className="toastSpinner" aria-hidden />
