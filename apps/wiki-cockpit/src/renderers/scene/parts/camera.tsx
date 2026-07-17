@@ -97,6 +97,28 @@ export function foundationCameraPose(
   };
 }
 
+// R4 band navigation: clicking a band label frames THAT band with the same
+// registered lower-hemisphere pose (phi/hemisphere unchanged — no free
+// flight). The target rides the band's exact structural level and the
+// distance tightens slightly so the framed band reads as the subject. Null
+// outside the foundation profile or with no framed band — the default §6.4
+// pose applies.
+export const FOUNDATION_BAND_FRAME_DISTANCE_MULTIPLIER = 0.6;
+
+export function foundationBandFramePose(
+  layout: Pick<WorldLayout, "planeProfile">,
+  fitDistance: number,
+  plane: WorldPlaneId | null | undefined
+): { target: [number, number, number]; distance: number; phi: number } | null {
+  if (!plane || cameraHemisphereForLayout(layout) !== "lower" || !layout.planeProfile) return null;
+  const level = layout.planeProfile.levels[plane];
+  return {
+    target: [0, level, 0],
+    distance: fitDistance * FOUNDATION_BAND_FRAME_DISTANCE_MULTIPLIER,
+    phi: SOURCE_FOUNDATION_CAMERA.phi
+  };
+}
+
 // --- outer_arc path (§11.3) -------------------------------------------------
 // A: retreat beyond the clearance radius; B: shift the look target into the
 // outer corridor; C: interpolate phi across the horizon outside geometry;
@@ -368,6 +390,7 @@ export function CameraDirector({
   lockedNode,
   flyToNode = null,
   travelVia = null,
+  frameBand = null,
   enableIntro,
   motion,
   motionScale = 1,
@@ -377,6 +400,9 @@ export function CameraDirector({
   layout: WorldLayout;
   layoutRequestResolved: boolean;
   lockedNode: LayoutNode | null;
+  // R4: ephemeral band framing inside the foundation profile — a clicked band
+  // label reframes the registered pose onto that band. Never route state.
+  frameBand?: WorldPlaneId | null;
   // A transient CINEMATIC target (a newborn entity): the camera glides to it
   // without locking the page — the birth is WITNESSED, then control returns.
   flyToNode?: LayoutNode | null;
@@ -469,7 +495,9 @@ export function CameraDirector({
     // framing (§6.4) applies when nothing more specific frames the world.
     const hemisphere = cameraHemisphereForLayout(layout);
     const foundationPose =
-      !lockedNode && !flyToNode && !regionTarget ? foundationCameraPose(layout, fitDistance) : null;
+      !lockedNode && !flyToNode && !regionTarget
+        ? foundationBandFramePose(layout, fitDistance, frameBand) ?? foundationCameraPose(layout, fitDistance)
+        : null;
     const baseDesiredTarget = regionTarget
       ? regionTarget.clone().multiplyScalar(lockedNode ? 0.72 : 0.62)
       : lockedNode
@@ -495,7 +523,7 @@ export function CameraDirector({
             : fitDistance;
     const desiredDistance = foundationPose ? foundationPose.distance : baseDesiredDistance;
     const centerId = layout.nodes.find((node) => node.isRoot)?.id ?? "";
-    const baseKey = `${hemisphere}:${layout.perspective}:${layout.level}:${layout.group ?? ""}:${centerId}:${(layout.cameraTarget ?? []).map((n) => n.toFixed(1)).join(",")}:${fitDistance.toFixed(2)}`;
+    const baseKey = `${hemisphere}:${layout.perspective}:${layout.level}:${layout.group ?? ""}:${centerId}:${(layout.cameraTarget ?? []).map((n) => n.toFixed(1)).join(",")}:${fitDistance.toFixed(2)}:${frameBand ?? ""}`;
     const key = `${baseKey}:${lockedNode?.id ?? ""}:${flyToNode?.id ?? ""}:${(travelVia ?? []).map((n) => n.toFixed(1)).join(",")}`;
     if (cameraRequestMustWait(layoutRequestResolved)) {
       // Route state is ahead of the exact worker result. Cancel the obsolete
@@ -660,7 +688,7 @@ export function CameraDirector({
       invalidate();
     }
     invalidate();
-  }, [camera, cameraTargetKey, enableIntro, fitDistance, flyToNode, invalidate, layout, layout.group, layout.level, layout.perspective, layoutRequestResolved, lockedNode, motion, motionScale, reportMotionState, transition.duration, transition.intent, transition.sequence, travelVia]);
+  }, [camera, cameraTargetKey, enableIntro, fitDistance, flyToNode, frameBand, invalidate, layout, layout.group, layout.level, layout.perspective, layoutRequestResolved, lockedNode, motion, motionScale, reportMotionState, transition.duration, transition.intent, transition.sequence, travelVia]);
 
   useFrame((state) => {
     const anim = animation.current;

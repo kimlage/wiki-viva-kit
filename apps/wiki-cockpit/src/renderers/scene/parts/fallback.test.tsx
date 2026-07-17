@@ -16,6 +16,7 @@ import { computeWorldLayout } from "../../../scene/perspectives";
 import type { SourceFoundationWorldRequest, SourceStreamPort, WorldLayout, WorldRequest } from "../../../scene/perspectives";
 import { SOURCE_FOUNDATION_LEVELS } from "../../../world/contracts";
 import type { GapMarkerSpec } from "./source-foundation";
+import { sourceGapSummary } from "./source-foundation";
 import { sceneCensus } from "./hud";
 import {
   FOUNDATION_PLAN_BAND_ORDER,
@@ -458,12 +459,18 @@ describe("foundationFallbackSections (§14.3/§14.5)", () => {
     expect(byId.get("insight-declared")).toContain("declared only");
   });
 
-  it("carries the typed gaps with localized text and honest counts", () => {
-    const sections = foundationFallbackSections(foundationLayout(), fixture().payload)!;
-    expect(sections.gaps.items).toHaveLength(3);
-    const never = sections.gaps.items.find((gap) => gap.code === "source_never_synced")!;
-    expect(never.aria).toContain(t("source_foundation.diagnostics.source_never_synced"));
-    expect(never.count).toBe(2);
+  it("carries the typed gaps as the SAME grouped census the HUD panel shows (R5 parity)", () => {
+    const layout = foundationLayout();
+    const sections = foundationFallbackSections(layout, fixture().payload)!;
+    const census = sourceGapSummary(layout);
+    // Same groups, same order, same TRUE occurrence counts as the HUD panel.
+    expect(sections.gaps.items.map((group) => [group.code, group.occurrenceCount])).toEqual(
+      census.groups.map((group) => [group.code, group.occurrenceCount])
+    );
+    expect(sections.gapTotal).toBe(census.total);
+    const never = sections.gaps.items.find((group) => group.code === "source_never_synced")!;
+    expect(never.label).toBe(t("source_foundation.diagnostics.source_never_synced"));
+    expect(never.occurrenceCount).toBe(2);
   });
 
   it("reports stations hidden by the node budget through the cluster-star count", () => {

@@ -953,7 +953,18 @@ function circleSegments(center: [number, number, number], radius: number, out: n
   }
 }
 
-function FoundationBandGuides({ layout, morph }: { layout: WorldLayout; morph: RefObject<MorphState> }) {
+function FoundationBandGuides({
+  layout,
+  morph,
+  framedBand = null,
+  onBandFrame
+}: {
+  layout: WorldLayout;
+  morph: RefObject<MorphState>;
+  // R4: the currently framed band (aria-pressed) and the frame dispatch.
+  framedBand?: WorldPlaneId | null;
+  onBandFrame?: (plane: WorldPlaneId) => void;
+}) {
   const guides = useMemo(() => foundationPlaneGuides(layout), [layout]);
   const segments = useMemo(() => {
     const out: number[] = [];
@@ -965,7 +976,8 @@ function FoundationBandGuides({ layout, morph }: { layout: WorldLayout; morph: R
     <group>
       <FadingLineSegments segments={segments} color="#22303a" baseOpacity={0.55} morph={morph} renderOrder={1} />
       {/* R1: STRONG band names + honest aggregate counts — the 5-second read.
-          The label is the band's identity, the count line is its true census. */}
+          R4: the pill is first-class navigation — activating it frames that
+          band with the registered camera pose (never free flight). */}
       {guides.map((guide) => (
         <Html
           key={guide.plane}
@@ -976,10 +988,17 @@ function FoundationBandGuides({ layout, morph }: { layout: WorldLayout; morph: R
           className="foundationBandLabel"
           zIndexRange={[18, 0]}
         >
-          <span>
+          <button
+            type="button"
+            data-band-pill={guide.plane}
+            aria-pressed={framedBand === guide.plane}
+            aria-label={t("source_foundation.band.frameAria", { label: t(guide.labelKey) })}
+            title={t("source_foundation.band.frameAria", { label: t(guide.labelKey) })}
+            onClick={() => onBandFrame?.(guide.plane)}
+          >
             <strong>{t(guide.labelKey)}</strong>
             {guide.countText && <small>{guide.countText}</small>}
-          </span>
+          </button>
         </Html>
       ))}
     </group>
@@ -1735,11 +1754,13 @@ export function SourceFoundationPart({
   hoveredId = "",
   lens = "",
   trace = null,
+  framedBand = null,
   morph,
   onPortFocus,
   onLaneInspect,
   onGapInspect,
-  onPlateOpen
+  onPlateOpen,
+  onBandFrame
 }: {
   layout: WorldLayout;
   quality: string;
@@ -1751,11 +1772,14 @@ export function SourceFoundationPart({
   lens?: string;
   // §12.6: selection-driven trace highlight — ephemeral, never route state.
   trace?: TraceHighlight | null;
+  // R4: ephemeral band framing state (never route state).
+  framedBand?: WorldPlaneId | null;
   morph: RefObject<MorphState>;
   onPortFocus: (port: SourceStreamPort) => void;
   onLaneInspect: (lane: LaneRenderSpec) => void;
   onGapInspect: (marker: GapMarkerSpec) => void;
   onPlateOpen: (plate: GovernancePlateSpec) => void;
+  onBandFrame?: (plane: WorldPlaneId) => void;
 }) {
   const handlePortFocus = useCallback((port: SourceStreamPort) => onPortFocus(port), [onPortFocus]);
   const emphasis = useMemo(() => sourceStateEmphasis(layout, lens), [layout, lens]);
@@ -1767,7 +1791,7 @@ export function SourceFoundationPart({
   if (!isFoundationProfile(layout)) return null;
   return (
     <group>
-      <FoundationBandGuides layout={layout} morph={morph} />
+      <FoundationBandGuides layout={layout} morph={morph} framedBand={framedBand} onBandFrame={onBandFrame} />
       <FoundationProposalStemsLayer layout={layout} morph={morph} />
       <FoundationConduits layout={layout} morph={morph} focusIds={focusIds} />
       <FoundationFlowBundles

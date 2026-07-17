@@ -16,6 +16,8 @@ import {
   centeredGroupCameraPhi,
   centeredGroupSafeAreaDistanceMultiplier,
   clampPhiToHemisphere,
+  FOUNDATION_BAND_FRAME_DISTANCE_MULTIPLIER,
+  foundationBandFramePose,
   foundationCameraPose,
   foundationSelectionReleaseHold,
   hoverInspectionCameraTarget,
@@ -307,6 +309,26 @@ describe("hemisphere resolution (§11.2)", () => {
     const angle = Math.acos(dot / (Math.hypot(...view) * Math.hypot(...toCore)));
     expect(angle).toBeLessThan((40 / 2) * (Math.PI / 180));
     expect(foundationCameraPose(upperLayout(), 17.6)).toBeNull();
+  });
+
+  it("frames a clicked band at ITS structural level with the registered pose (R4 — no free flight)", () => {
+    const layout = foundationLayout();
+    for (const plane of ["core", "knowledge", "provenance", "foundation"] as const) {
+      const pose = foundationBandFramePose(layout, 17.6, plane)!;
+      expect(pose).not.toBeNull();
+      // Target rides the band's exact structural Y — never an invented level.
+      expect(pose.target).toEqual([0, SOURCE_FOUNDATION_LEVELS[plane], 0]);
+      // Same registered lower phi as the resting pose: framing, not free flight.
+      expect(pose.phi).toBe(SOURCE_FOUNDATION_CAMERA.phi);
+      expect(phiHemisphere(pose.phi)).toBe("lower");
+      // Tighter than the resting fit but above the orbit minimum (0.18 × fit).
+      expect(pose.distance).toBeCloseTo(17.6 * FOUNDATION_BAND_FRAME_DISTANCE_MULTIPLIER);
+      expect(FOUNDATION_BAND_FRAME_DISTANCE_MULTIPLIER).toBeLessThan(SOURCE_FOUNDATION_CAMERA.distanceMultiplier);
+      expect(FOUNDATION_BAND_FRAME_DISTANCE_MULTIPLIER).toBeGreaterThan(0.18);
+    }
+    // Null without a band, outside the foundation profile, or in the upper world.
+    expect(foundationBandFramePose(layout, 17.6, null)).toBeNull();
+    expect(foundationBandFramePose(upperLayout(), 17.6, "foundation")).toBeNull();
   });
 
   it("holds the exact camera pose when a foundation selection is released (R3)", () => {

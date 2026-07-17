@@ -187,6 +187,30 @@ describe("WorldNavigator", () => {
     }
   });
 
+  it("R6: opened from view=sources it leads with 'how to read this view' over a scrim and collapses the catalog", () => {
+    const { container } = setup({ expanded: true, view: "sources" });
+
+    // Dimmed backdrop: the guide never renders over the live world alone.
+    expect(container.querySelector(".worldNavigatorScrim")).toBeTruthy();
+    // FIRST section is the sources reading guide…
+    const sections = container.querySelectorAll("[data-experience-section]");
+    expect(sections[0]?.getAttribute("data-experience-section")).toBe("sources-reading");
+    // …with exactly the four band one-liners and the three click hints.
+    expect(container.querySelectorAll("[data-guide-band]")).toHaveLength(4);
+    expect(
+      [...container.querySelectorAll("[data-guide-band]")].map((row) => row.getAttribute("data-guide-band"))
+    ).toEqual(["foundation", "provenance", "knowledge", "core"]);
+    expect(container.querySelectorAll(".worldNavigatorClickGuide li")).toHaveLength(3);
+    // The color legend mirrors the ACTIVE overlay's token states.
+    expect(container.querySelector("[data-guide-overlay]")?.getAttribute("data-guide-overlay")).toBe("freshness");
+    expect(container.querySelectorAll("[data-guide-color]").length).toBeGreaterThan(0);
+    // Everything else (views catalog, lenses, overlays) collapses below.
+    const rest = container.querySelector("details[data-experience-rest]");
+    expect(rest).toBeTruthy();
+    expect(rest!.querySelector('[data-view-card="quadrants"]')).toBeTruthy();
+    expect(rest!.querySelector("[data-overlay-card]")).toBeTruthy();
+  });
+
   it("dispatches expanded view, overlay and quadrant-lens choices without conflating them", () => {
     const { container, onViewChange, onOverlayChange, onLensChange } = setup({ expanded: true });
 

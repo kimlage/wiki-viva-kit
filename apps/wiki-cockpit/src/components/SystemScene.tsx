@@ -82,7 +82,7 @@ import {
   sustainedPerformanceFallbackRequired
 } from "../world/performance";
 import type { RuntimePerformanceEvidence } from "../world/performance";
-import type { OverlayId, RuntimeMode, ViewId } from "../world/contracts";
+import type { OverlayId, RuntimeMode, ViewId, WorldPlaneId } from "../world/contracts";
 import { motionDurationSeconds, overlayResolveDurationMs } from "../world/visual/motionGrammar";
 import type { MotionIntent } from "../world/visual/motionGrammar";
 
@@ -708,6 +708,8 @@ function SceneContent({
   selectedId,
   lens,
   trace,
+  framedBand = null,
+  onBandFrame,
   highlightedIds,
   approvalIds,
   focusedGroupKey,
@@ -767,6 +769,9 @@ function SceneContent({
   // state beyond `lens`.
   lens: string;
   trace: TraceHighlight | null;
+  // R4: ephemeral band framing state + the pill dispatch (never route state).
+  framedBand?: WorldPlaneId | null;
+  onBandFrame?: (plane: WorldPlaneId) => void;
   highlightedIds: Set<string>;
   approvalIds: Set<string>;
   focusedGroupKey: string;
@@ -1095,6 +1100,8 @@ function SceneContent({
           hoveredId={hoveredId}
           lens={lens}
           trace={trace}
+          framedBand={framedBand}
+          onBandFrame={onBandFrame}
           morph={morph}
           onPortFocus={onPortFocus}
           onLaneInspect={onLaneInspect}
@@ -1232,6 +1239,7 @@ function SceneContent({
         lockedNode={lockedNode}
         flyToNode={flyToId ? layoutNodeIndex(layout).get(flyToId) ?? null : null}
         travelVia={physicalDrillOrigin}
+        frameBand={framedBand}
         enableIntro={profile.enableIntro}
         motion={motion}
         motionScale={visualTuning.motion}
@@ -1381,6 +1389,7 @@ export function SystemScene({
   guide = null,
   takezo = null,
   onSourceGapSummary,
+  onGapChipActivate,
   onMarkerResolve,
   onMarkerDismiss,
   onNavigate,
@@ -1439,6 +1448,8 @@ export function SystemScene({
   // (severity → occurrence count, grouped by diagnostic code, TRUE totals).
   // The HUD milestone wires this into the "Lacunas" panel.
   onSourceGapSummary?: (summary: SourceGapSummary) => void;
+  // R5: activating the "Gaps — N" chip opens the host's ranked census panel.
+  onGapChipActivate?: () => void;
   onMarkerResolve?: (pageId: string) => void;
   onMarkerDismiss?: (pageId: string) => void;
   onNavigate?: (patch: ScenePatch) => void;
@@ -1739,6 +1750,9 @@ export function SystemScene({
   // SourceDock (never a URL parameter, never a breadcrumb change).
   const [trace, setTrace] = useState<TraceHighlight | null>(null);
   useEffect(() => subscribeSourceTrace(setTrace), []);
+  // R4 band navigation: ephemeral band framing (never a URL parameter). A
+  // selection takes framing priority, so an active lock clears the band.
+  const [framedBand, setFramedBand] = useState<WorldPlaneId | null>(null);
   const traceIds = useMemo(() => traceHighlightIds(layout, trace), [layout, trace]);
   // §12.7 lens=source_state: attention stations join the highlight set so the
   // scene emphasizes them (and dims the rest) without moving a single node.
@@ -2047,9 +2061,27 @@ export function SystemScene({
   useEffect(() => {
     setFocusedGroupIndex(-1);
     setFocusedNodeIndex(-1);
-    // A view/level change invalidates the ephemeral trace subject.
+    // A view/level change invalidates the ephemeral trace subject and the
+    // ephemeral band framing.
     setTrace(null);
+    setFramedBand(null);
   }, [layout.perspective, layout.level, layout.context, layout.group]);
+
+  // R4: a page selection owns the camera subject; the band framing yields so
+  // the later deselection release-hold (R3) keeps the exact pose.
+  useEffect(() => {
+    if (selectedId) setFramedBand(null);
+  }, [selectedId]);
+
+  // R4: a clicked band pill frames that band — reuse of the registered lower
+  // pose through CameraDirector, announced for screen readers.
+  const handleBandFrame = useCallback(
+    (plane: WorldPlaneId) => {
+      setFramedBand(plane);
+      announce(t("source_foundation.band.framed", { label: t(`source_foundation.band.${plane}`) }));
+    },
+    [announce]
+  );
 
   const selectNode = useCallback(
     (node: LayoutNode) => {
@@ -2551,6 +2583,8 @@ export function SystemScene({
                 selectedId={selectedId}
                 lens={worldLens}
                 trace={trace}
+                framedBand={framedBand}
+                onBandFrame={handleBandFrame}
                 highlightedIds={highlightedIds}
                 approvalIds={approvalIds}
                 focusedGroupKey={focusedGroupKey}
@@ -2638,13 +2672,21 @@ export function SystemScene({
           {census.total >= 3 && (
             <StatusStrip census={census} filter={filter} onFilter={(key) => navigate({ filter: key })} />
           )}
-          {/* R2: the world shows at most a bounded set of gap markers; the
-              complete census lives here with its TRUE total. The HUD milestone
-              wires this chip into the gaps panel. */}
+          {/* R2/R5: the world shows at most a bounded set of gap markers; the
+              complete census lives here with its TRUE total, and activating
+              the chip opens the host's ranked gaps panel. */}
           {gapSummary && gapSummary.total > 0 && (
-            <output className="worldGapChip" data-testid="world-gap-chip" data-gap-total={gapSummary.total}>
+            <button
+              type="button"
+              className="worldGapChip"
+              data-testid="world-gap-chip"
+              data-gap-total={gapSummary.total}
+              title={t("source_foundation.gaps.chipOpen")}
+              aria-label={`${t("source_foundation.gaps.chip", { n: gapSummary.total })} — ${t("source_foundation.gaps.chipOpen")}`}
+              onClick={() => onGapChipActivate?.()}
+            >
               {t("source_foundation.gaps.chip", { n: gapSummary.total })}
-            </output>
+            </button>
           )}
           {/* Minimap: persistent overview disc; M or click expands it as an
               instant, motion-free zoom-to-galaxy. Hidden while the reader dock

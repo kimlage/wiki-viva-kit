@@ -52,6 +52,15 @@ import {
 } from "./world/MissionCard";
 import type { MissionRow } from "./world/MissionCard";
 import { PacketTray } from "./world/PacketTray";
+import {
+  persistSourcesFirstRunDismissed,
+  SourceGapsPanel,
+  SourcesFirstRunCard,
+  sourcesFirstRunDismissed,
+  SourcesSummaryPanel,
+  suggestedAttentionStation
+} from "./world/SourceFoundationPanels";
+import type { GapMarkerSpec, SourceGapSummary } from "../renderers/scene/parts/source-foundation";
 import { WorldNavigator } from "./world/WorldNavigator";
 import { useSurfacePresence } from "./world/useSurfacePresence";
 import { isNativeWorldViewId } from "../world/experience";
@@ -616,6 +625,11 @@ export function WorldView({
   const [missionCardOpen, setMissionCardOpen] = useState(missionCardPref);
   const [worldNavigatorOpen, setWorldNavigatorOpen] = useState(false);
   const [visualPanelOpen, setVisualPanelOpen] = useState(false);
+  // R5: the gap census of the RESOLVED foundation layout (true totals) and
+  // the ranked panel it opens; R7: the sources first-run explainer.
+  const [sourceGapCensus, setSourceGapCensus] = useState<SourceGapSummary | null>(null);
+  const [gapsPanelOpen, setGapsPanelOpen] = useState(false);
+  const [sourcesFirstRunOpen, setSourcesFirstRunOpen] = useState(false);
   const [overlayResolving, setOverlayResolving] = useState(false);
   const overlayResolvingRef = useRef(false);
   const overlayResolveTimerRef = useRef<number | null>(null);
@@ -2117,6 +2131,48 @@ export function WorldView({
     ? t(`world.experience.view.${navigatorView}.description`)
     : compatibilityNavigatorView?.hint ?? "";
 
+  // --- R5/R7: sources-view HUD context ---------------------------------------
+  // Inside view=sources the quadrant instruments yield to a compact "Sources"
+  // summary + the ranked gaps panel; a compact first-run card explains the
+  // foundation once (localStorage-dismissible). All counts are TRUE payload /
+  // layout-census numbers.
+  const sourcesViewActive = effectivePerspective === "sources" && Boolean(bundle.sourceFoundation);
+  useEffect(() => {
+    if (effectivePerspective !== "sources") {
+      setGapsPanelOpen(false);
+      setSourcesFirstRunOpen(false);
+      return;
+    }
+    setSourcesFirstRunOpen(
+      !sourcesFirstRunDismissed(typeof window === "undefined" ? null : window.localStorage)
+    );
+  }, [effectivePerspective]);
+  const sourceStateLensActive = worldState.lens === "source_state";
+  const toggleSourceStateLens = () =>
+    dispatchRuntime({ type: "setLens", lens: sourceStateLensActive ? "all" : "source_state" });
+  const handleGapSeeOnMap = (marker: GapMarkerSpec) => {
+    setGapsPanelOpen(false);
+    if (marker.sourceId) {
+      navigateWorld({ pageId: marker.sourceId, dock: "source", src: marker.sourceId, reader: false });
+    } else if (marker.canonicalEntityId) {
+      navigateWorld({ pageId: marker.canonicalEntityId, reader: false });
+    }
+  };
+  const firstRunSuggestion = useMemo(
+    () => suggestedAttentionStation(bundle.sourceFoundation),
+    [bundle.sourceFoundation]
+  );
+  const dismissSourcesFirstRun = (options: { never: boolean }) => {
+    if (options.never) {
+      persistSourcesFirstRunDismissed(typeof window === "undefined" ? null : window.localStorage);
+    }
+    setSourcesFirstRunOpen(false);
+  };
+  const openFirstRunSuggestion = (pageId: string) => {
+    setSourcesFirstRunOpen(false);
+    navigateWorld({ pageId, dock: "source", src: pageId, reader: false });
+  };
+
   const sceneRoute = {
     perspective: effectivePerspective,
     runtimeMode: worldState.mode,
@@ -2198,6 +2254,8 @@ export function WorldView({
               }
             : null
         }
+        onSourceGapSummary={setSourceGapCensus}
+        onGapChipActivate={() => setGapsPanelOpen(true)}
         onMarkerResolve={
           !route.demo && onComposeBrief
             ? (pageId) => {
@@ -2257,6 +2315,19 @@ export function WorldView({
               navigateWorld({ packView: contribution, dock: null, reader: false });
             }}
           />
+          {/* R4: one-click return to the default quadrants world from the
+              foundation view — persistent, next to the view switcher. */}
+          {effectivePerspective === "sources" && (
+            <button
+              type="button"
+              className="worldQuadrantsReturn"
+              data-quadrants-return
+              title={t("source_foundation.nav.quadrantsTitle")}
+              onClick={() => navigateWorld({ view: "quadrants", context: null, group: null, worldGroup: null, pageId: null, reader: false })}
+            >
+              {t("source_foundation.nav.quadrants")}
+            </button>
+          )}
           {bundle.manifest.compatibility?.state !== "current" && (
             <aside className="snapshotCompatibilityNotice" role="alert">
               <strong>{t("snapshot.compatibility.title")}</strong>
@@ -2499,10 +2570,39 @@ export function WorldView({
           </section>
         )}
 
+        {/* R5: inside view=sources the quadrant lens cards/chips belong to the
+            quadrants context and compete for attention — the compact "Sources"
+            summary replaces them (true payload counts, lens emphasis reuse). */}
+        {sourcesViewActive && !temporalViewActive && !packSurfaceActive && bundle.sourceFoundation && (
+          <SourcesSummaryPanel
+            payload={bundle.sourceFoundation}
+            gapTotal={sourceGapCensus?.total ?? null}
+            lensActive={sourceStateLensActive}
+            onToggleLens={toggleSourceStateLens}
+            onOpenGaps={() => setGapsPanelOpen(true)}
+          />
+        )}
+        {sourcesViewActive && gapsPanelOpen && sourceGapCensus && sourceGapCensus.total > 0 && (
+          <SourceGapsPanel
+            summary={sourceGapCensus}
+            onSeeOnMap={handleGapSeeOnMap}
+            onClose={() => setGapsPanelOpen(false)}
+          />
+        )}
+        {/* R7: compact first-run explainer — plain DOM, no motion, honest. */}
+        {sourcesViewActive && sourcesFirstRunOpen && !temporalViewActive && !packSurfaceActive && (
+          <SourcesFirstRunCard
+            suggestion={firstRunSuggestion}
+            onOpenSuggestion={openFirstRunSuggestion}
+            onDismiss={dismissSourcesFirstRun}
+          />
+        )}
+
         {/* QUADRANT compass: each cell selects a conceptual lens and moves the
             camera inside the same 3D world. Counts are honest home-quadrant
-            totals + core; no quadrant cell is a replacement center object. */}
-        {quadrantCounts && activeCenterHasQuadrants && !temporalViewActive && (
+            totals + core; no quadrant cell is a replacement center object.
+            R5: it never renders inside view=sources (see above). */}
+        {quadrantCounts && activeCenterHasQuadrants && !temporalViewActive && effectivePerspective !== "sources" && (
           <div
             className={[
               "quadrantCompass",

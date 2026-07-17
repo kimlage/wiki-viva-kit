@@ -20,6 +20,7 @@ import type { LucideIcon } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { t } from "../../data/i18n";
+import { SEMANTIC_VISUAL_TOKENS } from "../../data/visualEncoding";
 import { humanizePackIdentifier } from "../../data/experiencePacks";
 import type { LensId, OverlayId } from "../../world/contracts";
 import type { ExperiencePackComposition, ExperiencePackSlot } from "../../types";
@@ -187,6 +188,162 @@ export function WorldNavigator({
     changeExpanded(false);
   };
 
+  // R6: opened from view=sources the guide leads with "how to read this
+  // view"; the full catalog (views/packs/lenses/overlays) collapses below.
+  const sourcesReading = view === "sources";
+  const overlayTokenStates = Object.entries(SEMANTIC_VISUAL_TOKENS[overlay]?.states ?? {});
+
+  const catalogSections = (
+    <>
+      <section className="worldNavigatorMentalModel" aria-labelledby={`${resolvedPanelId}-mental-model`}>
+        <h3 id={`${resolvedPanelId}-mental-model`}>{translate(WORLD_EXPERIENCE_KEYS.mentalModelTitle)}</h3>
+        <ol>
+          {WORLD_EXPERIENCE_AXES.map((axis) => (
+            <li key={axis.id} data-experience-axis={axis.id}>
+              <ExperienceIcon id={axis.icon} size={17} />
+              <span>
+                <strong>{translate(axis.labelKey)}</strong>
+                <small>{translate(axis.descriptionKey)}</small>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section
+        className="worldNavigatorSection"
+        aria-labelledby={`${resolvedPanelId}-views`}
+        data-experience-section="views"
+      >
+        <header>
+          <h3 id={`${resolvedPanelId}-views`}>{translate(WORLD_EXPERIENCE_KEYS.viewsTitle)}</h3>
+          <p>{translate(WORLD_EXPERIENCE_KEYS.viewsIntro)}</p>
+        </header>
+        <div className="worldNavigatorCardGrid worldNavigatorViewCards">
+          {viewExperiences.map((option) => {
+            const descriptionId = `${resolvedPanelId}-view-${option.id}`;
+            return (
+              <button
+                key={option.id}
+                className={view === option.id ? "worldNavigatorCard active" : "worldNavigatorCard"}
+                type="button"
+                aria-pressed={view === option.id}
+                aria-describedby={unavailableViewSet.has(option.id) ? `${descriptionId} ${unavailableViewsId}` : descriptionId}
+                data-view-card={option.id}
+                disabled={unavailableViewSet.has(option.id)}
+                title={unavailableViewSet.has(option.id) ? translate("world.experience.capability.timelineUnavailable") : undefined}
+                onClick={() => onViewChange(option.id)}
+              >
+                <span className="worldNavigatorCardTitle">
+                  <ExperienceIcon id={option.icon} size={18} />
+                  <strong>{translate(option.labelKey)}</strong>
+                </span>
+                <span className="worldNavigatorCardQuestion">{translate(option.questionKey)}</span>
+                <small id={descriptionId}>{translate(option.descriptionKey)}</small>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {experiencePacks && (
+        <section className="worldNavigatorSection worldNavigatorPackCatalog" data-experience-section="packs">
+          <header>
+            <h3>{translate("world.experience.packs.title")}</h3>
+            <p>{translate("world.experience.packs.intro")}</p>
+          </header>
+          {experiencePacks.packs.length ? (
+            <div className="worldNavigatorPackList">
+              {experiencePacks.packs.map((pack) => (
+                <span key={pack.id} data-pack-id={pack.id}>
+                  <strong>{pack.id}</strong><small>v{pack.version}</small>
+                </span>
+              ))}
+            </div>
+          ) : <p className="worldNavigatorPackEmpty">{translate("world.experience.packs.coreOnly")}</p>}
+          {experiencePacks.block_packages.length > 0 && (
+            <div className="worldNavigatorBlockPackages" aria-label={translate("world.experience.packs.blockPackages")}>
+              <strong>{translate("world.experience.packs.blockPackages")}</strong>
+              {experiencePacks.block_packages.map((blockPackage) => <code key={blockPackage}>{blockPackage}</code>)}
+            </div>
+          )}
+          <div className="worldNavigatorPackSlots">
+            {packSlotGroup("views", experiencePacks.slots.views)}
+            {packSlotGroup("commands", experiencePacks.slots.commands)}
+            {packSlotGroup("operations", experiencePacks.slots.operations)}
+            {packSlotGroup("timelines", experiencePacks.slots.timelines)}
+          </div>
+        </section>
+      )}
+
+      <section
+        className="worldNavigatorSection"
+        aria-labelledby={`${resolvedPanelId}-lenses`}
+        data-experience-section="lenses"
+      >
+        <header>
+          <h3 id={`${resolvedPanelId}-lenses`}>{translate(WORLD_EXPERIENCE_KEYS.lensesTitle)}</h3>
+          <p>{translate(WORLD_EXPERIENCE_KEYS.lensesIntro)}</p>
+        </header>
+        <div className="worldNavigatorLensGrid" role="group" aria-labelledby={`${resolvedPanelId}-lenses`}>
+          {WORLD_QUADRANT_LENS_EXPERIENCES.map((option) => {
+            const descriptionId = `${resolvedPanelId}-lens-${option.id}`;
+            return (
+              <button
+                key={option.id}
+                className={selectedLens === option.id ? "worldNavigatorLens active" : "worldNavigatorLens"}
+                type="button"
+                aria-pressed={selectedLens === option.id}
+                aria-describedby={descriptionId}
+                data-lens-option={option.id}
+                disabled={!lensAvailable}
+                onClick={() => onLensChange(option.value)}
+              >
+                <strong>{translate(option.labelKey)}</strong>
+                <small id={descriptionId}>{translate(option.descriptionKey)}</small>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section
+        className="worldNavigatorSection"
+        aria-labelledby={`${resolvedPanelId}-overlays`}
+        data-experience-section="overlays"
+      >
+        <header>
+          <h3 id={`${resolvedPanelId}-overlays`}>{translate(WORLD_EXPERIENCE_KEYS.overlaysTitle)}</h3>
+          <p>{translate(WORLD_EXPERIENCE_KEYS.overlaysIntro)}</p>
+        </header>
+        <div className="worldNavigatorCardGrid worldNavigatorOverlayCards">
+          {overlayExperiences.map((option) => {
+            const descriptionId = `${resolvedPanelId}-overlay-${option.id}`;
+            return (
+              <button
+                key={option.id}
+                className={overlay === option.id ? "worldNavigatorCard active" : "worldNavigatorCard"}
+                type="button"
+                aria-pressed={overlay === option.id}
+                aria-describedby={descriptionId}
+                data-overlay-card={option.id}
+                disabled={overlayResolving || !overlayAvailable}
+                onClick={() => onOverlayChange(option.id)}
+              >
+                <span className="worldNavigatorCardTitle">
+                  <ExperienceIcon id={option.icon} size={18} />
+                  <strong>{translate(option.labelKey)}</strong>
+                </span>
+                <span className="worldNavigatorCardQuestion">{translate(option.questionKey)}</span>
+                <small id={descriptionId}>{translate(option.descriptionKey)}</small>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </>
+  );
+
   return (
     <section
       className="worldNavigator"
@@ -286,6 +443,10 @@ export function WorldNavigator({
       </div>
 
       {panelPresence.mounted && (
+        <>
+        {/* R6: dimmed backdrop — the guide reads over a scrim, never over the
+            live 3D world bleeding through. */}
+        <div className="worldNavigatorScrim" aria-hidden="true" data-surface-phase={panelPresence.phase} />
         <div
           id={resolvedPanelId}
           className={panelPresence.phase === "closing" ? "worldNavigatorPanel closing" : "worldNavigatorPanel"}
@@ -338,153 +499,53 @@ export function WorldNavigator({
             </aside>
           )}
 
-          <section className="worldNavigatorMentalModel" aria-labelledby={`${resolvedPanelId}-mental-model`}>
-            <h3 id={`${resolvedPanelId}-mental-model`}>{translate(WORLD_EXPERIENCE_KEYS.mentalModelTitle)}</h3>
-            <ol>
-              {WORLD_EXPERIENCE_AXES.map((axis) => (
-                <li key={axis.id} data-experience-axis={axis.id}>
-                  <ExperienceIcon id={axis.icon} size={17} />
-                  <span>
-                    <strong>{translate(axis.labelKey)}</strong>
-                    <small>{translate(axis.descriptionKey)}</small>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
-
-          <section
-            className="worldNavigatorSection"
-            aria-labelledby={`${resolvedPanelId}-views`}
-            data-experience-section="views"
-          >
-            <header>
-              <h3 id={`${resolvedPanelId}-views`}>{translate(WORLD_EXPERIENCE_KEYS.viewsTitle)}</h3>
-              <p>{translate(WORLD_EXPERIENCE_KEYS.viewsIntro)}</p>
-            </header>
-            <div className="worldNavigatorCardGrid worldNavigatorViewCards">
-              {viewExperiences.map((option) => {
-                const descriptionId = `${resolvedPanelId}-view-${option.id}`;
-                return (
-                  <button
-                    key={option.id}
-                    className={view === option.id ? "worldNavigatorCard active" : "worldNavigatorCard"}
-                    type="button"
-                    aria-pressed={view === option.id}
-                    aria-describedby={unavailableViewSet.has(option.id) ? `${descriptionId} ${unavailableViewsId}` : descriptionId}
-                    data-view-card={option.id}
-                    disabled={unavailableViewSet.has(option.id)}
-                    title={unavailableViewSet.has(option.id) ? translate("world.experience.capability.timelineUnavailable") : undefined}
-                    onClick={() => onViewChange(option.id)}
-                  >
-                    <span className="worldNavigatorCardTitle">
-                      <ExperienceIcon id={option.icon} size={18} />
-                      <strong>{translate(option.labelKey)}</strong>
-                    </span>
-                    <span className="worldNavigatorCardQuestion">{translate(option.questionKey)}</span>
-                    <small id={descriptionId}>{translate(option.descriptionKey)}</small>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {experiencePacks && (
-            <section className="worldNavigatorSection worldNavigatorPackCatalog" data-experience-section="packs">
+          {/* R6: from view=sources the FIRST content is "how to read this
+              view" — bands, what to click, and what colors encode NOW. */}
+          {sourcesReading && (
+            <section
+              className="worldNavigatorSection worldNavigatorSourcesReading"
+              aria-labelledby={`${resolvedPanelId}-sources-reading`}
+              data-experience-section="sources-reading"
+            >
               <header>
-                <h3>{translate("world.experience.packs.title")}</h3>
-                <p>{translate("world.experience.packs.intro")}</p>
+                <h3 id={`${resolvedPanelId}-sources-reading`}>{translate("source_foundation.guide.howToRead")}</h3>
               </header>
-              {experiencePacks.packs.length ? (
-                <div className="worldNavigatorPackList">
-                  {experiencePacks.packs.map((pack) => (
-                    <span key={pack.id} data-pack-id={pack.id}>
-                      <strong>{pack.id}</strong><small>v{pack.version}</small>
-                    </span>
-                  ))}
-                </div>
-              ) : <p className="worldNavigatorPackEmpty">{translate("world.experience.packs.coreOnly")}</p>}
-              {experiencePacks.block_packages.length > 0 && (
-                <div className="worldNavigatorBlockPackages" aria-label={translate("world.experience.packs.blockPackages")}>
-                  <strong>{translate("world.experience.packs.blockPackages")}</strong>
-                  {experiencePacks.block_packages.map((blockPackage) => <code key={blockPackage}>{blockPackage}</code>)}
-                </div>
-              )}
-              <div className="worldNavigatorPackSlots">
-                {packSlotGroup("views", experiencePacks.slots.views)}
-                {packSlotGroup("commands", experiencePacks.slots.commands)}
-                {packSlotGroup("operations", experiencePacks.slots.operations)}
-                {packSlotGroup("timelines", experiencePacks.slots.timelines)}
-              </div>
+              <ol className="worldNavigatorBandGuide">
+                {(["foundation", "provenance", "knowledge", "core"] as const).map((plane) => (
+                  <li key={plane} data-guide-band={plane}>
+                    <strong>{translate(`source_foundation.band.${plane}`)}</strong>
+                    <small>{translate(`source_foundation.guide.band.${plane}`)}</small>
+                  </li>
+                ))}
+              </ol>
+              <h4>{translate("source_foundation.guide.clicksTitle")}</h4>
+              <ul className="worldNavigatorClickGuide">
+                <li>{translate("source_foundation.guide.click.station")}</li>
+                <li>{translate("source_foundation.guide.click.band")}</li>
+                <li>{translate("source_foundation.guide.click.gaps")}</li>
+              </ul>
+              <h4>{translate("source_foundation.guide.colorsTitle")}</h4>
+              <ul className="worldNavigatorColorGuide" data-guide-overlay={overlay}>
+                {overlayTokenStates.map(([state, token]) => (
+                  <li key={state} data-guide-color={state}>
+                    <b aria-hidden="true" style={{ color: token.color }}>{token.symbol}</b>
+                    <span>{translate(`overlay.state.${overlay}.${state}`)}</span>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 
-          <section
-            className="worldNavigatorSection"
-            aria-labelledby={`${resolvedPanelId}-lenses`}
-            data-experience-section="lenses"
-          >
-            <header>
-              <h3 id={`${resolvedPanelId}-lenses`}>{translate(WORLD_EXPERIENCE_KEYS.lensesTitle)}</h3>
-              <p>{translate(WORLD_EXPERIENCE_KEYS.lensesIntro)}</p>
-            </header>
-            <div className="worldNavigatorLensGrid" role="group" aria-labelledby={`${resolvedPanelId}-lenses`}>
-              {WORLD_QUADRANT_LENS_EXPERIENCES.map((option) => {
-                const descriptionId = `${resolvedPanelId}-lens-${option.id}`;
-                return (
-                  <button
-                    key={option.id}
-                    className={selectedLens === option.id ? "worldNavigatorLens active" : "worldNavigatorLens"}
-                    type="button"
-                    aria-pressed={selectedLens === option.id}
-                    aria-describedby={descriptionId}
-                    data-lens-option={option.id}
-                    disabled={!lensAvailable}
-                    onClick={() => onLensChange(option.value)}
-                  >
-                    <strong>{translate(option.labelKey)}</strong>
-                    <small id={descriptionId}>{translate(option.descriptionKey)}</small>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section
-            className="worldNavigatorSection"
-            aria-labelledby={`${resolvedPanelId}-overlays`}
-            data-experience-section="overlays"
-          >
-            <header>
-              <h3 id={`${resolvedPanelId}-overlays`}>{translate(WORLD_EXPERIENCE_KEYS.overlaysTitle)}</h3>
-              <p>{translate(WORLD_EXPERIENCE_KEYS.overlaysIntro)}</p>
-            </header>
-            <div className="worldNavigatorCardGrid worldNavigatorOverlayCards">
-              {overlayExperiences.map((option) => {
-                const descriptionId = `${resolvedPanelId}-overlay-${option.id}`;
-                return (
-                  <button
-                    key={option.id}
-                    className={overlay === option.id ? "worldNavigatorCard active" : "worldNavigatorCard"}
-                    type="button"
-                    aria-pressed={overlay === option.id}
-                    aria-describedby={descriptionId}
-                    data-overlay-card={option.id}
-                    disabled={overlayResolving || !overlayAvailable}
-                    onClick={() => onOverlayChange(option.id)}
-                  >
-                    <span className="worldNavigatorCardTitle">
-                      <ExperienceIcon id={option.icon} size={18} />
-                      <strong>{translate(option.labelKey)}</strong>
-                    </span>
-                    <span className="worldNavigatorCardQuestion">{translate(option.questionKey)}</span>
-                    <small id={descriptionId}>{translate(option.descriptionKey)}</small>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          {sourcesReading ? (
+            <details className="worldNavigatorRest" data-experience-rest>
+              <summary>{translate("source_foundation.guide.rest")}</summary>
+              <div className="worldNavigatorRestBody">{catalogSections}</div>
+            </details>
+          ) : (
+            catalogSections
+          )}
         </div>
+        </>
       )}
     </section>
   );

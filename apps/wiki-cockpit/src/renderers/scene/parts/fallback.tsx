@@ -12,8 +12,8 @@ import type { ClusterStar, SourceFlowBundle, SourceStreamPort, WorldGroup, World
 import type { LayoutNode } from "../../../scene/layout";
 import { layoutNodeInstanceKeys } from "../../../scene/layout";
 import type { ScenePatch } from "../../../components/SystemScene";
-import { flowSeverityColor, gapMarkerSpecs, portAriaText, portBreachToken } from "./source-foundation";
-import type { GapMarkerSpec } from "./source-foundation";
+import { flowSeverityColor, gapSeverityToken, portAriaText, portBreachToken, sourceGapSummary } from "./source-foundation";
+import type { GapMarkerSpec, SourceGapGroup } from "./source-foundation";
 import { nodeDisplayColor, workspaceLabel } from "./materials";
 import type { SceneFallbackReason } from "./materials";
 import type { SceneCensus } from "./hud";
@@ -296,7 +296,11 @@ export type FoundationFallbackSections = {
   streams: FoundationSection<{ port: SourceStreamPort; aria: string }>;
   provenance: FoundationSection<{ node: LayoutNode; aria: string }>;
   targets: FoundationSection<{ node: LayoutNode; aria: string }>;
-  gaps: FoundationSection<GapMarkerSpec>;
+  // R5 parity: the SAME grouped gap census (per-code, severity-ranked, TRUE
+  // occurrence counts) the HUD gaps panel shows — never one row per marker.
+  gaps: FoundationSection<SourceGapGroup>;
+  /** TRUE occurrence total across every diagnostic — equals the HUD chip. */
+  gapTotal: number;
 };
 
 // A breached stream whose port fell over the per-station port budget (or whose
@@ -451,12 +455,14 @@ export function foundationFallbackSections(
     }
   );
 
+  const gapCensus = sourceGapSummary(layout);
   return {
     stations: cap(stationNodes.map((node) => ({ node, aria: stationAria(node) })), hiddenStations),
     streams: cap(attentionStreams),
     provenance: cap(openProvenance),
     targets: cap(targets),
-    gaps: cap(gapMarkerSpecs(layout))
+    gaps: cap(gapCensus.groups),
+    gapTotal: gapCensus.total
   };
 }
 
@@ -585,28 +591,34 @@ function FoundationFallbackNav({
           </ul>
         )}
       </section>
-      <section className="fallbackFoundationSection" data-section="gaps">
+      {/* R5 parity: the 2D surface lists the SAME per-code gap groups with the
+          same TRUE occurrence counts the HUD panel shows. */}
+      <section className="fallbackFoundationSection" data-section="gaps" data-gap-total={sections.gapTotal}>
         <FoundationSectionHeading labelKey="source_foundation.fallback.gaps" section={sections.gaps} />
         {sections.gaps.items.length === 0 ? (
           <span className="fallbackFoundationEmpty">{t("source_foundation.fallback.none")}</span>
         ) : (
           <ul>
-            {sections.gaps.items.map((gap) => (
-              <li key={`foundation-gap-${gap.id}`}>
-                <button
-                  type="button"
-                  className="fallbackFoundationLink"
-                  aria-label={gap.aria}
-                  onClick={() => onGapInspect?.(gap)}
-                >
-                  <b aria-hidden="true" className="fallbackFoundationSymbol" style={{ color: gap.color }}>
-                    {gap.symbol}
-                  </b>
-                  <span aria-hidden="true">{gap.text}</span>
-                  {gap.count > 1 && <small aria-hidden="true">×{gap.count}</small>}
-                </button>
-              </li>
-            ))}
+            {sections.gaps.items.map((group) => {
+              const token = gapSeverityToken(group.severity);
+              return (
+                <li key={`foundation-gap-${group.code}`}>
+                  <button
+                    type="button"
+                    className="fallbackFoundationLink"
+                    data-gap-group={group.code}
+                    aria-label={t("source_foundation.gaps.aggregate", { label: group.label, n: group.occurrenceCount })}
+                    onClick={() => onGapInspect?.(group.markers[0])}
+                  >
+                    <b aria-hidden="true" className="fallbackFoundationSymbol" style={{ color: token.color }}>
+                      {token.symbol}
+                    </b>
+                    <span aria-hidden="true">{group.label}</span>
+                    <small aria-hidden="true">×{group.occurrenceCount}</small>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
