@@ -1,6 +1,14 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { SourceFoundationPayload } from "../types";
+import { isPageEntity } from "../world/contracts";
+import type { PageEntityIndex } from "../world/contracts";
 import {
+  SOURCE_FOUNDATION_DERIVED_ID_PATTERN,
+  SOURCE_FOUNDATION_VERSION,
   experiencePackContractErrors,
+  sourceFoundationContractErrors,
   temporalGraphContractErrors
 } from "./snapshotContracts";
 
@@ -122,6 +130,77 @@ function populatedTemporalGraph() {
     events: [event]
   };
 }
+
+describe("source foundation contract (§19.3)", () => {
+  const shippedPayload = (): SourceFoundationPayload =>
+    JSON.parse(
+      readFileSync(resolve(__dirname, "../../public/sample-snapshot/source_foundation.json"), "utf8")
+    ) as SourceFoundationPayload;
+  const versions = { source_foundation: SOURCE_FOUNDATION_VERSION };
+
+  it("accepts the shipped sample topology exactly as built by the backend", () => {
+    const payload = shippedPayload();
+    expect(payload.stations.length).toBeGreaterThan(0);
+    expect(sourceFoundationContractErrors(payload, versions)).toEqual([]);
+  });
+
+  it("rejects an unknown version, the degraded error marker and malformed primitive ids", () => {
+    const payload = shippedPayload();
+    expect(
+      sourceFoundationContractErrors({ ...payload, schema_version: "wiki_web_source_foundation.v2" }, versions)
+    ).toContain("source foundation schema_version is unsupported");
+    expect(
+      sourceFoundationContractErrors(payload, { source_foundation: "wiki_web_source_foundation.v2" })
+    ).toContain("manifest source foundation version is unsupported");
+    expect(sourceFoundationContractErrors({ error: "source_foundation_unavailable" }, versions)).toContain(
+      "source foundation payload is an error marker"
+    );
+    const malformed = {
+      ...payload,
+      stations: [{ ...payload.stations[0], station_id: "not-a-derived-id" }]
+    };
+    expect(sourceFoundationContractErrors(malformed, versions)).toContain(
+      "source foundation stations[0] is malformed"
+    );
+    // A station whose canonical page ref is itself a derived id is a lie.
+    const derivedPage = {
+      ...payload,
+      stations: [{ ...payload.stations[0], canonical_page_id: "station:fake" }]
+    };
+    expect(sourceFoundationContractErrors(derivedPage, versions)).toContain(
+      "source foundation stations[0] is malformed"
+    );
+  });
+
+  it("never leaks payload values into error messages", () => {
+    const payload = shippedPayload();
+    const poisoned = {
+      ...payload,
+      topology_sha256: "TOKEN-sk-1234567890",
+      streams: [{ ...payload.streams[0], stream_id: "https://secret.example/export?token=abc" }]
+    };
+    const errors = sourceFoundationContractErrors(poisoned, versions);
+    expect(errors.length).toBeGreaterThan(0);
+    errors.forEach((error) => {
+      expect(error).not.toContain("TOKEN-sk-1234567890");
+      expect(error).not.toContain("secret.example");
+    });
+  });
+
+  it("keeps derived ids out of the page entity universe", () => {
+    const payload = shippedPayload();
+    const index: PageEntityIndex = new Map([
+      ["source-agenda", { id: "source-agenda", pageType: "source" }]
+    ]);
+    payload.stations.forEach((station) => {
+      expect(SOURCE_FOUNDATION_DERIVED_ID_PATTERN.test(station.station_id)).toBe(true);
+      expect(isPageEntity(index, station.station_id)).toBe(false);
+    });
+    payload.diagnostics.forEach((diagnostic) => {
+      expect(isPageEntity(index, diagnostic.gap_id)).toBe(false);
+    });
+  });
+});
 
 describe("snapshot capability contract negotiation", () => {
   it("accepts the supported temporal envelope and rejects future or malformed payloads", () => {

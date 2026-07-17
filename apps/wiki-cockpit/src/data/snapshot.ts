@@ -22,8 +22,11 @@ import {
   validateOperatorHandshake
 } from "../contracts/operatorSecurity.js";
 import {
+  SOURCE_FOUNDATION_CAPABILITY,
+  asSourceFoundationPayload,
   asTemporalGraphPayload,
   experiencePackContractErrors,
+  sourceFoundationContractErrors,
   temporalGraphContractErrors
 } from "./snapshotContracts";
 import {
@@ -240,6 +243,9 @@ export async function validateSnapshotEnvelope(
   if (manifest.capabilities?.includes("experience_packs") && !("experience_packs.json" in manifest.integrity)) {
     missingRequired.push("experience_packs.json");
   }
+  if (manifest.capabilities?.includes(SOURCE_FOUNDATION_CAPABILITY) && !("source_foundation.json" in manifest.integrity)) {
+    missingRequired.push("source_foundation.json");
+  }
   if (missingRequired.length) {
     throw new SnapshotLoadError("partial", `Snapshot ${manifest.snapshot_id} is partial; missing integrity entries: ${missingRequired.join(", ")}`);
   }
@@ -270,6 +276,16 @@ export async function validateSnapshotEnvelope(
     });
     if (compositionSha !== typed.composition_sha256) {
       throw new SnapshotLoadError("integrity", "Experience pack composition semantic hash mismatch");
+    }
+  }
+  if (manifest.capabilities?.includes(SOURCE_FOUNDATION_CAPABILITY)) {
+    // Capability advertised = the topology must be a sealed, well-formed
+    // payload; a degraded build ships the error marker WITHOUT the capability
+    // (§8.10), so a marker here is an incoherent snapshot, not compat.
+    const errors = sourceFoundationContractErrors(payloads["source_foundation.json"], manifest.versions);
+    if (errors.length) {
+      const code: SnapshotLoadErrorCode = errors.some((error) => error.includes("unsupported")) ? "unsupported" : "integrity";
+      throw new SnapshotLoadError(code, `Source foundation contract failed: ${errors.join("; ")}`);
     }
   }
   const pages = (payloads["pages.json"] as SnapshotBundle["pages"] | undefined)?.pages ?? [];
@@ -335,7 +351,20 @@ async function loadFromBase(base: string, signal?: AbortSignal, operatorBoundary
     () => ({ schema_version: "wiki_web_block_stacks.v1", anchors: {} })
   ) as SnapshotBundle["blockStacks"];
   payloads["block_stacks.json"] = bundle.blockStacks;
+  // Source foundation topology: fetched whenever the manifest seals the file —
+  // a degraded build ships an error marker WITHOUT the capability, and that
+  // marker must still satisfy the integrity loop. The typed payload is exposed
+  // on the bundle only when the capability is advertised (absent = compat).
+  if (
+    manifest.schema_version === "wiki_web_snapshot.v2" &&
+    (manifest.integrity?.["source_foundation.json"] || manifest.capabilities?.includes(SOURCE_FOUNDATION_CAPABILITY))
+  ) {
+    payloads["source_foundation.json"] = await fetchJson(`${base}/source_foundation.json`, signal, operatorBoundary);
+  }
   await validateSnapshotEnvelope(bundle.manifest, payloads);
+  if (manifest.capabilities?.includes(SOURCE_FOUNDATION_CAPABILITY)) {
+    bundle.sourceFoundation = asSourceFoundationPayload(payloads["source_foundation.json"]);
+  }
   const confirmation = await fetchJson<SnapshotBundle["manifest"]>(`${base}/manifest.json`, signal, operatorBoundary);
   if (bundle.manifest.snapshot_id && confirmation.snapshot_id !== bundle.manifest.snapshot_id) {
     throw new SnapshotLoadError("torn", `Snapshot changed while loading (${bundle.manifest.snapshot_id} -> ${confirmation.snapshot_id || "unknown"})`);
@@ -404,6 +433,9 @@ async function loadFromOperatorAggregate(base: string, signal?: AbortSignal): Pr
   const payloads = { ...aggregate };
   delete payloads["manifest.json"];
   await validateSnapshotEnvelope(bundle.manifest, payloads);
+  if (manifest.capabilities?.includes(SOURCE_FOUNDATION_CAPABILITY)) {
+    bundle.sourceFoundation = asSourceFoundationPayload(payloads["source_foundation.json"]);
+  }
   return bundle;
 }
 

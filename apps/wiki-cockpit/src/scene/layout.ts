@@ -1,4 +1,5 @@
 import type { FreshnessState, GraphNode, OverlayMetrics } from "../types";
+import type { SourceFoundationRole, WorldPlaneId } from "../world/contracts";
 import { pageTypeStyle } from "../data/presentation";
 
 export type SceneQuality = "compact" | "balanced" | "rich";
@@ -58,6 +59,16 @@ export type LayoutNode = {
     representativeId: string;
     centerId: string;
   };
+  // Source-foundation profile (§7.3): the vertical band this node lives in and
+  // its structural role. Y between bands is role; Y inside a band is bounded
+  // visual adjustment only (§10.12). Absent outside the foundation profile.
+  plane?: WorldPlaneId;
+  foundationRole?: SourceFoundationRole;
+  // Supporting sources of a knowledge/provenance page — many-to-many is
+  // preserved (§9.7): a two-source page carries both ids, never just one.
+  sourceIds?: string[];
+  // Honest emission/trace count backing this node's provenance encoding.
+  traceCount?: number;
 };
 
 /**

@@ -197,6 +197,44 @@ describe("snapshot loading", () => {
     await expect(validateSnapshotEnvelope(manifest, {})).rejects.toMatchObject({ code: "partial" });
   });
 
+  it("gates the source foundation payload on its capability and fails closed on incoherence", async () => {
+    const { validateSnapshotEnvelope } = await import("./snapshot");
+    const manifest = {
+      schema_version: "wiki_web_snapshot.v2",
+      snapshot_id: "fixture-1",
+      root_page_id: "root",
+      bundle_hash: "hash",
+      capabilities: ["atomic_envelope", "source_foundation_v1"],
+      versions: { source_foundation: "wiki_web_source_foundation.v1" },
+      integrity: {},
+      generated_at: "2026-07-09T00:00:00Z",
+      mode: "static",
+      source_commit: null,
+      repo: {
+        repo_id: "fixture",
+        language: "en",
+        memory_root: "memories",
+        default_context: "system",
+        karma_enabled: false,
+        default_branch: "main",
+        branch_prefix: "wiki/"
+      },
+      files: []
+    };
+    // Capability advertised but the sealed file is absent from integrity:
+    // partial — the capability is a promise the envelope must keep. The
+    // marker-with-capability and future-version rejections are pinned at the
+    // sourceFoundationContractErrors level in snapshotContracts.test.ts.
+    await expect(validateSnapshotEnvelope(manifest, {})).rejects.toMatchObject({ code: "partial" });
+    // Without the capability the foundation file is simply not demanded: the
+    // sparse fixture still fails on the ordinary required payloads, but the
+    // foundation never appears among them (compat for old snapshots).
+    const withoutCapability = { ...manifest, capabilities: ["atomic_envelope"], versions: {} };
+    await expect(validateSnapshotEnvelope(withoutCapability, {})).rejects.toSatisfy(
+      (error: unknown) => error instanceof Error && !error.message.includes("source_foundation.json")
+    );
+  });
+
   it("accepts an empty root only for a declared Genesis stage zero fixture", async () => {
     const { isDeclaredGenesisEmptyWorld } = await import("./snapshot");
     const manifest = {

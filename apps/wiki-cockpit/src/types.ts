@@ -463,6 +463,10 @@ export type SnapshotBundle = {
   temporalGraph?: TemporalGraphPayload;
   temporalGraphSource?: { base: string; operatorBoundary: boolean };
   experiencePacks?: ExperiencePackComposition;
+  // Present only when the manifest advertises `source_foundation_v1` AND the
+  // payload passes its contract; absent = compat (the sources view keeps its
+  // v8 layout). An error-marked degraded payload never reaches this field.
+  sourceFoundation?: SourceFoundationPayload;
 };
 
 // --- Modular template blocks (v2) ---
@@ -722,6 +726,126 @@ export type SourceEntitiesPayload = {
   sources: SourceEntity[];
   summary?: { total: number; with_recipe: number; pending: number };
   error?: string;
+};
+
+// --- Source foundation topology (wiki_web_source_foundation.v1) ------------
+// Layout-ready source topology compiled by wiki_core.web.source_foundation.
+// Capability-gated (`source_foundation_v1`); many-to-many provenance is
+// preserved and secrets are fail-closed builder-side (locators, filter values,
+// manuals and auth pointers never enter this payload). Derived ids carry
+// non-page prefixes (station:/channel:/stream:/pipeline:/emission:/gap:) and
+// must never be treated as page entities or accepted as a world center.
+export type SourceFoundationStation = {
+  station_id: string;
+  kind: "source" | "input_channel";
+  canonical_page_id: string;
+  path: string;
+  title: string;
+  context: string;
+  platform: string;
+  owner_ref: string;
+  config_page_id: string | null;
+  channel_station_id: string | null;
+  recipe_state: "valid" | "missing" | "invalid" | "secret_blocked";
+  sync_state: string;
+  lifecycle_state: string;
+  adoption_state: string;
+  pipeline_stage: string;
+  pending_stream_count: number;
+  next_due_days: number | null;
+  stream_ids: string[];
+  pipeline_ids: string[];
+  emission_ids: string[];
+  target_page_ids: string[];
+  diagnostic_codes: string[];
+};
+
+export type SourceFoundationStream = {
+  stream_id: string;
+  source_id: string;
+  recipe_stream_id: string;
+  label: string;
+  selected: boolean;
+  privacy: string;
+  cadence_days: number;
+  cursor_age_days: number | null;
+  freshness_state: "fresh" | "stale" | "never" | "disabled";
+  breached: boolean;
+  target_page_ids: string[];
+  // Filter KEYS only — filter values stay in the private read model (§8.4).
+  filter_keys: string[];
+  skip_reason_code: string;
+};
+
+export type SourceFoundationPipeline = {
+  pipeline_id: string;
+  source_id: string;
+  kind: string;
+  cadence_days: number;
+  stream_ids: string[];
+  current_stage: string;
+  last_transition_at: string;
+};
+
+export type SourceFoundationEmission = {
+  emission_id: string;
+  source_id: string;
+  stream_id: string | null;
+  event_page_id: string | null;
+  proposal_page_ids: string[];
+  target_page_id: string | null;
+  relation_type: string;
+  observed_at: string | null;
+  closure_state: "accepted" | "reviewed_no_change" | "pending" | "blocked" | "unknown";
+  evidence_refs: string[];
+  provenance_basis: string;
+};
+
+export type SourceFoundationTarget = {
+  page_id: string;
+  // Every supporting source — a two-source target keeps both (§9.7).
+  source_ids: string[];
+  event_page_ids: string[];
+  emission_count: number;
+  accepted_count: number;
+  pending_count: number;
+  closure_state: "accepted" | "pending" | "mixed" | "declared_only";
+  target_declared_by_stream_ids: string[];
+};
+
+export type SourceFoundationDiagnostic = {
+  gap_id: string;
+  code: string;
+  severity: "info" | "warning" | "error";
+  subject_ref: string;
+  related_refs: string[];
+  message_key: string;
+  count: number;
+};
+
+export type SourceFoundationPayload = {
+  schema_version: string;
+  repo_id: string;
+  revision: string;
+  generated_at: string;
+  topology_sha256: string;
+  summary: {
+    sources: number;
+    channels: number;
+    streams: number;
+    pipelines: number;
+    emissions: number;
+    targets: number;
+    gaps: number;
+    blocked_sources: number;
+    pending_streams: number;
+  };
+  stations: SourceFoundationStation[];
+  streams: SourceFoundationStream[];
+  pipelines: SourceFoundationPipeline[];
+  emissions: SourceFoundationEmission[];
+  targets: SourceFoundationTarget[];
+  diagnostics: SourceFoundationDiagnostic[];
 };
 
 // --- Declarative template registry (Pillar B) ---

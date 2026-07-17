@@ -339,6 +339,65 @@ function directTransportCapabilities(sourceFile) {
   return [...found].map(([capability, line]) => ({ capability, line }));
 }
 
+// --- Source-foundation boundary rules (plan §19.9) --------------------------
+
+// Derived primitive id prefixes (§9.6). These ids are topology, not pages:
+// they may never be written as a world center or travel as a route center.
+const DERIVED_PRIMITIVE_ID_PATTERN = /^(?:station|channel|stream|pipeline|emission|gap|port|flow):/;
+const SOURCE_FOUNDATION_BUILDER_SYMBOLS = new Set(["sourceFoundationLayout"]);
+const CANVAS_OWNER_FILE = "src/components/SystemScene.tsx";
+
+// The vertical profile is registry data, never route state (ADR-002): the
+// identifier/string "stratum" must not appear in production source at all.
+function stratumOccurrences(sourceFile) {
+  const found = [];
+  const visit = (node) => {
+    if (
+      (ts.isIdentifier(node) && node.text === "stratum") ||
+      (ts.isStringLiteralLike(node) && node.text === "stratum")
+    ) {
+      found.push({ line: lineFor(sourceFile, node.getStart(sourceFile)) });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+}
+
+function derivedPrimitiveCenterAssignments(sourceFile) {
+  const found = [];
+  const visit = (node) => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) &&
+      (node.name.text === "centerId" || node.name.text === "center") &&
+      ts.isStringLiteralLike(node.initializer) &&
+      DERIVED_PRIMITIVE_ID_PATTERN.test(node.initializer.text)
+    ) {
+      found.push({ name: node.name.text, value: node.initializer.text, line: lineFor(sourceFile, node.getStart(sourceFile)) });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+}
+
+function canvasElements(sourceFile) {
+  const found = [];
+  const visit = (node) => {
+    if (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      ts.isIdentifier(node.tagName) &&
+      node.tagName.text === "Canvas"
+    ) {
+      found.push({ line: lineFor(sourceFile, node.getStart(sourceFile)) });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return found;
+}
+
 function untrustedEffectGenerators(sourceFile) {
   const found = [];
   const visit = (node) => {
@@ -404,6 +463,60 @@ export function collectArchitectureViolations(appRoot) {
   });
 
   for (const { file, sourceFile, dependencies } of records) {
+
+    // Source-foundation boundary rules (§19.9) apply to EVERY production file.
+    for (const item of stratumOccurrences(sourceFile)) {
+      violations.push(
+        violation(
+          "no-stratum-parameter",
+          file,
+          "token:stratum",
+          "The vertical spatial profile is registry data; a 'stratum' parameter/identifier must never exist (ADR-002).",
+          item.line
+        )
+      );
+    }
+    for (const item of derivedPrimitiveCenterAssignments(sourceFile)) {
+      violations.push(
+        violation(
+          "no-derived-primitive-center",
+          file,
+          `assignment:${item.name}:${item.value}`,
+          `Derived primitive id '${item.value}' assigned as '${item.name}'; only real page ids can be a world center.`,
+          item.line
+        )
+      );
+    }
+    if (file !== CANVAS_OWNER_FILE) {
+      for (const item of canvasElements(sourceFile)) {
+        violations.push(
+          violation(
+            "single-scene-canvas",
+            file,
+            "jsx:Canvas",
+            `The world renders through exactly one Canvas owned by ${CANVAS_OWNER_FILE}; a second Canvas is forbidden.`,
+            item.line
+          )
+        );
+      }
+    }
+
+    if (isComponent(file)) {
+      for (const dependency of dependencies) {
+        for (const symbol of dependency.symbols.filter((entry) => !entry.typeOnly)) {
+          if (SOURCE_FOUNDATION_BUILDER_SYMBOLS.has(symbol.name)) {
+            addImportViolation(
+              violations,
+              "components-no-source-foundation-builder",
+              file,
+              dependency,
+              symbol.name,
+              "React components never import the source-foundation layout builder; layouts are computed in the worker/perspective engine."
+            );
+          }
+        }
+      }
+    }
 
     if (isComponent(file)) {
       for (const dependency of dependencies) {

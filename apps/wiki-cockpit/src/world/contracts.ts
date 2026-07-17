@@ -21,6 +21,91 @@ export type LensId = (typeof LENS_IDS)[number];
 export const OVERLAY_IDS = ["attention", "freshness", "actions", "ownership", "evidence", "quality"] as const;
 export type OverlayId = (typeof OVERLAY_IDS)[number];
 
+// --- Spatial/camera profiles (source foundation plane) ---------------------
+// A view renders either the historical upper knowledge hemisphere or the
+// vertical source-foundation profile. The profile id is registry data, never a
+// URL parameter (ADR-002/§7.6: no `stratum`, `camera` or `floor` route state).
+export const VIEW_SPATIAL_PROFILE_IDS = ["knowledge-upper", "source-foundation"] as const;
+export type ViewSpatialProfileId = (typeof VIEW_SPATIAL_PROFILE_IDS)[number];
+
+// The four vertical bands of the source-foundation profile. Y between bands is
+// structural role (ADR-003); Y inside a band is bounded visual adjustment only.
+export const WORLD_PLANE_IDS = ["core", "knowledge", "provenance", "foundation"] as const;
+export type WorldPlaneId = (typeof WORLD_PLANE_IDS)[number];
+
+// Band levels are named tokens, not repeated literals (§6.1).
+export const SOURCE_FOUNDATION_LEVELS = {
+  core: 2.4,
+  knowledge: 0,
+  provenance: -1.6,
+  foundation: -3.2
+} as const satisfies Record<WorldPlaneId, number>;
+
+// Any state-driven Y offset inside the foundation profile (proposal float,
+// marker lifts) is re-expressed within the node's own band and never exceeds
+// this amplitude (§10.12) — a provenance proposal can never float into the
+// knowledge band.
+export const SOURCE_FOUNDATION_WITHIN_BAND_LIFT = 0.25;
+
+// Structural role of a node inside the source-foundation profile (§7.3).
+export type SourceFoundationRole =
+  | "core-anchor"
+  | "knowledge-page"
+  | "provenance-page"
+  | "source-station"
+  | "channel-station"
+  | "governance-control";
+
+export type ViewCameraProfile = {
+  hemisphere: "upper" | "lower";
+  transitionPath: "direct" | "outer_arc";
+  minPolarAngle: number;
+  maxPolarAngle: number;
+  defaultPhi: number;
+  targetLevel: WorldPlaneId;
+  allowUserHemisphereCrossing: boolean;
+};
+
+// Polar limits per hemisphere (§11.2). The lower profile mirrors the upper
+// one across the horizon; the user orbits inside the view's hemisphere and
+// only a registered view change crosses it.
+export const UPPER_MIN_POLAR_ANGLE = 0.3;
+export const UPPER_MAX_POLAR_ANGLE = 1.25;
+export const LOWER_MIN_POLAR_ANGLE = Math.PI - UPPER_MAX_POLAR_ANGLE;
+export const LOWER_MAX_POLAR_ANGLE = Math.PI - UPPER_MIN_POLAR_ANGLE;
+
+// Recommended initial lower pose (§6.4). Consumed by the camera director in a
+// later milestone; registered here so the numbers exist exactly once.
+export const SOURCE_FOUNDATION_CAMERA = {
+  hemisphere: "lower",
+  phi: Math.PI - 0.72,
+  distanceMultiplier: 1.08,
+  targetY: SOURCE_FOUNDATION_LEVELS.foundation + 0.25,
+  transitionPath: "outer_arc",
+  labels: "billboard"
+} as const;
+
+export const KNOWLEDGE_UPPER_CAMERA_PROFILE: ViewCameraProfile = {
+  hemisphere: "upper",
+  transitionPath: "direct",
+  minPolarAngle: UPPER_MIN_POLAR_ANGLE,
+  maxPolarAngle: UPPER_MAX_POLAR_ANGLE,
+  // The settled upper development pose used by the scene camera today.
+  defaultPhi: 0.72,
+  targetLevel: "knowledge",
+  allowUserHemisphereCrossing: false
+};
+
+export const SOURCE_FOUNDATION_CAMERA_PROFILE: ViewCameraProfile = {
+  hemisphere: "lower",
+  transitionPath: "outer_arc",
+  minPolarAngle: LOWER_MIN_POLAR_ANGLE,
+  maxPolarAngle: LOWER_MAX_POLAR_ANGLE,
+  defaultPhi: SOURCE_FOUNDATION_CAMERA.phi,
+  targetLevel: "foundation",
+  allowUserHemisphereCrossing: false
+};
+
 export type FamilyKind = "source" | "person" | "event" | "action" | "rule" | "decision" | "hub" | "content" | "root";
 export type FamilyGroupId = `family:${FamilyKind}`;
 

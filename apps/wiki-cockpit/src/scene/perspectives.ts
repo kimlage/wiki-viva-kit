@@ -9,7 +9,15 @@
 // draw calls bounded while cluster-stars carry the TRUE hidden counts, so all
 // pages stay countable and one drill away.
 
-import type { GraphEdge, GraphNode, RegionGroupPayload } from "../types";
+import type {
+  GraphEdge,
+  GraphNode,
+  RegionGroupPayload,
+  SourceFoundationPayload,
+  SourceFoundationStation
+} from "../types";
+import { SOURCE_FOUNDATION_LEVELS, SOURCE_FOUNDATION_WITHIN_BAND_LIFT } from "../world/contracts";
+import type { SourceFoundationRole, WorldPlaneId } from "../world/contracts";
 import { aggregateOverlayMetrics } from "../data/visualEncoding";
 import { pageTypeLabel, pageTypeStyle, worldGroupLabel } from "../data/presentation";
 import { QUADRANT_CENTER_ANGLE, SCENE_FACETS, nodeQuadrant, sceneFacetOf, type QuadrantHomes, type SceneFacet } from "./facets";
@@ -89,11 +97,90 @@ export type WorldGuide =
   | { kind: "arc"; radius: number; start: number; end: number; color: string; opacity: number }
   | { kind: "ray"; angle: number; r0: number; r1: number; color: string; opacity: number };
 
+// --- Source-foundation profile contracts (§7.2/§7.4/§10) --------------------
+
+export type WorldPlaneProfile = {
+  active: "foundation" | "knowledge";
+  levels: Record<WorldPlaneId, number>;
+  cameraHemisphere: "upper" | "lower";
+  transitionPath: "direct" | "outer_arc";
+  // "foundation-first" also tells the renderer NOT to mount the upper-profile
+  // ground guides (GateRing/QuadrantPlanes) and to re-express state lifts
+  // within each band (§10.12).
+  occlusionPolicy: "normal" | "foundation-first";
+  labelPolicy: "world-up" | "camera-facing";
+};
+
+// Derived, non-page visual primitives of the foundation profile (§7.4). Every
+// primitive has a deterministic non-page id, real source/page refs, a picking
+// bound and an ARIA/label key. `canonicalEntityId` exists ONLY when the
+// primitive points at a real page; a primitive is never a `centerId`.
+type SourceFoundationPrimitiveBase = {
+  id: string;
+  sourceIds: string[];
+  pageIds: string[];
+  position: [number, number, number];
+  bounds: { radius: number };
+  labelKey: string;
+  severity: "none" | "info" | "warning" | "error";
+  canonicalEntityId?: string;
+};
+
+export type SourceStreamPort = SourceFoundationPrimitiveBase & {
+  kind: "stream-port";
+  // null on the aggregated "+N" overflow port; hiddenCount carries its honest size.
+  streamId: string | null;
+  selected: boolean;
+  breached: boolean;
+  hiddenCount: number;
+};
+
+export type SourcePipelineLane = SourceFoundationPrimitiveBase & {
+  kind: "pipeline-lane";
+  pipelineId: string;
+  laneKind: string;
+  stage: string;
+  // Cadence as a discrete tick count — never a misleading temporal radius (§10.5).
+  tickCount: number;
+  radius: number;
+};
+
+export type SourceFlowBundle = SourceFoundationPrimitiveBase & {
+  kind: "flow-bundle";
+  from: [number, number, number];
+  to: [number, number, number];
+  // Bundling keeps the honest member count (§10.6).
+  traceCount: number;
+  emissionIds: string[];
+};
+
+export type SourceGapMarker = SourceFoundationPrimitiveBase & {
+  kind: "gap-marker";
+  code: string;
+  subjectRef: string;
+  count: number;
+};
+
+export type SourceGovernancePlate = SourceFoundationPrimitiveBase & {
+  kind: "governance-plate";
+  stationId: string | null;
+};
+
+export type SourceFoundationPrimitive =
+  | SourceStreamPort
+  | SourcePipelineLane
+  | SourceFlowBundle
+  | SourceGapMarker
+  | SourceGovernancePlate;
+
 export type WorldRequest = {
   perspective: PerspectiveId;
   context?: string;
   group?: string;
   pageId?: string;
+  // Capability-gated source-foundation topology. Present = the sources view
+  // renders the vertical foundation profile; absent = v8 compat layout.
+  sourceFoundation?: SourceFoundationPayload;
   // Active recursive quadrant/template anchor. In the quadrant map this is the
   // world center, so it must never be rendered again inside a quadrant.
   centerId?: string;
@@ -143,6 +230,12 @@ export type WorldLayout = {
   // object, so deep links and settled drills still show where the center came
   // from.
   drillOrigin?: [number, number, number];
+  // Present only in the source-foundation profile (§7.2). Derived from the
+  // registry + payload; never serialized into the URL.
+  planeProfile?: WorldPlaneProfile;
+  // Derived non-page primitives (stream ports, pipeline lanes, flow bundles,
+  // gap markers, governance plates) of the foundation profile (§7.4).
+  foundationPrimitives?: SourceFoundationPrimitive[];
 };
 
 const GUIDE_COLOR = "#22303a";
@@ -209,7 +302,17 @@ function makeNode(
   snapshotMs: number,
   position: [number, number, number],
   scale: number,
-  options: { isHub?: boolean; isRoot?: boolean; ring?: number; faint?: boolean; quadrant?: SceneFacet } = {}
+  options: {
+    isHub?: boolean;
+    isRoot?: boolean;
+    ring?: number;
+    faint?: boolean;
+    quadrant?: SceneFacet;
+    plane?: WorldPlaneId;
+    foundationRole?: SourceFoundationRole;
+    sourceIds?: string[];
+    traceCount?: number;
+  } = {}
 ): LayoutNode {
   const updatedMs = parseDateMs(node.updated_at ?? "");
   const ageDays = updatedMs === null ? 0 : Math.max(0, (snapshotMs - updatedMs) / 86400000);
@@ -235,7 +338,11 @@ function makeNode(
     scale: Number(scale.toFixed(4)),
     ...(options.ring !== undefined ? { ring: options.ring } : {}),
     ...(options.faint ? { faint: true } : {}),
-    ...(options.quadrant ? { quadrant: options.quadrant } : {})
+    ...(options.quadrant ? { quadrant: options.quadrant } : {}),
+    ...(options.plane ? { plane: options.plane } : {}),
+    ...(options.foundationRole ? { foundationRole: options.foundationRole } : {}),
+    ...(options.sourceIds ? { sourceIds: options.sourceIds } : {}),
+    ...(options.traceCount !== undefined ? { traceCount: options.traceCount } : {})
   };
 }
 
@@ -1836,6 +1943,637 @@ function sourcesLayout(request: WorldRequest): WorldLayout {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Source foundation — the vertical profile of the sources view (§6/§10).
+// Four bands encode structural role (core / knowledge / provenance /
+// foundation); X/Z inside each band encodes channel/context sectors,
+// provenance alignment and many-to-many barycenters. State (freshness,
+// proposal, blocked) NEVER moves a node across bands (ADR-007/§10.12): any
+// state lift is re-expressed inside the band with bounded amplitude.
+
+export type SourceFoundationWorldRequest = WorldRequest & {
+  sourceFoundation: SourceFoundationPayload;
+};
+
+const FOUNDATION_STATION_RADIUS = 2.6;
+const FOUNDATION_ROW_DEPTH = 0.55;
+const FOUNDATION_STATIONS_PER_ROW = 9;
+const FOUNDATION_CHANNEL_RADIUS = 1.55;
+const FOUNDATION_GOVERNANCE_RADIUS = 1.0;
+const FOUNDATION_PORT_ORBIT = 0.42;
+const FOUNDATION_PORT_BUDGET = 6;
+const FOUNDATION_LANE_BASE_RADIUS = 0.62;
+const FOUNDATION_LANE_STEP = 0.14;
+const PROVENANCE_ORPHAN_RADIUS = 4.6;
+const KNOWLEDGE_PERIMETER_RADIUS = 4.85;
+const FOUNDATION_GAP_RING_RADIUS = 5.35;
+const ANGLE_PAD_FOUNDATION = 0.05;
+
+const GOVERNANCE_PAGE_TYPES = new Set(["source_config", "source_registry", "input_stage", "source_catalog"]);
+const PROVENANCE_PAGE_TYPES = new Set(["ingestion_event", "proposal"]);
+
+// Re-expressed state lift (§10.12): a proposal floats WITHIN its band with
+// bounded amplitude instead of the global +0.5 float, so no node ever leaves
+// the band of its structural role because of state.
+function withinBandY(plane: WorldPlaneId, baseOffset: number, proposal: boolean): number {
+  const offset = proposal ? SOURCE_FOUNDATION_WITHIN_BAND_LIFT : baseOffset;
+  return SOURCE_FOUNDATION_LEVELS[plane] + Math.max(Math.min(offset, SOURCE_FOUNDATION_WITHIN_BAND_LIFT), -SOURCE_FOUNDATION_WITHIN_BAND_LIFT);
+}
+
+export function sourceFoundationLayout(request: SourceFoundationWorldRequest): WorldLayout {
+  const payload = request.sourceFoundation;
+  const snapshotMs = snapshotClock(request.nodes, request.snapshotAt);
+  const center = canonicalCenter(request);
+  const centerId = center?.id ?? "";
+  const byKey = new Map<string, GraphNode>();
+  request.nodes.forEach((node) => {
+    byKey.set(node.id, node);
+    byKey.set(node.path, node);
+  });
+
+  const sourceStations = payload.stations.filter((station) => station.kind === "source");
+  const channelStations = payload.stations.filter((station) => station.kind === "input_channel");
+  const stationBySourcePage = new Map(sourceStations.map((station) => [station.canonical_page_id, station]));
+  const channelByStationId = new Map(channelStations.map((station) => [station.station_id, station]));
+  const channelPageIds = new Set(channelStations.map((station) => station.canonical_page_id));
+  const targetByPage = new Map(payload.targets.map((target) => [target.page_id, target]));
+
+  // Provenance ownership: which sources produced each event/proposal page.
+  const provenanceSourceIds = new Map<string, Set<string>>();
+  const traceCountByPage = new Map<string, number>();
+  const addProvenance = (pageId: string | null, sourceId: string) => {
+    if (!pageId) return;
+    const set = provenanceSourceIds.get(pageId) ?? new Set<string>();
+    set.add(sourceId);
+    provenanceSourceIds.set(pageId, set);
+  };
+  const sortedEmissions = [...payload.emissions].sort((a, b) => a.emission_id.localeCompare(b.emission_id));
+  sortedEmissions.forEach((emission) => {
+    addProvenance(emission.event_page_id, emission.source_id);
+    emission.proposal_page_ids.forEach((proposalId) => addProvenance(proposalId, emission.source_id));
+    [emission.event_page_id, emission.target_page_id, ...emission.proposal_page_ids].forEach((pageId) => {
+      if (pageId) traceCountByPage.set(pageId, (traceCountByPage.get(pageId) ?? 0) + 1);
+    });
+  });
+
+  // Emission weight per (source, target): accepted evidence outranks pending
+  // (§10.7 weight preference), defaulting to uniform.
+  const emissionWeight = new Map<string, number>();
+  sortedEmissions.forEach((emission) => {
+    if (!emission.target_page_id) return;
+    const key = `${emission.source_id} ${emission.target_page_id}`;
+    const weight = emission.closure_state === "accepted" ? 2 : 1;
+    emissionWeight.set(key, Math.max(emissionWeight.get(key) ?? 0, weight));
+  });
+
+  // --- Bucket classification: every non-center page lands in EXACTLY one ----
+  const stationNodes: GraphNode[] = [];
+  const channelNodes: GraphNode[] = [];
+  const governanceNodes: GraphNode[] = [];
+  const provenanceNodes: GraphNode[] = [];
+  const knowledgeNodes: GraphNode[] = [];
+  const perimeterNodes: GraphNode[] = [];
+  request.nodes.forEach((node) => {
+    if (node.id === centerId) return;
+    if (stationBySourcePage.has(node.id)) stationNodes.push(node);
+    else if (channelPageIds.has(node.id)) channelNodes.push(node);
+    else if (GOVERNANCE_PAGE_TYPES.has(node.page_type)) governanceNodes.push(node);
+    else if (PROVENANCE_PAGE_TYPES.has(node.page_type) || provenanceSourceIds.has(node.id)) provenanceNodes.push(node);
+    else if (targetByPage.has(node.id)) knowledgeNodes.push(node);
+    else perimeterNodes.push(node);
+  });
+
+  // --- Foundation sectors: real channel grouping first, context fallback ----
+  const stationGroupKey = (station: SourceFoundationStation): string =>
+    station.channel_station_id ?? `context:${station.context || "system"}`;
+  const placeableStations = stationNodes
+    .map((node) => ({ node, station: stationBySourcePage.get(node.id)! }))
+    .sort((a, b) => attentionFirst(a.node, b.node));
+  const stationsByGroup = new Map<string, { node: GraphNode; station: SourceFoundationStation }[]>();
+  placeableStations.forEach((entry) => {
+    const key = stationGroupKey(entry.station);
+    stationsByGroup.set(key, [...(stationsByGroup.get(key) ?? []), entry]);
+  });
+  const spans = allocateWedgeSpans(
+    [...stationsByGroup.entries()].map(([key, members]) => ({ key, weight: members.length }))
+  );
+  const spanByKey = new Map(spans.map((span) => [span.key, span]));
+
+  // Deterministic station placement; positions never depend on the visibility
+  // budget, so revealing more stations moves nothing that was already placed.
+  const stationPlacement = new Map<string, { x: number; z: number; angle: number; radius: number }>();
+  if (center) stationPlacement.set(centerId, { x: 0, z: 0, angle: 0, radius: 0 });
+  stationsByGroup.forEach((members, key) => {
+    const span = spanByKey.get(key);
+    if (!span) return;
+    const usable = Math.max(span.endAngle - span.startAngle - ANGLE_PAD_FOUNDATION * 2, 0.05);
+    members.forEach(({ node }, index) => {
+      const slot = index % FOUNDATION_STATIONS_PER_ROW;
+      const row = Math.floor(index / FOUNDATION_STATIONS_PER_ROW);
+      const perRow = Math.min(members.length, FOUNDATION_STATIONS_PER_ROW);
+      const angle = span.startAngle + ANGLE_PAD_FOUNDATION + ((slot + 0.5) / perRow) * usable;
+      const radius = FOUNDATION_STATION_RADIUS + row * FOUNDATION_ROW_DEPTH;
+      stationPlacement.set(node.id, { x: Math.cos(angle) * radius, z: Math.sin(angle) * radius, angle, radius });
+    });
+  });
+
+  // --- Visibility budget: stations before ports/emissions (§19.4) ----------
+  const stationsOnly = request.group === "family:source";
+  const sortedChannels = [...channelNodes].sort(attentionFirst);
+  const sortedGovernance = [...governanceNodes].sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
+  const sortedProvenance = [...provenanceNodes].sort(
+    (a, b) =>
+      ([...(provenanceSourceIds.get(a.id) ?? [])].sort()[0] ?? "").localeCompare([...(provenanceSourceIds.get(b.id) ?? [])].sort()[0] ?? "") ||
+      attentionFirst(a, b)
+  );
+  const sortedKnowledge = [...knowledgeNodes].sort(attentionFirst);
+  const sortedPerimeter = [...perimeterNodes].sort(attentionFirst);
+
+  let remaining = Math.max(request.maxNodes - (center ? 1 : 0), 0);
+  const buckets: [string, GraphNode[]][] = stationsOnly
+    ? [["emitters", placeableStations.map((entry) => entry.node)]]
+    : [
+        ["emitters", placeableStations.map((entry) => entry.node)],
+        ["channels", sortedChannels],
+        ["governance", sortedGovernance],
+        ["provenance", sortedProvenance],
+        ["emitted", sortedKnowledge],
+        ["unconsolidated", sortedPerimeter]
+      ];
+  const visibleByBucket = new Map<string, GraphNode[]>();
+  buckets.forEach(([key, members]) => {
+    const visible = spacedSample(members, remaining);
+    visibleByBucket.set(key, visible);
+    remaining -= visible.length;
+  });
+  const visibleIds = new Set<string>([
+    ...(center ? [centerId] : []),
+    ...[...visibleByBucket.values()].flatMap((members) => members.map((node) => node.id))
+  ]);
+
+  const nodes: LayoutNode[] = [];
+  // Core anchor: the REAL center page raised to Y=core (§10.8) — identity
+  // morph only, never a synthetic core node.
+  if (center) {
+    nodes.push(
+      makeNode(center, snapshotMs, [0, SOURCE_FOUNDATION_LEVELS.core, 0], 0.44, {
+        isHub: true,
+        isRoot: true,
+        ring: 0,
+        plane: "core",
+        foundationRole: "core-anchor"
+      })
+    );
+  }
+
+  // Foundation band: source stations.
+  placeableStations.forEach(({ node, station }) => {
+    if (!visibleIds.has(node.id)) return;
+    const place = stationPlacement.get(node.id);
+    if (!place) return;
+    // Pending pressure grows the station a little; it never moves it (§10.3).
+    const scale = Math.min(Math.max(nodeScale(node), 0.24) + Math.min(station.pending_stream_count * 0.015, 0.06), 0.34);
+    nodes.push(
+      makeNode(node, snapshotMs, [place.x, withinBandY("foundation", 0.08, node.approved_state === "proposal"), place.z], scale, {
+        isHub: true,
+        ring: 1,
+        plane: "foundation",
+        foundationRole: "source-station",
+        sourceIds: [node.id],
+        traceCount: station.emission_ids.length
+      })
+    );
+  });
+
+  // Foundation band: input channels as grouping buses at their sector mouth.
+  sortedChannels.forEach((node, index) => {
+    if (!visibleIds.has(node.id)) return;
+    const station = channelStations.find((entry) => entry.canonical_page_id === node.id);
+    const span = station ? spanByKey.get(station.station_id) : undefined;
+    const angle = span ? span.centerAngle : -Math.PI / 2 + (index / Math.max(sortedChannels.length, 1)) * Math.PI * 2;
+    nodes.push(
+      makeNode(
+        node,
+        snapshotMs,
+        [Math.cos(angle) * FOUNDATION_CHANNEL_RADIUS, withinBandY("foundation", 0.1, node.approved_state === "proposal"), Math.sin(angle) * FOUNDATION_CHANNEL_RADIUS],
+        0.26,
+        { isHub: true, ring: 1, plane: "foundation", foundationRole: "channel-station" }
+      )
+    );
+  });
+
+  // Foundation band: governance controls (configs/registry/stages) — plates
+  // attached to their station or on the inner governance ring. Never emitter
+  // stations (§9.3): no emissions, ports or lanes attach to them.
+  const stationByConfigPage = new Map<string, SourceFoundationStation>();
+  sourceStations.forEach((station) => {
+    if (station.config_page_id) stationByConfigPage.set(station.config_page_id, station);
+  });
+  sortedGovernance.forEach((node, index) => {
+    if (!visibleIds.has(node.id)) return;
+    const owner = stationByConfigPage.get(node.id);
+    const place = owner ? stationPlacement.get(owner.canonical_page_id) : undefined;
+    const y = withinBandY("foundation", 0.05, node.approved_state === "proposal");
+    const position: [number, number, number] = place
+      ? [Math.cos(place.angle) * Math.max(place.radius - 0.5, 0.6), y, Math.sin(place.angle) * Math.max(place.radius - 0.5, 0.6)]
+      : (() => {
+          const angle = -Math.PI / 2 + (index / Math.max(sortedGovernance.length, 1)) * Math.PI * 2;
+          return [Math.cos(angle) * FOUNDATION_GOVERNANCE_RADIUS, y, Math.sin(angle) * FOUNDATION_GOVERNANCE_RADIUS] as [number, number, number];
+        })();
+    nodes.push(
+      makeNode(node, snapshotMs, position, 0.2, {
+        ring: 1,
+        plane: "foundation",
+        foundationRole: "governance-control",
+        ...(owner ? { sourceIds: [owner.canonical_page_id] } : {})
+      })
+    );
+  });
+
+  // Provenance band: events/proposals/receipts aligned above the source that
+  // produced them (§10.6); orphans keep an explicit outer ring, never hidden.
+  const provenanceByStation = new Map<string, GraphNode[]>();
+  const provenanceOrphans: GraphNode[] = [];
+  sortedProvenance.forEach((node) => {
+    const owners = [...(provenanceSourceIds.get(node.id) ?? [])].sort();
+    const primary = owners.find((owner) => stationPlacement.has(owner));
+    if (primary) provenanceByStation.set(primary, [...(provenanceByStation.get(primary) ?? []), node]);
+    else provenanceOrphans.push(node);
+  });
+  provenanceByStation.forEach((members, stationPageId) => {
+    const place = stationPlacement.get(stationPageId)!;
+    members.forEach((node, index) => {
+      if (!visibleIds.has(node.id)) return;
+      const owners = [...(provenanceSourceIds.get(node.id) ?? [])].sort();
+      const angle = place.radius === 0
+        ? -Math.PI / 2 + (index / Math.max(members.length, 1)) * Math.PI * 2
+        : place.angle + (index - (members.length - 1) / 2) * 0.16;
+      const radius = place.radius === 0 ? 1.1 : place.radius;
+      nodes.push(
+        makeNode(
+          node,
+          snapshotMs,
+          [Math.cos(angle) * radius, withinBandY("provenance", 0.08, node.approved_state === "proposal"), Math.sin(angle) * radius],
+          nodeScale(node),
+          {
+            ring: 2,
+            plane: "provenance",
+            foundationRole: "provenance-page",
+            sourceIds: owners,
+            traceCount: traceCountByPage.get(node.id) ?? 0
+          }
+        )
+      );
+    });
+  });
+  provenanceOrphans.forEach((node, index) => {
+    if (!visibleIds.has(node.id)) return;
+    const angle = -Math.PI / 2 + (index / Math.max(provenanceOrphans.length, 1)) * Math.PI * 2;
+    nodes.push(
+      makeNode(
+        node,
+        snapshotMs,
+        [Math.cos(angle) * PROVENANCE_ORPHAN_RADIUS, withinBandY("provenance", 0.08, node.approved_state === "proposal"), Math.sin(angle) * PROVENANCE_ORPHAN_RADIUS],
+        nodeScale(node) * 0.9,
+        { ring: 2, plane: "provenance", foundationRole: "provenance-page", faint: true }
+      )
+    );
+  });
+
+  // Knowledge band: emitted pages at the weighted barycenter of ALL their
+  // supporting stations (§10.7) with deterministic separation. Every source
+  // relation stays countable via sourceIds/traceCount.
+  const knowledgePlacement = new Map<string, [number, number, number]>();
+  const knowledgeCells = new Map<string, GraphNode[]>();
+  const barycenterFor = (node: GraphNode): { x: number; z: number } | null => {
+    const target = targetByPage.get(node.id)!;
+    const supports = target.source_ids
+      .map((sourceId) => ({ sourceId, place: stationPlacement.get(sourceId) }))
+      .filter((entry): entry is { sourceId: string; place: { x: number; z: number; angle: number; radius: number } } => Boolean(entry.place));
+    if (supports.length === 0) return null;
+    let weightSum = 0;
+    let x = 0;
+    let z = 0;
+    supports.forEach(({ sourceId, place }) => {
+      const weight = emissionWeight.get(`${sourceId} ${node.id}`) ?? 1;
+      weightSum += weight;
+      x += place.x * weight;
+      z += place.z * weight;
+    });
+    return { x: x / weightSum, z: z / weightSum };
+  };
+  const knowledgeOrphans: GraphNode[] = [];
+  sortedKnowledge.forEach((node) => {
+    const barycenter = barycenterFor(node);
+    if (!barycenter) {
+      knowledgeOrphans.push(node);
+      return;
+    }
+    const cellKey = `${Math.round(barycenter.x / 0.6)}:${Math.round(barycenter.z / 0.6)}`;
+    knowledgeCells.set(cellKey, [...(knowledgeCells.get(cellKey) ?? []), node]);
+  });
+  [...knowledgeCells.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([cellKey, members]) => {
+    [...members].sort((a, b) => a.id.localeCompare(b.id)).forEach((node, rank) => {
+      const barycenter = barycenterFor(node)!;
+      // Deterministic separation: same-cell neighbors fan out on a small ring
+      // — bounded, id-stable, and independent of the visibility budget.
+      const offsetRadius = rank === 0 ? 0 : 0.3 + 0.18 * Math.floor((rank - 1) / 6);
+      const offsetAngle = Math.PI * 2 * (((rank - 1) % 6) / 6) + Math.PI * 2 * stableHash(cellKey);
+      knowledgePlacement.set(node.id, [
+        barycenter.x + Math.cos(offsetAngle) * offsetRadius,
+        withinBandY("knowledge", 0, node.approved_state === "proposal"),
+        barycenter.z + Math.sin(offsetAngle) * offsetRadius
+      ]);
+    });
+  });
+  sortedKnowledge.forEach((node) => {
+    if (!visibleIds.has(node.id)) return;
+    const target = targetByPage.get(node.id)!;
+    const position = knowledgePlacement.get(node.id);
+    if (!position) return;
+    nodes.push(
+      makeNode(node, snapshotMs, position, nodeScale(node), {
+        ring: 3,
+        plane: "knowledge",
+        foundationRole: "knowledge-page",
+        sourceIds: [...target.source_ids].sort(),
+        traceCount: target.emission_count
+      })
+    );
+  });
+
+  // Knowledge perimeter: pages with no resolved origin stay visible on an
+  // explicit outer ring with a safe reason encoded as the group, not hidden.
+  const perimeterAll = [...sortedPerimeter, ...knowledgeOrphans].sort(attentionFirst);
+  perimeterAll.forEach((node, index) => {
+    if (!visibleIds.has(node.id)) return;
+    const ring = index % 3;
+    const slot = Math.floor(index / 3);
+    const slots = Math.max(Math.ceil(perimeterAll.length / 3), 1);
+    const angle = -Math.PI / 2 + (slot / slots) * Math.PI * 2 + ring * 0.035;
+    const radius = KNOWLEDGE_PERIMETER_RADIUS + ring * 0.42;
+    nodes.push(
+      makeNode(
+        node,
+        snapshotMs,
+        [Math.cos(angle) * radius, withinBandY("knowledge", -0.04, node.approved_state === "proposal"), Math.sin(angle) * radius],
+        nodeScale(node) * 0.82,
+        { ring: 3, plane: "knowledge", foundationRole: "knowledge-page", faint: true }
+      )
+    );
+  });
+
+  const layoutById = new Map(nodes.map((node) => [node.id, node]));
+
+  // --- Derived primitives (§7.4): never pages, never a center --------------
+  const primitives: SourceFoundationPrimitive[] = [];
+  const streamsBySource = new Map<string, SourceFoundationPayload["streams"]>();
+  [...payload.streams]
+    .sort((a, b) => Number(b.selected) - Number(a.selected) || a.label.localeCompare(b.label) || a.stream_id.localeCompare(b.stream_id))
+    .forEach((stream) => {
+      streamsBySource.set(stream.source_id, [...(streamsBySource.get(stream.source_id) ?? []), stream]);
+    });
+  const pipelinesBySource = new Map<string, SourceFoundationPayload["pipelines"]>();
+  [...payload.pipelines]
+    .sort((a, b) => a.kind.localeCompare(b.kind) || a.pipeline_id.localeCompare(b.pipeline_id))
+    .forEach((pipeline) => {
+      pipelinesBySource.set(pipeline.source_id, [...(pipelinesBySource.get(pipeline.source_id) ?? []), pipeline]);
+    });
+
+  placeableStations.forEach(({ node, station }) => {
+    if (!visibleIds.has(node.id)) return;
+    const place = stationPlacement.get(node.id);
+    if (!place) return;
+    const stationY = withinBandY("foundation", 0.08, node.approved_state === "proposal");
+    const streams = streamsBySource.get(node.id) ?? [];
+    // Station stays legible before its ports (§10.4): a bounded port budget
+    // with an aggregated "+N" port carrying the TRUE hidden count.
+    const shownStreams = streams.length > FOUNDATION_PORT_BUDGET ? streams.slice(0, FOUNDATION_PORT_BUDGET - 1) : streams;
+    const hiddenStreams = streams.length - shownStreams.length;
+    const portCount = shownStreams.length + (hiddenStreams > 0 ? 1 : 0);
+    shownStreams.forEach((stream, index) => {
+      const angle = ((index + 0.5) / Math.max(portCount, 1)) * Math.PI * 2;
+      primitives.push({
+        kind: "stream-port",
+        id: stream.stream_id,
+        streamId: stream.stream_id,
+        sourceIds: [node.id],
+        pageIds: [...stream.target_page_ids].sort(),
+        position: [
+          Number((place.x + Math.cos(angle) * FOUNDATION_PORT_ORBIT).toFixed(4)),
+          Number((stationY + 0.12).toFixed(4)),
+          Number((place.z + Math.sin(angle) * FOUNDATION_PORT_ORBIT).toFixed(4))
+        ],
+        bounds: { radius: 0.09 },
+        labelKey: "source_foundation.port.stream",
+        severity: stream.breached ? "warning" : "none",
+        selected: stream.selected,
+        breached: stream.breached,
+        hiddenCount: 0
+      });
+    });
+    if (hiddenStreams > 0) {
+      const angle = ((shownStreams.length + 0.5) / Math.max(portCount, 1)) * Math.PI * 2;
+      primitives.push({
+        kind: "stream-port",
+        id: `port:${node.id}:overflow`,
+        streamId: null,
+        sourceIds: [node.id],
+        pageIds: [],
+        position: [
+          Number((place.x + Math.cos(angle) * FOUNDATION_PORT_ORBIT).toFixed(4)),
+          Number((stationY + 0.12).toFixed(4)),
+          Number((place.z + Math.sin(angle) * FOUNDATION_PORT_ORBIT).toFixed(4))
+        ],
+        bounds: { radius: 0.11 },
+        labelKey: "source_foundation.port.overflow",
+        severity: "info",
+        selected: false,
+        breached: false,
+        hiddenCount: hiddenStreams
+      });
+    }
+    (pipelinesBySource.get(node.id) ?? []).forEach((pipeline, laneIndex) => {
+      primitives.push({
+        kind: "pipeline-lane",
+        id: pipeline.pipeline_id,
+        pipelineId: pipeline.pipeline_id,
+        laneKind: pipeline.kind,
+        stage: pipeline.current_stage,
+        tickCount: pipeline.cadence_days > 0 ? Math.min(pipeline.cadence_days, 12) : 0,
+        radius: Number((FOUNDATION_LANE_BASE_RADIUS + laneIndex * FOUNDATION_LANE_STEP).toFixed(4)),
+        sourceIds: [node.id],
+        pageIds: [],
+        position: [Number(place.x.toFixed(4)), Number((stationY + 0.05).toFixed(4)), Number(place.z.toFixed(4))],
+        bounds: { radius: Number((FOUNDATION_LANE_BASE_RADIUS + laneIndex * FOUNDATION_LANE_STEP).toFixed(4)) },
+        labelKey:
+          pipeline.kind === "content" || pipeline.kind === "deep_read"
+            ? `source_foundation.pipeline.${pipeline.kind}`
+            : "source_foundation.pipeline.other",
+        severity: /fail|block/.test(pipeline.current_stage) ? "error" : "none"
+      });
+    });
+    // Governance plate for a config that exists in the payload but is not a
+    // visible page node — the control stays represented with its real ref.
+    if (station.config_page_id && !layoutById.has(station.config_page_id)) {
+      primitives.push({
+        kind: "governance-plate",
+        id: `station:${node.id}:config`,
+        stationId: station.station_id,
+        sourceIds: [node.id],
+        pageIds: [station.config_page_id],
+        canonicalEntityId: station.config_page_id,
+        position: [
+          Number((Math.cos(place.angle) * Math.max(place.radius - 0.5, 0.6)).toFixed(4)),
+          Number(withinBandY("foundation", 0.05, false).toFixed(4)),
+          Number((Math.sin(place.angle) * Math.max(place.radius - 0.5, 0.6)).toFixed(4))
+        ],
+        bounds: { radius: 0.14 },
+        labelKey: "source_foundation.governance.config",
+        severity: station.recipe_state === "valid" ? "none" : "warning"
+      });
+    }
+  });
+
+  // Flow bundles: one bundle per (source, target) pair — a two-source target
+  // keeps two bundles (§9.7), never collapsed by lexical order.
+  if (!stationsOnly) {
+    const flowGroups = new Map<string, { sourceId: string; targetId: string; emissions: typeof sortedEmissions }>();
+    sortedEmissions.forEach((emission) => {
+      if (!emission.target_page_id) return;
+      const key = `${emission.source_id} ${emission.target_page_id}`;
+      const group = flowGroups.get(key) ?? { sourceId: emission.source_id, targetId: emission.target_page_id, emissions: [] };
+      group.emissions.push(emission);
+      flowGroups.set(key, group);
+    });
+    [...flowGroups.values()]
+      .sort((a, b) => a.sourceId.localeCompare(b.sourceId) || a.targetId.localeCompare(b.targetId))
+      .forEach((group) => {
+        const fromNode = layoutById.get(group.sourceId);
+        const toNode = layoutById.get(group.targetId);
+        if (!fromNode || !toNode) return;
+        const closures = new Set(group.emissions.map((emission) => emission.closure_state));
+        primitives.push({
+          kind: "flow-bundle",
+          id: `flow:${group.sourceId}:${group.targetId}`,
+          sourceIds: [group.sourceId],
+          pageIds: [group.targetId],
+          from: fromNode.position,
+          to: toNode.position,
+          position: [
+            Number(((fromNode.position[0] + toNode.position[0]) / 2).toFixed(4)),
+            Number(((fromNode.position[1] + toNode.position[1]) / 2).toFixed(4)),
+            Number(((fromNode.position[2] + toNode.position[2]) / 2).toFixed(4))
+          ],
+          bounds: { radius: 0.12 },
+          labelKey: "source_foundation.flow.emission",
+          severity: closures.has("blocked") ? "warning" : closures.has("pending") || closures.has("unknown") ? "info" : "none",
+          traceCount: group.emissions.length,
+          emissionIds: group.emissions.map((emission) => emission.emission_id)
+        });
+      });
+
+    // Typed gap ring (§9.8): every diagnostic is a marker with its honest
+    // count — codes and canonical refs only, never secret content.
+    const sortedDiagnostics = [...payload.diagnostics].sort(
+      (a, b) => a.code.localeCompare(b.code) || a.subject_ref.localeCompare(b.subject_ref) || a.gap_id.localeCompare(b.gap_id)
+    );
+    sortedDiagnostics.forEach((diagnostic, index) => {
+      const angle = -Math.PI / 2 + (index / Math.max(sortedDiagnostics.length, 1)) * Math.PI * 2;
+      const subjectNode = byKey.get(diagnostic.subject_ref);
+      primitives.push({
+        kind: "gap-marker",
+        id: diagnostic.gap_id,
+        code: diagnostic.code,
+        subjectRef: diagnostic.subject_ref,
+        count: diagnostic.count,
+        sourceIds: [],
+        pageIds: subjectNode ? [subjectNode.id] : [],
+        ...(subjectNode ? { canonicalEntityId: subjectNode.id } : {}),
+        position: [
+          Number((Math.cos(angle) * FOUNDATION_GAP_RING_RADIUS).toFixed(4)),
+          Number(withinBandY("provenance", 0.1, false).toFixed(4)),
+          Number((Math.sin(angle) * FOUNDATION_GAP_RING_RADIUS).toFixed(4))
+        ],
+        bounds: { radius: 0.1 },
+        labelKey: diagnostic.message_key,
+        severity: diagnostic.severity
+      });
+    });
+  }
+
+  // --- Honest census: groups + cluster stars ------------------------------
+  const bucketMeta: Record<string, { members: GraphNode[]; anchor: [number, number, number] }> = {
+    emitters: {
+      members: placeableStations.map((entry) => entry.node),
+      anchor: [0, SOURCE_FOUNDATION_LEVELS.foundation + 0.1, -(FOUNDATION_STATION_RADIUS + 1.1)]
+    },
+    channels: { members: sortedChannels, anchor: [FOUNDATION_CHANNEL_RADIUS + 0.6, SOURCE_FOUNDATION_LEVELS.foundation + 0.1, 0] },
+    governance: { members: sortedGovernance, anchor: [0, SOURCE_FOUNDATION_LEVELS.foundation + 0.05, FOUNDATION_GOVERNANCE_RADIUS + 0.7] },
+    provenance: { members: sortedProvenance, anchor: [PROVENANCE_ORPHAN_RADIUS, SOURCE_FOUNDATION_LEVELS.provenance + 0.1, 0] },
+    emitted: { members: sortedKnowledge, anchor: [-(KNOWLEDGE_PERIMETER_RADIUS - 0.4), SOURCE_FOUNDATION_LEVELS.knowledge + 0.05, 0] },
+    unconsolidated: { members: sortedPerimeter, anchor: [0, SOURCE_FOUNDATION_LEVELS.knowledge + 0.05, KNOWLEDGE_PERIMETER_RADIUS + 0.8] }
+  };
+  const activeBuckets = buckets.map(([key]) => key);
+  const groups: WorldGroup[] = stationsOnly
+    ? []
+    : activeBuckets.map((key) => {
+        const meta = bucketMeta[key];
+        const visible = (visibleByBucket.get(key) ?? []).map((node) => node.id);
+        return {
+          key: key === "emitters" ? "source-emitters" : key,
+          kind: "source_flow" as GroupKind,
+          labelKey: key,
+          count: meta.members.length,
+          shown: visible.length,
+          anchor: meta.anchor,
+          drill: key === "emitters" ? { context: request.context, group: "family:source" } : null,
+          memberIds: visible
+        };
+      });
+  const clusterStars: ClusterStar[] = activeBuckets.flatMap((key) => {
+    const meta = bucketMeta[key];
+    const hidden = meta.members.filter((node) => !visibleIds.has(node.id));
+    return hidden.length > 0
+      ? [starFor(`foundation-star-${key}`, "source_flow", key, hidden, meta.anchor, null)]
+      : [];
+  });
+
+  const shown = nodes.length;
+  const reachableTotal = stationsOnly ? placeableStations.length + (center ? 1 : 0) : request.nodes.length;
+  return {
+    perspective: "sources",
+    level: 0,
+    context: request.context,
+    group: request.group,
+    radial: "orbit",
+    nodes,
+    wedges: [],
+    wedgeKind: "group",
+    // No upper-profile ground guides in the foundation profile (§10.12): the
+    // profile owns its per-band guides renderer-side, keyed off planeProfile.
+    guides: [],
+    groups,
+    clusterStars,
+    beacons: [],
+    rInner: FOUNDATION_GOVERNANCE_RADIUS,
+    rOuter: FOUNDATION_GAP_RING_RADIUS + 0.4,
+    deadlineF: DEADLINE_F,
+    unknownR: null,
+    totals: { total: reachableTotal, shown, hidden: Math.max(reachableTotal - shown, 0) },
+    truncated: Math.max(reachableTotal - shown, 0),
+    planeProfile: {
+      active: "foundation",
+      levels: { ...SOURCE_FOUNDATION_LEVELS },
+      cameraHemisphere: "lower",
+      transitionPath: "outer_arc",
+      occlusionPolicy: "foundation-first",
+      labelPolicy: "camera-facing"
+    },
+    foundationPrimitives: primitives
+  };
+}
+
 // Work — an actionable queue around the same canonical center. Five stable
 // spokes encode kinds of human work; supporting pages remain a quiet perimeter
 // so changing view never swaps universes. Queue geometry is driven only by
@@ -2031,7 +2769,14 @@ export function computeWorldLayout(request: WorldRequest): WorldLayout {
   if (request.perspective === "trails") return trailsLayout(request);
   if (request.perspective === "focus") return focusLayout(request);
   if (request.perspective === "quadrants") return quadrantsLayout(request);
-  if (request.perspective === "sources") return sourcesLayout(request);
+  if (request.perspective === "sources") {
+    // Compatibility window (§10.1): the vertical foundation profile activates
+    // only when the capability-gated payload travelled with the request; older
+    // snapshots keep the v8 sources layout unchanged.
+    return request.sourceFoundation
+      ? sourceFoundationLayout(request as SourceFoundationWorldRequest)
+      : sourcesLayout(request);
+  }
   if (request.perspective === "work") return workLayout(request);
   return radarLayout(request);
 }

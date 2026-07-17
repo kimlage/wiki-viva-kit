@@ -1,8 +1,10 @@
-import type { ExperiencePackComposition, TemporalGraphPayload } from "../types";
+import type { ExperiencePackComposition, SourceFoundationPayload, TemporalGraphPayload } from "../types";
 
 export const TEMPORAL_GRAPH_VERSION = "wiki_temporal_graph.v1";
 export const TEMPORAL_EVENT_VERSION = "wiki_temporal_event.v1";
 export const EXPERIENCE_PACK_COMPOSITION_VERSION = "wiki_experience_pack_composition.v1";
+export const SOURCE_FOUNDATION_VERSION = "wiki_web_source_foundation.v1";
+export const SOURCE_FOUNDATION_CAPABILITY = "source_foundation_v1";
 
 function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -703,6 +705,142 @@ export function experiencePackContractErrors(
     errors.push("experience pack composition_sha256 is invalid");
   }
   return errors;
+}
+
+// --- Source foundation (wiki_web_source_foundation.v1) ----------------------
+// Shape/id checks for the capability-gated topology payload. Error messages
+// reference field names and derived ids only — never platform strings,
+// locators, filter values or any other recipe content (§8.8/§21).
+
+const SOURCE_FOUNDATION_KEYS = [
+  "schema_version",
+  "repo_id",
+  "revision",
+  "generated_at",
+  "topology_sha256",
+  "summary",
+  "stations",
+  "streams",
+  "pipelines",
+  "emissions",
+  "targets",
+  "diagnostics"
+] as const;
+
+const SOURCE_FOUNDATION_SUMMARY_KEYS = [
+  "sources",
+  "channels",
+  "streams",
+  "pipelines",
+  "emissions",
+  "targets",
+  "gaps",
+  "blocked_sources",
+  "pending_streams"
+] as const;
+
+// Derived primitive id prefixes (§9.6). Anything with one of these prefixes is
+// topology, not a page: it must never enter the PageEntityIndex nor be
+// accepted as `centerId`.
+export const SOURCE_FOUNDATION_DERIVED_ID_PATTERN = /^(?:station|channel|stream|pipeline|emission|gap|port|flow):/;
+
+function derivedId(value: unknown, prefixes: string[]): boolean {
+  return typeof value === "string" && prefixes.some((prefix) => value.startsWith(`${prefix}:`) && value.length > prefix.length + 1);
+}
+
+export function sourceFoundationContractErrors(
+  value: unknown,
+  versions: Record<string, string> | undefined
+): string[] {
+  const errors: string[] = [];
+  if (versions && versions.source_foundation !== undefined && versions.source_foundation !== SOURCE_FOUNDATION_VERSION) {
+    errors.push("manifest source foundation version is unsupported");
+  }
+  if (!record(value)) return [...errors, "source foundation payload must be an object"];
+  // The backend degraded state is an explicit error marker, never a topology.
+  if (typeof value.error === "string") return [...errors, "source foundation payload is an error marker"];
+  if (Object.keys(value).sort().join(",") !== [...SOURCE_FOUNDATION_KEYS].sort().join(",")) {
+    return [...errors, "source foundation payload must expose the exact v1 fields"];
+  }
+  if (value.schema_version !== SOURCE_FOUNDATION_VERSION) {
+    errors.push("source foundation schema_version is unsupported");
+  }
+  if (typeof value.topology_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(value.topology_sha256)) {
+    errors.push("source foundation topology_sha256 is invalid");
+  }
+  if (
+    !record(value.summary) ||
+    Object.keys(value.summary).sort().join(",") !== [...SOURCE_FOUNDATION_SUMMARY_KEYS].sort().join(",") ||
+    Object.values(value.summary).some((item) => !nonNegativeInteger(item))
+  ) {
+    errors.push("source foundation summary is invalid");
+  }
+  const collections: [string, (item: Record<string, unknown>) => boolean][] = [
+    ["stations", (item) =>
+      derivedId(item.station_id, ["station", "channel"]) &&
+      (item.kind === "source" || item.kind === "input_channel") &&
+      typeof item.canonical_page_id === "string" && item.canonical_page_id.length > 0 &&
+      !SOURCE_FOUNDATION_DERIVED_ID_PATTERN.test(item.canonical_page_id) &&
+      (item.channel_station_id === null || derivedId(item.channel_station_id, ["channel"])) &&
+      stringArray(item.stream_ids) && item.stream_ids.every((id) => derivedId(id, ["stream"])) &&
+      stringArray(item.pipeline_ids) && item.pipeline_ids.every((id) => derivedId(id, ["pipeline"])) &&
+      stringArray(item.emission_ids) && item.emission_ids.every((id) => derivedId(id, ["emission"])) &&
+      stringArray(item.target_page_ids) &&
+      stringArray(item.diagnostic_codes)],
+    ["streams", (item) =>
+      derivedId(item.stream_id, ["stream"]) &&
+      typeof item.source_id === "string" && item.source_id.length > 0 &&
+      typeof item.selected === "boolean" &&
+      typeof item.breached === "boolean" &&
+      stringArray(item.target_page_ids) &&
+      stringArray(item.filter_keys)],
+    ["pipelines", (item) =>
+      derivedId(item.pipeline_id, ["pipeline"]) &&
+      typeof item.source_id === "string" && item.source_id.length > 0 &&
+      typeof item.kind === "string" && item.kind.length > 0 &&
+      stringArray(item.stream_ids) && item.stream_ids.every((id) => derivedId(id, ["stream"]))],
+    ["emissions", (item) =>
+      typeof item.emission_id === "string" && /^emission:[0-9a-f]{20}$/.test(item.emission_id) &&
+      typeof item.source_id === "string" && item.source_id.length > 0 &&
+      (item.stream_id === null || derivedId(item.stream_id, ["stream"])) &&
+      (item.target_page_id === null || (typeof item.target_page_id === "string" && !SOURCE_FOUNDATION_DERIVED_ID_PATTERN.test(item.target_page_id))) &&
+      stringArray(item.proposal_page_ids) &&
+      typeof item.closure_state === "string" &&
+      stringArray(item.evidence_refs)],
+    ["targets", (item) =>
+      typeof item.page_id === "string" && item.page_id.length > 0 &&
+      !SOURCE_FOUNDATION_DERIVED_ID_PATTERN.test(item.page_id) &&
+      // declared_only targets can arrive via a stream declaration with no
+      // resolved emitting source yet — an EMPTY list is honest, not malformed.
+      stringArray(item.source_ids) &&
+      nonNegativeInteger(item.emission_count) &&
+      nonNegativeInteger(item.accepted_count) &&
+      nonNegativeInteger(item.pending_count) &&
+      typeof item.closure_state === "string"],
+    ["diagnostics", (item) =>
+      typeof item.gap_id === "string" && /^gap:[a-z0-9_]+:[0-9a-f]{16}$/.test(item.gap_id) &&
+      typeof item.code === "string" && item.code.length > 0 &&
+      (item.severity === "info" || item.severity === "warning" || item.severity === "error") &&
+      typeof item.subject_ref === "string" && item.subject_ref.length > 0 &&
+      stringArray(item.related_refs) &&
+      typeof item.message_key === "string" && item.message_key.startsWith("source_foundation.diagnostics.") &&
+      typeof item.count === "number" && Number.isInteger(item.count) && item.count >= 1]
+  ];
+  for (const [name, valid] of collections) {
+    const rows = value[name];
+    if (!Array.isArray(rows)) {
+      errors.push(`source foundation ${name} must be an array`);
+      continue;
+    }
+    rows.forEach((row, index) => {
+      if (!record(row) || !valid(row)) errors.push(`source foundation ${name}[${index}] is malformed`);
+    });
+  }
+  return errors;
+}
+
+export function asSourceFoundationPayload(value: unknown): SourceFoundationPayload {
+  return value as SourceFoundationPayload;
 }
 
 export function asTemporalGraphPayload(value: unknown): TemporalGraphPayload {

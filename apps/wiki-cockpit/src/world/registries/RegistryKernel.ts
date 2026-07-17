@@ -1,5 +1,15 @@
-import { DOCK_IDS } from "../contracts";
-import type { DockId, LensId, OperatorCommand, OverlayId, RuntimeEvent, ViewId, WorldState } from "../contracts";
+import { DOCK_IDS, KNOWLEDGE_UPPER_CAMERA_PROFILE, SOURCE_FOUNDATION_CAMERA_PROFILE } from "../contracts";
+import type {
+  DockId,
+  LensId,
+  OperatorCommand,
+  OverlayId,
+  RuntimeEvent,
+  ViewCameraProfile,
+  ViewId,
+  ViewSpatialProfileId,
+  WorldState
+} from "../contracts";
 import { Registry } from "./Registry";
 
 export type InteractionDefinition = {
@@ -13,7 +23,18 @@ export type InteractionDefinition = {
   shareable: boolean;
   changesCenter: boolean;
 };
-export type ViewDefinition = { id: ViewId; defaultLens: LensId; defaultOverlay: OverlayId; allowedOverlays: OverlayId[]; compatibility?: boolean };
+export type ViewDefinition = {
+  id: ViewId;
+  defaultLens: LensId;
+  defaultOverlay: OverlayId;
+  allowedOverlays: OverlayId[];
+  compatibility?: boolean;
+  // Every view declares its spatial world profile and camera profile
+  // explicitly (§7.1). Only `sources` activates the source-foundation plane;
+  // the profile is registry data and never leaks into the URL (ADR-002).
+  spatialProfile: ViewSpatialProfileId;
+  cameraProfile: ViewCameraProfile;
+};
 export type OverlayDefinition = { id: OverlayId; metric: string; fallbackText: string };
 export type SurfaceDefinition = { id: Exclude<DockId, "">; modal: boolean; restoresFocus: boolean };
 export type SceneSystemDefinition = { id: string; inputs: string[]; fallback: string };
@@ -61,16 +82,20 @@ export function createDefaultKernel(): RegistryKernel {
   ];
   overlays.forEach((entry) => kernel.overlays.register(entry));
   const all = overlays.map((entry) => entry.id);
+  // Explicit spatial/camera profiles (§7.1): only `sources` gets the
+  // source-foundation plane and the lower-hemisphere camera profile.
+  const upper = { spatialProfile: "knowledge-upper", cameraProfile: KNOWLEDGE_UPPER_CAMERA_PROFILE } as const;
+  const foundation = { spatialProfile: "source-foundation", cameraProfile: SOURCE_FOUNDATION_CAMERA_PROFILE } as const;
   [
-    { id: "quadrants", defaultLens: "all", defaultOverlay: "actions", allowedOverlays: all },
-    { id: "radar", defaultLens: "all", defaultOverlay: "freshness", allowedOverlays: all },
-    { id: "sources", defaultLens: "all", defaultOverlay: "evidence", allowedOverlays: ["attention", "freshness", "actions", "ownership", "evidence", "quality"] },
-    { id: "work", defaultLens: "all", defaultOverlay: "actions", allowedOverlays: all },
-    { id: "timeline", defaultLens: "all", defaultOverlay: "evidence", allowedOverlays: all },
-    { id: "atlas", defaultLens: "type", defaultOverlay: "actions", allowedOverlays: all, compatibility: true },
-    { id: "focus", defaultLens: "relations", defaultOverlay: "evidence", allowedOverlays: all, compatibility: true },
-    { id: "districts", defaultLens: "type", defaultOverlay: "actions", allowedOverlays: all, compatibility: true },
-    { id: "trails", defaultLens: "relations", defaultOverlay: "evidence", allowedOverlays: all, compatibility: true }
+    { id: "quadrants", defaultLens: "all", defaultOverlay: "actions", allowedOverlays: all, ...upper },
+    { id: "radar", defaultLens: "all", defaultOverlay: "freshness", allowedOverlays: all, ...upper },
+    { id: "sources", defaultLens: "all", defaultOverlay: "evidence", allowedOverlays: ["attention", "freshness", "actions", "ownership", "evidence", "quality"], ...foundation },
+    { id: "work", defaultLens: "all", defaultOverlay: "actions", allowedOverlays: all, ...upper },
+    { id: "timeline", defaultLens: "all", defaultOverlay: "evidence", allowedOverlays: all, ...upper },
+    { id: "atlas", defaultLens: "type", defaultOverlay: "actions", allowedOverlays: all, compatibility: true, ...upper },
+    { id: "focus", defaultLens: "relations", defaultOverlay: "evidence", allowedOverlays: all, compatibility: true, ...upper },
+    { id: "districts", defaultLens: "type", defaultOverlay: "actions", allowedOverlays: all, compatibility: true, ...upper },
+    { id: "trails", defaultLens: "relations", defaultOverlay: "evidence", allowedOverlays: all, compatibility: true, ...upper }
   ].forEach((entry) => kernel.views.register(entry as ViewDefinition));
   const interaction = (
     id: RuntimeEvent["type"],

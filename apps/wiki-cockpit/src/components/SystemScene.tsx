@@ -14,7 +14,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import type { AnchorRecord, GitState, GraphEdge, GraphNode } from "../types";
+import type { AnchorRecord, GitState, GraphEdge, GraphNode, SourceFoundationPayload } from "../types";
 import { t } from "../data/i18n";
 import { contextStyle, edgeStyle, isRawData, pageTypeStyle, trustColor, worldGroupLabel } from "../data/presentation";
 import { regionPayloadByKey } from "../data/visualPrimitives";
@@ -1245,6 +1245,7 @@ export function SystemScene({
   centerHasQuadrants = false,
   centerableIds,
   quadrantHomes,
+  sourceFoundation,
   founding = null,
   seed = null,
   guide = null,
@@ -1285,6 +1286,10 @@ export function SystemScene({
   // Per-page quadrant classification from the interpretation layer — the
   // scene never re-derives what the compiler already decided.
   quadrantHomes?: QuadrantHomes;
+  // Capability-gated source-foundation topology (§10.1). Present = the sources
+  // view computes the vertical foundation profile in the layout worker; absent
+  // = the v8 sources layout, unchanged.
+  sourceFoundation?: SourceFoundationPayload;
   // Spatial surfaces (R1/R4/R5): the founding rite of an empty world, the
   // in-world create flow, the tutorial guide beacon.
   founding?: FoundingSpec | null;
@@ -1396,6 +1401,9 @@ export function SystemScene({
         quadrant: (route.lens || route.quadrant || undefined) as WorldRequest["quadrant"],
         quadrantHomes,
         centerHasQuadrants,
+        // The foundation payload only rides along for the view that renders it
+        // — other perspectives never pay its worker structured-clone cost.
+        sourceFoundation: route.perspective === "sources" ? sourceFoundation : undefined,
         nodes,
         edges,
         maxNodes: semanticCollectionOnPhone
@@ -1411,6 +1419,7 @@ export function SystemScene({
       visualTuning.density,
       quadrantHomes,
       centerHasQuadrants,
+      sourceFoundation,
       revealBoost,
       route.centerId,
       route.context,

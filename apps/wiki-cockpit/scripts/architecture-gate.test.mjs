@@ -132,3 +132,51 @@ test("resolved debt remains a blocking stale entry until the baseline is updated
   assert.equal(result.ok, false);
   assert.equal(result.staleDebt.length, 1);
 });
+
+test("blocks the source-foundation boundary violations (plan §19.9)", (t) => {
+  const root = fixture({
+    "src/scene/perspectives.ts": "export function sourceFoundationLayout() { return {}; }\n",
+    "src/router.ts": [
+      "export function parse(params) {",
+      "  return { stratum: params.get(\"stratum\") };",
+      "}"
+    ].join("\n"),
+    "src/world/state/BadCenter.ts": [
+      "export const state = {",
+      "  centerId: \"station:source-agenda\"",
+      "};"
+    ].join("\n"),
+    "src/components/SecondCanvas.tsx": [
+      "const Canvas = (props) => props.children;",
+      "export const Second = () => <Canvas />;"
+    ].join("\n"),
+    "src/components/BadBuilder.tsx": [
+      "import { sourceFoundationLayout } from \"../scene/perspectives\";",
+      "export const Bad = () => { sourceFoundationLayout(); return null; };"
+    ].join("\n")
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const rules = collectArchitectureViolations(root).map((entry) => entry.ruleId);
+  assert.ok(rules.includes("no-stratum-parameter"));
+  assert.ok(rules.includes("no-derived-primitive-center"));
+  assert.ok(rules.includes("single-scene-canvas"));
+  assert.ok(rules.includes("components-no-source-foundation-builder"));
+});
+
+test("allows the single owned Canvas, real page centers and worker-side builder usage", (t) => {
+  const root = fixture({
+    "src/scene/perspectives.ts": "export function sourceFoundationLayout() { return {}; }\n",
+    "src/scene/layout.worker.ts": [
+      "import { sourceFoundationLayout } from \"./perspectives\";",
+      "export const compute = () => sourceFoundationLayout();"
+    ].join("\n"),
+    "src/components/SystemScene.tsx": [
+      "const Canvas = (props) => props.children;",
+      "export const SystemScene = () => <Canvas />;"
+    ].join("\n"),
+    "src/world/state/GoodCenter.ts": "export const state = { centerId: \"root-alex-rivera\" };\n"
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(collectArchitectureViolations(root), []);
+});

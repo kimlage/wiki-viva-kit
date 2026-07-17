@@ -13,6 +13,7 @@ import {
   registeredWorldOverlayExperiences,
   registeredWorldViewExperiences
 } from "./experience";
+import { SOURCE_FOUNDATION_CAMERA_PROFILE } from "./contracts";
 import { RegistryKernel } from "./registries/RegistryKernel";
 
 describe("world experience metadata", () => {
@@ -81,7 +82,9 @@ describe("world experience metadata", () => {
       id: "sources",
       defaultLens: "all",
       defaultOverlay: "evidence",
-      allowedOverlays: ["evidence"]
+      allowedOverlays: ["evidence"],
+      spatialProfile: "source-foundation",
+      cameraProfile: SOURCE_FOUNDATION_CAMERA_PROFILE
     });
 
     expect(registeredWorldViewExperiences(kernel).map((entry) => entry.id)).toEqual([
