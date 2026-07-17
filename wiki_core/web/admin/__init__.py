@@ -22,6 +22,20 @@ from wiki_core.web.admin.capabilities import (
     admin_capabilities_payload,
     admin_health_summary,
 )
+from wiki_core.web.admin.commands import (
+    ADMIN_COMMANDS_SCHEMA_VERSION,
+    ADMIN_COMMAND_SPECS,
+    AdminCommandSpec,
+    admin_command_spec,
+    admin_commands_payload,
+    command_capabilities_granted,
+)
+from wiki_core.web.admin.plans import (
+    ADMIN_PLAN_SCHEMA_VERSION,
+    AdminPlanStore,
+    build_admin_plan,
+    execute_admin_plan,
+)
 from wiki_core.web.admin.sessions import (
     ADMIN_SESSION_HEADER,
     AdminSessionManager,
@@ -29,15 +43,25 @@ from wiki_core.web.admin.sessions import (
 
 __all__ = [
     "ADMIN_CAPABILITY_SCHEMA_VERSION",
+    "ADMIN_COMMANDS_SCHEMA_VERSION",
+    "ADMIN_COMMAND_SPECS",
+    "ADMIN_PLAN_SCHEMA_VERSION",
     "ADMIN_SERVER_VERSION",
     "ADMIN_SESSION_HEADER",
     "AUDIT_SCHEMA_VERSION",
+    "AdminCommandSpec",
+    "AdminPlanStore",
     "AdminSessionManager",
     "ROLE_CAPABILITIES",
     "admin_capabilities_payload",
+    "admin_command_spec",
+    "admin_commands_payload",
     "admin_health_summary",
     "append_admin_audit_event",
     "audit_log_path",
+    "build_admin_plan",
+    "command_capabilities_granted",
+    "execute_admin_plan",
     "redact_audit_value",
     "verify_admin_audit_chain",
 ]

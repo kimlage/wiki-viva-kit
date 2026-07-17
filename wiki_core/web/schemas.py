@@ -50,6 +50,12 @@ ADMIN_CAPABILITIES_CAPABILITY = "admin_capabilities_v1"
 # nonce + attempt-key contract. The audit trail ships alongside but has no
 # read endpoint yet, so no admin_audit capability string exists until it does.
 ADMIN_SESSION_CAPABILITY = "admin_session_v1"
+# Command bus (god-mode plan §11, §12.2, PR4): GET /api/admin/commands +
+# /api/admin/plans/{id}, POST /api/admin/commands/{plan,execute}. Plans are
+# materialized server-side and executed only against a matching plan_sha —
+# the browser never sends argv. No admin_audit capability yet: the audit
+# trail still has no read endpoint (§12.7 rule: capability ships with it).
+ADMIN_COMMANDS_CAPABILITY = "admin_commands_v1"
 SCHEMA_CAPABILITIES = (
     OPERATOR_SECURITY_CAPABILITY,  # nonce + bounded/idempotent POST + browser-origin policy
     CORS_DEFAULT_DENY_CAPABILITY,  # no browser CORS trust unless exact loopback origins opt in
@@ -64,6 +70,7 @@ SCHEMA_CAPABILITIES = (
     "sources",  # /api/sources (entities) + /api/sources/{id}/brief
     ADMIN_CAPABILITIES_CAPABILITY,  # GET /api/admin/capabilities + health admin summary (read-only discovery)
     ADMIN_SESSION_CAPABILITY,  # POST /api/admin/session/{challenge,unlock,renew,lock} + session header
+    ADMIN_COMMANDS_CAPABILITY,  # plan->review->execute command bus with materialized plan_sha
 )
 
 SNAPSHOT_FILES = (

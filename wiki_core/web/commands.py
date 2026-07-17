@@ -23,6 +23,24 @@ SECRET_VALUE_RE = re.compile(
 )
 
 
+# Risk taxonomy (god-mode plan §9). The first two levels are the original
+# ActionCard vocabulary and keep their exact semantics; the three write levels
+# are canonical strings for the administrative command bus (admin/commands.py)
+# and its confirmation policy. Nothing here changes how existing cards run.
+RISK_LEVEL_READ = "read"
+RISK_LEVEL_DERIVE = "derive"
+RISK_LEVEL_PROPOSAL_WRITE = "proposal_write"
+RISK_LEVEL_EXTERNAL_WRITE = "external_write"
+RISK_LEVEL_DESTRUCTIVE = "destructive"
+RISK_LEVELS = (
+    RISK_LEVEL_READ,
+    RISK_LEVEL_DERIVE,
+    RISK_LEVEL_PROPOSAL_WRITE,
+    RISK_LEVEL_EXTERNAL_WRITE,
+    RISK_LEVEL_DESTRUCTIVE,
+)
+
+
 @dataclass(frozen=True)
 class OperatorCommandCard:
     id: str
@@ -114,6 +132,12 @@ def _label_for(argv: tuple[str, ...]) -> str:
 
 def _redact(text: str) -> str:
     return SECRET_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}[REDACTED]", text)
+
+
+def redact_secret_values(text: str) -> str:
+    """Public seam for other operator surfaces (admin command bus results)."""
+
+    return _redact(text)
 
 
 def build_operator_command_cards(config: WikiConfig) -> dict[str, Any]:
