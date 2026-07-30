@@ -18,3 +18,7 @@ v8 maintainers start with the
 [machine-readable upgrade package](upgrades/wiki-viva-v8/upgrade-package.yaml).
 The current implementation/evidence program is the
 [release-truth, temporal-world and experience-pack plan](proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
+The proposed next-version discovery program is the
+[Planetary Runtime vNext plan](proposals/wiki-viva-planetary-runtime-vnext-plan-2026-07-18.md);
+it starts with prototype and comprehension gates and does not supersede the
+current release program until human review.
