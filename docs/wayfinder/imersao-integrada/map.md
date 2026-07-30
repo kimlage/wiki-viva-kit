@@ -1,20 +1,26 @@
-# Wayfinder map — Integrated 3D + 2D immersion
+# Wayfinder map — Anatta Worlds integrated immersion
 
 ## Destination
 
-Produce an implementable architecture and specification, validated by a
-vertical slice in the real engine, for one spatial experience where 3D provides
-presence, orientation and visible consequence while 2D provides legibility,
-evidence and action over the same selected entity and the same state.
+Produce three functional, implementable and directly comparable prototypes for
+Anatta Worlds in the real cockpit stack. Every prototype must let Kim complete
+the same synthetic vertical slice from observed diff to human gate, receipt and
+one localized world consequence. The alternatives may change spatial grammar,
+camera, depth and the way a precise 2D surface joins the world, but not the
+fixture, state machine, semantic IDs, copy, rules or budgets.
 
-The destination is reached when the route to implementation is clear, the
-critical interaction has survived human review, and explicit performance,
-accessibility and provenance budgets exist.
+The destination is reached when all three alternatives run from one command,
+can be switched on one shareable route without resetting the session, pass the
+agreed desktop/mobile/accessibility checks and are ready for Kim to choose or
+combine.
 
 ## Notes
 
 - Branch: `wiki/wayfinder-imersao-integrada-20260730`.
 - Base: committed consolidation `44913a1d`; no dirty worktree state was copied.
+- Canonical product direction:
+  [Anatta Worlds GDD 3.0](../../../apps/planetary-prototype-gallery/docs/gdd/GDD-3.0.md).
+  “Mundos Vivos” is historical/category language, not the current product name.
 - Upstream Wayfinder source reviewed at
   `mattpocock/skills@2ab958093e83e0ec752e6c1c5932da465bf23e0c`.
 - Use the installed `grilling`, `domain-modeling`, `research` and `prototype`
@@ -27,6 +33,9 @@ accessibility and provenance budgets exist.
   this kit.
 - Prefer one shared semantic state and one complete vertical loop over new
   metaphors, renderers or asset pipelines.
+- This is a throwaway Wayfinder comparison, not a production architecture
+  migration. The winner will be rewritten against the production runtime after
+  human selection.
 
 ## Decisions so far
 
@@ -37,30 +46,47 @@ accessibility and provenance budgets exist.
   — use a versioned local Markdown tracker first; no GitHub mutation without
   explicit authorization.
 - [Recover the product philosophy and technical seam](issues/03-recover-product-philosophy.md)
-  — pursue one spatial gesture with a persistent world and a 2D focus surface,
-  not a dashboard reproduced inside a planet.
+  — Anatta Worlds is the authority; the proof is a truthful loop from diff to
+  localized consequence, not a dashboard reproduced inside a planet.
+- [Define the player fantasy and spatial verb](issues/04-define-player-fantasy-and-spatial-verb.md)
+  — the player is a guardian who traces and tends one real tension from evidence
+  to receipt; collecting, conquering and decorating are rejected.
+- [Define the shared focus session](issues/05-define-shared-focus-session.md)
+  — every renderer consumes one fixture and one explicit state machine.
 - [Measure the first prototype budget](issues/06-measure-first-prototype-budget.md)
   — keep the cockpit runtime and use a deliberately smaller walking-skeleton
   envelope; the gallery remains selective visual evidence, not a runtime base.
+- [Freeze the comparable vertical slice](prototype-contract.md) — one synthetic
+  garden world, two lenses, one tension, one mission, one human gate and one
+  receipt are identical in every variant.
 
-## Not yet specified
+## Frontier
 
-- The exact player fantasy and canonical spatial verb.
-- The minimum semantic boundary between world, focus surface and deep evidence.
-- Whether the first proof uses perspective camera, orthographic 2.5D or both as
-  two parameters of the same scene.
-- The device and frame budgets that define the first supported envelope.
-- The visual language, materials, sound and environmental metaphor that should
-  follow once the interaction works without bespoke art.
-- The implementation ticket sequence after the vertical slice is accepted.
+1. Implement the common prototype runtime, semantic 2D equivalent and variant
+   switcher.
+2. Implement three structurally different spatial grammars:
+   organism with anchored surface, topographic table and direct scales.
+3. Validate the complete loop, truthful visual marks, mobile behavior,
+   reduced-motion/no-WebGL behavior, bundle and frames.
+4. Ask Kim to select a winner or an explicit combination of roles.
+
+## Fog
+
+- Which grammar makes removal of 3D materially harm orientation rather than
+  only atmosphere?
+- Which transition lets 2D add precision without feeling like another
+  application?
+- Whether a combined architecture should use direct scales for navigation,
+  the topographic table for the district and the organism only for consequence.
+- Which visual material and sound language should be explored after the
+  architecture wins.
 
 ## Out of scope
 
-- Building the complete game during Wayfinding.
+- Building or claiming the complete Anatta Worlds product during Wayfinding.
 - Merging all prior visual branches, storyboards, flights, terrain spikes or
   generated assets into the new line.
 - Deleting local branches, worktrees or Cloud Code scratchpads.
-- Producing more high-fidelity moodboards before the engine proves the core
-  interaction.
+- Producing more moodboards before the real engine proves the core interaction.
 - Publishing issues, pushing branches, opening a PR or changing `main`.
 - Treating engagement time as the north-star metric.

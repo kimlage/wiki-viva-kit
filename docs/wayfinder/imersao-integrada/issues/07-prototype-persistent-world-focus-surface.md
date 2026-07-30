@@ -12,8 +12,9 @@ Does one uninterrupted selection feel spatial and legible when a 2D evidence
 surface emerges from a 3D object, docks for precision, and returns to the same
 place?
 
-Build throwaway UI code on one route with primitive geometry and synthetic data.
-Expose the full `FocusSession` state. Do not add bespoke assets, terrain
-pipelines, cinematic travel or production abstractions.
+Build throwaway UI code on the shared Anatta Worlds prototype route using the
+frozen fixture and complete state machine. Expose the full session state. Do
+not add bespoke assets, terrain pipelines, cinematic travel or production
+abstractions.
 
 Kim selects the verdict after using the prototype.

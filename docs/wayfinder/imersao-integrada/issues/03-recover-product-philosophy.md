@@ -32,19 +32,15 @@ selection, routes and events through the world runtime. The expensive seam is
 presentation: large scene, world, perspective and stylesheet modules encode too
 many metaphors before one extensible interaction has been proved.
 
-The leading architecture is **persistent world plus focus surface**:
-
-1. Select one source, tension, mission or receipt in the world.
-2. Preserve the same entity and state while a 2D surface emerges from its
-   projected location.
-3. Let the surface dock for precision while maintaining a visible relation to
-   the world object.
-4. Review or act in 2D.
-5. Return to the same spatial focus and see only the verified mutation.
+The current authority is the preserved
+[Anatta Worlds GDD 3.0](../../../../apps/planetary-prototype-gallery/docs/gdd/GDD-3.0.md).
+“Mundos Vivos” remains useful history and category language, but no longer
+names the product or governs the prototype.
 
 Working rule: 3D answers **where and what changed**; 2D answers **why, according
 to which evidence, and what may be decided**.
 
-Two alternatives remain useful as prototypes: an orthographic topographic table
-for lower complexity, and three exclusive scales (orbit, district, interior)
-only if a single focus session proves insufficient.
+No spatial architecture is selected yet. Three alternatives must be implemented
+over the same state and complete loop: a persistent organism with an anchored
+surface, an orthographic topographic table and direct semantic scales. The
+human comparison, not this research ticket, selects or combines them.
