@@ -2,9 +2,9 @@
 
 Type: prototype
 Mode: HITL
-Status: open
+Status: ready for HITL
 Blocked by: 04, 05, 06
-Owner: unclaimed
+Owner: Codex delegated implementation thread, 2026-07-30
 
 ## Question
 
@@ -18,3 +18,14 @@ not add bespoke assets, terrain pipelines, cinematic travel or production
 abstractions.
 
 Kim selects the verdict after using the prototype.
+
+## Implemented evidence
+
+Variant `organism` is available on the shared route. It keeps the garden
+present behind one focus surface, projects the East-bed tension into that
+surface, supports anchored and docked placement and changes only the East bed
+after `receipt.aurora-001`.
+
+Desktop, 390×844 mobile, reduced-motion, semantic 2D parity and session
+continuity were verified. The prototype is ready for Kim's verdict; no
+production architecture has been selected.

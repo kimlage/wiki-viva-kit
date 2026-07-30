@@ -2,7 +2,7 @@
 
 Type: prototype
 Mode: HITL
-Status: open
+Status: ready for HITL
 Blocked by: 04, 05, 06
 Owner: Codex implementation threads
 
@@ -20,3 +20,13 @@ Provenance is structural; decorative terrain is optional.
 The slice succeeds only if removing 3D harms orientation rather than beauty,
 removing 2D harms precision rather than atmosphere, and the user can distinguish
 observed state, proposal, approval and consequence without a tutorial.
+
+## Implemented evidence
+
+The automated vertical slice crosses all three variants without resetting the
+session. It proves that the receipt is visible before mutation, that only the
+East bed changes after the authorized receipt, that West and the reservoir stay
+unchanged and that delegation or composting cannot fabricate a world change.
+
+This proves state and truthfulness mechanics. Whether 3D and 2D each feel
+necessary rather than decorative remains a human verdict.

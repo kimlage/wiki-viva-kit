@@ -59,16 +59,19 @@ combine.
 - [Freeze the comparable vertical slice](prototype-contract.md) — one synthetic
   garden world, two lenses, one tension, one mission, one human gate and one
   receipt are identical in every variant.
+- [Prototype QA](prototype-qa.md) — all three variants compile as isolated lab
+  chunks, share one tested session and passed desktop/mobile truthfulness,
+  architecture, asset and bundle gates.
 
 ## Frontier
 
-1. Implement the common prototype runtime, semantic 2D equivalent and variant
-   switcher.
-2. Implement three structurally different spatial grammars:
-   organism with anchored surface, topographic table and direct scales.
-3. Validate the complete loop, truthful visual marks, mobile behavior,
-   reduced-motion/no-WebGL behavior, bundle and frames.
-4. Ask Kim to select a winner or an explicit combination of roles.
+1. Kim completes the same loop in organism, table and direct-scales variants.
+2. Kim records which grammar makes 3D necessary for orientation and consequence
+   and which makes 2D necessary for evidence and decision.
+3. Resolve ticket 09 with one winner or an explicit combination of exclusive
+   roles.
+4. Rewrite only the selected grammar against the production `SystemScene` and
+   measure sustained frames, memory and real no-WebGL behavior before merge.
 
 ## Fog
 
@@ -80,6 +83,9 @@ combine.
   the topographic table for the district and the organism only for consequence.
 - Which visual material and sound language should be explored after the
   architecture wins.
+- Whether the selected grammar can sustain the production frame and memory
+  budgets on the actual mobile-device matrix. The comparison branch proves
+  chunk budgets and interaction semantics, not release performance.
 
 ## Out of scope
 
