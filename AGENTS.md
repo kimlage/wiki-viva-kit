@@ -65,6 +65,20 @@ consumer migrations. No capsule or certification ceremony is required.
 - [docs/references/templates/wiki/](docs/references/templates/wiki/README.md):
   page contracts and templates.
 
+## Agent skills
+
+### Issue tracker
+
+Wayfinder discovery work is tracked as versioned local Markdown under
+[docs/wayfinder/](docs/wayfinder/README.md), with no remote issue mutation by
+default. See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Domain docs
+
+This repository uses a single domain context. Create the glossary and ADRs only
+when decisions actually settle. See
+[docs/agents/domain.md](docs/agents/domain.md).
+
 ## Gates before a PR
 
 ```sh
