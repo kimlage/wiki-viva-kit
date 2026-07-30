@@ -1,0 +1,966 @@
+:root {
+  color-scheme: dark;
+  --aw-ink: #ecf6ed;
+  --aw-muted: #9fb4a8;
+  --aw-void: #07100f;
+  --aw-panel: rgba(10, 24, 22, 0.9);
+  --aw-panel-solid: #0d1c1a;
+  --aw-line: rgba(189, 220, 196, 0.17);
+  --aw-moss: #87b38b;
+  --aw-water: #78c9d1;
+  --aw-amber: #e0a45b;
+  --aw-coral: #dd7f68;
+  --aw-focus: #e5c06d;
+  --aw-radius: 18px;
+  font-family: "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  background: var(--aw-void);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 24% 12%, rgba(61, 118, 91, 0.13), transparent 34%),
+    #07100f;
+  color: var(--aw-ink);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--aw-focus);
+  outline-offset: 3px;
+}
+
+.awPrototype {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 75% 22%, rgba(83, 125, 103, 0.11), transparent 30%),
+    linear-gradient(145deg, #07110f 0%, #0a1514 52%, #07100f 100%);
+  isolation: isolate;
+}
+
+.awPrototype::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  pointer-events: none;
+  opacity: 0.28;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+}
+
+.awBrand {
+  position: fixed;
+  z-index: 40;
+  top: 22px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: calc(100vw - 48px);
+  pointer-events: none;
+}
+
+.awBrand > div {
+  display: grid;
+  gap: 1px;
+}
+
+.awBrand strong {
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+
+.awEyebrow,
+.awBrand p,
+.awSyntheticBadge,
+.awKicker,
+.awDecisionSurface > header span,
+.awIntentionCard > span,
+.awMapHeader span,
+.awRefInspector header span {
+  font-family: "SFMono-Regular", Consolas, ui-monospace, monospace;
+  font-size: 9px;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.awEyebrow {
+  color: var(--aw-muted);
+}
+
+.awBrand p {
+  margin: 0;
+  padding-left: 18px;
+  border-left: 1px solid var(--aw-line);
+  color: var(--aw-muted);
+}
+
+.awSyntheticBadge {
+  padding: 7px 9px;
+  border: 1px solid rgba(224, 164, 91, 0.32);
+  border-radius: 999px;
+  color: #edc995;
+  background: rgba(76, 49, 24, 0.46);
+}
+
+.awSessionProgress {
+  position: fixed;
+  z-index: 40;
+  top: 28px;
+  right: 24px;
+  width: min(250px, 25vw);
+  pointer-events: none;
+}
+
+.awSessionProgress > span {
+  display: block;
+  overflow: hidden;
+  height: 2px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.awSessionProgress > span::after {
+  display: block;
+  width: calc(var(--aw-progress) * 100%);
+  height: 100%;
+  content: "";
+  transition: width 360ms ease;
+  background: linear-gradient(90deg, var(--aw-water), var(--aw-focus));
+}
+
+.awSessionProgress small {
+  display: block;
+  margin-top: 7px;
+  color: var(--aw-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.awIntentionCard {
+  display: grid;
+  gap: 7px;
+  width: min(310px, calc(100vw - 40px));
+  padding: 16px 17px;
+  border: 1px solid var(--aw-line);
+  border-radius: var(--aw-radius);
+  background: rgba(7, 17, 15, 0.74);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px);
+}
+
+.awIntentionCard > span {
+  color: var(--aw-muted);
+}
+
+.awIntentionCard strong {
+  font-size: 15px;
+}
+
+.awIntentionCard p {
+  margin: 0;
+  color: #bdd0c1;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.awIntentionCard button,
+.awDataRef {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  color: var(--aw-water);
+  background: transparent;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.awDecisionSurface {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  min-height: 320px;
+  border: 1px solid rgba(183, 219, 190, 0.18);
+  border-radius: 22px;
+  background:
+    linear-gradient(145deg, rgba(18, 39, 35, 0.95), rgba(8, 20, 18, 0.96)),
+    var(--aw-panel-solid);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(20px);
+}
+
+.awDecisionSurface > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 58px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--aw-line);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.awDecisionSurface > header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.awDecisionSurface > header span {
+  color: var(--aw-muted);
+}
+
+.awDecisionSurface > header strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.awSurfaceBody {
+  display: grid;
+  overflow: auto;
+  align-content: start;
+  gap: 14px;
+  padding: 20px;
+}
+
+.awSurfaceBody h2 {
+  max-width: 28ch;
+  margin: 0;
+  color: #f1f6ed;
+  font-size: clamp(20px, 2.2vw, 29px);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+}
+
+.awSurfaceBody > p {
+  max-width: 62ch;
+  margin: 0;
+  color: #b4c6ba;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.awKicker {
+  color: var(--aw-focus);
+}
+
+.awCallToAction {
+  align-content: center;
+  min-height: 290px;
+}
+
+.awPrimary,
+.awActions > button:not(.awDataRef) {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 17px;
+  border: 1px solid rgba(223, 242, 224, 0.2);
+  border-radius: 999px;
+  color: #0a1613;
+  background: #cce6cf;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.awPrimary:hover,
+.awActions > button:not(.awDataRef):hover {
+  transform: translateY(-1px);
+  background: #e2f3e3;
+}
+
+.awPrimary:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+  transform: none;
+}
+
+.awMetricRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.awMetricRow > div {
+  display: grid;
+  gap: 4px;
+  min-height: 66px;
+  padding: 11px;
+  border: 1px solid var(--aw-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.awMetricRow span,
+.awMissionFacts dt {
+  color: var(--aw-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.awMetricRow strong {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.awActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.awSegmented {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: start;
+  padding: 4px;
+  border: 1px solid var(--aw-line);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.awSegmented button,
+.awClaimList article div button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--aw-muted);
+  background: transparent;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.awSegmented button.active,
+.awClaimList article div button.active {
+  color: #08120f;
+  background: #d3e8d3;
+}
+
+.awLensGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.awLensCard {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid var(--aw-line);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.awLensCard > span {
+  color: var(--aw-water);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.awLensCard.climate > span {
+  color: #d9b379;
+}
+
+.awLensCard p,
+.awLensCard small {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.awLensCard small {
+  color: var(--aw-muted);
+}
+
+.awMissionFacts {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.awMissionFacts > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.4fr) 1fr;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--aw-line);
+}
+
+.awMissionFacts dd {
+  margin: 0;
+  color: #d3ddd5;
+  font-size: 11px;
+}
+
+.awChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.awChoiceGrid button {
+  display: grid;
+  gap: 5px;
+  min-height: 64px;
+  padding: 11px 13px;
+  border: 1px solid var(--aw-line);
+  border-radius: 12px;
+  color: var(--aw-ink);
+  background: rgba(255, 255, 255, 0.025);
+  text-align: left;
+  cursor: pointer;
+}
+
+.awChoiceGrid button:hover {
+  border-color: rgba(204, 230, 207, 0.38);
+  background: rgba(204, 230, 207, 0.07);
+}
+
+.awChoiceGrid strong {
+  font-size: 12px;
+}
+
+.awChoiceGrid small {
+  color: var(--aw-muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.awClaimList {
+  display: grid;
+  gap: 7px;
+}
+
+.awClaimList article {
+  display: grid;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid var(--aw-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.awClaimList article p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.awClaimList article div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.awClaimList article small,
+.awGateRejected {
+  color: #efb59f;
+  font-size: 9px;
+}
+
+.awGateReady {
+  color: #a8d5ae;
+  font-size: 9px;
+}
+
+.awNotice {
+  margin: auto 13px 13px;
+  padding: 9px 11px;
+  border: 1px solid rgba(224, 164, 91, 0.25);
+  border-radius: 10px;
+  color: #e9c598;
+  background: rgba(224, 164, 91, 0.08);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.awRefInspector {
+  position: fixed;
+  z-index: 90;
+  top: 86px;
+  right: 24px;
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+  width: min(380px, calc(100vw - 48px));
+  max-height: calc(100dvh - 190px);
+  padding: 14px;
+  border: 1px solid rgba(120, 201, 209, 0.28);
+  border-radius: 16px;
+  background: rgba(7, 18, 17, 0.96);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(22px);
+}
+
+.awRefInspector header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.awRefInspector header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.awRefInspector header span {
+  color: var(--aw-muted);
+}
+
+.awRefInspector header strong {
+  word-break: break-word;
+  font-size: 12px;
+}
+
+.awRefInspector header button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--aw-line);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.awRefInspector p,
+.awRefInspector dl {
+  margin: 0;
+  color: #c5d4c9;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.awRefInspector dl > div {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 9px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--aw-line);
+}
+
+.awRefInspector dt {
+  color: var(--aw-muted);
+}
+
+.awRefInspector dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.awRefInspector pre,
+.awSessionDebug pre {
+  overflow: auto;
+  margin: 0;
+  color: #bed6c2;
+  font: 10px/1.55 "SFMono-Regular", Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+.awPrototypeSwitcher {
+  position: fixed;
+  z-index: 100;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: 50%;
+  display: grid;
+  grid-template-columns: 44px minmax(230px, 420px) 44px 1px auto;
+  align-items: center;
+  overflow: hidden;
+  max-width: calc(100vw - 32px);
+  border: 1px solid rgba(208, 232, 211, 0.25);
+  border-radius: 18px;
+  background: rgba(5, 14, 12, 0.94);
+  box-shadow: 0 20px 65px rgba(0, 0, 0, 0.5);
+  transform: translateX(-50%);
+  backdrop-filter: blur(22px);
+}
+
+.awPrototypeSwitcher > button {
+  min-width: 44px;
+  min-height: 52px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.awPrototypeSwitcher > button:hover,
+.awPrototypeSwitcher > button.active {
+  background: rgba(204, 230, 207, 0.08);
+}
+
+.awPrototypeSwitcher > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 13px;
+  border-inline: 1px solid var(--aw-line);
+}
+
+.awPrototypeSwitcher strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.awPrototypeSwitcher span {
+  overflow: hidden;
+  color: var(--aw-muted);
+  font-size: 9px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.awPrototypeSwitcher i {
+  width: 1px;
+  height: 26px;
+  background: var(--aw-line);
+}
+
+.awPrototypeSwitcher > button:last-child {
+  padding: 0 14px;
+  color: var(--aw-water);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.awSessionDebug {
+  position: fixed;
+  z-index: 80;
+  right: 24px;
+  bottom: 90px;
+  width: min(340px, calc(100vw - 48px));
+  border: 1px solid var(--aw-line);
+  border-radius: 12px;
+  background: rgba(6, 15, 14, 0.9);
+}
+
+.awSessionDebug summary {
+  padding: 9px 12px;
+  color: var(--aw-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.awSessionDebug pre {
+  max-height: 230px;
+  padding: 0 12px 12px;
+}
+
+.awPrototypeLoading,
+.awWebglNotice {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  color: var(--aw-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+}
+
+.awWebglNotice {
+  position: fixed;
+  z-index: 70;
+  right: 24px;
+  bottom: 90px;
+  min-height: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--aw-line);
+  border-radius: 10px;
+  background: var(--aw-panel-solid);
+}
+
+.awSemanticMap {
+  min-height: 100dvh;
+  padding: 94px 24px 116px;
+  overflow: auto;
+}
+
+.awMapHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 1240px;
+  margin: 0 auto 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--aw-line);
+}
+
+.awMapHeader > div {
+  display: grid;
+  gap: 5px;
+}
+
+.awMapHeader span {
+  color: var(--aw-water);
+}
+
+.awMapHeader h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 54px);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+}
+
+.awMapHeader p {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--aw-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.awMapLayout {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(400px, 0.8fr);
+  gap: 20px;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.awPlanGrid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(150px, 1fr)) 62px;
+  gap: 10px;
+  min-height: 520px;
+  padding: 24px;
+  border: 1px solid var(--aw-line);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 70% 75%, rgba(120, 201, 209, 0.1), transparent 30%),
+    rgba(255, 255, 255, 0.018);
+}
+
+.awBed,
+.awReservoir {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 18px;
+  border: 1px solid rgba(190, 217, 195, 0.18);
+  border-radius: 16px;
+  color: var(--aw-ink);
+  background: #172a22;
+  text-align: left;
+  cursor: pointer;
+}
+
+.awBed span,
+.awBed small {
+  color: var(--aw-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.awBed strong {
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.awBed.east {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.awBed.attention {
+  border-color: rgba(224, 164, 91, 0.42);
+  background: linear-gradient(145deg, #30251b, #231d17);
+}
+
+.awBed.recovering {
+  border-color: rgba(120, 201, 209, 0.5);
+  background: linear-gradient(145deg, #18302b, #152622);
+  box-shadow: inset 0 0 55px rgba(120, 201, 209, 0.08);
+}
+
+.awReservoir {
+  grid-column: 1 / -1;
+  color: #a8dfe2;
+  background: linear-gradient(90deg, rgba(75, 148, 158, 0.22), rgba(75, 148, 158, 0.05));
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+}
+
+.awPhaseDots {
+  display: flex;
+  gap: 4px;
+}
+
+.awPhaseDots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.awPhaseDots span.done {
+  background: var(--aw-water);
+}
+
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  .awPrototype {
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: visible;
+    padding-bottom: 132px;
+  }
+
+  .awBrand {
+    top: 14px;
+    left: 14px;
+  }
+
+  .awBrand p,
+  .awSyntheticBadge {
+    display: none;
+  }
+
+  .awSessionProgress {
+    top: 19px;
+    right: 14px;
+    width: 120px;
+  }
+
+  .awSemanticMap {
+    padding: 76px 12px 122px;
+  }
+
+  .awMapLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .awPlanGrid {
+    min-height: 360px;
+    grid-template-rows: repeat(2, minmax(100px, 1fr)) 52px;
+    padding: 12px;
+  }
+
+  .awMapHeader {
+    align-items: start;
+  }
+
+  .awDecisionSurface {
+    min-height: 420px;
+  }
+
+  .awSessionDebug {
+    display: none;
+  }
+
+  .awPrototypeSwitcher {
+    grid-template-columns: 44px minmax(170px, 1fr) 44px;
+    width: calc(100vw - 20px);
+    max-width: none;
+  }
+
+  .awPrototypeSwitcher i {
+    display: none;
+  }
+
+  .awPrototypeSwitcher > button:last-child {
+    display: block;
+    grid-column: 1 / -1;
+    min-height: 44px;
+    border-top: 1px solid var(--aw-line);
+  }
+
+  .awLensGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .awSessionProgress small {
+    display: none;
+  }
+
+  .awMapHeader {
+    display: grid;
+  }
+
+  .awMetricRow,
+  .awChoiceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .awMissionFacts > div {
+    grid-template-columns: 1fr;
+  }
+
+  .awSurfaceBody {
+    padding: 16px;
+  }
+
+  .awPrototypeSwitcher span {
+    display: none;
+  }
+
+  .awRefInspector {
+    top: 62px;
+    right: 10px;
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 150px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

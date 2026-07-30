@@ -1,0 +1,480 @@
+.organismVariant {
+  --organism-ink: #edf6ed;
+  --organism-muted: #a9bcae;
+  --organism-line: rgba(196, 224, 199, 0.18);
+  --organism-panel: rgba(14, 25, 22, 0.92);
+  --organism-amber: #f3b35b;
+  --organism-green: #7de59b;
+  min-height: calc(100dvh - 7rem);
+  padding: clamp(0.7rem, 1.5vw, 1.4rem);
+  color: var(--organism-ink);
+}
+
+.organismStage {
+  position: relative;
+  min-height: clamp(47rem, 82dvh, 61rem);
+  overflow: hidden;
+  border: 1px solid var(--organism-line);
+  border-radius: clamp(1.1rem, 2vw, 2rem);
+  background:
+    radial-gradient(circle at 72% 38%, rgba(87, 145, 105, 0.12), transparent 32%),
+    #101a18;
+  box-shadow:
+    0 1.8rem 5rem rgba(0, 0, 0, 0.34),
+    inset 0 1px rgba(255, 255, 255, 0.04);
+  isolation: isolate;
+}
+
+.organismWorldViewport {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  transition:
+    right 440ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 300ms ease;
+}
+
+.organismVariant--docked .organismWorldViewport {
+  right: min(31rem, 40vw);
+}
+
+.organismWorldViewport canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.organismWorldVignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(5, 11, 9, 0.48), transparent 24%, transparent 66%, rgba(5, 10, 8, 0.68)),
+    linear-gradient(90deg, rgba(4, 10, 8, 0.58), transparent 27%, transparent 74%, rgba(4, 10, 8, 0.28));
+}
+
+.organismWorldHeading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(1.2rem, 3vw, 2.6rem);
+  left: clamp(1.2rem, 3vw, 3rem);
+  max-width: min(28rem, 44vw);
+  pointer-events: none;
+  text-shadow: 0 2px 1rem rgba(0, 0, 0, 0.75);
+}
+
+.organismWorldHeading > span,
+.organismPhaseRail > span {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: #b9d0bd;
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.organismWorldHeading h1 {
+  margin: 0;
+  font-family: ui-serif, Georgia, serif;
+  font-size: clamp(2rem, 4vw, 4.5rem);
+  font-weight: 520;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+
+.organismWorldHeading p {
+  max-width: 25rem;
+  margin: 0.8rem 0 0;
+  color: var(--organism-muted);
+  font-size: clamp(0.78rem, 1.15vw, 0.98rem);
+  line-height: 1.55;
+}
+
+.organismEastBeacon {
+  position: absolute;
+  z-index: 3;
+  top: 38%;
+  left: 64%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 10.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(243, 179, 91, 0.38);
+  border-radius: 0.8rem;
+  background: rgba(12, 22, 18, 0.72);
+  box-shadow: 0 0.9rem 2.4rem rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.organismEastBeacon::after {
+  position: absolute;
+  top: calc(100% + 1px);
+  left: 1.15rem;
+  width: 1px;
+  height: clamp(2.2rem, 7vh, 4.6rem);
+  background: linear-gradient(var(--organism-amber), transparent);
+  content: "";
+  transform: rotate(18deg);
+  transform-origin: top;
+}
+
+.organismEastBeacon > span {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 auto;
+  border: 2px solid var(--organism-amber);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.32rem rgba(243, 179, 91, 0.13);
+}
+
+.organismEastBeacon div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0.1rem 0.65rem;
+}
+
+.organismEastBeacon small {
+  color: var(--organism-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.organismEastBeacon strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+}
+
+.organismEastBeacon em {
+  grid-column: 1 / -1;
+  color: #f0c88f;
+  font-size: 0.7rem;
+  font-style: normal;
+}
+
+.organismVariant[data-east-state="recovering"] .organismEastBeacon {
+  border-color: rgba(125, 229, 155, 0.45);
+}
+
+.organismVariant[data-east-state="recovering"] .organismEastBeacon::after {
+  background: linear-gradient(var(--organism-green), transparent);
+}
+
+.organismVariant[data-east-state="recovering"] .organismEastBeacon > span {
+  border-color: var(--organism-green);
+  box-shadow: 0 0 0 0.32rem rgba(125, 229, 155, 0.13);
+}
+
+.organismVariant[data-east-state="recovering"] .organismEastBeacon em {
+  color: #a6edb8;
+}
+
+.organismIntention {
+  position: absolute;
+  z-index: 4;
+  bottom: clamp(1.1rem, 2.4vw, 2.2rem);
+  left: clamp(1.1rem, 2.4vw, 2.4rem);
+  width: min(20rem, calc(42vw - 2rem));
+}
+
+.organismIntention .awIntentionCard {
+  margin: 0;
+  border-color: var(--organism-line);
+  background: rgba(12, 22, 18, 0.82);
+  box-shadow: 0 1rem 2.8rem rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px);
+}
+
+.organismDecision {
+  position: absolute;
+  z-index: 5;
+  width: min(29rem, calc(100% - 2rem));
+  max-height: calc(100% - 3rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(196, 224, 199, 0.22);
+  border-radius: 1.25rem;
+  background: var(--organism-panel);
+  box-shadow:
+    0 1.4rem 4rem rgba(0, 0, 0, 0.46),
+    inset 0 1px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px) saturate(1.1);
+  transition:
+    top 440ms cubic-bezier(0.22, 1, 0.36, 1),
+    right 440ms cubic-bezier(0.22, 1, 0.36, 1),
+    bottom 440ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 260ms ease;
+}
+
+.organismVariant--anchored .organismDecision {
+  top: 16%;
+  right: clamp(1rem, 3vw, 2.7rem);
+}
+
+.organismVariant--anchored .organismDecision::before {
+  position: absolute;
+  top: 43%;
+  right: 100%;
+  width: clamp(2.2rem, 5vw, 5.2rem);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(243, 179, 91, 0.76));
+  content: "";
+}
+
+.organismVariant--docked .organismDecision {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(31rem, 42vw);
+  max-height: none;
+  border-block: 0;
+  border-right: 0;
+  border-radius: 0;
+}
+
+.organismDecisionHandle {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--organism-line);
+  background: rgba(12, 23, 19, 0.96);
+  backdrop-filter: blur(16px);
+}
+
+.organismDecisionHandle > div {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.organismDecisionHandle > div > span {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--organism-amber);
+  border-radius: 50%;
+  background: rgba(243, 179, 91, 0.16);
+}
+
+.organismVariant[data-east-state="recovering"] .organismDecisionHandle > div > span {
+  border-color: var(--organism-green);
+  background: rgba(125, 229, 155, 0.16);
+}
+
+.organismDecisionHandle p {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+}
+
+.organismDecisionHandle small {
+  color: var(--organism-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.organismDecisionHandle strong {
+  overflow: hidden;
+  font-size: 0.76rem;
+  font-weight: 630;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.organismDecisionHandle button {
+  min-height: 2.75rem;
+  flex: 0 0 auto;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgba(196, 224, 199, 0.24);
+  border-radius: 999px;
+  color: var(--organism-ink);
+  background: rgba(255, 255, 255, 0.045);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.organismDecisionHandle button:hover,
+.organismDecisionHandle button:focus-visible {
+  border-color: rgba(243, 179, 91, 0.7);
+  outline: none;
+  background: rgba(243, 179, 91, 0.1);
+}
+
+.organismDecision > .awDecisionSurface {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.organismPhaseRail {
+  position: absolute;
+  z-index: 3;
+  right: clamp(1.2rem, 3vw, 2.8rem);
+  bottom: clamp(1.1rem, 2.4vw, 2.2rem);
+  width: min(18rem, 27vw);
+  pointer-events: none;
+}
+
+.organismVariant--anchored .organismPhaseRail {
+  opacity: 0;
+}
+
+.organismPhaseRail .awPhaseDots {
+  justify-content: flex-end;
+}
+
+.organismVariant--reducedMotion *,
+.organismVariant--reducedMotion *::before,
+.organismVariant--reducedMotion *::after {
+  scroll-behavior: auto !important;
+  transition-duration: 0.001ms !important;
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+@media (max-width: 1000px) {
+  .organismStage {
+    min-height: 69rem;
+    overflow: auto;
+  }
+
+  .organismWorldViewport,
+  .organismVariant--docked .organismWorldViewport {
+    position: relative;
+    right: auto;
+    height: 31rem;
+  }
+
+  .organismWorldHeading {
+    top: 4.75rem;
+    max-width: calc(100% - 2.5rem);
+  }
+
+  .organismEastBeacon {
+    top: 20rem;
+    left: auto;
+    right: 1rem;
+  }
+
+  .organismIntention {
+    top: 23.5rem;
+    bottom: auto;
+    width: min(20rem, calc(100% - 2rem));
+  }
+
+  .organismDecision,
+  .organismVariant--anchored .organismDecision,
+  .organismVariant--docked .organismDecision {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    width: calc(100% - 2rem);
+    max-height: none;
+    margin: 1rem;
+    overflow: visible;
+    border: 1px solid rgba(196, 224, 199, 0.22);
+    border-radius: 1.25rem;
+  }
+
+  .organismVariant--anchored .organismDecision::before {
+    top: auto;
+    right: 2.2rem;
+    bottom: 100%;
+    width: 1px;
+    height: 3rem;
+    background: linear-gradient(transparent, rgba(243, 179, 91, 0.76));
+  }
+
+  .organismPhaseRail {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .organismVariant {
+    min-height: auto;
+    padding: 0.45rem;
+  }
+
+  .organismStage {
+    min-height: 67rem;
+    border-radius: 1rem;
+  }
+
+  .organismWorldViewport {
+    height: 28rem;
+  }
+
+  .organismWorldHeading {
+    top: 4.75rem;
+    left: 1rem;
+  }
+
+  .organismWorldHeading h1 {
+    font-size: clamp(2.2rem, 11vw, 3.35rem);
+  }
+
+  .organismWorldHeading p {
+    max-width: calc(100vw - 4rem);
+  }
+
+  .organismEastBeacon {
+    top: 18.5rem;
+    right: 0.75rem;
+    min-width: 9.5rem;
+  }
+
+  .organismIntention {
+    top: 21.5rem;
+    left: 0.75rem;
+    width: calc(100% - 1.5rem);
+  }
+
+  .organismDecision,
+  .organismVariant--anchored .organismDecision,
+  .organismVariant--docked .organismDecision {
+    width: calc(100% - 1rem);
+    margin: 0.5rem;
+  }
+
+  .organismDecisionHandle {
+    align-items: flex-start;
+  }
+
+  .organismDecisionHandle button {
+    max-width: 8.5rem;
+    min-height: 2.75rem;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .organismVariant *,
+  .organismVariant *::before,
+  .organismVariant *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -1,0 +1,550 @@
+.awTableVariant {
+  position: relative;
+  min-height: calc(100dvh - 9.5rem);
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 64% 12%, rgba(41, 154, 145, 0.11), transparent 34rem),
+    #030c0c;
+}
+
+.awTableVariant > div:first-child {
+  position: absolute !important;
+  inset: 0;
+}
+
+.awTableVariant canvas {
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+
+.awTableInstructions {
+  position: absolute;
+  top: 4.5rem;
+  left: 1rem;
+  z-index: 8;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+  max-width: min(42rem, calc(100% - 2rem));
+  pointer-events: none;
+}
+
+.awTableInstructions span,
+.awTableStatus {
+  border: 1px solid rgba(128, 214, 196, 0.2);
+  border-radius: 999px;
+  background: rgba(3, 13, 13, 0.76);
+  color: #a9c9c2;
+  box-shadow: 0 0.45rem 1.8rem rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(12px);
+}
+
+.awTableInstructions span {
+  padding: 0.36rem 0.64rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.awTableStatus {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 8;
+  max-width: min(36rem, calc(100% - 2rem));
+  margin: 0;
+  padding: 0.55rem 0.78rem;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.awTableVariant[data-east-state="recovering"] .awTableStatus {
+  border-color: rgba(111, 240, 186, 0.42);
+  color: #b8f5d9;
+}
+
+.awTableMark {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.05rem 0.48rem;
+  width: 11rem;
+  padding: 0.48rem 0.62rem;
+  border: 1px solid rgba(197, 224, 210, 0.18);
+  border-radius: 0.38rem;
+  background: rgba(6, 20, 18, 0.86);
+  color: #d8ebe4;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
+    0 0.35rem 1.2rem rgba(0, 0, 0, 0.24);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.awTableMark span {
+  grid-column: 1 / -1;
+  color: #8eaaa2;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+}
+
+.awTableMark strong {
+  font-size: 1.42rem;
+  line-height: 1;
+}
+
+.awTableMark small {
+  align-self: end;
+  color: #90aaa3;
+  font-size: 0.58rem;
+  line-height: 1.15;
+  text-align: right;
+}
+
+.awTableMark.attention {
+  border-color: rgba(255, 198, 111, 0.52);
+  color: #ffd99d;
+}
+
+.awTableMark.recovering {
+  border-color: rgba(111, 240, 186, 0.56);
+  color: #9cf1c8;
+}
+
+.awTableMark.water {
+  border-color: rgba(75, 214, 223, 0.48);
+  color: #8feef3;
+}
+
+.awTableEtchedLegend {
+  display: flex;
+  gap: 1.15rem;
+  width: max-content;
+  padding: 0.45rem 0.62rem;
+  border: 1px solid rgba(166, 219, 204, 0.14);
+  border-radius: 0.35rem;
+  background: rgba(5, 16, 15, 0.72);
+  color: #a8c0b9;
+  font: 600 0.68rem/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.awTableEtchedLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.awTableEtchedLegend i {
+  display: inline-block;
+  width: 1.5rem;
+  height: 0.12rem;
+  background: #4bd6df;
+  box-shadow: 0 0 0.45rem rgba(75, 214, 223, 0.45);
+}
+
+.awTableEtchedLegend i.climate {
+  background: repeating-linear-gradient(
+    90deg,
+    #c2a6ff 0 0.35rem,
+    transparent 0.35rem 0.55rem
+  );
+  box-shadow: none;
+}
+
+.awTableProjection {
+  position: absolute;
+  z-index: 9;
+  top: 7.4rem;
+  right: 1.6rem;
+  width: min(38rem, 42vw);
+  max-height: calc(100dvh - 18rem);
+  color: #dcefe9;
+  pointer-events: auto;
+  filter: drop-shadow(0 1.4rem 3.4rem rgba(0, 0, 0, 0.42));
+}
+
+.awTableProjection::before {
+  position: absolute;
+  z-index: -1;
+  bottom: -1.8rem;
+  left: -3.2rem;
+  width: 4.4rem;
+  height: 2.6rem;
+  border-bottom: 1px solid rgba(75, 214, 223, 0.5);
+  border-left: 1px solid rgba(75, 214, 223, 0.5);
+  content: "";
+  pointer-events: none;
+  transform: skewX(-42deg);
+  transform-origin: bottom right;
+  opacity: 0.74;
+}
+
+.awTableProjectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.25rem;
+  padding: 0 0.8rem;
+  border: 1px solid rgba(104, 213, 194, 0.2);
+  border-bottom: 0;
+  border-radius: 0.8rem 0.8rem 0 0;
+  background:
+    linear-gradient(90deg, rgba(36, 119, 107, 0.22), rgba(6, 28, 27, 0.62)),
+    #071b1a;
+  color: #82bdb1;
+  font: 700 0.68rem/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.035),
+    0 0 2.4rem rgba(14, 107, 96, 0.12);
+}
+
+.awTableProjection .awPhaseDots {
+  display: flex;
+  gap: 0.22rem;
+}
+
+.awTableProjection .awPhaseDots span {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: rgba(143, 184, 174, 0.22);
+}
+
+.awTableProjection .awPhaseDots span.done {
+  background: #6fe0ca;
+  box-shadow: 0 0 0.42rem rgba(111, 224, 202, 0.55);
+}
+
+.awTableProjection .awDecisionSurface {
+  position: relative;
+  width: 100%;
+  min-height: min(32rem, calc(100dvh - 23rem));
+  max-height: calc(100dvh - 20.25rem);
+  overflow: auto;
+  border: 1px solid rgba(104, 213, 194, 0.2);
+  border-radius: 0 0 0.8rem 0.8rem;
+  background:
+    linear-gradient(rgba(113, 202, 184, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(113, 202, 184, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 84% 6%, rgba(52, 196, 174, 0.1), transparent 20rem),
+    rgba(4, 20, 19, 0.97);
+  background-size: 24px 24px, 24px 24px, auto, auto;
+  color: #d8eae4;
+  box-shadow:
+    inset 0 0 2.5rem rgba(0, 0, 0, 0.26),
+    0 0 2rem rgba(16, 107, 98, 0.1);
+  scrollbar-color: rgba(102, 209, 190, 0.45) rgba(3, 15, 14, 0.5);
+}
+
+.awTableProjection .awDecisionSurface > header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid rgba(104, 213, 194, 0.16);
+  background: rgba(5, 24, 22, 0.94);
+  backdrop-filter: blur(10px);
+}
+
+.awTableProjection .awDecisionSurface > header div {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.awTableProjection .awDecisionSurface > header span,
+.awTableProjection .awKicker {
+  color: #75b6a9;
+  font: 700 0.64rem/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.awTableProjection .awDecisionSurface > header strong {
+  font-size: 0.92rem;
+}
+
+.awTableProjection .awSurfaceBody {
+  display: grid;
+  gap: 0.82rem;
+  padding: 1rem;
+}
+
+.awTableProjection .awSurfaceBody h2 {
+  max-width: 32ch;
+  margin: 0;
+  color: #f0faf7;
+  font-size: clamp(1.28rem, 2vw, 1.72rem);
+  line-height: 1.08;
+}
+
+.awTableProjection .awSurfaceBody p,
+.awTableProjection .awSurfaceBody dl {
+  margin: 0;
+  color: #a9c2bb;
+  line-height: 1.45;
+}
+
+.awTableProjection button {
+  min-height: 2.25rem;
+  border: 1px solid rgba(104, 213, 194, 0.23);
+  border-radius: 0.42rem;
+  background: rgba(7, 34, 31, 0.86);
+  color: #c8e2db;
+  font: inherit;
+  cursor: pointer;
+}
+
+.awTableProjection button:hover,
+.awTableProjection button:focus-visible {
+  border-color: rgba(111, 224, 202, 0.72);
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(111, 224, 202, 0.16),
+    inset 0 0 1.2rem rgba(46, 160, 141, 0.12);
+}
+
+.awTableProjection button:disabled {
+  cursor: not-allowed;
+  opacity: 0.44;
+}
+
+.awTableProjection .awPrimary {
+  justify-self: start;
+  padding: 0.5rem 0.82rem;
+  border-color: rgba(111, 224, 202, 0.55);
+  background: #184f47;
+  color: #e5fff8;
+  font-weight: 750;
+}
+
+.awTableProjection .awDataRef {
+  padding: 0.4rem 0.58rem;
+  color: #7cdcc9;
+  font: 650 0.72rem/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.awTableProjection .awMetricRow,
+.awTableProjection .awLensGrid,
+.awTableProjection .awChoiceGrid,
+.awTableProjection .awMissionFacts,
+.awTableProjection .awActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.awTableProjection .awMetricRow > div,
+.awTableProjection .awLensCard,
+.awTableProjection .awChoiceGrid > button,
+.awTableProjection .awMissionFacts > div,
+.awTableProjection .awClaimList article {
+  padding: 0.72rem;
+  border: 1px solid rgba(121, 187, 174, 0.17);
+  border-radius: 0.5rem;
+  background: rgba(13, 42, 38, 0.56);
+}
+
+.awTableProjection .awMetricRow > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.awTableProjection .awMetricRow span,
+.awTableProjection .awMissionFacts dt,
+.awTableProjection .awChoiceGrid small,
+.awTableProjection .awLensCard small {
+  color: #809f97;
+  font-size: 0.68rem;
+}
+
+.awTableProjection .awMetricRow strong {
+  color: #f0fbf7;
+  font-size: 1.25rem;
+}
+
+.awTableProjection .awSegmented,
+.awTableProjection .awClaimList article > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.awTableProjection .awSegmented button,
+.awTableProjection .awClaimList article > div button {
+  padding: 0.42rem 0.62rem;
+}
+
+.awTableProjection .awSegmented button.active,
+.awTableProjection .awClaimList article > div button.active {
+  border-color: #6fe0ca;
+  background: rgba(55, 154, 137, 0.34);
+  color: #effffb;
+}
+
+.awTableProjection .awLensGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.awTableProjection .awLensCard {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.awTableProjection .awLensCard.hydro {
+  border-top-color: #4bd6df;
+}
+
+.awTableProjection .awLensCard.climate {
+  border-top-color: #c2a6ff;
+}
+
+.awTableProjection .awChoiceGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.awTableProjection .awChoiceGrid button {
+  display: grid;
+  gap: 0.25rem;
+  text-align: left;
+}
+
+.awTableProjection .awMissionFacts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.awTableProjection .awMissionFacts dd {
+  margin: 0.2rem 0 0;
+}
+
+.awTableProjection .awClaimList {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.awTableProjection .awClaimList article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.awTableProjection .awClaimList article small {
+  grid-column: 1 / -1;
+  color: #ffc98e;
+}
+
+.awTableProjection .awNotice {
+  margin: 0;
+  padding: 0.68rem 1rem;
+  border-top: 1px solid rgba(104, 213, 194, 0.16);
+  color: #9fc2b9;
+  font-size: 0.76rem;
+}
+
+.awTableProjection .awGateReady {
+  color: #91e8bd;
+}
+
+.awTableProjection .awGateRejected {
+  color: #ffc38f;
+}
+
+@media (max-width: 900px) {
+  .awTableVariant {
+    min-height: calc(100dvh - 7.5rem);
+  }
+
+  .awTableInstructions {
+    right: 0.75rem;
+    left: 0.75rem;
+    justify-content: center;
+  }
+
+  .awTableInstructions span:nth-child(3) {
+    display: none;
+  }
+
+  .awTableStatus {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    max-width: none;
+    text-align: center;
+  }
+
+  .awTableProjection {
+    top: 7.2rem;
+    right: 0.75rem;
+    width: min(32rem, calc(100vw - 1.5rem));
+  }
+
+  .awTableProjection .awDecisionSurface {
+    min-height: 20rem;
+    max-height: min(56dvh, 35rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .awTableInstructions span {
+    font-size: 0.62rem;
+  }
+
+  .awTableProjection .awMetricRow,
+  .awTableProjection .awLensGrid,
+  .awTableProjection .awChoiceGrid,
+  .awTableProjection .awMissionFacts {
+    grid-template-columns: 1fr;
+  }
+
+  .awTableProjection {
+    top: 7.6rem;
+  }
+
+  .awTableProjection::before {
+    display: none;
+  }
+
+  .awTableProjectionHeading {
+    min-height: 2rem;
+  }
+
+  .awTableProjection .awDecisionSurface {
+    min-height: 18rem;
+    max-height: 51dvh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awTableVariant *,
+  .awTableVariant *::before,
+  .awTableVariant *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .awTableInstructions span,
+  .awTableStatus,
+  .awTableMark,
+  .awTableEtchedLegend,
+  .awTableProjection .awDecisionSurface,
+  .awTableProjection .awDecisionSurface > header,
+  .awTableProjection button {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+  }
+}

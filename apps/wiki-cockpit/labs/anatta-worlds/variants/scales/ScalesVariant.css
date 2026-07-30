@@ -1,0 +1,918 @@
+.awScalesVariant {
+  --scales-ink: #edf8f1;
+  --scales-muted: #a5baae;
+  --scales-mint: #75dfbd;
+  --scales-amber: #efb35c;
+  --scales-panel: rgba(8, 24, 18, 0.9);
+  --scales-border: rgba(182, 231, 202, 0.2);
+  position: relative;
+  min-height: 690px;
+  height: calc(100dvh - 132px);
+  max-height: 980px;
+  overflow: hidden;
+  color: var(--scales-ink);
+  background:
+    radial-gradient(circle at 74% 28%, rgba(54, 129, 102, 0.2), transparent 30%),
+    linear-gradient(145deg, #07130f, #0b1c16 52%, #07110d);
+  isolation: isolate;
+}
+
+.awScalesVariant button {
+  font: inherit;
+}
+
+.awScalesCanvas {
+  position: absolute;
+  inset: 0;
+}
+
+.awScalesCanvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.awScalesNavigation {
+  position: absolute;
+  z-index: 6;
+  top: 78px;
+  left: 24px;
+  right: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  pointer-events: none;
+}
+
+.awScalesNavigation nav {
+  display: flex;
+  align-items: stretch;
+  padding: 5px;
+  border: 1px solid var(--scales-border);
+  border-radius: 18px;
+  background: rgba(6, 18, 13, 0.82);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+}
+
+.awScalesNavigation nav > div {
+  display: flex;
+  align-items: center;
+}
+
+.awScalesNavigation nav i {
+  align-self: center;
+  padding: 0 3px;
+  color: rgba(206, 236, 217, 0.34);
+  font-style: normal;
+}
+
+.awScalesNavigation nav button {
+  min-width: 136px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 13px;
+  color: var(--scales-muted);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.awScalesNavigation nav button:hover,
+.awScalesNavigation nav button:focus-visible {
+  color: var(--scales-ink);
+  background: rgba(117, 223, 189, 0.08);
+}
+
+.awScalesNavigation nav button.active {
+  color: #f2fff7;
+  background:
+    linear-gradient(135deg, rgba(117, 223, 189, 0.18), rgba(117, 223, 189, 0.05));
+  box-shadow: inset 0 0 0 1px rgba(117, 223, 189, 0.24);
+}
+
+.awScalesNavigation nav button span,
+.awScalesNavigation nav button strong,
+.awScalesNavigation nav button small {
+  display: block;
+}
+
+.awScalesNavigation nav button span {
+  margin-bottom: 2px;
+  color: var(--scales-mint);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.awScalesNavigation nav button strong {
+  font-size: 0.83rem;
+  letter-spacing: 0.01em;
+}
+
+.awScalesNavigation nav button small {
+  margin-top: 2px;
+  color: inherit;
+  font-size: 0.64rem;
+  opacity: 0.72;
+}
+
+.awScalesNavigation > p {
+  max-width: min(36vw, 390px);
+  margin: 0;
+  padding: 10px 13px;
+  overflow: hidden;
+  border: 1px solid var(--scales-border);
+  border-radius: 12px;
+  color: var(--scales-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(6, 18, 13, 0.76);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.awScalesNavigation > p strong {
+  margin-left: 7px;
+  color: var(--scales-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.73rem;
+}
+
+.awScalesPhase {
+  position: absolute;
+  z-index: 5;
+  right: 24px;
+  bottom: 22px;
+  width: 220px;
+  padding: 11px 13px;
+  border: 1px solid var(--scales-border);
+  border-radius: 13px;
+  background: rgba(6, 18, 13, 0.8);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.awScalesPhase > span,
+.awScalesPhase > strong {
+  display: block;
+}
+
+.awScalesPhase > span {
+  color: var(--scales-muted);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.awScalesPhase > strong {
+  margin-top: 3px;
+  font-size: 0.85rem;
+}
+
+.awScalesPhase .awPhaseDots {
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  gap: 3px;
+  margin-top: 9px;
+}
+
+.awScalesPhase .awPhaseDots span {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(183, 218, 196, 0.16);
+}
+
+.awScalesPhase .awPhaseDots span.done {
+  background: var(--scales-mint);
+}
+
+.awScalesVariant[data-scale="district"] .awScalesPhase {
+  top: 170px;
+  bottom: auto;
+}
+
+.awScalesVariant[data-scale="interior"] .awScalesPhase {
+  top: 170px;
+  right: auto;
+  bottom: auto;
+  left: 24px;
+}
+
+.awScalesPanel {
+  position: absolute;
+  z-index: 4;
+  left: 24px;
+  bottom: 22px;
+  width: min(520px, calc(100% - 292px));
+  padding: 22px;
+  border: 1px solid var(--scales-border);
+  border-radius: 20px;
+  color: var(--scales-ink);
+  background:
+    linear-gradient(145deg, rgba(13, 36, 27, 0.94), rgba(7, 21, 16, 0.88));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
+  animation: awScalesPanelIn 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.awScalesPanel h1 {
+  margin: 5px 0 8px;
+  color: #f4fff8;
+  font-size: clamp(1.35rem, 2.4vw, 2.05rem);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+
+.awScalesPanel p {
+  margin: 0;
+  color: var(--scales-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.awScalesKicker {
+  color: var(--scales-mint);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.awScalesWorldMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.awScalesWorldMetrics article {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(181, 224, 199, 0.12);
+  border-radius: 12px;
+  background: rgba(216, 241, 225, 0.04);
+}
+
+.awScalesWorldMetrics article.attention {
+  border-color: rgba(239, 179, 92, 0.34);
+  background: rgba(239, 179, 92, 0.08);
+}
+
+.awScalesWorldMetrics article.recovering {
+  border-color: rgba(117, 223, 189, 0.42);
+  background: rgba(117, 223, 189, 0.1);
+}
+
+.awScalesWorldMetrics span,
+.awScalesWorldMetrics strong,
+.awScalesWorldMetrics small {
+  display: block;
+}
+
+.awScalesWorldMetrics span {
+  color: var(--scales-muted);
+  font-size: 0.65rem;
+}
+
+.awScalesWorldMetrics strong {
+  margin: 4px 0;
+  font-size: 1.12rem;
+}
+
+.awScalesWorldMetrics small {
+  overflow: hidden;
+  color: var(--scales-muted);
+  font-size: 0.64rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.awScalesPanelActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 17px;
+}
+
+.awScalesPanel button {
+  min-height: 42px;
+  padding: 9px 13px;
+  border: 1px solid rgba(190, 229, 205, 0.18);
+  border-radius: 11px;
+  color: var(--scales-ink);
+  background: rgba(227, 245, 233, 0.05);
+  cursor: pointer;
+}
+
+.awScalesPanel button:hover,
+.awScalesPanel button:focus-visible {
+  border-color: rgba(117, 223, 189, 0.48);
+  background: rgba(117, 223, 189, 0.1);
+}
+
+.awScalesPanel button.awScalesPrimary {
+  margin-left: auto;
+  border-color: rgba(117, 223, 189, 0.38);
+  color: #061710;
+  font-weight: 800;
+  background: var(--scales-mint);
+  box-shadow: 0 10px 24px rgba(49, 170, 133, 0.18);
+}
+
+.awScalesWorldPanel > .awScalesPrimary {
+  display: block;
+  margin: 16px 0 0 auto;
+}
+
+.awScalesDistrictPanel {
+  left: 50%;
+  width: min(880px, calc(100% - 48px));
+  transform: translateX(-50%);
+  animation-name: awScalesDistrictIn;
+}
+
+.awScalesDistrictPanel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.awScalesTensionId {
+  padding: 7px 9px;
+  border-radius: 9px;
+  color: var(--scales-amber);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.66rem;
+  background: rgba(239, 179, 92, 0.08);
+}
+
+.awScalesRelation {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) 28px minmax(300px, 2fr) 28px minmax(120px, 0.8fr);
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 15px;
+}
+
+.awScalesRelation > i {
+  align-self: center;
+  color: rgba(174, 221, 192, 0.44);
+  text-align: center;
+  font-style: normal;
+}
+
+.awScalesRelation button {
+  min-width: 0;
+  text-align: left;
+}
+
+.awScalesRelation button small,
+.awScalesRelation button strong,
+.awScalesRelation button span {
+  display: block;
+}
+
+.awScalesRelation button small {
+  color: var(--scales-muted);
+  font-size: 0.62rem;
+}
+
+.awScalesRelation button strong {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  font-size: 0.76rem;
+}
+
+.awScalesLensPair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.awScalesLensPair button {
+  opacity: 0.48;
+}
+
+.awScalesLensPair button.active {
+  border-color: rgba(117, 223, 189, 0.42);
+  opacity: 1;
+  background: rgba(117, 223, 189, 0.08);
+}
+
+.awScalesLensPair button:nth-child(2).active {
+  border-color: rgba(239, 179, 92, 0.42);
+  background: rgba(239, 179, 92, 0.08);
+}
+
+.awScalesLensPair button span {
+  margin-bottom: 4px;
+  color: var(--scales-mint);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+.awScalesLensPair button:nth-child(2) span {
+  color: var(--scales-amber);
+}
+
+.awScalesTension {
+  border-color: rgba(239, 179, 92, 0.3) !important;
+}
+
+.awScalesInterior {
+  position: absolute;
+  z-index: 5;
+  top: 156px;
+  right: 24px;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  width: min(600px, 52vw);
+  overflow: hidden;
+  border: 1px solid rgba(190, 231, 206, 0.24);
+  border-radius: 22px;
+  background:
+    linear-gradient(150deg, rgba(244, 238, 214, 0.98), rgba(226, 235, 219, 0.98));
+  box-shadow:
+    -28px 26px 80px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.14) inset;
+  animation: awScalesInteriorIn 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.awScalesInteriorIdentity {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(31, 69, 51, 0.14);
+  color: #1a3a2b;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.awScalesInteriorIdentity span {
+  color: #4e715f;
+  font-size: 0.64rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.awScalesInteriorIdentity strong {
+  font-size: 0.83rem;
+}
+
+.awScalesInteriorIdentity small {
+  margin-left: auto;
+  overflow: hidden;
+  color: #567463;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.awScalesInterior .awDecisionSurface {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  color: #183528;
+  background: transparent;
+}
+
+.awScalesInterior .awDecisionSurface > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(31, 69, 51, 0.12);
+}
+
+.awScalesInterior .awDecisionSurface > header span,
+.awScalesInterior .awDecisionSurface > header strong {
+  display: block;
+}
+
+.awScalesInterior .awDecisionSurface > header span {
+  color: #668071;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+
+.awScalesInterior .awDecisionSurface > header strong {
+  margin-top: 2px;
+  font-size: 0.82rem;
+}
+
+.awScalesInterior .awSurfaceBody {
+  flex: 1;
+  min-height: 0;
+  padding: 20px;
+  overflow: auto;
+}
+
+.awScalesInterior .awSurfaceBody h2 {
+  margin: 7px 0 10px;
+  color: #102c20;
+  font-size: clamp(1.35rem, 2.5vw, 2.2rem);
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+}
+
+.awScalesInterior .awSurfaceBody p {
+  color: #496757;
+  line-height: 1.5;
+}
+
+.awScalesInterior .awKicker {
+  color: #27745b;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.awScalesInterior button {
+  min-height: 40px;
+  border: 1px solid rgba(35, 86, 61, 0.2);
+  border-radius: 10px;
+  color: #173a2a;
+  background: rgba(255, 255, 255, 0.52);
+  cursor: pointer;
+}
+
+.awScalesInterior button:hover,
+.awScalesInterior button:focus-visible {
+  border-color: rgba(29, 124, 89, 0.48);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.awScalesInterior button.awPrimary {
+  padding: 10px 14px;
+  color: #effff6;
+  font-weight: 800;
+  background: #176d51;
+}
+
+.awScalesInterior button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.awScalesInterior .awActions,
+.awScalesInterior .awMetricRow,
+.awScalesInterior .awChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.awScalesInterior .awChoiceGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.awScalesInterior .awChoiceGrid button {
+  padding: 11px;
+  text-align: left;
+}
+
+.awScalesInterior .awChoiceGrid strong,
+.awScalesInterior .awChoiceGrid small {
+  display: block;
+}
+
+.awScalesInterior .awChoiceGrid small {
+  margin-top: 5px;
+  color: #60796b;
+}
+
+.awScalesInterior .awMetricRow > div,
+.awScalesInterior .awMissionFacts > div,
+.awScalesInterior .awClaimList article,
+.awScalesInterior .awLensCard {
+  padding: 11px;
+  border: 1px solid rgba(35, 86, 61, 0.14);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.awScalesInterior .awMetricRow span,
+.awScalesInterior .awMetricRow strong {
+  display: block;
+}
+
+.awScalesInterior .awMetricRow span {
+  color: #60796b;
+  font-size: 0.66rem;
+}
+
+.awScalesInterior .awMetricRow strong {
+  margin-top: 4px;
+}
+
+.awScalesInterior .awMissionFacts {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0;
+}
+
+.awScalesInterior .awMissionFacts dt {
+  color: #60796b;
+  font-size: 0.65rem;
+}
+
+.awScalesInterior .awMissionFacts dd {
+  margin: 4px 0 0;
+  color: #274b39;
+}
+
+.awScalesInterior .awSegmented {
+  display: flex;
+  gap: 5px;
+  margin: 13px 0 8px;
+}
+
+.awScalesInterior .awSegmented button {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.awScalesInterior .awSegmented button.active {
+  color: #effff6;
+  background: #176d51;
+}
+
+.awScalesInterior .awLensGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.awScalesInterior .awLensCard span,
+.awScalesInterior .awLensCard small {
+  display: block;
+}
+
+.awScalesInterior .awLensCard span {
+  color: #27745b;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.awScalesInterior .awLensCard p {
+  margin: 6px 0;
+  font-size: 0.76rem;
+}
+
+.awScalesInterior .awLensCard small {
+  margin-bottom: 8px;
+  color: #60796b;
+  font-size: 0.67rem;
+}
+
+.awScalesInterior .awDataRef {
+  min-height: 32px;
+  padding: 6px 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.66rem;
+}
+
+.awScalesInterior .awClaimList {
+  display: grid;
+  gap: 7px;
+  margin: 15px 0;
+}
+
+.awScalesInterior .awClaimList article p {
+  margin: 0 0 8px;
+  color: #244836;
+  font-size: 0.8rem;
+}
+
+.awScalesInterior .awClaimList article > div {
+  display: flex;
+  gap: 5px;
+}
+
+.awScalesInterior .awClaimList article button {
+  min-height: 31px;
+  padding: 5px 8px;
+  font-size: 0.68rem;
+}
+
+.awScalesInterior .awClaimList article button.active {
+  color: #effff6;
+  background: #176d51;
+}
+
+.awScalesInterior .awNotice {
+  margin: 0;
+  padding: 9px 15px;
+  border-top: 1px solid rgba(31, 69, 51, 0.12);
+  color: #315943;
+  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.awScalesInterior .awGateReady,
+.awScalesInterior .awGateRejected {
+  display: block;
+  margin-top: 8px;
+}
+
+.awScalesInterior .awGateReady {
+  color: #196b4e;
+}
+
+.awScalesInterior .awGateRejected {
+  color: #9a4c32;
+}
+
+@keyframes awScalesPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes awScalesInteriorIn {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes awScalesDistrictIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (max-width: 900px) {
+  .awScalesVariant {
+    min-height: 940px;
+    height: auto;
+  }
+
+  .awScalesNavigation {
+    top: 76px;
+    left: 12px;
+    right: 12px;
+  }
+
+  .awScalesNavigation nav {
+    width: 100%;
+  }
+
+  .awScalesNavigation nav > div {
+    flex: 1;
+  }
+
+  .awScalesNavigation nav button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .awScalesNavigation nav button small,
+  .awScalesNavigation > p {
+    display: none;
+  }
+
+  .awScalesCanvas {
+    height: 480px;
+  }
+
+  .awScalesPanel,
+  .awScalesDistrictPanel {
+    top: 470px;
+    right: 12px;
+    bottom: auto;
+    left: 12px;
+    width: auto;
+    transform: none;
+    animation: none;
+  }
+
+  .awScalesPhase {
+    top: 386px;
+    right: 12px;
+    bottom: auto;
+    left: auto;
+  }
+
+  .awScalesInterior {
+    top: 470px;
+    right: 12px;
+    bottom: auto;
+    left: 12px;
+    width: auto;
+    min-height: 500px;
+  }
+
+  .awScalesRelation {
+    grid-template-columns: 1fr;
+  }
+
+  .awScalesRelation > i {
+    transform: rotate(90deg);
+  }
+}
+
+@media (max-width: 600px) {
+  .awScalesVariant {
+    min-height: 1100px;
+  }
+
+  .awScalesNavigation nav button {
+    padding: 8px;
+  }
+
+  .awScalesNavigation nav button span {
+    display: none;
+  }
+
+  .awScalesNavigation nav button strong {
+    font-size: 0.72rem;
+    text-align: center;
+  }
+
+  .awScalesPanel {
+    padding: 16px;
+  }
+
+  .awScalesWorldMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .awScalesPanelActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .awScalesPanel button.awScalesPrimary {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .awScalesDistrictPanel > header {
+    display: block;
+  }
+
+  .awScalesTensionId {
+    display: inline-block;
+    margin-top: 8px;
+  }
+
+  .awScalesLensPair {
+    grid-template-columns: 1fr;
+  }
+
+  .awScalesInteriorIdentity span,
+  .awScalesInteriorIdentity small {
+    display: none;
+  }
+
+  .awScalesInterior .awActions,
+  .awScalesInterior .awMetricRow,
+  .awScalesInterior .awLensGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awScalesPanel,
+  .awScalesInterior {
+    animation: none;
+  }
+
+  .awScalesVariant *,
+  .awScalesVariant *::before,
+  .awScalesVariant *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
