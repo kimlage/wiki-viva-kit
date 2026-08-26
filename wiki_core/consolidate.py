@@ -318,6 +318,7 @@ def build_event_markdown(
         f"source_id: {source_id}",
     ]
     if source_ref:
+        fm.extend(["source_refs:", f"  - {source_ref}"])
         fm.append(f"source_ref: {source_ref}")
     fm.extend(
         [

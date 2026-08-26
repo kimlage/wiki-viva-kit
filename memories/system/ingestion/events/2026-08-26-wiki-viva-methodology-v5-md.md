@@ -10,6 +10,8 @@ sources_policy: evento_normalizado_com_quadrantes
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 source_id: source-wiki-viva-methodology-v5-md-3551b009f242
+source_refs:
+  - sources-wiki-viva-methodology
 source_ref: sources-wiki-viva-methodology
 source_type: repo
 captured_at: 2026-08-26

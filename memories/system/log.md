@@ -16,6 +16,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 ## [2026-08-26] System | Methodology source migrated and meta-wiki refreshed
 
+- Versioned the compatible correction as Wiki Viva `v6.9.3`, aligning the
+  runtime version, public release notes and downstream upgrading guidance.
 - Verified that this repository is the Wiki Viva Kit documenting its own
   operation through the [meta-wiki](wiki/index.md), while downstream consumer
   wikis own their domain-specific sources.
