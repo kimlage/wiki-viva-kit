@@ -36,6 +36,19 @@ def _today() -> dt.date:
     return dt.datetime.now(dt.timezone.utc).date()
 
 
+def _date_from_generated_at(generated_at: str) -> dt.date:
+    """Use the snapshot's declared clock for every date-sensitive read model.
+
+    Tests, archived snapshots and reproducible builds may provide an explicit
+    ``generated_at``. Falling back to the wall clock is reserved for malformed
+    third-party input; normal CLI-generated timestamps are ISO 8601.
+    """
+    try:
+        return dt.datetime.fromisoformat(generated_at.replace("Z", "+00:00")).date()
+    except ValueError:
+        return _today()
+
+
 def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
@@ -155,8 +168,13 @@ def _page_record(root: Path, path: Path, config: WikiConfig, *, today: dt.date |
     }
 
 
-def _pages_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
-    today = _today()
+def _pages_payload(
+    root: Path,
+    config: WikiConfig,
+    *,
+    today: dt.date | None = None,
+) -> dict[str, Any]:
+    today = today or _today()
     pages: list[dict[str, Any]] = []
     for path in _markdown_pages(root, config):
         try:
@@ -257,7 +275,12 @@ def _section_records(markdown: str) -> list[dict[str, Any]]:
     return sections
 
 
-def _operations_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
+def _operations_payload(
+    root: Path,
+    config: WikiConfig,
+    *,
+    today: dt.date | None = None,
+) -> dict[str, Any]:
     paths = WikiPaths(root, config)
     values: dict[str, Any] = {}
     body = ""
@@ -270,7 +293,7 @@ def _operations_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
         "title": _title(values, body, "Operations"),
         "updated_at": str(values.get("updated_at") or ""),
         "stale_after_days": str(values.get("stale_after_days") or ""),
-        "freshness_state": _freshness_state(values),
+        "freshness_state": _freshness_state(values, today=today),
         "sections": _section_records(body),
     }
 
@@ -285,14 +308,19 @@ def _sources_payload(pages_payload: dict[str, Any]) -> dict[str, Any]:
     return {"schema_version": "wiki_web_sources.v1", "sources": sources}
 
 
-def _safe_source_entities(root: Path, config: WikiConfig) -> dict[str, Any]:
+def _safe_source_entities(
+    root: Path,
+    config: WikiConfig,
+    *,
+    today: dt.date | None = None,
+) -> dict[str, Any]:
     """Rich per-source read model (identity + recipe streams + sync + cursor
     freshness). Wrapped like _safe_ingestion so a malformed recipe never breaks
     the whole snapshot — the dock shows the error instead."""
     try:
         from wiki_core.web.sources import build_sources_payload
 
-        return build_sources_payload(root, config)
+        return build_sources_payload(root, config, today=today)
     except Exception as exc:  # noqa: BLE001
         return {"schema_version": "wiki_web_source_entities.v1", "sources": [], "error": str(exc)}
 
@@ -441,14 +469,19 @@ def _score_payload(root: Path, config: WikiConfig, pages_payload: dict[str, Any]
     return payload
 
 
-def _safe_blocks(root: Path, config: WikiConfig) -> tuple[dict[str, Any], dict[str, Any]]:
+def _safe_blocks(
+    root: Path,
+    config: WikiConfig,
+    *,
+    today: dt.date | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """The v2 block registry (blocks.json) and per-anchor resolved stacks
     (block_stacks.json). Wrapped like the other rich payloads so a malformed
     block never breaks the whole snapshot — the dock shows the error instead."""
     try:
         from wiki_core.template_blocks import blocks_payloads
 
-        return blocks_payloads(root, config, today=_today())
+        return blocks_payloads(root, config, today=today or _today())
     except Exception as exc:  # noqa: BLE001
         error = str(exc)
         return (
@@ -482,6 +515,7 @@ def build_snapshot(
 ) -> dict[str, dict[str, Any]]:
     config = config or load_config(root)
     generated_at = generated_at or _utc_now()
+    snapshot_date = _date_from_generated_at(generated_at)
     git_payload = build_git_state(root, config)
     manifest = {
         "schema_version": WEB_SNAPSHOT_SCHEMA_VERSION,
@@ -500,8 +534,8 @@ def build_snapshot(
         "mode": mode,
         "files": list(SNAPSHOT_FILES),
     }
-    pages = _pages_payload(root, config)
-    operations = _operations_payload(root, config)
+    pages = _pages_payload(root, config, today=snapshot_date)
+    operations = _operations_payload(root, config, today=snapshot_date)
     actions = build_action_cards(config)
     timeline = build_timeline_payload(
         root,
@@ -512,14 +546,22 @@ def build_snapshot(
         generated_at=generated_at,
     )
     diff = build_diff_payload(root, config, git_payload)
-    blocks_payload, block_stacks_payload = _safe_blocks(root, config)
+    blocks_payload, block_stacks_payload = _safe_blocks(
+        root,
+        config,
+        today=snapshot_date,
+    )
     payloads = {
         "manifest.json": manifest,
         "operations.json": operations,
         "graph.json": _graph_payload(root, config, pages),
         "pages.json": pages,
         "sources.json": _sources_payload(pages),
-        "source_entities.json": _safe_source_entities(root, config),
+        "source_entities.json": _safe_source_entities(
+            root,
+            config,
+            today=snapshot_date,
+        ),
         "templates.json": _safe_templates(root, config, pages),
         "actions.json": actions,
         "decisions.json": _decisions_payload(pages),

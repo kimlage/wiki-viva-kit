@@ -10,12 +10,13 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-08-26
 stale_after_days: 90
 sources_policy: operational_wiki_contract
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 owner: root-wiki-viva-kit
+platform: repo
 moc_parent: memories/system/wiki-viva-kit.md
 source_refs:
   - sources-wiki-viva-methodology
@@ -27,6 +28,7 @@ target_pages:
   - memories/system/wiki/index.md
   - memories/system/wiki/architecture.md
   - memories/system/wiki/ingestion-flow.md
+  - memories/system/ingestion-process.md
 quadrants:
   - q1
   - q2
@@ -99,3 +101,52 @@ Governs the source: [Living wiki methodology](../wiki-viva-methodology-v5.md).
 
 - Open-source examples must be public-safe and synthetic.
 - Access secrets are blocked everywhere.
+
+## Recipe
+
+```yaml
+recipe:
+  schema_version: wiki_source_recipe.v1
+  platform: repo
+  locator: memories/sources/wiki-viva-methodology-v5.md
+  pipelines:
+    - { kind: metadata, cadence_days: 30 }
+    - { kind: content, cadence_days: 180 }
+  streams:
+    - id: methodology-contract
+      label: "Versioned Wiki Viva methodology contract"
+      selected: true
+      privacy: public_ok
+      cadence_days: 180
+      filters:
+        scope: "source page plus the tracked implementation and meta-wiki contract"
+      target_pages:
+        - memories/system/wiki-viva-kit.md
+        - memories/system/wiki/index.md
+        - memories/system/wiki/architecture.md
+        - memories/system/wiki/ingestion-flow.md
+        - memories/system/ingestion-process.md
+  auth:
+    method: none
+    ref: ""
+    scopes: []
+    note: "The source is a tracked file in this public repository."
+  schedule:
+    mode: on_demand
+    cadence_days: 0
+  how_to_export: |
+    No external export is required. Read the tracked source at
+    memories/sources/wiki-viva-methodology-v5.md from the reviewed repository
+    checkout, and compare it with the implementation and meta-wiki pages named
+    by this configuration before ingesting.
+  ingest:
+    argv:
+      - python3
+      - scripts/wiki_ingest.py
+      - --source
+      - memories/sources/wiki-viva-methodology-v5.md
+      - --context
+      - system
+      - --stream
+      - methodology-contract
+```

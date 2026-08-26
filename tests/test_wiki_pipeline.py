@@ -138,9 +138,9 @@ def test_pipeline_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert not (tmp_path / "data/derived/wiki/chunks").exists()
 
 
-def test_stream_cursor_written_only_after_durable_writes(tmp_path: Path) -> None:
-    """F8: with a --stream id, the cursor lands ONLY after every durable write,
-    and a dry-run writes NO cursor (nothing durable happened)."""
+def test_stream_cursor_written_only_after_pipeline_durable_writes(tmp_path: Path) -> None:
+    """The derived checkpoint lands only after the pipeline's durable writes;
+    a dry-run writes no cursor because nothing durable happened."""
     from wiki_core.paths import WikiPaths
     from wiki_core.source_state import read_state, stream_cursor
 
@@ -154,7 +154,8 @@ def test_stream_cursor_written_only_after_durable_writes(tmp_path: Path) -> None
     assert dry.stream_cursor_written is False
     assert read_state(paths.source_state, dry.source_id)["streams"] == {}
 
-    # Real run: cursor written after the event, keyed by the stream id.
+    # Real run: cursor written after the deterministic pipeline artifacts,
+    # keyed by the stream id. Canonical integration is a later gate.
     result = run(str(src), "system", tmp_path, config, stream_id="#financeiro", ts="2026-07-03T00:00:00Z")
     assert result.stream_cursor_written is True
     cursor = stream_cursor(read_state(paths.source_state, result.source_id), "#financeiro")
@@ -163,7 +164,7 @@ def test_stream_cursor_written_only_after_durable_writes(tmp_path: Path) -> None
 
 
 def test_stream_cursor_updated_at_is_a_real_date_without_an_explicit_ts(tmp_path: Path) -> None:
-    """F8 freshness: the standard CLI passes no ts. The cursor's updated_at must
+    """Processing freshness: the standard CLI passes no ts. updated_at must
     still be a parseable ISO date (from the manifest's captured_at), never empty —
     otherwise a just-synced stream reads as 'never'."""
     import datetime as dt

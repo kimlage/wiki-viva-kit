@@ -113,6 +113,7 @@ def test_event_markdown_is_specific_never_placeholder(repo, language, forbidden)
     assert forbidden not in md
     assert "Ana wants the migration" in md          # real content from the cache
     assert f"source_id: {SOURCE_ID}" in md           # gate hook
+    assert "page_type: ingestion_event" in md        # ontology contract
     assert "consolidated_into: []" in md             # integration to close
     assert "affected_pages: {must_update: [], should_review: []}" in md
     assert "impact_closure:" in md

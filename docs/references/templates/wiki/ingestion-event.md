@@ -4,7 +4,7 @@
 ---
 event_id: evt-YYYY-MM-DD-slug
 page_id: event-YYYY-MM-DD-slug
-page_type: source_catalog
+page_type: ingestion_event
 title: "Event - title"
 aliases:
   - Event topic

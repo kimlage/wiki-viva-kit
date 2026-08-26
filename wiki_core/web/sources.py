@@ -130,9 +130,38 @@ def _source_record(
             recipe_errors = validate_recipe(recipe)
             recipe_json = recipe.to_json()
 
+    # Versioned sync evidence is the clean-clone fallback. Cursor state is a
+    # mutable derived cache and therefore may be absent after clone/deploy. For
+    # a source with exactly ONE selected stream, an explicit successful sync
+    # receipt can safely establish that stream's freshness. Multi-stream
+    # sources still require individual cursors; one source-level date cannot
+    # prove which subset was processed.
+    last_status = str(sync.get("last_status") or "never")
+    if last_status not in _SYNC_STATES:
+        last_status = "never"
+    last_run_at = str(sync.get("last_run_at") or "")
+    last_event_ref = str(sync.get("last_event_ref") or "")
+    sync_derived = False
+    if last_status == "never" and events_index:
+        derived = events_index.get(source_id)
+        if derived and derived["date"]:
+            last_status = "ok"
+            last_run_at = last_run_at or derived["date"]
+            last_event_ref = last_event_ref or derived["event"]
+            sync_derived = True
+
     state = read_state(paths.source_state, source_id)
     pipelines = recipe_json.get("pipelines") or []
     cadence = _cadence_for(pipelines)
+    selected_recipe_streams = [
+        stream for stream in recipe_json.get("streams") or []
+        if stream.get("selected", True)
+    ]
+    versioned_single_stream_age = None
+    if len(selected_recipe_streams) == 1 and last_status == "ok":
+        versioned_single_stream_age = _iso_days_ago(
+            last_run_at or str(values.get("last_ingested_at") or ""), today
+        )
 
     streams_out: list[dict[str, Any]] = []
     pending = 0
@@ -141,19 +170,35 @@ def _source_record(
         # A per-stream cadence_days > 0 overrides the pipeline cadence.
         stream_cadence = _int_or_zero(stream.get("cadence_days")) or cadence
         if not stream.get("selected", True):
-            streams_out.append({**stream, "cursor_age_days": None, "cadence_days": stream_cadence, "breached": False})
+            streams_out.append({
+                **stream,
+                "cursor_age_days": None,
+                "freshness_basis": "not_selected",
+                "cadence_days": stream_cadence,
+                "breached": False,
+            })
             continue
         cursor = stream_cursor(state, str(stream.get("id") or ""))
         # Freshness comes from `updated_at` (a real ISO date). The `cursor` token
         # is an opaque sha/id, NOT a date — never parse it as one.
         age = _iso_days_ago(str(cursor.get("updated_at") or ""), today)
+        freshness_basis = "stream_cursor"
+        if age is None and versioned_single_stream_age is not None:
+            age = versioned_single_stream_age
+            freshness_basis = "versioned_source_sync"
         breached = bool(stream_cadence and (age is None or age > stream_cadence))
         if breached:
             pending += 1
         if age is not None and (newest_age is None or age < newest_age):
             newest_age = age
         streams_out.append(
-            {**stream, "cursor_age_days": age, "cadence_days": stream_cadence, "breached": breached}
+            {
+                **stream,
+                "cursor_age_days": age,
+                "freshness_basis": freshness_basis,
+                "cadence_days": stream_cadence,
+                "breached": breached,
+            }
         )
 
     # next_due_days: from the schedule cadence (if recurring) vs the freshest
@@ -165,22 +210,6 @@ def _source_record(
 
     selected_total = sum(1 for s in streams_out if s.get("selected", True))
     fresh = sum(1 for s in streams_out if s.get("selected", True) and not s.get("breached"))
-
-    last_status = str(sync.get("last_status") or "never")
-    if last_status not in _SYNC_STATES:
-        last_status = "never"
-    last_run_at = str(sync.get("last_run_at") or "")
-    last_event_ref = str(sync.get("last_event_ref") or "")
-    sync_derived = False
-    if last_status == "never" and events_index:
-        # The wiki itself remembers this source being ingested — the newest
-        # ingestion event outranks a missing/never sync block.
-        derived = events_index.get(source_id)
-        if derived and derived["date"]:
-            last_status = "ok"
-            last_run_at = last_run_at or derived["date"]
-            last_event_ref = last_event_ref or derived["event"]
-            sync_derived = True
 
     return {
         "source_id": source_id,
@@ -291,8 +320,9 @@ def compose_source_brief_spec(
         "NETWORK IS OFF in the sandbox — do NOT attempt a live fetch. Ingest the "
         "already-exported RAW at the export location above; if it is missing, STOP "
         "and report what to export.",
-        "Run the deterministic ingestion pipeline; each stream's cursor is written "
-        "only after its event commits (F8). Do not weaken privacy on any stream.",
+        "Run the deterministic ingestion pipeline; its derived stream cursor is a "
+        "processing checkpoint, while the closed ingestion event + versioned source "
+        "sync receipt prove canonical completion. Do not weaken privacy on any stream.",
     ]
     spec = {
         "mission_kind": "ingest",
