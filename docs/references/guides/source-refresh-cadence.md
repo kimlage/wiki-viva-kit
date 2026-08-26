@@ -1,6 +1,6 @@
 # Source Refresh Cadence
 
-Updated on: 2026-06-12
+Updated on: 2026-08-26
 
 This guide defines how a wiki page declares when a source should be read again.
 The goal is to control quality and cost: refresh sources when they are likely to
@@ -20,9 +20,37 @@ Use these fields on `page_type: source`, `source_catalog` and `artifact` pages:
 | `refresh_trigger` | Short human cue for why/when the source should be refreshed. |
 | `refresh_priority` | Optional `high`, `medium` or `low` for operator triage. |
 
-The source registry uses `last_ingested_at` when present, otherwise `updated_at`,
-adds `refresh_cadence_days`, and prints `Next refresh` plus `Status`. An explicit
+These fields remain the compatibility contract used by the source registry. It
+uses `last_ingested_at` when present, otherwise `updated_at`, adds
+`refresh_cadence_days`, and prints `Next refresh` plus `Status`. An explicit
 `next_refresh_at` wins over the calculated date.
+
+## Recipe and stream freshness
+
+The current source-entity model adds a machine-readable `recipe:` block to the
+source's `source_config` page. The recipe is the primary operational contract
+for synchronization and declares:
+
+| Field | Meaning |
+| --- | --- |
+| `pipelines[].cadence_days` | Default cadence for metadata or content processing. |
+| `streams[]` | Selected folders, channels, labels, tabs or repository slices. |
+| `streams[].cadence_days` | Optional stream override; `0` inherits the content pipeline cadence. |
+| `streams[].filters` | Explicit scope of the next read. |
+| `streams[].target_pages` | Memory pages that the stream is responsible for keeping current. |
+| `auth` | Pointer to an authorized mechanism; never the credential itself. |
+| `schedule` | `on_demand` or `recurring`; describes when a sync is due. |
+
+The cockpit computes stream freshness from the cursor state written after a
+successful deterministic source pass. That mutable cursor is a processing
+checkpoint, not canonical integration proof. The closed ingestion event and
+versioned successful `sync:` receipt provide that proof and survive a clean
+clone. For exactly one selected stream, the receipt is also the safe freshness
+fallback; multiple selected streams still require individual cursors. A
+recurring schedule marks work as due; it does not grant access or fetch a live
+system without an authorized connector or exported RAW.
+The legacy frontmatter remains visible in the source registry so existing
+consumers can migrate without losing their previous freshness signal.
 
 ## Suggested Cadences
 

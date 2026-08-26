@@ -8,6 +8,8 @@ stale_after_days: 90
 sources_policy: contrato_wiki_operacional
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
+source_refs:
+  - sources-wiki-viva-methodology
 ---
 
 # Approvals via Git and PR

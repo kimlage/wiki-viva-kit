@@ -8,13 +8,15 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-08-26
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 purpose: "Overview of the system, its principles, and the map of the wiki_core modules and the scripts that expose them."
 moc_parent: memories/system/wiki/index.md
+source_refs:
+  - sources-wiki-viva-methodology
 related_pages:
   - memories/system/wiki/index.md
   - memories/system/wiki/ingestion-flow.md
@@ -24,7 +26,7 @@ related_pages:
 
 # Living wiki architecture
 
-Updated on: 2026-06-25.
+Updated on: 2026-08-26.
 
 This page is the overview of the **living wiki**: what the system is, the principles
 that sustain it, and the map of the modules. For the step-by-step ingestion, see
@@ -99,8 +101,8 @@ and the gate is the GitHub PR described in [pr-governance.md](pr-governance.md).
 - **Markdown/Git as substrate.** All canonical memory is Markdown versioned in
   Git. There is no real database nor external service: the wiki is the repository.
   The portable configuration lives in [wiki.config.yaml](../../../wiki.config.yaml), read
-  by [wiki_core/config.py](../../../wiki_core/config.py) with a proprietary and
-  minimal YAML parser (no runtime dependency to load config).
+  by [wiki_core/config.py](../../../wiki_core/config.py) through PyYAML
+  `safe_load` plus strict validation of gate-critical fields.
 - **Root entity first.** Each repo declares a semantic top entity in
   [wiki.config.yaml](../../../wiki.config.yaml): a person, team, company,
   product, project or community page. That page defines the integral quadrant
@@ -114,6 +116,13 @@ and the gate is the GitHub PR described in [pr-governance.md](pr-governance.md).
   [data/derived/wiki/](../../../data/derived/wiki/)); only the consolidated result is promoted. The orchestrator is
   [wiki_core/ingest/pipeline.py](../../../wiki_core/ingest/pipeline.py); details in
   [ingestion-flow.md](ingestion-flow.md).
+- **Source identity and recipe are separate.** The canonical `source` page holds
+  identity, ingestion state and sync evidence; its `source_config` page holds a
+  secret-free `wiki_source_recipe.v1` contract with platform, locator,
+  pipelines, streams, cadence, target pages and authorization pointers. The
+  recipe makes a source executable and auditable, but does not grant access or
+  perform an external fetch by itself. See
+  [source-config.md](../../../docs/references/templates/wiki/source-config.md).
 - **Code first, LLM via agent.** Everything that can be deterministic is testable
   Python; the intelligence (the deep read of the chunks, the synthesis of insight) is
   delegated to the agent. The Python assembles the context PACKAGE and the agent writes the
@@ -174,6 +183,7 @@ below carry the detail and the links to each module.
 | --- | --- | --- |
 | config + paths | Portable per-repo config, root entity profile, derived-path resolution, deterministic ids (`sha256`, `slugify`) | Yes |
 | input_stage | Compile root entity, channels, source configs and target pages into the staging catalog | Yes |
+| source_recipe + source_state | Parse/validate executable source manuals and retain per-stream cursors | Yes |
 | source_manifest | Classify the source and compute a stable `source_id` + JSON manifest | Yes |
 | extractors | Turn each source type into text + structured units | Yes |
 | chunking | Split text into stable `TextChunk`s with a per-excerpt hash | Yes |
@@ -192,7 +202,7 @@ below carry the detail and the links to each module.
 
 - [wiki_core/config.py](../../../wiki_core/config.py): defines `WikiConfig` (a frozen
   dataclass) and `load_config`, which reads [wiki.config.yaml](../../../wiki.config.yaml) with
-  a proprietary and simple YAML parser. It loads `repo_id`, `owner_label`, the list of
+  PyYAML `safe_load` and a strict validation layer. It loads `repo_id`, `owner_label`, the list of
   `contexts` (each context must have a hub memories/<ctx>/index.md), the derived
   `paths`, the `approval` policy, and the `llm` parameters (chunk size,
   prompt versions). It makes the config portable per repo, with no hardcoding.
@@ -216,6 +226,25 @@ renders this catalog into [input-stage.md](../input-stage.md) and checks whether
 the page is stale. The same helper feeds [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py)
 and [wiki_ingest.py](../../../scripts/wiki_ingest.py), so a repo-local source
 inherits root/channel/source-config context without operator flags.
+
+### source_recipe and source_state (executable source contract)
+
+[wiki_core/source_recipe.py](../../../wiki_core/source_recipe.py) parses and
+validates the fenced `recipe:` block from a `source_config` page. It rejects
+unknown platforms/pipelines, malformed schedules and credential-shaped keys or
+values. [wiki_core/source_state.py](../../../wiki_core/source_state.py) stores
+per-stream cursor state in the derived cache. The source read model in
+[wiki_core/web/sources.py](../../../wiki_core/web/sources.py) combines these
+records to calculate stream freshness and compose a grounded ingestion brief.
+
+Derived cursors are processing checkpoints and may disappear in a clean clone;
+the closed event plus versioned `sync:` receipt prove canonical completion. A
+single-stream source can safely derive freshness from that receipt when no
+cursor is present, while multi-stream sources require per-stream evidence.
+
+The compatibility fields `last_ingested_at`, `refresh_policy` and
+`refresh_cadence_days` remain on the source page for the canonical registry;
+new operational synchronization uses the recipe and stream cursors.
 
 ### source_manifest (pipeline entry)
 

@@ -23,9 +23,9 @@ owner: {{owner_id}}
 platform: ""            # slack | gmail | whatsapp | web | repo | manual … (feeds the recipe too)
 source_locator: ""      # the stable address on that platform (workspace/channel, label, url, repo)
 config_ref: ""          # the source_config page that carries this source's `recipe:` block
-# Machine SYNC telemetry -- the read model reads last_status/last_run_at here; per-stream
-# freshness comes from the cursor state, NOT this block. Leave "never" until a real sync
-# writes a receipt (the recipe's streams + schedule live in config_ref, never here).
+# Versioned SYNC telemetry -- a successful receipt + closed event is canonical
+# evidence and survives clean clones. Per-stream derived cursors are preferred;
+# for exactly one selected stream, this receipt is the safe clean-clone fallback.
 sync:
   last_run_at: ""       # ISO datetime of the last sync attempt (empty until the first run)
   last_status: never    # never | ok | partial | failed | running | queued
@@ -97,11 +97,13 @@ ingestion becomes a row linking the normalized event. The source registry
 ([system/source-registry.md](../../../../memories/system/source-registry.md))
 indexes these pages with state and date.
 
-Freshness now comes from the **recipe** in `config_ref`, not from this page: each
-stream declares its own `cadence_days`, and the cockpit compares it to the stream's
-cursor. The `sync:` block above only records the last *run* (status + timestamp);
-"Sincronizar com Codex" advances the cursors and writes the receipt it points to.
-(`refresh_policy`/`refresh_cadence_days` remain for the legacy registry only.)
+Freshness now comes from the **recipe** in `config_ref`: each stream declares
+its own `cadence_days`, and the cockpit prefers its derived cursor. Derived
+state is intentionally absent from a clean clone; when a source has exactly one
+selected stream, the versioned successful `sync:` receipt is the safe fallback.
+For multiple selected streams, individual cursors remain mandatory because one
+source-level date cannot prove which subset was processed.
+`refresh_policy`/`refresh_cadence_days` remain for the legacy registry.
 
 | Date | Event | State |
 | --- | --- | --- |

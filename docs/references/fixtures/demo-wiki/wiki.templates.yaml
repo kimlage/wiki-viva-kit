@@ -283,6 +283,7 @@ types:
   journal_entry:
     extends: relation_base
     body_template: docs/references/templates/wiki/journal.md
+    pinned_fields: [updated_at]
     view: { center: timeline, badges: [freshness] }
   perspective:
     extends: relation_base
@@ -305,6 +306,7 @@ types:
   dashboard:
     extends: relation_base
     body_template: docs/references/templates/wiki/operation.md
+    pinned_fields: [updated_at]
     view: { center: dashboard, badges: [freshness] }
     scene: { shape: slab, emphasis: practice }
 
@@ -355,6 +357,7 @@ types:
   ingestion_event:
     extends: relation_base
     body_template: docs/references/templates/wiki/ingestion-event.md
+    pinned_fields: [updated_at]
     view: { center: timeline, badges: [freshness] }
     scene: { shape: spark, emphasis: practice }
     creatable: false # born by ingestion runs, never by hand

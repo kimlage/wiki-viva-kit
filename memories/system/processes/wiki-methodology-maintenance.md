@@ -10,7 +10,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-08-26
 stale_after_days: 45
 sources_policy: process_contract
 gate: github_pr
@@ -44,11 +44,12 @@ skills and documentation aligned before downstream private repos migrate.
 ```mermaid
 flowchart LR
     proposal["Methodology proposal"]
+    recipe["Source recipe and scope readback"]
     code["Toolkit code/templates"]
     docs["Meta-wiki documentation"]
     gates["Local gates"]
     pr["Human PR gate"]
-    proposal --> code --> docs --> gates --> pr
+    proposal --> recipe --> code --> docs --> gates --> pr
 ```
 
 ## Cadence and Gates
@@ -58,7 +59,7 @@ flowchart LR
 | Cadence | Event-driven by methodology or source-model changes. |
 | Owner | Wiki owner and repo agent. |
 | Entry criteria | A proposal or source change affects the reusable kit. |
-| Exit criteria | Code, docs, templates, skills and gates align in the open-source repo. |
+| Exit criteria | Recipe/source evidence, code, docs, templates, skills and gates align in the open-source repo; the ingestion event is closed. |
 
 ## Inputs and Outputs
 

@@ -276,10 +276,12 @@ def run(
     else:
         llm_context_status = "recorded"
 
-    # F8 — the stream cursor is written ONLY here, after every durable write
-    # (manifest, text, chunks, index, event) has landed. A crash before this
-    # point re-reads next time; the manifest sha dedup makes that safe. Never on
-    # a dry-run or a blocked ingest.
+    # The processing cursor is written ONLY here, after every durable artifact
+    # owned by this deterministic pipeline (manifest, text, chunks, index,
+    # context request and optional score event) has landed. The separate deep
+    # read + normalized event + memory integration still have their own gates;
+    # this mutable cursor alone is not proof of canonical completion. Never on a
+    # dry-run or a blocked ingest.
     stream_cursor_written = False
     if persist and not blocked and stream_id and chunk_count > 0:
         from wiki_core.source_state import write_stream_cursor

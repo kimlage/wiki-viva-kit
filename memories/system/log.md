@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-07-12
+updated_at: 2026-08-26
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,41 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-08-26] System | Methodology source migrated and meta-wiki refreshed
+
+- Versioned the compatible correction as Wiki Viva `v6.9.3`, aligning the
+  runtime version, public release notes and downstream upgrading guidance.
+- Verified that this repository is the Wiki Viva Kit documenting its own
+  operation through the [meta-wiki](wiki/index.md), while downstream consumer
+  wikis own their domain-specific sources.
+- The complete public source inventory remains one canonical source, one
+  [source configuration](../sources/config/wiki-viva-methodology-v5.md) and one
+  [input channel](input-channels/methodology-reference.md).
+- Migrated the existing methodology source to the `wiki_source_recipe.v1`
+  contract introduced after that source was created: repository platform,
+  stable locator, one selected stream, explicit targets, on-demand schedule and
+  no authentication requirement.
+- Ran a new deterministic ingest and delegated deep read with no secret or PII
+  finding, then closed the real
+  [2026-08-26 ingestion event](ingestion/events/2026-08-26-wiki-viva-methodology-v5-md.md)
+  into the root entity, meta-wiki index, architecture and ingestion process/flow.
+- Updated the architecture to match the implementation: configuration uses
+  PyYAML `safe_load` plus strict validation, and recipes are execution manuals,
+  not automatic connectors or credentials.
+- Clarified that derived cursors are processing checkpoints, while the closed
+  event and versioned sync receipt prove canonical completion. The source read
+  model now uses that receipt as a clean-clone freshness fallback only for a
+  single selected stream; multi-stream sources still require individual cursors.
+- Completed the pinned provenance contract for every current page type:
+  methodology-backed rules and perspectives reference the canonical source;
+  generated dashboards and subjective journals now make `source_refs` optional
+  instead of forcing an invented evidence relationship.
+- Made web snapshots date-deterministic: page, operation, source-stream and
+  template-block freshness now use the snapshot's declared `generated_at`
+  instead of drifting with the machine's current date; `--out` also accepts an
+  external directory and reports an absolute path instead of failing after the
+  snapshot was written.
 
 ## [2026-07-12] System | Configured-language CLI regression coverage
 

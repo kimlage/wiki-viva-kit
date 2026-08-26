@@ -18,6 +18,14 @@ from wiki_core.paths import WikiPaths
 from wiki_core.web.snapshot import write_snapshot
 
 
+def display_path(path: Path, root: Path) -> str:
+    """Print repo-relative paths without rejecting an external ``--out``."""
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="", help="Output directory for snapshot JSON files.")
@@ -40,7 +48,7 @@ def main() -> int:
         ROOT, out_dir, config, clean=args.clean, mode=args.mode, content_sidecars=args.content_sidecars
     )
     for name in sorted(written):
-        print(f"{name}: {written[name].relative_to(ROOT).as_posix()}")
+        print(f"{name}: {display_path(written[name], ROOT)}")
     return 0
 
 

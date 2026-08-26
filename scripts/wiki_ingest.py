@@ -35,7 +35,10 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="compute without writing artifacts")
     parser.add_argument("--no-score", action="store_true", help="do not record a score-event")
     parser.add_argument("--actor")
-    parser.add_argument("--stream", help="source recipe stream id (advances its cursor post-commit)")
+    parser.add_argument(
+        "--stream",
+        help="source recipe stream id (advances its derived processing cursor after pipeline artifacts persist)",
+    )
     args = parser.parse_args()
 
     config = load_config(ROOT)

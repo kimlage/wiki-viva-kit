@@ -108,11 +108,13 @@ def test_event_markdown_is_specific_never_placeholder(repo, language, forbidden)
     agg = aggregate_results(request, paths.llm_cache)
     md = build_event_markdown(
         agg, config=cfg, context="system", date=dt.date(2026, 6, 11),
-        event_dir=paths.ingest_events_dir, root=tmp,
+        source_ref="source-test", event_dir=paths.ingest_events_dir, root=tmp,
     )
     assert forbidden not in md
     assert "Ana wants the migration" in md          # real content from the cache
     assert f"source_id: {SOURCE_ID}" in md           # gate hook
+    assert "page_type: ingestion_event" in md        # ontology contract
+    assert "source_refs:" in md                      # canonical provenance list
     assert "consolidated_into: []" in md             # integration to close
     assert "affected_pages: {must_update: [], should_review: []}" in md
     assert "impact_closure:" in md

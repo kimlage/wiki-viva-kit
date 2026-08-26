@@ -17,10 +17,13 @@ another) via skills — there is no embedded LLM client.
   It is the semantic top page of the wiki; [memories/index.md](memories/index.md)
   remains the technical MOC. The generated input stage is
   [memories/system/input-stage.md](memories/system/input-stage.md).
-- Every source ingestion uses the orchestrator [scripts/wiki_ingest.py](scripts/wiki_ingest.py):
-  manifest, text/chunks, index, pre-scan, input-stage-aware LLM context package
-  and score-event. The LLM pass is written to the cache by the agent (skill
-  [wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md)).
+- Every source is declared by a `source` page and a linked `source_config` with
+  a reviewed, secret-free recipe. Ingestion uses the orchestrator
+  [scripts/wiki_ingest.py](scripts/wiki_ingest.py): manifest, text/chunks,
+  index, pre-scan, input-stage-aware LLM context package and score-event. The
+  LLM pass is written to the cache by the agent (skill
+  [wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md)); a closed
+  ingestion event plus versioned sync receipt proves integration into memory.
 - Core/toolkit corrections belong here first. Changes to [wiki_core/](wiki_core/README.md),
   [scripts/](scripts/README.md), [.skills/](.skills/README.md), templates, gates or shared
   ingestion behavior must be implemented in this open-source repo, covered by a
@@ -57,10 +60,18 @@ another) via skills — there is no embedded LLM client.
 
 ```sh
 python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_audit.py --public-export --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_source_registry.py --check
+python3 scripts/wiki_operational_pass.py --check
+python3 scripts/wiki_consolidate.py --check
+python3 scripts/wiki_migrate_templates.py --pinned
 python3 -m pytest tests/
+npm --prefix apps/wiki-cockpit test
+npm --prefix apps/wiki-cockpit exec -- tsc -p apps/wiki-cockpit/tsconfig.json --noEmit
+npm --prefix apps/wiki-cockpit run build
 ```
 
 - Audit: frontmatter, clickable links, secrets, PII at the public boundary,
@@ -72,6 +83,14 @@ python3 -m pytest tests/
 - Input stage: [memories/system/input-stage.md](memories/system/input-stage.md) equal to the
   root entity/channel/source compilation at HEAD —
   [scripts/wiki_input_stage.py](scripts/wiki_input_stage.py).
+- Source registry, operational pass and consolidation: generated source state,
+  source/action/context resumption and zero read-but-unintegrated sources —
+  [scripts/wiki_source_registry.py](scripts/wiki_source_registry.py),
+  [scripts/wiki_operational_pass.py](scripts/wiki_operational_pass.py) and
+  [scripts/wiki_consolidate.py](scripts/wiki_consolidate.py).
+- Template pin report: every page type has the required fields without
+  inventing provenance for generated dashboards or subjective journals —
+  [scripts/wiki_migrate_templates.py](scripts/wiki_migrate_templates.py).
 
 ## Per-repo configuration
 

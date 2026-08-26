@@ -8,6 +8,8 @@ stale_after_days: 180
 sources_policy: fronteira_docs_memoria
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
+source_refs:
+  - sources-wiki-viva-methodology
 ---
 
 # Review of the docs vs. memory boundary

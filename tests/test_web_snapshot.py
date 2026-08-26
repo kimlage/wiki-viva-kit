@@ -8,6 +8,7 @@ from wiki_core.config import WikiConfig
 from wiki_core.web.deploy_bundle import write_deploy_bundle
 from wiki_core.web.schemas import SNAPSHOT_FILES, WEB_SNAPSHOT_SCHEMA_VERSION
 from wiki_core.web.snapshot import build_snapshot, write_snapshot
+from scripts.wiki_web_snapshot import display_path
 
 
 def _write(path: Path, text: str) -> None:
@@ -119,6 +120,14 @@ def test_write_snapshot_creates_all_json_files(tmp_path: Path) -> None:
     assert set(written) == set(SNAPSHOT_FILES)
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["files"] == list(SNAPSHOT_FILES)
+
+
+def test_display_path_accepts_output_outside_repository(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    external = tmp_path / "snapshot" / "manifest.json"
+
+    assert display_path(root / "data" / "manifest.json", root) == "data/manifest.json"
+    assert display_path(external, root) == external.resolve().as_posix()
 
 
 def test_write_deploy_bundle_creates_runtime_config_snapshot_and_proof(tmp_path: Path) -> None:
