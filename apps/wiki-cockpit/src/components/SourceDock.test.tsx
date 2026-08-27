@@ -197,6 +197,84 @@ describe("SourceDock operational workspace", () => {
     expect((document.querySelector(".sourceWorkspaceBody") as HTMLElement).style.getPropertyValue("--source-registry-width")).toBe("340px");
   });
 
+  it("opens with a pending-update overview and prepares automatic sources as one governed batch", async () => {
+    const source = sourceFixture({
+      update_route: { mode: "deterministic_connector", mcp_hint: "", runnable: true, requires_agent: false },
+      pending_streams: 1
+    });
+    const previewRefresh = vi.fn(async (): Promise<SourceOperationPreview> => ({
+      ok: true,
+      preview_token: "p".repeat(64),
+      execution: { mode: "deterministic_connector", argv: ["python3", "scripts/inventory.py"], mcp_hint: "", how_to_export: "", runnable: true },
+      discovery: {
+        counts: { new: 1, changed: 0, enriched: 0, unchanged: 0 },
+        fingerprint: "f".repeat(64),
+        records: [{ external_id: "new-1", label: "New record", filters: {}, status: "new" }]
+      }
+    }));
+    const runRefresh = vi.fn(async (): Promise<SourceOperationReceipt> => ({
+      ok: true,
+      operation_id: "sop-batch",
+      recorded_at: "2026-08-27T12:00:00Z",
+      source_id: source.source_id,
+      stream_id: "__source__",
+      status: "inventory_applied",
+      changes: []
+    }));
+
+    render(
+      <SourceWorkspace
+        bundle={bundleWith(source)}
+        sourceId=""
+        onPreviewRefresh={previewRefresh}
+        onRunRefresh={runRefresh}
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+
+    expect(screen.getByRole("heading", { name: "1 source(s) need an update" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Update all (1)" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Update all (1)" }));
+    await waitFor(() => expect(previewRefresh).toHaveBeenCalledWith("source-gmail", "__source__", ""));
+    expect(await screen.findByText("Ready to run")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Run 1 ready update(s)" }));
+    await waitFor(() => expect(runRefresh).toHaveBeenCalledWith("source-gmail", "__source__", "", "p".repeat(64), ["new-1"]));
+    expect(await screen.findByText("Updated")).toBeTruthy();
+  });
+
+  it("keeps script-based sources pending until a repository RAW collection is informed", async () => {
+    const source = sourceFixture({
+      update_route: { mode: "script", mcp_hint: "", runnable: true, requires_agent: false },
+      pending_streams: 1
+    });
+    const previewRefresh = vi.fn(async (): Promise<SourceOperationPreview> => ({
+      ok: true,
+      preview_token: "r".repeat(64),
+      execution: { mode: "script", argv: ["python3", "scripts/wiki_ingest.py"], mcp_hint: "", how_to_export: "", runnable: true }
+    }));
+
+    render(
+      <SourceWorkspace
+        bundle={bundleWith(source)}
+        sourceId=""
+        onPreviewRefresh={previewRefresh}
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Update all (1)" }));
+    const input = await screen.findByRole("textbox", { name: "RAW path for Gmail da equipe" });
+    expect(previewRefresh).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "data/raw/gmail" } });
+    const prepare = screen.getByRole("button", { name: "Prepare informed sources" });
+    await waitFor(() => expect((prepare as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(prepare);
+    await waitFor(() => expect(previewRefresh).toHaveBeenCalledWith("source-gmail", "__source__", "data/raw/gmail"));
+    expect(await screen.findByText("Ready to run")).toBeTruthy();
+  });
+
   it("uses a bundled platform brand and lets a source-owned local identity override it", () => {
     const { rerender } = render(
       <SourceWorkspace
