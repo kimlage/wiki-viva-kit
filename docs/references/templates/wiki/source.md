@@ -23,9 +23,17 @@ owner: {{owner_id}}
 platform: ""            # slack | gmail | whatsapp | web | repo | manual … (feeds the recipe too)
 source_locator: ""      # the stable address on that platform (workspace/channel, label, url, repo)
 config_ref: ""          # the source_config page that carries this source's `recipe:` block
-# Machine SYNC telemetry -- the read model reads last_status/last_run_at here; per-stream
-# freshness comes from the cursor state, NOT this block. Leave "never" until a real sync
-# writes a receipt (the recipe's streams + schedule live in config_ref, never here).
+# Optional local brand asset. Keep the file below apps/wiki-cockpit/public/source-icons/;
+# remote URLs and traversal paths are rejected. Known platforms such as Google
+# Drive already have a bundled identity, so declare this only for custom brands.
+# visual_identity:
+#   key: organization-name
+#   label: "Organization name"
+#   asset_path: /source-icons/organization-name.webp
+#   background: light   # transparent | light | dark
+# Versioned SYNC telemetry -- a successful receipt + closed event is canonical
+# evidence and survives clean clones. Per-stream derived cursors are preferred;
+# for exactly one selected stream, this receipt is the safe clean-clone fallback.
 sync:
   last_run_at: ""       # ISO datetime of the last sync attempt (empty until the first run)
   last_status: never    # never | ok | partial | failed | needs_auth | parser_error | secret_blocked | running | queued

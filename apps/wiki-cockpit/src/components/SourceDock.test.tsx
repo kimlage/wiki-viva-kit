@@ -113,7 +113,7 @@ afterEach(() => {
 });
 
 describe("SourceDock operational workspace", () => {
-  it("expands the registry while keeping a readable visual name and semantic platform icon", () => {
+  it("expands the registry while keeping a readable visual name and representative platform icon", () => {
     render(
       <SourceWorkspace
         bundle={bundleWith(sourceFixture({ title: "Fonte - Gmail da equipe" }))}
@@ -124,12 +124,55 @@ describe("SourceDock operational workspace", () => {
     );
     const registry = screen.getByRole("complementary", { name: "Sources (1)" });
     expect(within(registry).getByText("Gmail da equipe").getAttribute("title")).toBe("Fonte - Gmail da equipe");
-    expect(registry.querySelector(".lucide-mail")).toBeTruthy();
+    expect(registry.querySelector('img[src="/source-icons/gmail.svg"]')).toBeTruthy();
     const expand = within(registry).getByRole("button", { name: "Expand source list" });
     expect(expand.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(expand);
     expect(expand.getAttribute("aria-expanded")).toBe("true");
     expect(document.querySelector(".sourceWorkspaceBody")?.classList.contains("registryExpanded")).toBe(true);
+  });
+
+  it("uses a bundled platform brand and lets a source-owned local identity override it", () => {
+    const { rerender } = render(
+      <SourceWorkspace
+        bundle={bundleWith(sourceFixture({ platform: "drive", title: "Source - Team Drive" }))}
+        sourceId="source-gmail"
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    expect(document.querySelector('img[src="/source-icons/google-drive.png"]')).toBeTruthy();
+
+    rerender(
+      <SourceWorkspace
+        bundle={bundleWith(sourceFixture({ platform: "web", title: "Source - GCP billing" }))}
+        sourceId="source-gmail"
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    expect(document.querySelector('img[src="/source-icons/google-cloud.svg"]')).toBeTruthy();
+
+    rerender(
+      <SourceWorkspace
+        bundle={bundleWith(sourceFixture({
+          platform: "web",
+          title: "Source - Example organization",
+          visual_identity: {
+            key: "example-organization",
+            label: "Example organization",
+            asset_path: "/source-icons/example-organization.webp",
+            background: "light"
+          }
+        }))}
+        sourceId="source-gmail"
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    const custom = document.querySelector('img[src="/source-icons/example-organization.webp"]');
+    expect(custom).toBeTruthy();
+    expect(custom?.classList.contains("sourcePlatformBrandIcon-light")).toBe(true);
   });
 
   it("keeps record selection, update, configuration and history as explicit source-only tabs", () => {
@@ -666,7 +709,7 @@ describe("SourceDock honest edges (§19.6)", () => {
     );
     expect(screen.getByText("Gmail da equipe").getAttribute("title")).toBe("Fonte - Gmail da equipe");
     expect(screen.queryByText("Fonte - Gmail da equipe")).toBeNull();
-    expect(document.querySelector(".dockHeader .lucide-mail")).toBeTruthy();
+    expect(document.querySelector('.dockHeader img[src="/source-icons/gmail.svg"]')).toBeTruthy();
   });
 
   it("shows authorization readiness before an update is attempted", () => {

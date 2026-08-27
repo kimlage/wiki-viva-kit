@@ -687,6 +687,15 @@ export type SourceEntity = {
   platform: string;
   locator: string;
   source_kind?: "item" | "collection" | "account" | "endpoint" | "repository" | "";
+  // Optional source-owned brand identity. The backend only projects local
+  // /source-icons assets; older snapshots omit this field and keep the
+  // platform-aware semantic fallback.
+  visual_identity?: {
+    key: string;
+    label: string;
+    asset_path: string;
+    background: "transparent" | "light" | "dark";
+  };
   owner: string;
   stewards: { ref?: string; kind?: string; via?: string }[];
   config_ref: string;

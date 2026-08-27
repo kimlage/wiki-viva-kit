@@ -14,7 +14,9 @@ builder, and a public action fn — no side effects in the builder.
 from __future__ import annotations
 
 import datetime as dt
+import re
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any
 
 from wiki_core.config import WikiConfig
@@ -31,6 +33,8 @@ from wiki_core.source_state import read_state, stream_cursor
 
 SOURCE_ENTITIES_SCHEMA_VERSION = "wiki_web_source_entities.v1"
 SOURCE_RECIPE_INVALID_ERROR_CODE = "source_recipe_invalid"
+SOURCE_ICON_PREFIX = "/source-icons/"
+SOURCE_ICON_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"}
 
 
 def _iso_days_ago(value: str, today: dt.date) -> int | None:
@@ -53,6 +57,35 @@ def _int_or_zero(value: Any) -> int:
         return max(int(str(value).strip()), 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _visual_identity(values: dict[str, Any]) -> dict[str, str] | None:
+    """Project a portable, local-only source brand declaration."""
+    raw = values.get("visual_identity")
+    if not isinstance(raw, dict):
+        return None
+    key = str(raw.get("key") or "").strip().lower()
+    label = str(raw.get("label") or "").strip()
+    asset_path = str(raw.get("asset_path") or "").strip()
+    background = str(raw.get("background") or "transparent").strip().lower()
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", key):
+        return None
+    if not label or len(label) > 80 or any(ord(char) < 32 for char in label):
+        return None
+    if not asset_path.startswith(SOURCE_ICON_PREFIX) or "\\" in asset_path:
+        return None
+    relative = asset_path.removeprefix("/")
+    parsed = PurePosixPath(relative)
+    if parsed.as_posix() != relative or ".." in parsed.parts or parsed.suffix.lower() not in SOURCE_ICON_EXTENSIONS:
+        return None
+    if background not in {"transparent", "light", "dark"}:
+        return None
+    return {
+        "key": key,
+        "label": label,
+        "asset_path": asset_path,
+        "background": background,
+    }
 
 
 def _cadence_for(pipelines: list[dict[str, Any]]) -> int:
@@ -307,6 +340,11 @@ def _source_record(
         if unsafe_recipe
         else str(values.get("source_locator") or recipe_json.get("locator") or ""),
         "source_kind": "" if unsafe_recipe else str(recipe_json.get("source_kind") or ""),
+        **(
+            {"visual_identity": identity}
+            if not unsafe_recipe and (identity := _visual_identity(values))
+            else {}
+        ),
         "owner": str(values.get("owner") or ""),
         "stewards": [s for s in stewards if isinstance(s, dict)],
         "config_ref": config_ref,

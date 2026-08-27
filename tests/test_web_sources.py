@@ -36,6 +36,11 @@ title: "Slack — Finanças"
 context: system
 platform: slack
 source_locator: "T024/finance"
+visual_identity:
+  key: finance-team
+  label: "Finance team"
+  asset_path: /source-icons/finance-team.webp
+  background: light
 owner: person-kim
 config_ref: memories/sources/config/slack-fin.md
 updated_at: 2026-07-01
@@ -95,6 +100,12 @@ def test_payload_rolls_up_identity_recipe_and_freshness(tmp_path: Path) -> None:
     source = payload["sources"][0]
     assert source["platform"] == "slack" and source["owner"] == "person-kim"
     assert source["locator"] == "T024/finance"
+    assert source["visual_identity"] == {
+        "key": "finance-team",
+        "label": "Finance team",
+        "asset_path": "/source-icons/finance-team.webp",
+        "background": "light",
+    }
     assert source["recipe_ok"] is True
     assert source["update_route"] == {
         "mode": "manual_export",
@@ -130,6 +141,26 @@ def test_lifecycle_read_model_uses_the_same_flattened_over_nested_precedence(
 
     assert source["lifecycle"]["last_attempt_state"] == "ok"
     assert source["lifecycle"]["pipeline_stage"] == "indexed"
+
+
+def test_visual_identity_rejects_remote_or_traversing_assets(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    source_path = tmp_path / "memories/sources/slack-fin.md"
+    text = source_path.read_text(encoding="utf-8").replace(
+        "  asset_path: /source-icons/finance-team.webp",
+        "  asset_path: https://example.test/finance-team.webp",
+    )
+    _write(source_path, text)
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    assert "visual_identity" not in source
+
+    text = source_path.read_text(encoding="utf-8").replace(
+        "  asset_path: https://example.test/finance-team.webp",
+        "  asset_path: /source-icons/../private.webp",
+    )
+    _write(source_path, text)
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    assert "visual_identity" not in source
 
 
 def test_versioned_per_stream_receipts_survive_a_clean_clone(tmp_path: Path) -> None:

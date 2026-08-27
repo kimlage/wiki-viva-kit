@@ -207,6 +207,10 @@
   line-height: 1.3;
 }
 .sourceRegistryIcon { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #2b4a5b; border-radius: 8px; color: #7ed9fa; background: #102331; }
+.sourcePlatformBrandIcon { display: block; width: auto; max-width: 22px; height: auto; max-height: 22px; object-fit: contain; box-sizing: content-box; border-radius: 4px; }
+.sourcePlatformBrandIcon-light { padding: 3px; background: #f7fafc; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22); }
+.sourcePlatformBrandIcon-dark { padding: 3px; background: #081117; box-shadow: 0 0 0 1px rgba(126, 217, 250, 0.22); }
+.dockHeader > .sourcePlatformBrandIcon { flex: 0 0 auto; max-width: 20px; max-height: 20px; }
 .sourceRegistryList i { width: 7px; height: 7px; border-radius: 50%; background: #62d99c; }
 .sourceRegistryList i.attention { background: #f0ae58; box-shadow: 0 0 8px rgba(240, 174, 88, 0.55); }
 .sourceDock.sourceDockEmbedded {

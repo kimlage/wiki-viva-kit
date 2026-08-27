@@ -94,8 +94,8 @@ update to one file. The planner chooses one of four routes:
    emits `wiki_source_inventory.v1` JSON with stable `external_id`, label and
    deterministic metadata. The core owns validation, comparison, selection,
    recipe patching and receipts; provider-specific access remains in the
-   adapter. Metadata added to an already known record is reported as
-   `enriched`, not as a content change, and does not reopen ingestion.
+adapter. Metadata added to an already known record is reported as
+`enriched`, not as a content change, and does not reopen ingestion.
 2. `script`: a repository script under `scripts/` receives a hashed RAW file or
    folder under `data/raw/`. Folders are inventoried recursively and
    deterministically before execution; the operator does not invoke a shell.
@@ -111,6 +111,31 @@ blocks delegation when the declared connector is missing. Successful
 configuration, deterministic inventory or script operations write a redacted receipt under
 `data/derived/wiki/source-operations/`; connector execution continues through
 the existing governed job runner and human review gate.
+
+## Visual identity in the source registry
+
+The registry resolves every source icon in three explicit layers: a
+source-declared local brand, a bundled brand for a known platform, then a
+semantic Lucide icon based on `source_kind`. The first two layers use real
+vendored assets; the final layer keeps unknown sources understandable without
+inventing a logo.
+
+Known platform identities currently cover Google Drive, Google Cloud, Gmail,
+Google Chat, GitHub, WhatsApp, Zoom and Google Calendar. A consumer wiki adds
+an organization-specific identity on its `page_type: source` page:
+
+```yaml
+visual_identity:
+  key: organization-name
+  label: "Organization name"
+  asset_path: /source-icons/organization-name.webp
+  background: light
+```
+
+The asset lives below `apps/wiki-cockpit/public/source-icons/`. Only local
+image paths in that directory are projected; remote URLs, traversal paths and
+unsupported extensions are rejected. The consumer must also record provenance
+and the applicable license or brand-use terms.
 ## Suggested Cadences
 
 | Source shape | Policy | Cadence | Trigger |
