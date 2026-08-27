@@ -212,6 +212,31 @@ describe("SourceDock operational workspace", () => {
       expect.objectContaining({ label: "Inbox revisada" })
     );
   });
+
+  it("refreshes the configuration draft when the authoritative source record changes", async () => {
+    const { rerender } = render(
+      <SourceDock bundle={bundleWith(sourceFixture())} sourceId="source-gmail" onNotice={noop} onClose={noop} />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    expect((screen.getByLabelText("Display label") as HTMLInputElement).value).toBe("Inbox operacional");
+
+    const refreshed = sourceFixture();
+    refreshed.streams[0] = {
+      ...refreshed.streams[0],
+      label: "Inbox consolidada",
+      cadence_days: 14,
+      filters: { processing_state: "reviewed" }
+    };
+    rerender(
+      <SourceDock bundle={bundleWith(refreshed)} sourceId="source-gmail" onNotice={noop} onClose={noop} />
+    );
+
+    await waitFor(() => {
+      expect((screen.getByLabelText("Display label") as HTMLInputElement).value).toBe("Inbox consolidada");
+      expect((screen.getByLabelText("Cadence (days)") as HTMLInputElement).value).toBe("14");
+      expect((screen.getByLabelText("Processing state") as HTMLInputElement).value).toBe("reviewed");
+    });
+  });
 });
 
 describe("SourceDock lifecycle parity (§13.1)", () => {
