@@ -84,6 +84,7 @@ class SourceRecipe:
     streams: tuple[Stream, ...]
     how_to_export: str
     ingest_argv: tuple[str, ...]
+    refresh_argv: tuple[str, ...]
     mcp_hint: str
     auth: AuthPointer | None = None
     schedule: SyncSchedule | None = None
@@ -111,6 +112,7 @@ class SourceRecipe:
             ],
             "how_to_export": self.how_to_export,
             "ingest": {"argv": list(self.ingest_argv), "mcp_hint": self.mcp_hint},
+            "refresh": {"argv": list(self.refresh_argv)},
             "auth": (
                 None
                 if self.auth is None
@@ -186,7 +188,10 @@ def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
         for s in (mapping.get("streams") or [])
         if isinstance(s, dict)
     )
-    ingest = mapping.get("ingest") or {}
+    ingest_raw = mapping.get("ingest")
+    ingest = ingest_raw if isinstance(ingest_raw, dict) else {}
+    refresh_raw = mapping.get("refresh")
+    refresh = refresh_raw if isinstance(refresh_raw, dict) else {}
     auth_raw = mapping.get("auth")
     auth = (
         AuthPointer(
@@ -217,6 +222,7 @@ def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
         streams=streams,
         how_to_export=str(mapping.get("how_to_export") or ""),
         ingest_argv=tuple(str(a) for a in (ingest.get("argv") or [])),
+        refresh_argv=tuple(str(a) for a in (refresh.get("argv") or [])),
         mcp_hint=str(ingest.get("mcp_hint") or "") if ingest.get("mcp_hint") else "",
         auth=auth,
         schedule=schedule,

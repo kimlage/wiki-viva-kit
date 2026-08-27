@@ -21,6 +21,7 @@ from typing import Any
 import yaml
 
 from wiki_core.config import WikiConfig
+from wiki_core.detectors import scan_text
 from wiki_core.paths import WikiPaths
 from wiki_core.source_recipe import extract_recipe_mapping, parse_recipe, validate_recipe
 from wiki_core.source_schedule import SCHEDULE_MODES, SOURCE_KINDS
@@ -28,6 +29,9 @@ from wiki_core.web.sources import build_sources_payload
 from wiki_core.web.commands import SECRET_VALUE_RE
 
 SOURCE_OPERATION_SCHEMA_VERSION = "wiki_source_operation.v1"
+SOURCE_INVENTORY_SCHEMA_VERSION = "wiki_source_inventory.v1"
+_MAX_INVENTORY_BYTES = 2_000_000
+_MAX_INVENTORY_RECORDS = 10_000
 _YAML_BLOCK_RE = re.compile(r"```ya?ml\n(.*?)\n```", re.S)
 _PRIVACY = {"private_self", "private_sensitive_allowed", "team_shared", "public_ok"}
 _ALLOWED_UPDATES = {
@@ -276,7 +280,15 @@ def preview_source_operation(
         "updates": normalized,
     }
     preview_token = _sha(json.dumps(token_material, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
-    execution_mode = "script" if recipe_model.ingest_argv else "agent_connector" if recipe_model.mcp_hint else "manual_export"
+    execution_mode = (
+        "deterministic_connector"
+        if recipe_model.refresh_argv
+        else "script"
+        if recipe_model.ingest_argv
+        else "agent_connector"
+        if recipe_model.mcp_hint
+        else "manual_export"
+    )
     return {
         "ok": True,
         "schema_version": SOURCE_OPERATION_SCHEMA_VERSION,
@@ -437,6 +449,236 @@ def _inventory_raw_path(root: Path, raw_path: Path) -> tuple[dict[str, Any], str
     }, digest.hexdigest()
 
 
+def _safe_refresh_argv(
+    root: Path,
+    argv: tuple[str, ...],
+    *,
+    source_id: str,
+    locator: str,
+    config_ref: str,
+) -> list[str]:
+    """Render one repository-owned, deterministic inventory adapter.
+
+    The shared core still owns process safety and the JSON contract; provider
+    authentication and API logic stay in the consumer-owned script.
+    """
+    if not argv:
+        raise ValueError("source_refresh_adapter_unavailable")
+    replacements = {
+        "{source_id}": source_id,
+        "{locator}": locator,
+        "{config_ref}": config_ref,
+    }
+    rendered: list[str] = []
+    for part in argv:
+        value = str(part)
+        for marker, replacement in replacements.items():
+            value = value.replace(marker, replacement)
+        rendered.append(value)
+    if rendered[0] not in {"python", "python3"} or len(rendered) < 2:
+        raise ValueError("source_refresh_adapter_not_allowlisted")
+    script = Path(rendered[1])
+    if script.is_absolute() or script.suffix != ".py" or not script.parts or script.parts[0] != "scripts":
+        raise ValueError("source_refresh_adapter_not_allowlisted")
+    script_path = (root / script).resolve(strict=True)
+    if not script_path.is_relative_to((root / "scripts").resolve()) or not script_path.is_file():
+        raise ValueError("source_refresh_adapter_not_allowlisted")
+    if any("{" in part or "}" in part for part in rendered):
+        raise ValueError("source_refresh_unresolved_placeholder")
+    return rendered
+
+
+def _normalize_inventory(payload: Any, *, source_id: str, locator: str) -> dict[str, Any]:
+    if not isinstance(payload, dict) or payload.get("schema_version") != SOURCE_INVENTORY_SCHEMA_VERSION:
+        raise ValueError("source_refresh_inventory_contract_invalid")
+    if payload.get("source_id") not in (None, "", source_id) or payload.get("locator") not in (None, "", locator):
+        raise ValueError("source_refresh_inventory_subject_mismatch")
+    raw_records = payload.get("records")
+    if not isinstance(raw_records, list) or len(raw_records) > _MAX_INVENTORY_RECORDS:
+        raise ValueError("source_refresh_inventory_records_invalid")
+    records: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in raw_records:
+        if not isinstance(raw, dict):
+            raise ValueError("source_refresh_inventory_record_invalid")
+        external_id = str(raw.get("external_id") or "").strip()
+        label = str(raw.get("label") or "").strip()
+        filters = raw.get("filters")
+        if (
+            not external_id
+            or len(external_id) > 512
+            or not label
+            or len(label) > 500
+            or not isinstance(filters, dict)
+            or external_id in seen
+        ):
+            raise ValueError("source_refresh_inventory_record_invalid")
+        try:
+            serialized = json.dumps(filters, ensure_ascii=False, sort_keys=True, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("source_refresh_inventory_record_invalid") from exc
+        if len(serialized.encode("utf-8")) > 100_000:
+            raise ValueError("source_refresh_inventory_record_too_large")
+        probe = json.dumps({"external_id": external_id, "label": label, "filters": filters}, ensure_ascii=False)
+        if any(finding.category == "secret" for finding in scan_text(probe)):
+            raise ValueError("source_refresh_inventory_secret_detected")
+        clean_filters = dict(filters)
+        clean_filters.pop("processing_state", None)
+        records.append({"external_id": external_id, "label": label, "filters": clean_filters})
+        seen.add(external_id)
+    records.sort(key=lambda item: (item["label"].casefold(), item["external_id"]))
+    normalized = {
+        "schema_version": SOURCE_INVENTORY_SCHEMA_VERSION,
+        "source_id": source_id,
+        "locator": locator,
+        "records": records,
+    }
+    if len(json.dumps(normalized, ensure_ascii=False).encode("utf-8")) > _MAX_INVENTORY_BYTES:
+        raise ValueError("source_refresh_inventory_too_large")
+    return normalized
+
+
+def _run_refresh_adapter(argv: list[str], *, root: Path, timeout_seconds: int = 60) -> tuple[dict[str, Any], str]:
+    try:
+        completed = subprocess.run(
+            argv,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError("source_refresh_adapter_timeout") from exc
+    if completed.returncode != 0:
+        raise ValueError("source_refresh_adapter_failed")
+    if len(completed.stdout.encode("utf-8")) > _MAX_INVENTORY_BYTES:
+        raise ValueError("source_refresh_inventory_too_large")
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError("source_refresh_inventory_json_invalid") from exc
+    # Adapter stderr is provider-controlled and may contain credentials or URLs.
+    # The portable core exposes only its stable error code and validated JSON.
+    return payload, ""
+
+
+def _stream_external_id(stream: dict[str, Any]) -> str:
+    filters = stream.get("filters") if isinstance(stream.get("filters"), dict) else {}
+    return str(filters.get("external_id") or filters.get("file_id") or filters.get("record_id") or stream.get("id") or "")
+
+
+def _inventory_diff(source: dict[str, Any], inventory: dict[str, Any]) -> dict[str, Any]:
+    current_by_external = {_stream_external_id(stream): stream for stream in source.get("streams") or []}
+    records: list[dict[str, Any]] = []
+    counts = {"new": 0, "changed": 0, "enriched": 0, "unchanged": 0}
+    for record in inventory["records"]:
+        existing = current_by_external.get(record["external_id"])
+        if existing is None:
+            status = "new"
+            before = None
+            stream_id = ""
+        else:
+            current_filters = existing.get("filters") if isinstance(existing.get("filters"), dict) else {}
+            before_filters = {key: current_filters.get(key) for key in record["filters"]}
+            before = {"label": existing.get("label") or existing.get("id"), "filters": before_filters}
+            after = {"label": record["label"], "filters": record["filters"]}
+            if before == after:
+                status = "unchanged"
+            else:
+                common_hashes = [
+                    key
+                    for key in ("checksum", "md5_checksum", "sha256")
+                    if current_filters.get(key) not in (None, "")
+                    and record["filters"].get(key) not in (None, "")
+                ]
+                content_changed = any(
+                    current_filters.get(key) != record["filters"].get(key)
+                    for key in common_hashes
+                )
+                if not common_hashes:
+                    content_changed = (
+                        current_filters.get("size_bytes") not in (None, "")
+                        and record["filters"].get("size_bytes") not in (None, "")
+                        and current_filters.get("size_bytes") != record["filters"].get("size_bytes")
+                    )
+                status = "changed" if content_changed else "enriched"
+            stream_id = str(existing.get("id") or "")
+        counts[status] += 1
+        records.append({**record, "status": status, "stream_id": stream_id, "before": before})
+    fingerprint = _sha(json.dumps(inventory, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    return {"counts": counts, "records": records, "fingerprint": fingerprint}
+
+
+def _new_stream_id(label: str, external_id: str, used: set[str]) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", label.casefold()).strip("-")[:48] or "record"
+    candidate = f"{base}-{hashlib.sha256(external_id.encode('utf-8')).hexdigest()[:8]}"
+    suffix = 2
+    while candidate in used:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    used.add(candidate)
+    return candidate
+
+
+def _apply_inventory_to_recipe(
+    recipe: dict[str, Any],
+    source: dict[str, Any],
+    discovery: dict[str, Any],
+    selected_external_ids: set[str],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    copied = json.loads(json.dumps(recipe))
+    streams = copied.get("streams")
+    if not isinstance(streams, list):
+        raise ValueError("source_operation_invalid_recipe")
+    current_by_external = {
+        _stream_external_id(stream): stream
+        for stream in streams
+        if isinstance(stream, dict)
+    }
+    used = {str(stream.get("id") or "") for stream in streams if isinstance(stream, dict)}
+    inherited = next((stream for stream in streams if isinstance(stream, dict) and stream.get("selected", True)), None)
+    default_privacy = str((inherited or {}).get("privacy") or "private_self")
+    default_targets = list((inherited or {}).get("target_pages") or [source["path"]])
+    default_cadence = int((inherited or {}).get("cadence_days") or 0)
+    changes: list[dict[str, Any]] = []
+    for record in discovery["records"]:
+        if record["status"] not in {"new", "changed", "enriched"} or record["external_id"] not in selected_external_ids:
+            continue
+        existing = current_by_external.get(record["external_id"])
+        if existing is None:
+            stream_id = _new_stream_id(record["label"], record["external_id"], used)
+            filters = {**record["filters"], "external_id": record["external_id"], "processing_state": "discovered"}
+            created = {
+                "id": stream_id,
+                "label": record["label"],
+                "selected": True,
+                "privacy": default_privacy,
+                "cadence_days": default_cadence,
+                "filters": filters,
+                "target_pages": default_targets,
+            }
+            streams.append(created)
+            changes.append({"field": f"record:{record['external_id']}", "before": None, "after": created})
+            continue
+        before = json.loads(json.dumps(existing))
+        existing["label"] = record["label"]
+        filters = existing.get("filters") if isinstance(existing.get("filters"), dict) else {}
+        content_changed = any(
+            filters.get(key) not in (None, "")
+            and record["filters"].get(key) not in (None, "")
+            and filters.get(key) != record["filters"].get(key)
+            for key in ("checksum", "md5_checksum", "sha256", "size_bytes")
+        )
+        filters.update(record["filters"])
+        filters["external_id"] = record["external_id"]
+        if content_changed and existing.get("selected", True) and str(filters.get("processing_state") or "") not in {"covered", "no_ingest"}:
+            filters["processing_state"] = "changed"
+        existing["filters"] = filters
+        changes.append({"field": f"record:{record['external_id']}", "before": before, "after": existing})
+    return copied, changes
+
+
 def _safe_ingest_argv(root: Path, argv: tuple[str, ...], raw_path: Path) -> list[str]:
     if not argv:
         raise ValueError("source_refresh_script_unavailable")
@@ -468,8 +710,18 @@ def preview_source_refresh(
     if recipe_mapping is None:
         raise ValueError("source_operation_recipe_block_missing")
     recipe = parse_recipe(recipe_mapping)
-    mode = "script" if recipe.ingest_argv else "agent_connector" if recipe.mcp_hint else "manual_export"
+    mode = (
+        "deterministic_connector"
+        if recipe.refresh_argv
+        else "script"
+        if recipe.ingest_argv
+        else "agent_connector"
+        if recipe.mcp_hint
+        else "manual_export"
+    )
     argv: list[str] = []
+    discovery: dict[str, Any] | None = None
+    adapter_stderr = ""
     raw: dict[str, Any] = {
         "scope": "source",
         "source_kind": source.get("source_kind"),
@@ -491,7 +743,24 @@ def preview_source_refresh(
     }
     raw_sha = ""
     normalized_raw_path = ""
-    if mode == "script":
+    if mode == "deterministic_connector":
+        argv = _safe_refresh_argv(
+            root,
+            recipe.refresh_argv,
+            source_id=source_id,
+            locator=str(source.get("locator") or ""),
+            config_ref=str(source.get("config_ref") or ""),
+        )
+        payload, adapter_stderr = _run_refresh_adapter(argv, root=root)
+        inventory = _normalize_inventory(
+            payload,
+            source_id=source_id,
+            locator=str(source.get("locator") or ""),
+        )
+        discovery = _inventory_diff(source, inventory)
+        raw["external_inventory"] = inventory
+        raw_sha = discovery["fingerprint"]
+    elif mode == "script":
         raw_file = _safe_raw_path(root, config, raw_path)
         normalized_raw_path = str(raw_file.relative_to(root))
         raw["local_raw"], raw_sha = _inventory_raw_path(root, raw_file)
@@ -506,6 +775,7 @@ def preview_source_refresh(
         "raw_path": normalized_raw_path,
         "mode": mode,
         "argv": argv,
+        "discovery_sha256": discovery.get("fingerprint") if discovery else "",
     }
     token = _sha(json.dumps(token_material, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
     return {
@@ -519,18 +789,23 @@ def preview_source_refresh(
         "config_sha256": token_material["config_sha256"],
         "raw_path": normalized_raw_path,
         "raw_inventory": raw,
+        "discovery": discovery,
         "execution": {
             "mode": mode,
             "argv": argv,
             "mcp_hint": recipe.mcp_hint,
             "how_to_export": recipe.how_to_export,
-            "runnable": mode == "script",
+            "runnable": mode in {"script", "deterministic_connector"},
             "requires_agent": mode == "agent_connector",
+            "stderr": SECRET_VALUE_RE.sub(
+                lambda match: f"{match.group(1)}{match.group(2)}[REDACTED]",
+                adapter_stderr,
+            )[:20_000],
         },
         "steps": [
             {"id": "bind", "label": "Confirm source and collection scope", "status": "complete"},
             {"id": "inventory", "label": "Inventory the whole source and detect record changes", "status": "complete"},
-            {"id": "execute", "label": "Run the allowlisted ingestion script", "status": "ready" if mode == "script" else "delegated" if mode == "agent_connector" else "blocked"},
+            {"id": "execute", "label": "Apply selected inventory records" if mode == "deterministic_connector" else "Run the allowlisted ingestion script", "status": "ready" if mode in {"script", "deterministic_connector"} else "delegated" if mode == "agent_connector" else "blocked"},
             {"id": "review", "label": "Review emitted event and file diff", "status": "pending"},
             {"id": "receipt", "label": "Persist execution receipt", "status": "pending"},
         ],
@@ -544,14 +819,94 @@ def run_source_refresh(
     stream_id: str,
     raw_path: str,
     preview_token: str,
+    selected_external_ids: Any = None,
     *,
     timeout_seconds: int = 300,
 ) -> dict[str, Any]:
     preview = preview_source_refresh(root, config, source_id, stream_id, raw_path)
-    if preview.get("execution", {}).get("mode") != "script":
+    mode = str(preview.get("execution", {}).get("mode") or "")
+    if mode not in {"script", "deterministic_connector"}:
         raise ValueError("source_refresh_requires_agent_or_manual_export")
     if not preview_token or preview_token != preview["preview_token"]:
         raise ValueError("source_operation_preview_stale")
+    if mode == "deterministic_connector":
+        if selected_external_ids is None:
+            selected_external_ids = []
+        if not isinstance(selected_external_ids, list) or len(selected_external_ids) > _MAX_INVENTORY_RECORDS:
+            raise ValueError("source_refresh_selected_records_invalid")
+        selected = {str(value).strip() for value in selected_external_ids if str(value).strip()}
+        discovery = preview.get("discovery") or {"counts": {}, "records": []}
+        actionable = {
+            str(record.get("external_id") or "")
+            for record in discovery.get("records") or []
+            if record.get("status") in {"new", "changed", "enriched"}
+        }
+        if not selected <= actionable:
+            raise ValueError("source_refresh_selected_records_invalid")
+        source = _source(root, config, source_id)
+        config_path = _safe_repo_file(root, preview["config_ref"])
+        current = config_path.read_text(encoding="utf-8")
+        if _sha(current) != preview["config_sha256"]:
+            raise ValueError("source_operation_preview_stale")
+        recipe = extract_recipe_mapping(current)
+        if recipe is None:
+            raise ValueError("source_operation_recipe_block_missing")
+        patched, changes = _apply_inventory_to_recipe(recipe, source, discovery, selected)
+        changed_files: list[str] = []
+        if changes:
+            validation = validate_recipe(parse_recipe(patched))
+            if validation:
+                raise ValueError("source_operation_invalid_result:" + ",".join(validation))
+            rendered = _replace_recipe(current, patched)
+            temporary = config_path.with_name(f".{config_path.name}.{uuid.uuid4().hex}.tmp")
+            try:
+                temporary.write_text(rendered, encoding="utf-8")
+                temporary.replace(config_path)
+            finally:
+                temporary.unlink(missing_ok=True)
+            changed_files.append(preview["config_ref"])
+        counts = discovery.get("counts") or {}
+        status = "inventory_applied" if changes else "inventory_no_change" if not actionable else "inventory_reviewed"
+        operation_id = "sop-" + uuid.uuid4().hex[:12]
+        receipt = {
+            "schema_version": SOURCE_OPERATION_SCHEMA_VERSION,
+            "operation_id": operation_id,
+            "recorded_at": _now(),
+            "source_id": source_id,
+            "stream_id": "__source__",
+            "scope": "source",
+            "preview_token": preview_token,
+            "config_ref": preview["config_ref"],
+            "raw_path": "",
+            "raw_sha256": discovery.get("fingerprint") or "",
+            "argv": preview.get("execution", {}).get("argv") or [],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": preview.get("execution", {}).get("stderr") or "",
+            "status": status,
+            "changes": changes,
+            "discovery": discovery,
+            "selected_external_ids": sorted(selected),
+            "summary": {
+                "new": int(counts.get("new") or 0),
+                "changed": int(counts.get("changed") or 0),
+                "enriched": int(counts.get("enriched") or 0),
+                "unchanged": int(counts.get("unchanged") or 0),
+                "applied": len(changes),
+            },
+        }
+        receipt_dir = WikiPaths(root, config).derived_root / "source-operations"
+        receipt_dir.mkdir(parents=True, exist_ok=True)
+        receipt_path = receipt_dir / f"{operation_id}.json"
+        receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
+        return {
+            "ok": True,
+            **receipt,
+            "receipt_path": str(receipt_path.relative_to(root)),
+            "changed_files": changed_files,
+            "source": _source(root, config, source_id),
+        }
+
     raw_file = _safe_raw_path(root, config, raw_path)
     _, current_sha = _inventory_raw_path(root, raw_file)
     if current_sha != preview["raw_inventory"]["local_raw"]["sha256"]:

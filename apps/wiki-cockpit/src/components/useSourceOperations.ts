@@ -20,7 +20,7 @@ type SourceOperationsOptions = {
   onApplyConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>, previewToken: string) => Promise<SourceOperationReceipt>;
   onListReceipts?: (sourceId: string, options?: { signal?: AbortSignal }) => Promise<SourceOperationReceipt[]>;
   onPreviewRefresh?: (sourceId: string, streamId: string, rawPath?: string) => Promise<SourceOperationPreview>;
-  onRunRefresh?: (sourceId: string, streamId: string, rawPath: string, previewToken: string) => Promise<SourceOperationReceipt>;
+  onRunRefresh?: (sourceId: string, streamId: string, rawPath: string, previewToken: string, selectedExternalIds?: string[]) => Promise<SourceOperationReceipt>;
   onSourceChanged?: () => void;
   onNotice: (text: string) => void;
   setSection: (section: SourceSection) => void;
@@ -63,6 +63,7 @@ export function useSourceOperations({
   const [rawPath, setRawPath] = useState("");
   const [refreshPreview, setRefreshPreview] = useState<SourceOperationPreview | null>(null);
   const [refreshReceipt, setRefreshReceipt] = useState<SourceOperationReceipt | null>(null);
+  const [selectedDiscoveryIds, setSelectedDiscoveryIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!selectedStream) {
@@ -82,6 +83,7 @@ export function useSourceOperations({
     setOperationError("");
     setRefreshPreview(null);
     setRefreshReceipt(null);
+    setSelectedDiscoveryIds([]);
     setRawPath("");
   }, [selectedStream?.id, source?.source_id, selectedStreamRevision]);
 
@@ -213,6 +215,11 @@ export function useSourceOperations({
         return;
       }
       setRefreshPreview(result);
+      setSelectedDiscoveryIds(
+        (result.discovery?.records ?? [])
+          .filter((record) => record.status === "new" || record.status === "changed" || record.status === "enriched")
+          .map((record) => record.external_id)
+      );
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
     } finally {
@@ -230,7 +237,8 @@ export function useSourceOperations({
         source.source_id,
         "__source__",
         rawPath.trim(),
-        refreshPreview.preview_token
+        refreshPreview.preview_token,
+        selectedDiscoveryIds
       );
       setRefreshReceipt(result);
       setReceipts((current) => [result, ...current.filter((item) => item.operation_id !== result.operation_id)]);
@@ -239,6 +247,8 @@ export function useSourceOperations({
         return;
       }
       onNotice(t("source.refresh.complete", { id: result.operation_id }));
+      setRefreshPreview(null);
+      setSelectedDiscoveryIds([]);
       onSourceChanged?.();
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
@@ -272,6 +282,8 @@ export function useSourceOperations({
     setRefreshPreview,
     refreshReceipt,
     setRefreshReceipt,
+    selectedDiscoveryIds,
+    setSelectedDiscoveryIds,
     activeAgentCapability,
     connectorHint,
     connectorReady,

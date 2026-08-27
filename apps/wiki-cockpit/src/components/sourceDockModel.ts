@@ -79,6 +79,10 @@ export function streamFreshnessLabel(
   scheduleMode: string | undefined
 ): string {
   if (!stream.selected) return streamScopeLabel(stream);
+  const processingState = String(stream.filters?.processing_state ?? "").trim().toLowerCase();
+  if (processingState === "discovered" || processingState === "changed" || processingState === "pending" || processingState === "queued") {
+    return t(`source.streams.processing.${processingState}`);
+  }
   if (scheduleMode === "one_shot") {
     return `${t("source.streams.completed")} / ${scheduleModeLabel(scheduleMode)}`;
   }

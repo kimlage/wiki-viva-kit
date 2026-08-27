@@ -534,12 +534,18 @@ export async function runSourceRefresh(
   sourceId: string,
   streamId: string,
   rawPath: string,
-  previewToken: string
+  previewToken: string,
+  selectedExternalIds: string[] = []
 ): Promise<import("../types").SourceOperationReceipt> {
   const response = await fetch(await apiUrl(`/sources/${encodeURIComponent(sourceId)}/operations/refresh-run`), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ stream_id: streamId, raw_path: rawPath, preview_token: previewToken })
+    body: JSON.stringify({
+      stream_id: streamId,
+      raw_path: rawPath,
+      preview_token: previewToken,
+      selected_external_ids: selectedExternalIds
+    })
   });
   return (await response.json()) as import("../types").SourceOperationReceipt;
 }

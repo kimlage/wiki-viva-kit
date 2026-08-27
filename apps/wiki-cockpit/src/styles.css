@@ -755,6 +755,34 @@
 .sourceRefreshPlan li[data-status="blocked"] { color: #ffb454; }
 .sourceRefreshPlan.blocked { border-color: rgba(240, 174, 88, 0.42); }
 .sourceRefreshPlan.blocked > header { color: #f0ae58; }
+.sourceDiscovery {
+  display: grid;
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid #263844;
+}
+.sourceDiscovery > header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sourceDiscovery > header strong { margin-right: auto; color: #dce9f0; font-size: 11px; }
+.sourceDiscovery > p { margin: 0; color: #91c9ad; font-size: 10.5px; line-height: 1.45; }
+.sourceDiscovery > ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.sourceDiscovery > ul > li {
+  display: grid;
+  gap: 6px;
+  padding: 8px 9px;
+  border: 1px solid #293d49;
+  border-radius: 7px;
+  background: rgba(5, 13, 19, 0.52);
+}
+.sourceDiscovery > ul > li[data-status="new"] { border-color: rgba(94, 230, 168, 0.38); }
+.sourceDiscovery > ul > li[data-status="changed"] { border-color: rgba(240, 174, 88, 0.42); }
+.sourceDiscovery > ul > li[data-status="enriched"] { border-color: rgba(127, 208, 232, 0.38); }
+.sourceDiscovery label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.sourceDiscovery label input { margin-top: 2px; accent-color: #5ee6a8; }
+.sourceDiscovery label span { display: grid; gap: 2px; min-width: 0; }
+.sourceDiscovery label strong { color: #dce9f0; font-size: 10.5px; }
+.sourceDiscovery label small { color: #7f94a2; font-size: 9px; overflow-wrap: anywhere; }
+.sourceDiscovery details { padding: 6px 8px; }
+.sourceDiscovery details summary { color: #8299a7; font-size: 9px; }
 .sourceRunMonitor {
   display: grid;
   gap: 9px;
@@ -808,6 +836,8 @@
   word-break: break-word;
 }
 .sourceRefreshOutput > header code { margin-left: auto; color: #718796; font-size: 9.5px; }
+.sourceRefreshOutput > header small { color: #91c9ad; font-size: 9.5px; }
+.sourceReceiptSummary { margin: 0; color: #9fb6c6; font-size: 10px; line-height: 1.45; }
 .sourceOperationActions { padding-top: 0; }
 .sourceConfigForm {
   display: grid;

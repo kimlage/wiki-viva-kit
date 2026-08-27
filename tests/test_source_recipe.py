@@ -55,6 +55,24 @@ def test_extract_and_parse_a_valid_recipe() -> None:
     assert recipe.to_json()["streams"][0]["id"] == "#financeiro"
 
 
+def test_recipe_exposes_a_consumer_owned_deterministic_refresh_adapter() -> None:
+    mapping = extract_recipe_mapping(GOOD_CONFIG)
+    assert mapping is not None
+    mapping["refresh"] = {
+        "argv": ["python3", "scripts/source_inventory.py", "--source", "{source_id}", "--locator", "{locator}"]
+    }
+    recipe = parse_recipe(mapping)
+    assert recipe.refresh_argv == (
+        "python3",
+        "scripts/source_inventory.py",
+        "--source",
+        "{source_id}",
+        "--locator",
+        "{locator}",
+    )
+    assert recipe.to_json()["refresh"]["argv"] == list(recipe.refresh_argv)
+
+
 def test_absent_recipe_returns_none() -> None:
     assert extract_recipe_mapping("# a page with no recipe block\n") is None
     assert extract_recipe_mapping("```yaml\nfoo: bar\n```\n") is None

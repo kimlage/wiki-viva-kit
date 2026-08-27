@@ -89,7 +89,7 @@ export function SourceDock({
   onApplyConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>, previewToken: string) => Promise<SourceOperationReceipt>;
   onListReceipts?: (sourceId: string, options?: { signal?: AbortSignal }) => Promise<SourceOperationReceipt[]>;
   onPreviewRefresh?: (sourceId: string, streamId: string, rawPath?: string) => Promise<SourceOperationPreview>;
-  onRunRefresh?: (sourceId: string, streamId: string, rawPath: string, previewToken: string) => Promise<SourceOperationReceipt>;
+  onRunRefresh?: (sourceId: string, streamId: string, rawPath: string, previewToken: string, selectedExternalIds?: string[]) => Promise<SourceOperationReceipt>;
   onListJobs?: (options?: { signal?: AbortSignal }) => Promise<CodexJobRecord[]>;
   onStreamJobLog?: (jobId: string, options?: { signal?: AbortSignal }) => Promise<string>;
   onCancelJob?: (jobId: string) => Promise<CodexJobRecord | null>;
@@ -132,6 +132,8 @@ export function SourceDock({
     setRefreshPreview,
     refreshReceipt,
     setRefreshReceipt,
+    selectedDiscoveryIds,
+    setSelectedDiscoveryIds,
     activeAgentCapability,
     connectorHint,
     connectorReady,
@@ -632,12 +634,49 @@ export function SourceDock({
                 <ol>
                   {(refreshPreview.steps ?? []).map((step) => <li key={step.id} data-status={step.status}>{t(`source.refresh.step.${step.id}`)}</li>)}
                 </ol>
+                {refreshPreview.discovery && (
+                  <div className="sourceDiscovery" aria-label={t("source.refresh.discovery.title")}>
+                    <header>
+                      <strong>{t("source.refresh.discovery.title")}</strong>
+                      <span className="pill pill-info">{t("source.refresh.discovery.new", { n: refreshPreview.discovery.counts.new })}</span>
+                      <span className="pill pill-warn">{t("source.refresh.discovery.changed", { n: refreshPreview.discovery.counts.changed })}</span>
+                      <span className="pill pill-info">{t("source.refresh.discovery.enriched", { n: refreshPreview.discovery.counts.enriched })}</span>
+                      <span className="pill pill-muted">{t("source.refresh.discovery.unchanged", { n: refreshPreview.discovery.counts.unchanged })}</span>
+                    </header>
+                    {refreshPreview.discovery.records.some((record) => record.status !== "unchanged") ? (
+                      <ul>
+                        {refreshPreview.discovery.records.filter((record) => record.status !== "unchanged").map((record) => (
+                          <li key={record.external_id} data-status={record.status}>
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={selectedDiscoveryIds.includes(record.external_id)}
+                                onChange={(event) => setSelectedDiscoveryIds(
+                                  event.target.checked
+                                    ? [...selectedDiscoveryIds, record.external_id]
+                                    : selectedDiscoveryIds.filter((id) => id !== record.external_id)
+                                )}
+                              />
+                              <span><strong>{record.label}</strong><small>{t(`source.refresh.discovery.status.${record.status}`)} · <code>{record.external_id}</code></small></span>
+                            </label>
+                            <details><summary>{t("source.record.raw")}</summary><ExpandablePre text={JSON.stringify(record.filters, null, 2)} title={record.label} /></details>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>{t("source.refresh.discovery.noChanges")}</p>
+                    )}
+                  </div>
+                )}
               </section>
             )}
             {refreshReceipt && (
               <section className="sourceRefreshOutput" aria-label={t("source.refresh.output")}>
-                <header><CheckCircle2 size={15} aria-hidden /><strong>{t("source.refresh.output")}</strong><code>{refreshReceipt.operation_id}</code></header>
-                <ExpandablePre text={[refreshReceipt.stdout, refreshReceipt.stderr].filter(Boolean).join("\n")} title={t("source.refresh.output")} />
+                <header><CheckCircle2 size={15} aria-hidden /><strong>{t("source.refresh.output")}</strong><small>{t(`source.history.status.${refreshReceipt.status}`)}</small><code>{refreshReceipt.operation_id}</code></header>
+                {refreshReceipt.summary && (
+                  <p className="sourceReceiptSummary">{t("source.history.inventorySummary", { new: refreshReceipt.summary.new, changed: refreshReceipt.summary.changed, enriched: refreshReceipt.summary.enriched, unchanged: refreshReceipt.summary.unchanged, applied: refreshReceipt.summary.applied })}</p>
+                )}
+                {(refreshReceipt.stdout || refreshReceipt.stderr) && <ExpandablePre text={[refreshReceipt.stdout, refreshReceipt.stderr].filter(Boolean).join("\n")} title={t("source.refresh.output")} />}
               </section>
             )}
             {operationError && (
@@ -651,9 +690,9 @@ export function SourceDock({
                 </button>
               )}
               {refreshPreview?.execution?.runnable && (
-                <button className="btn btn--run" onClick={() => void executeRefresh()} disabled={demo || operationBusy} type="button">
+                <button className="btn btn--run" onClick={() => void executeRefresh()} disabled={demo || operationBusy || Boolean(refreshPreview.discovery && refreshPreview.discovery.counts.new + refreshPreview.discovery.counts.changed + refreshPreview.discovery.counts.enriched > 0 && selectedDiscoveryIds.length === 0)} type="button">
                   <Play size={14} aria-hidden />
-                  <span>{t("source.refresh.runScript")}</span>
+                  <span>{t(refreshPreview.execution.mode === "deterministic_connector" ? (refreshPreview.discovery && refreshPreview.discovery.counts.new + refreshPreview.discovery.counts.changed + refreshPreview.discovery.counts.enriched === 0 ? "source.refresh.recordCheck" : refreshPreview.discovery && refreshPreview.discovery.counts.new + refreshPreview.discovery.counts.changed === 0 ? "source.refresh.saveMetadata" : "source.refresh.applyInventory") : "source.refresh.runScript")}</span>
                 </button>
               )}
               <button className="secondaryButton" onClick={() => setSection("configure")} type="button">
@@ -953,7 +992,7 @@ export function SourceDock({
                 {receipts.map((receipt) => (
                   <li key={receipt.operation_id}>
                     <CheckCircle2 size={14} aria-hidden />
-                    <span><strong>{receipt.stream_id}</strong><small>{formatWhen(receipt.recorded_at)} · {receipt.changes.length} {t("source.history.changes")}</small></span>
+                    <span><strong>{receipt.stream_id === "__source__" ? t("source.history.sourceScope") : receipt.stream_id}</strong><small>{formatWhen(receipt.recorded_at)} · {t(`source.history.status.${receipt.status}`)}</small>{receipt.summary && <small>{t("source.history.inventorySummary", { new: receipt.summary.new, changed: receipt.summary.changed, enriched: receipt.summary.enriched, unchanged: receipt.summary.unchanged, applied: receipt.summary.applied })}</small>}</span>
                     <code>{receipt.operation_id}</code>
                   </li>
                 ))}

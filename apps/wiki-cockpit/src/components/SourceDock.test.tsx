@@ -10,7 +10,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureLanguage } from "../data/i18n";
-import type { BriefSpec, SnapshotBundle, SourceEntity, SourceOperationPreview } from "../types";
+import type { BriefSpec, SnapshotBundle, SourceEntity, SourceOperationPreview, SourceOperationReceipt } from "../types";
 import { SourceDock } from "./SourceDock";
 
 function sourceFixture(overrides: Partial<SourceEntity> = {}): SourceEntity {
@@ -235,6 +235,56 @@ describe("SourceDock operational workspace", () => {
     expect(prepare.disabled).toBe(true);
     fireEvent.click(prepare);
     expect(onComposeBrief).not.toHaveBeenCalled();
+  });
+
+  it("shows a deterministic collection diff and applies only selected records", async () => {
+    const onRunRefresh = vi.fn(async (): Promise<SourceOperationReceipt> => ({
+      ok: true,
+      operation_id: "sop-inventory",
+      recorded_at: "2026-08-27T12:00:00Z",
+      source_id: "source-gmail",
+      stream_id: "__source__",
+      status: "inventory_applied",
+      changes: [{ field: "record:new-1", before: null, after: { id: "new-1" } }]
+    }));
+    render(
+      <SourceDock
+        bundle={bundleWith(sourceFixture())}
+        sourceId="source-gmail"
+        onPreviewRefresh={vi.fn(async (): Promise<SourceOperationPreview> => ({
+          ok: true,
+          preview_token: "d".repeat(64),
+          execution: { mode: "deterministic_connector", argv: ["python3", "scripts/inventory.py"], mcp_hint: "", how_to_export: "", runnable: true },
+          discovery: {
+            counts: { new: 1, changed: 1, enriched: 0, unchanged: 3 },
+            fingerprint: "e".repeat(64),
+            records: [
+              { external_id: "new-1", label: "New recording", filters: { size_bytes: 42 }, status: "new" },
+              { external_id: "changed-1", label: "Changed recording", filters: { size_bytes: 84 }, status: "changed", stream_id: "inbox" }
+            ]
+          },
+          steps: []
+        }))}
+        onRunRefresh={onRunRefresh}
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check connector and plan" }));
+    await waitFor(() => expect(screen.getByText("Live collection comparison")).toBeTruthy());
+    expect(screen.getByText("1 new")).toBeTruthy();
+    expect(screen.getByText("1 changed")).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Changed recording/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add selected records" }));
+    await waitFor(() => expect(onRunRefresh).toHaveBeenCalledWith(
+      "source-gmail",
+      "__source__",
+      "",
+      "d".repeat(64),
+      ["new-1"]
+    ));
   });
 
   it("previews a typed record change before exposing the confirm action", async () => {

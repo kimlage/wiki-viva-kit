@@ -334,6 +334,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                         stream_id,
                         str(payload.get("raw_path") or ""),
                         str(payload.get("preview_token") or ""),
+                        payload.get("selected_external_ids"),
                     )
             except ValueError as exc:
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
