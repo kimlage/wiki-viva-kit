@@ -42,6 +42,7 @@ ACTION_STATE_TRANSITION_CAPABILITY = "action_state_transitions_v1"
 SNAPSHOT_PUBLICATION_CAPABILITY = "filesystem_snapshot_publication_v1"
 SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY = "snapshot_external_freshness_v1"
 SOURCE_OPERATIONS_CAPABILITY = "source_operations_v1"
+SOURCE_GROUPS_CAPABILITY = "source_groups_v1"
 AGENT_ADAPTERS_CAPABILITY = "agent_adapters_v1"
 SCHEMA_CAPABILITIES = (
     OPERATOR_SECURITY_CAPABILITY,  # nonce + bounded/idempotent POST + browser-origin policy
@@ -56,6 +57,7 @@ SCHEMA_CAPABILITIES = (
     "intake",  # /api/intake/copy (add an external file into data/raw)
     "sources",  # /api/sources (entities) + /api/sources/{id}/brief
     SOURCE_OPERATIONS_CAPABILITY,
+    SOURCE_GROUPS_CAPABILITY,
     AGENT_ADAPTERS_CAPABILITY,
 )
 

@@ -1,5 +1,6 @@
 import {
   applySourceOperation,
+  applySourceGroups,
   buildIngestionPlan,
   cancelCodexJob,
   composeBrief,
@@ -17,6 +18,7 @@ import {
   loadSnapshotBundle,
   loadTemporalGraphForBundle,
   previewSourceOperation,
+  previewSourceGroups,
   previewSourceRefresh,
   returnCodexJob,
   runOperatorCommand,
@@ -65,6 +67,8 @@ const operator: OperatorPort = {
   composeSourceBrief,
   previewSourceOperation,
   applySourceOperation,
+  previewSourceGroups,
+  applySourceGroups,
   listSourceOperationReceipts,
   previewSourceRefresh,
   runSourceRefresh,

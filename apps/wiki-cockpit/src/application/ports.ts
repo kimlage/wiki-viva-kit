@@ -14,6 +14,8 @@ import type {
   SnapshotBundle,
   SourceOperationPreview,
   SourceOperationReceipt,
+  SourceGroup,
+  SourceGroupsOperationResult,
   WorkflowRunResult
 } from "../types";
 
@@ -89,6 +91,8 @@ export interface OperatorPort {
     updates: Record<string, unknown>,
     previewToken: string
   ): Promise<SourceOperationReceipt>;
+  previewSourceGroups(groups: SourceGroup[]): Promise<SourceGroupsOperationResult>;
+  applySourceGroups(groups: SourceGroup[], previewToken: string): Promise<SourceGroupsOperationResult>;
   listSourceOperationReceipts(sourceId: string, options?: OperatorReadOptions): Promise<SourceOperationReceipt[]>;
   previewSourceRefresh(sourceId: string, streamId: string, rawPath?: string): Promise<SourceOperationPreview>;
   runSourceRefresh(

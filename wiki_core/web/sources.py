@@ -30,6 +30,7 @@ from wiki_core.source_recipe import (
 )
 from wiki_core.source_lifecycle import SOURCE_SYNC_STATES, resolve_source_lifecycle
 from wiki_core.source_state import read_state, stream_cursor
+from wiki_core.web.source_groups import build_source_groups_payload
 
 SOURCE_ENTITIES_SCHEMA_VERSION = "wiki_web_source_entities.v1"
 SOURCE_RECIPE_INVALID_ERROR_CODE = "source_recipe_invalid"
@@ -444,9 +445,11 @@ def build_sources_payload(
             if record is not None:
                 records.append(record)
     records.sort(key=lambda r: (-r["pending_streams"], r["source_id"]))
+    grouping = build_source_groups_payload(root, config, records)
     return {
         "schema_version": SOURCE_ENTITIES_SCHEMA_VERSION,
         "sources": records,
+        "source_groups": grouping,
         "summary": {
             "total": len(records),
             "with_recipe": sum(1 for r in records if r["recipe_ok"]),

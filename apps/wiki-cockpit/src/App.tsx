@@ -1176,11 +1176,13 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     discardBrief,
     getBrief,
     applySourceOperation,
+    applySourceGroups,
     listSourceOperationReceipts,
     loadAgentCapabilities,
     loadCodexCapability,
     loadSnapshotBundle,
     previewSourceOperation,
+    previewSourceGroups,
     previewSourceRefresh,
     returnCodexJob,
     runOperatorCommand,
@@ -1853,6 +1855,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
           onRequestBrief={composeSourceBrief}
           onPreviewConfiguration={previewSourceOperation}
           onApplyConfiguration={applySourceOperation}
+          onPreviewSourceGroups={previewSourceGroups}
+          onApplySourceGroups={applySourceGroups}
           onListReceipts={listSourceOperationReceipts}
           onPreviewRefresh={previewSourceRefresh}
           onRunRefresh={runSourceRefresh}

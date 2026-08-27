@@ -10,7 +10,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureLanguage } from "../data/i18n";
-import type { BriefSpec, SnapshotBundle, SourceEntity, SourceOperationPreview, SourceOperationReceipt } from "../types";
+import type { BriefSpec, SnapshotBundle, SourceEntity, SourceGroup, SourceGroupsOperationResult, SourceOperationPreview, SourceOperationReceipt } from "../types";
 import { SourceDock } from "./SourceDock";
 import { SourceWorkspace } from "./SourceWorkspace";
 
@@ -130,6 +130,71 @@ describe("SourceDock operational workspace", () => {
     fireEvent.click(expand);
     expect(expand.getAttribute("aria-expanded")).toBe("true");
     expect(document.querySelector(".sourceWorkspaceBody")?.classList.contains("registryExpanded")).toBe(true);
+  });
+
+  it("groups, collapses and moves sources with a governed save", async () => {
+    const gmail = sourceFixture();
+    const drive = sourceFixture({
+      source_id: "source-drive",
+      title: "Source - Research folder",
+      platform: "drive",
+      source_kind: "collection"
+    });
+    const groups = [
+      { id: "remote-folders", label: "Remote folders", icon: "folder-remote" as const, source_ids: ["source-drive"] },
+      { id: "cloud", label: "Cloud and accounts", icon: "cloud" as const, source_ids: ["source-gmail"] }
+    ];
+    const bundle = bundleWith(null);
+    bundle.sourceEntities = {
+      schema_version: "wiki_web_source_entities.v1",
+      sources: [gmail, drive],
+      source_groups: {
+        schema_version: "wiki_source_groups.v1",
+        config_path: "wiki.source-groups.yaml",
+        configured: true,
+        groups
+      }
+    };
+    const preview = vi.fn(async (_nextGroups: SourceGroup[]): Promise<SourceGroupsOperationResult> => ({ ok: true, preview_token: "token" }));
+    const apply = vi.fn(async (nextGroups: SourceGroup[]): Promise<SourceGroupsOperationResult> => ({ ok: true, operation_id: "sgp-test", groups: nextGroups }));
+
+    render(
+      <SourceWorkspace
+        bundle={bundle}
+        sourceId="source-drive"
+        onNotice={noop}
+        onClose={noop}
+        onPreviewSourceGroups={preview}
+        onApplySourceGroups={apply}
+      />
+    );
+
+    expect(screen.getByText("Remote folders")).toBeTruthy();
+    expect(screen.getByText("Cloud and accounts")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Remote folders/ }));
+    expect(screen.queryByText("Research folder")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Organize categories and sources" }));
+    fireEvent.change(screen.getByLabelText("Move to"), { target: { value: "remote-folders" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save organization" }));
+
+    await waitFor(() => expect(apply).toHaveBeenCalled());
+    const savedGroups = preview.mock.calls[0]![0];
+    expect(savedGroups.find((group) => group.id === "remote-folders")?.source_ids).toContain("source-gmail");
+    expect(savedGroups.find((group) => group.id === "cloud")?.source_ids).not.toContain("source-gmail");
+  });
+
+  it("resizes the registry with keyboard controls and persists the chosen width", () => {
+    render(
+      <SourceWorkspace
+        bundle={bundleWith(sourceFixture())}
+        sourceId="source-gmail"
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    const separator = screen.getByRole("separator", { name: "Resize source registry" });
+    fireEvent.keyDown(separator, { key: "ArrowRight" });
+    expect((document.querySelector(".sourceWorkspaceBody") as HTMLElement).style.getPropertyValue("--source-registry-width")).toBe("340px");
   });
 
   it("uses a bundled platform brand and lets a source-owned local identity override it", () => {
