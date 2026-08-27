@@ -22,7 +22,7 @@ import yaml
 
 from wiki_core.config import WikiConfig
 from wiki_core.paths import WikiPaths
-from wiki_core.source_recipe import extract_recipe_mapping, parse_recipe, validate_recipe
+from wiki_core.source_recipe import SCHEDULE_MODES, SOURCE_KINDS, extract_recipe_mapping, parse_recipe, validate_recipe
 from wiki_core.web.sources import build_sources_payload
 from wiki_core.web.commands import SECRET_VALUE_RE
 
@@ -38,6 +38,7 @@ _ALLOWED_UPDATES = {
     "target_pages",
     "processing_state",
 }
+_ALLOWED_SOURCE_UPDATES = {"source_kind", "schedule_mode", "schedule_cadence_days"}
 
 
 def _now() -> str:
@@ -125,8 +126,70 @@ def _normalize_updates(updates: Any) -> dict[str, Any]:
     return out
 
 
+def _normalize_source_updates(updates: Any) -> dict[str, Any]:
+    if not isinstance(updates, dict) or not updates:
+        raise ValueError("source_operation_empty_updates")
+    unknown = sorted(set(updates) - _ALLOWED_SOURCE_UPDATES)
+    if unknown:
+        raise ValueError("source_operation_unknown_field:" + ",".join(unknown))
+    out: dict[str, Any] = {}
+    if "source_kind" in updates:
+        source_kind = str(updates["source_kind"]).strip()
+        if source_kind not in SOURCE_KINDS:
+            raise ValueError("source_operation_invalid_source_kind")
+        out["source_kind"] = source_kind
+    if "schedule_mode" in updates:
+        schedule_mode = str(updates["schedule_mode"]).strip()
+        if schedule_mode not in SCHEDULE_MODES:
+            raise ValueError("source_operation_invalid_schedule_mode")
+        out["schedule_mode"] = schedule_mode
+    if "schedule_cadence_days" in updates:
+        value = updates["schedule_cadence_days"]
+        if isinstance(value, bool):
+            raise ValueError("source_operation_invalid_schedule_cadence")
+        try:
+            cadence = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("source_operation_invalid_schedule_cadence") from exc
+        if cadence < 0 or cadence > 3650:
+            raise ValueError("source_operation_invalid_schedule_cadence")
+        out["schedule_cadence_days"] = cadence
+    mode = str(out.get("schedule_mode") or "")
+    cadence = out.get("schedule_cadence_days")
+    if mode and mode != "recurring" and cadence not in (None, 0):
+        raise ValueError("source_operation_non_recurring_cadence")
+    if mode == "recurring" and cadence == 0:
+        raise ValueError("source_operation_recurring_cadence_required")
+    return out
+
+
 def _patched_recipe(recipe: dict[str, Any], stream_id: str, updates: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     copied = json.loads(json.dumps(recipe))
+    if stream_id == "__source__":
+        schedule = copied.get("schedule")
+        if not isinstance(schedule, dict):
+            schedule = {"mode": "on_demand", "cadence_days": 0}
+            copied["schedule"] = schedule
+        before = {
+            "source_kind": str(copied.get("source_kind") or ""),
+            "schedule_mode": str(schedule.get("mode") or ""),
+            "schedule_cadence_days": int(schedule.get("cadence_days") or 0),
+        }
+        for key, value in updates.items():
+            if key == "source_kind":
+                copied["source_kind"] = value
+            elif key == "schedule_mode":
+                schedule["mode"] = value
+                if value != "recurring" and "schedule_cadence_days" not in updates:
+                    schedule["cadence_days"] = 0
+            elif key == "schedule_cadence_days":
+                schedule["cadence_days"] = value
+        after = {
+            "source_kind": str(copied.get("source_kind") or ""),
+            "schedule_mode": str(schedule.get("mode") or ""),
+            "schedule_cadence_days": int(schedule.get("cadence_days") or 0),
+        }
+        return copied, {"before": before, "after": after}
     streams = copied.get("streams")
     if not isinstance(streams, list):
         raise ValueError("source_operation_invalid_recipe")
@@ -183,7 +246,7 @@ def preview_source_operation(
     updates: Any,
 ) -> dict[str, Any]:
     source = _source(root, config, source_id)
-    normalized = _normalize_updates(updates)
+    normalized = _normalize_source_updates(updates) if stream_id == "__source__" else _normalize_updates(updates)
     config_path = _safe_repo_file(root, str(source.get("config_ref") or ""))
     text = config_path.read_text(encoding="utf-8")
     recipe = extract_recipe_mapping(text)
@@ -202,7 +265,7 @@ def preview_source_operation(
         raise ValueError("source_operation_no_changes")
     rendered = _replace_recipe(text, patched)
     recipe_model = parse_recipe(patched)
-    selected_stream = next(item for item in source["streams"] if item["id"] == stream_id)
+    selected_stream = None if stream_id == "__source__" else next(item for item in source["streams"] if item["id"] == stream_id)
     token_material = {
         "schema": SOURCE_OPERATION_SCHEMA_VERSION,
         "source_id": source_id,
@@ -225,12 +288,17 @@ def preview_source_operation(
         "changes": changed,
         "updates": normalized,
         "raw_inventory": {
+            "scope": "source" if stream_id == "__source__" else "record",
             "platform": source.get("platform"),
             "locator": source.get("locator"),
-            "filters": selected_stream.get("filters") or {},
-            "privacy": selected_stream.get("privacy"),
-            "target_pages": selected_stream.get("target_pages") or [],
-            "freshness_basis": selected_stream.get("freshness_basis"),
+            "source_kind": source.get("source_kind"),
+            "schedule": source.get("schedule"),
+            **({
+                "filters": selected_stream.get("filters") or {},
+                "privacy": selected_stream.get("privacy"),
+                "target_pages": selected_stream.get("target_pages") or [],
+                "freshness_basis": selected_stream.get("freshness_basis"),
+            } if selected_stream is not None else {"records": len(source.get("streams") or [])}),
         },
         "execution": {
             "mode": execution_mode,
@@ -239,7 +307,7 @@ def preview_source_operation(
             "how_to_export": recipe_model.how_to_export,
         },
         "steps": [
-            {"id": "bind", "label": "Confirm source and selected record", "status": "complete"},
+            {"id": "bind", "label": "Confirm source configuration" if stream_id == "__source__" else "Confirm source and selected record", "status": "complete"},
             {"id": "inventory", "label": "Capture deterministic raw metadata", "status": "complete"},
             {"id": "validate", "label": "Validate the resulting recipe", "status": "complete"},
             {"id": "write", "label": "Write only after explicit confirmation", "status": "pending"},
@@ -325,9 +393,47 @@ def _safe_raw_path(root: Path, config: WikiConfig, value: str) -> Path:
     root_resolved = root.resolve()
     raw_root = WikiPaths(root, config).raw_root.resolve()
     candidate = (root / value).resolve(strict=True)
-    if not candidate.is_relative_to(root_resolved) or not candidate.is_relative_to(raw_root) or not candidate.is_file():
+    if not candidate.is_relative_to(root_resolved) or not candidate.is_relative_to(raw_root) or not (candidate.is_file() or candidate.is_dir()):
         raise ValueError("source_refresh_raw_path_invalid")
     return candidate
+
+
+def _inventory_raw_path(root: Path, raw_path: Path) -> tuple[dict[str, Any], str]:
+    """Build a deterministic inventory for a RAW item or collection.
+
+    Folder refresh is the primary contract: every file is sorted by relative
+    path and content-hashed so a later snapshot can classify additions,
+    changes and removals without depending on filesystem enumeration order.
+    """
+    files = [raw_path] if raw_path.is_file() else sorted(path for path in raw_path.rglob("*") if path.is_file())
+    entries: list[dict[str, Any]] = []
+    total_bytes = 0
+    digest = hashlib.sha256()
+    for path in files:
+        content = path.read_bytes()
+        relative = path.relative_to(raw_path.parent if raw_path.is_file() else raw_path).as_posix()
+        sha256 = hashlib.sha256(content).hexdigest()
+        stat = path.stat()
+        total_bytes += stat.st_size
+        entry = {
+            "path": relative,
+            "sha256": sha256,
+            "size_bytes": stat.st_size,
+            "modified_at_ns": stat.st_mtime_ns,
+        }
+        entries.append(entry)
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(sha256.encode("ascii"))
+        digest.update(b"\n")
+    return {
+        "path": raw_path.relative_to(root).as_posix(),
+        "kind": "file" if raw_path.is_file() else "collection",
+        "item_count": len(entries),
+        "total_bytes": total_bytes,
+        "sha256": digest.hexdigest(),
+        "entries": entries,
+    }, digest.hexdigest()
 
 
 def _safe_ingest_argv(root: Path, argv: tuple[str, ...], raw_path: Path) -> list[str]:
@@ -351,13 +457,10 @@ def preview_source_refresh(
     root: Path,
     config: WikiConfig,
     source_id: str,
-    stream_id: str,
+    stream_id: str = "__source__",
     raw_path: str = "",
 ) -> dict[str, Any]:
     source = _source(root, config, source_id)
-    selected_stream = next((item for item in source["streams"] if item["id"] == stream_id), None)
-    if selected_stream is None:
-        raise ValueError("source_operation_unknown_stream")
     config_path = _safe_repo_file(root, str(source.get("config_ref") or ""))
     config_text = config_path.read_text(encoding="utf-8")
     recipe_mapping = extract_recipe_mapping(config_text)
@@ -367,26 +470,30 @@ def preview_source_refresh(
     mode = "script" if recipe.ingest_argv else "agent_connector" if recipe.mcp_hint else "manual_export"
     argv: list[str] = []
     raw: dict[str, Any] = {
-        "recipe_filters": selected_stream.get("filters") or {},
-        "privacy": selected_stream.get("privacy"),
-        "target_pages": selected_stream.get("target_pages") or [],
-        "cursor_age_days": selected_stream.get("cursor_age_days"),
-        "freshness_basis": selected_stream.get("freshness_basis"),
+        "scope": "source",
+        "source_kind": source.get("source_kind"),
+        "schedule_mode": (source.get("schedule") or {}).get("mode"),
+        "platform": source.get("platform"),
+        "locator": source.get("locator"),
+        "records": [
+            {
+                "id": item.get("id"),
+                "selected": item.get("selected", True),
+                "filters": item.get("filters") or {},
+                "privacy": item.get("privacy"),
+                "target_pages": item.get("target_pages") or [],
+                "cursor_age_days": item.get("cursor_age_days"),
+                "freshness_basis": item.get("freshness_basis"),
+            }
+            for item in source["streams"]
+        ],
     }
     raw_sha = ""
     normalized_raw_path = ""
     if mode == "script":
         raw_file = _safe_raw_path(root, config, raw_path)
         normalized_raw_path = str(raw_file.relative_to(root))
-        content = raw_file.read_bytes()
-        raw_sha = hashlib.sha256(content).hexdigest()
-        stat = raw_file.stat()
-        raw["local_raw"] = {
-            "path": normalized_raw_path,
-            "sha256": raw_sha,
-            "size_bytes": stat.st_size,
-            "modified_at_ns": stat.st_mtime_ns,
-        }
+        raw["local_raw"], raw_sha = _inventory_raw_path(root, raw_file)
         argv = _safe_ingest_argv(root, recipe.ingest_argv, raw_file)
     token_material = {
         "schema": SOURCE_OPERATION_SCHEMA_VERSION,
@@ -420,8 +527,8 @@ def preview_source_refresh(
             "requires_agent": mode == "agent_connector",
         },
         "steps": [
-            {"id": "bind", "label": "Confirm source and selected record", "status": "complete"},
-            {"id": "inventory", "label": "Capture deterministic raw metadata", "status": "complete"},
+            {"id": "bind", "label": "Confirm source and collection scope", "status": "complete"},
+            {"id": "inventory", "label": "Inventory the whole source and detect record changes", "status": "complete"},
             {"id": "execute", "label": "Run the allowlisted ingestion script", "status": "ready" if mode == "script" else "delegated" if mode == "agent_connector" else "blocked"},
             {"id": "review", "label": "Review emitted event and file diff", "status": "pending"},
             {"id": "receipt", "label": "Persist execution receipt", "status": "pending"},
@@ -445,7 +552,8 @@ def run_source_refresh(
     if not preview_token or preview_token != preview["preview_token"]:
         raise ValueError("source_operation_preview_stale")
     raw_file = _safe_raw_path(root, config, raw_path)
-    if hashlib.sha256(raw_file.read_bytes()).hexdigest() != preview["raw_inventory"]["local_raw"]["sha256"]:
+    _, current_sha = _inventory_raw_path(root, raw_file)
+    if current_sha != preview["raw_inventory"]["local_raw"]["sha256"]:
         raise ValueError("source_operation_preview_stale")
     argv = list(preview["execution"]["argv"])
     try:
@@ -473,6 +581,7 @@ def run_source_refresh(
         "recorded_at": _now(),
         "source_id": source_id,
         "stream_id": stream_id,
+        "scope": "source",
         "preview_token": preview_token,
         "config_ref": preview["config_ref"],
         "raw_path": preview["raw_path"],

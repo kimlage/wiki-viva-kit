@@ -59,6 +59,7 @@ recipe:
   schema_version: wiki_source_recipe.v1
   platform: slack
   locator: "T024/finance"
+  source_kind: collection
   pipelines:
     - { kind: content, cadence_days: 7 }
   streams:
@@ -68,6 +69,7 @@ recipe:
     - id: "#custos"
       selected: true
   how_to_export: "Slack export."
+  schedule: {mode: recurring, cadence_days: 7}
 ```
 """,
     )

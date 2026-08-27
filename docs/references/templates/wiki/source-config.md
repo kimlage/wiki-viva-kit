@@ -64,6 +64,7 @@ recipe:
   schema_version: wiki_source_recipe.v1
   platform: ""            # slack | gchat | chatgpt | whatsapp | gmail | drive | google_photos | web | repo | file | calendar | manual
   locator: ""             # the stable address on that platform (must match the source page)
+  source_kind: collection # item | collection | account | endpoint | repository
   pipelines:
     - { kind: metadata, cadence_days: 30 }
     - { kind: content, cadence_days: 7 }
@@ -81,8 +82,8 @@ recipe:
     scopes: []
     note: ""
   schedule:
-    mode: on_demand       # on_demand | recurring
-    cadence_days: 0       # >0 when mode is recurring (days between scheduled syncs)
+    mode: on_demand       # one_shot | on_demand | recurring | event_driven
+    cadence_days: 0       # >0 only when mode is recurring; otherwise always 0
   how_to_export: |
     Describe exactly how a human exports the already-authorized RAW for this source
     (the sandbox has NO network). Point at the export location the agent should read.

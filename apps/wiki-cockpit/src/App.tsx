@@ -31,7 +31,7 @@ import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
-import { SourceDock } from "./components/SourceDock";
+import { SourceWorkspace } from "./components/SourceWorkspace";
 import { ExpandablePre } from "./components/ExpandablePre";
 import { GENESIS_FINAL_STAGE, genesisAttachMatches, genesisCreateMatches, genesisUrl } from "./data/genesis";
 import { configureLanguage, t } from "./data/i18n";
@@ -1483,6 +1483,7 @@ export function App() {
 
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
+  const sourceWorkspaceOpen = route.kind === "world" && route.query.dock === "source";
 
   // The demo TITLE SCREEN: /demo asks how you want to enter — found a world
   // from zero (genesis tutorial) or explore the full one. No bundle needed.
@@ -1502,6 +1503,28 @@ export function App() {
     // redirect effect above moves them to their world dock.
     if (route.kind === "review" || route.kind === "sources" || route.kind === "health" || route.kind === "pageAlias") {
       return <main className="workspace"><section className="panel"><h1>{t("misc.opening")}</h1></section></main>;
+    }
+    if (worldRoute && sourceWorkspaceOpen) {
+      return (
+        <SourceWorkspace
+          bundle={bundle}
+          sourceId={worldRoute.query.src}
+          demo={route.demo}
+          agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
+          onComposeBrief={runBrief}
+          onRequestBrief={composeSourceBrief}
+          onPreviewConfiguration={previewSourceOperation}
+          onApplyConfiguration={applySourceOperation}
+          onListReceipts={listSourceOperationReceipts}
+          onPreviewRefresh={previewSourceRefresh}
+          onRunRefresh={runSourceRefresh}
+          onSourceChanged={refetchReal}
+          onNotice={notify}
+          onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
+          onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
+          onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+        />
+      );
     }
     if (worldRoute) {
       return (
@@ -1527,7 +1550,6 @@ export function App() {
   const gatesDockOpen = route.kind === "world" && route.query.dock === "gates";
   const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
   const workDockOpen = route.kind === "world" && route.query.dock === "work";
-  const sourceDockOpen = route.kind === "world" && route.query.dock === "source";
   const blocksDockOpen = route.kind === "world" && route.query.dock === "blocks";
 
   return (
@@ -1633,26 +1655,6 @@ export function App() {
             onReturn={returnJob}
             onDiagnose={openCodexDock}
             onNotice={notify}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
-          />
-        )}
-        {sourceDockOpen && worldRoute && loadState.status === "ready" && (
-          <SourceDock
-            bundle={loadState.bundle}
-            sourceId={worldRoute.query.src}
-            demo={route.demo}
-            agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
-            onComposeBrief={runBrief}
-            onRequestBrief={composeSourceBrief}
-            onPreviewConfiguration={previewSourceOperation}
-            onApplyConfiguration={applySourceOperation}
-            onListReceipts={listSourceOperationReceipts}
-            onPreviewRefresh={previewSourceRefresh}
-            onRunRefresh={runSourceRefresh}
-            onSourceChanged={refetchReal}
-            onNotice={notify}
-            onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
-            onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}

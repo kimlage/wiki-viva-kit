@@ -37,6 +37,8 @@ import {
   ageLabel,
   formatBytes,
   formatWhen,
+  scheduleModeLabel,
+  sourceKindLabel,
   sourceTelemetry,
   type SourceSection,
   type SourceTraceMode
@@ -62,7 +64,8 @@ export function SourceDock({
   onNotice,
   onOpenPage,
   onOpenSource,
-  onClose
+  onClose,
+  embedded = false
 }: {
   bundle: SnapshotBundle;
   sourceId: string;
@@ -86,6 +89,7 @@ export function SourceDock({
   onOpenPage?: (pathOrId: string) => void;
   onOpenSource?: (id: string) => void;
   onClose: () => void;
+  embedded?: boolean;
 }) {
   const sources = bundle.sourceEntities?.sources ?? [];
   const source: SourceEntity | undefined = useMemo(
@@ -105,6 +109,8 @@ export function SourceDock({
     selectedStream,
     draft,
     setDraft,
+    sourceDraft,
+    setSourceDraft,
     operationPreview,
     operationBusy,
     operationError,
@@ -122,6 +128,7 @@ export function SourceDock({
     connectorReady,
     agentReady,
     previewConfiguration,
+    previewSourceConfiguration,
     confirmConfiguration,
     inspectRefresh,
     executeRefresh,
@@ -179,14 +186,12 @@ export function SourceDock({
     const pendingTotal = sources.reduce((sum, s) => sum + s.pending_streams, 0);
     return (
       <>
-        <div className="dockBackdrop" onClick={onClose} aria-hidden />
-        <aside ref={dockRef} className="sourceDock worldDock" role="dialog" aria-label={t("source.list.title")}>
+        {!embedded && <div className="dockBackdrop" onClick={onClose} aria-hidden />}
+        <aside ref={dockRef} className={`sourceDock worldDock${embedded ? " sourceDockEmbedded" : ""}`} role={embedded ? "region" : "dialog"} aria-label={t("source.list.title")}>
           <header className="dockHeader">
             <Database size={15} aria-hidden />
             <strong>{t("source.list.title", { n: sources.length })}</strong>
-            <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
-              <X size={16} />
-            </button>
+            {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
           </header>
           <p className="dockIntro">
             {t("source.list.intro")}
@@ -224,13 +229,11 @@ export function SourceDock({
   if (!source) {
     return (
       <>
-        <div className="dockBackdrop" onClick={onClose} aria-hidden />
-        <aside ref={dockRef} className="sourceDock worldDock" role="dialog" aria-label={t("source.title")}>
+        {!embedded && <div className="dockBackdrop" onClick={onClose} aria-hidden />}
+        <aside ref={dockRef} className={`sourceDock worldDock${embedded ? " sourceDockEmbedded" : ""}`} role={embedded ? "region" : "dialog"} aria-label={t("source.title")}>
           <header className="dockHeader">
             <strong>{t("source.title")}</strong>
-            <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
-              <X size={16} />
-            </button>
+            {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
           </header>
           <p className="dockIntro">{t("source.notFound", { id: sourceId })}</p>
           {onOpenSource && (
@@ -244,23 +247,23 @@ export function SourceDock({
   }
 
   const syncTone = SYNC_TONE[source.sync.last_status] ?? "muted";
-  const selected = source.streams.filter((s) => s.selected);
+  const recurring = source.schedule?.mode === "recurring";
 
   return (
     <>
-      <div className="dockBackdrop" onClick={onClose} aria-hidden />
-      <aside ref={dockRef} className="sourceDock worldDock" role="dialog" aria-label={t("source.title")}>
+      {!embedded && <div className="dockBackdrop" onClick={onClose} aria-hidden />}
+      <aside ref={dockRef} className={`sourceDock worldDock${embedded ? " sourceDockEmbedded" : ""}`} role={embedded ? "region" : "dialog"} aria-label={t("source.title")}>
         <header className="dockHeader">
           <Database size={15} aria-hidden />
           <strong>{source.title}</strong>
           <span className={`pill pill-${syncTone}`}>{t(`source.sync.${source.sync.last_status}`)}</span>
-          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
-            <X size={16} />
-          </button>
+          {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
         </header>
 
         <div className="sourceIdentity">
           <span className="sourceBadge">{source.platform || t("source.platform.unknown")}</span>
+          <span className="sourceBadge">{sourceKindLabel(source.source_kind)}</span>
+          <span className="sourceBadge">{scheduleModeLabel(source.schedule?.mode)}</span>
           {source.locator && <code className="sourceLocator">{source.locator}</code>}
           <small>
             {source.owner ? t("source.owner", { owner: source.owner }) : t("source.owner.none")}
@@ -282,7 +285,7 @@ export function SourceDock({
               {source.sync.derived_from_event ? ` · ${t("source.health.derived")}` : ""}
             </small>
           )}
-          {source.schedule && source.schedule.mode !== "on_demand" && (
+          {source.schedule && (
             <small>
               {t("source.schedule.mode." + source.schedule.mode)}
               {typeof source.next_due_days === "number"
@@ -350,7 +353,7 @@ export function SourceDock({
         )}
 
         {section === "records" && <div className="sourceSection sourceRecordsWorkspace">
-          <h4>{t("source.streams.title", { n: selected.length })}</h4>
+          <h4>{t("source.streams.title", { n: source.streams.length })}</h4>
           <table className="sourceStreams">
             <thead>
               <tr>
@@ -380,7 +383,7 @@ export function SourceDock({
                   aria-label={t("source.stream.rowAria", {
                     id: stream.id,
                     freshness: stream.selected ? ageLabel(stream.cursor_age_days) : t("source.streams.unselected"),
-                    cadence: stream.cadence_days ? t("source.streams.cadence", { n: stream.cadence_days }) : "—",
+                    cadence: recurring && stream.cadence_days ? t("source.streams.cadence", { n: stream.cadence_days }) : scheduleModeLabel(source.schedule?.mode),
                     privacy: stream.privacy
                   })}
                   className={[
@@ -408,7 +411,7 @@ export function SourceDock({
                     {stream.selected ? (
                       <span className={stream.breached ? "streamStale" : "streamFresh"}>
                         {ageLabel(stream.cursor_age_days)}
-                        {stream.cadence_days ? ` / ${t("source.streams.cadence", { n: stream.cadence_days })}` : ""}
+                        {recurring && stream.cadence_days ? ` / ${t("source.streams.cadence", { n: stream.cadence_days })}` : ` / ${scheduleModeLabel(source.schedule?.mode)}`}
                       </span>
                     ) : (
                       <small>{t("source.streams.unselected")}</small>
@@ -496,7 +499,7 @@ export function SourceDock({
           )}
         </div>}
 
-        {section === "update" && selectedStream && (
+        {section === "update" && (
           <section className="sourceOperationWorkspace" aria-label={t("source.update.title")}>
             <header className="sourceOperationHeader">
               <span className="sourceOperationIcon"><Radio size={18} aria-hidden /></span>
@@ -508,14 +511,11 @@ export function SourceDock({
             </header>
             <div className="sourceSelectedContext">
               <span>
-                <small>{t("source.record.eyebrow")}</small>
-                <strong>{selectedStream.label || selectedStream.id}</strong>
-                <code>{selectedStream.id}</code>
+                <small>{t("source.update.scopeEyebrow")}</small>
+                <strong>{source.title}</strong>
+                <code>{source.source_kind || source.platform} · {source.locator}</code>
               </span>
-              <button className="secondaryButton" type="button" onClick={() => setSection("records")}>
-                <Pencil size={13} aria-hidden />
-                {t("source.update.changeRecord")}
-              </button>
+              <span className="pill pill-muted">{source.streams.length} {t("source.update.records")}</span>
             </div>
             <div className="sourceUpdateFlow" aria-label={t("source.update.flowAria")}>
               <article className="complete">
@@ -543,21 +543,21 @@ export function SourceDock({
               <header>
                 <ClipboardCheck size={15} aria-hidden />
                 <strong>{t("source.update.rawReady")}</strong>
-                <span className="pill pill-good">{Object.keys(selectedStream.filters ?? {}).length}</span>
+                <span className="pill pill-good">{source.streams.length}</span>
               </header>
               <dl>
-                <dt>{t("source.record.fileId")}</dt>
-                <dd><code>{String(selectedStream.filters?.file_id ?? "—")}</code></dd>
-                <dt>{t("source.record.mime")}</dt>
-                <dd>{String(selectedStream.filters?.mime_type ?? "—")}</dd>
-                <dt>{t("source.record.created")}</dt>
-                <dd>{selectedStream.filters?.created_at ? formatWhen(String(selectedStream.filters.created_at)) : "—"}</dd>
-                <dt>{t("source.record.targets")}</dt>
-                <dd>{selectedStream.target_pages.length}</dd>
+                <dt>{t("source.update.sourceKind")}</dt>
+                <dd>{sourceKindLabel(source.source_kind)}</dd>
+                <dt>{t("source.update.lifecycle")}</dt>
+                <dd>{scheduleModeLabel(source.schedule?.mode)}</dd>
+                <dt>{t("source.update.locator")}</dt>
+                <dd><code>{source.locator || "—"}</code></dd>
+                <dt>{t("source.update.records")}</dt>
+                <dd>{source.streams.length}</dd>
               </dl>
               <details>
                 <summary>{t("source.record.raw")}</summary>
-                <ExpandablePre text={JSON.stringify(selectedStream.filters ?? {}, null, 2)} title={t("source.record.raw")} />
+                <ExpandablePre text={JSON.stringify(source.streams.map((stream) => ({ id: stream.id, selected: stream.selected, filters: stream.filters })), null, 2)} title={t("source.record.raw")} />
               </details>
             </div>
             <div className="sourceUpdateRoute">
@@ -610,7 +610,7 @@ export function SourceDock({
                 )}
                 {refreshPreview.execution?.mcp_hint && <code>{refreshPreview.execution.mcp_hint}</code>}
                 <ol>
-                  {(refreshPreview.steps ?? []).map((step) => <li key={step.id} data-status={step.status}>{step.label}</li>)}
+                  {(refreshPreview.steps ?? []).map((step) => <li key={step.id} data-status={step.status}>{t(`source.refresh.step.${step.id}`)}</li>)}
                 </ol>
               </section>
             )}
@@ -665,6 +665,48 @@ export function SourceDock({
                 <p>{t("source.configure.intro")}</p>
               </span>
             </header>
+            <form className="sourceConfigForm sourceLevelConfig" onSubmit={(event) => { event.preventDefault(); void previewSourceConfiguration(); }}>
+              <div className="sourceConfigWide sourceConfigHeading">
+                <span>
+                  <small>{t("source.configure.sourceEyebrow")}</small>
+                  <strong>{t("source.configure.sourceTitle")}</strong>
+                </span>
+                <small>{t("source.configure.sourceHint")}</small>
+              </div>
+              <label>
+                <span>{t("source.configure.sourceKind")}</span>
+                <select value={sourceDraft.sourceKind} onChange={(event) => setSourceDraft({ ...sourceDraft, sourceKind: event.target.value as typeof sourceDraft.sourceKind })}>
+                  <option value="item">{t("source.kind.item")}</option>
+                  <option value="collection">{t("source.kind.collection")}</option>
+                  <option value="account">{t("source.kind.account")}</option>
+                  <option value="endpoint">{t("source.kind.endpoint")}</option>
+                  <option value="repository">{t("source.kind.repository")}</option>
+                </select>
+              </label>
+              <label>
+                <span>{t("source.configure.scheduleMode")}</span>
+                <select value={sourceDraft.scheduleMode} onChange={(event) => {
+                  const scheduleMode = event.target.value as typeof sourceDraft.scheduleMode;
+                  setSourceDraft({ ...sourceDraft, scheduleMode, scheduleCadenceDays: scheduleMode === "recurring" ? sourceDraft.scheduleCadenceDays || "7" : "0" });
+                }}>
+                  <option value="one_shot">{t("source.schedule.mode.one_shot")}</option>
+                  <option value="on_demand">{t("source.schedule.mode.on_demand")}</option>
+                  <option value="recurring">{t("source.schedule.mode.recurring")}</option>
+                  <option value="event_driven">{t("source.schedule.mode.event_driven")}</option>
+                </select>
+              </label>
+              <label>
+                <span>{t("source.configure.cadence")}</span>
+                <input type="number" min="1" max="3650" value={sourceDraft.scheduleCadenceDays} disabled={sourceDraft.scheduleMode !== "recurring"} onChange={(event) => setSourceDraft({ ...sourceDraft, scheduleCadenceDays: event.target.value })} />
+                <small>{sourceDraft.scheduleMode === "recurring" ? t("source.configure.cadenceRecurringHint") : t("source.configure.cadenceDisabledHint")}</small>
+              </label>
+              <div className="sourceConfigWide sourcePreviewAction">
+                <button className="btn btn--run" type="submit" disabled={demo || operationBusy}>
+                  {operationBusy ? <Loader2 className="sourceSpin" size={14} aria-hidden /> : <ClipboardCheck size={14} aria-hidden />}
+                  {t("source.configure.previewSource")}
+                </button>
+              </div>
+            </form>
             <div className="sourceSelectedContext">
               <span>
                 <small>{t("source.record.eyebrow")}</small>
@@ -694,10 +736,10 @@ export function SourceDock({
                   <option value="public_ok">public_ok</option>
                 </select>
               </label>
-              <label>
-                <span>{t("source.configure.cadence")}</span>
-                <input type="number" min="0" max="3650" value={draft.cadenceDays} onChange={(event) => setDraft({ ...draft, cadenceDays: event.target.value })} />
-              </label>
+              {recurring && <label>
+                <span>{t("source.configure.recordCadence")}</span>
+                <input type="number" min="1" max="3650" value={draft.cadenceDays} onChange={(event) => setDraft({ ...draft, cadenceDays: event.target.value })} />
+              </label>}
               <label className="sourceConfigWide sourceConfigToggle">
                 <input type="checkbox" checked={draft.selected} onChange={(event) => setDraft({ ...draft, selected: event.target.checked })} />
                 <span>{t("source.configure.selected")}</span>
@@ -732,7 +774,7 @@ export function SourceDock({
                   {(operationPreview.steps ?? []).map((step) => (
                     <li key={step.id} className={step.status === "complete" ? "complete" : "pending"}>
                       {step.status === "complete" ? <CheckCircle2 size={13} aria-hidden /> : <span />}
-                      {step.label}
+                      {t(`source.operation.step.${step.id}`)}
                     </li>
                   ))}
                 </ol>

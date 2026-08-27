@@ -295,9 +295,15 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             )
             source_id = parsed.path[len("/api/sources/") : -len(suffix)].strip("/")
             stream_id = str(payload.get("stream_id") or "").strip()
-            if not source_id or not stream_id:
-                self._send_error("source_id and stream_id are required", status=HTTPStatus.BAD_REQUEST)
+            is_refresh = suffix.startswith("/operations/refresh-")
+            if not source_id or (not is_refresh and not stream_id):
+                self._send_error(
+                    "source_id is required" if is_refresh else "source_id and stream_id are required",
+                    status=HTTPStatus.BAD_REQUEST,
+                )
                 return
+            if is_refresh:
+                stream_id = "__source__"
             try:
                 if suffix == "/operations/preview":
                     result = preview_source_operation(

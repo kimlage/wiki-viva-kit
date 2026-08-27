@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-08-27
 stale_after_days: 180
 sources_policy: append_only_impact_dispensas
 gate: github_pr
@@ -29,6 +29,7 @@ only to the current diff; it is not a permanent exemption.
 
 ## Entries
 
+- 2026-08-27 | changed: [memories/sources/config/wiki-viva-methodology-v5.md](../../sources/config/wiki-viva-methodology-v5.md) | affected: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md), [memories/system/input-channels/methodology-reference.md](../input-channels/methodology-reference.md), [memories/system/input-stage.md](../input-stage.md), [memories/system/wiki-viva-kit.md](../wiki-viva-kit.md) | reason: the explicit `repository` source kind and on-demand lifecycle describe the existing tracked methodology source scope; source content, channel routing, generated input stage and root ownership remain unchanged.
 - 2026-06-11 | changed: [memories/index.md](../../index.md) | affected: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md) | no_change: root MOC only gained a link to the docs/memory boundary review; the methodology source still describes the same method and does not need prose changes.
 - 2026-06-25 | changed: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md) | affected: [memories/sources/config/wiki-viva-methodology-v5.md](../../sources/config/wiki-viva-methodology-v5.md) | reason: v6.8 adds config_ref/input-stage linkage; the source config was created in this diff and already captures the required routing.
 - 2026-06-25 | changed: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md) | affected: [memories/system/input-channels/methodology-reference.md](../input-channels/methodology-reference.md) | reason: v6.8 creates the methodology input channel in this diff; no separate downstream edit is needed.

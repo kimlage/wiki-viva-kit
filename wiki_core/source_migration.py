@@ -139,6 +139,7 @@ def scaffold_recipe_block(platform: str, locator: str) -> str:
             "schema_version": "wiki_source_recipe.v1",
             "platform": platform,
             "locator": locator,
+            "source_kind": "collection" if platform in {"drive", "file", "google_photos"} else "repository" if platform == "repo" else "account" if platform in {"slack", "gchat", "gmail", "calendar", "chatgpt", "whatsapp"} else "endpoint" if platform == "web" else "item",
             "pipelines": [{"kind": "content", "cadence_days": 30}],
             "streams": [
                 {
@@ -150,6 +151,7 @@ def scaffold_recipe_block(platform: str, locator: str) -> str:
                 }
             ],
             "how_to_export": "TODO: how an agent ingests this source on demand.",
+            "schedule": {"mode": "on_demand", "cadence_days": 0},
         }
     }
     dumped = yaml.safe_dump(recipe, sort_keys=False, allow_unicode=True).rstrip("\n")
