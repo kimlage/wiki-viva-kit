@@ -115,9 +115,10 @@ export function useSourceOperations({
   }, [source?.source_id, demo, onListReceipts]);
 
   const activeAgentCapability = agentCapabilities?.[agentPreference];
-  const connectorHint = refreshPreview?.execution?.mcp_hint ?? "";
+  const connectorHint = refreshPreview?.execution?.mcp_hint ?? source?.update_route?.mcp_hint ?? "";
+  const requiresAgent = refreshPreview?.execution?.requires_agent ?? source?.update_route?.requires_agent ?? false;
   const connectorKey = connectorHint.split(/[./]/, 1)[0].replace(/[^a-z0-9]/gi, "").toLowerCase();
-  const connectorReady = !refreshPreview?.execution?.requires_agent || !agentCapabilities || Boolean(
+  const connectorReady = !requiresAgent || !agentCapabilities || Boolean(
     activeAgentCapability?.connectors?.some(
       (name) => name.replace(/[^a-z0-9]/gi, "").toLowerCase() === connectorKey
     )

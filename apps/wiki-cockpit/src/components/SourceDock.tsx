@@ -38,7 +38,9 @@ import {
   formatWhen,
   scheduleModeLabel,
   sourceScopeCounts,
+  sourceDisplayName,
   sourceKindLabel,
+  sourcePlatformLabel,
   sourceTelemetry,
   streamFreshnessLabel,
   streamScopeLabel,
@@ -47,6 +49,8 @@ import {
 } from "./sourceDockModel";
 import { useSourceOperations } from "./useSourceOperations";
 import { SourceRunMonitor } from "./SourceRunMonitor";
+import { SourcePlatformIcon } from "./SourcePlatformIcon";
+import { SourceAuthorizationCard } from "./SourceAuthorizationCard";
 
 export function SourceDock({
   bundle,
@@ -217,9 +221,9 @@ export function SourceDock({
                 <li key={s.source_id}>
                   <button className="sourceListItem" onClick={() => onOpenSource?.(s.source_id)} type="button">
                     <span className="sourceListName">
-                      <strong>{s.title}</strong>
+                      <strong title={s.title}>{sourceDisplayName(s.title)}</strong>
                       <small>
-                        <span className="sourceBadge sourceBadgeSm">{s.platform || t("source.platform.unknown")}</span>
+                        <span className="sourceBadge sourceBadgeSm">{sourcePlatformLabel(s.platform)}</span>
                         {s.locator ? ` · ${s.locator}` : ""}
                       </small>
                     </span>
@@ -264,20 +268,32 @@ export function SourceDock({
     refreshPreview?.steps?.some((step) => step.status === "blocked") ||
     (refreshPreview?.execution?.requires_agent && (!connectorReady || !agentReady))
   );
+  const updateRoute = refreshPreview?.execution ?? source.update_route;
+  const selectedAgentName = agentPreference === "claude" ? "Claude" : "Codex";
+  const showAgentChoice = updateRoute ? Boolean(updateRoute.requires_agent) : true;
+  const refreshPanelKind = updateRoute?.mode === "script"
+    ? "raw"
+    : updateRoute?.mode === "deterministic_connector"
+      ? "live"
+      : updateRoute
+        ? "route"
+        : "fallback";
+  const showRawPath = !updateRoute || updateRoute.mode === "script";
+  const rawPathRequired = updateRoute?.mode === "script";
 
   return (
     <>
       {!embedded && <div className="dockBackdrop" onClick={onClose} aria-hidden />}
       <aside ref={dockRef} className={`sourceDock worldDock${embedded ? " sourceDockEmbedded" : ""}`} role={embedded ? "region" : "dialog"} aria-label={t("source.title")}>
         <header className="dockHeader">
-          <Database size={15} aria-hidden />
-          <strong>{source.title}</strong>
+          <SourcePlatformIcon source={source} size={16} />
+          <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
           <span className={`pill pill-${syncTone}`}>{t(`source.sync.${source.sync.last_status}`)}</span>
           {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
         </header>
 
         <div className="sourceIdentity">
-          <span className="sourceBadge">{source.platform || t("source.platform.unknown")}</span>
+          <span className="sourceBadge">{sourcePlatformLabel(source.platform)}</span>
           <span className="sourceBadge">{sourceKindLabel(source.source_kind)}</span>
           <span className="sourceBadge">{scheduleModeLabel(source.schedule?.mode)}</span>
           {source.locator && <code className="sourceLocator">{source.locator}</code>}
@@ -414,7 +430,7 @@ export function SourceDock({
                     <span className="sourceStreamName">
                       <File size={13} aria-hidden />
                       <span>
-                        <strong>{stream.label || stream.id}</strong>
+                        <strong title={stream.label || stream.id}>{sourceDisplayName(stream.label || stream.id)}</strong>
                         <code>{stream.id}</code>
                       </span>
                       {Boolean(stream.filters?.processing_state) && (
@@ -451,7 +467,7 @@ export function SourceDock({
               <header>
                 <span>
                   <small>{t("source.record.eyebrow")}</small>
-                  <strong>{selectedStream.label || selectedStream.id}</strong>
+                  <strong title={selectedStream.label || selectedStream.id}>{sourceDisplayName(selectedStream.label || selectedStream.id)}</strong>
                 </span>
                 {Boolean(selectedStream.filters?.processing_state) && (
                   <span className="sourceRecordStatus">{streamScopeLabel(selectedStream)}</span>
@@ -527,7 +543,7 @@ export function SourceDock({
             <div className="sourceSelectedContext">
               <span>
                 <small>{t("source.update.scopeEyebrow")}</small>
-                <strong>{source.title}</strong>
+                <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
                 <code>{source.source_kind || source.platform} · {source.locator}</code>
               </span>
               <span className="pill pill-muted">{source.streams.length} {t("source.update.records")}</span>
@@ -575,6 +591,15 @@ export function SourceDock({
                 <ExpandablePre text={JSON.stringify(source.streams.map((stream) => ({ id: stream.id, selected: stream.selected, filters: stream.filters })), null, 2)} title={t("source.record.raw")} />
               </details>
             </div>
+            <SourceAuthorizationCard
+              source={source}
+              route={updateRoute}
+              agentName={selectedAgentName}
+              agentCapabilitiesKnown={Boolean(agentCapabilities)}
+              agentReady={agentReady}
+              connectorReady={connectorReady}
+              liveAccessVerified={Boolean(refreshPreview?.ok && refreshPreview.execution?.mode === "deterministic_connector")}
+            />
             <div className="sourceUpdateRoute">
               <div>
                 <RefreshCw size={16} aria-hidden />
@@ -583,42 +608,49 @@ export function SourceDock({
                   <small>{source.how_to_export || t("source.update.agentRouteDetail")}</small>
                 </span>
               </div>
-              {source.auth && source.auth.method !== "none" && (
-                <p><Lock size={12} aria-hidden /> {t("source.auth.label", { method: source.auth.method })} · <code>{source.auth.ref}</code></p>
+              {showAgentChoice && (
+                <fieldset className="sourceAgentChoice">
+                  <legend>{t("source.update.agent")}</legend>
+                  <button type="button" className={agentPreference === "codex" ? "active" : ""} aria-pressed={agentPreference === "codex"} disabled={agentCapabilities ? !agentCapabilities.codex.usable : false} onClick={() => setAgentPreference("codex")}>Codex</button>
+                  <button type="button" className={agentPreference === "claude" ? "active" : ""} aria-pressed={agentPreference === "claude"} disabled={agentCapabilities ? !agentCapabilities.claude.usable : false} onClick={() => setAgentPreference("claude")}>Claude</button>
+                </fieldset>
               )}
-              <fieldset className="sourceAgentChoice">
-                <legend>{t("source.update.agent")}</legend>
-                <button type="button" className={agentPreference === "codex" ? "active" : ""} aria-pressed={agentPreference === "codex"} disabled={agentCapabilities ? !agentCapabilities.codex.usable : false} onClick={() => setAgentPreference("codex")}>Codex</button>
-                <button type="button" className={agentPreference === "claude" ? "active" : ""} aria-pressed={agentPreference === "claude"} disabled={agentCapabilities ? !agentCapabilities.claude.usable : false} onClick={() => setAgentPreference("claude")}>Claude</button>
-              </fieldset>
-              {refreshPreview?.execution?.requires_agent && (
+              {updateRoute?.requires_agent && (
                 <p className={connectorReady && agentReady ? "sourceConnectorReady" : "sourceConnectorBlocked"}>
                   {connectorReady && agentReady
-                    ? t("source.update.connectorReady", { agent: agentPreference === "claude" ? "Claude" : "Codex" })
-                    : t("source.update.connectorMissing", { connector: connectorHint || "MCP", agent: agentPreference === "claude" ? "Claude" : "Codex" })}
+                    ? t("source.update.connectorReady", { agent: selectedAgentName })
+                    : t("source.update.connectorMissing", { connector: connectorHint || "MCP", agent: selectedAgentName })}
                 </p>
               )}
             </div>
             <div className="sourceRefreshFallback">
               <header>
-                <small>{t("source.refresh.fallbackEyebrow")}</small>
-                <strong>{t("source.refresh.fallbackTitle")}</strong>
-                <p>{t("source.refresh.fallbackIntro")}</p>
+                <small>{t(`source.refresh.panel.${refreshPanelKind}.eyebrow`)}</small>
+                <strong>{t(`source.refresh.panel.${refreshPanelKind}.title`)}</strong>
+                <p>{t(`source.refresh.panel.${refreshPanelKind}.intro`)}</p>
               </header>
-              <div className="sourceRefreshPlanner">
-              <label>
-                <span>{t("source.refresh.rawPath")}</span>
-                <input
-                  value={rawPath}
-                  onChange={(event) => { setRawPath(event.target.value); setRefreshPreview(null); setRefreshReceipt(null); }}
-                  placeholder="data/raw/..."
-                />
-                <small>{t("source.refresh.rawPathHint")}</small>
-              </label>
-              <button className="secondaryButton" type="button" onClick={() => void inspectRefresh()} disabled={demo || operationBusy}>
-                {operationBusy ? <Loader2 className="sourceSpin" size={14} aria-hidden /> : <ClipboardCheck size={14} aria-hidden />}
-                {t("source.refresh.inspect")}
-              </button>
+              <div className={`sourceRefreshPlanner${showRawPath ? "" : " noInput"}`}>
+                {showRawPath && <label>
+                  <span>{t("source.refresh.rawPath")}</span>
+                  <input
+                    value={rawPath}
+                    required={rawPathRequired}
+                    aria-required={rawPathRequired}
+                    onChange={(event) => { setRawPath(event.target.value); setRefreshPreview(null); setRefreshReceipt(null); }}
+                    placeholder="data/raw/..."
+                  />
+                  <small>{t("source.refresh.rawPathHint")}</small>
+                </label>}
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  onClick={() => void inspectRefresh()}
+                  disabled={demo || operationBusy || (rawPathRequired && !rawPath.trim())}
+                  title={rawPathRequired && !rawPath.trim() ? t("source.refresh.rawRequired") : undefined}
+                >
+                  {operationBusy ? <Loader2 className="sourceSpin" size={14} aria-hidden /> : <ClipboardCheck size={14} aria-hidden />}
+                  {t(updateRoute?.mode === "deterministic_connector" ? "source.refresh.inspectLive" : updateRoute?.mode === "script" ? "source.refresh.inspectRaw" : updateRoute?.mode === "manual_export" ? "source.refresh.inspectRoute" : "source.refresh.inspect")}
+                </button>
               </div>
             </div>
             {refreshPreview?.ok && (

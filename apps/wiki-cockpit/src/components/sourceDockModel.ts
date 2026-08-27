@@ -111,6 +111,47 @@ export function sourceKindLabel(kind: SourceEntity["source_kind"]): string {
   return t(`source.kind.${kind || "collection"}`);
 }
 
+export function sourceDisplayName(title: string): string {
+  const original = title.trim();
+  let display = original
+    .replace(/^fonte[\s_-]+whatsapp\s*[-–—:_]*\s*/i, "")
+    .replace(/^whatsapp\s*[-–—:]\s*/i, "")
+    .replace(/^fonte(?:\s+de\s+dados)?\s*[-–—:]\s*/i, "")
+    .replace(/^fonte\s+/i, "");
+  if (display === original && /^fonte[-_]/i.test(display)) {
+    display = display.replace(/^fonte[-_]+/i, "");
+  }
+  if (!display.includes(" ") && /[-_]/.test(display)) {
+    display = display.replace(/([\p{L}])[-_]+(?=[\p{L}])/gu, "$1 ");
+  }
+  display = display.trim();
+  return display ? display.charAt(0).toLocaleUpperCase() + display.slice(1) : original;
+}
+
+export function sourcePlatformLabel(platform: string): string {
+  const normalized = platform.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const labels: Record<string, string> = {
+    drive: "drive",
+    google_drive: "drive",
+    gmail: "gmail",
+    gchat: "googleChat",
+    google_chat: "googleChat",
+    google_photos: "googlePhotos",
+    github: "github",
+    gitlab: "gitlab",
+    repo: "git",
+    whatsapp: "whatsapp",
+    slack: "slack",
+    zoom: "zoom",
+    calendar: "calendar",
+    web: "web",
+    file: "file",
+    manual: "manual"
+  };
+  if (!normalized) return t("source.platform.unknown");
+  return labels[normalized] ? t(`source.platform.${labels[normalized]}`) : platform.replace(/[_-]+/g, " ");
+}
+
 export function scheduleModeLabel(mode: string | undefined): string {
   return t(`source.schedule.mode.${mode || "on_demand"}`);
 }
