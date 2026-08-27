@@ -27,107 +27,21 @@ import {
 } from "lucide-react";
 import { t } from "../data/i18n";
 import { contextLabel } from "../data/presentation";
-import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
+import { DockTelemetryRail } from "./DockTelemetryRail";
 import { ExpandablePre } from "./ExpandablePre";
 import type { AgentCapabilities, BriefSpec, SnapshotBundle, SourceEntity, SourceOperationPreview, SourceOperationReceipt } from "../types";
-
-type SourceSection = "records" | "update" | "configure" | "history";
-type SourceTraceMode = "upstream" | "downstream" | "closure";
-type StreamDraft = {
-  label: string;
-  selected: boolean;
-  privacy: string;
-  cadenceDays: string;
-  processingState: string;
-  skipReason: string;
-  targetPages: string;
-};
-
-const EMPTY_DRAFT: StreamDraft = {
-  label: "",
-  selected: true,
-  privacy: "private_self",
-  cadenceDays: "0",
-  processingState: "",
-  skipReason: "",
-  targetPages: ""
-};
-
-const TRACE_MODES: SourceTraceMode[] = ["upstream", "downstream", "closure"];
-const EMITTED_PAGE_LINK_BUDGET = 5;
-
-function formatWhen(when: string): string {
-  return when.replace("T", " ").slice(0, 16);
-}
-
-const SYNC_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
-  ok: "good",
-  partial: "warn",
-  running: "muted",
-  queued: "muted",
-  failed: "bad",
-  never: "muted"
-};
-
-function ageLabel(days: number | null): string {
-  if (days === null) return t("source.stream.never");
-  if (days <= 0) return t("source.stream.today");
-  return t("source.stream.daysAgo", { n: days });
-}
-
-function formatBytes(value: unknown): string {
-  const bytes = Number(value);
-  if (!Number.isFinite(bytes) || bytes < 0) return String(value ?? "");
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let size = bytes / 1024;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[unit]}`;
-}
-function sourceTelemetry(sources: SourceEntity[]): DockTelemetryItem[] {
-  const totalStreams = sources.reduce((sum, source) => sum + source.sync.streams_total, 0);
-  const freshStreams = sources.reduce((sum, source) => sum + source.sync.streams_fresh, 0);
-  const pending = sources.reduce((sum, source) => sum + source.pending_streams, 0);
-  const brokenRecipes = sources.filter((source) => !source.recipe_ok).length;
-  return [
-    {
-      key: "sources",
-      label: t("source.telemetry.sources"),
-      value: sources.length,
-      tone: "info",
-      ratio: sources.length > 0 ? 1 : 0,
-      detail: t("source.list.title", { n: sources.length })
-    },
-    {
-      key: "fresh",
-      label: t("source.telemetry.fresh"),
-      value: `${freshStreams}/${totalStreams}`,
-      tone: totalStreams > 0 && freshStreams === totalStreams ? "good" : pending > 0 ? "warn" : "muted",
-      ratio: totalStreams > 0 ? freshStreams / totalStreams : 0,
-      detail: t("source.health.fresh", { fresh: freshStreams, total: totalStreams })
-    },
-    {
-      key: "pending",
-      label: t("source.telemetry.pending"),
-      value: pending,
-      tone: pending > 0 ? "warn" : "good",
-      ratio: sources.length > 0 ? pending / Math.max(totalStreams, 1) : 0,
-      detail: pending > 0 ? t("source.list.pending", { n: pending }) : t("source.telemetry.none")
-    },
-    {
-      key: "recipes",
-      label: t("source.telemetry.recipes"),
-      value: brokenRecipes,
-      tone: brokenRecipes > 0 ? "bad" : "good",
-      ratio: sources.length > 0 ? 1 - brokenRecipes / sources.length : 0,
-      detail: brokenRecipes > 0 ? t("source.telemetry.recipesBroken", { n: brokenRecipes }) : t("source.telemetry.recipesOk")
-    }
-  ];
-}
+import {
+  EMITTED_PAGE_LINK_BUDGET,
+  SYNC_TONE,
+  TRACE_MODES,
+  ageLabel,
+  formatBytes,
+  formatWhen,
+  sourceTelemetry,
+  type SourceSection,
+  type SourceTraceMode
+} from "./sourceDockModel";
+import { useSourceOperations } from "./useSourceOperations";
 
 export function SourceDock({
   bundle,
@@ -180,15 +94,6 @@ export function SourceDock({
   );
   const [selectedStreamId, setSelectedStreamId] = useState("");
   const [section, setSection] = useState<SourceSection>("records");
-  const [draft, setDraft] = useState<StreamDraft>(EMPTY_DRAFT);
-  const [operationPreview, setOperationPreview] = useState<SourceOperationPreview | null>(null);
-  const [operationBusy, setOperationBusy] = useState(false);
-  const [operationError, setOperationError] = useState("");
-  const [receipts, setReceipts] = useState<SourceOperationReceipt[]>([]);
-  const [agentPreference, setAgentPreference] = useState<"codex" | "claude">("codex");
-  const [rawPath, setRawPath] = useState("");
-  const [refreshPreview, setRefreshPreview] = useState<SourceOperationPreview | null>(null);
-  const [refreshReceipt, setRefreshReceipt] = useState<SourceOperationReceipt | null>(null);
 
   useEffect(() => {
     const streams = source?.streams ?? [];
@@ -196,39 +101,47 @@ export function SourceDock({
     setSelectedStreamId(focused?.id ?? streams[0]?.id ?? "");
   }, [source?.source_id, focusedStreamId]);
 
-  const selectedForDraft = source?.streams.find((stream) => stream.id === selectedStreamId) ?? source?.streams[0];
-  useEffect(() => {
-    if (!selectedForDraft) {
-      setDraft(EMPTY_DRAFT);
-      return;
-    }
-    setDraft({
-      label: selectedForDraft.label || selectedForDraft.id,
-      selected: selectedForDraft.selected,
-      privacy: selectedForDraft.privacy,
-      cadenceDays: String(selectedForDraft.cadence_days ?? 0),
-      processingState: String(selectedForDraft.filters?.processing_state ?? ""),
-      skipReason: selectedForDraft.skip_reason ?? "",
-      targetPages: selectedForDraft.target_pages.join("\n")
-    });
-    setOperationPreview(null);
-    setOperationError("");
-    setRefreshPreview(null);
-    setRefreshReceipt(null);
-    setRawPath("");
-  }, [selectedForDraft?.id, source?.source_id]);
-
-  useEffect(() => {
-    if (!source?.source_id || demo || !onListReceipts) {
-      setReceipts([]);
-      return undefined;
-    }
-    const controller = new AbortController();
-    onListReceipts(source.source_id, { signal: controller.signal })
-      .then(setReceipts)
-      .catch(() => setReceipts([]));
-    return () => controller.abort();
-  }, [source?.source_id, demo, onListReceipts]);
+  const {
+    selectedStream,
+    draft,
+    setDraft,
+    operationPreview,
+    operationBusy,
+    operationError,
+    receipts,
+    agentPreference,
+    setAgentPreference,
+    rawPath,
+    setRawPath,
+    refreshPreview,
+    setRefreshPreview,
+    refreshReceipt,
+    setRefreshReceipt,
+    activeAgentCapability,
+    connectorHint,
+    connectorReady,
+    agentReady,
+    previewConfiguration,
+    confirmConfiguration,
+    inspectRefresh,
+    executeRefresh,
+    composeBrief
+  } = useSourceOperations({
+    source,
+    selectedStreamId,
+    demo,
+    agentCapabilities,
+    onComposeBrief,
+    onRequestBrief,
+    onPreviewConfiguration,
+    onApplyConfiguration,
+    onListReceipts,
+    onPreviewRefresh,
+    onRunRefresh,
+    onSourceChanged,
+    onNotice,
+    setSection
+  });
 
   // §14.4 focus restore: remember what opened the dock and give focus back on
   // close — but only when nothing else (the route-driven WorldView restore, a
@@ -332,153 +245,6 @@ export function SourceDock({
 
   const syncTone = SYNC_TONE[source.sync.last_status] ?? "muted";
   const selected = source.streams.filter((s) => s.selected);
-  const selectedStream = source.streams.find((stream) => stream.id === selectedStreamId) ?? source.streams[0];
-  const activeAgentCapability = agentCapabilities?.[agentPreference];
-  const connectorHint = refreshPreview?.execution?.mcp_hint ?? "";
-  const connectorKey = connectorHint.split(/[./]/, 1)[0].replace(/[^a-z0-9]/gi, "").toLowerCase();
-  const connectorReady = !refreshPreview?.execution?.requires_agent || !agentCapabilities || Boolean(
-    activeAgentCapability?.connectors?.some(
-      (name) => name.replace(/[^a-z0-9]/gi, "").toLowerCase() === connectorKey
-    )
-  );
-  const agentReady = !agentCapabilities || Boolean(activeAgentCapability?.usable);
-
-  const collectUpdates = (): Record<string, unknown> => {
-    if (!selectedStream) return {};
-    const targets = draft.targetPages
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean);
-    const values: Record<string, unknown> = {
-      label: draft.label.trim(),
-      selected: draft.selected,
-      privacy: draft.privacy,
-      cadence_days: Number(draft.cadenceDays || 0),
-      processing_state: draft.processingState.trim(),
-      skip_reason: draft.skipReason.trim(),
-      target_pages: targets
-    };
-    const current: Record<string, unknown> = {
-      label: selectedStream.label || selectedStream.id,
-      selected: selectedStream.selected,
-      privacy: selectedStream.privacy,
-      cadence_days: selectedStream.cadence_days ?? 0,
-      processing_state: String(selectedStream.filters?.processing_state ?? ""),
-      skip_reason: selectedStream.skip_reason ?? "",
-      target_pages: selectedStream.target_pages
-    };
-    return Object.fromEntries(
-      Object.entries(values).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(current[key]))
-    );
-  };
-
-  const previewConfiguration = async () => {
-    if (demo || !selectedStream) return;
-    setOperationBusy(true);
-    setOperationError("");
-    setOperationPreview(null);
-    try {
-      if (!onPreviewConfiguration) throw new Error(t("source.operation.unavailable"));
-      const result = await onPreviewConfiguration(source.source_id, selectedStream.id, collectUpdates());
-      if (!result.ok) {
-        setOperationError(result.error || t("source.operation.failed"));
-        return;
-      }
-      setOperationPreview(result);
-    } catch (error) {
-      setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
-    } finally {
-      setOperationBusy(false);
-    }
-  };
-
-  const confirmConfiguration = async () => {
-    if (demo || !selectedStream || !operationPreview?.preview_token || !operationPreview.updates) return;
-    setOperationBusy(true);
-    setOperationError("");
-    try {
-      if (!onApplyConfiguration) throw new Error(t("source.operation.unavailable"));
-      const result = await onApplyConfiguration(
-        source.source_id,
-        selectedStream.id,
-        operationPreview.updates,
-        operationPreview.preview_token
-      );
-      if (result.ok === false || result.error) {
-        setOperationError(result.error || t("source.operation.failed"));
-        return;
-      }
-      setReceipts((current) => [result, ...current.filter((item) => item.operation_id !== result.operation_id)]);
-      setOperationPreview(null);
-      onNotice(t("source.operation.applied", { id: result.operation_id }));
-      onSourceChanged?.();
-      setSection("history");
-    } catch (error) {
-      setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
-    } finally {
-      setOperationBusy(false);
-    }
-  };
-
-  const inspectRefresh = async () => {
-    if (demo || !selectedStream) return;
-    setOperationBusy(true);
-    setOperationError("");
-    setRefreshPreview(null);
-    setRefreshReceipt(null);
-    try {
-      if (!onPreviewRefresh) throw new Error(t("source.operation.unavailable"));
-      const result = await onPreviewRefresh(source.source_id, selectedStream.id, rawPath.trim());
-      if (!result.ok) {
-        setOperationError(result.error || t("source.operation.failed"));
-        return;
-      }
-      setRefreshPreview(result);
-    } catch (error) {
-      setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
-    } finally {
-      setOperationBusy(false);
-    }
-  };
-
-  const executeRefresh = async () => {
-    if (demo || !selectedStream || !refreshPreview?.preview_token) return;
-    setOperationBusy(true);
-    setOperationError("");
-    try {
-      if (!onRunRefresh) throw new Error(t("source.operation.unavailable"));
-      const result = await onRunRefresh(
-        source.source_id,
-        selectedStream.id,
-        rawPath.trim(),
-        refreshPreview.preview_token
-      );
-      setRefreshReceipt(result);
-      setReceipts((current) => [result, ...current.filter((item) => item.operation_id !== result.operation_id)]);
-      if (!result.ok) {
-        setOperationError(result.error || result.stderr || t("source.operation.failed"));
-        return;
-      }
-      onNotice(t("source.refresh.complete", { id: result.operation_id }));
-      onSourceChanged?.();
-    } catch (error) {
-      setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
-    } finally {
-      setOperationBusy(false);
-    }
-  };
-
-  const composeBrief = async () => {
-    if (demo || !onComposeBrief || !onRequestBrief) return;
-    // Compose from the server so the recipe grounding + stale-stream targeting
-    // stay authoritative (mirrors the honest gate-fix flow).
-    const result = await onRequestBrief(source.source_id);
-    if (result.ok && result.spec) {
-      onComposeBrief({ ...result.spec, agent: agentPreference });
-    } else {
-      onNotice(t("source.brief.failed", { error: result.error ?? "?" }));
-    }
-  };
 
   return (
     <>
