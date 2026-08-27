@@ -17,12 +17,12 @@ function sourceFixture(overrides: Partial<SourceEntity> = {}): SourceEntity {
   return {
     source_id: "source-gmail",
     path: "memories/documentos/source-gmail.md",
-    title: "Gmail pessoal",
+    title: "Gmail da equipe",
     context: "documentos",
     platform: "gmail",
-    locator: "kim@example.com",
+    locator: "operator@example.com",
     source_kind: "account",
-    owner: "Kim",
+    owner: "Operador",
     stewards: [],
     config_ref: "memories/documentos/config-gmail.md",
     updated_at: "2026-07-01",
@@ -121,6 +121,63 @@ describe("SourceDock operational workspace", () => {
     expect(screen.getByRole("region", { name: "Selected record details" })).toBeTruthy();
   });
 
+  it("distinguishes covered and intentionally excluded records from never-ingested data", () => {
+    const source = sourceFixture();
+    source.streams.push(
+      {
+        id: "covered-audio",
+        label: "Audio covered by transcript",
+        selected: false,
+        privacy: "private_self",
+        target_pages: [],
+        skip_reason: "Covered by the transcript source",
+        cursor_age_days: null,
+        cadence_days: 0,
+        breached: false,
+        filters: { processing_state: "covered" }
+      },
+      {
+        id: "test-audio",
+        label: "Recorder test",
+        selected: false,
+        privacy: "private_self",
+        target_pages: [],
+        skip_reason: "Short test without operational content",
+        cursor_age_days: null,
+        cadence_days: 0,
+        breached: false,
+        filters: { processing_state: "no_ingest" }
+      }
+    );
+    render(<SourceDock bundle={bundleWith(source)} sourceId="source-gmail" onNotice={noop} onClose={noop} />);
+
+    expect(screen.getByText("Active 2 · Covered 1 · Excluded 1")).toBeTruthy();
+    expect(screen.getAllByText("covered by another source").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("excluded from ingestion").length).toBeGreaterThan(0);
+    expect(screen.queryByText("not ingested")).toBeNull();
+  });
+
+  it("does not present elapsed time as staleness for a completed one-shot source", () => {
+    const source = sourceFixture({
+      source_kind: "item",
+      schedule: { mode: "one_shot", cadence_days: 0, cron_hint: "" },
+      next_due_days: null
+    });
+    source.streams[0].cursor_age_days = 79;
+    render(<SourceDock bundle={bundleWith(source)} sourceId="source-gmail" onNotice={noop} onClose={noop} />);
+
+    expect(screen.getAllByText("capture complete / One-time capture").length).toBeGreaterThan(0);
+    expect(screen.queryByText("79d ago / One-time capture")).toBeNull();
+  });
+
+  it("labels a lifecycle reconstructed from proven legacy ingestion evidence", () => {
+    const source = sourceFixture();
+    source.lifecycle = { ...source.lifecycle!, derived_from_legacy: true };
+    render(<SourceDock bundle={bundleWith(source)} sourceId="source-gmail" onNotice={noop} onClose={noop} />);
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    expect(screen.getByText(/Reconstructed from the versioned legacy ingestion evidence/)).toBeTruthy();
+  });
+
   it("carries the chosen Claude adapter into the exact source brief", async () => {
     const onComposeBrief = vi.fn();
     const spec: BriefSpec = { grounding: { page_ids: [] }, intent: "refresh source" };
@@ -143,7 +200,7 @@ describe("SourceDock operational workspace", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Update" }));
     fireEvent.click(screen.getByRole("button", { name: "Claude" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Validate update route" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Check connector and plan" }));
     await waitFor(() => expect(screen.getByText("Verified execution plan")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Prepare monitored update" }));
     await waitFor(() => expect(onComposeBrief).toHaveBeenCalledWith({ ...spec, agent: "claude" }));
@@ -172,7 +229,7 @@ describe("SourceDock operational workspace", () => {
       />
     );
     fireEvent.click(screen.getByRole("button", { name: "Update" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Validate update route" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Check connector and plan" }));
     await waitFor(() => expect(screen.getByText(/google_drive\.list_folder is not available in Codex/)).toBeTruthy());
     const prepare = screen.getByRole("button", { name: "Prepare monitored update" }) as HTMLButtonElement;
     expect(prepare.disabled).toBe(true);

@@ -1856,6 +1856,9 @@ export function App({ ports }: { ports: ApplicationPorts }) {
           onListReceipts={listSourceOperationReceipts}
           onPreviewRefresh={previewSourceRefresh}
           onRunRefresh={runSourceRefresh}
+          onListJobs={listCodexJobs}
+          onStreamJobLog={streamCodexLog}
+          onCancelJob={cancelCodexJob}
           onSourceChanged={refetchReal}
           onNotice={notify}
           onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}

@@ -1,15 +1,26 @@
 # Design QA — Source operations workspace
 
-- source visual truth: unavailable in the current workspace; the approved mock from the earlier review was not persisted as an image artifact
-- implementation screenshot: unavailable because the selected in-app browser has no callable inspection or capture surface in this session
-- capture attempts: the Browser control runtime was not exposed to this task; the macOS window-capture fallback waited on Screen Recording permission and was stopped without producing an artifact
-- intended viewport: desktop, source dock open over the 2D quadrants route
-- functional evidence: 174 frontend tests, TypeScript production build, backend source-operation tests, real operator API read model, deterministic preview against the private URecorder source, and clean Git branches
-- paired architecture evidence: the public and private workspaces share byte-identical `SourceDock.tsx`, `useSourceOperations.ts`, operation contracts, and regression tests; repository-specific ports remain adapters
-- comparison performed: no — a visual comparison requires both the approved mock and a screenshot of the same rendered state and viewport
-- remaining visual checks: hierarchy, icon legibility, wrapping, focus states, responsive layout, and the four operational tabs with realistic source data
-- authorization needed: explicit permission to use Playwright CLI only against `127.0.0.1:5173`, plus the approved mock image as the reference artifact
+- visual references: approved option 1 (registry + selected source) and option 3
+  (source-scoped execution monitor), kept outside the public repository
+- implementation evidence: Playwright captures were reviewed against realistic
+  private-consumer data but remain outside this public repository
+- viewport reviewed: desktop 1440x1000 and responsive 768x900
+- comparison performed: yes — both references and the final implementation states were inspected together in one visual comparison
+- alignment:
+  - self-contained 2D source registry and selected-source workspace, with product navigation kept outside the source actions
+  - explicit Records, Update, Configure and History tabs
+  - deterministic inventory before contextual work
+  - source-scoped execution monitor with status, steps, cancel action and safe log tail when a job exists
+  - real empty and blocked states instead of simulated executions
+- intentional differences from the mocks:
+  - the implementation keeps the existing Wiki Viva design system and icon library
+  - real source metadata and privacy-safe labels replace illustrative provider artwork
+  - monitoring is embedded in Update rather than promoted to a separate product perspective
+- functional/visual result:
+  - covered and intentionally excluded records are not labelled as never ingested
+  - one-shot, on-demand and event-driven sources do not become stale from elapsed time
+  - mobile registry remains visible before the source detail
+  - Playwright console: 0 errors
+- remaining external limitation: the current operator exposes no live Google Drive connector to Codex or Claude. The UI reports that boundary and never claims a live collection occurred; a real source job will populate the monitor when the connector is available.
 
-The implementation must not be described as visually approved until the two visual artifacts can be compared together.
-
-final result: blocked
+final result: pass with external connector limitation

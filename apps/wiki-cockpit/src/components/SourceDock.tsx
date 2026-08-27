@@ -29,21 +29,24 @@ import { t } from "../data/i18n";
 import { contextLabel } from "../data/presentation";
 import { DockTelemetryRail } from "./DockTelemetryRail";
 import { ExpandablePre } from "./ExpandablePre";
-import type { AgentCapabilities, BriefSpec, SnapshotBundle, SourceEntity, SourceOperationPreview, SourceOperationReceipt } from "../types";
+import type { AgentCapabilities, BriefSpec, CodexJobRecord, SnapshotBundle, SourceEntity, SourceOperationPreview, SourceOperationReceipt } from "../types";
 import {
   EMITTED_PAGE_LINK_BUDGET,
   SYNC_TONE,
   TRACE_MODES,
-  ageLabel,
   formatBytes,
   formatWhen,
   scheduleModeLabel,
+  sourceScopeCounts,
   sourceKindLabel,
   sourceTelemetry,
+  streamFreshnessLabel,
+  streamScopeLabel,
   type SourceSection,
   type SourceTraceMode
 } from "./sourceDockModel";
 import { useSourceOperations } from "./useSourceOperations";
+import { SourceRunMonitor } from "./SourceRunMonitor";
 
 export function SourceDock({
   bundle,
@@ -60,6 +63,9 @@ export function SourceDock({
   onListReceipts,
   onPreviewRefresh,
   onRunRefresh,
+  onListJobs,
+  onStreamJobLog,
+  onCancelJob,
   onSourceChanged,
   onNotice,
   onOpenPage,
@@ -84,6 +90,9 @@ export function SourceDock({
   onListReceipts?: (sourceId: string, options?: { signal?: AbortSignal }) => Promise<SourceOperationReceipt[]>;
   onPreviewRefresh?: (sourceId: string, streamId: string, rawPath?: string) => Promise<SourceOperationPreview>;
   onRunRefresh?: (sourceId: string, streamId: string, rawPath: string, previewToken: string) => Promise<SourceOperationReceipt>;
+  onListJobs?: (options?: { signal?: AbortSignal }) => Promise<CodexJobRecord[]>;
+  onStreamJobLog?: (jobId: string, options?: { signal?: AbortSignal }) => Promise<string>;
+  onCancelJob?: (jobId: string) => Promise<CodexJobRecord | null>;
   onSourceChanged?: () => void;
   onNotice: (text: string) => void;
   onOpenPage?: (pathOrId: string) => void;
@@ -248,6 +257,11 @@ export function SourceDock({
 
   const syncTone = SYNC_TONE[source.sync.last_status] ?? "muted";
   const recurring = source.schedule?.mode === "recurring";
+  const scopeCounts = sourceScopeCounts(source.streams);
+  const refreshPlanBlocked = Boolean(
+    refreshPreview?.steps?.some((step) => step.status === "blocked") ||
+    (refreshPreview?.execution?.requires_agent && (!connectorReady || !agentReady))
+  );
 
   return (
     <>
@@ -274,7 +288,7 @@ export function SourceDock({
         <div className="sourceHealth" aria-label={t("source.health.aria")}>
           <DockTelemetryRail label={t("source.telemetry.aria")} items={sourceTelemetry([source])} />
           <span className="stripChip static">
-            {t("source.health.fresh", { fresh: source.sync.streams_fresh, total: source.sync.streams_total })}
+            {t("source.health.scope", scopeCounts)}
           </span>
           {source.pending_streams > 0 && (
             <span className="pill pill-warn">{t("source.health.pending", { n: source.pending_streams })}</span>
@@ -382,12 +396,12 @@ export function SourceDock({
                   }}
                   aria-label={t("source.stream.rowAria", {
                     id: stream.id,
-                    freshness: stream.selected ? ageLabel(stream.cursor_age_days) : t("source.streams.unselected"),
+                    freshness: streamFreshnessLabel(stream, source.schedule?.mode),
                     cadence: recurring && stream.cadence_days ? t("source.streams.cadence", { n: stream.cadence_days }) : scheduleModeLabel(source.schedule?.mode),
                     privacy: stream.privacy
                   })}
                   className={[
-                    stream.breached ? "streamBreached" : stream.selected ? "" : "streamSkipped",
+                    recurring && stream.breached ? "streamBreached" : stream.selected ? "" : "streamSkipped",
                     focusedStreamId === stream.id ? "streamFocused" : "",
                     selectedStream?.id === stream.id ? "streamSelected" : ""
                   ]
@@ -402,19 +416,18 @@ export function SourceDock({
                         <code>{stream.id}</code>
                       </span>
                       {Boolean(stream.filters?.processing_state) && (
-                        <span className="sourceStreamState">{String(stream.filters?.processing_state)}</span>
+                        <span className="sourceStreamState">{streamScopeLabel(stream)}</span>
                       )}
                       <ChevronRight size={13} aria-hidden />
                     </span>
                   </td>
                   <td>
                     {stream.selected ? (
-                      <span className={stream.breached ? "streamStale" : "streamFresh"}>
-                        {ageLabel(stream.cursor_age_days)}
-                        {recurring && stream.cadence_days ? ` / ${t("source.streams.cadence", { n: stream.cadence_days })}` : ` / ${scheduleModeLabel(source.schedule?.mode)}`}
+                      <span className={recurring && stream.breached ? "streamStale" : "streamFresh"}>
+                        {streamFreshnessLabel(stream, source.schedule?.mode)}
                       </span>
                     ) : (
-                      <small>{t("source.streams.unselected")}</small>
+                      <small>{streamScopeLabel(stream)}</small>
                     )}
                   </td>
                   <td>
@@ -439,7 +452,7 @@ export function SourceDock({
                   <strong>{selectedStream.label || selectedStream.id}</strong>
                 </span>
                 {Boolean(selectedStream.filters?.processing_state) && (
-                  <span className="sourceRecordStatus">{String(selectedStream.filters?.processing_state)}</span>
+                  <span className="sourceRecordStatus">{streamScopeLabel(selectedStream)}</span>
                 )}
               </header>
               <dl className="sourceRecordGrid">
@@ -584,7 +597,13 @@ export function SourceDock({
                 </p>
               )}
             </div>
-            <div className="sourceRefreshPlanner">
+            <div className="sourceRefreshFallback">
+              <header>
+                <small>{t("source.refresh.fallbackEyebrow")}</small>
+                <strong>{t("source.refresh.fallbackTitle")}</strong>
+                <p>{t("source.refresh.fallbackIntro")}</p>
+              </header>
+              <div className="sourceRefreshPlanner">
               <label>
                 <span>{t("source.refresh.rawPath")}</span>
                 <input
@@ -598,12 +617,13 @@ export function SourceDock({
                 {operationBusy ? <Loader2 className="sourceSpin" size={14} aria-hidden /> : <ClipboardCheck size={14} aria-hidden />}
                 {t("source.refresh.inspect")}
               </button>
+              </div>
             </div>
             {refreshPreview?.ok && (
-              <section className="sourceRefreshPlan" aria-label={t("source.refresh.plan")}>
+              <section className={`sourceRefreshPlan${refreshPlanBlocked ? " blocked" : ""}`} aria-label={t("source.refresh.plan")}>
                 <header>
-                  <CheckCircle2 size={15} aria-hidden />
-                  <span><strong>{t("source.refresh.plan")}</strong><small>{t(`source.refresh.mode.${refreshPreview.execution?.mode ?? "manual_export"}`)}</small></span>
+                  {refreshPlanBlocked ? <AlertTriangle size={15} aria-hidden /> : <CheckCircle2 size={15} aria-hidden />}
+                  <span><strong>{t(refreshPlanBlocked ? "source.refresh.planBlocked" : "source.refresh.plan")}</strong><small>{t(`source.refresh.mode.${refreshPreview.execution?.mode ?? "manual_export"}`)}</small></span>
                 </header>
                 {refreshPreview.execution?.argv && refreshPreview.execution.argv.length > 0 && (
                   <code>{refreshPreview.execution.argv.join(" ")}</code>
@@ -624,17 +644,6 @@ export function SourceDock({
               <p className="sourceOperationError"><AlertTriangle size={14} aria-hidden /> {operationError}</p>
             )}
             <div className="dockActions sourceOperationActions">
-              {!refreshPreview && (
-                <button
-                  className="btn btn--run"
-                  onClick={() => void inspectRefresh()}
-                  disabled={demo || operationBusy}
-                  type="button"
-                >
-                  <ClipboardCheck size={14} aria-hidden />
-                  <span>{t("source.refresh.inspect")}</span>
-                </button>
-              )}
               {refreshPreview?.execution?.requires_agent && onComposeBrief && (
                 <button className="btn btn--run" onClick={composeBrief} disabled={demo || !agentReady || !connectorReady} type="button" title={!agentReady ? activeAgentCapability?.reason : !connectorReady ? t("source.update.connectorMissing", { connector: connectorHint || "MCP", agent: agentPreference === "claude" ? "Claude" : "Codex" }) : undefined}>
                   <RefreshCw size={14} aria-hidden />
@@ -652,6 +661,13 @@ export function SourceDock({
                 <span>{t("source.update.adjustFirst")}</span>
               </button>
             </div>
+            <SourceRunMonitor
+              sourceId={source.source_id}
+              demo={demo}
+              onListJobs={onListJobs}
+              onStreamJobLog={onStreamJobLog}
+              onCancelJob={onCancelJob}
+            />
           </section>
         )}
 
@@ -807,6 +823,9 @@ export function SourceDock({
         {section === "history" && source.lifecycle && (
           <div className="sourceSection sourceLifecycle">
             <h4>{t("source.lifecycle.title")}</h4>
+            {source.lifecycle.derived_from_legacy && (
+              <p className="sourceLifecycleDerived">{t("source.lifecycle.derivedLegacy")}</p>
+            )}
             <dl className="sourceLifecycleGrid">
               {source.lifecycle.state && (
                 <>
