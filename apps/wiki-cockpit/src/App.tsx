@@ -44,6 +44,7 @@ import {
   getBrief,
   applySourceOperation,
   composeSourceBrief,
+  listCodexJobs,
   listSourceOperationReceipts,
   loadAgentCapabilities,
   loadCodexCapability,
@@ -56,7 +57,9 @@ import {
   runIngestionStep,
   saveBriefText,
   spawnCodexJob,
-  runSourceRefresh
+  runSourceRefresh,
+  streamCodexLog,
+  cancelCodexJob
 } from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
 import { buildUrl, installLinkInterceptor, navigate, parseRoute, patchWorld, useRouteUrl, worldFromRoute } from "./router";
@@ -1518,6 +1521,9 @@ export function App() {
           onListReceipts={listSourceOperationReceipts}
           onPreviewRefresh={previewSourceRefresh}
           onRunRefresh={runSourceRefresh}
+          onListJobs={listCodexJobs}
+          onStreamJobLog={streamCodexLog}
+          onCancelJob={cancelCodexJob}
           onSourceChanged={refetchReal}
           onNotice={notify}
           onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}

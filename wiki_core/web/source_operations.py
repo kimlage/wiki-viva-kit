@@ -22,7 +22,8 @@ import yaml
 
 from wiki_core.config import WikiConfig
 from wiki_core.paths import WikiPaths
-from wiki_core.source_recipe import SCHEDULE_MODES, SOURCE_KINDS, extract_recipe_mapping, parse_recipe, validate_recipe
+from wiki_core.source_recipe import extract_recipe_mapping, parse_recipe, validate_recipe
+from wiki_core.source_schedule import SCHEDULE_MODES, SOURCE_KINDS
 from wiki_core.web.sources import build_sources_payload
 from wiki_core.web.commands import SECRET_VALUE_RE
 

@@ -59,6 +59,50 @@ export function ageLabel(days: number | null): string {
   return t("source.stream.daysAgo", { n: days });
 }
 
+export type StreamScopeState = "active" | "covered" | "excluded";
+
+export function streamScopeState(stream: SourceEntity["streams"][number]): StreamScopeState {
+  if (stream.selected) return "active";
+  const processingState = String(stream.filters?.processing_state ?? "").trim().toLowerCase();
+  return processingState === "covered" ? "covered" : "excluded";
+}
+
+export function streamScopeLabel(stream: SourceEntity["streams"][number]): string {
+  const state = streamScopeState(stream);
+  if (state === "covered") return t("source.streams.covered");
+  if (state === "excluded") return t("source.streams.excluded");
+  return String(stream.filters?.processing_state ?? "").trim();
+}
+
+export function streamFreshnessLabel(
+  stream: SourceEntity["streams"][number],
+  scheduleMode: string | undefined
+): string {
+  if (!stream.selected) return streamScopeLabel(stream);
+  if (scheduleMode === "one_shot") {
+    return `${t("source.streams.completed")} / ${scheduleModeLabel(scheduleMode)}`;
+  }
+  const cadence = scheduleMode === "recurring" && stream.cadence_days
+    ? t("source.streams.cadence", { n: stream.cadence_days })
+    : scheduleModeLabel(scheduleMode);
+  const age = ageLabel(stream.cursor_age_days);
+  return `${scheduleMode === "recurring" ? age : t("source.streams.lastCapture", { age })} / ${cadence}`;
+}
+
+export function sourceScopeCounts(streams: SourceEntity["streams"]): {
+  active: number;
+  covered: number;
+  excluded: number;
+} {
+  return streams.reduce(
+    (counts, stream) => {
+      counts[streamScopeState(stream)] += 1;
+      return counts;
+    },
+    { active: 0, covered: 0, excluded: 0 }
+  );
+}
+
 export function sourceKindLabel(kind: SourceEntity["source_kind"]): string {
   return t(`source.kind.${kind || "collection"}`);
 }

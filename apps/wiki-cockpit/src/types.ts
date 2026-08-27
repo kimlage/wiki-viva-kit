@@ -426,6 +426,7 @@ export type SourceEventClosure = {
 };
 
 export type SourceLifecycleProjection = {
+  derived_from_legacy?: boolean;
   state: string;
   freshness_state: string;
   last_attempt_state: string;
@@ -650,7 +651,7 @@ export type AgentCapabilities = {
 // A work-brief spec: what the operator points the composer at. Mirrors
 // wiki_core.web.briefs.normalize_spec.
 export type BriefSpec = {
-  agent?: "codex" | "claude";
+  agent?: string;
   mission_kind?: string | null;
   grounding: {
     page_ids?: string[];

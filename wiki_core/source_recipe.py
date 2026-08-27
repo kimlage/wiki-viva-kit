@@ -19,6 +19,8 @@ from typing import Any
 
 import yaml
 
+from wiki_core.source_schedule import SCHEDULE_MODES, SOURCE_KINDS, validate_schedule, validate_source_kind
+
 SOURCE_RECIPE_SCHEMA_VERSION = "wiki_source_recipe.v1"
 
 # Typed pipeline kinds (independently cadenced) — OpenMetadata pipelineType
@@ -27,15 +29,11 @@ PIPELINE_KINDS = frozenset({"metadata", "content", "deep_read", "usage"})
 PLATFORMS = frozenset(
     {"slack", "gchat", "chatgpt", "whatsapp", "gmail", "drive", "google_photos", "web", "repo", "file", "calendar", "manual"}
 )
-SOURCE_KINDS = frozenset({"item", "collection", "account", "endpoint", "repository"})
 PRIVACY_LEVELS = frozenset(
     {"private_self", "private_sensitive_allowed", "team_shared", "public_ok"}
 )
 # How the operator's credential is REACHED (a pointer, never the secret itself).
 AUTH_METHODS = frozenset({"env", "keychain", "onepassword", "oauth_file", "mcp", "none"})
-# How often the source is meant to be synced.
-SCHEDULE_MODES = frozenset({"one_shot", "on_demand", "recurring", "event_driven"})
-
 _RECIPE_BLOCK_RE = re.compile(r"```ya?ml\n(.*?)\n```", re.S)
 
 
@@ -234,8 +232,7 @@ def validate_recipe(recipe: SourceRecipe) -> list[str]:
         errors.append(f"unknown platform `{recipe.platform}` (use {sorted(PLATFORMS)})")
     if not recipe.locator:
         errors.append("recipe.locator is required (platform-native id)")
-    if recipe.source_kind not in SOURCE_KINDS:
-        errors.append(f"unknown source_kind `{recipe.source_kind}` (use {sorted(SOURCE_KINDS)})")
+    errors.extend(validate_source_kind(recipe.source_kind))
     if not recipe.pipelines:
         errors.append("recipe.pipelines is empty (declare at least one typed pipeline)")
     for pipeline in recipe.pipelines:
@@ -268,12 +265,7 @@ def validate_recipe(recipe: SourceRecipe) -> list[str]:
         if recipe.auth.method in {"mcp", "keychain"} and _URLish_RE.search(recipe.auth.ref):
             errors.append("auth.ref looks like a URL/blob — it should be a short pointer id")
     if recipe.schedule is not None:
-        if recipe.schedule.mode not in SCHEDULE_MODES:
-            errors.append(f"unknown schedule.mode `{recipe.schedule.mode}` (use {sorted(SCHEDULE_MODES)})")
-        if recipe.schedule.mode == "recurring" and recipe.schedule.cadence_days <= 0:
-            errors.append("a recurring schedule needs a positive cadence_days")
-        if recipe.schedule.mode != "recurring" and recipe.schedule.cadence_days != 0:
-            errors.append(f"a {recipe.schedule.mode} schedule must use cadence_days: 0")
+        errors.extend(validate_schedule(recipe.schedule.mode, recipe.schedule.cadence_days))
     else:
         errors.append("recipe.schedule is required (declare one_shot, on_demand, recurring, or event_driven)")
     # Secret smell: a recipe must never carry tokens/passwords/keys — neither as

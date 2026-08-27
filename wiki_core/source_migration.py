@@ -12,7 +12,9 @@ What it does:
 
 * ``source`` pages gain ``platform`` / ``source_locator`` / ``owner`` (inferred
   from the page, its ``config_ref`` page, or a conservative fallback) and a
-  ``sync`` machine block seeded to ``never`` (honest: nothing has synced yet).
+  ``sync`` machine block. A versioned ``last_ingested_at`` is preserved as
+  proof of an earlier ingestion; only pages without evidence are seeded as
+  ``never``.
 * ``source_config`` pages with no fenced ``recipe:`` block gain a scaffolded one
   (platform + locator + one content pipeline + a TODO stream) so an agent has a
   manual to complete.
@@ -30,6 +32,7 @@ import yaml
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import FRONTMATTER_RE, parse_frontmatter
 from wiki_core.source_recipe import PLATFORMS, extract_recipe_mapping
+from wiki_core.source_schedule import infer_source_kind
 
 # source_type (or a co-located hint) -> platform. Anything unmapped falls back
 # to "manual" (a valid platform meaning human-curated / no automated pull), with
@@ -131,6 +134,15 @@ def infer_owner(values: dict[str, Any], config_values: dict[str, Any]) -> str:
     return str(config_values.get("owner") or "").strip()
 
 
+def initial_sync(values: dict[str, Any]) -> dict[str, str]:
+    """Build the first machine sync block without erasing legacy evidence."""
+    ingested_at = str(values.get("last_ingested_at") or "").strip()
+    if not ingested_at:
+        return {"last_run_at": "", "last_status": "never", "last_event_ref": ""}
+    status = "partial" if str(values.get("ingestion_state") or "") == "partial" else "ok"
+    return {"last_run_at": ingested_at, "last_status": status, "last_event_ref": ""}
+
+
 def scaffold_recipe_block(platform: str, locator: str) -> str:
     """A valid-but-placeholder recipe manual. All open decisions are TODOs the
     reviewer completes; the stream is unselected so nothing ingests by accident."""
@@ -139,7 +151,7 @@ def scaffold_recipe_block(platform: str, locator: str) -> str:
             "schema_version": "wiki_source_recipe.v1",
             "platform": platform,
             "locator": locator,
-            "source_kind": "collection" if platform in {"drive", "file", "google_photos"} else "repository" if platform == "repo" else "account" if platform in {"slack", "gchat", "gmail", "calendar", "chatgpt", "whatsapp"} else "endpoint" if platform == "web" else "item",
+            "source_kind": infer_source_kind(platform),
             "pipelines": [{"kind": "content", "cadence_days": 30}],
             "streams": [
                 {
@@ -194,7 +206,7 @@ def _plan_source_page(
     # sync is left alone (adding would duplicate the YAML key and clobber it) and
     # noted for the reviewer instead.
     if "sync" not in values:
-        additions["sync"] = {"last_run_at": "", "last_status": "never", "last_event_ref": ""}
+        additions["sync"] = initial_sync(values)
     elif not isinstance(values.get("sync"), dict):
         notes.append("`sync` exists but is not a mapping — fix it by hand")
 
