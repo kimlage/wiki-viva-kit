@@ -97,6 +97,7 @@ function slugify(label: string) {
 export function SourceWorkspace(props: SourceWorkspaceProps) {
   const sources = props.bundle.sourceEntities?.sources ?? [];
   const configuredGroups = props.bundle.sourceEntities?.source_groups?.groups;
+  const groupsPersisted = props.bundle.sourceEntities?.source_groups?.configured ?? true;
   const fallbackGroups: SourceGroup[] = [{
     id: "all-sources",
     label: t("source.registry.all"),
@@ -304,7 +305,11 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
                 aria-pressed={organizing}
                 aria-label={t("source.groups.organize")}
                 title={t("source.groups.organize")}
-                onClick={() => setOrganizing((value) => !value)}
+                onClick={() => setOrganizing((value) => {
+                  const next = !value;
+                  if (next && !groupsPersisted) setDirty(true);
+                  return next;
+                })}
               >
                 <Settings2 size={15} aria-hidden />
               </button>
