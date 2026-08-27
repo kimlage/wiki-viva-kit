@@ -161,6 +161,29 @@
 }
 .sourceRegistrySearch input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: #dceaf1; font: inherit; font-size: 12px; }
 .sourceRegistryFilters { display: flex; flex-wrap: wrap; gap: 5px; }
+.sourcePendingShortcut {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #29404d;
+  border-radius: 9px;
+  background: rgba(12, 30, 41, 0.72);
+  color: #cfe0e8;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.sourcePendingShortcut:hover { border-color: #39708a; background: rgba(28, 72, 93, 0.26); }
+.sourcePendingShortcut.active { border-color: #2385ac; background: rgba(27, 112, 151, 0.2); box-shadow: inset 2px 0 #42c7f4; }
+.sourcePendingShortcut > span:first-child { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 7px; color: #7ed9fa; background: rgba(30, 86, 112, 0.28); }
+.sourcePendingShortcut > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+.sourcePendingShortcut strong,
+.sourcePendingShortcut small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sourcePendingShortcut b { min-width: 24px; padding: 3px 7px; border: 1px solid rgba(240, 174, 88, 0.46); border-radius: 999px; color: #ffc878; background: rgba(126, 74, 21, 0.22); text-align: center; font-size: 10px; font-variant-numeric: tabular-nums; }
 .sourceRegistryGroups { flex: 1 1 0; min-height: 0; overflow: auto; padding: 0 2px 12px 0; }
 .sourceRegistryGroup { border: 1px solid transparent; border-radius: 9px; transition: border-color 120ms ease, background 120ms ease; }
 .sourceRegistryGroup + .sourceRegistryGroup { margin-top: 5px; }
@@ -230,6 +253,85 @@
 .sourceRegistryResize span { width: 2px; height: 42px; border-radius: 999px; background: #315363; transition: height 120ms ease, background 120ms ease, box-shadow 120ms ease; }
 .sourceRegistryResize:hover span,
 .sourceRegistryResize:focus-visible span { height: 72px; background: #42c7f4; box-shadow: 0 0 10px rgba(66, 199, 244, 0.48); }
+.sourcePendingOverview {
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 22px 26px 34px;
+}
+.sourcePendingHero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 22px 24px;
+  border: 1px solid #294653;
+  border-radius: 12px;
+  background: rgba(10, 27, 37, 0.9);
+}
+.sourcePendingHeroCopy { max-width: 760px; }
+.sourcePendingHero small,
+.sourceBatchPanel header small,
+.sourcePendingQueue header small { color: #6fcff0; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.sourcePendingHero h2 { margin: 5px 0 8px; color: #edf8fc; font-size: clamp(22px, 2.5vw, 32px); line-height: 1.12; }
+.sourcePendingHero p,
+.sourceBatchPanel > p { margin: 0; color: #91aab7; font-size: 12px; line-height: 1.55; }
+.sourcePendingRunAll { flex: 0 0 auto; min-height: 40px; padding-inline: 15px; }
+.sourcePendingMetrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0 18px; }
+.sourcePendingMetrics article { min-width: 0; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #263d49; border-radius: 9px; color: #79d8f6; background: rgba(8, 22, 31, 0.82); }
+.sourcePendingMetrics article:nth-child(3) { color: #ffc878; }
+.sourcePendingMetrics article:nth-child(4) { color: #b5a3ff; }
+.sourcePendingMetrics article span { min-width: 0; display: grid; gap: 1px; }
+.sourcePendingMetrics strong { color: #e6f3f8; font-size: 20px; font-variant-numeric: tabular-nums; }
+.sourcePendingMetrics small { overflow: hidden; color: #7f9aa8; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.sourceBatchPanel,
+.sourcePendingQueue { margin-top: 16px; padding: 16px; border: 1px solid #284652; border-radius: 11px; background: rgba(7, 19, 27, 0.88); }
+.sourceBatchPanel > header,
+.sourcePendingQueue > header { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
+.sourceBatchPanel header h3,
+.sourcePendingQueue header h3 { margin: 3px 0 0; color: #e2f0f6; font-size: 15px; }
+.sourceBatchPanel > header > span,
+.sourcePendingQueue > header > span { padding: 3px 8px; border: 1px solid #315465; border-radius: 999px; color: #9bc2d2; font-size: 10px; font-variant-numeric: tabular-nums; }
+.sourceBatchProgress { height: 5px; overflow: hidden; margin-bottom: 9px; border-radius: 999px; background: #142733; }
+.sourceBatchProgress i { display: block; height: 100%; border-radius: inherit; background: #58d99b; transition: width 180ms ease; }
+.sourceBatchList,
+.sourcePendingQueue ul { list-style: none; margin: 13px 0 0; padding: 0; }
+.sourceBatchItem,
+.sourcePendingQueue li { min-width: 0; display: grid; align-items: center; gap: 11px; border-top: 1px solid rgba(48, 76, 89, 0.58); }
+.sourceBatchItem { grid-template-columns: 38px minmax(150px, 0.8fr) minmax(200px, 1.25fr) 30px; padding: 10px 4px; }
+.sourcePendingQueue li { grid-template-columns: 40px minmax(180px, 1fr) 70px minmax(135px, auto) auto; padding: 12px 4px; }
+.sourcePendingIcon { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #2c4b5a; border-radius: 8px; background: #10232f; }
+.sourcePendingIdentity,
+.sourceBatchIdentity { min-width: 0; display: grid; gap: 3px; }
+.sourcePendingIdentity strong,
+.sourceBatchIdentity strong { overflow: hidden; color: #d8e8ef; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.sourcePendingIdentity small,
+.sourceBatchIdentity small { overflow: hidden; color: #7693a2; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.sourcePendingAge { display: grid; gap: 1px; text-align: center; }
+.sourcePendingAge strong { color: #ffc878; font-size: 16px; }
+.sourcePendingAge small { color: #7894a3; font-size: 9px; }
+.sourcePendingRoute { justify-self: start; padding: 4px 8px; border: 1px solid #31505f; border-radius: 999px; color: #9db8c5; background: rgba(21, 45, 58, 0.6); font-size: 9.5px; white-space: nowrap; }
+.sourcePendingRoute-deterministic_connector { border-color: rgba(88, 217, 155, 0.36); color: #a9eacb; }
+.sourcePendingRoute-script { border-color: rgba(240, 174, 88, 0.38); color: #ffc878; }
+.sourcePendingRoute-agent_connector { border-color: rgba(181, 163, 255, 0.38); color: #c8baff; }
+.sourcePendingOpen { min-height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 8px; border: 1px solid transparent; border-radius: 7px; color: #89b6c9; background: transparent; cursor: pointer; font: inherit; font-size: 10px; }
+.sourcePendingOpen:hover { border-color: #315465; color: #d8eef7; background: rgba(36, 83, 104, 0.2); }
+.sourceBatchPath { min-width: 0; display: grid; gap: 4px; color: #829daa; font-size: 9.5px; }
+.sourceBatchPath input { width: 100%; min-width: 0; height: 32px; padding: 5px 8px; border: 1px solid #34586b; border-radius: 6px; outline: 0; background: #08141c; color: #e2f2fa; font: inherit; font-size: 11px; }
+.sourceBatchPath input:focus { border-color: #42c7f4; box-shadow: 0 0 0 2px rgba(66, 199, 244, 0.12); }
+.sourceBatchStatus { min-width: 0; display: flex; align-items: center; gap: 8px; color: #9fc3d2; }
+.sourceBatchStatus > span { min-width: 0; display: grid; gap: 2px; font-size: 10.5px; }
+.sourceBatchStatus small { overflow: hidden; color: #ff98a5; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.sourceBatchItem-ready .sourceBatchStatus,
+.sourceBatchItem-complete .sourceBatchStatus { color: #73dfa9; }
+.sourceBatchItem-failed .sourceBatchStatus,
+.sourceBatchItem-blocked .sourceBatchStatus { color: #ff9ca8; }
+.sourceBatchPanel footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(48, 76, 89, 0.58); }
+.sourceBatchFailure { margin-top: 10px !important; color: #ff9ca8 !important; }
+.sourcePendingEmpty { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 120px; color: #70dda7; }
+.sourcePendingEmpty p { margin: 0; color: #9ab3bf; font-size: 12px; }
+.sourcePendingSpin { animation: sourcePendingSpin 900ms linear infinite; }
+@keyframes sourcePendingSpin { to { transform: rotate(360deg); } }
 .sourceDock.sourceDockEmbedded {
   position: relative;
   inset: auto;
@@ -254,6 +356,16 @@
     border-bottom: 1px solid #223642;
   }
   .sourceDock.sourceDockEmbedded { height: auto; overflow: visible; }
+  .sourcePendingOverview { height: auto; overflow: visible; padding: 16px 12px 28px; }
+  .sourcePendingHero { flex-direction: column; padding: 18px; }
+  .sourcePendingRunAll { width: 100%; }
+  .sourcePendingMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sourceBatchItem,
+  .sourcePendingQueue li { grid-template-columns: 36px minmax(0, 1fr) auto; }
+  .sourceBatchPath,
+  .sourceBatchStatus,
+  .sourcePendingRoute { grid-column: 2 / -1; }
+  .sourcePendingAge { display: none; }
   .sourceRegistryExpand { display: none; }
   .sourceRegistryResize { display: none; }
 }

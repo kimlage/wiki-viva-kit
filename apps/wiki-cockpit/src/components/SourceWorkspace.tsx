@@ -22,6 +22,7 @@ import {
   Globe2,
   GripVertical,
   Inbox,
+  ListChecks,
   MoveDown,
   MoveUp,
   PanelLeftClose,
@@ -37,6 +38,7 @@ import {
 import { t } from "../data/i18n";
 import type { SourceGroup, SourceGroupsOperationResult } from "../types";
 import { SourceDock } from "./SourceDock";
+import { SourcePendingOverview } from "./SourcePendingOverview";
 import { SourcePlatformIcon } from "./SourcePlatformIcon";
 import { sourceDisplayName, sourceKindLabel, sourcePlatformLabel } from "./sourceDockModel";
 
@@ -147,8 +149,7 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
       .sort((a, b) => b.pending_streams - a.pending_streams || a.title.localeCompare(b.title))
   })).filter((group) => organizing || group.sources.length > 0), [groups, normalizedQuery, organizing, sourceById]);
 
-  const firstVisible = groupedVisible.flatMap((group) => group.sources)[0];
-  const selectedId = props.sourceId || firstVisible?.source_id || sources[0]?.source_id || "";
+  const selectedId = props.sourceId || "";
   const overdue = sources.filter((source) => source.pending_streams > 0).length;
   const registryExpanded = registryWidth >= 420;
 
@@ -336,6 +337,17 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
             <span className="pill pill-good">{t("source.registry.configured")} {sources.filter((source) => source.recipe_ok).length}</span>
           </div>
 
+          <button
+            type="button"
+            className={`sourcePendingShortcut${selectedId ? "" : " active"}`}
+            aria-current={selectedId ? undefined : "page"}
+            onClick={() => props.onOpenSource?.("")}
+          >
+            <span><ListChecks size={17} aria-hidden /></span>
+            <span><strong>{t("source.pending.shortcut")}</strong><small>{t("source.pending.shortcutDetail", { n: overdue })}</small></span>
+            <b>{overdue}</b>
+          </button>
+
           {organizing && (
             <div className="sourceGroupToolbar">
               {addingGroup ? (
@@ -465,7 +477,20 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
           onKeyDown={resizeFromKeyboard}
         ><span /></div>
 
-        <SourceDock {...props} sourceId={selectedId} embedded />
+        {selectedId ? (
+          <SourceDock {...props} sourceId={selectedId} embedded />
+        ) : (
+          <SourcePendingOverview
+            sources={sources}
+            groups={groups}
+            demo={props.demo}
+            onOpenSource={props.onOpenSource}
+            onPreviewRefresh={props.onPreviewRefresh}
+            onRunRefresh={props.onRunRefresh}
+            onSourceChanged={props.onSourceChanged}
+            onNotice={props.onNotice}
+          />
+        )}
       </div>
     </main>
   );
