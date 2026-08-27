@@ -110,11 +110,9 @@
   flex: 1 1 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(292px, 21vw) minmax(0, 1fr);
+  grid-template-columns: var(--source-registry-width, 324px) 7px minmax(0, 1fr);
   overflow: hidden;
-  transition: grid-template-columns 180ms ease;
 }
-.sourceWorkspaceBody.registryExpanded { grid-template-columns: minmax(390px, 34vw) minmax(0, 1fr); }
 .sourceRegistry {
   min-width: 0;
   display: flex;
@@ -127,7 +125,9 @@
 }
 .sourceRegistry > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .sourceRegistry > header > span:first-child { display: grid; gap: 2px; }
-.sourceRegistryExpand {
+.sourceRegistryHeaderActions { display: inline-flex; align-items: center; gap: 5px; }
+.sourceRegistryExpand,
+.sourceRegistryOrganize {
   min-width: 30px;
   min-height: 30px;
   display: inline-flex;
@@ -143,7 +143,9 @@
   font: inherit;
   font-size: 10.5px;
 }
-.sourceRegistryExpand:hover { border-color: #39708a; color: #d9f2fb; background: rgba(35, 94, 120, 0.2); }
+.sourceRegistryExpand:hover,
+.sourceRegistryOrganize:hover,
+.sourceRegistryOrganize.active { border-color: #39708a; color: #d9f2fb; background: rgba(35, 94, 120, 0.2); }
 .sourceRegistryExpand span { display: none; }
 .sourceWorkspaceBody.registryExpanded .sourceRegistryExpand span { display: inline; }
 .sourceRegistrySearch {
@@ -159,8 +161,37 @@
 }
 .sourceRegistrySearch input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: #dceaf1; font: inherit; font-size: 12px; }
 .sourceRegistryFilters { display: flex; flex-wrap: wrap; gap: 5px; }
-.sourceRegistryList { flex: 1 1 0; min-height: 0; overflow: auto; list-style: none; margin: 0; padding: 0; }
+.sourceRegistryGroups { flex: 1 1 0; min-height: 0; overflow: auto; padding: 0 2px 12px 0; }
+.sourceRegistryGroup { border: 1px solid transparent; border-radius: 9px; transition: border-color 120ms ease, background 120ms ease; }
+.sourceRegistryGroup + .sourceRegistryGroup { margin-top: 5px; }
+.sourceRegistryGroup.acceptsSource:hover { border-color: rgba(66, 199, 244, 0.46); background: rgba(66, 199, 244, 0.05); }
+.sourceGroupHeader { min-width: 0; display: flex; align-items: center; gap: 3px; min-height: 34px; padding: 2px 3px; border-radius: 7px; color: #a9c2cf; }
+.sourceGroupHeader[draggable="true"] { cursor: grab; }
+.sourceGroupHeader[draggable="true"]:active { cursor: grabbing; }
+.sourceGroupDrag { flex: 0 0 auto; color: #587384; }
+.sourceGroupToggle { flex: 1 1 0; min-width: 0; display: grid; grid-template-columns: 14px 24px minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 5px 6px; border: 0; border-radius: 7px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.sourceGroupToggle:hover { background: rgba(91, 190, 230, 0.06); color: #d7eaf3; }
+.sourceGroupRenameRow:hover { background: transparent; color: inherit; }
+.sourceGroupToggle strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; letter-spacing: 0.015em; }
+.sourceGroupToggle small { min-width: 22px; padding: 2px 6px; border: 1px solid #2b4655; border-radius: 999px; color: #87a6b5; text-align: center; font-size: 9.5px; font-variant-numeric: tabular-nums; }
+.sourceGroupToggle input { width: 100%; min-width: 0; height: 25px; padding: 2px 6px; border: 1px solid #39708a; border-radius: 5px; outline: 0; background: #08141c; color: #e4f3fa; font: inherit; }
+.sourceGroupIcon { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: #7ed9fa; background: rgba(30, 86, 112, 0.24); }
+.sourceGroupActions { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 2px; }
+.sourceGroupActions button,
+.sourceGroupToolbar button,
+.sourceGroupToolbar form button { min-width: 26px; min-height: 26px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 3px 6px; border: 1px solid #2d4654; border-radius: 6px; color: #9fc4d4; background: rgba(18, 41, 54, 0.66); cursor: pointer; font: inherit; font-size: 10.5px; }
+.sourceGroupActions button:hover:not(:disabled),
+.sourceGroupToolbar button:hover:not(:disabled) { border-color: #39708a; color: #e3f5fc; }
+.sourceGroupActions button:disabled,
+.sourceGroupToolbar button:disabled { opacity: 0.35; cursor: not-allowed; }
+.sourceGroupToolbar { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px; border: 1px solid rgba(66, 199, 244, 0.18); border-radius: 8px; background: rgba(18, 45, 59, 0.35); }
+.sourceGroupToolbar form { flex: 1 1 0; min-width: 0; display: flex; gap: 4px; }
+.sourceGroupToolbar form input { min-width: 0; width: 100%; padding: 5px 7px; border: 1px solid #34586b; border-radius: 6px; outline: 0; background: #08141c; color: #e2f2fa; font: inherit; font-size: 10.5px; }
+.sourceGroupToolbar .sourceGroupSave { color: #baf1d6; border-color: rgba(88, 217, 155, 0.35); }
+.sourceGroupError { margin: -2px 0 0; padding: 6px 8px; border-radius: 6px; color: #ffd2d8; background: rgba(135, 38, 54, 0.28); font-size: 10.5px; }
+.sourceRegistryList { list-style: none; margin: 0; padding: 0 0 3px 8px; }
 .sourceRegistryList li + li { margin-top: 4px; }
+.sourceRegistryList li[draggable="true"] { cursor: grab; }
 .sourceRegistryList button {
   width: 100%;
   min-width: 0;
@@ -192,6 +223,13 @@
 .dockHeader > .sourcePlatformBrandIcon { flex: 0 0 auto; max-width: 20px; max-height: 20px; }
 .sourceRegistryList i { width: 7px; height: 7px; border-radius: 50%; background: #62d99c; }
 .sourceRegistryList i.attention { background: #f0ae58; box-shadow: 0 0 8px rgba(240, 174, 88, 0.55); }
+.sourceMoveSelect { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 5px; margin: 2px 4px 5px 43px; color: #7894a3; font-size: 9.5px; }
+.sourceMoveSelect select { min-width: 0; height: 25px; padding: 2px 5px; border: 1px solid #294b5d; border-radius: 5px; background: #091720; color: #cde2eb; font: inherit; }
+.sourceRegistryResize { position: relative; z-index: 5; display: grid; place-items: center; width: 7px; cursor: col-resize; touch-action: none; background: rgba(9, 20, 28, 0.92); outline: 0; }
+.sourceRegistryResize::before { content: ""; position: absolute; inset: 0 -4px; }
+.sourceRegistryResize span { width: 2px; height: 42px; border-radius: 999px; background: #315363; transition: height 120ms ease, background 120ms ease, box-shadow 120ms ease; }
+.sourceRegistryResize:hover span,
+.sourceRegistryResize:focus-visible span { height: 72px; background: #42c7f4; box-shadow: 0 0 10px rgba(66, 199, 244, 0.48); }
 .sourceDock.sourceDockEmbedded {
   position: relative;
   inset: auto;
@@ -207,7 +245,7 @@
   overflow: auto;
 }
 @media (max-width: 820px) {
-  .sourceWorkspaceBody { grid-template-columns: 1fr; overflow: auto; }
+  .sourceWorkspaceBody { display: flex; flex-direction: column; overflow: auto; }
   .sourceRegistry {
     flex: 0 0 280px;
     min-height: 280px;
@@ -217,6 +255,7 @@
   }
   .sourceDock.sourceDockEmbedded { height: auto; overflow: visible; }
   .sourceRegistryExpand { display: none; }
+  .sourceRegistryResize { display: none; }
 }
 .sourceWorkspaceTabs {
   position: sticky;

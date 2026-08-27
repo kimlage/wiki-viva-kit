@@ -35,6 +35,10 @@ from wiki_core.web.source_operations import (
     preview_source_refresh,
     run_source_refresh,
 )
+from wiki_core.web.source_groups import (
+    apply_source_groups_operation,
+    preview_source_groups_operation,
+)
 
 
 class CockpitServer(ThreadingHTTPServer):
@@ -340,6 +344,28 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                 return
             self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+        if parsed.path in {"/api/source-groups/preview", "/api/source-groups/apply"}:
+            from wiki_core.web.sources import build_sources_payload
+
+            sources = build_sources_payload(self.server.root, self.server.config).get("sources") or []
+            try:
+                if parsed.path.endswith("/preview"):
+                    result = preview_source_groups_operation(
+                        self.server.root, self.server.config, payload.get("groups"), sources
+                    )
+                else:
+                    result = apply_source_groups_operation(
+                        self.server.root,
+                        self.server.config,
+                        payload.get("groups"),
+                        sources,
+                        str(payload.get("preview_token") or ""),
+                    )
+            except ValueError as exc:
+                self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(result)
             return
         if parsed.path not in {
             "/api/actions/run",

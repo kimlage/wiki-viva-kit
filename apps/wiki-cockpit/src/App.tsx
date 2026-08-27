@@ -43,6 +43,7 @@ import {
   discardBrief,
   getBrief,
   applySourceOperation,
+  applySourceGroups,
   composeSourceBrief,
   listCodexJobs,
   listSourceOperationReceipts,
@@ -50,6 +51,7 @@ import {
   loadCodexCapability,
   loadSnapshotBundle,
   previewSourceOperation,
+  previewSourceGroups,
   previewSourceRefresh,
   returnCodexJob,
   runCockpitAction,
@@ -1518,6 +1520,8 @@ export function App() {
           onRequestBrief={composeSourceBrief}
           onPreviewConfiguration={previewSourceOperation}
           onApplyConfiguration={applySourceOperation}
+          onPreviewSourceGroups={previewSourceGroups}
+          onApplySourceGroups={applySourceGroups}
           onListReceipts={listSourceOperationReceipts}
           onPreviewRefresh={previewSourceRefresh}
           onRunRefresh={runSourceRefresh}

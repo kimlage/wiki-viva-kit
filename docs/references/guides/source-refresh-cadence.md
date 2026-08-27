@@ -86,6 +86,25 @@ accepts credentials, arbitrary YAML, commands or paths. The preview token binds
 the current config hash to the proposed result hash, so a changed recipe makes
 confirmation fail closed.
 
+### Registry categories and sizing
+
+Registry categories are an operational view over the sources, not replacements
+for semantic input channels or contexts. When a repository has no saved
+organization, the operator derives portable defaults from `platform` and
+`source_kind`: local folders, remote folders, cloud/accounts, web/feeds and
+repositories. The interface can create and rename categories, reorder them,
+move sources by drag and drop or by an accessible selector, and remove an empty
+category.
+
+Saving writes the complete, ordered assignment to
+`wiki.source-groups.yaml`. As with recipe changes, the browser first requests a
+content-bound preview and then applies the exact token; the write produces a
+receipt under `data/derived/wiki/source-operations/`. A newly registered source
+is placed deterministically without overwriting custom labels or existing
+assignments. Category collapse and the draggable registry width are personal UI
+preferences kept in the browser, while the categories themselves are
+versioned and portable with the wiki.
+
 The update planner derives the maximum useful deterministic inventory from the
 entire source before contextual work. Selecting a record does not narrow an
 update to one file. The planner chooses one of four routes:

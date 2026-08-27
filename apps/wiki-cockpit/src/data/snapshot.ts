@@ -504,6 +504,29 @@ export async function applySourceOperation(
   return (await response.json()) as import("../types").SourceOperationReceipt;
 }
 
+export async function previewSourceGroups(
+  groups: import("../types").SourceGroup[]
+): Promise<import("../types").SourceGroupsOperationResult> {
+  const response = await fetch(await apiUrl("/source-groups/preview"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ groups })
+  });
+  return (await response.json()) as import("../types").SourceGroupsOperationResult;
+}
+
+export async function applySourceGroups(
+  groups: import("../types").SourceGroup[],
+  previewToken: string
+): Promise<import("../types").SourceGroupsOperationResult> {
+  const response = await fetch(await apiUrl("/source-groups/apply"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ groups, preview_token: previewToken })
+  });
+  return (await response.json()) as import("../types").SourceGroupsOperationResult;
+}
+
 export async function listSourceOperationReceipts(
   sourceId: string,
   options: { signal?: AbortSignal } = {}

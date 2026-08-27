@@ -497,9 +497,33 @@ export type SourceEntity = {
   next_due_days?: number | null;
 };
 
+export type SourceGroupIcon = "folder" | "folder-remote" | "cloud" | "web" | "repository" | "inbox";
+export type SourceGroup = {
+  id: string;
+  label: string;
+  icon: SourceGroupIcon;
+  source_ids: string[];
+};
+export type SourceGroupsPayload = {
+  schema_version: string;
+  config_path: string;
+  configured: boolean;
+  groups: SourceGroup[];
+};
+export type SourceGroupsOperationResult = {
+  ok: boolean;
+  error?: string;
+  preview_token?: string;
+  operation_id?: string;
+  receipt_path?: string;
+  changed_files?: string[];
+  groups?: SourceGroup[];
+};
+
 export type SourceEntitiesPayload = {
   schema_version: string;
   sources: SourceEntity[];
+  source_groups?: SourceGroupsPayload;
   summary?: { total: number; with_recipe: number; pending: number };
   error?: string;
 };
