@@ -43,6 +43,15 @@ export function useSourceOperations({
   setSection
 }: SourceOperationsOptions) {
   const selectedStream = source?.streams.find((stream) => stream.id === selectedStreamId) ?? source?.streams[0];
+  const selectedStreamRevision = JSON.stringify({
+    label: selectedStream?.label,
+    selected: selectedStream?.selected,
+    privacy: selectedStream?.privacy,
+    cadenceDays: selectedStream?.cadence_days,
+    processingState: selectedStream?.filters?.processing_state,
+    skipReason: selectedStream?.skip_reason,
+    targetPages: selectedStream?.target_pages
+  });
   const [draft, setDraft] = useState<StreamDraft>(EMPTY_DRAFT);
   const [operationPreview, setOperationPreview] = useState<SourceOperationPreview | null>(null);
   const [operationBusy, setOperationBusy] = useState(false);
@@ -72,7 +81,7 @@ export function useSourceOperations({
     setRefreshPreview(null);
     setRefreshReceipt(null);
     setRawPath("");
-  }, [selectedStream?.id, source?.source_id]);
+  }, [selectedStream?.id, source?.source_id, selectedStreamRevision]);
 
   useEffect(() => {
     if (!source?.source_id || demo || !onListReceipts) {
