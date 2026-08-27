@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureLanguage } from "../data/i18n";
 import type { BriefSpec, SnapshotBundle, SourceEntity, SourceOperationPreview, SourceOperationReceipt } from "../types";
 import { SourceDock } from "./SourceDock";
+import { SourceWorkspace } from "./SourceWorkspace";
 
 function sourceFixture(overrides: Partial<SourceEntity> = {}): SourceEntity {
   return {
@@ -112,6 +113,25 @@ afterEach(() => {
 });
 
 describe("SourceDock operational workspace", () => {
+  it("expands the registry while keeping a readable visual name and semantic platform icon", () => {
+    render(
+      <SourceWorkspace
+        bundle={bundleWith(sourceFixture({ title: "Fonte - Gmail da equipe" }))}
+        sourceId="source-gmail"
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    const registry = screen.getByRole("complementary", { name: "Sources (1)" });
+    expect(within(registry).getByText("Gmail da equipe").getAttribute("title")).toBe("Fonte - Gmail da equipe");
+    expect(registry.querySelector(".lucide-mail")).toBeTruthy();
+    const expand = within(registry).getByRole("button", { name: "Expand source list" });
+    expect(expand.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(expand);
+    expect(expand.getAttribute("aria-expanded")).toBe("true");
+    expect(document.querySelector(".sourceWorkspaceBody")?.classList.contains("registryExpanded")).toBe(true);
+  });
+
   it("keeps record selection, update, configuration and history as explicit source-only tabs", () => {
     render(<SourceDock bundle={bundleWith(sourceFixture())} sourceId="source-gmail" onNotice={noop} onClose={noop} />);
     expect(screen.getByRole("button", { name: "Records" })).toBeTruthy();
@@ -235,6 +255,52 @@ describe("SourceDock operational workspace", () => {
     expect(prepare.disabled).toBe(true);
     fireEvent.click(prepare);
     expect(onComposeBrief).not.toHaveBeenCalled();
+  });
+
+  it("requires a RAW path only for a script route and hides irrelevant agent controls", async () => {
+    const previewRefresh = vi.fn(async (): Promise<SourceOperationPreview> => ({
+      ok: true,
+      preview_token: "f".repeat(64),
+      execution: { mode: "script", argv: ["python3", "scripts/ingest.py"], mcp_hint: "", how_to_export: "", runnable: true },
+      steps: []
+    }));
+    render(
+      <SourceDock
+        bundle={bundleWith(sourceFixture({ update_route: { mode: "script", mcp_hint: "", runnable: true, requires_agent: false } }))}
+        sourceId="source-gmail"
+        onPreviewRefresh={previewRefresh}
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    const inspect = screen.getByRole("button", { name: "Check RAW and plan" }) as HTMLButtonElement;
+    expect(inspect.disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Claude" })).toBeNull();
+    fireEvent.change(screen.getByLabelText(/Local RAW snapshot path/), { target: { value: "data/raw/inbox.mbox" } });
+    expect(inspect.disabled).toBe(false);
+    fireEvent.click(inspect);
+    await waitFor(() => expect(previewRefresh).toHaveBeenCalledWith("source-gmail", "__source__", "data/raw/inbox.mbox"));
+  });
+
+  it("offers direct live inventory without a fake RAW input for a deterministic connector", async () => {
+    render(
+      <SourceDock
+        bundle={bundleWith(sourceFixture({ update_route: { mode: "deterministic_connector", mcp_hint: "", runnable: true, requires_agent: false } }))}
+        sourceId="source-gmail"
+        onPreviewRefresh={vi.fn(async (): Promise<SourceOperationPreview> => ({
+          ok: true,
+          preview_token: "g".repeat(64),
+          execution: { mode: "deterministic_connector", argv: ["python3", "scripts/inventory.py"], mcp_hint: "", how_to_export: "", runnable: true },
+          steps: []
+        }))}
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    expect(screen.getByRole("button", { name: "Inventory live source" })).toBeTruthy();
+    expect(screen.queryByLabelText(/Local RAW snapshot path/)).toBeNull();
   });
 
   it("shows a deterministic collection diff and applies only selected records", async () => {
@@ -589,6 +655,42 @@ describe("SourceDock brief flow (§19.6)", () => {
 });
 
 describe("SourceDock honest edges (§19.6)", () => {
+  it("removes redundant source prefixes from the visual name without changing the canonical title", () => {
+    render(
+      <SourceDock
+        bundle={bundleWith(sourceFixture({ title: "Fonte - Gmail da equipe" }))}
+        sourceId="source-gmail"
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    expect(screen.getByText("Gmail da equipe").getAttribute("title")).toBe("Fonte - Gmail da equipe");
+    expect(screen.queryByText("Fonte - Gmail da equipe")).toBeNull();
+    expect(document.querySelector(".dockHeader .lucide-mail")).toBeTruthy();
+  });
+
+  it("shows authorization readiness before an update is attempted", () => {
+    render(
+      <SourceDock
+        bundle={bundleWith(sourceFixture({
+          update_route: { mode: "agent_connector", mcp_hint: "google-drive", runnable: false, requires_agent: true }
+        }))}
+        sourceId="source-gmail"
+        agentCapabilities={{
+          codex: { enabled: true, installed: true, runnable: true, authed: true, auth_mode: "chatgpt", version: "1", usable: true, reason: "", connectors: [] },
+          claude: { enabled: true, installed: true, runnable: true, authed: true, auth_mode: "claude.ai", version: "1", usable: true, reason: "", connectors: ["blender"] }
+        }}
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    const authorization = screen.getByRole("region", { name: "Authorization and live access" });
+    expect(within(authorization).getByText("Connector unavailable")).toBeTruthy();
+    expect(within(authorization).getByText("keychain:gmail-personal")).toBeTruthy();
+    expect(within(authorization).getByText(/does not expose google-drive/)).toBeTruthy();
+  });
+
   it("says when a source is not in the snapshot", () => {
     render(<SourceDock bundle={bundleWith(null)} sourceId="ghost" onNotice={noop} onClose={noop} />);
     expect(screen.getByText("Source `ghost` is not in this snapshot.")).toBeTruthy();

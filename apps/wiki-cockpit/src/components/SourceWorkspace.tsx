@@ -1,14 +1,16 @@
 import { useMemo, useState, type ComponentProps } from "react";
-import { ArrowLeft, Database, Search } from "lucide-react";
+import { ArrowLeft, Database, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { t } from "../data/i18n";
 import { SourceDock } from "./SourceDock";
-import { sourceKindLabel } from "./sourceDockModel";
+import { SourcePlatformIcon } from "./SourcePlatformIcon";
+import { sourceDisplayName, sourceKindLabel, sourcePlatformLabel } from "./sourceDockModel";
 
 type SourceWorkspaceProps = Omit<ComponentProps<typeof SourceDock>, "embedded">;
 
 export function SourceWorkspace(props: SourceWorkspaceProps) {
   const sources = props.bundle.sourceEntities?.sources ?? [];
   const [query, setQuery] = useState("");
+  const [registryExpanded, setRegistryExpanded] = useState(false);
   const visible = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     const ordered = [...sources].sort(
@@ -38,11 +40,21 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
         </button>
       </header>
 
-      <div className="sourceWorkspaceBody">
+      <div className={`sourceWorkspaceBody${registryExpanded ? " registryExpanded" : ""}`}>
         <aside className="sourceRegistry" aria-label={t("source.list.title", { n: sources.length })}>
           <header>
             <span><strong>{t("source.registry.title")}</strong><small>{sources.length} {t("source.registry.registered")}</small></span>
-            {overdue > 0 && <span className="pill pill-warn">{overdue} {t("source.registry.attention")}</span>}
+            <button
+              type="button"
+              className="sourceRegistryExpand"
+              aria-expanded={registryExpanded}
+              aria-label={t(registryExpanded ? "source.registry.collapse" : "source.registry.expand")}
+              title={t(registryExpanded ? "source.registry.collapse" : "source.registry.expand")}
+              onClick={() => setRegistryExpanded((expanded) => !expanded)}
+            >
+              {registryExpanded ? <PanelLeftClose size={15} aria-hidden /> : <PanelLeftOpen size={15} aria-hidden />}
+              <span>{t(registryExpanded ? "source.registry.collapse" : "source.registry.expand")}</span>
+            </button>
           </header>
           <label className="sourceRegistrySearch">
             <Search size={14} aria-hidden />
@@ -62,8 +74,11 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
                   aria-current={source.source_id === selectedId ? "true" : undefined}
                   onClick={() => props.onOpenSource?.(source.source_id)}
                 >
-                  <span className="sourceRegistryIcon"><Database size={15} aria-hidden /></span>
-                  <span><strong>{source.title}</strong><small>{sourceKindLabel(source.source_kind)} · {source.streams.length} {t("source.update.records")}</small></span>
+                  <span className="sourceRegistryIcon"><SourcePlatformIcon source={source} size={16} /></span>
+                  <span>
+                    <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
+                    <small>{sourcePlatformLabel(source.platform)} · {sourceKindLabel(source.source_kind)} · {source.streams.length} {t("source.update.records")}</small>
+                  </span>
                   <i className={source.pending_streams > 0 ? "attention" : "healthy"} aria-hidden />
                 </button>
               </li>

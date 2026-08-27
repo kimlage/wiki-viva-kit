@@ -278,6 +278,19 @@ def _source_record(
     pipeline_timestamps = authored_lifecycle.get("pipeline_stage_timestamps")
     if not isinstance(pipeline_timestamps, dict):
         pipeline_timestamps = {}
+    refresh_argv = ((recipe_json.get("refresh") or {}).get("argv") or []) if recipe_json else []
+    ingest = (recipe_json.get("ingest") or {}) if recipe_json else {}
+    ingest_argv = ingest.get("argv") or []
+    mcp_hint = str(ingest.get("mcp_hint") or "")
+    update_mode = (
+        "deterministic_connector"
+        if refresh_argv
+        else "script"
+        if ingest_argv
+        else "agent_connector"
+        if mcp_hint
+        else "manual_export"
+    )
 
     return {
         "source_id": source_id,
@@ -353,6 +366,14 @@ def _source_record(
         "recipe_ok": bool(recipe_json) and not recipe_errors,
         "recipe_errors": recipe_errors,
         "how_to_export": recipe_json.get("how_to_export") or "",
+        # Safe operational summary for the cockpit. Commands remain available
+        # only through the governed preview; this projection exposes no secret.
+        "update_route": {
+            "mode": update_mode,
+            "mcp_hint": mcp_hint,
+            "runnable": update_mode in {"script", "deterministic_connector"},
+            "requires_agent": update_mode == "agent_connector",
+        },
         "pipelines": pipelines,
         "streams": streams_out,
         "pending_streams": pending,

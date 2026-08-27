@@ -96,6 +96,12 @@ def test_payload_rolls_up_identity_recipe_and_freshness(tmp_path: Path) -> None:
     assert source["platform"] == "slack" and source["owner"] == "person-kim"
     assert source["locator"] == "T024/finance"
     assert source["recipe_ok"] is True
+    assert source["update_route"] == {
+        "mode": "manual_export",
+        "mcp_hint": "",
+        "runnable": False,
+        "requires_agent": False,
+    }
     streams = {s["id"]: s for s in source["streams"]}
     assert streams["#financeiro"]["breached"] is False
     assert streams["#custos"]["breached"] is True

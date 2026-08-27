@@ -704,6 +704,12 @@ export type SourceEntity = {
   recipe_ok: boolean;
   recipe_errors: string[];
   how_to_export: string;
+  update_route?: {
+    mode: "script" | "deterministic_connector" | "agent_connector" | "manual_export";
+    mcp_hint: string;
+    runnable: boolean;
+    requires_agent: boolean;
+  };
   pipelines: { kind: string; cadence_days: number }[];
   streams: SourceStream[];
   pending_streams: number;

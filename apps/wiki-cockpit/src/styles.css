@@ -131,9 +131,11 @@
   flex: 1 1 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(252px, 19vw) minmax(0, 1fr);
+  grid-template-columns: minmax(292px, 21vw) minmax(0, 1fr);
   overflow: hidden;
+  transition: grid-template-columns 180ms ease;
 }
+.sourceWorkspaceBody.registryExpanded { grid-template-columns: minmax(390px, 34vw) minmax(0, 1fr); }
 .sourceRegistry {
   min-width: 0;
   display: flex;
@@ -146,6 +148,25 @@
 }
 .sourceRegistry > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .sourceRegistry > header > span:first-child { display: grid; gap: 2px; }
+.sourceRegistryExpand {
+  min-width: 30px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 7px;
+  border: 1px solid #2d4654;
+  border-radius: 7px;
+  color: #9fc4d4;
+  background: rgba(18, 41, 54, 0.66);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10.5px;
+}
+.sourceRegistryExpand:hover { border-color: #39708a; color: #d9f2fb; background: rgba(35, 94, 120, 0.2); }
+.sourceRegistryExpand span { display: none; }
+.sourceWorkspaceBody.registryExpanded .sourceRegistryExpand span { display: inline; }
 .sourceRegistrySearch {
   display: flex;
   align-items: center;
@@ -181,6 +202,10 @@
 .sourceRegistryList button > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
 .sourceRegistryList strong,
 .sourceRegistryList small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sourceWorkspaceBody.registryExpanded .sourceRegistryList strong {
+  white-space: normal;
+  line-height: 1.3;
+}
 .sourceRegistryIcon { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #2b4a5b; border-radius: 8px; color: #7ed9fa; background: #102331; }
 .sourceRegistryList i { width: 7px; height: 7px; border-radius: 50%; background: #62d99c; }
 .sourceRegistryList i.attention { background: #f0ae58; box-shadow: 0 0 8px rgba(240, 174, 88, 0.55); }
@@ -208,6 +233,7 @@
     border-bottom: 1px solid #223642;
   }
   .sourceDock.sourceDockEmbedded { height: auto; overflow: visible; }
+  .sourceRegistryExpand { display: none; }
 }
 .sourceWorkspaceTabs {
   position: sticky;
@@ -656,6 +682,55 @@
 .sourceDeterministicCard dt { color: #718796; }
 .sourceDeterministicCard dd { margin: 0; color: #b9cbd6; overflow-wrap: anywhere; }
 .sourceDeterministicCard details summary { color: #8fa5b4; cursor: pointer; font-size: 10.5px; }
+.sourceAuthorizationCard {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #3f4b55;
+  border-radius: 9px;
+  background: rgba(13, 25, 34, 0.72);
+}
+.sourceAuthorizationCard.healthy { border-color: rgba(87, 188, 139, 0.38); background: rgba(28, 88, 61, 0.1); }
+.sourceAuthorizationCard.blocked,
+.sourceAuthorizationCard.undeclared { border-color: rgba(240, 174, 88, 0.45); background: rgba(119, 72, 27, 0.1); }
+.sourceAuthorizationCard > header {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+.sourceAuthorizationIcon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #315061;
+  border-radius: 8px;
+  color: #7fd0e8;
+  background: #102331;
+}
+.sourceAuthorizationCard > header > span:nth-child(2) { display: grid; gap: 1px; }
+.sourceAuthorizationCard > header small { color: #718796; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; }
+.sourceAuthorizationCard > header strong { color: #d7e7ee; font-size: 12px; }
+.sourceAuthorizationCard dl {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.24fr) minmax(0, 1fr);
+  gap: 5px 10px;
+  margin: 0;
+  font-size: 10.5px;
+}
+.sourceAuthorizationCard dt { color: #718796; }
+.sourceAuthorizationCard dd { margin: 0; color: #b9cbd6; overflow-wrap: anywhere; }
+.sourceAuthorizationCard dd code { font-size: 10px; }
+.sourceAuthorizationStatus,
+.sourceAuthorizationSafety { display: flex; align-items: flex-start; gap: 6px; margin: 0; line-height: 1.45; }
+.sourceAuthorizationStatus { color: #aabec9; font-size: 10.5px; }
+.sourceAuthorizationCard.healthy .sourceAuthorizationStatus { color: #91c9ad; }
+.sourceAuthorizationCard.blocked .sourceAuthorizationStatus,
+.sourceAuthorizationCard.undeclared .sourceAuthorizationStatus { color: #ffbd69; }
+.sourceAuthorizationStatus svg,
+.sourceAuthorizationSafety svg { flex: 0 0 auto; margin-top: 1px; }
+.sourceAuthorizationSafety { color: #6f8494; font-size: 9.5px; }
 .sourceUpdateRoute {
   display: grid;
   gap: 7px;
@@ -728,6 +803,7 @@
   gap: 10px;
   padding: 0;
 }
+.sourceRefreshPlanner.noInput { grid-template-columns: 1fr; justify-items: start; }
 .sourceRefreshPlanner label { display: grid; gap: 4px; color: #8fa5b4; font-size: 10.5px; }
 .sourceRefreshPlanner input {
   width: 100%;
