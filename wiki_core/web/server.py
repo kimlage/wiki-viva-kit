@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import sys
 import threading
@@ -16,6 +17,7 @@ from wiki_core.paths import WikiPaths
 from wiki_core.web.briefs import BriefStore, compose_and_save, compose_return_brief
 from wiki_core.web.codex_jobs import JobRunner
 from wiki_core.web.codex_probe import probe_codex_for
+from wiki_core.web.agent_adapters import list_agent_connectors, probe_claude_for
 from wiki_core.web.commands import run_action
 from wiki_core.web.content import build_page_content
 from wiki_core.web.diff import file_diff
@@ -26,6 +28,13 @@ from wiki_core.web.ingestion_plan import build_ingestion_plan, run_ingestion_ste
 from wiki_core.web.schemas import SCHEMA_CAPABILITIES, WEB_SERVER_VERSION
 from wiki_core.web.snapshot import build_snapshot, write_snapshot
 from wiki_core.web.source_triage import triage_source
+from wiki_core.web.source_operations import (
+    apply_source_operation,
+    list_source_operation_receipts,
+    preview_source_operation,
+    preview_source_refresh,
+    run_source_refresh,
+)
 
 
 class CockpitServer(ThreadingHTTPServer):
@@ -102,11 +111,34 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     "server_version": WEB_SERVER_VERSION,
                     "schema_capabilities": list(SCHEMA_CAPABILITIES),
                     "codex": probe_codex_for(self.server.config),
+                    "claude": probe_claude_for(self.server.config),
                 }
             )
             return
         if path == "/api/codex/capability":
             self._send_json(probe_codex_for(self.server.config))
+            return
+        if path == "/api/agents/capability":
+            codex_block = getattr(self.server.config, "codex", {}) or {}
+            claude_block = getattr(self.server.config, "claude", {}) or {}
+            codex_binary = str(codex_block.get("binary") or "codex")
+            claude_binary = str(claude_block.get("binary") or "claude")
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                codex_future = pool.submit(probe_codex_for, self.server.config)
+                claude_future = pool.submit(probe_claude_for, self.server.config)
+                codex_connectors = pool.submit(list_agent_connectors, "codex", binary=codex_binary)
+                claude_connectors = pool.submit(list_agent_connectors, "claude", binary=claude_binary)
+                codex = codex_future.result()
+                claude = claude_future.result()
+                codex["connectors"] = codex_connectors.result()
+                claude["connectors"] = claude_connectors.result()
+            self._send_json({
+                "ok": True,
+                "agents": {
+                    "codex": codex,
+                    "claude": claude,
+                },
+            })
             return
         if path == "/api/diff/file":
             file_path = (parse_qs(parsed.query).get("path") or [""])[0]
@@ -147,6 +179,11 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             # Friendlier alias for the rich source read model (also served raw
             # at /api/snapshot/source_entities.json).
             self._send_json(self.server.snapshot_payloads().get("source_entities.json") or {"sources": []})
+            return
+        if path.startswith("/api/sources/") and path.endswith("/operations"):
+            source_id = path[len("/api/sources/") : -len("/operations")].strip("/")
+            records = list_source_operation_receipts(self.server.root, self.server.config, source_id)
+            self._send_json({"ok": True, "source_id": source_id, "receipts": records})
             return
         if path == "/api/snapshot":
             self._send_json(self.server.snapshot_payloads())
@@ -242,6 +279,61 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 return
             self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.NOT_FOUND)
             return
+        if parsed.path.startswith("/api/sources/") and (
+            parsed.path.endswith("/operations/preview")
+            or parsed.path.endswith("/operations/apply")
+            or parsed.path.endswith("/operations/refresh-preview")
+            or parsed.path.endswith("/operations/refresh-run")
+        ):
+            suffix = next(
+                item for item in (
+                    "/operations/refresh-preview",
+                    "/operations/refresh-run",
+                    "/operations/preview",
+                    "/operations/apply",
+                ) if parsed.path.endswith(item)
+            )
+            source_id = parsed.path[len("/api/sources/") : -len(suffix)].strip("/")
+            stream_id = str(payload.get("stream_id") or "").strip()
+            if not source_id or not stream_id:
+                self._send_error("source_id and stream_id are required", status=HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                if suffix == "/operations/preview":
+                    result = preview_source_operation(
+                        self.server.root, self.server.config, source_id, stream_id, payload.get("updates")
+                    )
+                elif suffix == "/operations/apply":
+                    result = apply_source_operation(
+                        self.server.root,
+                        self.server.config,
+                        source_id,
+                        stream_id,
+                        payload.get("updates"),
+                        str(payload.get("preview_token") or ""),
+                    )
+                elif suffix == "/operations/refresh-preview":
+                    result = preview_source_refresh(
+                        self.server.root,
+                        self.server.config,
+                        source_id,
+                        stream_id,
+                        str(payload.get("raw_path") or ""),
+                    )
+                else:
+                    result = run_source_refresh(
+                        self.server.root,
+                        self.server.config,
+                        source_id,
+                        stream_id,
+                        str(payload.get("raw_path") or ""),
+                        str(payload.get("preview_token") or ""),
+                    )
+            except ValueError as exc:
+                self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
         if parsed.path not in {
             "/api/actions/run",
             "/api/git/workflow",
@@ -331,7 +423,8 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
     def _handle_codex_post(self, path: str, payload: dict[str, Any]) -> None:
         jobs = self.server.jobs
         if path == "/api/codex/jobs":
-            capability = probe_codex_for(self.server.config)
+            agent = str(payload.get("agent") or "codex").strip().lower()
+            capability = probe_claude_for(self.server.config) if agent == "claude" else probe_codex_for(self.server.config)
             if not capability.get("usable"):
                 self._send_json(
                     {"ok": False, "error": capability.get("reason") or "Codex is not available", "codex": capability},
@@ -349,6 +442,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 dry_run=bool(payload.get("dry_run", True)),
                 force=bool(payload.get("force", False)),
                 parent_job_id=(str(payload["parent_job_id"]) if payload.get("parent_job_id") else None),
+                agent=agent,
             )
             self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
             return

@@ -62,7 +62,7 @@ read model reports what is still invalid until you do.
 ```yaml
 recipe:
   schema_version: wiki_source_recipe.v1
-  platform: ""            # slack | gmail | whatsapp | web | repo | manual …
+  platform: ""            # slack | gchat | chatgpt | whatsapp | gmail | drive | google_photos | web | repo | file | calendar | manual
   locator: ""             # the stable address on that platform (must match the source page)
   pipelines:
     - { kind: metadata, cadence_days: 30 }
@@ -86,9 +86,18 @@ recipe:
   how_to_export: |
     Describe exactly how a human exports the already-authorized RAW for this source
     (the sandbox has NO network). Point at the export location the agent should read.
+  mcp_hint: ""            # optional connector/tool hint, e.g. google_drive.list_folder
   ingest:
     argv: ["python3", "scripts/wiki_ingest.py", "--source", "{path}"]
 ```
+
+The interface only runs `ingest.argv` directly when it is an allowlisted
+`python`/`python3` command whose program is repository-relative under
+[scripts](../../../../scripts/), and `{path}` resolves to a hashed file under
+[data/raw](../../../../data/raw/). If
+`ingest.argv` is empty and `mcp_hint` is present, the update is delegated to a
+usable agent that actually exposes that connector. Otherwise the manual export
+instructions are shown as the honest next step.
 
 ## Ingestion rules
 

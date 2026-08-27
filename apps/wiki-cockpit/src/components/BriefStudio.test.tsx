@@ -97,6 +97,27 @@ describe("BriefStudio", () => {
     expect(onExecute).toHaveBeenCalled();
   });
 
+  it("uses the Claude capability when the brief selects the Claude adapter", () => {
+    const onExecute = vi.fn();
+    render(
+      <BriefStudio
+        brief={brief({ spec: { agent: "claude", grounding: {} } })}
+        capability={cap({ usable: false, reason: "Codex unavailable" })}
+        claudeCapability={cap({ usable: true, installed: true, runnable: true, authed: true, reason: "" })}
+        busy={false}
+        onSaveText={noop}
+        onDiscard={noop}
+        onExecute={onExecute}
+        onNotice={noop}
+        onClose={noop}
+      />
+    );
+    const execute = screen.getByRole("button", { name: /Execute with Claude/ }) as HTMLButtonElement;
+    expect(execute.disabled).toBe(false);
+    fireEvent.click(execute);
+    expect(onExecute).toHaveBeenCalled();
+  });
+
   it("copies the current text and notifies", async () => {
     const writeText = vi.fn(async () => undefined);
     Object.assign(navigator, { clipboard: { writeText } });

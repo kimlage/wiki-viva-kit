@@ -42,14 +42,21 @@ import {
   composeBrief,
   discardBrief,
   getBrief,
+  applySourceOperation,
+  composeSourceBrief,
+  listSourceOperationReceipts,
+  loadAgentCapabilities,
   loadCodexCapability,
   loadSnapshotBundle,
+  previewSourceOperation,
+  previewSourceRefresh,
   returnCodexJob,
   runCockpitAction,
   runGitWorkflow,
   runIngestionStep,
   saveBriefText,
-  spawnCodexJob
+  spawnCodexJob,
+  runSourceRefresh
 } from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
 import { buildUrl, installLinkInterceptor, navigate, parseRoute, patchWorld, useRouteUrl, worldFromRoute } from "./router";
@@ -1100,6 +1107,7 @@ export function App() {
   const [activeBrief, setActiveBrief] = useState<BriefRecord | null>(null);
   const [briefBusy, setBriefBusy] = useState(false);
   const [codexCapability, setCodexCapability] = useState<CodexCapability>(CODEX_UNAVAILABLE);
+  const [claudeCapability, setClaudeCapability] = useState<CodexCapability>({ ...CODEX_UNAVAILABLE });
   const [codexBusy, setCodexBusy] = useState(false);
 
   // One snapshot bundle per universe, loaded once per session — it survives
@@ -1173,9 +1181,15 @@ export function App() {
   // probed once the real bundle is ready and never in the demo. It fails closed.
   useEffect(() => {
     if (loadState.status !== "ready") return;
-    loadCodexCapability(loadState.runtime)
-      .then(setCodexCapability)
-      .catch(() => setCodexCapability(CODEX_UNAVAILABLE));
+    loadAgentCapabilities(loadState.runtime)
+      .then((capabilities) => {
+        setCodexCapability(capabilities.codex);
+        setClaudeCapability(capabilities.claude);
+      })
+      .catch(() => {
+        setCodexCapability(CODEX_UNAVAILABLE);
+        setClaudeCapability({ ...CODEX_UNAVAILABLE });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadState.status, route.demo]);
 
@@ -1441,7 +1455,8 @@ export function App() {
         setNotice({ text: t("brief.exit.saveFailed", { error: saved.error || "no sha" }), tone: "warn", showResult: false });
         return;
       }
-      const job = await spawnCodexJob(saved.brief_id, saved.brief_sha, { dryRun: false });
+      const agent = saved.spec.agent === "claude" ? "claude" : "codex";
+      const job = await spawnCodexJob(saved.brief_id, saved.brief_sha, { dryRun: false, agent });
       if (job.ok === false) {
         setNotice({
           text: t("codex.job.failed", { error: job.error || job.reason || "rejected" }),
@@ -1559,11 +1574,12 @@ export function App() {
           <BriefStudio
             brief={activeBrief}
             capability={codexCapability}
+            claudeCapability={claudeCapability}
             busy={briefBusy}
             git={loadState.status === "ready" ? loadState.bundle.git : undefined}
             onSaveText={saveBrief}
             onDiscard={removeBrief}
-            onExecute={codexCapability.usable ? executeBrief : undefined}
+            onExecute={(activeBrief.spec.agent === "claude" ? claudeCapability : codexCapability).usable ? executeBrief : undefined}
             onDiagnose={openCodexDock}
             onNotice={notify}
             onClose={() => setActiveBrief(null)}
@@ -1624,7 +1640,16 @@ export function App() {
           <SourceDock
             bundle={loadState.bundle}
             sourceId={worldRoute.query.src}
+            demo={route.demo}
+            agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
             onComposeBrief={runBrief}
+            onRequestBrief={composeSourceBrief}
+            onPreviewConfiguration={previewSourceOperation}
+            onApplyConfiguration={applySourceOperation}
+            onListReceipts={listSourceOperationReceipts}
+            onPreviewRefresh={previewSourceRefresh}
+            onRunRefresh={runSourceRefresh}
+            onSourceChanged={refetchReal}
             onNotice={notify}
             onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
             onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}

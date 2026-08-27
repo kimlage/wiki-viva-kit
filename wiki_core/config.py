@@ -216,6 +216,9 @@ class WikiConfig:
     # wiki.config.yaml (then the cockpit never advertises a Codex launch, even if
     # the binary is present). `binary` overrides the CLI name/path.
     codex: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "binary": "codex"})
+    # Optional Claude Code adapter. It shares the governed job runner; this
+    # block selects capability and binary, never credentials.
+    claude: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "binary": "claude"})
 
     @property
     def karma_enabled(self) -> bool:
@@ -230,6 +233,13 @@ class WikiConfig:
         if isinstance(value, bool):
             return value
         return _as_bool(value, field_name="codex.enabled")
+
+    @property
+    def claude_enabled(self) -> bool:
+        value = self.claude.get("enabled", True)
+        if isinstance(value, bool):
+            return value
+        return _as_bool(value, field_name="claude.enabled")
 
 
 def load_config(root: Path) -> WikiConfig:
@@ -278,6 +288,7 @@ def load_config(root: Path) -> WikiConfig:
         audit={**WikiConfig().audit, **dict(raw.get("audit", {}))},
         karma={**WikiConfig().karma, **dict(raw.get("karma", {}))},
         codex={**WikiConfig().codex, **dict(raw.get("codex", {}))},
+        claude={**WikiConfig().claude, **dict(raw.get("claude", {}))},
     )
 
 

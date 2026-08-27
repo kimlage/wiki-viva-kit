@@ -25,7 +25,7 @@ SOURCE_RECIPE_SCHEMA_VERSION = "wiki_source_recipe.v1"
 # analogue, scoped to what this wiki actually runs.
 PIPELINE_KINDS = frozenset({"metadata", "content", "deep_read", "usage"})
 PLATFORMS = frozenset(
-    {"slack", "gchat", "whatsapp", "gmail", "drive", "web", "repo", "file", "calendar", "manual"}
+    {"slack", "gchat", "chatgpt", "whatsapp", "gmail", "drive", "google_photos", "web", "repo", "file", "calendar", "manual"}
 )
 PRIVACY_LEVELS = frozenset(
     {"private_self", "private_sensitive_allowed", "team_shared", "public_ok"}

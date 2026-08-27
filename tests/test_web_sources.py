@@ -96,6 +96,53 @@ def test_payload_rolls_up_identity_recipe_and_freshness(tmp_path: Path) -> None:
     assert source["sync"]["last_status"] == "partial"
 
 
+def test_versioned_per_stream_receipts_survive_a_clean_clone(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    source_path = tmp_path / "memories/sources/slack-fin.md"
+    text = source_path.read_text(encoding="utf-8").replace(
+        "  streams_total: 2\n",
+        "  streams_total: 2\n"
+        "  streams:\n"
+        "    '#financeiro':\n"
+        "      last_run_at: 2026-07-01T10:00:00Z\n"
+        "      last_status: ok\n"
+        "    '#custos':\n"
+        "      last_run_at: 2026-06-20T10:00:00Z\n"
+        "      last_status: ok\n",
+    )
+    _write(source_path, text)
+
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    streams = {stream["id"]: stream for stream in source["streams"]}
+    assert streams["#financeiro"]["cursor_age_days"] == 2
+    assert streams["#financeiro"]["freshness_basis"] == "versioned_stream_receipt"
+    assert streams["#custos"]["cursor_age_days"] == 13
+    assert source["pending_streams"] == 1
+
+
+def test_shared_recipe_exposes_only_stream_for_current_source(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    config_path = tmp_path / "memories/sources/config/slack-fin.md"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        .replace(
+            '    - id: "#financeiro"\n      selected: true\n',
+            '    - id: "#financeiro"\n      selected: true\n'
+            '      filters: { source_ref: source-slack-fin }\n',
+        )
+        .replace(
+            '    - id: "#custos"\n      selected: true\n',
+            '    - id: "#custos"\n      selected: true\n'
+            '      filters: { source_ref: source-other }\n',
+        ),
+        encoding="utf-8",
+    )
+
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    assert [stream["id"] for stream in source["streams"]] == ["#financeiro"]
+    assert source["sync"]["streams_total"] == 1
+
+
 def test_compose_brief_targets_only_stale_streams(tmp_path: Path) -> None:
     config = _repo(tmp_path)
     paths = WikiPaths(tmp_path, config)

@@ -52,6 +52,42 @@ system without an authorized connector or exported RAW.
 The legacy frontmatter remains visible in the source registry so existing
 consumers can migrate without losing their previous freshness signal.
 
+## Operating sources in the cockpit
+
+Open a source with `?dock=source&src=<source-id>`. The source workspace has four
+tabs and does not mix source operations with the world's navigation controls:
+
+| Tab | Operational purpose |
+| --- | --- |
+| Records | Select the exact recipe stream and inspect its deterministic metadata, freshness, privacy and target pages. |
+| Update | Validate how that selected record can be collected, then run an allowlisted script or prepare a monitored agent brief. |
+| Configure | Edit only governed recipe fields, review a content-bound preview, then explicitly confirm it. |
+| History | Read immutable source-operation receipts produced by successful interface writes. |
+
+Configuration from the browser accepts only `label`, `selected`, `privacy`,
+`cadence_days`, `processing_state`, `skip_reason` and `target_pages`; it never
+accepts credentials, arbitrary YAML, commands or paths. The preview token binds
+the current config hash to the proposed result hash, so a changed recipe makes
+confirmation fail closed.
+
+The update planner derives the maximum useful raw inventory from the recipe and
+selected stream before contextual work. It chooses one of three routes:
+
+1. `script`: a repository script under `scripts/` receives a hashed RAW file
+   under `data/raw/`; the operator does not invoke a shell.
+2. `agent_connector`: the declared `mcp_hint` is delegated through the selected
+   Codex or Claude adapter only when that CLI is usable and exposes the named
+   connector.
+3. `manual_export`: the recipe explains what a human must export when neither a
+   deterministic script nor connector is declared.
+
+An available agent is not the same thing as an available connector. The
+interface probes connector names without returning raw CLI configuration and
+blocks delegation when the declared connector is missing. Successful config or
+script operations write a redacted receipt under
+`data/derived/wiki/source-operations/`; connector execution continues through
+the existing governed job runner and human review gate.
+
 ## Suggested Cadences
 
 | Source shape | Policy | Cadence | Trigger |
