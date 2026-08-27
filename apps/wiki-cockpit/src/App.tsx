@@ -1175,14 +1175,20 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     composeSourceBrief,
     discardBrief,
     getBrief,
+    applySourceOperation,
+    listSourceOperationReceipts,
+    loadAgentCapabilities,
     loadCodexCapability,
     loadSnapshotBundle,
+    previewSourceOperation,
+    previewSourceRefresh,
     returnCodexJob,
     runOperatorCommand,
     runGitWorkflow,
     runIngestionStep,
     saveBriefText,
-    spawnCodexJob
+    spawnCodexJob,
+    runSourceRefresh
   } = operator;
   const [realState, setRealState] = useState<LoadState>({ status: "loading" });
   const [demoState, setDemoState] = useState<LoadState>({ status: "loading" });
@@ -1192,6 +1198,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const [activeBrief, setActiveBrief] = useState<BriefRecord | null>(null);
   const [briefBusy, setBriefBusy] = useState(false);
   const [codexCapability, setCodexCapability] = useState<CodexCapability>(CODEX_UNAVAILABLE);
+  const [claudeCapability, setClaudeCapability] = useState<CodexCapability>({ ...CODEX_UNAVAILABLE });
   const [codexBusy, setCodexBusy] = useState(false);
   const [realRevalidationFailure, setRealRevalidationFailure] = useState<{ lastSuccessAt: number | null } | null>(null);
   const realLoadControllerRef = useRef<AbortController | null>(null);
@@ -1427,12 +1434,16 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     if (loadState.status !== "ready" || route.demo) return undefined;
     const controller = new AbortController();
     codexProbeControllerRef.current = controller;
-    loadCodexCapability(loadState.runtime, { signal: controller.signal })
-      .then((capability) => {
-        if (!controller.signal.aborted) setCodexCapability(capability);
+    loadAgentCapabilities(loadState.runtime, { signal: controller.signal })
+      .then((capabilities) => {
+        if (controller.signal.aborted) return;
+        setCodexCapability(capabilities.codex);
+        setClaudeCapability(capabilities.claude);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setCodexCapability(CODEX_UNAVAILABLE);
+        if (controller.signal.aborted) return;
+        setCodexCapability(CODEX_UNAVAILABLE);
+        setClaudeCapability({ ...CODEX_UNAVAILABLE });
       });
     return () => {
       controller.abort();
@@ -1734,7 +1745,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
         setNotice({ text: t("brief.exit.saveFailed", { error: saved.error || "no sha" }), tone: "warn", showResult: false });
         return;
       }
-      const job = await spawnCodexJob(saved.brief_id, saved.brief_sha, { dryRun: false });
+      const agent = saved.spec.agent === "claude" ? "claude" : "codex";
+      const job = await spawnCodexJob(saved.brief_id, saved.brief_sha, { dryRun: false, agent });
       if (job.ok === false) {
         setNotice({
           text: t("codex.job.failed", { error: job.error || job.reason || "rejected" }),
@@ -1920,11 +1932,12 @@ export function App({ ports }: { ports: ApplicationPorts }) {
           <BriefStudio
             brief={activeBrief}
             capability={codexCapability}
+            claudeCapability={claudeCapability}
             busy={briefBusy}
             git={loadState.status === "ready" ? loadState.bundle.git : undefined}
             onSaveText={saveBrief}
             onDiscard={removeBrief}
-            onExecute={codexCapability.usable ? executeBrief : undefined}
+            onExecute={(activeBrief.spec.agent === "claude" ? claudeCapability : codexCapability).usable ? executeBrief : undefined}
             onDiagnose={openCodexDock}
             onNotice={notify}
             onClose={() => setActiveBrief(null)}
@@ -2004,8 +2017,15 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             bundle={loadState.bundle}
             sourceId={worldRoute.query.src}
             demo={route.demo}
+            agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
             onComposeBrief={runBrief}
             onRequestBrief={composeSourceBrief}
+            onPreviewConfiguration={previewSourceOperation}
+            onApplyConfiguration={applySourceOperation}
+            onListReceipts={listSourceOperationReceipts}
+            onPreviewRefresh={previewSourceRefresh}
+            onRunRefresh={runSourceRefresh}
+            onSourceChanged={refetchReal}
             onNotice={notify}
             onOpenPage={(pathOrId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId: pathOrId, reader: true }))}
             onOpenSource={(id) => navigate(hrefForWorldPatch(worldRoute, { dock: "source", src: id || null }))}

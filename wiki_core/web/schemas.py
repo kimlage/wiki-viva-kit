@@ -41,6 +41,8 @@ CORS_DEFAULT_DENY_CAPABILITY = "cors_default_deny_v1"
 ACTION_STATE_TRANSITION_CAPABILITY = "action_state_transitions_v1"
 SNAPSHOT_PUBLICATION_CAPABILITY = "filesystem_snapshot_publication_v1"
 SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY = "snapshot_external_freshness_v1"
+SOURCE_OPERATIONS_CAPABILITY = "source_operations_v1"
+AGENT_ADAPTERS_CAPABILITY = "agent_adapters_v1"
 SCHEMA_CAPABILITIES = (
     OPERATOR_SECURITY_CAPABILITY,  # nonce + bounded/idempotent POST + browser-origin policy
     CORS_DEFAULT_DENY_CAPABILITY,  # no browser CORS trust unless exact loopback origins opt in
@@ -53,6 +55,8 @@ SCHEMA_CAPABILITIES = (
     "diff",  # /api/diff/file (per-file full diff)
     "intake",  # /api/intake/copy (add an external file into data/raw)
     "sources",  # /api/sources (entities) + /api/sources/{id}/brief
+    SOURCE_OPERATIONS_CAPABILITY,
+    AGENT_ADAPTERS_CAPABILITY,
 )
 
 SNAPSHOT_FILES = (

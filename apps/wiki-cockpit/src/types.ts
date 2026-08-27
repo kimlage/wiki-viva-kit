@@ -644,9 +644,38 @@ export type SourceStream = {
   target_pages: string[];
   skip_reason: string;
   cursor_age_days: number | null;
+  freshness_basis?: "stream_cursor" | "versioned_stream_receipt" | "source_receipt" | "versioned_source_sync" | "not_selected";
   cadence_days: number;
   breached: boolean;
   filters?: Record<string, unknown>;
+};
+
+export type SourceEventClosure = {
+  consolidated_into: string[];
+  reviewed_no_change: boolean;
+  no_change: string[];
+  gate_state: string;
+};
+
+export type SourceLifecycleProjection = {
+  state: string;
+  freshness_state: string;
+  last_attempt_state: string;
+  pipeline_stage: string;
+  pipeline_stage_timestamps: Record<string, string>;
+  adoption_state: string;
+  last_sync_success_at: string;
+  last_ingested_at: string;
+  last_attempt_at: string;
+  emitted_page_ids: string[];
+  emitted_action_ids: string[];
+  proposal_ids: string[];
+  raw_artifact_count: number;
+  secret_safe_log_refs: string[];
+  reviewed_no_change_receipt: string;
+  accepted_ref: string;
+  blocked_reason: string;
+  authoring_error_codes: string[];
 };
 
 export type SourceEntity = {
@@ -667,7 +696,9 @@ export type SourceEntity = {
     derived_from_event?: boolean;
     streams_fresh: number;
     streams_total: number;
+    event_closure?: SourceEventClosure;
   };
+  lifecycle?: SourceLifecycleProjection;
   recipe_ok: boolean;
   recipe_errors: string[];
   how_to_export: string;
@@ -686,6 +717,45 @@ export type SourceEntitiesPayload = {
   sources: SourceEntity[];
   summary?: { total: number; with_recipe: number; pending: number };
   error?: string;
+};
+
+export type SourceOperationChange = { field: string; before: unknown; after: unknown };
+export type SourceOperationPreview = {
+  ok: boolean;
+  error?: string;
+  schema_version?: string;
+  source_id?: string;
+  stream_id?: string;
+  preview_token?: string;
+  config_ref?: string;
+  changes?: SourceOperationChange[];
+  updates?: Record<string, unknown>;
+  raw_inventory?: Record<string, unknown>;
+  execution?: {
+    mode: "script" | "agent_connector" | "manual_export";
+    argv: string[];
+    mcp_hint: string;
+    how_to_export: string;
+    runnable?: boolean;
+    requires_agent?: boolean;
+  };
+  steps?: { id: string; label: string; status: string }[];
+};
+export type SourceOperationReceipt = {
+  ok?: boolean;
+  error?: string;
+  operation_id: string;
+  recorded_at: string;
+  source_id: string;
+  stream_id: string;
+  status: string;
+  changes: SourceOperationChange[];
+  receipt_path?: string;
+  changed_files?: string[];
+  source?: SourceEntity;
+  stdout?: string;
+  stderr?: string;
+  returncode?: number | null;
 };
 
 // --- Declarative template registry (Pillar B) ---
@@ -775,6 +845,7 @@ export type CodexCapability = {
   version: string | null;
   usable: boolean;
   reason: string;
+  connectors?: string[];
   // The local process fails the shared v6/v2/default-deny handshake (including
   // required capabilities), even if it exposes a plausible Codex block. This is
   // rung 0 of the diagnostics ladder: restart it before trusting other fields.
@@ -810,11 +881,18 @@ export type OperatorHealth = {
     cors_opt_in?: "exact_loopback_allowlist" | string;
   };
   codex?: CodexCapability;
+  claude?: CodexCapability;
+};
+
+export type AgentCapabilities = {
+  codex: CodexCapability;
+  claude: CodexCapability;
 };
 
 // A work-brief spec: what the operator points the composer at. Mirrors
 // wiki_core.web.briefs.normalize_spec.
 export type BriefSpec = {
+  agent?: "codex" | "claude";
   mission_kind?: string | null;
   grounding: {
     page_ids?: string[];
@@ -843,6 +921,7 @@ export type CodexJobRecord = {
   ok?: boolean;
   error?: string;
   reason?: string;
+  agent?: "codex" | "claude";
   job_id: string;
   brief_id: string;
   brief_sha: string;

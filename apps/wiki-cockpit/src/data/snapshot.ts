@@ -643,6 +643,28 @@ export async function loadCodexCapability(
   };
 }
 
+export async function loadAgentCapabilities(
+  runtime: RuntimeConfig,
+  options: { signal?: AbortSignal } = {}
+): Promise<import("../types").AgentCapabilities> {
+  const unavailable = { ...CODEX_UNAVAILABLE };
+  if (runtime.mode === "static_demo") return { codex: unavailable, claude: { ...unavailable } };
+  try {
+    const response = await operatorRequest("/agents/capability", {
+      headers: { accept: "application/json" },
+      signal: options.signal
+    });
+    if (!response.ok) return { codex: unavailable, claude: { ...unavailable } };
+    const payload = (await response.json()) as { agents?: Partial<import("../types").AgentCapabilities> };
+    return {
+      codex: { ...CODEX_UNAVAILABLE, ...(payload.agents?.codex ?? {}) },
+      claude: { ...CODEX_UNAVAILABLE, ...(payload.agents?.claude ?? {}) }
+    };
+  } catch {
+    return { codex: unavailable, claude: { ...unavailable } };
+  }
+}
+
 // Work briefs — the agent-neutral compose/edit/save/discard surface. Compose
 // is deterministic and zero-token server-side; it also persists a draft so the
 // brief is inspectable and (Phase 2) executable by its stable id + sha.
@@ -696,14 +718,15 @@ export async function discardBrief(briefId: string): Promise<BriefRecord> {
 export async function spawnCodexJob(
   briefId: string,
   briefSha: string,
-  options: { dryRun?: boolean; force?: boolean; parentJobId?: string } = {}
+  options: { dryRun?: boolean; force?: boolean; parentJobId?: string; agent?: "codex" | "claude" } = {}
 ): Promise<CodexJobRecord> {
   const response = await operatorPost("/codex/jobs", {
       brief_id: briefId,
       brief_sha: briefSha,
       dry_run: options.dryRun ?? false,
       force: options.force ?? false,
-      parent_job_id: options.parentJobId
+      parent_job_id: options.parentJobId,
+      agent: options.agent ?? "codex"
   });
   const result = (await response.json()) as CodexJobRecord;
   if (!response.ok && !result.job_id) {
@@ -825,6 +848,71 @@ export async function composeSourceBrief(
 ): Promise<{ ok: boolean; spec?: import("../types").BriefSpec; pending?: number; error?: string }> {
   const response = await operatorPost(`/sources/${encodeURIComponent(sourceId)}/brief`, {});
   return (await response.json()) as { ok: boolean; spec?: import("../types").BriefSpec; pending?: number; error?: string };
+}
+
+export async function previewSourceOperation(
+  sourceId: string,
+  streamId: string,
+  updates: Record<string, unknown>
+): Promise<import("../types").SourceOperationPreview> {
+  const response = await operatorPost(`/sources/${encodeURIComponent(sourceId)}/operations/preview`, {
+    stream_id: streamId,
+    updates
+  });
+  return (await response.json()) as import("../types").SourceOperationPreview;
+}
+
+export async function applySourceOperation(
+  sourceId: string,
+  streamId: string,
+  updates: Record<string, unknown>,
+  previewToken: string
+): Promise<import("../types").SourceOperationReceipt> {
+  const response = await operatorPost(`/sources/${encodeURIComponent(sourceId)}/operations/apply`, {
+    stream_id: streamId,
+    updates,
+    preview_token: previewToken
+  });
+  return (await response.json()) as import("../types").SourceOperationReceipt;
+}
+
+export async function listSourceOperationReceipts(
+  sourceId: string,
+  options: { signal?: AbortSignal } = {}
+): Promise<import("../types").SourceOperationReceipt[]> {
+  const response = await operatorRequest(`/sources/${encodeURIComponent(sourceId)}/operations`, {
+    headers: { accept: "application/json" },
+    signal: options.signal
+  });
+  if (!response.ok) return [];
+  const result = (await response.json()) as { receipts?: import("../types").SourceOperationReceipt[] };
+  return result.receipts ?? [];
+}
+
+export async function previewSourceRefresh(
+  sourceId: string,
+  streamId: string,
+  rawPath = ""
+): Promise<import("../types").SourceOperationPreview> {
+  const response = await operatorPost(`/sources/${encodeURIComponent(sourceId)}/operations/refresh-preview`, {
+    stream_id: streamId,
+    raw_path: rawPath
+  });
+  return (await response.json()) as import("../types").SourceOperationPreview;
+}
+
+export async function runSourceRefresh(
+  sourceId: string,
+  streamId: string,
+  rawPath: string,
+  previewToken: string
+): Promise<import("../types").SourceOperationReceipt> {
+  const response = await operatorPost(`/sources/${encodeURIComponent(sourceId)}/operations/refresh-run`, {
+    stream_id: streamId,
+    raw_path: rawPath,
+    preview_token: previewToken
+  });
+  return (await response.json()) as import("../types").SourceOperationReceipt;
 }
 
 export async function triageSource(source: string, context?: string): Promise<SourceTriageResult> {

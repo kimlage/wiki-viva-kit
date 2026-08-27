@@ -4,6 +4,7 @@ import type {
   OperatorCommandRunResult,
   BriefRecord,
   BriefSpec,
+  AgentCapabilities,
   CodexCapability,
   CodexJobRecord,
   GateRunResult,
@@ -11,6 +12,8 @@ import type {
   IngestionStepResult,
   PageContent,
   SnapshotBundle,
+  SourceOperationPreview,
+  SourceOperationReceipt,
   WorkflowRunResult
 } from "../types";
 
@@ -54,6 +57,7 @@ export interface OperatorPort {
     options?: TemporalGraphReadOptions
   ): Promise<NonNullable<SnapshotBundle["temporalGraph"]>>;
   loadCodexCapability(runtime: RuntimeConfig, options?: OperatorReadOptions): Promise<CodexCapability>;
+  loadAgentCapabilities(runtime: RuntimeConfig, options?: OperatorReadOptions): Promise<AgentCapabilities>;
   composeBrief(spec: BriefSpec): Promise<BriefRecord>;
   listBriefs(options?: OperatorReadOptions): Promise<BriefRecord[]>;
   getBrief(briefId: string, options?: OperatorReadOptions): Promise<BriefRecord | null>;
@@ -62,7 +66,7 @@ export interface OperatorPort {
   spawnCodexJob(
     briefId: string,
     briefSha: string,
-    options?: { dryRun?: boolean; force?: boolean; parentJobId?: string }
+    options?: { dryRun?: boolean; force?: boolean; parentJobId?: string; agent?: "codex" | "claude" }
   ): Promise<CodexJobRecord>;
   listCodexJobs(options?: OperatorReadOptions): Promise<CodexJobRecord[]>;
   streamCodexLog(jobId: string, options?: OperatorReadOptions): Promise<string>;
@@ -78,6 +82,21 @@ export interface OperatorPort {
     dryRun?: boolean
   ): Promise<WorkflowRunResult>;
   composeSourceBrief(sourceId: string): Promise<SourceBriefResult>;
+  previewSourceOperation(sourceId: string, streamId: string, updates: Record<string, unknown>): Promise<SourceOperationPreview>;
+  applySourceOperation(
+    sourceId: string,
+    streamId: string,
+    updates: Record<string, unknown>,
+    previewToken: string
+  ): Promise<SourceOperationReceipt>;
+  listSourceOperationReceipts(sourceId: string, options?: OperatorReadOptions): Promise<SourceOperationReceipt[]>;
+  previewSourceRefresh(sourceId: string, streamId: string, rawPath?: string): Promise<SourceOperationPreview>;
+  runSourceRefresh(
+    sourceId: string,
+    streamId: string,
+    rawPath: string,
+    previewToken: string
+  ): Promise<SourceOperationReceipt>;
   buildIngestionPlan(source: string, context?: string): Promise<IngestionPlan>;
   runIngestionStep(source: string, context: string, stepId: string, dryRun?: boolean): Promise<IngestionStepResult>;
 }

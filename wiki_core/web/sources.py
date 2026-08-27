@@ -151,30 +151,86 @@ def _source_record(
             if not unsafe_recipe:
                 recipe_json = recipe.to_json()
 
+    # Versioned sync evidence is the clean-clone fallback. Cursor state is a
+    # mutable derived cache and may be absent after clone or deployment.
+    last_status = str(sync.get("last_status") or "never")
+    if last_status not in SOURCE_SYNC_STATES:
+        last_status = "never"
+    last_run_at = str(sync.get("last_run_at") or "")
+    last_event_ref = str(sync.get("last_event_ref") or "")
+    sync_derived = False
+    if last_status == "never" and events_index:
+        derived = events_index.get(source_id)
+        if derived and derived["date"]:
+            last_status = "ok"
+            last_run_at = last_run_at or derived["date"]
+            last_event_ref = last_event_ref or derived["event"]
+            sync_derived = True
+
     state = read_state(paths.source_state, source_id)
+    versioned_streams = sync.get("streams") if isinstance(sync.get("streams"), dict) else {}
     pipelines = recipe_json.get("pipelines") or []
     cadence = _cadence_for(pipelines)
+    # A shared recipe may govern multiple source pages. A stream scoped with
+    # filters.source_ref belongs only to that source; unscoped streams remain
+    # visible for backwards compatibility.
+    source_streams = [
+        stream for stream in recipe_json.get("streams") or []
+        if not str((stream.get("filters") or {}).get("source_ref") or "")
+        or str((stream.get("filters") or {}).get("source_ref")) == source_id
+    ]
+    selected_stream_count = sum(1 for stream in source_streams if stream.get("selected", True))
 
     streams_out: list[dict[str, Any]] = []
     pending = 0
     newest_age: int | None = None
-    for stream in recipe_json.get("streams") or []:
+    for stream in source_streams:
         # A per-stream cadence_days > 0 overrides the pipeline cadence.
         stream_cadence = _int_or_zero(stream.get("cadence_days")) or cadence
         if not stream.get("selected", True):
-            streams_out.append({**stream, "cursor_age_days": None, "cadence_days": stream_cadence, "breached": False})
+            streams_out.append(
+                {
+                    **stream,
+                    "cursor_age_days": None,
+                    "freshness_basis": "not_selected",
+                    "cadence_days": stream_cadence,
+                    "breached": False,
+                }
+            )
             continue
-        cursor = stream_cursor(state, str(stream.get("id") or ""))
+        stream_id = str(stream.get("id") or "")
+        cursor = stream_cursor(state, stream_id)
         # Freshness comes from `updated_at` (a real ISO date). The `cursor` token
         # is an opaque sha/id, NOT a date — never parse it as one.
         age = _iso_days_ago(str(cursor.get("updated_at") or ""), today)
+        freshness_basis = "stream_cursor"
+        if age is None:
+            receipt = versioned_streams.get(stream_id)
+            if isinstance(receipt, dict) and str(receipt.get("last_status") or "never") == "ok":
+                age = _iso_days_ago(
+                    str(receipt.get("last_run_at") or receipt.get("updated_at") or ""),
+                    today,
+                )
+                freshness_basis = "versioned_stream_receipt"
+        if age is None and selected_stream_count == 1 and last_status == "ok":
+            age = _iso_days_ago(last_run_at or str(values.get("last_ingested_at") or ""), today)
+            if age is not None:
+                # Keep the public v1 read-model label stable while adopting the
+                # newer per-stream receipt semantics additively.
+                freshness_basis = "versioned_source_sync"
         breached = bool(stream_cadence and (age is None or age > stream_cadence))
         if breached:
             pending += 1
         if age is not None and (newest_age is None or age < newest_age):
             newest_age = age
         streams_out.append(
-            {**stream, "cursor_age_days": age, "cadence_days": stream_cadence, "breached": breached}
+            {
+                **stream,
+                "cursor_age_days": age,
+                "freshness_basis": freshness_basis,
+                "cadence_days": stream_cadence,
+                "breached": breached,
+            }
         )
 
     # next_due_days: from the schedule cadence (if recurring) vs the freshest
@@ -186,22 +242,6 @@ def _source_record(
 
     selected_total = sum(1 for s in streams_out if s.get("selected", True))
     fresh = sum(1 for s in streams_out if s.get("selected", True) and not s.get("breached"))
-
-    last_status = str(sync.get("last_status") or "never")
-    if last_status not in SOURCE_SYNC_STATES:
-        last_status = "never"
-    last_run_at = str(sync.get("last_run_at") or "")
-    last_event_ref = str(sync.get("last_event_ref") or "")
-    sync_derived = False
-    if last_status == "never" and events_index:
-        # The wiki itself remembers this source being ingested — the newest
-        # ingestion event outranks a missing/never sync block.
-        derived = events_index.get(source_id)
-        if derived and derived["date"]:
-            last_status = "ok"
-            last_run_at = last_run_at or derived["date"]
-            last_event_ref = last_event_ref or derived["event"]
-            sync_derived = True
 
     event_closure = dict((events_index or {}).get(source_id) or {})
     lifecycle_resolution = resolve_source_lifecycle(values)
