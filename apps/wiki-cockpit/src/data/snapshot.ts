@@ -905,12 +905,14 @@ export async function runSourceRefresh(
   sourceId: string,
   streamId: string,
   rawPath: string,
-  previewToken: string
+  previewToken: string,
+  selectedExternalIds: string[] = []
 ): Promise<import("../types").SourceOperationReceipt> {
   const response = await operatorPost(`/sources/${encodeURIComponent(sourceId)}/operations/refresh-run`, {
     stream_id: streamId,
     raw_path: rawPath,
-    preview_token: previewToken
+    preview_token: previewToken,
+    selected_external_ids: selectedExternalIds
   });
   return (await response.json()) as import("../types").SourceOperationReceipt;
 }

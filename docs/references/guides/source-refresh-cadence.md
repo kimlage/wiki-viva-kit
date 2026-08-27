@@ -73,7 +73,7 @@ tabs and does not mix source operations with the world's navigation controls:
 | Tab | Operational purpose |
 | --- | --- |
 | Records | Select an exact recipe record and inspect its deterministic metadata, processing state, privacy and target pages. |
-| Update | Refresh the source scope, inventory all records and detect new, changed, removed or inaccessible items. |
+| Update | Refresh the whole source scope and distinguish new records, content changes, metadata enrichment and an unchanged collection. |
 | Configure | Edit source type and lifecycle plus governed record fields, review a content-bound preview, then explicitly confirm it. |
 | History | Read immutable source-operation receipts produced by successful interface writes. |
 
@@ -85,23 +85,30 @@ accepts credentials, arbitrary YAML, commands or paths. The preview token binds
 the current config hash to the proposed result hash, so a changed recipe makes
 confirmation fail closed.
 
-The update planner derives the maximum useful raw inventory from the entire
-source before contextual work. Selecting a record does not narrow an update to
-one file. The planner chooses one of three routes:
+The update planner derives the maximum useful deterministic inventory from the
+entire source before contextual work. Selecting a record does not narrow an
+update to one file. The planner chooses one of four routes:
 
-1. `script`: a repository script under `scripts/` receives a hashed RAW file or
+1. `deterministic_connector`: `refresh.argv` runs a repository-owned Python
+   adapter under `scripts/`. It queries the declared collection read-only and
+   emits `wiki_source_inventory.v1` JSON with stable `external_id`, label and
+   deterministic metadata. The core owns validation, comparison, selection,
+   recipe patching and receipts; provider-specific access remains in the
+   adapter. Metadata added to an already known record is reported as
+   `enriched`, not as a content change, and does not reopen ingestion.
+2. `script`: a repository script under `scripts/` receives a hashed RAW file or
    folder under `data/raw/`. Folders are inventoried recursively and
    deterministically before execution; the operator does not invoke a shell.
-2. `agent_connector`: the declared `mcp_hint` is delegated through the selected
+3. `agent_connector`: the declared `mcp_hint` is delegated through the selected
    Codex or Claude adapter only when that CLI is usable and exposes the named
    connector.
-3. `manual_export`: the recipe explains what a human must export when neither a
+4. `manual_export`: the recipe explains what a human must export when neither a
    deterministic script nor connector is declared.
 
 An available agent is not the same thing as an available connector. The
 interface probes connector names without returning raw CLI configuration and
-blocks delegation when the declared connector is missing. Successful config or
-script operations write a redacted receipt under
+blocks delegation when the declared connector is missing. Successful
+configuration, deterministic inventory or script operations write a redacted receipt under
 `data/derived/wiki/source-operations/`; connector execution continues through
 the existing governed job runner and human review gate.
 ## Suggested Cadences

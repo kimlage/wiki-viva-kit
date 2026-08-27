@@ -239,7 +239,11 @@ def _source_record(
         # Only recurring sources age into an overdue state. A one-shot source is
         # complete after capture; on-demand and event-driven sources wait for a
         # trigger and must never become stale merely because time passed.
-        breached = bool(time_based_freshness and stream_cadence and (age is None or age > stream_cadence))
+        processing_state = str((stream.get("filters") or {}).get("processing_state") or "").lower()
+        workflow_pending = processing_state in {"discovered", "changed", "pending", "queued"}
+        breached = workflow_pending or bool(time_based_freshness and stream_cadence and (age is None or age > stream_cadence))
+        if workflow_pending:
+            freshness_basis = "processing_state"
         if breached:
             pending += 1
         if age is not None and (newest_age is None or age < newest_age):
@@ -248,7 +252,7 @@ def _source_record(
             {
                 **stream,
                 "cursor_age_days": age,
-                "freshness_basis": freshness_basis if time_based_freshness else f"schedule_{schedule_mode or 'unconfigured'}",
+                "freshness_basis": freshness_basis if workflow_pending or time_based_freshness else f"schedule_{schedule_mode or 'unconfigured'}",
                 "cadence_days": stream_cadence,
                 "breached": breached,
             }

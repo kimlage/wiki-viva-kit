@@ -95,7 +95,8 @@ export interface OperatorPort {
     sourceId: string,
     streamId: string,
     rawPath: string,
-    previewToken: string
+    previewToken: string,
+    selectedExternalIds?: string[]
   ): Promise<SourceOperationReceipt>;
   buildIngestionPlan(source: string, context?: string): Promise<IngestionPlan>;
   runIngestionStep(source: string, context: string, stepId: string, dryRun?: boolean): Promise<IngestionStepResult>;

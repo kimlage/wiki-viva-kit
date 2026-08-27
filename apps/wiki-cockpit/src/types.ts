@@ -722,6 +722,19 @@ export type SourceEntitiesPayload = {
 };
 
 export type SourceOperationChange = { field: string; before: unknown; after: unknown };
+export type SourceInventoryRecord = {
+  external_id: string;
+  label: string;
+  filters: Record<string, unknown>;
+  status: "new" | "changed" | "enriched" | "unchanged";
+  stream_id?: string;
+  before?: unknown;
+};
+export type SourceInventoryDiff = {
+  counts: { new: number; changed: number; enriched: number; unchanged: number };
+  records: SourceInventoryRecord[];
+  fingerprint: string;
+};
 export type SourceOperationPreview = {
   ok: boolean;
   error?: string;
@@ -733,8 +746,9 @@ export type SourceOperationPreview = {
   changes?: SourceOperationChange[];
   updates?: Record<string, unknown>;
   raw_inventory?: Record<string, unknown>;
+  discovery?: SourceInventoryDiff | null;
   execution?: {
-    mode: "script" | "agent_connector" | "manual_export";
+    mode: "script" | "deterministic_connector" | "agent_connector" | "manual_export";
     argv: string[];
     mcp_hint: string;
     how_to_export: string;
@@ -758,6 +772,9 @@ export type SourceOperationReceipt = {
   stdout?: string;
   stderr?: string;
   returncode?: number | null;
+  discovery?: SourceInventoryDiff;
+  selected_external_ids?: string[];
+  summary?: { new: number; changed: number; enriched: number; unchanged: number; applied: number };
 };
 
 // --- Declarative template registry (Pillar B) ---

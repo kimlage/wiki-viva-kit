@@ -32,6 +32,8 @@ SOURCE_RECIPE_STRUCTURE_ERROR_CODES = frozenset(
         "source_recipe_ingest_invalid",
         "source_recipe_ingest_argv_invalid",
         "source_recipe_pipelines_invalid",
+        "source_recipe_refresh_invalid",
+        "source_recipe_refresh_argv_invalid",
         "source_recipe_schedule_invalid",
         "source_recipe_stream_filters_invalid",
         "source_recipe_stream_target_pages_invalid",
@@ -100,6 +102,7 @@ class SourceRecipe:
     streams: tuple[Stream, ...]
     how_to_export: str
     ingest_argv: tuple[str, ...]
+    refresh_argv: tuple[str, ...]
     mcp_hint: str
     auth: AuthPointer | None = None
     schedule: SyncSchedule | None = None
@@ -128,6 +131,7 @@ class SourceRecipe:
             ],
             "how_to_export": self.how_to_export,
             "ingest": {"argv": list(self.ingest_argv), "mcp_hint": self.mcp_hint},
+            "refresh": {"argv": list(self.refresh_argv)},
             "auth": (
                 None
                 if self.auth is None
@@ -251,6 +255,20 @@ def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
     elif not isinstance(ingest_argv_raw, list):
         structural_errors.add("source_recipe_ingest_argv_invalid")
         ingest_argv_raw = []
+    refresh_raw = mapping.get("refresh")
+    if refresh_raw is None:
+        refresh: dict[str, Any] = {}
+    elif isinstance(refresh_raw, dict):
+        refresh = refresh_raw
+    else:
+        structural_errors.add("source_recipe_refresh_invalid")
+        refresh = {}
+    refresh_argv_raw = refresh.get("argv")
+    if refresh_argv_raw is None:
+        refresh_argv_raw = []
+    elif not isinstance(refresh_argv_raw, list):
+        structural_errors.add("source_recipe_refresh_argv_invalid")
+        refresh_argv_raw = []
     auth_raw = mapping.get("auth")
     if auth_raw is not None and not isinstance(auth_raw, dict):
         structural_errors.add("source_recipe_auth_invalid")
@@ -291,6 +309,7 @@ def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
         streams=streams,
         how_to_export=str(mapping.get("how_to_export") or ""),
         ingest_argv=tuple(str(a) for a in ingest_argv_raw),
+        refresh_argv=tuple(str(a) for a in refresh_argv_raw),
         mcp_hint=str(ingest.get("mcp_hint") or "") if ingest.get("mcp_hint") else "",
         auth=auth,
         schedule=schedule,

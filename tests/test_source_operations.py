@@ -4,6 +4,7 @@ import pytest
 
 from wiki_core.config import WikiConfig
 from wiki_core.web.source_operations import (
+    _inventory_diff,
     apply_source_operation,
     preview_source_operation,
     preview_source_refresh,
@@ -125,7 +126,8 @@ def test_source_scope_can_change_type_and_disable_time_based_staleness(tmp_path:
     result = apply_source_operation(tmp_path, config, "source-a", "__source__", updates, preview["preview_token"])
     assert result["source"]["source_kind"] == "item"
     assert result["source"]["schedule"] == {"mode": "one_shot", "cadence_days": 0, "cron_hint": ""}
-    assert result["source"]["pending_streams"] == 0
+    assert result["source"]["pending_streams"] == 1
+    assert result["source"]["streams"][0]["freshness_basis"] == "processing_state"
 
 
 def test_source_scope_rejects_cadence_for_non_recurring_lifecycle(tmp_path: Path) -> None:
@@ -187,3 +189,121 @@ def test_refresh_runs_only_allowlisted_script_against_hashed_raw(tmp_path: Path)
     assert result["status"] == "script_complete"
     assert "ingested" in result["stdout"]
     assert (tmp_path / result["receipt_path"]).is_file()
+
+
+def _enable_inventory_adapter(tmp_path: Path, records: list[dict[str, object]]) -> None:
+    config_path = tmp_path / "memories/sources/config/source-a.md"
+    text = config_path.read_text(encoding="utf-8")
+    text = text.replace(
+        "  ingest:\n    argv: []\n    mcp_hint: google-drive\n",
+        "  refresh:\n    argv: [python3, scripts/inventory_test.py, --source, '{source_id}', --locator, '{locator}']\n"
+        "  ingest:\n    argv: []\n    mcp_hint: google-drive\n",
+    )
+    config_path.write_text(text, encoding="utf-8")
+    payload = {
+        "schema_version": "wiki_source_inventory.v1",
+        "source_id": "source-a",
+        "locator": "folder-a",
+        "records": records,
+    }
+    _write(
+        tmp_path / "scripts/inventory_test.py",
+        "import json\n"
+        f"print(json.dumps({payload!r}, sort_keys=True))\n",
+    )
+
+
+def test_deterministic_connector_previews_collection_diff_and_applies_selected_records(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    _enable_inventory_adapter(
+        tmp_path,
+        [
+            {
+                "external_id": "drive-123",
+                "label": "File A",
+                "filters": {"file_id": "drive-123"},
+            },
+            {
+                "external_id": "drive-456",
+                "label": "New recording.m4a",
+                "filters": {"file_id": "drive-456", "mime_type": "audio/mp4", "size_bytes": 42},
+            },
+        ],
+    )
+
+    preview = preview_source_refresh(tmp_path, config, "source-a")
+
+    assert preview["execution"]["mode"] == "deterministic_connector"
+    assert preview["execution"]["runnable"] is True
+    assert preview["discovery"]["counts"] == {"new": 1, "changed": 0, "enriched": 0, "unchanged": 1}
+    assert preview["raw_inventory"]["external_inventory"]["records"][1]["external_id"] == "drive-456"
+
+    result = run_source_refresh(
+        tmp_path,
+        config,
+        "source-a",
+        "__source__",
+        "",
+        preview["preview_token"],
+        ["drive-456"],
+    )
+
+    assert result["ok"] is True
+    assert result["status"] == "inventory_applied"
+    assert result["summary"] == {"new": 1, "changed": 0, "enriched": 0, "unchanged": 1, "applied": 1}
+    assert result["source"]["pending_streams"] == 2
+    added = next(stream for stream in result["source"]["streams"] if stream["filters"].get("external_id") == "drive-456")
+    assert added["filters"]["processing_state"] == "discovered"
+    assert added["target_pages"] == ["memories/index.md"]
+
+
+def test_deterministic_connector_records_an_honest_no_change_check(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    _enable_inventory_adapter(
+        tmp_path,
+        [{"external_id": "drive-123", "label": "File A", "filters": {"file_id": "drive-123"}}],
+    )
+    preview = preview_source_refresh(tmp_path, config, "source-a")
+    result = run_source_refresh(tmp_path, config, "source-a", "__source__", "", preview["preview_token"], [])
+    assert result["status"] == "inventory_no_change"
+    assert result["changed_files"] == []
+    assert Path(tmp_path / result["receipt_path"]).is_file()
+
+
+def test_deterministic_connector_enriches_metadata_without_reopening_ingestion(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    _enable_inventory_adapter(
+        tmp_path,
+        [{"external_id": "drive-123", "label": "File A", "filters": {"file_id": "drive-123", "md5_checksum": "abc", "size_bytes": 42}}],
+    )
+    preview = preview_source_refresh(tmp_path, config, "source-a")
+    assert preview["discovery"]["counts"] == {"new": 0, "changed": 0, "enriched": 1, "unchanged": 0}
+    result = run_source_refresh(tmp_path, config, "source-a", "__source__", "", preview["preview_token"], ["drive-123"])
+    stream = result["source"]["streams"][0]
+    assert result["summary"]["enriched"] == 1
+    assert stream["filters"]["processing_state"] == "discovered"
+    assert stream["filters"]["md5_checksum"] == "abc"
+
+
+def test_inventory_diff_uses_content_fingerprint_not_modified_timestamp() -> None:
+    source = {
+        "streams": [
+            {
+                "id": "file-a",
+                "label": "File A",
+                "filters": {"external_id": "drive-123", "md5_checksum": "abc", "modified_at": "old"},
+            }
+        ]
+    }
+    inventory = {
+        "records": [
+            {
+                "external_id": "drive-123",
+                "label": "File A",
+                "filters": {"md5_checksum": "abc", "modified_at": "new"},
+            }
+        ]
+    }
+    assert _inventory_diff(source, inventory)["records"][0]["status"] == "enriched"
+    inventory["records"][0]["filters"]["md5_checksum"] = "def"
+    assert _inventory_diff(source, inventory)["records"][0]["status"] == "changed"

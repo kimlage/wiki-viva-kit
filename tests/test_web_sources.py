@@ -416,3 +416,48 @@ def test_freshness_uses_iso_updated_at_not_the_opaque_cursor(tmp_path: Path) -> 
     streams = {s["id"]: s for s in payload["sources"][0]["streams"]}
     assert streams["#financeiro"]["cursor_age_days"] == 2
     assert streams["#financeiro"]["breached"] is False
+
+
+def test_single_stream_clean_clone_uses_versioned_successful_sync(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    source_path = tmp_path / "memories/sources/slack-fin.md"
+    source_path.write_text(
+        source_path.read_text(encoding="utf-8").replace(
+            "last_status: partial", "last_status: ok"
+        ),
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "memories/sources/config/slack-fin.md"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            '    - id: "#custos"\n      selected: true\n',
+            '    - id: "#custos"\n      selected: false\n      skip_reason: "not in this source scope"\n',
+        ),
+        encoding="utf-8",
+    )
+
+    # A clean clone has no data/derived cursor state. For one selected stream,
+    # the versioned successful receipt is sufficient and survives deployment.
+    payload = build_sources_payload(tmp_path, config, today=TODAY)
+    streams = {s["id"]: s for s in payload["sources"][0]["streams"]}
+    assert streams["#financeiro"]["cursor_age_days"] == 2
+    assert streams["#financeiro"]["freshness_basis"] == "versioned_source_sync"
+    assert streams["#financeiro"]["breached"] is False
+    assert payload["sources"][0]["pending_streams"] == 0
+
+
+def test_event_driven_discovered_record_is_pending_without_becoming_time_stale(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    config_path = tmp_path / "memories/sources/config/slack-fin.md"
+    text = config_path.read_text(encoding="utf-8")
+    text = text.replace("schedule: {mode: recurring, cadence_days: 7}", "schedule: {mode: event_driven, cadence_days: 0}")
+    text = text.replace(
+        '    - id: "#financeiro"\n      selected: true\n',
+        '    - id: "#financeiro"\n      selected: true\n      filters: {processing_state: discovered}\n',
+    )
+    config_path.write_text(text, encoding="utf-8")
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    streams = {stream["id"]: stream for stream in source["streams"]}
+    assert streams["#financeiro"]["breached"] is True
+    assert streams["#financeiro"]["freshness_basis"] == "processing_state"
+    assert source["pending_streams"] == 1
