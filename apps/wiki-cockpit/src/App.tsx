@@ -31,7 +31,7 @@ import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
-import { SourceDock } from "./components/SourceDock";
+import { SourceWorkspace } from "./components/SourceWorkspace";
 import { useSurfacePresence } from "./components/world/useSurfacePresence";
 import { ExpandablePre } from "./components/ExpandablePre";
 import { GENESIS_FINAL_STAGE, genesisAttachMatches, genesisCreateMatches, genesisUrl } from "./data/genesis";
@@ -1774,7 +1774,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
 
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
-  const requestedDock = worldRoute && ["codex", "approve", "gates", "intake", "work", "source", "blocks"].includes(worldRoute.query.dock || "")
+  const sourceWorkspaceOpen = route.kind === "world" && route.query.dock === "source";
+  const requestedDock = worldRoute && ["codex", "approve", "gates", "intake", "work", "blocks"].includes(worldRoute.query.dock || "")
     ? worldRoute.query.dock
     : null;
   const dockPresence = useSurfacePresence(Boolean(requestedDock));
@@ -1841,6 +1842,28 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     if (route.kind === "review" || route.kind === "sources" || route.kind === "health" || route.kind === "pageAlias") {
       return <main className="workspace"><section className="panel"><h1>{t("misc.opening")}</h1></section></main>;
     }
+    if (worldRoute && sourceWorkspaceOpen) {
+      return (
+        <SourceWorkspace
+          bundle={bundle}
+          sourceId={worldRoute.query.src}
+          demo={route.demo}
+          agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
+          onComposeBrief={runBrief}
+          onRequestBrief={composeSourceBrief}
+          onPreviewConfiguration={previewSourceOperation}
+          onApplyConfiguration={applySourceOperation}
+          onListReceipts={listSourceOperationReceipts}
+          onPreviewRefresh={previewSourceRefresh}
+          onRunRefresh={runSourceRefresh}
+          onSourceChanged={refetchReal}
+          onNotice={notify}
+          onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
+          onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
+          onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+        />
+      );
+    }
     if (worldRoute) {
       return (
         <>
@@ -1871,7 +1894,6 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const gatesDockOpen = dockPresence.mounted && renderedDock === "gates";
   const intakeDockOpen = dockPresence.mounted && renderedDock === "intake";
   const workDockOpen = dockPresence.mounted && renderedDock === "work";
-  const sourceDockOpen = dockPresence.mounted && renderedDock === "source";
   const blocksDockOpen = dockPresence.mounted && renderedDock === "blocks";
 
   return (
@@ -2009,26 +2031,6 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onReturn={returnJob}
             onDiagnose={openCodexDock}
             onNotice={notify}
-            onClose={closeRequestedDock}
-          />
-        )}
-        {sourceDockOpen && worldRoute && loadState.status === "ready" && (
-          <SourceDock
-            bundle={loadState.bundle}
-            sourceId={worldRoute.query.src}
-            demo={route.demo}
-            agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
-            onComposeBrief={runBrief}
-            onRequestBrief={composeSourceBrief}
-            onPreviewConfiguration={previewSourceOperation}
-            onApplyConfiguration={applySourceOperation}
-            onListReceipts={listSourceOperationReceipts}
-            onPreviewRefresh={previewSourceRefresh}
-            onRunRefresh={runSourceRefresh}
-            onSourceChanged={refetchReal}
-            onNotice={notify}
-            onOpenPage={(pathOrId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId: pathOrId, reader: true }))}
-            onOpenSource={(id) => navigate(hrefForWorldPatch(worldRoute, { dock: "source", src: id || null }))}
             onClose={closeRequestedDock}
           />
         )}

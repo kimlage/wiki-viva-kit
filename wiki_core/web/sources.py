@@ -162,15 +162,33 @@ def _source_record(
     if last_status == "never" and events_index:
         derived = events_index.get(source_id)
         if derived and derived["date"]:
-            last_status = "ok"
+            last_status = (
+                "partial"
+                if str(values.get("ingestion_state") or "") == "partial"
+                else "ok"
+            )
             last_run_at = last_run_at or derived["date"]
             last_event_ref = last_event_ref or derived["event"]
             sync_derived = True
+    # Assisted migration sometimes seeded sync=never even though the source
+    # already carried a versioned ingestion timestamp. That authored history is
+    # evidence of a completed ingestion and must outrank the empty seed.
+    authored_ingested_at = str(values.get("last_ingested_at") or "").strip()
+    evidenced_status = (
+        "partial" if str(values.get("ingestion_state") or "") == "partial" else "ok"
+    )
+    if last_status == "never" and authored_ingested_at:
+        last_status = evidenced_status
+        last_run_at = authored_ingested_at
+        sync_derived = True
 
     state = read_state(paths.source_state, source_id)
     versioned_streams = sync.get("streams") if isinstance(sync.get("streams"), dict) else {}
     pipelines = recipe_json.get("pipelines") or []
     cadence = _cadence_for(pipelines)
+    schedule = recipe_json.get("schedule") or None
+    schedule_mode = str(schedule.get("mode") or "") if isinstance(schedule, dict) else ""
+    time_based_freshness = schedule_mode == "recurring"
     # A shared recipe may govern multiple source pages. A stream scoped with
     # filters.source_ref belongs only to that source; unscoped streams remain
     # visible for backwards compatibility.
@@ -218,7 +236,10 @@ def _source_record(
                 # Keep the public v1 read-model label stable while adopting the
                 # newer per-stream receipt semantics additively.
                 freshness_basis = "versioned_source_sync"
-        breached = bool(stream_cadence and (age is None or age > stream_cadence))
+        # Only recurring sources age into an overdue state. A one-shot source is
+        # complete after capture; on-demand and event-driven sources wait for a
+        # trigger and must never become stale merely because time passed.
+        breached = bool(time_based_freshness and stream_cadence and (age is None or age > stream_cadence))
         if breached:
             pending += 1
         if age is not None and (newest_age is None or age < newest_age):
@@ -227,7 +248,7 @@ def _source_record(
             {
                 **stream,
                 "cursor_age_days": age,
-                "freshness_basis": freshness_basis,
+                "freshness_basis": freshness_basis if time_based_freshness else f"schedule_{schedule_mode or 'unconfigured'}",
                 "cadence_days": stream_cadence,
                 "breached": breached,
             }
@@ -235,9 +256,8 @@ def _source_record(
 
     # next_due_days: from the schedule cadence (if recurring) vs the freshest
     # cursor; None when no schedule or nothing has synced yet.
-    schedule = recipe_json.get("schedule") or None
     next_due_days: int | None = None
-    if isinstance(schedule, dict) and _int_or_zero(schedule.get("cadence_days")) > 0 and newest_age is not None:
+    if schedule_mode == "recurring" and isinstance(schedule, dict) and _int_or_zero(schedule.get("cadence_days")) > 0 and newest_age is not None:
         next_due_days = _int_or_zero(schedule.get("cadence_days")) - newest_age
 
     selected_total = sum(1 for s in streams_out if s.get("selected", True))
@@ -269,6 +289,7 @@ def _source_record(
         "locator": ""
         if unsafe_recipe
         else str(values.get("source_locator") or recipe_json.get("locator") or ""),
+        "source_kind": "" if unsafe_recipe else str(recipe_json.get("source_kind") or ""),
         "owner": str(values.get("owner") or ""),
         "stewards": [s for s in stewards if isinstance(s, dict)],
         "config_ref": config_ref,

@@ -21,6 +21,7 @@ function sourceFixture(overrides: Partial<SourceEntity> = {}): SourceEntity {
     context: "documentos",
     platform: "gmail",
     locator: "kim@example.com",
+    source_kind: "account",
     owner: "Kim",
     stewards: [],
     config_ref: "memories/documentos/config-gmail.md",
@@ -213,6 +214,27 @@ describe("SourceDock operational workspace", () => {
     );
   });
 
+  it("previews source type and lifecycle changes at source scope", async () => {
+    const previewConfiguration = vi.fn(async () => ({
+      ok: true,
+      preview_token: "d".repeat(64),
+      config_ref: "memories/documentos/config-gmail.md",
+      updates: { schedule_mode: "on_demand", schedule_cadence_days: 0 },
+      changes: [{ field: "schedule_mode", before: "recurring", after: "on_demand" }],
+      steps: []
+    }));
+    render(<SourceDock bundle={bundleWith(sourceFixture())} sourceId="source-gmail" onPreviewConfiguration={previewConfiguration} onNotice={noop} onClose={noop} />);
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    fireEvent.change(screen.getByLabelText("Update lifecycle"), { target: { value: "on_demand" } });
+    expect((screen.getByLabelText(/^Cadence \(days\)/) as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Review source settings" }));
+    await waitFor(() => expect(previewConfiguration).toHaveBeenCalledWith(
+      "source-gmail",
+      "__source__",
+      expect.objectContaining({ schedule_mode: "on_demand", schedule_cadence_days: 0 })
+    ));
+  });
+
   it("refreshes the configuration draft when the authoritative source record changes", async () => {
     const { rerender } = render(
       <SourceDock bundle={bundleWith(sourceFixture())} sourceId="source-gmail" onNotice={noop} onClose={noop} />
@@ -233,7 +255,7 @@ describe("SourceDock operational workspace", () => {
 
     await waitFor(() => {
       expect((screen.getByLabelText("Display label") as HTMLInputElement).value).toBe("Inbox consolidada");
-      expect((screen.getByLabelText("Cadence (days)") as HTMLInputElement).value).toBe("14");
+      expect((screen.getByLabelText("Record cadence (days)") as HTMLInputElement).value).toBe("14");
       expect((screen.getByLabelText("Processing state") as HTMLInputElement).value).toBe("reviewed");
     });
   });

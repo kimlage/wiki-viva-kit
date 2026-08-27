@@ -44,13 +44,14 @@ PIPELINE_KINDS = frozenset({"metadata", "content", "deep_read", "usage"})
 PLATFORMS = frozenset(
     {"slack", "gchat", "chatgpt", "whatsapp", "gmail", "drive", "google_photos", "web", "repo", "file", "calendar", "manual"}
 )
+SOURCE_KINDS = frozenset({"item", "collection", "account", "endpoint", "repository"})
 PRIVACY_LEVELS = frozenset(
     {"private_self", "private_sensitive_allowed", "team_shared", "public_ok"}
 )
 # How the operator's credential is REACHED (a pointer, never the secret itself).
 AUTH_METHODS = frozenset({"env", "keychain", "onepassword", "oauth_file", "mcp", "none"})
 # How often the source is meant to be synced.
-SCHEDULE_MODES = frozenset({"on_demand", "recurring", "event_driven"})
+SCHEDULE_MODES = frozenset({"one_shot", "on_demand", "recurring", "event_driven"})
 
 _RECIPE_BLOCK_RE = re.compile(r"```ya?ml\n(.*?)\n```", re.S)
 
@@ -97,6 +98,7 @@ class SourceRecipe:
     schema_version: str
     platform: str
     locator: str
+    source_kind: str
     pipelines: tuple[Pipeline, ...]
     streams: tuple[Stream, ...]
     how_to_export: str
@@ -112,6 +114,7 @@ class SourceRecipe:
             "schema_version": self.schema_version,
             "platform": self.platform,
             "locator": self.locator,
+            "source_kind": self.source_kind,
             "pipelines": [{"kind": p.kind, "cadence_days": p.cadence_days} for p in self.pipelines],
             "streams": [
                 {
@@ -286,6 +289,7 @@ def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
         schema_version=str(mapping.get("schema_version") or SOURCE_RECIPE_SCHEMA_VERSION),
         platform=str(mapping.get("platform") or ""),
         locator=str(mapping.get("locator") or ""),
+        source_kind=str(mapping.get("source_kind") or ""),
         pipelines=pipelines,
         streams=streams,
         how_to_export=str(mapping.get("how_to_export") or ""),
@@ -314,6 +318,8 @@ def validate_recipe(recipe: SourceRecipe) -> list[str]:
         errors.append(f"unknown platform `{recipe.platform}` (use {sorted(PLATFORMS)})")
     if not recipe.locator:
         errors.append("recipe.locator is required (platform-native id)")
+    if recipe.source_kind not in SOURCE_KINDS:
+        errors.append(f"unknown source_kind `{recipe.source_kind}` (use {sorted(SOURCE_KINDS)})")
     if not recipe.pipelines:
         errors.append("recipe.pipelines is empty (declare at least one typed pipeline)")
     for pipeline in recipe.pipelines:
@@ -350,6 +356,19 @@ def validate_recipe(recipe: SourceRecipe) -> list[str]:
             errors.append(f"unknown schedule.mode `{recipe.schedule.mode}` (use {sorted(SCHEDULE_MODES)})")
         if recipe.schedule.mode == "recurring" and recipe.schedule.cadence_days <= 0:
             errors.append("a recurring schedule needs a positive cadence_days")
+        if recipe.schedule.mode != "recurring" and recipe.schedule.cadence_days != 0:
+            errors.append(f"a {recipe.schedule.mode} schedule must use cadence_days: 0")
+    else:
+        errors.append("recipe.schedule is required (declare one_shot, on_demand, recurring, or event_driven)")
+    # Secret smell: a recipe must never carry tokens/passwords/keys — neither as
+    # a KEY name nor as a VALUE. Structural metadata only.
+    for key in _flatten_keys(recipe.raw):
+        if _SECRET_KEYS.search(key):
+            errors.append(f"recipe must not contain credentials (found key `{key}`)")
+    for value in _flatten_values(recipe.raw):
+        if _SECRET_VALUE.search(value):
+            errors.append("recipe must not contain a credential-looking value (redacted)")
+            break  # one report is enough; never echo the secret
     return errors
 
 

@@ -7,7 +7,7 @@ import type {
   SourceOperationPreview,
   SourceOperationReceipt
 } from "../types";
-import { collectStreamUpdates, EMPTY_DRAFT, type SourceSection, type StreamDraft } from "./sourceDockModel";
+import { collectSourceUpdates, collectStreamUpdates, EMPTY_DRAFT, EMPTY_SOURCE_DRAFT, type SourceDraft, type SourceSection, type StreamDraft } from "./sourceDockModel";
 
 type SourceOperationsOptions = {
   source?: SourceEntity;
@@ -53,7 +53,9 @@ export function useSourceOperations({
     targetPages: selectedStream?.target_pages
   });
   const [draft, setDraft] = useState<StreamDraft>(EMPTY_DRAFT);
+  const [sourceDraft, setSourceDraft] = useState<SourceDraft>(EMPTY_SOURCE_DRAFT);
   const [operationPreview, setOperationPreview] = useState<SourceOperationPreview | null>(null);
+  const [operationTargetId, setOperationTargetId] = useState("");
   const [operationBusy, setOperationBusy] = useState(false);
   const [operationError, setOperationError] = useState("");
   const [receipts, setReceipts] = useState<SourceOperationReceipt[]>([]);
@@ -82,6 +84,21 @@ export function useSourceOperations({
     setRefreshReceipt(null);
     setRawPath("");
   }, [selectedStream?.id, source?.source_id, selectedStreamRevision]);
+
+  useEffect(() => {
+    if (!source) {
+      setSourceDraft(EMPTY_SOURCE_DRAFT);
+      return;
+    }
+    setSourceDraft({
+      sourceKind: source.source_kind || "collection",
+      scheduleMode: (source.schedule?.mode as SourceDraft["scheduleMode"]) || "on_demand",
+      scheduleCadenceDays: String(source.schedule?.cadence_days ?? 0)
+    });
+    setOperationPreview(null);
+    setOperationTargetId("");
+    setOperationError("");
+  }, [source?.source_id, source?.source_kind, source?.schedule?.mode, source?.schedule?.cadence_days]);
 
   useEffect(() => {
     if (!source?.source_id || demo || !onListReceipts) {
@@ -121,6 +138,30 @@ export function useSourceOperations({
         setOperationError(result.error || t("source.operation.failed"));
         return;
       }
+      setOperationTargetId(selectedStream.id);
+      setOperationPreview(result);
+    } catch (error) {
+      setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
+    } finally {
+      setOperationBusy(false);
+    }
+  };
+
+  const previewSourceConfiguration = async () => {
+    if (demo || !source) return;
+    setOperationBusy(true);
+    setOperationError("");
+    setOperationPreview(null);
+    try {
+      if (!onPreviewConfiguration) throw new Error(t("source.operation.unavailable"));
+      const updates = collectSourceUpdates(source, sourceDraft);
+      if (Object.keys(updates).length === 0) throw new Error(t("source.operation.noChanges"));
+      const result = await onPreviewConfiguration(source.source_id, "__source__", updates);
+      if (!result.ok) {
+        setOperationError(result.error || t("source.operation.failed"));
+        return;
+      }
+      setOperationTargetId("__source__");
       setOperationPreview(result);
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
@@ -130,14 +171,14 @@ export function useSourceOperations({
   };
 
   const confirmConfiguration = async () => {
-    if (demo || !source || !selectedStream || !operationPreview?.preview_token || !operationPreview.updates) return;
+    if (demo || !source || !operationTargetId || !operationPreview?.preview_token || !operationPreview.updates) return;
     setOperationBusy(true);
     setOperationError("");
     try {
       if (!onApplyConfiguration) throw new Error(t("source.operation.unavailable"));
       const result = await onApplyConfiguration(
         source.source_id,
-        selectedStream.id,
+        operationTargetId,
         operationPreview.updates,
         operationPreview.preview_token
       );
@@ -147,6 +188,7 @@ export function useSourceOperations({
       }
       setReceipts((current) => [result, ...current.filter((item) => item.operation_id !== result.operation_id)]);
       setOperationPreview(null);
+      setOperationTargetId("");
       onNotice(t("source.operation.applied", { id: result.operation_id }));
       onSourceChanged?.();
       setSection("history");
@@ -158,14 +200,14 @@ export function useSourceOperations({
   };
 
   const inspectRefresh = async () => {
-    if (demo || !source || !selectedStream) return;
+    if (demo || !source) return;
     setOperationBusy(true);
     setOperationError("");
     setRefreshPreview(null);
     setRefreshReceipt(null);
     try {
       if (!onPreviewRefresh) throw new Error(t("source.operation.unavailable"));
-      const result = await onPreviewRefresh(source.source_id, selectedStream.id, rawPath.trim());
+      const result = await onPreviewRefresh(source.source_id, "__source__", rawPath.trim());
       if (!result.ok) {
         setOperationError(result.error || t("source.operation.failed"));
         return;
@@ -179,14 +221,14 @@ export function useSourceOperations({
   };
 
   const executeRefresh = async () => {
-    if (demo || !source || !selectedStream || !refreshPreview?.preview_token) return;
+    if (demo || !source || !refreshPreview?.preview_token) return;
     setOperationBusy(true);
     setOperationError("");
     try {
       if (!onRunRefresh) throw new Error(t("source.operation.unavailable"));
       const result = await onRunRefresh(
         source.source_id,
-        selectedStream.id,
+        "__source__",
         rawPath.trim(),
         refreshPreview.preview_token
       );
@@ -216,6 +258,8 @@ export function useSourceOperations({
     selectedStream,
     draft,
     setDraft,
+    sourceDraft,
+    setSourceDraft,
     operationPreview,
     operationBusy,
     operationError,
@@ -233,6 +277,7 @@ export function useSourceOperations({
     connectorReady,
     agentReady,
     previewConfiguration,
+    previewSourceConfiguration,
     confirmConfiguration,
     inspectRefresh,
     executeRefresh,

@@ -53,6 +53,7 @@ recipe:
   schema_version: wiki_source_recipe.v1
   platform: drive
   locator: folder-a
+  source_kind: collection
   pipelines:
   - kind: metadata
     cadence_days: 7
@@ -113,6 +114,30 @@ def test_apply_requires_exact_preview_and_writes_receipt(tmp_path: Path) -> None
     assert "Reviewed file" in text
     assert "Covered elsewhere" in text
     assert result["source"]["streams"][0]["selected"] is False
+
+
+def test_source_scope_can_change_type_and_disable_time_based_staleness(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    updates = {"source_kind": "item", "schedule_mode": "one_shot", "schedule_cadence_days": 0}
+    preview = preview_source_operation(tmp_path, config, "source-a", "__source__", updates)
+    assert preview["raw_inventory"]["scope"] == "source"
+    assert {change["field"] for change in preview["changes"]} == set(updates)
+    result = apply_source_operation(tmp_path, config, "source-a", "__source__", updates, preview["preview_token"])
+    assert result["source"]["source_kind"] == "item"
+    assert result["source"]["schedule"] == {"mode": "one_shot", "cadence_days": 0, "cron_hint": ""}
+    assert result["source"]["pending_streams"] == 0
+
+
+def test_source_scope_rejects_cadence_for_non_recurring_lifecycle(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    with pytest.raises(ValueError, match="source_operation_non_recurring_cadence"):
+        preview_source_operation(
+            tmp_path,
+            config,
+            "source-a",
+            "__source__",
+            {"schedule_mode": "one_shot", "schedule_cadence_days": 7},
+        )
 
 
 def test_apply_rejects_stale_preview(tmp_path: Path) -> None:

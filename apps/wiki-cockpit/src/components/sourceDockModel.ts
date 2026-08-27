@@ -15,6 +15,12 @@ export type StreamDraft = {
   targetPages: string;
 };
 
+export type SourceDraft = {
+  sourceKind: "item" | "collection" | "account" | "endpoint" | "repository";
+  scheduleMode: "one_shot" | "on_demand" | "recurring" | "event_driven";
+  scheduleCadenceDays: string;
+};
+
 export const EMPTY_DRAFT: StreamDraft = {
   label: "",
   selected: true,
@@ -23,6 +29,12 @@ export const EMPTY_DRAFT: StreamDraft = {
   processingState: "",
   skipReason: "",
   targetPages: ""
+};
+
+export const EMPTY_SOURCE_DRAFT: SourceDraft = {
+  sourceKind: "collection",
+  scheduleMode: "on_demand",
+  scheduleCadenceDays: "0"
 };
 
 export const TRACE_MODES: SourceTraceMode[] = ["upstream", "downstream", "closure"];
@@ -45,6 +57,14 @@ export function ageLabel(days: number | null): string {
   if (days === null) return t("source.stream.never");
   if (days <= 0) return t("source.stream.today");
   return t("source.stream.daysAgo", { n: days });
+}
+
+export function sourceKindLabel(kind: SourceEntity["source_kind"]): string {
+  return t(`source.kind.${kind || "collection"}`);
+}
+
+export function scheduleModeLabel(mode: string | undefined): string {
+  return t(`source.schedule.mode.${mode || "on_demand"}`);
 }
 
 export function formatBytes(value: unknown): string {
@@ -124,6 +144,24 @@ export function collectStreamUpdates(
     processing_state: String(stream.filters?.processing_state ?? ""),
     skip_reason: stream.skip_reason ?? "",
     target_pages: stream.target_pages
+  };
+  return Object.fromEntries(
+    Object.entries(values).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(current[key]))
+  );
+}
+
+export function collectSourceUpdates(source: SourceEntity | undefined, draft: SourceDraft): Record<string, unknown> {
+  if (!source) return {};
+  const cadence = draft.scheduleMode === "recurring" ? Number(draft.scheduleCadenceDays || 0) : 0;
+  const values: Record<string, unknown> = {
+    source_kind: draft.sourceKind,
+    schedule_mode: draft.scheduleMode,
+    schedule_cadence_days: cadence
+  };
+  const current: Record<string, unknown> = {
+    source_kind: source.source_kind || "collection",
+    schedule_mode: source.schedule?.mode || "on_demand",
+    schedule_cadence_days: source.schedule?.cadence_days ?? 0
   };
   return Object.fromEntries(
     Object.entries(values).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(current[key]))

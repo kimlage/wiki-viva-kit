@@ -685,6 +685,7 @@ export type SourceEntity = {
   context: string;
   platform: string;
   locator: string;
+  source_kind?: "item" | "collection" | "account" | "endpoint" | "repository" | "";
   owner: string;
   stewards: { ref?: string; kind?: string; via?: string }[];
   config_ref: string;
