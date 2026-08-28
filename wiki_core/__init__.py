@@ -3,6 +3,6 @@
 from .config import WikiConfig, load_config
 from .paths import WikiPaths
 
-__version__ = "8.1.1"
+__version__ = "8.1.2"
 
 __all__ = ["WikiConfig", "WikiPaths", "__version__", "load_config"]
