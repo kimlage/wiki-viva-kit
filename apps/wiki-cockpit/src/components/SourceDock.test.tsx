@@ -110,6 +110,7 @@ const noop = () => undefined;
 afterEach(() => {
   cleanup();
   configureLanguage("en");
+  try { window.localStorage.clear(); } catch { /* unavailable in restricted test runtimes */ }
 });
 
 describe("SourceDock operational workspace", () => {

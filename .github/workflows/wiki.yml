@@ -93,6 +93,11 @@ jobs:
           npm --prefix apps/wiki-cockpit ci
       - name: Frontend unit tests
         run: npm --prefix apps/wiki-cockpit test
+      - name: Architecture, assets and gate contracts
+        run: |
+          npm --prefix apps/wiki-cockpit run check:architecture
+          npm --prefix apps/wiki-cockpit run check:assets
+          npm --prefix apps/wiki-cockpit run test:gates
       - name: TypeScript
         run: npm --prefix apps/wiki-cockpit exec -- tsc -p apps/wiki-cockpit/tsconfig.json --noEmit
       - name: Production build
@@ -116,94 +121,4 @@ jobs:
           tests/test_web_snapshot_cli.py::test_web_snapshot_cli_rejects_absolute_output_outside_repo
           tests/test_action_transition.py::test_action_writes_fail_closed_on_windows_boundary
 
-  cockpit_visual_runner_policy:
-    runs-on: ubuntu-latest
-    env:
-      EVENT_NAME: ${{ github.event_name }}
-      HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-      REF: ${{ github.ref }}
-      REPOSITORY: ${{ github.repository }}
-      STRICT_VISUAL_RUNNER: ${{ vars.WIKI_VIVA_STRICT_VISUAL_RUNNER }}
-    steps:
-      - name: Require one explicitly provisioned trusted visual runner
-        run: |
-          if [[ -z "$STRICT_VISUAL_RUNNER" ]]; then
-            echo "WIKI_VIVA_STRICT_VISUAL_RUNNER must name an attested GPU-backed runner label."
-            exit 1
-          fi
-          case "$STRICT_VISUAL_RUNNER" in
-            wiki-viva-strict-visual-*) ;;
-            *)
-              echo "The strict runner must use a unique wiki-viva-strict-visual-* label."
-              exit 1
-              ;;
-          esac
-          case "$EVENT_NAME" in
-            pull_request)
-              if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
-                echo "Strict visual certification never dispatches fork code to the configured runner."
-                exit 1
-              fi
-              ;;
-            push)
-              if [[ "$REF" != "refs/heads/main" ]]; then
-                echo "Strict visual certification accepts push events only from main."
-                exit 1
-              fi
-              ;;
-            *)
-              echo "Strict visual certification received an unsupported event."
-              exit 1
-              ;;
-          esac
-
-  cockpit-visual:
-    needs: [audit-and-test, cockpit-v8, cockpit_visual_runner_policy]
-    if: ${{ needs.audit-and-test.result == 'success' && needs.cockpit_visual_runner_policy.result == 'success' }}
-    # The exact release matrix contains fail-closed hardware WebGL and frame
-    # budgets. Standard hosted pools are not assumed capable. This job accepts
-    # only a custom label on an isolated ARM64 macOS self-hosted runner. A
-    # separately reviewed adapter is required for an eligible hosted larger
-    # runner. Runtime attestation still rejects software rendering.
-    runs-on:
-      - self-hosted
-      - macOS
-      - ARM64
-      - "${{ vars.WIKI_VIVA_STRICT_VISUAL_RUNNER }}"
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22.22.3"
-          cache: npm
-          cache-dependency-path: apps/wiki-cockpit/package-lock.json
-      - name: Install frontend dependencies
-        run: |
-          npm install --global npm@10.9.8
-          test "$(node --version)" = "v22.22.3"
-          test "$(npm --version)" = "10.9.8"
-          npm --prefix apps/wiki-cockpit ci
-      - name: Install browser engines
-        run: |
-          python3 -m pip install playwright==1.61.1
-          python3 -m playwright install chromium webkit firefox
-      - name: Desktop, mobile, fallback and cross-browser gates
-        # This command fixes retries at zero, rejects any skip/flaky/retry in
-        # the required public scope and refuses to collect downstream specs.
-        run: npm --prefix apps/wiki-cockpit run test:e2e:release
-      - name: Upload browser evidence
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: cockpit-visual-${{ runner.os }}-attempt-${{ github.run_attempt }}
-          if-no-files-found: error
-          retention-days: 14
-          path: |
-            apps/wiki-cockpit/test-results
-            apps/wiki-cockpit/e2e/__screenshots__/linux
             output/playwright/wiki-cockpit-report

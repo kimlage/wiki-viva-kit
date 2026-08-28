@@ -3762,6 +3762,13 @@ def _atomic_exchange_paths(first: Path, second: Path) -> None:
     migration fails closed and leaves both entries untouched.
     """
 
+    if sys.platform != "darwin" and not sys.platform.startswith("linux"):
+        raise OSError(
+            errno.ENOTSUP,
+            "atomic snapshot migration is supported only on Darwin and Linux; "
+            "the existing directory was not changed",
+        )
+
     libc = ctypes.CDLL(None, use_errno=True)
     encoded_first = os.fsencode(first)
     encoded_second = os.fsencode(second)
@@ -3795,12 +3802,6 @@ def _atomic_exchange_paths(first: Path, second: Path) -> None:
             at_fdcwd,
             encoded_second,
             rename_exchange,
-        )
-    else:  # pragma: no cover - current live publisher supports POSIX only.
-        raise OSError(
-            errno.ENOTSUP,
-            "atomic snapshot migration is supported only on Darwin and Linux; "
-            "the existing directory was not changed",
         )
     if result != 0:
         error_number = ctypes.get_errno()

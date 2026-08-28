@@ -97,6 +97,16 @@ def test_parse_frontmatter_accepts_path(tmp_path):
     assert values["page_id"] == "p"
 
 
+def test_yaml_parser_and_splitter_accept_crlf_bytes():
+    text = _doc("page_id: crlf\npage_type: root_index").replace("\n", "\r\n")
+    values, body = parse_frontmatter(text)
+    split_values, split_body = split_frontmatter(text)
+    assert values == {"page_id": "crlf", "page_type": "root_index"}
+    assert split_values == values
+    assert body.startswith("# Title\r\n")
+    assert split_body == body
+
+
 def test_parse_frontmatter_malformed_yaml_is_empty():
     # Unbalanced bracket -> YAMLError -> {} (never raises).
     values, _body = parse_frontmatter(_doc("source_refs: [a, b"))

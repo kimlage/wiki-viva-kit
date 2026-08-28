@@ -64,8 +64,10 @@ __all__ = [
     "unquote",
 ]
 
-# Matches a leading ``---\n ... \n---`` block, capturing the inner YAML.
-FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
+# Matches a leading YAML fence with either LF or CRLF line endings. Snapshot
+# compilation reads canonical bytes to hash them, so Windows-authored CRLF must
+# parse without normalizing those bytes first.
+FRONTMATTER_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n)?", re.DOTALL)
 
 
 def _read_text(source: str | Path) -> str:
