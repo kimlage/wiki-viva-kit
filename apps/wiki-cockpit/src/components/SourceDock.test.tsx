@@ -284,7 +284,7 @@ describe("SourceDock operational workspace", () => {
         onClose={noop}
       />
     );
-    expect(document.querySelector('img[src="/source-icons/google-drive.png"]')).toBeTruthy();
+    expect(document.querySelector('img[src="/source-icons/google-drive.svg"]')).toBeTruthy();
 
     rerender(
       <SourceWorkspace

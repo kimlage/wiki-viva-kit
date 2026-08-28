@@ -31,7 +31,6 @@ import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
-import { SourceWorkspace } from "./components/SourceWorkspace";
 import { useSurfacePresence } from "./components/world/useSurfacePresence";
 import { ExpandablePre } from "./components/ExpandablePre";
 import { GENESIS_FINAL_STAGE, genesisAttachMatches, genesisCreateMatches, genesisUrl } from "./data/genesis";
@@ -48,6 +47,7 @@ import { CODEX_UNAVAILABLE } from "./types";
 import "./shell.css";
 
 const RuntimeWorldView = lazy(() => import("./components/RuntimeWorldView").then((module) => ({ default: module.RuntimeWorldView })));
+const SourceWorkspace = lazy(() => import("./components/SourceWorkspace").then((module) => ({ default: module.SourceWorkspace })));
 
 type LoadState =
   | { status: "loading" }
@@ -1849,29 +1849,31 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     }
     if (worldRoute && sourceWorkspaceOpen) {
       return (
-        <SourceWorkspace
-          bundle={bundle}
-          sourceId={worldRoute.query.src}
-          demo={route.demo}
-          agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
-          onComposeBrief={runBrief}
-          onRequestBrief={composeSourceBrief}
-          onPreviewConfiguration={previewSourceOperation}
-          onApplyConfiguration={applySourceOperation}
-          onPreviewSourceGroups={previewSourceGroups}
-          onApplySourceGroups={applySourceGroups}
-          onListReceipts={listSourceOperationReceipts}
-          onPreviewRefresh={previewSourceRefresh}
-          onRunRefresh={runSourceRefresh}
-          onListJobs={listCodexJobs}
-          onStreamJobLog={streamCodexLog}
-          onCancelJob={cancelCodexJob}
-          onSourceChanged={refetchReal}
-          onNotice={notify}
-          onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
-          onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
-          onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
-        />
+        <Suspense fallback={<WorldRouteLoading readerOpen={false} />}>
+          <SourceWorkspace
+            bundle={bundle}
+            sourceId={worldRoute.query.src}
+            demo={route.demo}
+            agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
+            onComposeBrief={runBrief}
+            onRequestBrief={composeSourceBrief}
+            onPreviewConfiguration={previewSourceOperation}
+            onApplyConfiguration={applySourceOperation}
+            onPreviewSourceGroups={previewSourceGroups}
+            onApplySourceGroups={applySourceGroups}
+            onListReceipts={listSourceOperationReceipts}
+            onPreviewRefresh={previewSourceRefresh}
+            onRunRefresh={runSourceRefresh}
+            onListJobs={listCodexJobs}
+            onStreamJobLog={streamCodexLog}
+            onCancelJob={cancelCodexJob}
+            onSourceChanged={refetchReal}
+            onNotice={notify}
+            onOpenPage={(pathOrId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId: pathOrId, reader: true }))}
+            onOpenSource={(id) => navigate(hrefForWorldPatch(worldRoute, { dock: "source", src: id || null }))}
+            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
+          />
+        </Suspense>
       );
     }
     if (worldRoute) {

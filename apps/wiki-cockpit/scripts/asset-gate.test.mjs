@@ -99,11 +99,11 @@ function codes(result) {
   return result.errors.map((entry) => entry.code);
 }
 
-test("accepts the repository manifest and records zero external assets explicitly", () => {
+test("accepts the repository manifest and records every external asset explicitly", () => {
   const result = evaluateAssetManifest({ appRoot: canonicalAppRoot });
   assert.equal(result.ok, true, JSON.stringify(result.errors, null, 2));
   assert.equal(result.summary.schema_version, ASSET_MANIFEST_SCHEMA);
-  assert.equal(result.summary.external_asset_count, 0);
+  assert.equal(result.summary.external_asset_count, 8);
   assert.equal(result.summary.icon_dependency, "lucide-react");
 });
 

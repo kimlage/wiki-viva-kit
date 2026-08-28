@@ -23,8 +23,8 @@
     }
   },
   "external_assets": {
-    "state": "none",
-    "declared_count": 0
+    "state": "present",
+    "declared_count": 8
   },
   "icon_dependencies": [
     {
@@ -64,6 +64,118 @@
         "upstream_url": null,
         "attribution": "Wiki Viva Kit contributors"
       }
+    },
+    {
+      "id": "source-icon-github",
+      "path": "public/source-icons/github.svg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "SOURCE_BRAND_NOTICES.md",
+        "sha256": "c84f29bc2116bbf55057bb7f6aa3206af41f8f1b197f0a0a0221c1a3ddec9c59"
+      },
+      "integrity": { "algorithm": "sha256", "value": "476ba7aa67b86da7d6e7567b08a4bf0eb1a2fd28da5fc243f8ee39a2f1ea6773", "bytes": 837 },
+      "budget": { "max_bytes": 4096 },
+      "provenance": { "source": "vendored", "upstream_url": "https://cdn.simpleicons.org/github", "attribution": "Simple Icons contributors; GitHub trademark belongs to GitHub, Inc." }
+    },
+    {
+      "id": "source-icon-gmail",
+      "path": "public/source-icons/gmail.svg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "SOURCE_BRAND_NOTICES.md",
+        "sha256": "c84f29bc2116bbf55057bb7f6aa3206af41f8f1b197f0a0a0221c1a3ddec9c59"
+      },
+      "integrity": { "algorithm": "sha256", "value": "21b263638deb769267d610a85382792624bdae2fc47c1bc2f8ae6fb6a50413e9", "bytes": 354 },
+      "budget": { "max_bytes": 4096 },
+      "provenance": { "source": "vendored", "upstream_url": "https://cdn.simpleicons.org/gmail", "attribution": "Simple Icons contributors; Gmail trademark belongs to Google LLC." }
+    },
+    {
+      "id": "source-icon-google-calendar",
+      "path": "public/source-icons/google-calendar.svg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "SOURCE_BRAND_NOTICES.md",
+        "sha256": "c84f29bc2116bbf55057bb7f6aa3206af41f8f1b197f0a0a0221c1a3ddec9c59"
+      },
+      "integrity": { "algorithm": "sha256", "value": "aaebe4378bc647bccdeef7477e51a15fd634b281546e3def5f4d7596bc72ff83", "bytes": 1225 },
+      "budget": { "max_bytes": 4096 },
+      "provenance": { "source": "vendored", "upstream_url": "https://cdn.simpleicons.org/googlecalendar", "attribution": "Simple Icons contributors; Google Calendar trademark belongs to Google LLC." }
+    },
+    {
+      "id": "source-icon-google-chat",
+      "path": "public/source-icons/google-chat.svg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "SOURCE_BRAND_NOTICES.md",
+        "sha256": "c84f29bc2116bbf55057bb7f6aa3206af41f8f1b197f0a0a0221c1a3ddec9c59"
+      },
+      "integrity": { "algorithm": "sha256", "value": "784f85daec18e10da339d589992be39f9bbe70db577ab166141d453c69172f53", "bytes": 339 },
+      "budget": { "max_bytes": 4096 },
+      "provenance": { "source": "vendored", "upstream_url": "https://cdn.simpleicons.org/googlechat", "attribution": "Simple Icons contributors; Google Chat trademark belongs to Google LLC." }
+    },
+    {
+      "id": "source-icon-google-cloud",
+      "path": "public/source-icons/google-cloud.svg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "SOURCE_BRAND_NOTICES.md",
+        "sha256": "c84f29bc2116bbf55057bb7f6aa3206af41f8f1b197f0a0a0221c1a3ddec9c59"
+      },
+      "integrity": { "algorithm": "sha256", "value": "eb848405c6a1ed56510e7cc88ffe6e2e12cd8331be4b0c8c31048d0b0e6d53a9", "bytes": 698 },
+      "budget": { "max_bytes": 4096 },
+      "provenance": { "source": "vendored", "upstream_url": "https://cdn.simpleicons.org/googlecloud", "attribution": "Simple Icons contributors; Google Cloud trademark belongs to Google LLC." }
+    },
+    {
+      "id": "source-icon-google-drive",
+      "path": "public/source-icons/google-drive.svg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "SOURCE_BRAND_NOTICES.md",
+        "sha256": "c84f29bc2116bbf55057bb7f6aa3206af41f8f1b197f0a0a0221c1a3ddec9c59"
+      },
+      "integrity": { "algorithm": "sha256", "value": "9c82d2c76cb09475ea99f1d11c29b49e00e61630b51abf0cceb2f547e2ed2a50", "bytes": 615 },
+      "budget": { "max_bytes": 4096 },
+      "provenance": { "source": "vendored", "upstream_url": "https://cdn.simpleicons.org/googledrive", "attribution": "Simple Icons contributors; Google Drive trademark belongs to Google LLC." }
+    },
+    {
+      "id": "source-icon-whatsapp",
+      "path": "public/source-icons/whatsapp.svg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "SOURCE_BRAND_NOTICES.md",
+        "sha256": "c84f29bc2116bbf55057bb7f6aa3206af41f8f1b197f0a0a0221c1a3ddec9c59"
+      },
+      "integrity": { "algorithm": "sha256", "value": "3e197e0e1f3e679ee09823c75e1c7bad3a19da9bd1ba01df395268b9ae91816f", "bytes": 1231 },
+      "budget": { "max_bytes": 4096 },
+      "provenance": { "source": "vendored", "upstream_url": "https://cdn.simpleicons.org/whatsapp", "attribution": "Simple Icons contributors; WhatsApp trademark belongs to Meta Platforms, Inc." }
+    },
+    {
+      "id": "source-icon-zoom",
+      "path": "public/source-icons/zoom.svg",
+      "kind": "image",
+      "origin": "third_party",
+      "license": {
+        "spdx": "CC0-1.0",
+        "file": "SOURCE_BRAND_NOTICES.md",
+        "sha256": "c84f29bc2116bbf55057bb7f6aa3206af41f8f1b197f0a0a0221c1a3ddec9c59"
+      },
+      "integrity": { "algorithm": "sha256", "value": "101db982d3eee311fdf91182f0de8fbb3ffd6eea46c86e860b71c9d68715c7a5", "bytes": 852 },
+      "budget": { "max_bytes": 4096 },
+      "provenance": { "source": "vendored", "upstream_url": "https://cdn.simpleicons.org/zoom", "attribution": "Simple Icons contributors; Zoom trademark belongs to Zoom Communications, Inc." }
     }
   ]
 }
