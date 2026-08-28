@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-07
+updated_at: 2026-08-26
 stale_after_days: 180
 parent_projection:
   quadrant: q2
@@ -19,7 +19,7 @@ parent_projection:
   reason: "Methodology source is an observable evidence artifact of the kit."
 source_type: reference
 ingestion_state: ingested
-last_ingested_at: 2026-06-25
+last_ingested_at: 2026-08-26
 refresh_policy: archival
 refresh_cadence_days: 180
 refresh_trigger: "review only when the methodology proposal or implementation contract changes"
@@ -30,20 +30,24 @@ source_lifecycle:
   last_attempt_state: ok
   pipeline_stage: complete
   pipeline_stage_timestamps:
-    complete: "2026-06-25T00:00:00Z"
+    complete: "2026-08-26T00:00:00Z"
   adoption_state: accepted
-  last_sync_success_at: "2026-06-25T00:00:00Z"
-  last_ingested_at: "2026-06-25"
-  last_attempt_at: "2026-06-25T00:00:00Z"
+  last_sync_success_at: "2026-08-26T00:00:00Z"
+  last_ingested_at: "2026-08-26"
+  last_attempt_at: "2026-08-26T00:00:00Z"
   emitted_page_ids:
-    - system-ingestion-readme
+    - system-ingestion-process
+    - root-wiki-viva-kit
+    - system-wiki-architecture
+    - system-wiki-index
+    - system-wiki-ingestion-flow
   emitted_action_ids: []
   proposal_ids: []
   raw_artifact_count: 0
   secret_safe_log_refs:
-    - memories/system/ingestion/events/2026-06-09-example.md
+    - memories/system/ingestion/events/2026-08-26-wiki-viva-methodology-v5-md.md
   reviewed_no_change_receipt: ""
-  accepted_ref: memories/system/ingestion/events/2026-06-09-example.md
+  accepted_ref: memories/system/ingestion/events/2026-08-26-wiki-viva-methodology-v5-md.md
   blocked_reason: ""
 sources_policy: fonte_metodologica
 gate: github_pr
@@ -67,7 +71,7 @@ evidence_refs:
 
 # Living wiki methodology (source)
 
-Updated on: 2026-07-07.
+Updated on: 2026-08-26.
 
 This page is the methodological source of the kit: it describes, at a high level, the model of
 the living operational wiki that the code implements. Implementation coverage is

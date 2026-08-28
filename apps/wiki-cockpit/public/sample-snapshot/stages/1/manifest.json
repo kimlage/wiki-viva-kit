@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "0e848c0563cea131e7a67a347fc4d642001281be75c6f2dfd22106b7507b2e81",
+  "bundle_hash": "adcac24424ee766d62596c62348201c8832d86d3a48e803392ab6497e1fe780c",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -87,7 +87,7 @@
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1683,
-      "sha256": "eddd4c99de0276211b940c3bf1967c385c73a536e04cd02f3084ef5036c983c7"
+      "sha256": "19a19ffe9e1661e6c199df4a8887733fc14e39b2c423167b4d7208183dc5d3a7"
     },
     "decisions.json": {
       "bytes": 57,
@@ -150,8 +150,8 @@
       "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
     },
     "source_entities.json": {
-      "bytes": 111,
-      "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
+      "bytes": 621,
+      "sha256": "49cf7f204dd01f512fccbe671af892bba985e4f13b4166379dbcca6230f3ac62"
     },
     "source_lifecycle.json": {
       "bytes": 58,
@@ -190,9 +190,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-0e848c0563cea131",
+  "snapshot_id": "wiki-viva-demo-adcac24424ee766d",
   "source_commit": null,
-  "source_sha": "uncommitted:0739fbccb327c130e98742221b6499c33ba99de9f64fc15cfbc9d49970460feb",
+  "source_sha": "uncommitted:0fe874c8001bee25b8f474e0c7634fd32ac2d1af56f106ebf46fcd6ea2caf2e1",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

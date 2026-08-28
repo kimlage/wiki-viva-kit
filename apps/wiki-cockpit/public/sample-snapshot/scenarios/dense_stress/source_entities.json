@@ -1,5 +1,51 @@
 {
   "schema_version": "wiki_web_source_entities.v1",
+  "source_groups": {
+    "config_path": "wiki.source-groups.yaml",
+    "configured": false,
+    "groups": [
+      {
+        "icon": "folder",
+        "id": "local",
+        "label": "Local folders",
+        "source_ids": []
+      },
+      {
+        "icon": "folder-remote",
+        "id": "remote-folders",
+        "label": "Remote folders",
+        "source_ids": []
+      },
+      {
+        "icon": "cloud",
+        "id": "cloud",
+        "label": "Cloud and accounts",
+        "source_ids": []
+      },
+      {
+        "icon": "web",
+        "id": "web",
+        "label": "Web and feeds",
+        "source_ids": []
+      },
+      {
+        "icon": "repository",
+        "id": "repositories",
+        "label": "Repositories",
+        "source_ids": []
+      },
+      {
+        "icon": "inbox",
+        "id": "uncategorized",
+        "label": "Uncategorized",
+        "source_ids": [
+          "source-product-analytics",
+          "source-support-tickets"
+        ]
+      }
+    ],
+    "schema_version": "wiki_source_groups.v1"
+  },
   "sources": [
     {
       "auth": null,
@@ -43,6 +89,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-product-analytics",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -60,6 +107,12 @@
         "streams_total": 0
       },
       "title": "Product analytics export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -102,6 +155,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-support-tickets",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -119,6 +173,12 @@
         "streams_total": 0
       },
       "title": "Support tickets export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     }
   ],

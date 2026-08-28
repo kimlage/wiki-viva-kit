@@ -1,5 +1,79 @@
 {
   "schema_version": "wiki_web_source_entities.v1",
+  "source_groups": {
+    "config_path": "wiki.source-groups.yaml",
+    "configured": false,
+    "groups": [
+      {
+        "icon": "folder",
+        "id": "local",
+        "label": "Local folders",
+        "source_ids": []
+      },
+      {
+        "icon": "folder-remote",
+        "id": "remote-folders",
+        "label": "Remote folders",
+        "source_ids": []
+      },
+      {
+        "icon": "cloud",
+        "id": "cloud",
+        "label": "Cloud and accounts",
+        "source_ids": [
+          "source-chat-export"
+        ]
+      },
+      {
+        "icon": "web",
+        "id": "web",
+        "label": "Web and feeds",
+        "source_ids": []
+      },
+      {
+        "icon": "repository",
+        "id": "repositories",
+        "label": "Repositories",
+        "source_ids": []
+      },
+      {
+        "icon": "inbox",
+        "id": "uncategorized",
+        "label": "Uncategorized",
+        "source_ids": [
+          "source-action-ledger",
+          "source-agenda",
+          "source-banco-export",
+          "source-calendar-archive",
+          "source-call-recordings",
+          "source-clearpath-billing",
+          "source-clearpath-risk-log",
+          "source-clearpath-roadmap",
+          "source-clearpath-support",
+          "source-crm-accounts",
+          "source-decision-log",
+          "source-error-traces",
+          "source-evidence-ledger",
+          "source-feature-flags",
+          "source-health-checks",
+          "source-inbox-capture",
+          "source-notes-vault",
+          "source-nps-surveys",
+          "source-product-analytics",
+          "source-publication-queue",
+          "source-reading-queue",
+          "source-reference-folder",
+          "source-relation-cadence",
+          "source-release-notes",
+          "source-sales-pipeline",
+          "source-support-tickets",
+          "source-template-registry",
+          "source-usage-warehouse"
+        ]
+      }
+    ],
+    "schema_version": "wiki_source_groups.v1"
+  },
   "sources": [
     {
       "auth": null,
@@ -37,6 +111,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-action-ledger",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -54,6 +129,12 @@
         "streams_total": 0
       },
       "title": "Action ledger export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -98,6 +179,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-agenda",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -117,6 +199,12 @@
         "streams_total": 0
       },
       "title": "Agenda",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -162,6 +250,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-banco-export",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -182,6 +271,12 @@
         "streams_total": 0
       },
       "title": "Extrato do Banco",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-05-04"
     },
     {
@@ -220,6 +315,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-calendar-archive",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -237,6 +333,12 @@
         "streams_total": 0
       },
       "title": "Calendar archive",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -275,6 +377,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-call-recordings",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -292,6 +395,12 @@
         "streams_total": 0
       },
       "title": "Call recordings archive",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -334,6 +443,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-chat-export",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -351,6 +461,12 @@
         "streams_total": 0
       },
       "title": "Export do Chat",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -389,6 +505,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-clearpath-billing",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -406,6 +523,12 @@
         "streams_total": 0
       },
       "title": "Clearpath billing feed",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -444,6 +567,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-clearpath-risk-log",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -461,6 +585,12 @@
         "streams_total": 0
       },
       "title": "Clearpath risk log",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -499,6 +629,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-clearpath-roadmap",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -516,6 +647,12 @@
         "streams_total": 0
       },
       "title": "Clearpath roadmap archive",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -554,6 +691,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-clearpath-support",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -571,6 +709,12 @@
         "streams_total": 0
       },
       "title": "Clearpath support feed",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -611,6 +755,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-crm-accounts",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -628,6 +773,12 @@
         "streams_total": 0
       },
       "title": "CRM accounts export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -668,6 +819,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-decision-log",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -685,6 +837,12 @@
         "streams_total": 0
       },
       "title": "Decision log export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -725,6 +883,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-error-traces",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -742,6 +901,12 @@
         "streams_total": 0
       },
       "title": "Error trace export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -780,6 +945,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-evidence-ledger",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -797,6 +963,12 @@
         "streams_total": 0
       },
       "title": "Evidence ledger export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -835,6 +1007,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-feature-flags",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -852,6 +1025,12 @@
         "streams_total": 0
       },
       "title": "Feature flag audit",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -892,6 +1071,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-health-checks",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -909,6 +1089,12 @@
         "streams_total": 0
       },
       "title": "Health checks output",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -947,6 +1133,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-inbox-capture",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -964,6 +1151,12 @@
         "streams_total": 0
       },
       "title": "Inbox capture stream",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1002,6 +1195,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-notes-vault",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1019,6 +1213,12 @@
         "streams_total": 0
       },
       "title": "Notes vault index",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1057,6 +1257,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-nps-surveys",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1074,6 +1275,12 @@
         "streams_total": 0
       },
       "title": "NPS survey export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1118,6 +1325,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-product-analytics",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1137,6 +1345,12 @@
         "streams_total": 0
       },
       "title": "Product analytics export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1177,6 +1391,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-publication-queue",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1194,6 +1409,12 @@
         "streams_total": 0
       },
       "title": "Publication queue",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1232,6 +1453,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-reading-queue",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1249,6 +1471,12 @@
         "streams_total": 0
       },
       "title": "Reading queue export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1287,6 +1515,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-reference-folder",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1304,6 +1533,12 @@
         "streams_total": 0
       },
       "title": "Reference folder mirror",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1342,6 +1577,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-relation-cadence",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1359,6 +1595,12 @@
         "streams_total": 0
       },
       "title": "Relation cadence export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1403,6 +1645,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-release-notes",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1420,6 +1663,12 @@
         "streams_total": 0
       },
       "title": "Release notes archive",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1458,6 +1707,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-sales-pipeline",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1475,6 +1725,12 @@
         "streams_total": 0
       },
       "title": "Sales pipeline export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1517,6 +1773,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-support-tickets",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1534,6 +1791,12 @@
         "streams_total": 0
       },
       "title": "Support tickets export",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1572,6 +1835,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-template-registry",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1589,6 +1853,12 @@
         "streams_total": 0
       },
       "title": "Template registry snapshot",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     },
     {
@@ -1627,6 +1897,7 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-usage-warehouse",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
@@ -1644,6 +1915,12 @@
         "streams_total": 0
       },
       "title": "Usage warehouse extract",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-07-03"
     }
   ],

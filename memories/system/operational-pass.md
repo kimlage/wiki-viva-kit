@@ -3,7 +3,7 @@ page_id: operational-pass-wiki-viva-kit
 page_type: dashboard
 context: system
 visibility: private_self
-updated_at: 2026-08-27
+updated_at: 2026-08-28
 stale_after_days: 1
 sources_policy: memorias_fontes_acoes_contextos
 gate: github_pr
@@ -14,7 +14,7 @@ moc_parent: memories/index.md
 
 # Operational pass - sources, actions and contexts
 
-Updated at: 2026-08-27.
+Updated at: 2026-08-28.
 
 Deterministic compilation for contexts: all. Use this page to compress next steps into actions, problems, claims, decisions and target pages; it does not replace human reading of live sources.
 
@@ -36,11 +36,11 @@ Read this first: a compact daily state of items that still need review, decision
 
 ### Latest updates
 
-- **system:** [Operational pass - sources, actions and contexts](operational-pass.md) (2026-08-27)
-- **system:** [Memory log](log.md) (2026-08-27)
-- **system:** [Impact acknowledgements](ingestion/impact-acks.md) (2026-08-27)
-- **system:** [Canonical source registry](source-registry.md) (2026-08-27)
-- **system:** [Wiki Viva Kit](wiki-viva-kit.md) (2026-08-26)
+- **system:** [Operations - wiki-viva-kit](../operations.md) (2026-08-28)
+- **system:** [Meta-wiki: how the living wiki works](wiki/index.md) (2026-08-28)
+- **system:** [Living wiki architecture](wiki/architecture.md) (2026-08-28)
+- **system:** [Input stage](input-stage.md) (2026-08-28)
+- **system:** [Ingestion process](ingestion-process.md) (2026-08-28)
 
 
 ## Context summary
@@ -48,7 +48,7 @@ Read this first: a compact daily state of items that still need review, decision
 | Context | Hub | Vitality | Sources | Sources needing attention | Actions | Actions needing attention | Claims / decisions | Next steps |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | example | [Example context - hub](../example/index.md) | stale | 0 | 0 | 0 | 0 | 0 / 0 | - |
-| system | [Memory - root MOC](../index.md) | fresh | 1 | 0 | 0 | 0 | 0 / 0 | - |
+| system | [Memory - root MOC](../index.md) | stale | 1 | 0 | 0 | 0 | 0 / 0 | - |
 
 ## Consolidation output matrix
 
@@ -61,7 +61,7 @@ Read this first: a compact daily state of items that still need review, decision
 
 | Source | Context | Ingestion | Last update | Next refresh | Status | Linked actions |
 | --- | --- | --- | --- | --- | --- | --- |
-| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md) | system | `ingested` | 2026-06-25 | 2026-12-22 | ok | - |
+| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md) | system | `ingested` | 2026-08-26 | 2027-02-22 | ok | - |
 
 ## Compiled actions
 

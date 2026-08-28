@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "19ff55f05ed438f49085b89382d0af3bde6061a63963b81586fce630a6eb3985",
+  "bundle_hash": "c8b0f5b95d3f5bd204de316bd26117fc283d12624b1d38009d49623c61f922ea",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -89,19 +89,19 @@
     },
     "content/holon-product-ops.744a6fbe.json": {
       "bytes": 1540,
-      "sha256": "db845c40dbe011304eade8f189c07b1ce674fc88de2b14398e354ddd8470c5fa"
+      "sha256": "e7f91686820b38ad43044d7afa46a7daae40fb0e2aea1de2564bb1ba9abd4a1d"
     },
     "content/library-ai-safety.bea650b2.json": {
       "bytes": 1691,
-      "sha256": "b573d8d212eec12335f4ce813046ca7743859f43e5f4ba53400decc7adfddb77"
+      "sha256": "12ee220c2771a0963703752ab4c934013e593ce4ecd5e5078c6bee0ed47d2725"
     },
     "content/project-atlas-launch.26b6f390.json": {
       "bytes": 1234,
-      "sha256": "ed06ca57565c841b7cd15f0f98afcd6b81eed4759fd105e83938851c34dd592d"
+      "sha256": "8ab6cbed8592a1226eb2291a8b9cf8a53fa6003d70a472f7514d3bb14445a5f1"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1991,
-      "sha256": "0ec94f37ec3d1aa3f04ee879d50d06b68cc5e1ce2d0622f19f997390c306a8e7"
+      "sha256": "2e1894463208b8a2c91d64877228da08c6effd5f7689a25916d2fe3818e706c2"
     },
     "decisions.json": {
       "bytes": 57,
@@ -164,8 +164,8 @@
       "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
     },
     "source_entities.json": {
-      "bytes": 111,
-      "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
+      "bytes": 621,
+      "sha256": "49cf7f204dd01f512fccbe671af892bba985e4f13b4166379dbcca6230f3ac62"
     },
     "source_lifecycle.json": {
       "bytes": 58,
@@ -204,9 +204,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-19ff55f05ed438f4",
+  "snapshot_id": "wiki-viva-demo-c8b0f5b95d3f5bd2",
   "source_commit": null,
-  "source_sha": "uncommitted:8645e66427abb62806b8747c51369d56710731a53d9ea577ac464ddda04ba2b5",
+  "source_sha": "uncommitted:7cb34cc1294b726c2bf6bf063c4524758ba625c01df66dd5ebd76668e7c88fc9",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",
