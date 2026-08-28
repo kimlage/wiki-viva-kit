@@ -30,6 +30,10 @@ storage.
   downstream migration.
 - [Wiki Viva v8 history](references/releases/wiki-viva-v8.md): historical v8
   release investigation and retired certification evidence.
+- [Wiki Viva v6.10.1](references/releases/wiki-viva-v6.10.1.md),
+  [v6.10.0](references/releases/wiki-viva-v6.10.0.md) and
+  [v6.9.3](references/releases/wiki-viva-v6.9.3.md): preserved release notes
+  from the source-operations work that preceded the consolidated v8.1 line.
 
 Every release should have a tag, release notes and an **Upgrading** section that
 states:
