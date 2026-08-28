@@ -33,6 +33,10 @@ Runtime anchor: `wiki_core.__version__ = "8.1.1"`.
   versioned lifecycle evidence are preserved without inventing credentials.
 - Keeps the optional, separately authorized `admin` interface surface valid in
   downstream template registries during kit synchronization.
+- Retires the legacy `source_foundation.json` projection from generated
+  snapshots. Consumer tests and integrations must read `sources.json` and
+  `source_lifecycle.json`; source operations now live exclusively in the
+  dedicated two-dimensional workspace instead of the 3D world.
 - Preserves the v8.1 rule that only `recurring` sources can become overdue due
   to elapsed time and that registration is not equivalent to ingestion proof.
 

@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "55584f6ab429dd3885623dd05d5d83926dc0e5a5b5890e58156bc73c9f364d82",
+  "bundle_hash": "d79fe5bd733b0b86b465952db5cc87a3bfe39a11c887d76d95fe9bf6a53713ba",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -95,8 +95,8 @@
       "sha256": "652c561aea6c1ea9e97b2774a5b83a8290ce5620bf8dea402c3f291b227b5137"
     },
     "blocks.json": {
-      "bytes": 9357,
-      "sha256": "8c3378b7f284d8bbcb743bc02709b6a3c1f991d72cc16ec9b7162b6906206e12"
+      "bytes": 9365,
+      "sha256": "31b9419193c7f0045494f3e5de4a5d981fc2a8fe60da99912b907f5554c865c6"
     },
     "commands.json": {
       "bytes": 1296,
@@ -104,75 +104,75 @@
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1494,
-      "sha256": "14ebdc0f26d23d0b1834ebc8c2a0ce7a994bf8575d42408f0b5ccc66920a2104"
+      "sha256": "684f4ce6c2f2d02a51832b085f456b9e3edd380bdecb87678596b2fc271c3fd6"
     },
     "content/block-library-lens.3bdc7ff7.json": {
       "bytes": 1780,
-      "sha256": "56f4ccdb1914237096c7279b033e837d82ea38b911036dce4e67b4d6410594cb"
+      "sha256": "c5caa53f231ee6df99ca51b702583a28791d14007feba9aca1e390f493134dba"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 1462,
-      "sha256": "a0b1182bc3a49f4c8ca5474f9673c46478c0d6d251feefdfe588e27cd52459fc"
+      "sha256": "31028cf70938475ef40cdd7184add6490f56c53aad7077a630f39c6c0e807418"
     },
     "content/event-ingest-banco-2026-05.60d41f0b.json": {
       "bytes": 1968,
-      "sha256": "6510d1e3972fd9e435c45157f45438934922f46eb2d94078b74bb6ff851c4c0d"
+      "sha256": "b305cfa4df0a4e405c1fc92af27030102027a2a50eaa1fffdffb297255488cfe"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1979,
-      "sha256": "d58aade56199b34d1cd029aaf5d765230c886e7cf1ee9b1e054da7ac2c898c35"
+      "sha256": "260d3d86d7f55601fb4465face8e817cf5bda3b47281bd8d793ccd0b9513f95d"
     },
     "content/hub-sistema.ee25ae91.json": {
       "bytes": 3760,
-      "sha256": "32214ef62f7b333a7e18285b20889bd51abcb8a66837e46b2aee6893e186fc83"
+      "sha256": "70a5b89569cd48e691b723a9b37c28660b85c536a6e15015567b50e022505b0e"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "cae57794bcf802e0a107cf67e69a70c9d8aff93edde5cda4ae67cea51ad2e402"
+      "sha256": "e4403401beaa4ecc9571caeed0e3e3dd985e06b7bc263d5c0a38711233541bb7"
     },
     "content/perspective-artifacts-evidence.25d8ec03.json": {
       "bytes": 1198,
-      "sha256": "27e366897ee060682a2730b5ff5fb322fd4fed53bfedaafc3e6aea241cfe8d96"
+      "sha256": "ba5dbce067fa3f7a4ccffdd9e55a01a97873f093305148a8f17318e5676947c3"
     },
     "content/perspective-financial.d470a7bf.json": {
       "bytes": 1143,
-      "sha256": "e9206c69163a1359488a57e86567e98bea8299a05001ad42b7a3f178eb132aad"
+      "sha256": "2e0ba90645de29c67225cd9b6356ed9eaf8e7d6787ee4b9ad0feed3b92c409b0"
     },
     "content/perspective-identity-intent.7d6d78eb.json": {
       "bytes": 1204,
-      "sha256": "cd3d2d1a9a616f22f01fd7fb6c69120ba8b72327145f327c7a1b992a422fcaa1"
+      "sha256": "5bfba110426d4e7b889f518213b1552f76ba0d62cd6beab99a2d4989cd6a1301"
     },
     "content/perspective-privacy-publication.de1b090b.json": {
       "bytes": 1205,
-      "sha256": "55e83db480d5ace73073c5f399a72659b8b6a43d8e5dd9ff4a083e5d9907a206"
+      "sha256": "b7c8c3dc089f93448eb24b8850dc0651dc79d3a11975adee3333ce2f335d721b"
     },
     "content/perspective-roles-relationships.f613f6bb.json": {
       "bytes": 1231,
-      "sha256": "15e76d48a7f94180194437804e39cfd644debbbb2cfbb3da7aadd9ed4288b700"
+      "sha256": "1d08d191e5f5496ce0a5670d065145b19ccc31a89676797dbac75a1a70abf2ed"
     },
     "content/perspective-systems-processes.f5548ffe.json": {
       "bytes": 1231,
-      "sha256": "c3ebca94cd566962ac6f38b0df385d17e7cfae8e47e4cad91426ba11bce2df03"
+      "sha256": "97925a663dc6c18343704118082d4d30274bfbf8eaf8a4f79ef9d6877228f13b"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2473,
-      "sha256": "022c65396348a3a6cfcc452879f3f81295ffc31dde04b0571513b3a1138e2739"
+      "sha256": "2f72554ea179e800bb69cdcf6e6c06447f7ee43b66379608f69688bd2dd6c8f2"
     },
     "content/skill-agent-classify-quadrants.963805cf.json": {
       "bytes": 1200,
-      "sha256": "1993ea8a2087fb0f2852652b16be74be078edc73389b5a092d8ecc51dac46b93"
+      "sha256": "942100a3c3a754c38625967cad30a7f7cb3b0ea765acfad74e4f79641414f092"
     },
     "content/skill-agent-deep-read.7630764e.json": {
       "bytes": 1118,
-      "sha256": "80f9dc911550dc93de5a88444d32a724e1d626264b2cfa3ef79d4718b4ef6556"
+      "sha256": "04424499a7b12469f653e6ca5ac820d3296fdefe17a68b7d0af52c8611db5b27"
     },
     "content/skill-human-review-privacy.f31a7680.json": {
       "bytes": 1207,
-      "sha256": "dc850ab12de973e4d62c7df41bba8374d7211e57f6ac321bf6c9da7218a30099"
+      "sha256": "fa893ff12071c89a53fd3ac8a7114a90acb2d406b65694e2c1f62173d18adfbd"
     },
     "content/source-banco-export.21d8fe1f.json": {
       "bytes": 2978,
-      "sha256": "997fa5187f66b958475648314809ae42df7520c59b7abc23910dff744add7934"
+      "sha256": "5310f60f94c5fcce9b0f6b1b8c8b7325aa033e7208f654f73209ac0bae4f5f4f"
     },
     "decisions.json": {
       "bytes": 57,
@@ -235,8 +235,8 @@
       "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
     },
     "source_entities.json": {
-      "bytes": 2171,
-      "sha256": "2635192abc9d41b8530951b7829018772e038452d4df237939114762dd634ac8"
+      "bytes": 2199,
+      "sha256": "47d191178694e6089d996fe59ffa2499776b7bff9ab97d71ee06ea6abd222e3e"
     },
     "source_lifecycle.json": {
       "bytes": 851,
@@ -275,9 +275,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-55584f6ab429dd38",
+  "snapshot_id": "wiki-viva-demo-d79fe5bd733b0b86",
   "source_commit": null,
-  "source_sha": "uncommitted:34652c9ce84e549df491f9121e09c3cb11d3ee5898458b36a075df6e3f7eb448",
+  "source_sha": "uncommitted:14e91bfd43d9f8bff2c4a060ecad8648708259fcd5211a9e260d541b769d1686",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "00b367063d80ff55c303bd55e77bd71688744cf24d89f05441339272e9f9b9cb",
+  "bundle_hash": "a106a32a818dc0426903faccf791e49a0aa21469a643eb6b35c42f8f0bb4825d",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -81,8 +81,8 @@
       "sha256": "8c9aff4087046163ca6911678c954e47eecb60d10a2ef663fdfd027da8a8cede"
     },
     "blocks.json": {
-      "bytes": 9051,
-      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+      "bytes": 9059,
+      "sha256": "39bce837ab1f62a449caa620726bf545eb3b3b600d63adbb57d23c55dd42db72"
     },
     "commands.json": {
       "bytes": 1296,
@@ -90,19 +90,19 @@
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1008,
-      "sha256": "2a8e19707ea2ea0e9252c977e3a61c5c2c50bf204ddba5c91a8d10e1cf8a2947"
+      "sha256": "98888a8f8e065826c4e66f8e7b18f00031be5086adfd3be5fd47f00b6781933c"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 976,
-      "sha256": "7ed88b0661c773ad2ce9d42f006382df943c40b952302ba18c11e9864a9e2b5b"
+      "sha256": "025ba7f97ee996101fa56d519c04477f1b56296cede88e2157974a567d331062"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1747,
-      "sha256": "c214b0c6ba10aa248746d3146aa064422820a0bcec369145b9ccffe1291c0b5f"
+      "sha256": "676f8bc38b067463292a113d389757f933aa3e94e01ed3d189474e89d56c7553"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1963,
-      "sha256": "f69a08e117a78427e51b44532fc708c54e730d6d94594c5e7b6e76aec2a13afd"
+      "sha256": "2016067e7cba95d40b8ad1dbca8418a800856c25649406392ea5df001f89fe61"
     },
     "decisions.json": {
       "bytes": 57,
@@ -205,9 +205,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-00b367063d80ff55",
+  "snapshot_id": "wiki-viva-demo-a106a32a818dc042",
   "source_commit": null,
-  "source_sha": "uncommitted:4059a16f8caa7ba5c3b5827fb8ec61e3cb620cb2de2f10be1b7c95ac7e0629c1",
+  "source_sha": "uncommitted:79ff38838521418be45a8d05ee9e6a4e6564283a802508f77eaad75d704a42be",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",
