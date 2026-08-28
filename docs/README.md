@@ -52,7 +52,9 @@ starting point for persistent context is `memories/`.
   quadrant terminology patch in
   [wiki-viva-v6.9.2.md](references/releases/wiki-viva-v6.9.2.md), followed by
   the source-recipe and deterministic snapshot correction in
-  [wiki-viva-v6.9.3.md](references/releases/wiki-viva-v6.9.3.md).
+  [wiki-viva-v6.9.3.md](references/releases/wiki-viva-v6.9.3.md), followed by
+  the source operations workspace and governed update release in
+  [wiki-viva-v6.10.0.md](references/releases/wiki-viva-v6.10.0.md).
 - `docs/references/reports/`: verification and evaluation reports, including the
   AQAL quadrant alignment check in
   [aqal-quadrant-alignment-2026-06-25.md](references/reports/aqal-quadrant-alignment-2026-06-25.md).

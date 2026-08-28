@@ -14,6 +14,19 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-08-28] System | Wiki Viva v6.10.0 source operations release
+
+- Versioned the source operations workspace as Wiki Viva `v6.10.0`, including
+  the governed update lifecycle, portable platform identities, resizable and
+  groupable source registry, Codex/Claude adapters and the pending-source batch
+  overview.
+- Added a migration contract that keeps shared core and synthetic fixtures in
+  the public kit while requiring each private consumer to own source records,
+  authorization pointers, source groups, deterministic routes and RAW inputs.
+- Revalidated the public and public-export audits, source and operation
+  compilers, page graph, Python and frontend suites, TypeScript, production
+  build and secret scan before publication.
+
 ## [2026-08-27] System | Source operations workspace and lifecycle contract
 
 - Added a self-contained two-dimensional source workspace with persistent
