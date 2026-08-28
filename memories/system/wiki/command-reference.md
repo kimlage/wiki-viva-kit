@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-07
+updated_at: 2026-08-28
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-07-07.
+Last updated: 2026-08-28.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
@@ -65,10 +65,29 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audits the wiki contract | Validate contract/links/secrets at commit and in CI |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Checks the presence AND content of methodology v5 | Ensure the methodology is in fact implemented |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarizes the PR diff by context/entity | Generate the PR review summary |
+| [wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py) | Previews/applies B0/C1/C2/C3 kit adoption | Update a clean downstream consumer without copying its private memory or configuration |
 | [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generates the web cockpit snapshot | Produce JSON read models for static/local cockpit execution |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepares web cockpit deployment inputs | Write runtime config, snapshot JSON and deploy proof for one implementation |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Runs the local web cockpit operator API | Serve snapshots and allowlisted actions on localhost |
 | [wiki_build_demo.py](../../../scripts/wiki_build_demo.py) | Builds the cockpit demo (fixture-wiki → sample-snapshot) | Regenerate the reproducible demo MOC that exercises templates, blocks, lenses and the relations module |
+
+## Downstream kit synchronization
+
+[wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py) is the supported
+portable upgrade command. `--dry-run` emits the B0 plan without writing. Apply
+copies only the tracked regular files selected by the public
+[sync manifest](../../../docs/references/upgrades/sync-manifest.yaml), runs the
+manifest's deterministic C2 commands, runs only explicitly supplied C3 commands
+and writes `kit.lock`.
+
+```sh
+python3 scripts/wiki_sync_from_kit.py \
+  --kit . --consumer /path/to/consumer --dry-run
+```
+
+The command refuses a dirty consumer by default. It removes only paths recorded
+as managed in the previous `kit.lock`; consumer memory, configuration, source
+records, RAW data and private evidence remain consumer-owned.
 
 ## Ingestion pipeline
 

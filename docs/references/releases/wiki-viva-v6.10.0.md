@@ -13,6 +13,10 @@ sensitive_data_policy: no_personal_data
 
 # Wiki Viva v6.10.0
 
+> Superseded for downstream migration by
+> [Wiki Viva v6.10.1](wiki-viva-v6.10.1.md), which includes the public
+> synchronization command and manifest referenced below.
+
 Source operations release for the public Wiki Viva Kit. It adds a complete,
 self-contained two-dimensional workspace for registering, inspecting,
 configuring and updating sources without mixing source operations with the
