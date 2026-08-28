@@ -120,5 +120,3 @@ jobs:
           tests/test_web_snapshot.py::test_flat_reader_rejects_valid_but_unowned_directory
           tests/test_web_snapshot_cli.py::test_web_snapshot_cli_rejects_absolute_output_outside_repo
           tests/test_action_transition.py::test_action_writes_fail_closed_on_windows_boundary
-
-            output/playwright/wiki-cockpit-report
