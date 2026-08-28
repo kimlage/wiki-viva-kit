@@ -25,6 +25,7 @@ storage.
 
 ## Release documentation
 
+- [Wiki Viva v8.1.1](references/releases/wiki-viva-v8.1.1.md): source operations documentation and additive source-config migration fix
 - [Wiki Viva v8.1.0](references/releases/wiki-viva-v8.1.md): consolidated v8
   runtime with the self-contained source operations workspace and portable
   downstream migration.

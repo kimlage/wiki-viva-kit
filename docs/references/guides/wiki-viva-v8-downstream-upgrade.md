@@ -90,7 +90,7 @@ explicit C3 commands:
 python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
   --kit /path/to/wiki-viva-kit \
   --consumer /path/to/consumer \
-  --c3-command "python3 scripts/wiki_migrate_templates.py --apply" \
+  --c3-command "python3 scripts/wiki_migrate_templates.py --apply --operational-recipes" \
   --c3-command "python3 scripts/wiki_source_registry.py --write" \
   --c3-command "python3 scripts/wiki_operation_compile.py --write"
 ```

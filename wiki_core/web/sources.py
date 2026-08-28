@@ -267,9 +267,7 @@ def _source_record(
         if age is None and selected_stream_count == 1 and last_status == "ok":
             age = _iso_days_ago(last_run_at or str(values.get("last_ingested_at") or ""), today)
             if age is not None:
-                # Keep the public v1 read-model label stable while adopting the
-                # newer per-stream receipt semantics additively.
-                freshness_basis = "versioned_source_sync"
+                freshness_basis = "source_receipt"
         # Only recurring sources age into an overdue state. A one-shot source is
         # complete after capture; on-demand and event-driven sources wait for a
         # trigger and must never become stale merely because time passed.
@@ -286,7 +284,7 @@ def _source_record(
             {
                 **stream,
                 "cursor_age_days": age,
-                "freshness_basis": freshness_basis if workflow_pending or time_based_freshness else f"schedule_{schedule_mode or 'unconfigured'}",
+                "freshness_basis": freshness_basis,
                 "cadence_days": stream_cadence,
                 "breached": breached,
             }
@@ -303,12 +301,46 @@ def _source_record(
 
     event_closure = dict((events_index or {}).get(source_id) or {})
     lifecycle_resolution = resolve_source_lifecycle(values)
-    lifecycle_values = lifecycle_resolution.values
+    lifecycle_values = dict(lifecycle_resolution.values)
     authored_lifecycle = (
         values.get("source_lifecycle")
         if isinstance(values.get("source_lifecycle"), dict)
         else {}
     )
+    # The first v8 migration could write an empty lifecycle skeleton on a page
+    # that already had proven ingestion evidence. Preserve authored values for
+    # audit, but do not let placeholder `never` fields override a successful
+    # versioned source receipt in the read model.
+    legacy_lifecycle_derived = bool(
+        last_run_at
+        and last_status in {"ok", "partial"}
+        and str(authored_lifecycle.get("last_attempt_state") or "") == "never"
+        and not str(authored_lifecycle.get("last_sync_success_at") or "")
+        and not str(authored_lifecycle.get("last_ingested_at") or "")
+    )
+    if legacy_lifecycle_derived:
+        complete = (
+            last_status == "ok"
+            and str(values.get("ingestion_state") or "") == "ingested"
+        )
+        lifecycle_values.update(
+            {
+                "lifecycle_state": "ingested" if complete else "configured",
+                "freshness_state": (
+                    "stale" if schedule_mode == "recurring" and pending else "fresh"
+                )
+                if last_status == "ok"
+                else "",
+                "last_attempt_state": "ok" if last_status == "ok" else "",
+                "pipeline_stage": "complete" if complete else "configured",
+                "adoption_state": str(
+                    authored_lifecycle.get("adoption_state") or "pending"
+                ),
+                "last_sync_success_at": last_run_at if last_status == "ok" else "",
+                "last_ingested_at": authored_ingested_at or last_run_at,
+                "last_attempt_at": last_run_at,
+            }
+        )
     pipeline_timestamps = authored_lifecycle.get("pipeline_stage_timestamps")
     if not isinstance(pipeline_timestamps, dict):
         pipeline_timestamps = {}
@@ -367,6 +399,7 @@ def _source_record(
             },
         },
         "lifecycle": {
+            "derived_from_legacy": legacy_lifecycle_derived,
             "state": str(lifecycle_values.get("lifecycle_state") or ""),
             "freshness_state": str(lifecycle_values.get("freshness_state") or ""),
             "last_attempt_state": str(lifecycle_values.get("last_attempt_state") or ""),

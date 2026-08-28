@@ -23,6 +23,7 @@ What it does:
 from __future__ import annotations
 
 import datetime as dt
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -59,6 +60,32 @@ _SOURCE_TYPE_PLATFORM: dict[str, str] = {
 # which we leave as an explicit TODO.
 _REPO_LOCATOR_PLATFORMS = frozenset({"repo", "file", "manual"})
 
+_PLATFORM_HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"chatgpt", re.I), "chatgpt"),
+    (re.compile(r"whatsapp", re.I), "whatsapp"),
+    (re.compile(r"gmail|e[- ]?mail", re.I), "gmail"),
+    (re.compile(r"google[ -]?chat|gchat", re.I), "gchat"),
+    (re.compile(r"google[ -]?photos|google fotos", re.I), "google_photos"),
+    (re.compile(r"google[ -]?(drive|sheets)|\bdrive\b|planilha", re.I), "drive"),
+    (re.compile(r"github|gitlab|reposit[oó]rio|\brepo\b", re.I), "repo"),
+    (
+        re.compile(
+            r"linkedin|workday|portal|billing|openfinance|auvp|staking|"
+            r"mckinsey|zoom|receita|vaga|collabsoul p[uú]blica",
+            re.I,
+        ),
+        "web",
+    ),
+    (
+        re.compile(
+            r"docs?/|data/raw|data/derived|download|transcri|audio|whisper|"
+            r"fatura|extrato|arquivo|file[_ -]?bundle|artifact",
+            re.I,
+        ),
+        "file",
+    ),
+)
+
 
 @dataclass(frozen=True)
 class SourceMigrationChange:
@@ -80,6 +107,23 @@ def infer_platform(values: dict[str, Any]) -> tuple[str, bool]:
     existing = str(values.get("platform") or "").strip()
     if existing in PLATFORMS:
         return existing, False
+    # A specific identity is stronger than a coarse legacy type. For example,
+    # a page named as a WhatsApp export must not be migrated as Slack merely
+    # because its old source_type was "chat".
+    hint = " ".join(
+        str(values.get(key) or "")
+        for key in (
+            "page_id",
+            "title",
+            "source_locator",
+            "url",
+            "source_url",
+            "source_type",
+        )
+    )
+    for pattern, platform in _PLATFORM_HINTS:
+        if pattern.search(hint):
+            return platform, False
     source_type = str(values.get("source_type") or "").strip().lower()
     mapped = _SOURCE_TYPE_PLATFORM.get(source_type)
     if mapped:
@@ -174,8 +218,161 @@ def scaffold_recipe_block(platform: str, locator: str) -> str:
     )
 
 
+def _positive_int(*values: Any, default: int = 30) -> int:
+    for value in values:
+        try:
+            number = int(str(value).strip())
+        except (TypeError, ValueError):
+            continue
+        if number > 0:
+            return number
+    return default
+
+
+def _list_values(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    return []
+
+
+def _privacy(values: dict[str, Any]) -> str:
+    for key in ("sensitive_data_policy", "visibility"):
+        value = str(values.get(key) or "").strip()
+        if value in {
+            "private_self",
+            "private_sensitive_allowed",
+            "team_shared",
+            "public_ok",
+        }:
+            return value
+    return "private_self"
+
+
+def _operator_auth(platform: str) -> dict[str, Any]:
+    if platform in {"drive", "google_photos", "gmail", "gchat", "calendar"}:
+        return {
+            "method": "mcp",
+            "ref": "google-workspace",
+            "scopes": ["read"],
+            "note": "Pointer only; no credential is versioned.",
+        }
+    if platform in {"web", "chatgpt"}:
+        return {
+            "method": "mcp",
+            "ref": "browser",
+            "scopes": ["read"],
+            "note": "Uses the operator's existing authorized browser session.",
+        }
+    if platform == "repo":
+        return {
+            "method": "none",
+            "ref": "",
+            "scopes": [],
+            "note": "Reads the repository or configured remote without storing a credential.",
+        }
+    return {
+        "method": "none",
+        "ref": "",
+        "scopes": [],
+        "note": "RAW is supplied locally; no credential belongs in the recipe.",
+    }
+
+
+def operational_recipe_block(
+    config_values: dict[str, Any], linked_sources: list[dict[str, Any]]
+) -> str:
+    """Build an executable recipe only from already-versioned source facts."""
+    primary = linked_sources[0] if linked_sources else {}
+    platform, _ = infer_platform({**config_values, **primary})
+    locator, locator_is_todo = infer_locator(
+        str(primary.get("_rel") or ""), {**config_values, **primary}, platform
+    )
+    if locator_is_todo:
+        locator = str(
+            primary.get("_rel") or config_values.get("moc_parent") or "source-config"
+        )
+    cadence = _positive_int(
+        primary.get("refresh_cadence_days"),
+        primary.get("stale_after_days"),
+        config_values.get("stale_after_days"),
+    )
+    config_targets = _list_values(config_values.get("target_pages")) + _list_values(
+        config_values.get("related_pages")
+    )
+    streams: list[dict[str, Any]] = []
+    for index, source in enumerate(linked_sources or [primary], start=1):
+        source_id = str(source.get("page_id") or f"source-{index}")
+        source_targets = (
+            config_targets
+            + _list_values(source.get("related_pages"))
+            + _list_values(source.get("evidence_refs"))
+            + ([str(source.get("moc_parent"))] if source.get("moc_parent") else [])
+        )
+        streams.append(
+            {
+                "id": source_id.removeprefix("fonte-")
+                .removeprefix("sources-")
+                .removeprefix("source-"),
+                "label": str(source.get("title") or source_id),
+                "selected": True,
+                "privacy": _privacy({**config_values, **source}),
+                "cadence_days": _positive_int(
+                    source.get("refresh_cadence_days"), default=0
+                ),
+                "filters": {"source_ref": source_id},
+                "target_pages": list(
+                    dict.fromkeys(target for target in source_targets if target)
+                ),
+            }
+        )
+    refresh_policy = str(primary.get("refresh_policy") or "on_demand").strip().lower()
+    schedule_mode = (
+        refresh_policy
+        if refresh_policy in {"one_shot", "on_demand", "recurring", "event_driven"}
+        else "on_demand"
+    )
+    recipe = {
+        "recipe": {
+            "schema_version": "wiki_source_recipe.v1",
+            "platform": platform,
+            "locator": locator,
+            "source_kind": infer_source_kind(platform),
+            "pipelines": [{"kind": "content", "cadence_days": cadence}],
+            "streams": streams,
+            "auth": _operator_auth(platform),
+            "schedule": {
+                "mode": schedule_mode,
+                "cadence_days": cadence if schedule_mode == "recurring" else 0,
+                "cron_hint": "",
+            },
+            "how_to_export": (
+                "Use the source-specific ingestion and privacy rules documented on this "
+                "page. Bring authorized RAW or live readback into data/raw, preserve "
+                "provenance, then run deterministic extraction before contextual reading."
+            ),
+            "ingest": {
+                "argv": [
+                    "python3",
+                    "scripts/wiki_ingest.py",
+                    "--source",
+                    "{path}",
+                    "--context",
+                    str(config_values.get("context") or "system"),
+                ]
+            },
+        }
+    }
+    dumped = yaml.safe_dump(recipe, sort_keys=False, allow_unicode=True).rstrip("\n")
+    return "## Recipe\n\n```yaml\n" + dumped + "\n```\n"
+
+
 def _plan_source_page(
-    root: Path, rel: str, values: dict[str, Any], today: dt.date
+    root: Path,
+    rel: str,
+    values: dict[str, Any],
+    today: dt.date,
+    *,
+    operational: bool = False,
 ) -> SourceMigrationChange:
     config_values = _config_page_values(root, values)
     additions: dict[str, Any] = {}
@@ -191,6 +388,8 @@ def _plan_source_page(
 
     if not str(values.get("source_locator") or "").strip():
         locator, is_todo = infer_locator(rel, values, platform)
+        if operational and is_todo:
+            locator, is_todo = rel, False
         additions["source_locator"] = locator
         if is_todo:
             notes.append("source_locator is a TODO placeholder — set the real id")
@@ -206,7 +405,41 @@ def _plan_source_page(
     # sync is left alone (adding would duplicate the YAML key and clobber it) and
     # noted for the reviewer instead.
     if "sync" not in values:
-        additions["sync"] = initial_sync(values)
+        if not operational:
+            additions["sync"] = initial_sync(values)
+        else:
+            lifecycle = (
+                values.get("source_lifecycle")
+                if isinstance(values.get("source_lifecycle"), dict)
+                else {}
+            )
+            lifecycle_success = lifecycle.get("last_sync_success_at") or lifecycle.get(
+                "last_ingested_at"
+            )
+            # A populated lifecycle is newer than legacy top-level fields. An
+            # explicit empty success date must not revive old mutable evidence.
+            last_run_at = str(
+                lifecycle_success
+                or (values.get("last_ingested_at") if not lifecycle else "")
+                or ""
+            )
+            log_refs = lifecycle.get("secret_safe_log_refs")
+            path_refs = (
+                [
+                    str(ref).strip()
+                    for ref in log_refs
+                    if isinstance(ref, str)
+                    and str(ref).strip().endswith(".md")
+                    and not str(ref).strip().startswith(("http://", "https://"))
+                ]
+                if isinstance(log_refs, list)
+                else []
+            )
+            additions["sync"] = {
+                "last_run_at": last_run_at,
+                "last_status": "ok" if last_run_at else "never",
+                "last_event_ref": path_refs[-1] if path_refs else "",
+            }
     elif not isinstance(values.get("sync"), dict):
         notes.append("`sync` exists but is not a mapping — fix it by hand")
 
@@ -220,14 +453,35 @@ def _plan_source_config_page(
     rel: str,
     values: dict[str, Any],
     text: str,
-    linked_source: dict[str, Any] | None = None,
+    linked_sources: list[dict[str, Any]] | None = None,
+    *,
+    operational: bool = False,
 ) -> SourceMigrationChange:
-    if extract_recipe_mapping(text) is not None:
-        return SourceMigrationChange(rel=rel, page_type="source_config")
     # Inherit platform/locator from the source page this config governs, so the
     # recipe matches the entity instead of guessing from the thin config page.
-    source = linked_source or {}
-    platform, guessed = infer_platform({**source, **values})
+    linked_sources = linked_sources or []
+    source = linked_sources[0] if linked_sources else {}
+    platform, guessed = infer_platform({**values, **source})
+    additions = {} if str(values.get("platform") or "").strip() else {"platform": platform}
+    # A pre-existing recipe is canonical and must never be rewritten by the
+    # additive migration. The config page still needs the explicit platform
+    # field used by registry, icon and authorization projections.
+    if extract_recipe_mapping(text) is not None:
+        return SourceMigrationChange(
+            rel=rel,
+            page_type="source_config",
+            add_frontmatter=additions,
+        )
+    if operational:
+        return SourceMigrationChange(
+            rel=rel,
+            page_type="source_config",
+            add_frontmatter=additions,
+            append_recipe=operational_recipe_block(values, linked_sources),
+            notes=(
+                "generated selected streams from existing source_refs, targets, privacy and cadence",
+            ),
+        )
     locator, is_todo = infer_locator(
         source.get("_rel", rel), {**source, **values}, platform
     )
@@ -239,13 +493,18 @@ def _plan_source_config_page(
     return SourceMigrationChange(
         rel=rel,
         page_type="source_config",
+        add_frontmatter=additions,
         append_recipe=scaffold_recipe_block(platform, locator),
         notes=tuple(notes),
     )
 
 
 def plan_source_migration(
-    root: Path, config: WikiConfig, today: dt.date | None = None
+    root: Path,
+    config: WikiConfig,
+    today: dt.date | None = None,
+    *,
+    operational_recipes: bool = False,
 ) -> list[SourceMigrationChange]:
     """Scan ``memories/`` and return the additive changes needed to bring every
     source / source_config page up to contract. Empty changes are dropped."""
@@ -258,12 +517,17 @@ def plan_source_migration(
     # Index source pages by page_id so a source_config can inherit its entity's
     # platform/locator instead of guessing from the thin config page.
     source_by_id: dict[str, dict[str, Any]] = {}
+    sources_by_config_ref: dict[str, list[dict[str, Any]]] = {}
     for path in md_paths:
         values = parse_frontmatter(path)[0]
         if str(values.get("page_type") or "") == "source":
             page_id = str(values.get("page_id") or "").strip()
             if page_id:
-                source_by_id[page_id] = {**values, "_rel": path.relative_to(root).as_posix()}
+                indexed = {**values, "_rel": path.relative_to(root).as_posix()}
+                source_by_id[page_id] = indexed
+                config_ref = str(values.get("config_ref") or "").strip()
+                if config_ref:
+                    sources_by_config_ref.setdefault(config_ref, []).append(indexed)
 
     changes: list[SourceMigrationChange] = []
     for path in md_paths:
@@ -271,16 +535,24 @@ def plan_source_migration(
         page_type = str(values.get("page_type") or "")
         rel = path.relative_to(root).as_posix()
         if page_type == "source":
-            change = _plan_source_page(root, rel, values, today)
+            change = _plan_source_page(
+                root, rel, values, today, operational=operational_recipes
+            )
         elif page_type == "source_config":
             refs = values.get("source_refs")
-            linked = None
+            linked: list[dict[str, Any]] = list(sources_by_config_ref.get(rel, []))
+            linked_ids = {str(source.get("page_id") or "") for source in linked}
             for ref in refs if isinstance(refs, list) else []:
-                if str(ref) in source_by_id:
-                    linked = source_by_id[str(ref)]
-                    break
+                if str(ref) in source_by_id and str(ref) not in linked_ids:
+                    linked.append(source_by_id[str(ref)])
+                    linked_ids.add(str(ref))
             change = _plan_source_config_page(
-                root, rel, values, path.read_text(encoding="utf-8"), linked
+                root,
+                rel,
+                values,
+                path.read_text(encoding="utf-8"),
+                linked,
+                operational=operational_recipes,
             )
         else:
             continue

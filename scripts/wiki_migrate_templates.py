@@ -80,6 +80,11 @@ def _report_pinned_gaps(root, config) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--apply", action="store_true", help="write source changes (default: dry-run)")
+    parser.add_argument(
+        "--operational-recipes",
+        action="store_true",
+        help="derive selected streams, targets, cadence and operator auth pointers from existing source metadata",
+    )
     parser.add_argument("--no-sources", action="store_true", help="skip the source migration")
     parser.add_argument("--pinned", action="store_true", help="also report template pinned-field gaps")
     args = parser.parse_args()
@@ -87,7 +92,9 @@ def main() -> int:
     config = load_config(ROOT)
 
     if not args.no_sources:
-        changes = plan_source_migration(ROOT, config)
+        changes = plan_source_migration(
+            ROOT, config, operational_recipes=args.operational_recipes
+        )
         if args.apply:
             for change in changes:
                 apply_change(ROOT, change)
