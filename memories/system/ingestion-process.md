@@ -3,7 +3,7 @@ page_id: system-ingestion-process
 page_type: operational_rule
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-08-28
 stale_after_days: 90
 sources_policy: contrato_wiki_operacional
 gate: github_pr
@@ -14,16 +14,10 @@ source_refs:
 
 # Ingestion process
 
-Updated on: 2026-08-26
+Updated on: 2026-08-28
 
 This process turns a new source into a reviewable proposal, consolidated memory,
 or a decision not to ingest.
-
-For a recurring or operator-triggered source, the linked `source_config` recipe
-defines the platform, locator, selected streams, filters, cadence, targets and
-authorization pointer. The recipe never stores credentials and does not fetch
-an external system by itself; it grounds the authorized connector/export and
-the deterministic ingestion command.
 
 ## Automated flow (orchestrator)
 
@@ -50,17 +44,14 @@ The orchestrated path, end to end:
 
 ```mermaid
 flowchart LR
-    Recipe["Source recipe + selected stream"] --> Source["Authorized source or exported RAW"]
-    Source --> Manifest["Manifest"]
+    Source["Source"] --> Manifest["Manifest"]
     Manifest --> Chunks["Text and chunks"]
     Chunks --> Index["Index"]
     Index --> Prescan["Pre-scan"]
     Prescan --> Package["LLM context package"]
-    Package --> Cursor["Derived processing cursor"]
     Package --> DeepRead(["Deep read by the agent"])
     DeepRead --> Integrate["Consolidate + integrate"]
-    Integrate --> Receipt["Closed event + versioned sync receipt"]
-    Receipt --> Score["Score event"]
+    Integrate --> Score["Score event"]
     Score --> Proposal["Proposal"]
     Proposal --> Gate{"PR gate"}
     Gate -->|approved| Memory[("Memory")]
@@ -85,18 +76,15 @@ The deterministic stages, the command that runs each, and what gates it:
    `no_ingest`.
 3. Define the target context among those declared in [wiki.config.yaml](../../wiki.config.yaml)
    (`contexts`); `system` is always valid.
-4. Confirm the canonical source page and its `source_config` recipe. For a
-   migrated source, validate the selected streams, cadence, targets and auth
-   pointer; stop if the authorized RAW/connector is unavailable.
-5. Generate a manifest with [scripts/wiki_extract_source_manifest.py](../../scripts/wiki_extract_source_manifest.py)
+4. Generate a manifest with [scripts/wiki_extract_source_manifest.py](../../scripts/wiki_extract_source_manifest.py)
    when the source is a file, URL, or traceable artifact.
-6. Extract text and chunks with [scripts/wiki_extract_text.py](../../scripts/wiki_extract_text.py)
+5. Extract text and chunks with [scripts/wiki_extract_text.py](../../scripts/wiki_extract_text.py)
    when there is new semantic content.
-7. Record a normalized event in [memories/system/ingestion/events/](ingestion/events/README.md)
+6. Record a normalized event in [memories/system/ingestion/events/](ingestion/events/README.md)
    with four quadrants or an explicit absence.
-8. Plan the contextual LLM pass with [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py)
+7. Plan the contextual LLM pass with [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py)
    and record the cache/plan or a skip justification.
-9. Consolidate and INTEGRATE with [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
+8. Consolidate and INTEGRATE with [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
    `--source <source_id> --emit-event --packet` generates the normalized event
    from the recorded deep read (quadrants filled, candidate claims/decisions/
    actions, `consolidated_into: []` to close) and the integration packet
@@ -107,19 +95,16 @@ The deterministic stages, the command that runs each, and what gates it:
    record every conflict and ambiguity; fill in the event's `consolidated_into`
    (each target page references the source in `source_refs`). The `--check`
    blocks CI while there is a read source without integration.
-10. If the decision is not trivial, generate a proposal in
+9. If the decision is not trivial, generate a proposal in
    [memories/system/ingestion/YYYY-MM-DD-<topic>.md](ingestion/README.md).
-11. Open or update a `wiki/*` branch.
-12. Consolidate the synthesis into the context memory, not just link the source.
-13. Turn every cited local path into a clickable Markdown link. The label may be
+10. Open or update a `wiki/*` branch.
+11. Consolidate the synthesis into the context memory, not just link the source.
+12. Turn every cited local path into a clickable Markdown link. The label may be
    the original path; the target must point to the existing file, directory, or
    original source.
-14. Update related pages and [memories/system/log.md](log.md).
-15. Treat the derived stream cursor as a deterministic processing checkpoint;
-   record the successful versioned sync receipt only after the ingestion event
-   is closed and its target pages are integrated.
-16. Run the audit and review the diff in a PR.
-17. Merge only after human approval.
+13. Update related pages and [memories/system/log.md](log.md).
+14. Run the audit and review the diff in a PR.
+15. Merge only after human approval.
 
 ## Private extraction criteria
 

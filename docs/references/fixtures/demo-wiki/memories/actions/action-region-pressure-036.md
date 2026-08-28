@@ -1,0 +1,29 @@
+---
+visibility: private_self
+stale_after_days: 30
+page_id: action-region-pressure-036
+page_type: action
+title: Dense canonical action 036
+context: clientes
+updated_at: '2026-05-04'
+moc_parent: memories/clientes/index.md
+sub_lens: producao
+action_state: cancelled
+owner_kind: human
+owner_ref: person-marina-costa
+created_at: '2026-06-01'
+due_at: '2026-06-15'
+parent_ref: hub-clientes
+source_refs:
+- source-support-tickets
+evidence_refs:
+- artifact-region-pressure-036
+priority: high
+attention_basis: The synthetic action is overdue.
+completed_at: '2026-07-03T12:00:00Z'
+cancellation_receipt: receipt:demo-action-cancelled-036
+---
+
+# Dense canonical action 036
+
+Canonical synthetic work object 036; it is not an executable operator command.

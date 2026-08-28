@@ -28,7 +28,7 @@ export function OutputModal({ title, text, onClose }: { title: string; text: str
             <Copy size={13} />
             <span>{copied ? t("output.copied") : t("output.copy")}</span>
           </button>
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>

@@ -3,7 +3,7 @@ page_id: operations-wiki-viva-kit
 page_type: dashboard
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-08-28
 stale_after_days: 1
 sources_policy: memorias_logs_git_e_artefatos_derivados
 gate: github_pr
@@ -15,7 +15,7 @@ moc_parent: memories/index.md
 # Operations - wiki-viva-kit
 
 Owner: Wiki Owner.
-Updated at: 2026-08-26 10:39.
+Updated at: 2026-08-28 16:49.
 
 ## Current state
 
@@ -68,12 +68,11 @@ Honest signal: an ingested source only counts once its event is closed (consolid
 
 ## Karma and vitality (gamification)
 
-Score events: 10 | total karma (with decay): 19.1.
+Score events: 1 | total karma (with decay): 3.0.
 
 | Dimension | Points |
 | --- | --- |
-| stewardship | 18.1 |
-| confiabilidade | 1.0 |
+| stewardship | 3.0 |
 
 ## Resume links
 

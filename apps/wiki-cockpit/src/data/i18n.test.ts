@@ -22,6 +22,37 @@ describe("i18n", () => {
     expect(t("mission.approve.help")).toContain("human reviews");
   });
 
+  it("explains the sustained-performance fallback in both languages", () => {
+    configureLanguage("en");
+    expect(t("scene.fallback.performance.title")).toBe("Performance-safe map");
+    expect(t("scene.fallback.performance.body")).toContain("same pages, groups and navigation");
+    configureLanguage("pt-BR");
+    expect(t("scene.fallback.performance.title")).toBe("Mapa seguro para este dispositivo");
+    expect(t("scene.fallback.performance.body")).toContain("mesmas páginas, grupos e navegação");
+    expect(t("scene.fallback.aria")).toBe("Mapa de conteúdo");
+    expect(t("scene.workspace.approved")).toBe("Espaço aprovado");
+  });
+
+  it("localizes every hidden visual-lab surface instead of leaking mixed UI copy", () => {
+    configureLanguage("en");
+    expect(t("visualControl.aria")).toBe("God mode visual controls");
+    expect(t("visualControl.slider.motion")).toBe("Motion");
+    expect(t("visualControl.json.invalid")).toBe("Invalid JSON");
+    configureLanguage("pt-BR");
+    expect(t("visualControl.aria")).toBe("Controles visuais do modo mestre");
+    expect(t("visualControl.slider.motion")).toBe("Movimento");
+    expect(t("visualControl.json.invalid")).toBe("JSON inválido");
+  });
+
+  it("keeps the shared tour wording valid outside demo routes", () => {
+    configureLanguage("en");
+    expect(t("tour.welcome.body")).toContain("This guide presents");
+    expect(t("tour.welcome.body").toLowerCase()).not.toContain("demo");
+    configureLanguage("pt");
+    expect(t("tour.welcome.body")).toContain("Este guia apresenta");
+    expect(t("tour.welcome.body").toLowerCase()).not.toContain("demo");
+  });
+
   it("interpolates params and falls back key → EN → key", () => {
     configureLanguage("pt");
     expect(t("world.pages", { n: 42 })).toBe("42 páginas");
@@ -49,6 +80,16 @@ describe("i18n", () => {
     const missingInEn = [...pt].filter((key) => !en.has(key));
     expect(missingInPt, `keys missing in PT: ${missingInPt.join(", ")}`).toEqual([]);
     expect(missingInEn, `keys missing in EN: ${missingInEn.join(", ")}`).toEqual([]);
+  });
+
+  it("explains compatibility views in both cockpit languages", () => {
+    configureLanguage("en");
+    expect(t("world.experience.compatibility.badge")).toBe("Compatibility view");
+    expect(t("world.experience.compatibility.switchHint")).toContain("native view");
+
+    configureLanguage("pt");
+    expect(t("world.experience.compatibility.badge")).toBe("Visão de compatibilidade");
+    expect(t("world.experience.compatibility.switchHint")).toContain("visão nativa");
   });
 
   it("derives a localized Codex-unavailable headline from capability booleans", () => {

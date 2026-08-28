@@ -13,7 +13,6 @@ context: system
 visibility: private_self
 updated_at: 2026-06-09
 stale_after_days: 60
-stale_exempt: true
 sources_policy: percepcao_pessoal_privada
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
@@ -48,9 +47,6 @@ Updated on: 2026-06-09.
 > **Private** page (`visibility: private_self`) and **perception**, not canonical
 > truth (`status_epistemologico: percepcao`). Nothing here becomes an insight or
 > collective memory without explicit consent (see `## Promote?`).
-
-This is a dated historical journal entry and is therefore freshness-exempt; its
-claims are not silently updated when the architecture evolves.
 
 ## Plain-language summary
 

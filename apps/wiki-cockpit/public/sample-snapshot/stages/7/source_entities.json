@@ -1,11 +1,83 @@
 {
   "schema_version": "wiki_web_source_entities.v1",
+  "source_groups": {
+    "config_path": "wiki.source-groups.yaml",
+    "configured": false,
+    "groups": [
+      {
+        "icon": "folder",
+        "id": "local",
+        "label": "Local folders",
+        "source_ids": []
+      },
+      {
+        "icon": "folder-remote",
+        "id": "remote-folders",
+        "label": "Remote folders",
+        "source_ids": []
+      },
+      {
+        "icon": "cloud",
+        "id": "cloud",
+        "label": "Cloud and accounts",
+        "source_ids": []
+      },
+      {
+        "icon": "web",
+        "id": "web",
+        "label": "Web and feeds",
+        "source_ids": []
+      },
+      {
+        "icon": "repository",
+        "id": "repositories",
+        "label": "Repositories",
+        "source_ids": []
+      },
+      {
+        "icon": "inbox",
+        "id": "uncategorized",
+        "label": "Uncategorized",
+        "source_ids": [
+          "source-banco-export"
+        ]
+      }
+    ],
+    "schema_version": "wiki_source_groups.v1"
+  },
   "sources": [
     {
       "auth": null,
       "config_ref": "",
       "context": "financeiro",
       "how_to_export": "",
+      "lifecycle": {
+        "accepted_ref": "",
+        "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
+        "emitted_action_ids": [],
+        "emitted_page_ids": [
+          "claim-custos-sobem",
+          "artifact-relatorio-recon"
+        ],
+        "freshness_state": "stale",
+        "last_attempt_at": "2026-05-04",
+        "last_attempt_state": "ok",
+        "last_ingested_at": "",
+        "last_sync_success_at": "2026-05-04",
+        "pipeline_stage": "gate_pending",
+        "pipeline_stage_timestamps": {},
+        "proposal_ids": [
+          "event-ingest-banco-2026-05"
+        ],
+        "raw_artifact_count": 1,
+        "reviewed_no_change_receipt": "",
+        "secret_safe_log_refs": [
+          "logs/demo/source-banco-export-attempt"
+        ],
+        "state": "consolidated"
+      },
       "locator": "",
       "next_due_days": null,
       "owner": "root-alex-rivera",
@@ -17,10 +89,20 @@
       "recipe_ok": false,
       "schedule": null,
       "source_id": "source-banco-export",
+      "source_kind": "",
       "stewards": [],
       "streams": [],
       "sync": {
-        "derived_from_event": true,
+        "derived_from_event": false,
+        "event_closure": {
+          "consolidated_into": [
+            "claim-custos-sobem",
+            "artifact-relatorio-recon"
+          ],
+          "gate_state": "",
+          "no_change": [],
+          "reviewed_no_change": false
+        },
         "last_event_ref": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
         "last_run_at": "2026-05-04",
         "last_status": "ok",
@@ -28,6 +110,12 @@
         "streams_total": 0
       },
       "title": "Extrato do Banco",
+      "update_route": {
+        "mcp_hint": "",
+        "mode": "manual_export",
+        "requires_agent": false,
+        "runnable": false
+      },
       "updated_at": "2026-05-04"
     }
   ],

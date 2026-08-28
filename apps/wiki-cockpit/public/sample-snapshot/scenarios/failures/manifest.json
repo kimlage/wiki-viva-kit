@@ -1,0 +1,227 @@
+{
+  "bundle_hash": "9f5af46e5dd96c53de90a070124e191063c265ad65da79bf353da2ce93d529f1",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
+    "content_sidecars"
+  ],
+  "content_sidecars": true,
+  "contract_errors": [],
+  "files": [
+    "manifest.json",
+    "operations.json",
+    "graph.json",
+    "pages.json",
+    "sources.json",
+    "source_entities.json",
+    "templates.json",
+    "actions.json",
+    "decisions.json",
+    "freshness.json",
+    "gates.json",
+    "git.json",
+    "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
+    "diff.json",
+    "ingestion.json",
+    "quality.json",
+    "commands.json",
+    "score.json",
+    "blocks.json",
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/action-region-sync-support.5f1f5ac0.json",
+    "content/root-alex-rivera.f4a10886.json",
+    "content/source-error-traces.42cb8fa8.json",
+    "content/source-health-checks.9ebc3675.json"
+  ],
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "reference_date": "2026-07-09",
+    "scenario_id": "failures",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8005,
+    "source_input_sha256": "f3cad44c425b08f3202c6b9d86b608c665f5e6e585fe2a563b7fbf83ff232b87"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2833,
+      "sha256": "2b1bef112fba8f5fe8a730133007e40c915fff1b9c61d8c12cb5856baa8d7efd"
+    },
+    "block_stacks.json": {
+      "bytes": 20540,
+      "sha256": "8adb613a6c1470267b8038cfe4bc9186f560bbd90167b561421d7de9d5e8f02c"
+    },
+    "blocks.json": {
+      "bytes": 9051,
+      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+    },
+    "commands.json": {
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
+    },
+    "content/action-region-sync-support.5f1f5ac0.json": {
+      "bytes": 1543,
+      "sha256": "085a78d3231d3ffb9dbac5fd2b30c6770d15f4b4f2550715824aea04964342e3"
+    },
+    "content/root-alex-rivera.f4a10886.json": {
+      "bytes": 2225,
+      "sha256": "229102a56fcd301b1baf42f114acedf3f5406f51f9543695af653c161e275df0"
+    },
+    "content/source-error-traces.42cb8fa8.json": {
+      "bytes": 2443,
+      "sha256": "1b950cc23d0d676c0dea2defa39c494a065b08076cb08b6084b0e37814de57a3"
+    },
+    "content/source-health-checks.9ebc3675.json": {
+      "bytes": 2012,
+      "sha256": "7270eac593ab954da35df953dded3dddc5c9610d453a4293c07b3cd765e96dfb"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+    },
+    "freshness.json": {
+      "bytes": 369,
+      "sha256": "e1f1ebd4daa81fc9b5cfd2306f01ef98d838be5e0b37cd22639c4f7e73aa87fc"
+    },
+    "gates.json": {
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 10554,
+      "sha256": "e4f1dc4611931b9df854f707215be59421af141e23189dadfee62ce1c453fdb7"
+    },
+    "ingestion.json": {
+      "bytes": 503,
+      "sha256": "6e2b6b6d55ef730a164499db71adc30c8ead0a760effe3fdc07a7ebf9b358c74"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
+    },
+    "pages.json": {
+      "bytes": 5397,
+      "sha256": "7b6ff98e98e38ebbd9a3963919d5b494971222570a73aaad0b51b5529d9bf512"
+    },
+    "quality.json": {
+      "bytes": 2766,
+      "sha256": "2ed30d39fd39d24eebbbdb671cbd05bd40470dd58b597d8b110cad52838f4aa6"
+    },
+    "region_groups.json": {
+      "bytes": 9147,
+      "sha256": "765fd42e10a4b93a26cd1198791e933134e9e6471e493ebc8234f613cd34cbda"
+    },
+    "score.json": {
+      "bytes": 1394,
+      "sha256": "dda537658d2a4a7196618cab890d6c1434ef05d551f2e2eafb56420287239f53"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 348,
+      "sha256": "b435a3466935d9f33398a0c245b9d27c58f09685efb2fa71f2edcbb44c0fb9b1"
+    },
+    "source_entities.json": {
+      "bytes": 3384,
+      "sha256": "a77287dc49fe5df25969b334eac6e4b840d715e3817da2e53acd267c2868be57"
+    },
+    "source_lifecycle.json": {
+      "bytes": 1452,
+      "sha256": "eff9d418763974680476abcf0539133e8c7a3ff0ec7edb4db4c77130e5868cb2"
+    },
+    "sources.json": {
+      "bytes": 2800,
+      "sha256": "4b1ab3ee204d32e7e2b5b45ef84bd441fa72263b46752024ebb28c72ddb7c5f0"
+    },
+    "templates.json": {
+      "bytes": 23927,
+      "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
+    },
+    "temporal_graph.json": {
+      "bytes": 7159,
+      "sha256": "ea75c8423ee6833e33e5e4bbff6a984ba1f1059b319e050bcd2ca6dfc1ebc344"
+    },
+    "timeline.json": {
+      "bytes": 1737,
+      "sha256": "63e489cec67257d7954a6db8d4dd1211e6d511f5767cd49ca3a56d5b21badcde"
+    },
+    "work_items.json": {
+      "bytes": 759,
+      "sha256": "c272ae891596288ca6c6f45ea9009ecbc1ac5421500af61efe147d48c9a4e92d"
+    }
+  },
+  "mode": "static",
+  "repo": {
+    "branch_prefix": "wiki/",
+    "default_branch": "main",
+    "default_context": "pessoal",
+    "karma_enabled": true,
+    "language": "en",
+    "memory_root": "memories",
+    "repo_id": "wiki-viva-demo"
+  },
+  "root_page_id": "root-alex-rivera",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-9f5af46e5dd96c53",
+  "source_commit": null,
+  "source_sha": "uncommitted:308b7166c9022a781c782079d3bc57bf7c173e6cc21c527ab5864dacc92379f6",
+  "versions": {
+    "activity_timeline": "activity_timeline.v1",
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
+}

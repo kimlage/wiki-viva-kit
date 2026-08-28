@@ -1,0 +1,65 @@
+{
+  "schema_version": "wiki_source_lifecycle.v2",
+  "sources": [
+    {
+      "accepted_ref": "",
+      "adoption_state": "pending",
+      "authoring_error_codes": [],
+      "blocked_reason": "The synthetic trace export is malformed.",
+      "contract_warnings": [],
+      "emitted_action_ids": [],
+      "emitted_page_ids": [],
+      "freshness_state": "stale",
+      "last_attempt_at": "2026-07-03",
+      "last_attempt_state": "parser_error",
+      "last_event_ref": "",
+      "last_ingested_at": "",
+      "last_run_at": "2026-07-03",
+      "last_sync_success_at": "",
+      "lifecycle_state": "blocked",
+      "pipeline_stage": "extracted",
+      "pipeline_stage_timestamps": {},
+      "proposal_ids": [],
+      "raw_artifact_count": 1,
+      "reviewed_no_change_receipt": "",
+      "secret_safe_log_refs": [
+        "logs/demo/source-error-traces-parser"
+      ],
+      "source_id": "source-error-traces",
+      "stream_counts": {
+        "fresh": 0,
+        "total": 0
+      }
+    },
+    {
+      "accepted_ref": "",
+      "adoption_state": "pending",
+      "authoring_error_codes": [],
+      "blocked_reason": "The synthetic health endpoint returned an operational failure.",
+      "contract_warnings": [],
+      "emitted_action_ids": [],
+      "emitted_page_ids": [],
+      "freshness_state": "stale",
+      "last_attempt_at": "2026-07-03",
+      "last_attempt_state": "failed",
+      "last_event_ref": "",
+      "last_ingested_at": "",
+      "last_run_at": "2026-07-03",
+      "last_sync_success_at": "",
+      "lifecycle_state": "blocked",
+      "pipeline_stage": "manifested",
+      "pipeline_stage_timestamps": {},
+      "proposal_ids": [],
+      "raw_artifact_count": 0,
+      "reviewed_no_change_receipt": "",
+      "secret_safe_log_refs": [
+        "logs/demo/source-health-checks-failed"
+      ],
+      "source_id": "source-health-checks",
+      "stream_counts": {
+        "fresh": 0,
+        "total": 0
+      }
+    }
+  ]
+}

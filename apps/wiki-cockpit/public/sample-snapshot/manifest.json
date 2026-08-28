@@ -1,5 +1,25 @@
 {
+  "bundle_hash": "8d1c5584a934c732deb6eff38dc2ee32234152e2cf28e373bcea8f827ac3fca7",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
+    "content_sidecars"
+  ],
   "content_sidecars": true,
+  "contract_errors": [],
   "files": [
     "manifest.json",
     "operations.json",
@@ -14,15 +34,679 @@
     "gates.json",
     "git.json",
     "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
     "diff.json",
     "ingestion.json",
     "quality.json",
     "commands.json",
     "score.json",
     "blocks.json",
-    "block_stacks.json"
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/action-enviar-proposta.05a0afa6.json",
+    "content/action-region-clean-unsourced.b1bf976d.json",
+    "content/action-region-review-evidence.113ce011.json",
+    "content/action-region-sync-support.5f1f5ac0.json",
+    "content/artifact-benchmark-safety.006aebe2.json",
+    "content/artifact-clearpath-prototype.cc27c1af.json",
+    "content/artifact-dashboard-atlas.528653ec.json",
+    "content/artifact-region-map-01.7d18eac3.json",
+    "content/artifact-region-map-02.7e18ec56.json",
+    "content/artifact-region-map-03.7f18ede9.json",
+    "content/artifact-region-map-04.8018ef7c.json",
+    "content/artifact-region-map-05.8118f10f.json",
+    "content/artifact-region-map-06.8218f2a2.json",
+    "content/artifact-region-map-07.8318f435.json",
+    "content/artifact-region-map-08.8418f5c8.json",
+    "content/artifact-relatorio-recon.8b3a520f.json",
+    "content/artifact-template-library-example.4a124b65.json",
+    "content/block-library-lens.3bdc7ff7.json",
+    "content/claim-clearpath-market-signal.8ec8804a.json",
+    "content/claim-custos-sobem.0be31ee0.json",
+    "content/claim-pulse-activation.38e10cd6.json",
+    "content/claim-region-evidence-ready.153eb2ca.json",
+    "content/claim-region-grouping-needed.3562287e.json",
+    "content/claim-region-hidden-work.20c22571.json",
+    "content/claim-scaling-laws.4fa5829f.json",
+    "content/claim-template-library-purpose.9c5b84a9.json",
+    "content/company-clearpath-labs.3af57f9e.json",
+    "content/dashboard-clearpath-activation.7cff7fcb.json",
+    "content/decision-clearpath-enter-midmarket.bcbd1634.json",
+    "content/decision-onboarding.c7dd4f27.json",
+    "content/decision-precos.9841cd2a.json",
+    "content/event-ingest-agenda-2026-07.239edae8.json",
+    "content/event-ingest-banco-2026-05.60d41f0b.json",
+    "content/event-ingest-chat-2026-07.1960cfa6.json",
+    "content/event-ingest-product-analytics-2026-07.736e4284.json",
+    "content/event-ingest-support-tickets-2026-06.fc48bb42.json",
+    "content/holon-product-ops.744a6fbe.json",
+    "content/hub-clientes.3f6a2080.json",
+    "content/hub-estudio.5299d7d0.json",
+    "content/hub-financeiro.405d007d.json",
+    "content/hub-sistema.ee25ae91.json",
+    "content/idx-decisoes.2978228e.json",
+    "content/insight-calendario-calmo.bc9fec19.json",
+    "content/journal-2026-07-02.d025db62.json",
+    "content/library-ai-safety.bea650b2.json",
+    "content/meeting-clearpath-alignment.86ab71a9.json",
+    "content/meeting-template-library-review.84aa2e5c.json",
+    "content/meeting-weekly-sync.c890e266.json",
+    "content/person-bea-rivera.8cb44a81.json",
+    "content/person-caio-prado.c4b6be2e.json",
+    "content/person-joao-mendes.471a0cbf.json",
+    "content/person-lia-fontes.0c04e983.json",
+    "content/person-marina-costa.3db0e184.json",
+    "content/person-rita-souza.3db9d808.json",
+    "content/perspective-artifacts-evidence.25d8ec03.json",
+    "content/perspective-financial.d470a7bf.json",
+    "content/perspective-identity-intent.7d6d78eb.json",
+    "content/perspective-privacy-publication.de1b090b.json",
+    "content/perspective-roles-relationships.f613f6bb.json",
+    "content/perspective-systems-processes.f5548ffe.json",
+    "content/process-clearpath-approval.e72d9e2f.json",
+    "content/process-fechamento-mensal.86cea7aa.json",
+    "content/process-template-library-governance.41b6e964.json",
+    "content/product-clearpath-pulse.f89a79e3.json",
+    "content/project-atlas-launch.26b6f390.json",
+    "content/proposal-ingest-product-analytics-2026-07.2dfc4f84.json",
+    "content/role-clearpath-customer-success-lead.9b8a2724.json",
+    "content/role-consultora.261f0ea0.json",
+    "content/root-alex-rivera.f4a10886.json",
+    "content/rule-clearpath-release-gate.6bccf948.json",
+    "content/rule-nada-publica-sem-review.63750616.json",
+    "content/skill-agent-classify-quadrants.963805cf.json",
+    "content/skill-agent-deep-read.7630764e.json",
+    "content/skill-human-review-privacy.f31a7680.json",
+    "content/source-action-ledger.ec9c5cd9.json",
+    "content/source-agenda.f538317f.json",
+    "content/source-banco-export.21d8fe1f.json",
+    "content/source-calendar-archive.b0c27d5e.json",
+    "content/source-call-recordings.493fa442.json",
+    "content/source-chat-export.ab08dca2.json",
+    "content/source-clearpath-billing.ac81b6b1.json",
+    "content/source-clearpath-customer-interviews.fe211d91.json",
+    "content/source-clearpath-risk-log.955fc04a.json",
+    "content/source-clearpath-roadmap.29eebdc2.json",
+    "content/source-clearpath-support.cff72d2d.json",
+    "content/source-crm-accounts.045e8fb4.json",
+    "content/source-decision-log.af7c319a.json",
+    "content/source-error-traces.42cb8fa8.json",
+    "content/source-evidence-ledger.a6cf164c.json",
+    "content/source-feature-flags.584ec4b5.json",
+    "content/source-health-checks.9ebc3675.json",
+    "content/source-inbox-capture.b68fa932.json",
+    "content/source-notes-vault.6052136d.json",
+    "content/source-nps-surveys.655f0160.json",
+    "content/source-product-analytics.7e84039f.json",
+    "content/source-publication-queue.e5fb37c5.json",
+    "content/source-reading-queue.39102ed7.json",
+    "content/source-reference-folder.e81dc9c7.json",
+    "content/source-relation-cadence.1e34d2f1.json",
+    "content/source-release-notes.32ff3a48.json",
+    "content/source-sales-pipeline.a320b636.json",
+    "content/source-support-tickets.e9968562.json",
+    "content/source-template-registry.159b91c7.json",
+    "content/source-usage-warehouse.460d4538.json",
+    "content/tool-banco-app.f00739cb.json",
+    "content/tool-google-drive.84896e00.json",
+    "content/tool-obsidian.e3fff9cb.json"
   ],
-  "generated_at": "2026-07-07T22:55:31Z",
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "reference_date": "2026-07-09",
+    "scenario_id": "normal_operations",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8002,
+    "source_input_sha256": "b86696bc9928cf71b30d44336922e6f8d816e2d0321efd1b2fbc3be5e975444a"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2833,
+      "sha256": "2b1bef112fba8f5fe8a730133007e40c915fff1b9c61d8c12cb5856baa8d7efd"
+    },
+    "block_stacks.json": {
+      "bytes": 457057,
+      "sha256": "62a8f5cccf99e4deee1bd45db419cedf1d4772c35de404c3eaa812835d7dcf9d"
+    },
+    "blocks.json": {
+      "bytes": 9357,
+      "sha256": "8c3378b7f284d8bbcb743bc02709b6a3c1f991d72cc16ec9b7162b6906206e12"
+    },
+    "commands.json": {
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
+    },
+    "content/action-enviar-proposta.05a0afa6.json": {
+      "bytes": 2435,
+      "sha256": "66adf5ef3009edfe8f88752563691461ff752e7cc44f9985d4317a346d119512"
+    },
+    "content/action-region-clean-unsourced.b1bf976d.json": {
+      "bytes": 1758,
+      "sha256": "a1a41e72f45c4db1040a2bfffc698a5f323776c624f743e50b30cb2c3260c485"
+    },
+    "content/action-region-review-evidence.113ce011.json": {
+      "bytes": 1732,
+      "sha256": "ec73072f8d344aa9dd8071a5b8b6ca9040ac1aec3b66f3cded035c49eb811633"
+    },
+    "content/action-region-sync-support.5f1f5ac0.json": {
+      "bytes": 1758,
+      "sha256": "dfef862c8c22c0db2bb932907f08dd11bee9b5c7bd2072d41fda293b0f618069"
+    },
+    "content/artifact-benchmark-safety.006aebe2.json": {
+      "bytes": 945,
+      "sha256": "53e100c3fa9188b15a70064dd629e8403be0ff9b9d700580445691e59e4b5d00"
+    },
+    "content/artifact-clearpath-prototype.cc27c1af.json": {
+      "bytes": 1021,
+      "sha256": "a1626d27cb5f2bf3c7761850699754ef6dd152d6e32f9cff21d1cd8533954e5a"
+    },
+    "content/artifact-dashboard-atlas.528653ec.json": {
+      "bytes": 933,
+      "sha256": "68279ef0544c70ca8ea223857734283660cdee9b1bbabcb0623e9467bce7458c"
+    },
+    "content/artifact-region-map-01.7d18eac3.json": {
+      "bytes": 1478,
+      "sha256": "f36a433a971f43f47fd0ee9635d2898d123ce5732005753b554e0e88398312d9"
+    },
+    "content/artifact-region-map-02.7e18ec56.json": {
+      "bytes": 1478,
+      "sha256": "8d51089bc1834a8e74ab8dfdc464ba9d7b44f02a8e4903489b604a60a312accb"
+    },
+    "content/artifact-region-map-03.7f18ede9.json": {
+      "bytes": 1468,
+      "sha256": "f071b8d34e312754988e2d5f42983b60da3b7c436d32a28b23d76dae02d1e4c3"
+    },
+    "content/artifact-region-map-04.8018ef7c.json": {
+      "bytes": 1502,
+      "sha256": "9393c25fe01ff6d6a0955b7292a94110576a1d99671272cbaed3c6993dc7a0e2"
+    },
+    "content/artifact-region-map-05.8118f10f.json": {
+      "bytes": 1492,
+      "sha256": "3867066e5bbb2dbe9539793146a37af2515524b82f2189080af0ea691f15afaa"
+    },
+    "content/artifact-region-map-06.8218f2a2.json": {
+      "bytes": 1550,
+      "sha256": "07d844f7af661c0355f15019fb9e813b76adcf59d67028a08886752c84a1d96e"
+    },
+    "content/artifact-region-map-07.8318f435.json": {
+      "bytes": 1496,
+      "sha256": "fffd48eb565e5663426e9372991af5b5665cc0d2bfc7e8be152128618b1a73b4"
+    },
+    "content/artifact-region-map-08.8418f5c8.json": {
+      "bytes": 1486,
+      "sha256": "27fcba787ff9fabd1a8ed7e5e03c8a1c7a346871d6c66045fe3dbb42937694bd"
+    },
+    "content/artifact-relatorio-recon.8b3a520f.json": {
+      "bytes": 1494,
+      "sha256": "5febeb2d1b9795bcdcafea0909e81066c9d74263ddcf6c55482279a46220c76b"
+    },
+    "content/artifact-template-library-example.4a124b65.json": {
+      "bytes": 1116,
+      "sha256": "19fb6dc62262038486f99ce876b25ccc4c047cbd36b6a862cdde4db2fcd30102"
+    },
+    "content/block-library-lens.3bdc7ff7.json": {
+      "bytes": 2845,
+      "sha256": "9ef62ea60bd44b0560f3e2969b11b9fba3b4aab204e165ccb8310ceb46909e14"
+    },
+    "content/claim-clearpath-market-signal.8ec8804a.json": {
+      "bytes": 1063,
+      "sha256": "4f5a9cbda57a078b6cae014d14e5c04eac5a1b183a25d2d78b859aa03e1f2553"
+    },
+    "content/claim-custos-sobem.0be31ee0.json": {
+      "bytes": 1462,
+      "sha256": "5c5c3488744219885fbdedac5a46e6f0ec0e810437cdb08b87df6ba0026ebe5a"
+    },
+    "content/claim-pulse-activation.38e10cd6.json": {
+      "bytes": 1146,
+      "sha256": "a63ee587002b01edcf24132bd154fc4e7390d565e487517ac1f15bbb4ab55284"
+    },
+    "content/claim-region-evidence-ready.153eb2ca.json": {
+      "bytes": 1578,
+      "sha256": "c680d785ed926f2a86e3071b399a6635e780937bdcb83b7904901b5465938966"
+    },
+    "content/claim-region-grouping-needed.3562287e.json": {
+      "bytes": 1197,
+      "sha256": "9584e6ebfd5cc34c1dee58caf4e6dfac7e2a970606d572cfc1ec2ae822c8d47c"
+    },
+    "content/claim-region-hidden-work.20c22571.json": {
+      "bytes": 1188,
+      "sha256": "8da14b5825569fe53ca491f7622489ec77072de6d8cb6a3a1e6439d89a9c81a2"
+    },
+    "content/claim-scaling-laws.4fa5829f.json": {
+      "bytes": 946,
+      "sha256": "00b81e39c4dd93cf28e1f48fb84f2df9a01c254acc069e326c9c203612b7070b"
+    },
+    "content/claim-template-library-purpose.9c5b84a9.json": {
+      "bytes": 1096,
+      "sha256": "9336bf586a80a5e56b596fbdaef3075413e15b45a0f7786dbb5267fbaf4028b7"
+    },
+    "content/company-clearpath-labs.3af57f9e.json": {
+      "bytes": 5930,
+      "sha256": "2aa63ef2a091628d641321a4035f1e3d97b17d60a68d0ebe84ad9dd39e56452c"
+    },
+    "content/dashboard-clearpath-activation.7cff7fcb.json": {
+      "bytes": 1706,
+      "sha256": "49838a9a2b90527b02ae02db948897ca45c02801d053bd89916432280762fd71"
+    },
+    "content/decision-clearpath-enter-midmarket.bcbd1634.json": {
+      "bytes": 1076,
+      "sha256": "908f795f8639bed248f32672a7bf5c37ed22b36e5d4fa4f84ce3447cd0db7fde"
+    },
+    "content/decision-onboarding.c7dd4f27.json": {
+      "bytes": 952,
+      "sha256": "a3d302abfad9aea237e6e7dcd160cd0916cc01e863e431da7d1fac429318ac37"
+    },
+    "content/decision-precos.9841cd2a.json": {
+      "bytes": 913,
+      "sha256": "25b3d7cffff6ba181d42ce51b1e9cc100225b52780ce9295f380b6a6a84a52bf"
+    },
+    "content/event-ingest-agenda-2026-07.239edae8.json": {
+      "bytes": 1745,
+      "sha256": "c719f4a151710383e87807c35ebf717555ff240c5d6b54c99cf4501f40d11882"
+    },
+    "content/event-ingest-banco-2026-05.60d41f0b.json": {
+      "bytes": 1968,
+      "sha256": "75fb46e1be3704f7f42206d62d28dd027daadab4e324cfe44700535b107cf23d"
+    },
+    "content/event-ingest-chat-2026-07.1960cfa6.json": {
+      "bytes": 1829,
+      "sha256": "28936dd60e8a41ecd0248251060a26bebb1be68aaf63035c161eca62119f81ce"
+    },
+    "content/event-ingest-product-analytics-2026-07.736e4284.json": {
+      "bytes": 2367,
+      "sha256": "8f34a603867d1ed6bffff1d715b434a3c8072c7a137fe027364c2e93f0cb5cc0"
+    },
+    "content/event-ingest-support-tickets-2026-06.fc48bb42.json": {
+      "bytes": 1958,
+      "sha256": "fc89041b884f86d1460b2b2ca585f71373ada8c9a36824144e0d8a773eb94789"
+    },
+    "content/holon-product-ops.744a6fbe.json": {
+      "bytes": 4180,
+      "sha256": "12f9b5f429dcef30be566162e566babd49873286aa74e9a12e920baefb36a681"
+    },
+    "content/hub-clientes.3f6a2080.json": {
+      "bytes": 5905,
+      "sha256": "7d8efb4d38dca6cb3cc87e42c452654b0a372db7bbbfe47de40f17d2fb9e19d7"
+    },
+    "content/hub-estudio.5299d7d0.json": {
+      "bytes": 1068,
+      "sha256": "236d27539bef53dfd0794c7ad762ff842dea3cd50b0598ff180e566a61ccfcd9"
+    },
+    "content/hub-financeiro.405d007d.json": {
+      "bytes": 2448,
+      "sha256": "ab41b6dc942d1959d49694a3db2326239e6b578faeefe4d7f47a242ce7f54e5a"
+    },
+    "content/hub-sistema.ee25ae91.json": {
+      "bytes": 4029,
+      "sha256": "6e3028546c77aaadd754ad76c18d194532bafad8b17a2b5a7c4e622146be8367"
+    },
+    "content/idx-decisoes.2978228e.json": {
+      "bytes": 2193,
+      "sha256": "13f26169eabd1410edc930ff1940306f22718007473bd7d1756406edd8518e6d"
+    },
+    "content/insight-calendario-calmo.bc9fec19.json": {
+      "bytes": 924,
+      "sha256": "cb2a1fe4cb672fd2447f5060b0b375ae3b8857cd2065bf28ff1f6115e11e97c3"
+    },
+    "content/journal-2026-07-02.d025db62.json": {
+      "bytes": 1253,
+      "sha256": "4ee4dbabffbba80f8cb166d93465f548a911657457a19bd81d72c691dc57c981"
+    },
+    "content/library-ai-safety.bea650b2.json": {
+      "bytes": 2188,
+      "sha256": "1cd6804407221c1117ac88ec8eceb689eab11b555bd13cec8196edee92d4d8cb"
+    },
+    "content/meeting-clearpath-alignment.86ab71a9.json": {
+      "bytes": 1018,
+      "sha256": "f8490bad9d869c0f6125382a36bed2480a2669a0ce2ba58ef5e8dbf66d93557e"
+    },
+    "content/meeting-template-library-review.84aa2e5c.json": {
+      "bytes": 1096,
+      "sha256": "da16049693aff933a2c1a2b16c53fe04173cfa4a79238325bb567c13d84415cc"
+    },
+    "content/meeting-weekly-sync.c890e266.json": {
+      "bytes": 1779,
+      "sha256": "6b1bcf24ff42eceaee3270576abb1690a9cdaba6a6f5e4440e3f124ffc3b5871"
+    },
+    "content/person-bea-rivera.8cb44a81.json": {
+      "bytes": 1129,
+      "sha256": "8b75c5567c1ff9e48f2362989b55417d51780473193c78bd37147eb3e70b690b"
+    },
+    "content/person-caio-prado.c4b6be2e.json": {
+      "bytes": 1231,
+      "sha256": "39332b84aee41ea73e409cd3f46de0c6bd433e6945cb7c8fbe7d9a1e4564d22b"
+    },
+    "content/person-joao-mendes.471a0cbf.json": {
+      "bytes": 1448,
+      "sha256": "67c5af3a2d413d537037b895524a5d8565df529ab9941445461cbd0a31a8357b"
+    },
+    "content/person-lia-fontes.0c04e983.json": {
+      "bytes": 964,
+      "sha256": "9906408804e203c868073ac129092576a63b35fa1c04fca6edd2d1d727779a2b"
+    },
+    "content/person-marina-costa.3db0e184.json": {
+      "bytes": 1215,
+      "sha256": "6d6fba537771d72d3bc9fa1fc43fff05c4c0aad068b1ec3fa405218dd40451f0"
+    },
+    "content/person-rita-souza.3db9d808.json": {
+      "bytes": 880,
+      "sha256": "afdb5d52992a7c770970c9a21ffcabd6082ef214da7326161e1adcb0aa0d236f"
+    },
+    "content/perspective-artifacts-evidence.25d8ec03.json": {
+      "bytes": 1198,
+      "sha256": "74977df37ddb74eba474ac29e4575dfd5032d06001e4d8b4680b94965c7c2a82"
+    },
+    "content/perspective-financial.d470a7bf.json": {
+      "bytes": 1143,
+      "sha256": "492b0875da6e89ea8402d67e91d8bcacb15eee756de10d69ecf53c39354511fc"
+    },
+    "content/perspective-identity-intent.7d6d78eb.json": {
+      "bytes": 1204,
+      "sha256": "56173cf27d46fcf4d20013527c5e029a6114042252473dd4ad605cf33fe3e9d0"
+    },
+    "content/perspective-privacy-publication.de1b090b.json": {
+      "bytes": 1205,
+      "sha256": "a17a0bedcbdcc3cc4973767cb2586bd196101b6b96663540c8de17248f824f3c"
+    },
+    "content/perspective-roles-relationships.f613f6bb.json": {
+      "bytes": 1231,
+      "sha256": "c0300ed04c48c05487adf8e908bd325717cc536340949ec7d337262142b0f2ae"
+    },
+    "content/perspective-systems-processes.f5548ffe.json": {
+      "bytes": 1231,
+      "sha256": "f508b29f3214d5ef19a3fcdb86524bb5d66af9b931f4b709bed3826006d04af4"
+    },
+    "content/process-clearpath-approval.e72d9e2f.json": {
+      "bytes": 984,
+      "sha256": "239779e3d76cc5612526a4f6cc9674bc5ad6d88de86bda8182f3dcda2b858b15"
+    },
+    "content/process-fechamento-mensal.86cea7aa.json": {
+      "bytes": 910,
+      "sha256": "b14902c091299384ee7a89f6b7f17c854e7c629c3a2c240c09578aed02c1c2e5"
+    },
+    "content/process-template-library-governance.41b6e964.json": {
+      "bytes": 1096,
+      "sha256": "e6e00b8ec2c14f6f40fc8b262f1565463644e6d6f3e3a3115f62b484ebc7ed4a"
+    },
+    "content/product-clearpath-pulse.f89a79e3.json": {
+      "bytes": 1551,
+      "sha256": "60986e07dc081fa48c5f57d0d2bab6e127eb0514fb912352bb15f58a4305a5a1"
+    },
+    "content/project-atlas-launch.26b6f390.json": {
+      "bytes": 1479,
+      "sha256": "4ebb6c1d93c481c15aeec7e749e6ba302fd2490e37a9f6a8f274a170c9951097"
+    },
+    "content/proposal-ingest-product-analytics-2026-07.2dfc4f84.json": {
+      "bytes": 1777,
+      "sha256": "0760e2dd425b8eeaa3fcecf7e99fda872065401ffa757e7a9460fb1a59151980"
+    },
+    "content/role-clearpath-customer-success-lead.9b8a2724.json": {
+      "bytes": 1100,
+      "sha256": "dfc766f2406e2ed0493edfb0f41302b8f5e8785ab8932931ed01b0b5cceb6f6b"
+    },
+    "content/role-consultora.261f0ea0.json": {
+      "bytes": 864,
+      "sha256": "df6d6dd2f4aa33cd59c3ba8d7a8f94555b8a1fa3dc6e72311b5539ef3219d211"
+    },
+    "content/root-alex-rivera.f4a10886.json": {
+      "bytes": 8002,
+      "sha256": "e0dce4c614bac58cd34598e4e1d9c0967212bf063d8c70ffef02493ad69bb869"
+    },
+    "content/rule-clearpath-release-gate.6bccf948.json": {
+      "bytes": 1062,
+      "sha256": "1e1574496bd23ea070be9d75d2c77297a44092d2c6bcd148a1a9e969fa90b3ec"
+    },
+    "content/rule-nada-publica-sem-review.63750616.json": {
+      "bytes": 968,
+      "sha256": "5cb72211495d76635c7b1f7477acb8866361467b9b60a9a5a21aa68dcffdcfd6"
+    },
+    "content/skill-agent-classify-quadrants.963805cf.json": {
+      "bytes": 1200,
+      "sha256": "a6bca14d19b9d40d008c58ae7f895f928766bb94f5552336762be6a8a73bd567"
+    },
+    "content/skill-agent-deep-read.7630764e.json": {
+      "bytes": 1118,
+      "sha256": "539b28d05498d855057f3a90c2d3db62ad25607b6e9b9d4aa39c2e4f7e058662"
+    },
+    "content/skill-human-review-privacy.f31a7680.json": {
+      "bytes": 1207,
+      "sha256": "dfe0f2009a80666d0690c412601c0e000e674d9c170c8511d9d7522dc6f04ece"
+    },
+    "content/source-action-ledger.ec9c5cd9.json": {
+      "bytes": 1655,
+      "sha256": "aa7bbfd75000618da4e2418581d4f1e7345293b116aeabb5c101df46b832a193"
+    },
+    "content/source-agenda.f538317f.json": {
+      "bytes": 2512,
+      "sha256": "6c8e68f72a9dcebda82f309b562830cbbcd2c9dfd183572f49ae4cb8b27de08f"
+    },
+    "content/source-banco-export.21d8fe1f.json": {
+      "bytes": 2978,
+      "sha256": "39c186f316965eed6015176b332edb57b7d1ffb66c0198e3ac40c6f84054da2a"
+    },
+    "content/source-calendar-archive.b0c27d5e.json": {
+      "bytes": 1336,
+      "sha256": "a029758aa56b756a5aca0bd4802ba4b1ab5c820118ba883a13001c814d9141ed"
+    },
+    "content/source-call-recordings.493fa442.json": {
+      "bytes": 1386,
+      "sha256": "b1f88bf18293487c0033819bde7007ddfd4e222843b509b6cab5b03693e64afc"
+    },
+    "content/source-chat-export.ab08dca2.json": {
+      "bytes": 2202,
+      "sha256": "df5828e7381f7a00d6ffe9e9bb01f665f90df72ad113620be3588116a03b925b"
+    },
+    "content/source-clearpath-billing.ac81b6b1.json": {
+      "bytes": 1392,
+      "sha256": "33f311a64cc32dcd1edbc54a082c78794d985367c0bd6be0bfe8e99c47ae3e7f"
+    },
+    "content/source-clearpath-customer-interviews.fe211d91.json": {
+      "bytes": 2114,
+      "sha256": "6bcf787b5a8178119f3700c121dad5ecd61ec9fea2b707b26c43f9ada3611320"
+    },
+    "content/source-clearpath-risk-log.955fc04a.json": {
+      "bytes": 1401,
+      "sha256": "1b9fcd8f2a8483f20045409ad942623c9e47c2a5d13b7878a02a6913922a6070"
+    },
+    "content/source-clearpath-roadmap.29eebdc2.json": {
+      "bytes": 1401,
+      "sha256": "9e02691b540d1678cfe028d5c800784a08f9fd27cd5a7aa412fb26b2312bcbba"
+    },
+    "content/source-clearpath-support.cff72d2d.json": {
+      "bytes": 1395,
+      "sha256": "83e717fa706ab6c8c006eccd76572a2bc4e987f325f4468859a5c715dce4d4cb"
+    },
+    "content/source-crm-accounts.045e8fb4.json": {
+      "bytes": 1820,
+      "sha256": "ddfe10757c3ee5fe06573c1bb724a728b7465538a58d9c2db8ad4f9b8af813ca"
+    },
+    "content/source-decision-log.af7c319a.json": {
+      "bytes": 1697,
+      "sha256": "2f2e4f0a7015aeb4bcd8c9f62f84ec3147b82ad0ef319ac1ff8d4b87f977b3de"
+    },
+    "content/source-error-traces.42cb8fa8.json": {
+      "bytes": 2443,
+      "sha256": "288f8ee92005623bba4738ed4acb130942a1fe26fc0e8d6a38c2de508bcc2f34"
+    },
+    "content/source-evidence-ledger.a6cf164c.json": {
+      "bytes": 1372,
+      "sha256": "52738da15139f6ab8febdfe9a9dcb9d67835915341879a38e3f14ba24de517b7"
+    },
+    "content/source-feature-flags.584ec4b5.json": {
+      "bytes": 1392,
+      "sha256": "7efc939114a986cf626013a301e5b7eafdcfb81a41d0fe9453de485986f70206"
+    },
+    "content/source-health-checks.9ebc3675.json": {
+      "bytes": 2012,
+      "sha256": "615bd1ca11080853ee7dced8465674c2ff6800e4be53c7d47baf3d95d591d5dd"
+    },
+    "content/source-inbox-capture.b68fa932.json": {
+      "bytes": 1330,
+      "sha256": "41dff3a32d6d1a7f8d606f3d7d8ad5607288ec74149094ba357df5055227a407"
+    },
+    "content/source-notes-vault.6052136d.json": {
+      "bytes": 1342,
+      "sha256": "e437e4dc443aba7fe1c481bee8a7046e4cecb794b354663a3921e5a1c1f04d5f"
+    },
+    "content/source-nps-surveys.655f0160.json": {
+      "bytes": 1353,
+      "sha256": "14a067724bcc8a4a6b24a9364f3597191603c339a5b9a67d96dbb72a0d9cc41e"
+    },
+    "content/source-product-analytics.7e84039f.json": {
+      "bytes": 4570,
+      "sha256": "11cb7df8a9a5ba1b34171d605cc3c2989dff9a90ac5a83c48c68bc66579cf0ac"
+    },
+    "content/source-publication-queue.e5fb37c5.json": {
+      "bytes": 1671,
+      "sha256": "1f738218bd561feb31e3f6d7e9a0856f6f1240d5f381230274049c12dea3745c"
+    },
+    "content/source-reading-queue.39102ed7.json": {
+      "bytes": 1354,
+      "sha256": "13197da9f15c273449860efe9c54bc48a405046401991fc8db27e3f23dfa7b2a"
+    },
+    "content/source-reference-folder.e81dc9c7.json": {
+      "bytes": 1559,
+      "sha256": "5e89e0ce339216db823b3356c8c83c290ee5811a7e40a95c04c877a185f17051"
+    },
+    "content/source-relation-cadence.1e34d2f1.json": {
+      "bytes": 1360,
+      "sha256": "e6c0acbfb17c012a43cb1cf309cef0cb7b2d7a33a8a6491265a85a7c6b1276dd"
+    },
+    "content/source-release-notes.32ff3a48.json": {
+      "bytes": 1651,
+      "sha256": "e519f5172f04d432fb5248a6843abb41ede47aaa4885d3a47d3fce67d0f94aba"
+    },
+    "content/source-sales-pipeline.a320b636.json": {
+      "bytes": 1350,
+      "sha256": "082e62986c8af32fd712d14d6f57c194140c8dfe2ec4e2afeb25f960b055101e"
+    },
+    "content/source-support-tickets.e9968562.json": {
+      "bytes": 3299,
+      "sha256": "5420143372b797d248a805ae0df24fdf2250e9d5e90f7400b93e57f8f0c25710"
+    },
+    "content/source-template-registry.159b91c7.json": {
+      "bytes": 1396,
+      "sha256": "99e7bfc5984baf73ecd8b5677b8ff06b8531f156a9e97cd34ae0bdb2bf2a6cb2"
+    },
+    "content/source-usage-warehouse.460d4538.json": {
+      "bytes": 1401,
+      "sha256": "f733a1b107386c42cc71ba085c5c2cb1e513bf6603722f26f9d9422ed2c4d96a"
+    },
+    "content/tool-banco-app.f00739cb.json": {
+      "bytes": 989,
+      "sha256": "da81079d74783077d5a671b0635f06b1f7ec757210716b607ea1a3c13dede722"
+    },
+    "content/tool-google-drive.84896e00.json": {
+      "bytes": 1059,
+      "sha256": "cc7140efccc4d79b02764f09149ed068e7eec66d8524b4a4b624cc5412eaef8c"
+    },
+    "content/tool-obsidian.e3fff9cb.json": {
+      "bytes": 968,
+      "sha256": "b63143cbbe523065c5d4dee5892ecf02e2c037d6035c70730e1280d5771795fd"
+    },
+    "decisions.json": {
+      "bytes": 2518,
+      "sha256": "385ddd4204662c86bda51898e2bbffb4f16e197d28ab18d990b1274bdc0bd864"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+    },
+    "freshness.json": {
+      "bytes": 1099,
+      "sha256": "91ac3a90e023cee2c88dcd38e06f52b793d1d344fd654499862c97f9d3ed7e5c"
+    },
+    "gates.json": {
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 162993,
+      "sha256": "3a57031722588fde78cbd4e58c015676c24123b8f7e72a60225feaaadb09bf2a"
+    },
+    "ingestion.json": {
+      "bytes": 2582,
+      "sha256": "51cfcd93e02b8ed46326fd4dcc3d4759559dc690e647240eca49d456718aca57"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
+    },
+    "pages.json": {
+      "bytes": 102344,
+      "sha256": "0ad4c1774da9d9b7809143bf3169098f4234f03185f42e5e754a60bd4817fdbb"
+    },
+    "quality.json": {
+      "bytes": 38537,
+      "sha256": "65c17c13c0ed8a8f28897be40a4a3ddf0aebf05e82845bf06d5b758e5a4d502d"
+    },
+    "region_groups.json": {
+      "bytes": 201666,
+      "sha256": "4cb83c11cedb93e4ebc7bce734aba3dd6b2092bee9f87d7a878c51c7cc773b2d"
+    },
+    "score.json": {
+      "bytes": 2136,
+      "sha256": "337d3f21d66fe5234dd9d4df13d06a2c44b3d0db020dd64cb8b0aa439093fb0f"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 799,
+      "sha256": "8d9ae35803367fbd9c9f758cec4d4605a59fb5c2be8cbf52272a08e43b54dde7"
+    },
+    "source_entities.json": {
+      "bytes": 38461,
+      "sha256": "51ba7411cc7919abfe8947c49863b49082580fec812bf8d76b8ee0960ef75d30"
+    },
+    "source_lifecycle.json": {
+      "bytes": 18971,
+      "sha256": "1dc3f07e1f474d7972bb620cff537bebe61418016a950f9039440babf7af8e12"
+    },
+    "sources.json": {
+      "bytes": 31073,
+      "sha256": "c37b5f363cf7058f84b55ab53818dff90210dd9704f5541ba532223ab3a0f508"
+    },
+    "templates.json": {
+      "bytes": 24267,
+      "sha256": "ea71d906fbfcdd8a3aba0f58e48a1568b860860f5d604ae5e3af825ef43efde9"
+    },
+    "temporal_graph.json": {
+      "bytes": 106298,
+      "sha256": "6fd5da27cbb9481477104f2f8393163b8374ee29a463ed74345065152f04fe65"
+    },
+    "timeline.json": {
+      "bytes": 26917,
+      "sha256": "68071597f9b49b22fd8da09df9733cf6750a70dfbad51b710fb59708386de03f"
+    },
+    "work_items.json": {
+      "bytes": 2815,
+      "sha256": "410bd52d5131dd61cffa04e62eff7ff3c0cc745a0e83bb36d42143a3280ea204"
+    }
+  },
   "mode": "static",
   "repo": {
     "branch_prefix": "wiki/",
@@ -33,6 +717,26 @@
     "memory_root": "memories",
     "repo_id": "wiki-viva-demo"
   },
-  "schema_version": "wiki_web_snapshot.v1",
-  "source_commit": "84bdabf5effd823ca1e8f6a885f2f494fe757287"
+  "root_page_id": "root-alex-rivera",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-8d1c5584a934c732",
+  "source_commit": null,
+  "source_sha": "uncommitted:8d6ffa55089fd4e96ac407f7a8923e9a40eb8598ea57762e8ccaae3372a4e0d5",
+  "versions": {
+    "activity_timeline": "activity_timeline.v1",
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
 }

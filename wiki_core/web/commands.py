@@ -24,7 +24,7 @@ SECRET_VALUE_RE = re.compile(
 
 
 @dataclass(frozen=True)
-class CockpitAction:
+class OperatorCommandCard:
     id: str
     kind: str
     title: str
@@ -56,6 +56,7 @@ PYTHON_SCRIPTS: dict[str, set[tuple[str, ...]]] = {
     "scripts/wiki_audit.py": {("--check",)},
     "scripts/wiki_quality_report.py": {("--check",)},
     "scripts/wiki_check_methodology_coverage.py": {("--check",)},
+    "scripts/wiki_semantic_inventory.py": {("--check",)},
     "scripts/wiki_pr_summary.py": {()},
     "scripts/wiki_page_graph.py": {("--check",)},
 }
@@ -115,9 +116,9 @@ def _redact(text: str) -> str:
     return SECRET_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}[REDACTED]", text)
 
 
-def build_action_cards(config: WikiConfig) -> dict[str, Any]:
+def build_operator_command_cards(config: WikiConfig) -> dict[str, Any]:
     actions = (
-        CockpitAction(
+        OperatorCommandCard(
             id="git-status",
             kind="review",
             title="Check workspace",
@@ -126,7 +127,7 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
             default_dry_run=False,
             commands=(("git", "status", "--short", "--branch"),),
         ),
-        CockpitAction(
+        OperatorCommandCard(
             id="review-local-changes",
             kind="review",
             title="Review content changes",
@@ -135,7 +136,7 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
             default_dry_run=False,
             commands=(("git", "diff", "--stat"), ("git", "diff", "--name-status")),
         ),
-        CockpitAction(
+        OperatorCommandCard(
             id="refresh-cockpit-check",
             kind="refresh",
             title="Check home view",
@@ -144,7 +145,7 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
             default_dry_run=False,
             commands=(("python3", "scripts/wiki_operation_compile.py", "--check"),),
         ),
-        CockpitAction(
+        OperatorCommandCard(
             id="refresh-cockpit-write",
             kind="refresh",
             title="Refresh home view",
@@ -153,7 +154,7 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
             default_dry_run=True,
             commands=(("python3", "scripts/wiki_operation_compile.py", "--write"),),
         ),
-        CockpitAction(
+        OperatorCommandCard(
             id="run-honesty-gates",
             kind="review",
             title="Run approval checks",
@@ -165,9 +166,10 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
                 ("python3", "scripts/wiki_check_methodology_coverage.py", "--check"),
                 ("python3", "scripts/wiki_operation_compile.py", "--check"),
                 ("python3", "scripts/wiki_input_stage.py", "--check"),
+                ("python3", "scripts/wiki_semantic_inventory.py", "--check"),
             ),
         ),
-        CockpitAction(
+        OperatorCommandCard(
             id="pr-summary",
             kind="approve",
             title="Build review packet",
@@ -176,7 +178,7 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
             default_dry_run=False,
             commands=(("python3", "scripts/wiki_pr_summary.py"),),
         ),
-        CockpitAction(
+        OperatorCommandCard(
             id="graph-check",
             kind="review",
             title="Check content map",
@@ -193,8 +195,8 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
     }
 
 
-def _action_by_id(config: WikiConfig) -> dict[str, dict[str, Any]]:
-    payload = build_action_cards(config)
+def _operator_command_by_id(config: WikiConfig) -> dict[str, dict[str, Any]]:
+    payload = build_operator_command_cards(config)
     return {str(action["id"]): action for action in payload["actions"]}
 
 
@@ -212,7 +214,7 @@ def run_action(
     dry_run: bool | None = None,
     timeout_seconds: int = 120,
 ) -> dict[str, Any]:
-    action = _action_by_id(config).get(action_id)
+    action = _operator_command_by_id(config).get(action_id)
     if action is None:
         return {"ok": False, "action_id": action_id, "error": "unknown action", "results": []}
 

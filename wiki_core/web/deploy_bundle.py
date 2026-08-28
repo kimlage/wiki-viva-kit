@@ -5,7 +5,15 @@ from pathlib import Path
 from typing import Any
 
 from wiki_core.config import WikiConfig
-from wiki_core.web.snapshot import write_snapshot
+from wiki_core.output_safety import (
+    contained_output_path,
+    prepare_managed_output_directory,
+)
+from wiki_core.web.snapshot import (
+    build_snapshot,
+    prepare_snapshot_artifacts,
+    promote_snapshot_artifacts,
+)
 
 
 def _clean_base(value: str) -> str:
@@ -78,6 +86,7 @@ def write_deploy_bundle(
     target: str = "static",
     clean: bool = False,
     content_sidecars: bool = True,
+    force_unowned_output: bool = False,
 ) -> dict[str, Path]:
     """Write portable web-cockpit deploy inputs without choosing a host.
 
@@ -90,34 +99,61 @@ def write_deploy_bundle(
     private data (and say so in the deployment proof review).
     """
 
-    out_dir.mkdir(parents=True, exist_ok=True)
     clean_snapshot_base = _clean_base(snapshot_base)
-    snapshot_dir = _snapshot_dir(out_dir, clean_snapshot_base)
-    written_snapshot = write_snapshot(
-        root, snapshot_dir, config, clean=clean, mode=runtime_mode, content_sidecars=content_sidecars
+    # Validate the nested base before creating or marking anything.  A value
+    # such as ../../personal must not escape the deploy bundle and leave even a
+    # partial output behind.
+    snapshot_dir = contained_output_path(
+        out_dir, _snapshot_dir(out_dir, clean_snapshot_base)
+    )
+    # Build and freeze the complete payload in memory before creating any
+    # deploy output. Public-boundary refusal must happen before a single private
+    # page body or sidecar can be promoted to a deployable directory.
+    payloads = build_snapshot(
+        root,
+        config,
+        mode=runtime_mode,
+        content_sidecars=content_sidecars,
+    )
+    artifacts = prepare_snapshot_artifacts(
+        root,
+        config,
+        content_sidecars=content_sidecars,
+        payloads=payloads,
     )
     if data_boundary != "private_ok":
-        pages_path = snapshot_dir / "pages.json"
-        try:
-            pages = json.loads(pages_path.read_text(encoding="utf-8")).get("pages", [])
-        except (OSError, json.JSONDecodeError):
-            pages = []
-        private = [
-            str(page.get("path") or page.get("id") or "?")
-            for page in pages
+        pages = (artifacts.get("pages.json") or {}).get("pages") or []
+        private_count = sum(
+            1
             if str(page.get("visibility") or "").startswith("private")
-        ]
-        if private:
-            import shutil
-
-            shutil.rmtree(snapshot_dir, ignore_errors=True)
-            sample = ", ".join(private[:5])
+            else 0
+            for page in pages
+            if isinstance(page, dict)
+        )
+        if private_count:
             raise ValueError(
-                f"deploy bundle refused: {len(private)} private page(s) in the snapshot "
-                f"(e.g. {sample}) under data_boundary={data_boundary!r}. A published bundle "
+                f"deploy bundle refused: {private_count} private page(s) in the snapshot "
+                f"under data_boundary={data_boundary!r}. A published bundle "
                 "exports page bodies verbatim. Either publish from a wiki with no private "
                 "pages, or explicitly pass data_boundary='private_ok' for a trusted target."
             )
+    out_dir = prepare_managed_output_directory(
+        root,
+        out_dir,
+        kind="web_deploy_bundle",
+        repo_id=config.repo_id,
+        clean=False,
+        force_unowned=force_unowned_output,
+    )
+    # ``clean`` remains a CLI/API compatibility argument. Atomic promotion
+    # replaces the complete managed snapshot directory on every successful run.
+    _ = clean
+    written_snapshot = promote_snapshot_artifacts(
+        root,
+        snapshot_dir,
+        artifacts,
+        force_unowned_output=force_unowned_output,
+    )
     runtime_config = {
         "api_base": api_base.strip().rstrip("/"),
         "snapshot_base": clean_snapshot_base,

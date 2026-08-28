@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from wiki_core.config import WikiConfig
+from wiki_core.config import WikiConfig, load_config
 from wiki_core.page_types import load_page_type_registry
 from wiki_core.templates import default_output_path, instantiate_template, resolve_template
 
@@ -66,7 +66,7 @@ def test_resolve_and_instantiate_template_with_overlay(tmp_path: Path) -> None:
 
 def test_web_cockpit_deploy_templates_are_static_or_controlled() -> None:
     root = Path(__file__).resolve().parents[1]
-    template_root = root / "docs/references/templates/deploy/web-cockpit"
+    template_root = root / str(load_config(root).paths["references_root"]) / "templates/deploy/web-cockpit"
 
     vercel = json.loads((template_root / "vercel.static.json").read_text(encoding="utf-8"))
     assert vercel["outputDirectory"] == "apps/wiki-cockpit/dist"

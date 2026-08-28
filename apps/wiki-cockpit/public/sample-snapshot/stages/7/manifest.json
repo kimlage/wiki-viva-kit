@@ -1,5 +1,25 @@
 {
+  "bundle_hash": "55584f6ab429dd3885623dd05d5d83926dc0e5a5b5890e58156bc73c9f364d82",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
+    "content_sidecars"
+  ],
   "content_sidecars": true,
+  "contract_errors": [],
   "files": [
     "manifest.json",
     "operations.json",
@@ -14,15 +34,235 @@
     "gates.json",
     "git.json",
     "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
     "diff.json",
     "ingestion.json",
     "quality.json",
     "commands.json",
     "score.json",
     "blocks.json",
-    "block_stacks.json"
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/artifact-relatorio-recon.8b3a520f.json",
+    "content/block-library-lens.3bdc7ff7.json",
+    "content/claim-custos-sobem.0be31ee0.json",
+    "content/event-ingest-banco-2026-05.60d41f0b.json",
+    "content/hub-financeiro.405d007d.json",
+    "content/hub-sistema.ee25ae91.json",
+    "content/person-marina-costa.3db0e184.json",
+    "content/perspective-artifacts-evidence.25d8ec03.json",
+    "content/perspective-financial.d470a7bf.json",
+    "content/perspective-identity-intent.7d6d78eb.json",
+    "content/perspective-privacy-publication.de1b090b.json",
+    "content/perspective-roles-relationships.f613f6bb.json",
+    "content/perspective-systems-processes.f5548ffe.json",
+    "content/root-alex-rivera.f4a10886.json",
+    "content/skill-agent-classify-quadrants.963805cf.json",
+    "content/skill-agent-deep-read.7630764e.json",
+    "content/skill-human-review-privacy.f31a7680.json",
+    "content/source-banco-export.21d8fe1f.json"
   ],
-  "generated_at": "2026-07-07T22:55:36Z",
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "genesis_stage": 7,
+    "reference_date": "2026-07-09",
+    "scenario_id": "walking_skeleton",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8001,
+    "source_input_sha256": "0f7323e72eb6f6beeb9ba34d65a66c1a803b786fee2360cc1ad52910ac352ec6"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2833,
+      "sha256": "2b1bef112fba8f5fe8a730133007e40c915fff1b9c61d8c12cb5856baa8d7efd"
+    },
+    "block_stacks.json": {
+      "bytes": 52743,
+      "sha256": "652c561aea6c1ea9e97b2774a5b83a8290ce5620bf8dea402c3f291b227b5137"
+    },
+    "blocks.json": {
+      "bytes": 9357,
+      "sha256": "8c3378b7f284d8bbcb743bc02709b6a3c1f991d72cc16ec9b7162b6906206e12"
+    },
+    "commands.json": {
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
+    },
+    "content/artifact-relatorio-recon.8b3a520f.json": {
+      "bytes": 1494,
+      "sha256": "14ebdc0f26d23d0b1834ebc8c2a0ce7a994bf8575d42408f0b5ccc66920a2104"
+    },
+    "content/block-library-lens.3bdc7ff7.json": {
+      "bytes": 1780,
+      "sha256": "56f4ccdb1914237096c7279b033e837d82ea38b911036dce4e67b4d6410594cb"
+    },
+    "content/claim-custos-sobem.0be31ee0.json": {
+      "bytes": 1462,
+      "sha256": "a0b1182bc3a49f4c8ca5474f9673c46478c0d6d251feefdfe588e27cd52459fc"
+    },
+    "content/event-ingest-banco-2026-05.60d41f0b.json": {
+      "bytes": 1968,
+      "sha256": "6510d1e3972fd9e435c45157f45438934922f46eb2d94078b74bb6ff851c4c0d"
+    },
+    "content/hub-financeiro.405d007d.json": {
+      "bytes": 1979,
+      "sha256": "d58aade56199b34d1cd029aaf5d765230c886e7cf1ee9b1e054da7ac2c898c35"
+    },
+    "content/hub-sistema.ee25ae91.json": {
+      "bytes": 3760,
+      "sha256": "32214ef62f7b333a7e18285b20889bd51abcb8a66837e46b2aee6893e186fc83"
+    },
+    "content/person-marina-costa.3db0e184.json": {
+      "bytes": 1215,
+      "sha256": "cae57794bcf802e0a107cf67e69a70c9d8aff93edde5cda4ae67cea51ad2e402"
+    },
+    "content/perspective-artifacts-evidence.25d8ec03.json": {
+      "bytes": 1198,
+      "sha256": "27e366897ee060682a2730b5ff5fb322fd4fed53bfedaafc3e6aea241cfe8d96"
+    },
+    "content/perspective-financial.d470a7bf.json": {
+      "bytes": 1143,
+      "sha256": "e9206c69163a1359488a57e86567e98bea8299a05001ad42b7a3f178eb132aad"
+    },
+    "content/perspective-identity-intent.7d6d78eb.json": {
+      "bytes": 1204,
+      "sha256": "cd3d2d1a9a616f22f01fd7fb6c69120ba8b72327145f327c7a1b992a422fcaa1"
+    },
+    "content/perspective-privacy-publication.de1b090b.json": {
+      "bytes": 1205,
+      "sha256": "55e83db480d5ace73073c5f399a72659b8b6a43d8e5dd9ff4a083e5d9907a206"
+    },
+    "content/perspective-roles-relationships.f613f6bb.json": {
+      "bytes": 1231,
+      "sha256": "15e76d48a7f94180194437804e39cfd644debbbb2cfbb3da7aadd9ed4288b700"
+    },
+    "content/perspective-systems-processes.f5548ffe.json": {
+      "bytes": 1231,
+      "sha256": "c3ebca94cd566962ac6f38b0df385d17e7cfae8e47e4cad91426ba11bce2df03"
+    },
+    "content/root-alex-rivera.f4a10886.json": {
+      "bytes": 2473,
+      "sha256": "022c65396348a3a6cfcc452879f3f81295ffc31dde04b0571513b3a1138e2739"
+    },
+    "content/skill-agent-classify-quadrants.963805cf.json": {
+      "bytes": 1200,
+      "sha256": "1993ea8a2087fb0f2852652b16be74be078edc73389b5a092d8ecc51dac46b93"
+    },
+    "content/skill-agent-deep-read.7630764e.json": {
+      "bytes": 1118,
+      "sha256": "80f9dc911550dc93de5a88444d32a724e1d626264b2cfa3ef79d4718b4ef6556"
+    },
+    "content/skill-human-review-privacy.f31a7680.json": {
+      "bytes": 1207,
+      "sha256": "dc850ab12de973e4d62c7df41bba8374d7211e57f6ac321bf6c9da7218a30099"
+    },
+    "content/source-banco-export.21d8fe1f.json": {
+      "bytes": 2978,
+      "sha256": "997fa5187f66b958475648314809ae42df7520c59b7abc23910dff744add7934"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+    },
+    "freshness.json": {
+      "bytes": 492,
+      "sha256": "d6e36850bf1867930ba9a019aa2f4acd97417451076b96f259965e4a7325f716"
+    },
+    "gates.json": {
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 30154,
+      "sha256": "c2b6a8605a6f371ea7e83ad5f8d89b061766e97b376f34d1c8b0fd71f54a9875"
+    },
+    "ingestion.json": {
+      "bytes": 908,
+      "sha256": "a68568c1d4f107fb285d24c5462d0cb13c70bab135484d2e42e710e9dd109d30"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
+    },
+    "pages.json": {
+      "bytes": 16409,
+      "sha256": "71f435e0e5c50b4f0848539c4d4c93f6f925cf4aafa424fbb902d7d8b06af2e6"
+    },
+    "quality.json": {
+      "bytes": 6967,
+      "sha256": "03b1c87e703ad45dca9dbc91c71ca23005eda2338ce925aa38d710c949a661fe"
+    },
+    "region_groups.json": {
+      "bytes": 23358,
+      "sha256": "5a080cccd596a8c3b31b0e6c689466c7437cd7dd0b826a0d83036a96d0f92ea4"
+    },
+    "score.json": {
+      "bytes": 1761,
+      "sha256": "98d40d7716458979f07c1fec7cb5eb7ccd2f68ae3d0d64c953b9db7a0a5901d2"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 60,
+      "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
+    },
+    "source_entities.json": {
+      "bytes": 2171,
+      "sha256": "2635192abc9d41b8530951b7829018772e038452d4df237939114762dd634ac8"
+    },
+    "source_lifecycle.json": {
+      "bytes": 851,
+      "sha256": "2cc7905a39f3b22c113a063e7b416f9307e51d9804c0e1c177cdae00af475d58"
+    },
+    "sources.json": {
+      "bytes": 1103,
+      "sha256": "ebc2a7f5cdf5c054eac288b4201b3bdf5f7df00c9e649882bab3d639b2c96517"
+    },
+    "templates.json": {
+      "bytes": 23927,
+      "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
+    },
+    "temporal_graph.json": {
+      "bytes": 16738,
+      "sha256": "43009499c0d8df0adfbb9b071b311581f9545669165c58fc8cd02c1ff9390d84"
+    },
+    "timeline.json": {
+      "bytes": 5263,
+      "sha256": "eb78c70dc548e86fef95172c307dee617a6ca2f9eab5b3ca4f05fd833579e394"
+    },
+    "work_items.json": {
+      "bytes": 52,
+      "sha256": "17bed50b6bb4ca952dd73d966240c34a7a4e0cc4225edabf56fac829fa2066a5"
+    }
+  },
   "mode": "static",
   "repo": {
     "branch_prefix": "wiki/",
@@ -33,6 +273,26 @@
     "memory_root": "memories",
     "repo_id": "wiki-viva-demo"
   },
-  "schema_version": "wiki_web_snapshot.v1",
-  "source_commit": null
+  "root_page_id": "root-alex-rivera",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-55584f6ab429dd38",
+  "source_commit": null,
+  "source_sha": "uncommitted:34652c9ce84e549df491f9121e09c3cb11d3ee5898458b36a075df6e3f7eb448",
+  "versions": {
+    "activity_timeline": "activity_timeline.v1",
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
 }

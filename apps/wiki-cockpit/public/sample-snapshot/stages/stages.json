@@ -1,13 +1,18 @@
 {
   "final_stage": 8,
+  "fixture_id": "wiki-viva-demo-v8",
+  "scenario_id": "walking_skeleton",
   "schema_version": "wiki_genesis_stages.v1",
+  "seed": 8008,
   "stages": [
     {
       "added_pages": [],
       "dir": "stages/0",
       "focus": "",
       "page_count": 0,
+      "page_id_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "root_attachments": {},
+      "source_input_sha256": "ad867bf4b7b0a58341362e309e1c6b8a9214a35454e7fb1a702c823d74bf01fb",
       "stage": 0
     },
     {
@@ -17,7 +22,9 @@
       "dir": "stages/1",
       "focus": "root-alex-rivera",
       "page_count": 1,
+      "page_id_sha256": "9157a76f27bdc0cbd3fa6b8df504b883e4922ce8c36ae8f11591462161f6e55b",
       "root_attachments": {},
+      "source_input_sha256": "4557d799a3a76ae5078f97b5aa2961215efc41e886813bb46b887533d26ff21b",
       "stage": 1
     },
     {
@@ -25,6 +32,7 @@
       "dir": "stages/2",
       "focus": "root-alex-rivera",
       "page_count": 1,
+      "page_id_sha256": "9157a76f27bdc0cbd3fa6b8df504b883e4922ce8c36ae8f11591462161f6e55b",
       "root_attachments": {
         "blocks": [
           {
@@ -33,6 +41,7 @@
           }
         ]
       },
+      "source_input_sha256": "2b0c8aa9f31d3f50713f513885253a44ecd0a4c36ed0019662b40819a8775793",
       "stage": 2
     },
     {
@@ -44,6 +53,7 @@
       "dir": "stages/3",
       "focus": "hub-financeiro",
       "page_count": 4,
+      "page_id_sha256": "86113b2f5803b552fe2521d77e0c11f932e0de1b44a460c7a6fc1ca4b3798027",
       "root_attachments": {
         "blocks": [
           {
@@ -52,6 +62,7 @@
           }
         ]
       },
+      "source_input_sha256": "51296f119747d5bed0cf3d51833fd6be7844b88c1b7951670e071988f66679d1",
       "stage": 3
     },
     {
@@ -61,6 +72,7 @@
       "dir": "stages/4",
       "focus": "person-marina-costa",
       "page_count": 5,
+      "page_id_sha256": "f0d5d375e9a3a3671978d4e66460b740eca5db94172821dbd56974822a44112e",
       "root_attachments": {
         "blocks": [
           {
@@ -73,6 +85,7 @@
           }
         ]
       },
+      "source_input_sha256": "d07fd00e2101746e48ffabdcf5ef2ea4d75db78d9004a09ea14b9ca7549eceea",
       "stage": 4
     },
     {
@@ -80,6 +93,7 @@
       "dir": "stages/5",
       "focus": "root-alex-rivera",
       "page_count": 5,
+      "page_id_sha256": "f0d5d375e9a3a3671978d4e66460b740eca5db94172821dbd56974822a44112e",
       "root_attachments": {
         "blocks": [
           {
@@ -95,6 +109,7 @@
           "gamification"
         ]
       },
+      "source_input_sha256": "d4e7d6e06306eadf0613c27602009bb017fc9df017dc134ee17a21b9de1d28aa",
       "stage": 5
     },
     {
@@ -105,6 +120,7 @@
       "dir": "stages/6",
       "focus": "source-banco-export",
       "page_count": 7,
+      "page_id_sha256": "ddcdc4473c38cbbd6d188c0245d7a8ac0db250c8b2a37750f1c72051fbdaaf60",
       "root_attachments": {
         "blocks": [
           {
@@ -120,6 +136,7 @@
           "gamification"
         ]
       },
+      "source_input_sha256": "7ca886c59a85ac143a70d110f676eafb61ef73649744d6446ea354e270d2411c",
       "stage": 6
     },
     {
@@ -139,6 +156,7 @@
       "dir": "stages/7",
       "focus": "hub-sistema",
       "page_count": 18,
+      "page_id_sha256": "9fbb53d9977ac448f13e4bff7743c53f95296bdad0a82cc16d49c11d7ea6c60b",
       "root_attachments": {
         "blocks": [
           {
@@ -154,17 +172,32 @@
           "gamification"
         ]
       },
+      "source_input_sha256": "0f7323e72eb6f6beeb9ba34d65a66c1a803b786fee2360cc1ad52910ac352ec6",
       "stage": 7
     },
     {
       "added_pages": [
         "action-enviar-proposta",
+        "action-region-clean-unsourced",
+        "action-region-review-evidence",
+        "action-region-sync-support",
         "artifact-benchmark-safety",
         "artifact-clearpath-prototype",
         "artifact-dashboard-atlas",
+        "artifact-region-map-01",
+        "artifact-region-map-02",
+        "artifact-region-map-03",
+        "artifact-region-map-04",
+        "artifact-region-map-05",
+        "artifact-region-map-06",
+        "artifact-region-map-07",
+        "artifact-region-map-08",
         "artifact-template-library-example",
         "claim-clearpath-market-signal",
         "claim-pulse-activation",
+        "claim-region-evidence-ready",
+        "claim-region-grouping-needed",
+        "claim-region-hidden-work",
         "claim-scaling-laws",
         "claim-template-library-purpose",
         "company-clearpath-labs",
@@ -174,6 +207,8 @@
         "decision-precos",
         "event-ingest-agenda-2026-07",
         "event-ingest-chat-2026-07",
+        "event-ingest-product-analytics-2026-07",
+        "event-ingest-support-tickets-2026-06",
         "holon-product-ops",
         "hub-clientes",
         "hub-estudio",
@@ -194,20 +229,48 @@
         "process-template-library-governance",
         "product-clearpath-pulse",
         "project-atlas-launch",
+        "proposal-ingest-product-analytics-2026-07",
         "role-clearpath-customer-success-lead",
         "role-consultora",
         "rule-clearpath-release-gate",
         "rule-nada-publica-sem-review",
+        "source-action-ledger",
         "source-agenda",
+        "source-calendar-archive",
+        "source-call-recordings",
         "source-chat-export",
+        "source-clearpath-billing",
         "source-clearpath-customer-interviews",
+        "source-clearpath-risk-log",
+        "source-clearpath-roadmap",
+        "source-clearpath-support",
+        "source-crm-accounts",
+        "source-decision-log",
+        "source-error-traces",
+        "source-evidence-ledger",
+        "source-feature-flags",
+        "source-health-checks",
+        "source-inbox-capture",
+        "source-notes-vault",
+        "source-nps-surveys",
+        "source-product-analytics",
+        "source-publication-queue",
+        "source-reading-queue",
+        "source-reference-folder",
+        "source-relation-cadence",
+        "source-release-notes",
+        "source-sales-pipeline",
+        "source-support-tickets",
+        "source-template-registry",
+        "source-usage-warehouse",
         "tool-banco-app",
         "tool-google-drive",
         "tool-obsidian"
       ],
       "dir": "stages/8",
       "focus": "root-alex-rivera",
-      "page_count": 64,
+      "page_count": 107,
+      "page_id_sha256": "c3a7e172bbd0c57271eea9c99e1a8e0a90d98ee59545f07ce268619f3d5129e6",
       "root_attachments": {
         "blocks": [
           {
@@ -235,6 +298,7 @@
           "gamification"
         ]
       },
+      "source_input_sha256": "b86696bc9928cf71b30d44336922e6f8d816e2d0321efd1b2fbc3be5e975444a",
       "stage": 8
     }
   ]

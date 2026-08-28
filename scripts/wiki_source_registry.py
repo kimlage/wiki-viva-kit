@@ -28,8 +28,10 @@ from wiki_core.config import freshness_for, load_config
 from wiki_core.paths import WikiPaths
 from wiki_core.source_recipe import extract_recipe_mapping
 
-# Source page_types that count as a canonical source in the registry.
-SOURCE_PAGE_TYPES = {"source", "source_catalog", "artifact"}
+# Only real source pages are canonical registry members. Catalogs and artifacts
+# may describe sources, but they are not source nodes and must not become peers
+# of the sources they index or evidence.
+SOURCE_PAGE_TYPES = {"source"}
 # Strings per language for the generated page (driven by config.language).
 STRINGS = {
     "pt": {
@@ -54,6 +56,9 @@ STRINGS = {
         "status_ok": "em dia",
         "status_not_time_based": "sem vencimento por tempo",
         "back": "Voltar ao indice em [{index}]({index_link}).",
+        "projection_reason": (
+            "O registro de fontes gerado e um indice observavel de evidencias das fontes canonicas."
+        ),
     },
     "en": {
         "title": "Canonical source registry",
@@ -74,6 +79,9 @@ STRINGS = {
         "status_ok": "ok",
         "status_not_time_based": "not time-based",
         "back": "Back to the index at [{index}]({index_link}).",
+        "projection_reason": (
+            "The generated source registry is an observable evidence index of canonical sources."
+        ),
     },
 }
 
@@ -163,14 +171,14 @@ def _refresh_fields(
 
 
 def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str, str]]:
-    """One row per canonical source page under the sources dir, sorted by title."""
+    """One row per canonical source page anywhere below the sources dir."""
     sources_dir = paths.sources_dir
     as_of_date = _parse_date(as_of) or dt.date.today()
     strings = _strings(load_config(ROOT).language)
     rows: list[dict[str, str]] = []
     if not sources_dir.is_dir():
         return rows
-    for md in sorted(sources_dir.glob("*.md")):
+    for md in sorted(sources_dir.rglob("*.md")):
         if md.name in {"index.md", "README.md"}:
             continue
         fm = read_frontmatter(md)
@@ -230,6 +238,10 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
         "gate: github_pr",
         "sensitive_data_policy: private_sensitive_allowed",
         f"moc_parent: {index_rel}",
+        "parent_projection:",
+        "  quadrant: q2",
+        "  sub_lens: evidencias",
+        f'  reason: "{s["projection_reason"]}"',
         "---",
         "",
         f"# {s['title']}",

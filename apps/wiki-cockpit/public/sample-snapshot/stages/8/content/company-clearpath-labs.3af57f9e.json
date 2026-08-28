@@ -34,6 +34,16 @@
       "approved_state": "approved",
       "context": "clientes",
       "freshness_state": "fresh",
+      "page_id": "source-clearpath-billing",
+      "page_type": "source",
+      "path": "memories/sources/source-clearpath-billing.md",
+      "relation": "moc_parent",
+      "title": "Clearpath billing feed"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
       "page_id": "source-clearpath-customer-interviews",
       "page_type": "source",
       "path": "memories/empresas/clearpath/source-customer-interviews.md",
@@ -74,11 +84,41 @@
       "approved_state": "approved",
       "context": "clientes",
       "freshness_state": "fresh",
+      "page_id": "source-clearpath-risk-log",
+      "page_type": "source",
+      "path": "memories/sources/source-clearpath-risk-log.md",
+      "relation": "moc_parent",
+      "title": "Clearpath risk log"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-clearpath-roadmap",
+      "page_type": "source",
+      "path": "memories/sources/source-clearpath-roadmap.md",
+      "relation": "moc_parent",
+      "title": "Clearpath roadmap archive"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
       "page_id": "claim-clearpath-market-signal",
       "page_type": "claim",
       "path": "memories/empresas/clearpath/claim-clearpath-market-signal.md",
       "relation": "moc_parent",
       "title": "Clearpath sees onboarding friction"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-clearpath-support",
+      "page_type": "source",
+      "path": "memories/sources/source-clearpath-support.md",
+      "relation": "moc_parent",
+      "title": "Clearpath support feed"
     },
     {
       "approved_state": "approved",
@@ -99,6 +139,36 @@
       "path": "memories/empresas/clearpath/pulse-product.md",
       "relation": "moc_parent",
       "title": "Pulse Product"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-06",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-06.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 06"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-07",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-07.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 07"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-map-08",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-08.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 08"
     }
   ],
   "body": "\n# Clearpath Labs\n\nA fictional company root below Alex. From Alex's map it is Q4/system; when selected, the company becomes the center and its own intents, outputs, relations and systems split around it.\n",
@@ -148,5 +218,6 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-8d1c5584a934c732",
   "source_refs": []
 }

@@ -1,0 +1,562 @@
+{
+  "diagnostics": [],
+  "event_count": 11,
+  "event_schema_version": "wiki_temporal_event.v1",
+  "events": [
+    {
+      "actor": null,
+      "after": {
+        "page_type": "study_research_source"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_01459737043164285dafbc4f",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:source-learning-loops"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "root_entity"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_0a68da747e2e568dc15919ae",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:root-study-research-showcase"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "study_research_question"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_7466cf9b139bb5290a17291a",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:question-next-review"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "study_research_concept"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_8dac1011d3bf03133354dcbe",
+      "evidence_refs": [
+        "page:source-learning-loops"
+      ],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:concept-retention"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "study_research_concept"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_a34baf692b984e60d8fed8c2",
+      "evidence_refs": [
+        "page:source-learning-loops"
+      ],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:concept-feedback"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "status": "blocked"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "instant",
+        "value": "2026-07-09T00:00:00Z"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:system"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_snapshot_recorded_a3af43d15361d0f03a17e157",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "snapshot_recorded",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "activity_timeline.v1",
+        "legacy_kind": "snapshot"
+      },
+      "precision": {
+        "recorded_at": "instant"
+      },
+      "recorded_at": "2026-07-09T00:00:00Z",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "system:snapshot-generated"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "question_state": "open"
+      },
+      "anchor": {
+        "field": "due_at",
+        "precision": "day",
+        "value": "2026-02-14"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": "2026-02-14",
+      "event_id": "evt_study_research_spaced_review_due_f417fcd43dcf2540721c3edb",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "study-research.spaced-review-due",
+      "lane": "page",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "experience_pack.study-research.spaced-review-due.v1"
+      },
+      "precision": {
+        "due_at": "day"
+      },
+      "recorded_at": null,
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:question-next-review"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "claim_state": "supported",
+        "confidence": "moderate"
+      },
+      "anchor": {
+        "field": "verified_at",
+        "precision": "day",
+        "value": "2026-01-14"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_study_research_claim_verified_9e45911da819f74c7eed7ab7",
+      "evidence_refs": [
+        "page:source-learning-loops"
+      ],
+      "ingested_at": null,
+      "kind": "study-research.claim-verified",
+      "lane": "page",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "experience_pack.study-research.claim-verified.v1"
+      },
+      "precision": {
+        "verified_at": "day"
+      },
+      "recorded_at": null,
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:claim-review-cadence"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": "2026-01-14",
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "study_research_claim"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-01-12"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_bf6e9e5a7d2a71c17fa680e5",
+      "evidence_refs": [
+        "page:source-learning-loops"
+      ],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day",
+        "verified_at": "day"
+      },
+      "recorded_at": "2026-01-12",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:claim-review-cadence"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": "2026-01-14",
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "claim_state": "supported",
+        "confidence": "moderate"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-01-12"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_study_research_claim_recorded_864232c98ec87c0355509120",
+      "evidence_refs": [
+        "page:source-learning-loops"
+      ],
+      "ingested_at": null,
+      "kind": "study-research.claim-recorded",
+      "lane": "page",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "experience_pack.study-research.claim-recorded.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-01-12",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:claim-review-cadence"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "status": "reviewed"
+      },
+      "anchor": {
+        "field": "occurred_at",
+        "precision": "day",
+        "value": "2026-01-10"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_study_research_learning_captured_3e006177336125ec56c49ef5",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "study-research.learning-captured",
+      "lane": "source",
+      "occurred_at": "2026-01-10",
+      "origin": {
+        "adapter": "experience_pack.study-research.learning-captured.v1"
+      },
+      "precision": {
+        "occurred_at": "day"
+      },
+      "recorded_at": null,
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:source-learning-loops"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "page": {
+    "fingerprint": "436f4643c572342cf8360f289794d7035e85f39f0e653237f055bed15384f48c",
+    "limit": 11,
+    "offset": 0,
+    "remaining_count": 0
+  },
+  "range": {
+    "basis": "full_result",
+    "dated_count": 11,
+    "event_count": 11,
+    "from": "2026-01-10",
+    "from_precision": "day",
+    "to": "2026-07-09",
+    "to_precision": "day",
+    "undated_count": 0
+  },
+  "repo_id": "wiki-viva-demo-study-research-showcase",
+  "returned_count": 11,
+  "returned_range": {
+    "basis": "returned_page",
+    "dated_count": 11,
+    "event_count": 11,
+    "from": "2026-01-10",
+    "from_precision": "day",
+    "to": "2026-07-09",
+    "to_precision": "day",
+    "undated_count": 0
+  },
+  "revision": "sha256:436f4643c572342cf8360f289794d7035e85f39f0e653237f055bed15384f48c",
+  "schema_version": "wiki_temporal_graph.v1",
+  "summary": {
+    "by_context": {
+      "context:showcase": 10,
+      "context:system": 1
+    },
+    "by_kind": {
+      "page_updated": 6,
+      "snapshot_recorded": 1,
+      "study-research.claim-recorded": 1,
+      "study-research.claim-verified": 1,
+      "study-research.learning-captured": 1,
+      "study-research.spaced-review-due": 1
+    },
+    "conflict_count": 0,
+    "diagnostic_count": 0,
+    "event_count": 11,
+    "imprecise_count": 0,
+    "scope": "full_result"
+  },
+  "total_count": 11,
+  "truncated": false
+}

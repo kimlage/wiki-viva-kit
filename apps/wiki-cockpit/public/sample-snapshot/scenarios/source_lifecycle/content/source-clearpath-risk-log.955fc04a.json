@@ -1,0 +1,42 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath risk log\n\nA live Risk register source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `ready`, freshness `never_synced` and last attempt `never`.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-clearpath-risk-log",
+    "page_type": "source",
+    "platform": "Risk register",
+    "source_lifecycle": {
+      "adoption_state": "pending",
+      "freshness_state": "never_synced",
+      "last_attempt_state": "never",
+      "pipeline_stage": "configured",
+      "state": "ready"
+    },
+    "source_type": "live",
+    "stale_after_days": 30,
+    "title": "Clearpath risk log",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "source-clearpath-risk-log",
+    "page_type": "source",
+    "path": "memories/sources/source-clearpath-risk-log.md",
+    "summary": "A live Risk register source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle ready, freshness never_synced and last attempt never.",
+    "summary_truncated": false,
+    "title": "Clearpath risk log",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-2830e4dd880e44a2",
+  "source_refs": []
+}

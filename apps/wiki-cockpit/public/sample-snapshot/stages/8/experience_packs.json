@@ -1,0 +1,20 @@
+{
+  "block_packages": [],
+  "composition_sha256": "91278d9654bc92e5a7af1075c67297eb751beb6feef3bd06cee92210e5d667c4",
+  "core_version": "8.0.0",
+  "packs": [],
+  "presentation": {
+    "default_locale": "en",
+    "locales": {
+      "en": {},
+      "pt-BR": {}
+    }
+  },
+  "schema_version": "wiki_experience_pack_composition.v1",
+  "slots": {
+    "commands": [],
+    "operations": [],
+    "timelines": [],
+    "views": []
+  }
+}

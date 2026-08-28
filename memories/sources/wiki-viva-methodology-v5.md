@@ -20,10 +20,35 @@ parent_projection:
 source_type: reference
 ingestion_state: ingested
 last_ingested_at: 2026-08-26
-refresh_policy: event_driven
+refresh_policy: archival
 refresh_cadence_days: 180
 refresh_trigger: "review only when the methodology proposal or implementation contract changes"
 config_ref: memories/sources/config/wiki-viva-methodology-v5.md
+source_lifecycle:
+  state: ingested
+  freshness_state: fresh
+  last_attempt_state: ok
+  pipeline_stage: complete
+  pipeline_stage_timestamps:
+    complete: "2026-08-26T00:00:00Z"
+  adoption_state: accepted
+  last_sync_success_at: "2026-08-26T00:00:00Z"
+  last_ingested_at: "2026-08-26"
+  last_attempt_at: "2026-08-26T00:00:00Z"
+  emitted_page_ids:
+    - system-ingestion-process
+    - root-wiki-viva-kit
+    - system-wiki-architecture
+    - system-wiki-index
+    - system-wiki-ingestion-flow
+  emitted_action_ids: []
+  proposal_ids: []
+  raw_artifact_count: 0
+  secret_safe_log_refs:
+    - memories/system/ingestion/events/2026-08-26-wiki-viva-methodology-v5-md.md
+  reviewed_no_change_receipt: ""
+  accepted_ref: memories/system/ingestion/events/2026-08-26-wiki-viva-methodology-v5-md.md
+  blocked_reason: ""
 sources_policy: fonte_metodologica
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
@@ -32,7 +57,7 @@ moc_parent: memories/index.md
 related_pages:
   - memories/system/methodology-coverage-v5.md
   - memories/sources/config/wiki-viva-methodology-v5.md
-owner: root-wiki-viva-kit
+owner:
 related_holons:
 roles:
 responsibilities:
@@ -42,12 +67,6 @@ decisions:
 actions:
 evidence_refs:
   - memories/system/methodology-coverage-v5.md
-platform: repo
-source_locator: memories/sources/wiki-viva-methodology-v5.md
-sync:
-  last_run_at: '2026-08-26'
-  last_status: ok
-  last_event_ref: memories/system/ingestion/events/2026-08-26-wiki-viva-methodology-v5-md.md
 ---
 
 # Living wiki methodology (source)
@@ -64,7 +83,6 @@ tracked in [methodology-coverage-v5.md](../system/methodology-coverage-v5.md).
 | --- | --- |
 | Markdown/Git as a portable foundation | The wiki is versioned text; the PR is the gate. |
 | Ingestion as compilation | A source becomes a manifest, text/chunks, an index, a context package, a normalized event, and consolidation. |
-| Source entity + recipe | A source page records identity and sync evidence; its `source_config` carries the executable, secret-free recipe, streams, cadences and target pages. |
 | Code first, LLM for deep context | The Python is deterministic; the deep reading belongs to the agent that runs the repo, recorded in the cache (gate `required_context_pass`). |
 | Privacy per page | PII is welcome on private pages; secrets are always blocked; PII only becomes an error at the public boundary. |
 | Four quadrants | Wilber/AQAL lens crossing interior/exterior with individual/collective: Q1/I identity-intent, Q2/It output-evidence, Q3/We shared meaning/roles-as-lived, Q4/Its systems-processes-governance, with explicit absence. |
@@ -89,22 +107,6 @@ flowchart LR
     X --> G["Human gate (PR)"]
 ```
 
-## Source configuration and refresh
-
-The canonical source inventory is made of linked records, not an implicit
-connector: a `source` page identifies the evidence, a `source_config` page
-defines its recipe, an `input_channel` places it in the root entity, and an
-`ingestion_event` proves each completed read. The recipe can describe streams,
-filters, cadences, an authorization pointer and an on-demand or recurring
-schedule, but it never stores a credential and does not make an external fetch
-automatic by itself.
-
-As of 2026-08-26 this public kit has exactly one canonical source — this
-methodology contract — with one repository-local stream. It is intentionally
-on-demand: changes to the methodology, templates, skills, gates or source model
-trigger a new read. Downstream repositories declare their own real sources and
-connectors; none are implied by this synthetic public foundation.
-
 ## Rich representation by default
 
 Pages SHOULD illustrate what they describe with **Mermaid diagrams** and **Markdown
@@ -112,12 +114,6 @@ tables** by default, keeping prose for nuance. Architecture, flow, relationship,
 process pages MUST carry at least one diagram. The full guideline — including the
 "which diagram for what" mapping and the diagram authoring rules — lives in the page
 conventions: [obsidian-conventions.md](../../docs/references/templates/wiki/obsidian-conventions.md).
-
-## Ingestion log
-
-| Date | Event | State |
-| --- | --- | --- |
-| 2026-08-26 | [Methodology contract refresh](../system/ingestion/events/2026-08-26-wiki-viva-methodology-v5-md.md) | Integrated: recipe migration, implementation readback and meta-wiki alignment. |
 
 ## Related
 

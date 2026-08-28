@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, Search, Sprout, X } from "lucide-react";
+import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import { t } from "../data/i18n";
 import { contextLabel, pageTypeLabel } from "../data/presentation";
 import { AUTO_FIELDS, contextsOf, createBriefSpec, curatedPalette, registryHomeOverrides } from "../data/creation";
@@ -23,6 +24,7 @@ export function CreateDock({
   bundle,
   initialType,
   initialQuadrant,
+  demo = false,
   genesis = false,
   onComposeBrief,
   onHighlightQuadrant,
@@ -31,6 +33,7 @@ export function CreateDock({
   bundle: SnapshotBundle;
   initialType?: string;
   initialQuadrant?: string;
+  demo?: boolean;
   // Tutorial mode: creating rebuilds the world instantly (the honest footnote
   // changes — no Codex/PR language when nothing of the sort will happen).
   genesis?: boolean;
@@ -40,9 +43,9 @@ export function CreateDock({
   onHighlightQuadrant?: (facet: string | null) => void;
   onClose: () => void;
 }) {
+  const readOnly = demo && !genesis;
   // Narrow screens get a TWO-STEP flow: pick a type → the sheet flips to the
   // mold with a back button (side-by-side needs ~760px).
-  const [mobileForm, setMobileForm] = useState(false);
   const types = bundle.templates?.types ?? {};
   const overrides = useMemo(() => registryHomeOverrides(types), [types]);
   const contexts = contextsOf(bundle);
@@ -81,6 +84,10 @@ export function CreateDock({
 
   const firstIn = (b: Bucket) => buckets[b][0];
   const creatableInitial = initialType && types[initialType] && [...palette.primary, ...palette.rest].includes(initialType);
+  // A guided/deep-linked type is already a deliberate selection. On narrow
+  // screens enter its form directly; otherwise a type that lives behind
+  // “more…” can leave the tutorial showing neither its row nor its fields.
+  const [mobileForm, setMobileForm] = useState(Boolean(creatableInitial));
   const defaultType =
     (creatableInitial ? initialType : "") ||
     (initialQuadrant && SCENE_FACETS.includes(initialQuadrant as SceneFacet) ? firstIn(initialQuadrant as SceneFacet) : "") ||
@@ -95,6 +102,10 @@ export function CreateDock({
   const spec: TemplateSpec | undefined = types[type];
   const home = spec ? homeQuadrant(type, overrides) : null;
   const moldGroups = useMemo(() => groupPinnedByFacet(spec), [spec]);
+  const telemetry = useMemo(
+    () => createTelemetry(palette, contexts, buckets, moldGroups, byQuadrant),
+    [palette, contexts, buckets, moldGroups, byQuadrant]
+  );
   const setField = (key: string, value: string) => setValues((v) => ({ ...v, [key]: value }));
 
   const pick = (pt: string) => {
@@ -125,6 +136,7 @@ export function CreateDock({
       className={pt === type ? "createTypeRow active" : "createTypeRow"}
       onClick={() => pick(pt)}
       title={typeDescription(pt)}
+      tabIndex={0}
       type="button"
     >
       <span className="createTypeIcon" aria-hidden>{typeIcon(pt)}</span>
@@ -141,7 +153,7 @@ export function CreateDock({
         <Sprout size={15} aria-hidden />
         <strong>{t("create.title")}</strong>
         <span className="createSheetIntro">{t("create.intro")}</span>
-        <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} tabIndex={0} type="button">
           <X size={16} />
         </button>
       </header>
@@ -150,6 +162,9 @@ export function CreateDock({
         <p className="dockIntro createEmpty">{t("create.noTypes")}</p>
       ) : (
         <div className={mobileForm ? "createSheetBody showForm" : "createSheetBody"}>
+          <div className="createTelemetryWrap">
+            <DockTelemetryRail label={t("create.telemetry.aria")} items={telemetry} />
+          </div>
           {/* LEFT: what can be born HERE — the scope's small catalog first
               (icons + plain-language purpose); the long tail only behind an
               explicit "more types…". The filter appears with the long list. */}
@@ -162,6 +177,7 @@ export function CreateDock({
                   onChange={(e) => setFilter(e.target.value)}
                   placeholder={t("create.searchTypes")}
                   aria-label={t("create.searchTypes")}
+                  tabIndex={0}
                 />
               </label>
             )}
@@ -176,12 +192,12 @@ export function CreateDock({
                 )
               : orderedTypes.map(renderRow)}
             {!expanded && palette.rest.length > 0 && (
-              <button className="createMoreTypes" onClick={() => setExpanded(true)} type="button">
+              <button className="createMoreTypes" onClick={() => setExpanded(true)} tabIndex={0} type="button">
                 {t("seed.more", { n: palette.rest.length })}
               </button>
             )}
             {expanded && palette.primary.length > 0 && (
-              <button className="createMoreTypes" onClick={() => { setExpanded(false); setFilter(""); }} type="button">
+              <button className="createMoreTypes" onClick={() => { setExpanded(false); setFilter(""); }} tabIndex={0} type="button">
                 <ChevronLeft size={12} aria-hidden /> {t("seed.less")}
               </button>
             )}
@@ -191,7 +207,7 @@ export function CreateDock({
           {spec && (
             <div className="createForm">
               <div className="createFormHead">
-                <button className="createBackToTypes" onClick={() => setMobileForm(false)} type="button">
+                <button className="createBackToTypes" onClick={() => setMobileForm(false)} tabIndex={0} type="button">
                   ‹ {t("create.backToTypes")}
                 </button>
                 <span className="createTypeIcon big" aria-hidden>{typeIcon(type)}</span>
@@ -214,12 +230,13 @@ export function CreateDock({
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder={typeNameExample(type)}
                     autoFocus
+                    tabIndex={0}
                   />
                 </label>
                 {contexts.length > 0 && (
                   <label className="intakeField">
                     <span>{t("intake.context")}</span>
-                    <select value={context} onChange={(e) => setContext(e.target.value)}>
+                    <select value={context} onChange={(e) => setContext(e.target.value)} tabIndex={0}>
                       {contexts.map((ctx) => (
                         <option key={ctx} value={ctx}>
                           {contextLabel(ctx)}
@@ -240,6 +257,7 @@ export function CreateDock({
                         onChange={(e) => setField(key, e.target.value)}
                         placeholder={t("create.fieldPlaceholder")}
                         spellCheck={false}
+                        tabIndex={0}
                       />
                     </label>
                   ))
@@ -247,11 +265,19 @@ export function CreateDock({
               </div>
 
               <div className="createFormFoot">
-                <button className="btn btn--primary" disabled={!title.trim()} onClick={seed} type="button">
+                <button
+                  className="btn btn--primary"
+                  disabled={readOnly || !title.trim()}
+                  onClick={seed}
+                  aria-label={readOnly ? `${t("create.seedDemo")} — ${t("demo.readOnlyControl")}` : undefined}
+                  title={readOnly ? t("demo.readOnlyControl") : undefined}
+                  tabIndex={0}
+                  type="button"
+                >
                   <Sprout size={14} />
-                  <span>{t("create.seed")}</span>
+                  <span>{t(genesis ? "create.seedHere" : readOnly ? "create.seedDemo" : "create.seed")}</span>
                 </button>
-                <small className="createGateNote">{t(genesis ? "create.gateNoteGenesis" : "create.gateNote")}</small>
+                <small className="createGateNote">{t(genesis ? "create.gateNoteGenesis" : readOnly ? "create.gateNoteDemo" : "create.gateNote")}</small>
               </div>
             </div>
           )}
@@ -259,6 +285,53 @@ export function CreateDock({
       )}
     </section>
   );
+}
+
+function createTelemetry(
+  palette: { primary: string[]; rest: string[] },
+  contexts: string[],
+  buckets: Record<Bucket, string[]>,
+  moldGroups: [Bucket, string[]][],
+  byQuadrant: boolean
+): DockTelemetryItem[] {
+  const total = palette.primary.length + palette.rest.length;
+  const bucketCount = BUCKET_ORDER.filter((bucket) => buckets[bucket].length > 0).length;
+  const moldFields = moldGroups.reduce((sum, [, fields]) => sum + fields.length, 0);
+
+  return [
+    {
+      key: "templates",
+      label: t("create.telemetry.templates"),
+      value: total,
+      tone: total > 0 ? "info" : "muted",
+      ratio: total > 0 ? 1 : 0,
+      detail: t("create.telemetry.templatesDetail", { n: total })
+    },
+    {
+      key: "catalog",
+      label: t("create.telemetry.catalog"),
+      value: `${palette.primary.length}/${total}`,
+      tone: palette.primary.length > 0 ? "good" : "warn",
+      ratio: total > 0 ? palette.primary.length / total : 0,
+      detail: t("create.telemetry.catalogDetail", { primary: palette.primary.length, rest: palette.rest.length })
+    },
+    {
+      key: "homes",
+      label: t("create.telemetry.homes"),
+      value: byQuadrant ? bucketCount : "core",
+      tone: byQuadrant ? "info" : "muted",
+      ratio: byQuadrant ? bucketCount / BUCKET_ORDER.length : 0,
+      detail: byQuadrant ? t("create.telemetry.homesDetail", { n: bucketCount }) : t("create.telemetry.homesCore")
+    },
+    {
+      key: "mold",
+      label: t("create.telemetry.mold"),
+      value: moldFields,
+      tone: moldFields > 0 ? "good" : "muted",
+      ratio: Math.min(moldFields / 6, 1),
+      detail: t("create.telemetry.moldDetail", { fields: moldFields, contexts: contexts.length })
+    }
+  ];
 }
 
 

@@ -16,6 +16,7 @@ PAGE_GRAPH_SCHEMA_VERSION = "wiki_page_graph.v1"
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 FRONTMATTER_REF_FIELDS = (
     "source_refs",
+    "collection_refs",
     "claims",
     "decisions",
     "actions",
@@ -94,6 +95,7 @@ class ImpactResult:
     changed_pages: tuple[str, ...]
     affected_pages: tuple[str, ...]
     references: dict[str, tuple[str, ...]]
+    removed_pages: tuple[str, ...] = ()
     skipped: str | None = None
 
 
@@ -288,28 +290,57 @@ def compute_impact(
     changed_paths: set[str],
     *,
     exempt_types: set[str] | None = None,
+    base_graph: PageGraph | None = None,
 ) -> ImpactResult:
+    """Compute current and deletion impact against one explicit review base.
+
+    A removed page is absent from the current graph by definition.  When an
+    exact ``base_graph`` is supplied, keep that page in the changed set and use
+    the base graph's resolved backlinks to identify surviving pages that must
+    be reviewed.  Callers that collect Git deletions must therefore provide the
+    matching base graph instead of silently treating a removal as no impact.
+    """
+
     exempt = DEFAULT_IMPACT_EXEMPT_TYPES | (exempt_types or set())
-    changed_pages = {
+    current_changed_pages = {
         path
         for path in changed_paths
         if path in graph.nodes and graph.nodes[path].page_type not in exempt
     }
+    removed_pages = {
+        path
+        for path in changed_paths
+        if path not in graph.nodes
+        and base_graph is not None
+        and path in base_graph.nodes
+        and base_graph.nodes[path].page_type not in exempt
+    }
+    changed_pages = current_changed_pages | removed_pages
     if not changed_pages:
-        return ImpactResult(changed_pages=(), affected_pages=(), references={})
+        return ImpactResult(
+            changed_pages=(),
+            affected_pages=(),
+            references={},
+            removed_pages=(),
+        )
     references: dict[str, list[str]] = {}
     affected: set[str] = set()
     for rel, node in graph.nodes.items():
         if rel in changed_pages or node.page_type in exempt:
             continue
-        hits = sorted(set(node.outbound_links) & changed_pages)
+        hits = set(node.outbound_links) & changed_pages
+        if removed_pages and base_graph is not None:
+            base_node = base_graph.nodes.get(rel)
+            if base_node is not None:
+                hits.update(set(base_node.outbound_links) & removed_pages)
         if hits:
             affected.add(rel)
-            references[rel] = hits
+            references[rel] = sorted(hits)
     return ImpactResult(
         changed_pages=tuple(sorted(changed_pages)),
         affected_pages=tuple(sorted(affected)),
         references={rel: tuple(targets) for rel, targets in sorted(references.items())},
+        removed_pages=tuple(sorted(removed_pages)),
     )
 
 

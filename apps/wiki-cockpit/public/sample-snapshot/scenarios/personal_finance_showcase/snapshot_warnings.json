@@ -1,0 +1,11 @@
+{
+  "schema_version": "wiki_snapshot_warnings.v1",
+  "warnings": [
+    {
+      "anchor_id": "root-personal-finance-showcase",
+      "code": "q0_overload",
+      "count": 8,
+      "severity": "warning"
+    }
+  ]
+}

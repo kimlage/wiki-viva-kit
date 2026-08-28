@@ -8,11 +8,6 @@ const contentByCase: { current: PageContent } = {
   current: { ok: false, error: "sem conteúdo" }
 };
 
-vi.mock("../data/snapshot", () => ({
-  loadPageContent: vi.fn(async () => contentByCase.current),
-  sidecarName: (id: string) => `${id}.json`
-}));
-
 import { PageReader } from "./PageReader";
 
 function page(id: string, over: Record<string, unknown> = {}) {
@@ -49,6 +44,7 @@ const baseProps = {
   demo: false,
   trail: [],
   packetIds: [] as string[],
+  loadPageContent: vi.fn(async () => contentByCase.current),
   onNavigatePage: vi.fn(),
   onClose: vi.fn(),
   onTogglePacket: vi.fn()
@@ -60,6 +56,133 @@ afterEach(() => {
 });
 
 describe("PageReader", () => {
+  it("keeps one page title when the Markdown starts with the same H1", async () => {
+    contentByCase.current = {
+      ok: true,
+      body: "# alpha\n\nThe useful summary starts here.",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    const { container } = render(<PageReader {...baseProps} pageId="alpha" />);
+
+    await screen.findByText("The useful summary starts here.");
+    expect(screen.getAllByRole("heading", { name: "alpha" })).toHaveLength(1);
+    expect(container.querySelector(".readerBody h1")).toBeNull();
+    expect(screen.getByRole("dialog").getAttribute("aria-modal")).toBe("true");
+    expect(screen.getByRole("button", { name: "Comfortable reading (F)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Close reader (Esc)" })).toBeTruthy();
+  });
+
+  it("puts compiled action state and next action before prose and omits empty relation groups", async () => {
+    contentByCase.current = {
+      ok: true,
+      body: "# Human decision\n\nSupporting prose.",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    const actionPage = page("human-decision", {
+      title: "Human decision",
+      page_type: "action",
+      source_refs: []
+    });
+    const actionBundle = {
+      ...bundle,
+      actions: {
+        actions: [{
+          id: "graph-check",
+          kind: "command",
+          title: "Connections",
+          human_reason: "Inspect links",
+          risk_level: "read",
+          default_dry_run: true,
+          commands: []
+        }]
+      },
+      pages: { pages: [actionPage] },
+      workItems: {
+        schema_version: "wiki_web_work_items.v1",
+        actions: [{
+          action_id: "human-decision",
+          page_id: "human-decision",
+          state: "waiting_human",
+          due_at: "2026-06-15",
+          overdue: true,
+          next_action: "Review the evidence and leave a receipt.",
+          owner: { kind: "human", ref: "reviewer" },
+          priority: "high",
+          evidence_refs: ["artifact-1"]
+        }]
+      }
+    } as unknown as SnapshotBundle;
+    const { container } = render(
+      <PageReader {...baseProps} bundle={actionBundle} pageId="human-decision" onRunOperatorCommand={vi.fn()} />
+    );
+
+    await screen.findByText("Supporting prose.");
+    expect(screen.getByText("Waiting for human")).toBeTruthy();
+    expect(screen.getByText("Overdue action")).toBeTruthy();
+    expect(screen.getByText("Review the evidence and leave a receipt.")).toBeTruthy();
+    expect(screen.getByText("reviewer")).toBeTruthy();
+    expect(screen.getByText("High")).toBeTruthy();
+    const summary = container.querySelector(".actionSummaryPanel");
+    const body = container.querySelector(".readerBody");
+    expect(summary).toBeTruthy();
+    expect(body).toBeTruthy();
+    expect(summary!.compareDocumentPosition(body!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector(".readerRelations")).toBeNull();
+    expect(container.querySelector(".readerActionBar")).toBeTruthy();
+
+    const dock = container.querySelector<HTMLElement>(".pageReader")!;
+    const firstControl = container.querySelector<HTMLElement>(".readerTypeChip")!;
+    const more = screen.getByText("More").closest("summary") as HTMLElement;
+    firstControl.focus();
+    fireEvent.keyDown(dock, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(more);
+    fireEvent.keyDown(dock, { key: "Tab" });
+    expect(document.activeElement).toBe(firstControl);
+  });
+
+  it("never renders a stale next action for terminal work", async () => {
+    contentByCase.current = {
+      ok: true,
+      body: "# Closed action\n\nThe completion evidence is retained.",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    const actionPage = page("closed-action", {
+      title: "Closed action",
+      page_type: "action",
+      work: {
+        state: "done",
+        next_action: "This stale instruction must never be shown."
+      }
+    });
+    const actionBundle = {
+      ...bundle,
+      pages: { pages: [actionPage] },
+      workItems: {
+        schema_version: "wiki_web_work_items.v1",
+        actions: [{
+          action_id: "closed-action",
+          page_id: "closed-action",
+          state: "done",
+          next_action: "This stale instruction must never be shown.",
+          evidence_refs: []
+        }]
+      }
+    } as unknown as SnapshotBundle;
+
+    render(<PageReader {...baseProps} bundle={actionBundle} pageId="closed-action" />);
+
+    await screen.findByText("The completion evidence is retained.");
+    expect(screen.getByText("Done")).toBeTruthy();
+    expect(screen.queryByText("This stale instruction must never be shown.")).toBeNull();
+    expect(screen.queryByText("Next action")).toBeNull();
+  });
+
   it("sanitizes hostile markdown: scripts and event handlers never reach the DOM", async () => {
     contentByCase.current = {
       ok: true,
@@ -124,6 +247,53 @@ describe("PageReader", () => {
     expect(baseProps.onNavigatePage).toHaveBeenCalledWith("beta");
   });
 
+  it("resets its persistent scrollport before rendering a different page", async () => {
+    const loadPageContent = vi.fn(async (id: string) => ({
+      ok: true,
+      body: `# ${id}\n\nBody for ${id}.`,
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    } as PageContent));
+    const { container, rerender } = render(
+      <PageReader {...baseProps} loadPageContent={loadPageContent} pageId="alpha" />
+    );
+
+    await screen.findByText("Body for alpha.");
+    const scrollport = container.querySelector<HTMLElement>(".readerScroll")!;
+    scrollport.scrollTop = 420;
+
+    rerender(<PageReader {...baseProps} loadPageContent={loadPageContent} pageId="beta" />);
+
+    expect(scrollport.scrollTop).toBe(0);
+    expect(await screen.findByText("Body for beta.")).toBeTruthy();
+    expect(loadPageContent).toHaveBeenLastCalledWith("beta", expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  });
+
+  it("contains wide Markdown tables in a keyboard-readable horizontal scroll region", async () => {
+    contentByCase.current = {
+      ok: true,
+      body: [
+        "| Canonical source identifier | Latest normalized ingestion event |",
+        "| --- | --- |",
+        "| source-with-a-long-unbroken-identifier | event-with-a-long-unbroken-identifier |"
+      ].join("\n"),
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    const { container } = render(<PageReader {...baseProps} pageId="alpha" />);
+
+    await screen.findByText("source-with-a-long-unbroken-identifier");
+    const scroller = screen.getByRole("region", { name: "Scrollable table" });
+    const table = scroller.querySelector("table");
+    expect(scroller.classList.contains("readerTableScroll")).toBe(true);
+    expect(scroller.tabIndex).toBe(0);
+    expect(table).toBeTruthy();
+    expect(table?.parentElement).toBe(scroller);
+    expect(container.querySelectorAll(".readerTableScroll")).toHaveLength(1);
+  });
+
   it("degrades honestly when content is unavailable: summary + operator notice, no dead end", async () => {
     contentByCase.current = { ok: false, error: "404" };
     render(
@@ -141,14 +311,138 @@ describe("PageReader", () => {
     expect(screen.getByText(/full text available with the local operator/)).toBeTruthy();
   });
 
-  it("shows grouped typed relations with true counts (Hierarchy counts the child)", async () => {
+  it("recovers an A-to-B wiki change without closing the page or losing focus", async () => {
+    let nextContent: PageContent = {
+      ok: false,
+      error: "page changed since snapshot; refresh required",
+      error_code: "snapshot_revision_mismatch",
+      snapshot_id: "fixture-B",
+      expected_snapshot_id: "fixture-A",
+      page_id: "alpha"
+    };
+    const loadPageContent = vi.fn(async () => nextContent);
+    const onSnapshotMismatch = vi.fn();
+    const bundleA = {
+      ...bundle,
+      manifest: { snapshot_id: "fixture-A", integrity: {} }
+    } as unknown as SnapshotBundle;
+    const bundleB = {
+      ...bundle,
+      manifest: { snapshot_id: "fixture-B", integrity: {} }
+    } as unknown as SnapshotBundle;
+    const { rerender } = render(
+      <PageReader
+        {...baseProps}
+        bundle={bundleA}
+        pageId="alpha"
+        loadPageContent={loadPageContent}
+        onSnapshotMismatch={onSnapshotMismatch}
+      />
+    );
+
+    expect(await screen.findByText("Wiki changed while this page was open.")).toBeTruthy();
+    expect(screen.getByText("Refreshing the world and reopening this page…")).toBeTruthy();
+    expect(onSnapshotMismatch).toHaveBeenCalledTimes(1);
+    expect(loadPageContent).toHaveBeenLastCalledWith(
+      "alpha",
+      expect.objectContaining({ snapshotId: "fixture-A" })
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(document.activeElement).toBe(dialog);
+    expect(baseProps.onClose).not.toHaveBeenCalled();
+    expect(baseProps.onNavigatePage).not.toHaveBeenCalled();
+
+    nextContent = {
+      ok: true,
+      snapshot_id: "fixture-B",
+      body: "# alpha\n\nRecovered B content.",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    rerender(
+      <PageReader
+        {...baseProps}
+        bundle={bundleB}
+        pageId="alpha"
+        loadPageContent={loadPageContent}
+        onSnapshotMismatch={onSnapshotMismatch}
+      />
+    );
+
+    expect(await screen.findByText("Recovered B content.")).toBeTruthy();
+    expect(loadPageContent).toHaveBeenLastCalledWith(
+      "alpha",
+      expect.objectContaining({ snapshotId: "fixture-B" })
+    );
+    expect(onSnapshotMismatch).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(document.activeElement).toBe(dialog);
+  });
+
+  it("shows populated typed relations with true counts and omits empty groups", async () => {
     contentByCase.current = { ok: true, body: "corpo", resolved_links: [], backlinks: [], source_refs: [] };
     render(<PageReader {...baseProps} pageId="alpha" />);
     await screen.findByText("Hierarchy");
-    expect(screen.getByText("Evidence")).toBeTruthy();
-    expect(screen.getByText("Cited by")).toBeTruthy();
+    expect(screen.queryByText("Evidence")).toBeNull();
+    expect(screen.queryByText("Cited by")).toBeNull();
     // beta has moc_parent = alpha → shows under Hierarquia as "abaixo".
     expect(screen.getByRole("button", { name: /beta/ })).toBeTruthy();
+  });
+
+  it("renders collection membership as structure in both directions without cited-by duplication", async () => {
+    const collectionBundle = {
+      ...bundle,
+      pages: {
+        pages: [
+          page("claims-index", { title: "Claims collection", page_type: "ontology_index" }),
+          page("claim-a", { title: "Claim A", page_type: "claim" })
+        ]
+      },
+      graph: {
+        nodes: [],
+        edges: [
+          { source: "claim-a", target: "claims-index", type: "collection_member", status: "valid", weight: 1 }
+        ]
+      }
+    } as unknown as SnapshotBundle;
+    contentByCase.current = {
+      ok: true,
+      body: "Collection body",
+      resolved_links: [],
+      backlinks: [{
+        page_id: "claim-a",
+        path: "memories/x/claim-a.md",
+        title: "Claim A",
+        context: "x",
+        page_type: "claim",
+        freshness_state: "fresh",
+        approved_state: "approved",
+        relation: "collection_member"
+      }],
+      source_refs: []
+    };
+    const first = render(
+      <PageReader {...baseProps} bundle={collectionBundle} pageId="claims-index" />
+    );
+
+    await screen.findByText(/member of this collection/);
+    expect(screen.getAllByRole("button", { name: /Claim A/ })).toHaveLength(1);
+    expect(screen.queryByText("Cited by")).toBeNull();
+    first.unmount();
+
+    contentByCase.current = {
+      ok: true,
+      body: "Member body",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    render(<PageReader {...baseProps} bundle={collectionBundle} pageId="claim-a" />);
+
+    await screen.findByText(/in collection/);
+    expect(screen.getAllByRole("button", { name: /Claims collection/ })).toHaveLength(1);
+    expect(screen.queryByText("Cited by")).toBeNull();
   });
 
   it("shows quadrant projection details for the active center", async () => {

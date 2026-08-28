@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-07-06
 stale_after_days: 30
 moc_parent: memories/system/wiki-viva-kit.md
 sources_policy: memoria_consolidada
@@ -27,15 +27,13 @@ related_pages:
 
 # Memory - root MOC
 
-Updated at: 2026-08-26.
+Updated at: 2026-06-25.
 
 [memories/](./index.md) is the main consolidated memory. [docs/](../docs/README.md) holds
 references, templates, and snapshots; [data/raw](../data/raw) and
 [data/derived](../data/derived) are cache (gitignored).
 
-This is the technical root map of content and the entry point to the kit's
-**meta-wiki**: this repository uses its own Wiki Viva contracts to document how
-Wiki Viva works. The semantic top page for this kit is
+This is the technical root map of content. The semantic top page for this kit is
 [Wiki Viva Kit](system/wiki-viva-kit.md), and the generated input catalog is
 [Input stage](system/input-stage.md). Opening this MOC means you are already
 inside the living wiki — there is no separate documentation site. The wiki has

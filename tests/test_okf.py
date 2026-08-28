@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+from wiki_core.output_safety import OUTPUT_OWNER_FILENAME
 from wiki_core.okf import (
     OKF_VERSION,
     check_okf_bundle,
@@ -87,6 +90,7 @@ def test_export_rewrites_reserved_pages_and_checks_conformant_bundle(tmp_path: P
     assert result.concept_count == 4
     assert result.reserved_concept_count == 3
     assert (out / "index.md").exists()
+    assert (out / OUTPUT_OWNER_FILENAME).is_file()
     assert (out / "_wiki_viva_reserved/root-index.md").exists()
     assert (out / "_wiki_viva_reserved/projects-index.md").exists()
     assert (out / "_wiki_viva_reserved/system-log.md").exists()
@@ -105,6 +109,132 @@ def test_export_rewrites_reserved_pages_and_checks_conformant_bundle(tmp_path: P
     assert checked.errors == []
     assert checked.concept_count == 4
     assert checked.broken_links == 0
+
+
+def test_export_keeps_out_of_scope_repo_link_labels_without_broken_links(
+    tmp_path: Path,
+) -> None:
+    _fixture_repo(tmp_path)
+    root_index = tmp_path / "memories/index.md"
+    root_index.write_text(
+        root_index.read_text(encoding="utf-8")
+        + "\nSee the [deployment guide](../docs/deployment.md).\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "tmp" / "okf"
+
+    export_okf_bundle(
+        root=tmp_path,
+        source_root="memories",
+        bundle_root=out,
+        clean=True,
+    )
+
+    exported = (out / "_wiki_viva_reserved/root-index.md").read_text(
+        encoding="utf-8"
+    )
+    assert "deployment guide (outside OKF bundle)" in exported
+    assert "../docs/deployment.md" not in exported
+    checked = check_okf_bundle(out)
+    assert checked.broken_links == 0
+    assert checked.warnings == []
+
+
+def test_okf_export_refuses_unowned_and_external_directories(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    _fixture_repo(root)
+    user_out = root / "personal"
+    user_file = user_out / "notes.txt"
+    _write(user_file, "keep\n")
+
+    with pytest.raises(ValueError, match="unowned non-empty"):
+        export_okf_bundle(
+            root=root,
+            source_root="memories",
+            bundle_root=user_out,
+            clean=True,
+        )
+    assert user_file.read_text(encoding="utf-8") == "keep\n"
+
+    export_okf_bundle(
+        root=root,
+        source_root="memories",
+        bundle_root=user_out,
+        clean=True,
+        force_unowned_output=True,
+    )
+    assert not user_file.exists()
+    assert (user_out / OUTPUT_OWNER_FILENAME).is_file()
+
+    external = tmp_path / "external"
+    _write(external / "user.txt", "keep external\n")
+    with pytest.raises(ValueError, match="inside repository root"):
+        export_okf_bundle(
+            root=root,
+            source_root="memories",
+            bundle_root=external,
+            clean=True,
+            force_unowned_output=True,
+        )
+    assert (external / "user.txt").read_text(encoding="utf-8") == "keep external\n"
+
+
+def test_okf_export_refuses_target_symlink_and_preserves_external_directory(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "repo"
+    _fixture_repo(root)
+    external = tmp_path / "external-okf-target"
+    keeper = external / "keep.txt"
+    _write(keeper, "external OKF target\n")
+    bundle_root = root / "okf-link"
+    bundle_root.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="cannot be a symlink"):
+        export_okf_bundle(
+            root=root,
+            source_root="memories",
+            bundle_root=bundle_root,
+            clean=True,
+            force_unowned_output=True,
+        )
+
+    assert bundle_root.is_symlink()
+    assert keeper.read_text(encoding="utf-8") == "external OKF target\n"
+    assert sorted(
+        path.relative_to(external).as_posix()
+        for path in external.rglob("*")
+        if path.is_file()
+    ) == ["keep.txt"]
+
+
+def test_okf_export_refuses_ancestor_symlink_escape_and_preserves_external_directory(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "repo"
+    _fixture_repo(root)
+    external = tmp_path / "external-okf-ancestor"
+    keeper = external / "bundle" / "keep.txt"
+    _write(keeper, "external OKF ancestor\n")
+    linked_parent = root / "linked-parent"
+    linked_parent.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="inside repository root"):
+        export_okf_bundle(
+            root=root,
+            source_root="memories",
+            bundle_root=linked_parent / "bundle",
+            clean=True,
+            force_unowned_output=True,
+        )
+
+    assert linked_parent.is_symlink()
+    assert keeper.read_text(encoding="utf-8") == "external OKF ancestor\n"
+    assert sorted(
+        path.relative_to(external).as_posix()
+        for path in external.rglob("*")
+        if path.is_file()
+    ) == ["bundle/keep.txt"]
 
 
 def test_okf_check_rejects_missing_type_on_concepts(tmp_path: Path) -> None:

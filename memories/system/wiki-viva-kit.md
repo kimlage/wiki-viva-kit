@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-07-11
 stale_after_days: 30
 sources_policy: root_entity_contract
 gate: github_pr
@@ -52,6 +52,7 @@ decisions: []
 actions: []
 evidence_refs:
   - docs/references/proposals/integral-root-entity-and-input-stage-refactor-2026-06-25.md
+  - docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 related_pages:
   - memories/system/wiki/index.md
   - memories/system/input-stage.md
@@ -60,7 +61,7 @@ related_pages:
 
 # Wiki Viva Kit
 
-Updated on: 2026-08-26.
+Updated on: 2026-07-11.
 
 This is the root entity of the open-source Wiki Viva Kit itself. It is the
 semantic entry page for the product/method, while [memories/index.md](../index.md)
@@ -141,12 +142,7 @@ flowchart TD
 
 | Channel | Type | Status | Source page | Config | Quadrants |
 | --- | --- | --- | --- | --- | --- |
-| [Methodology reference](input-channels/methodology-reference.md) | `repository document` | `integrated`, recipe configured | [Living wiki methodology](../sources/wiki-viva-methodology-v5.md) | [config](../sources/config/wiki-viva-methodology-v5.md) | Q1, Q2, Q3, Q4 |
-
-This is the complete source inventory of the public kit as of 2026-08-26: one
-canonical methodology source, one source configuration and one input channel.
-External Drive, email, chat or financial sources belong to downstream consumer
-wikis and are not silently inherited by this repository.
+| [Methodology reference](input-channels/methodology-reference.md) | `document` | `configured` | [Living wiki methodology](../sources/wiki-viva-methodology-v5.md) | [config](../sources/config/wiki-viva-methodology-v5.md) | Q1, Q2, Q3, Q4 |
 
 ## Processes and Cadences
 
@@ -158,7 +154,8 @@ wikis and are not silently inherited by this repository.
 
 | Project/initiative | Objective | State | Inputs |
 | --- | --- | --- | --- |
-| Integral root entity + input stage | Make initial wiki setup and source routing root-driven. | Implemented in the open-source kit; downstream adoption is PR-driven. | This root page and [input-stage.md](input-stage.md) |
+| Integral root entity + input stage | Make initial wiki setup and source routing root-driven. | Implementing in open-source kit first. | This root page and [input-stage.md](input-stage.md) |
+| V8 release truth, temporal world and experience packs | Stabilize the unified living world, make time first-class and support complete installable use-case experiences. | Review-blocked; execute P0/P1 stabilization before extension work. | [Evidence-backed execution plan](../../docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md) |
 
 ## Perspective Bundle
 
@@ -174,7 +171,7 @@ wikis and are not silently inherited by this repository.
 
 | Source | Input channel | Required perspectives | Target pages | Refresh |
 | --- | --- | --- | --- | --- |
-| [Living wiki methodology](../sources/wiki-viva-methodology-v5.md) | [Methodology reference](input-channels/methodology-reference.md) | Q1/Q2/Q3/Q4 core bundle | Root entity, meta-wiki, architecture, ingestion flow/process | On-demand recipe; event-driven trigger; 180-day compatibility cadence |
+| [Living wiki methodology](../sources/wiki-viva-methodology-v5.md) | [Methodology reference](input-channels/methodology-reference.md) | Q1/Q2/Q3/Q4 core bundle | Root entity, meta-wiki, command reference, gates | Event-driven |
 
 ## Privacy and Publication Boundaries
 
@@ -186,7 +183,7 @@ wikis and are not silently inherited by this repository.
 
 | Item | Status | Owner | Next step |
 | --- | --- | --- | --- |
-| No blocked source in the public kit. | Clear | Wiki owner + repo agent | Consumer-specific sources are configured and reviewed in each downstream repository. |
+| Downstream personal migration | Pending | Wiki owner + repo agent | Start only after the open-source implementation and docs are green. |
 
 ## Related Pages
 

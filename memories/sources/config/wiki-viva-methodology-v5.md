@@ -10,13 +10,12 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-06-25
 stale_after_days: 90
 sources_policy: operational_wiki_contract
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 owner: root-wiki-viva-kit
-platform: repo
 moc_parent: memories/system/wiki-viva-kit.md
 source_refs:
   - sources-wiki-viva-methodology
@@ -28,7 +27,6 @@ target_pages:
   - memories/system/wiki/index.md
   - memories/system/wiki/architecture.md
   - memories/system/wiki/ingestion-flow.md
-  - memories/system/ingestion-process.md
 quadrants:
   - q1
   - q2

@@ -1,0 +1,2231 @@
+{
+  "facets_order": [
+    "intencao",
+    "pratica",
+    "relacoes",
+    "sistemas"
+  ],
+  "schema_version": "wiki_templates.v2",
+  "types": {
+    "action": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/action.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "action",
+      "pinned_fields": [
+        "updated_at",
+        "status"
+      ],
+      "scene": {
+        "emphasis": "practice",
+        "shape": "comet"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "artifact": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/artifact.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "artifact",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "practice",
+        "shape": "crystal"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "claim": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/claim.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "claim",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs",
+        "perspectives_required"
+      ],
+      "scene": {
+        "emphasis": "perception",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "from": "evidence_refs",
+            "kind": "list",
+            "label": "reader.evidence"
+          }
+        ]
+      }
+    },
+    "context_hub": {
+      "blocks": [
+        {
+          "config": {
+            "providers": [
+              "stale",
+              "template_conformity"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1"
+        },
+        {
+          "config": {
+            "arrangement": "by_family"
+          },
+          "id": "wiki.block.ui_create.v1"
+        },
+        {
+          "config": {
+            "forms": [
+              "copy_file",
+              "paste_text"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1"
+        },
+        {
+          "config": {
+            "loops": [
+              "context_vitality"
+            ]
+          },
+          "id": "wiki.block.gamification.v1"
+        }
+      ],
+      "body_template": "docs/references/templates/wiki/context-hub.md",
+      "can_anchor_blocks": true,
+      "controls": [
+        {
+          "kind": "focus"
+        }
+      ],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {
+        "ambient": "none",
+        "horizon_label": "context",
+        "landmark": "beacon",
+        "motif": "rings"
+      },
+      "page_type": "context_hub",
+      "pinned_fields": [
+        "updated_at"
+      ],
+      "scene": {
+        "emphasis": "none",
+        "shape": "hub"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "dashboard",
+        "panels": []
+      }
+    },
+    "context_note": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "context_note",
+      "pinned_fields": [
+        "updated_at"
+      ],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "document",
+        "panels": []
+      }
+    },
+    "dashboard": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/operation.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "dashboard",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "practice",
+        "shape": "slab"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "dashboard",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "decision": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/decision.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "decision",
+      "pinned_fields": [
+        "updated_at",
+        "status",
+        "claims"
+      ],
+      "scene": {
+        "emphasis": "intention",
+        "shape": "diamond"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "from": "claims",
+            "kind": "list",
+            "label": "reader.claims"
+          },
+          {
+            "from": "actions",
+            "kind": "list",
+            "label": "reader.actions"
+          }
+        ]
+      }
+    },
+    "holon": {
+      "blocks": [
+        {
+          "id": "wiki.block.quadrants.v1",
+          "scope": "descendants"
+        },
+        {
+          "id": "wiki.block.relations.v1",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "default": "quadrants"
+          },
+          "id": "wiki.block.ui_views.v1"
+        },
+        {
+          "config": {
+            "visual_pack": "region_operations"
+          },
+          "id": "wiki.block.ui_regions.v1"
+        },
+        {
+          "config": {
+            "providers": [
+              "stale",
+              "meeting_followup",
+              "quadrant_absence"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1"
+        },
+        {
+          "config": {
+            "arrangement": "by_quadrant",
+            "catalog": [
+              "meeting",
+              "decision",
+              "action",
+              "person",
+              "role"
+            ]
+          },
+          "id": "wiki.block.ui_create.v1"
+        }
+      ],
+      "body_template": "docs/references/templates/wiki/holon.md",
+      "can_anchor_blocks": true,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {
+        "ambient": "none",
+        "horizon_label": "title",
+        "landmark": "plaza",
+        "motif": "grid"
+      },
+      "page_type": "holon",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "relations",
+        "shape": "hub"
+      },
+      "skills": {
+        "agent": [
+          "skill-agent-classify-quadrants"
+        ]
+      },
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "dashboard",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "ingestion_event": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/ingestion-event.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": false,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "ingestion_event",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "practice",
+        "shape": "spark"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "timeline",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "initiative": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/initiative.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": false,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "initiative",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "dashboard",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "input_channel": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/input-channel.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "input_channel",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "practice",
+        "shape": "crystal"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "input_stage": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": false,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "input_stage",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "hub"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [],
+        "center": "dashboard",
+        "panels": []
+      }
+    },
+    "insight": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/insight.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": false,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "insight",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "perception",
+        "shape": "spark"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "journal_entry": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/journal.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "journal_entry",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "timeline",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "meeting": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/meeting.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "id": "meeting-followup",
+          "kind": "brief"
+        },
+        {
+          "kind": "focus"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "participants",
+          "roles"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "meeting",
+      "pinned_fields": [
+        "updated_at",
+        "participants",
+        "decisions"
+      ],
+      "scene": {
+        "emphasis": "relations",
+        "shape": "slab"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "timeline",
+        "panels": [
+          {
+            "from": "decisions",
+            "kind": "list",
+            "label": "reader.decisions"
+          },
+          {
+            "columns": [
+              "title",
+              "role"
+            ],
+            "from": "participants",
+            "kind": "table"
+          }
+        ]
+      }
+    },
+    "ontology_index": {
+      "blocks": [
+        {
+          "config": {
+            "mode": "optional_lens"
+          },
+          "id": "wiki.block.quadrants.v1",
+          "scope": "descendants"
+        },
+        {
+          "id": "wiki.block.relations.v1",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "default": "quadrants"
+          },
+          "id": "wiki.block.ui_views.v1",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "visual_pack": "quiet_structure"
+          },
+          "id": "wiki.block.ui_regions.v1",
+          "scope": "descendants"
+        }
+      ],
+      "body_template": "",
+      "can_anchor_blocks": true,
+      "controls": [],
+      "creatable": false,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {
+        "ambient": "none",
+        "horizon_label": "title",
+        "landmark": "shelf",
+        "motif": "shelves"
+      },
+      "page_type": "ontology_index",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "hub"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [],
+        "center": "dashboard",
+        "panels": []
+      }
+    },
+    "operational_rule": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/gate.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "operational_rule",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "intention",
+        "shape": "diamond"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "person": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/person.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "responsibilities"
+        ],
+        "pratica": [
+          "actions"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "meetings"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "person",
+      "pinned_fields": [
+        "updated_at",
+        "roles"
+      ],
+      "scene": {
+        "emphasis": "relations",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "entity",
+        "panels": [
+          {
+            "from": "roles",
+            "kind": "list",
+            "label": "reader.roles"
+          }
+        ]
+      }
+    },
+    "personal_finance_account": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "personal_finance_account",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "document",
+        "panels": []
+      }
+    },
+    "personal_finance_category": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "personal_finance_category",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "document",
+        "panels": []
+      }
+    },
+    "personal_finance_monthly_closing": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "personal_finance_monthly_closing",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "document",
+        "panels": []
+      }
+    },
+    "personal_finance_obligation": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "personal_finance_obligation",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "document",
+        "panels": []
+      }
+    },
+    "personal_finance_reconciliation": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "personal_finance_reconciliation",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "document",
+        "panels": []
+      }
+    },
+    "personal_finance_transaction": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "personal_finance_transaction",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "document",
+        "panels": []
+      }
+    },
+    "perspective": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/perspective.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "perspective",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "process": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/process.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "process",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "practice",
+        "shape": "slab"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "project": {
+      "blocks": [
+        {
+          "config": {
+            "default": "trails"
+          },
+          "id": "wiki.block.ui_views.v1"
+        },
+        {
+          "config": {
+            "mode": "optional_lens"
+          },
+          "id": "wiki.block.quadrants.v1",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "providers": [
+              "stale",
+              "template_conformity"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1"
+        },
+        {
+          "config": {
+            "catalog": [
+              "action",
+              "decision",
+              "artifact",
+              "claim",
+              "meeting"
+            ]
+          },
+          "id": "wiki.block.ui_create.v1"
+        },
+        {
+          "config": {
+            "loops": [
+              "mission_health"
+            ]
+          },
+          "id": "wiki.block.gamification.v1"
+        }
+      ],
+      "body_template": "docs/references/templates/wiki/project.md",
+      "can_anchor_blocks": true,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {
+        "ambient": "none",
+        "horizon_label": "title",
+        "landmark": "forge",
+        "motif": "orbits"
+      },
+      "page_type": "project",
+      "pinned_fields": [
+        "updated_at",
+        "status"
+      ],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [
+        {
+          "page_type": "ontology_index",
+          "rel": "decisions_index",
+          "required": false
+        }
+      ],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "dashboard",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "relationship_map": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/relationship-map.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": false,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "relationship_map",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "relations",
+        "shape": "hub"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "dashboard",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "responsibility": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/responsibility.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "responsibility",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "role": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/role.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "role",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "relations",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "root_entity": {
+      "blocks": [
+        {
+          "id": "wiki.block.privacy_boundary.v1",
+          "scope": "descendants"
+        },
+        {
+          "id": "wiki.block.git_human_gate.v1",
+          "scope": "descendants"
+        },
+        {
+          "id": "wiki.block.ui_views.v1"
+        },
+        {
+          "config": {
+            "catalog": [
+              "context_note",
+              "source",
+              "person",
+              "project",
+              "holon",
+              "decision",
+              "tool"
+            ],
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1"
+        },
+        {
+          "config": {
+            "forms": [
+              "copy_file",
+              "paste_text"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1"
+        }
+      ],
+      "body_template": "docs/references/templates/wiki/root-entity.md",
+      "can_anchor_blocks": true,
+      "controls": [
+        {
+          "kind": "focus"
+        }
+      ],
+      "creatable": false,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {
+        "ambient": "motes",
+        "horizon_label": "title",
+        "landmark": "observatory",
+        "motif": "rings"
+      },
+      "page_type": "root_entity",
+      "pinned_fields": [
+        "updated_at"
+      ],
+      "scene": {
+        "emphasis": "none",
+        "shape": "hub"
+      },
+      "skills": {
+        "agent": [
+          "skill-agent-conform-template",
+          "skill-agent-deep-read"
+        ],
+        "human": [
+          "skill-human-review-privacy"
+        ]
+      },
+      "subpages": [
+        {
+          "generated": true,
+          "page_type": "input_stage",
+          "rel": "input_stage_ref"
+        },
+        {
+          "page_type": "dashboard",
+          "rel": "operation_ref",
+          "required": false,
+          "slug": "operacao"
+        }
+      ],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "dashboard",
+        "panels": []
+      }
+    },
+    "skill": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/skill.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": "sistemas",
+      "identity": {},
+      "page_type": "skill",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "practice",
+        "shape": "spark"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "source": {
+      "blocks": [
+        {
+          "id": "wiki.block.source_recipe.v1",
+          "scope": "self"
+        },
+        {
+          "id": "wiki.block.privacy_boundary.v1",
+          "scope": "self"
+        },
+        {
+          "config": {
+            "forms": [
+              "source_sync",
+              "recipe_export_checklist"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1"
+        },
+        {
+          "config": {
+            "providers": [
+              "source_cursor_overdue",
+              "source_closure"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1"
+        },
+        {
+          "config": {
+            "catalog": [],
+            "disabled_reason": "create.sourceContentByIngestion"
+          },
+          "id": "wiki.block.ui_create.v1"
+        }
+      ],
+      "body_template": "docs/references/templates/wiki/source.md",
+      "can_anchor_blocks": true,
+      "controls": [
+        {
+          "id": "source-ingest",
+          "kind": "brief"
+        },
+        {
+          "kind": "nav",
+          "rel": "config_ref"
+        },
+        {
+          "kind": "focus"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "claims"
+        ],
+        "pratica": [
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "owner",
+          "stewards"
+        ],
+        "sistemas": [
+          "target_pages",
+          "source_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {
+        "ambient": "drift",
+        "horizon_label": "title",
+        "landmark": "crystal_spire",
+        "motif": "streams"
+      },
+      "page_type": "source",
+      "pinned_fields": [
+        "platform",
+        "owner",
+        "updated_at"
+      ],
+      "scene": {
+        "emphasis": "sync",
+        "shape": "crystal"
+      },
+      "skills": {
+        "agent": [
+          "skill-agent-ingest-source",
+          "skill-agent-deep-read"
+        ],
+        "human": [
+          "skill-human-export-source"
+        ]
+      },
+      "subpages": [
+        {
+          "page_type": "source_config",
+          "rel": "config_ref",
+          "required": false,
+          "slug": "{page_id}-config"
+        }
+      ],
+      "view": {
+        "badges": [
+          "sync",
+          "freshness",
+          "privacy"
+        ],
+        "center": "entity",
+        "panels": [
+          {
+            "columns": [
+              "id",
+              "selected",
+              "cursor_age"
+            ],
+            "from": "streams",
+            "kind": "table"
+          }
+        ]
+      }
+    },
+    "source_catalog": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": false,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "source_catalog",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "hub"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [],
+        "center": "dashboard",
+        "panels": []
+      }
+    },
+    "source_config": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/source-config.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": false,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "source_config",
+      "pinned_fields": [
+        "platform",
+        "owner"
+      ],
+      "scene": {
+        "emphasis": "practice",
+        "shape": "crystal"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "privacy"
+        ],
+        "center": "entity",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    },
+    "source_registry": {
+      "blocks": [
+        {
+          "config": {
+            "mode": "optional_lens"
+          },
+          "id": "wiki.block.quadrants.v1",
+          "scope": "linked"
+        },
+        {
+          "config": {
+            "default": "sources"
+          },
+          "id": "wiki.block.ui_views.v1",
+          "scope": "linked"
+        },
+        {
+          "config": {
+            "visual_pack": "evidence_first"
+          },
+          "id": "wiki.block.ui_regions.v1",
+          "scope": "linked"
+        }
+      ],
+      "body_template": "",
+      "can_anchor_blocks": true,
+      "collection": {
+        "contexts": [
+          "*"
+        ],
+        "member_types": [
+          "source"
+        ]
+      },
+      "controls": [],
+      "creatable": false,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {
+        "ambient": "none",
+        "horizon_label": "title",
+        "landmark": "engine",
+        "motif": "streams"
+      },
+      "page_type": "source_registry",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "hub"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [],
+        "center": "dashboard",
+        "panels": []
+      }
+    },
+    "system_log": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": false,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "system_log",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "slab"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [],
+        "center": "timeline",
+        "panels": []
+      }
+    },
+    "template_block": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/template-block.md",
+      "can_anchor_blocks": true,
+      "controls": [],
+      "creatable": false,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": "sistemas",
+      "identity": {},
+      "page_type": "template_block",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "slab"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [],
+        "center": "document",
+        "panels": []
+      }
+    },
+    "tool": {
+      "blocks": [],
+      "body_template": "docs/references/templates/wiki/tool.md",
+      "can_anchor_blocks": false,
+      "controls": [
+        {
+          "kind": "focus"
+        },
+        {
+          "kind": "nav",
+          "rel": "moc_parent"
+        }
+      ],
+      "creatable": true,
+      "extends": "relation_base",
+      "facets": {
+        "intencao": [
+          "decisions",
+          "responsibilities",
+          "claims",
+          "insights"
+        ],
+        "pratica": [
+          "actions",
+          "evidence_refs"
+        ],
+        "relacoes": [
+          "roles",
+          "related_holons",
+          "people"
+        ],
+        "sistemas": [
+          "source_refs",
+          "process_refs"
+        ]
+      },
+      "home_quadrant": "sistemas",
+      "identity": {},
+      "page_type": "tool",
+      "pinned_fields": [
+        "updated_at",
+        "source_refs"
+      ],
+      "scene": {
+        "emphasis": "practice",
+        "shape": "crystal"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness",
+          "evidence"
+        ],
+        "center": "document",
+        "panels": [
+          {
+            "kind": "badges"
+          }
+        ]
+      }
+    }
+  }
+}

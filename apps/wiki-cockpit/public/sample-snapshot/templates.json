@@ -443,6 +443,12 @@
         },
         {
           "config": {
+            "visual_pack": "region_operations"
+          },
+          "id": "wiki.block.ui_regions.v1"
+        },
+        {
+          "config": {
             "providers": [
               "stale",
               "meeting_followup",
@@ -933,15 +939,46 @@
       }
     },
     "ontology_index": {
-      "blocks": [],
+      "blocks": [
+        {
+          "config": {
+            "mode": "optional_lens"
+          },
+          "id": "wiki.block.quadrants.v1",
+          "scope": "descendants"
+        },
+        {
+          "id": "wiki.block.relations.v1",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "default": "quadrants"
+          },
+          "id": "wiki.block.ui_views.v1",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "visual_pack": "quiet_structure"
+          },
+          "id": "wiki.block.ui_regions.v1",
+          "scope": "descendants"
+        }
+      ],
       "body_template": "",
-      "can_anchor_blocks": false,
+      "can_anchor_blocks": true,
       "controls": [],
       "creatable": false,
       "extends": null,
       "facets": {},
       "home_quadrant": null,
-      "identity": {},
+      "identity": {
+        "ambient": "none",
+        "horizon_label": "title",
+        "landmark": "shelf",
+        "motif": "shelves"
+      },
       "page_type": "ontology_index",
       "pinned_fields": [],
       "scene": {
@@ -1314,6 +1351,32 @@
             "kind": "badges"
           }
         ]
+      }
+    },
+    "proposal": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "proposal",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "document",
+        "panels": []
       }
     },
     "relationship_map": {
@@ -1866,15 +1929,50 @@
       }
     },
     "source_registry": {
-      "blocks": [],
+      "blocks": [
+        {
+          "config": {
+            "mode": "optional_lens"
+          },
+          "id": "wiki.block.quadrants.v1",
+          "scope": "linked"
+        },
+        {
+          "config": {
+            "default": "sources"
+          },
+          "id": "wiki.block.ui_views.v1",
+          "scope": "linked"
+        },
+        {
+          "config": {
+            "visual_pack": "evidence_first"
+          },
+          "id": "wiki.block.ui_regions.v1",
+          "scope": "linked"
+        }
+      ],
       "body_template": "",
-      "can_anchor_blocks": false,
+      "can_anchor_blocks": true,
+      "collection": {
+        "contexts": [
+          "*"
+        ],
+        "member_types": [
+          "source"
+        ]
+      },
       "controls": [],
       "creatable": false,
       "extends": null,
       "facets": {},
       "home_quadrant": null,
-      "identity": {},
+      "identity": {
+        "ambient": "none",
+        "horizon_label": "title",
+        "landmark": "engine",
+        "motif": "streams"
+      },
       "page_type": "source_registry",
       "pinned_fields": [],
       "scene": {

@@ -1,0 +1,33 @@
+{
+  "backlinks": [],
+  "body": "\n# Dashboard do Atlas\n\nContent that lands in its quadrant interior.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/product-ops/atlas-launch/index.md",
+    "page_id": "artifact-dashboard-atlas",
+    "page_type": "artifact",
+    "stale_after_days": 30,
+    "sub_lens": "producao",
+    "title": "Dashboard do Atlas",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/product-ops/atlas-launch/index.md",
+    "page_id": "artifact-dashboard-atlas",
+    "page_type": "artifact",
+    "path": "memories/artifacts/artifact-dashboard-atlas.md",
+    "summary": "Content that lands in its quadrant interior.",
+    "summary_truncated": false,
+    "title": "Dashboard do Atlas",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-2ba122d378f1eaaf",
+  "source_refs": []
+}

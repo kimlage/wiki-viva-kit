@@ -19,9 +19,9 @@ import {
   TerminalSquare
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { WorldView } from "./components/WorldView";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BlocksDock } from "./components/BlocksDock";
+import { AppearanceControl } from "./components/AppearanceControl";
 // CreateDock and the genesis guide render inside WorldView now — the create
 // flow is spatial-first, the tutorial voice is an in-world beacon.
 import { BriefStudio } from "./components/BriefStudio";
@@ -31,50 +31,46 @@ import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
-import { SourceWorkspace } from "./components/SourceWorkspace";
+import { useSurfacePresence } from "./components/world/useSurfacePresence";
 import { ExpandablePre } from "./components/ExpandablePre";
 import { GENESIS_FINAL_STAGE, genesisAttachMatches, genesisCreateMatches, genesisUrl } from "./data/genesis";
 import { configureLanguage, t } from "./data/i18n";
 import { qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/presentation";
-import {
-  buildIngestionPlan,
-  composeBrief,
-  discardBrief,
-  getBrief,
-  applySourceOperation,
-  applySourceGroups,
-  composeSourceBrief,
-  listCodexJobs,
-  listSourceOperationReceipts,
-  loadAgentCapabilities,
-  loadCodexCapability,
-  loadSnapshotBundle,
-  previewSourceOperation,
-  previewSourceGroups,
-  previewSourceRefresh,
-  returnCodexJob,
-  runCockpitAction,
-  runGitWorkflow,
-  runIngestionStep,
-  saveBriefText,
-  spawnCodexJob,
-  runSourceRefresh,
-  streamCodexLog,
-  cancelCodexJob
-} from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
-import { buildUrl, installLinkInterceptor, navigate, parseRoute, patchWorld, useRouteUrl, worldFromRoute } from "./router";
-import type { Route } from "./router";
+import type { Route, WorldPatch, WorldRoute } from "./router";
+import { isNativeWorldViewId } from "./world/experience";
+import type { ApplicationPorts } from "./application/ports";
 import { groupKeyForPage } from "./scene/perspectives";
-import type { ActionCard, BriefRecord, BriefSpec, CodexCapability, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
+import type { OperatorCommandCard, BriefRecord, BriefSpec, CodexCapability, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
 import { CODEX_UNAVAILABLE } from "./types";
-import "./styles.css";
+import "./shell.css";
+
+const RuntimeWorldView = lazy(() => import("./components/RuntimeWorldView").then((module) => ({ default: module.RuntimeWorldView })));
+const SourceWorkspace = lazy(() => import("./components/SourceWorkspace").then((module) => ({ default: module.SourceWorkspace })));
 
 type LoadState =
   | { status: "loading" }
   | { status: "error"; error: string }
   | { status: "ready"; bundle: SnapshotBundle; source: string; runtime: RuntimeConfig };
+
+// Returning to a tab is a useful, low-noise freshness signal for a local
+// cockpit. Keep the guard long enough to collapse the paired `focus` +
+// `visibilitychange` events browsers commonly emit for the same return.
+const REAL_SNAPSHOT_REVALIDATION_INTERVAL_MS = 5_000;
+
+function snapshotRevisionKey(bundle: SnapshotBundle): string {
+  const manifest = bundle.manifest;
+  if (manifest.snapshot_id || manifest.bundle_hash) {
+    return `snapshot:${manifest.snapshot_id || ""}|bundle:${manifest.bundle_hash || ""}`;
+  }
+  return `source:${manifest.source_sha || manifest.source_commit || manifest.generated_at}`;
+}
+
+function snapshotVerifiedAtLabel(timestamp: number | null): string {
+  if (timestamp === null) return t("snapshot.revalidationNeverVerified");
+  return new Date(timestamp).toISOString().replace(".000Z", "Z");
+}
 
 function StatusPill({ tone, children }: { tone: "good" | "warn" | "bad" | "info" | "muted"; children: ReactNode }) {
   return <span className={`pill pill-${tone}`}>{children}</span>;
@@ -92,6 +88,47 @@ function modeLabel(mode: string): string {
     sample_fallback: "SAMPLE DATA — operator unreachable"
   };
   return labels[mode] || mode.replaceAll("_", " ");
+}
+
+function WorldRouteLoading({ readerOpen }: { readerOpen: boolean }) {
+  return (
+    <main className={readerOpen ? "worldRouteLoading withReader" : "worldRouteLoading"} role="status">
+      <div className="worldRouteLoadingFrame">
+        <div className="worldRouteLoadingTop" aria-hidden="true">
+          <strong>Galaxy</strong>
+          <span>Quadrants</span><span>Radar</span><span>Sources</span><span>Work</span><span>Overlay</span>
+        </div>
+        <div className="worldRouteLoadingStage" aria-hidden="true">
+          <aside>
+            <strong>Next steps</strong>
+            <span>Preparing operational signals…</span>
+          </aside>
+          <section>
+            <Sparkles size={18} />
+            <strong>Building one continuous world</strong>
+            <span>Keeping page identity and position while the scene arrives.</span>
+          </section>
+        </div>
+        {readerOpen && (
+          <aside className="worldRouteReaderLoading" aria-hidden="true">
+            <div><span>page</span><span>context</span><span>evidence</span></div>
+            <h2>Loading page context</h2>
+            <p>The world stays visible while relationships and evidence arrive.</p>
+            <section>
+              <small>ACTION AT A GLANCE</small>
+              <strong>Preparing the next decision…</strong>
+            </section>
+          </aside>
+        )}
+        <span className="visuallyHidden">Loading world runtime…</span>
+      </div>
+    </main>
+  );
+}
+
+function isBlockedSampleFallback(route: Route, state: LoadState): boolean {
+  if (route.demo || state.status !== "ready") return false;
+  return state.runtime.mode === "sample_fallback" || state.source.includes("/sample-snapshot");
 }
 
 function gateStatusLabel(status: string): string {
@@ -141,16 +178,16 @@ function Nav({
   // demo prefix through patchWorld), so no legacy-redirect flash.
   const prefix = demo ? "/demo" : "";
   const items = [
-    { href: `${prefix}/w/radar`, id: "world", label: t("nav.home"), icon: <Activity size={17} /> },
+    { href: `${prefix}/w?view=radar`, id: "world", label: t("nav.home"), icon: <Activity size={17} /> },
     { href: dockHref("approve"), id: "review", label: t("nav.approve"), icon: <GitPullRequest size={17} /> },
     { href: dockHref("intake"), id: "sources", label: t("nav.add"), icon: <Inbox size={17} /> },
     { href: dockHref("create"), id: "create", label: t("nav.create"), icon: <Sprout size={17} /> },
     { href: dockHref("source"), id: "fontes", label: t("nav.sources"), icon: <Database size={17} /> },
     { href: dockHref("gates"), id: "health", label: t("nav.health"), icon: <ShieldCheck size={17} /> },
-    { href: `${prefix}/w/atlas`, id: "content", label: t("nav.content"), icon: <FileText size={17} /> },
+    { href: `${prefix}/w?view=atlas&runtime=compat`, id: "content", label: t("nav.content"), icon: <FileText size={17} /> },
     demo
-      ? { href: "/w/radar", id: "demo", label: t("nav.exitDemo"), icon: <Sparkles size={17} /> }
-      : { href: "/demo/w/radar", id: "demo", label: t("nav.demo"), icon: <Sparkles size={17} /> }
+      ? { href: "/w?view=radar", id: "demo", label: t("nav.exitDemo"), icon: <Sparkles size={17} /> }
+      : { href: "/demo/w?view=radar", id: "demo", label: t("nav.demo"), icon: <Sparkles size={17} /> }
   ];
   return (
     <nav className="navRail" aria-label="Cockpit views">
@@ -164,7 +201,7 @@ function Nav({
   );
 }
 
-function actionTitle(action: ActionCard): string {
+function operatorCommandTitle(action: OperatorCommandCard): string {
   const labels: Record<string, string> = {
     "git-status": "Check work state",
     "review-local-changes": "Inspect changed content",
@@ -175,7 +212,7 @@ function actionTitle(action: ActionCard): string {
   return labels[action.id] || action.title;
 }
 
-function actionReason(action: ActionCard): string {
+function operatorCommandReason(action: OperatorCommandCard): string {
   const labels: Record<string, string> = {
     "review-local-changes": "Shows changed content before saving a version or preparing approval.",
     "run-honesty-gates": "Confirms whether local checks support the next human decision.",
@@ -185,11 +222,11 @@ function actionReason(action: ActionCard): string {
   return labels[action.id] || action.human_reason;
 }
 
-function ActionButton({ action, onRun }: { action: ActionCard; onRun: (action: ActionCard) => void }) {
+function OperatorCommandButton({ action, onRun }: { action: OperatorCommandCard; onRun: (action: OperatorCommandCard) => void }) {
   const risky = action.risk_level !== "read";
-  const title = actionTitle(action);
+  const title = operatorCommandTitle(action);
   return (
-    <button className={risky ? "actionButton risky" : "actionButton"} onClick={() => onRun(action)} title={actionReason(action)}>
+    <button className={risky ? "actionButton risky" : "actionButton"} onClick={() => onRun(action)} title={operatorCommandReason(action)}>
       {risky ? <RefreshCw size={16} /> : <Play size={16} />}
       <span>{title}</span>
     </button>
@@ -200,7 +237,7 @@ function commandResultTitle(result: CommandRunResult): string {
   if ("summary" in result && result.summary) return result.summary;
   if ("operation" in result) return result.operation.replaceAll("_", " ");
   if ("action_id" in result) {
-    const key = `actionTitle.${result.action_id}`;
+    const key = `operatorCommandTitle.${result.action_id}`;
     const label = t(key);
     return label === key ? result.action_id.replaceAll("_", " ") : label;
   }
@@ -610,7 +647,7 @@ function approvalMissingItems(bundle: SnapshotBundle, risks: string[], checkRead
   return missing;
 }
 
-function approvalActionLabel(actionId: string): string {
+function approvalCommandLabel(actionId: string): string {
   const labels: Record<string, string> = {
     "pr-summary": "Prepare packet",
     "review-local-changes": "Inspect changes",
@@ -624,14 +661,14 @@ function ApprovalInbox({
   onRun
 }: {
   bundle: SnapshotBundle;
-  onRun: (action: ActionCard) => void;
+  onRun: (action: OperatorCommandCard) => void;
 }) {
   const checks = reviewChecklist(bundle);
   const decision = approvalDecision(bundle);
   const risks = approvalRiskHints(bundle);
-  const prAction = bundle.actions.actions.find((action) => action.id === "pr-summary");
-  const gateAction = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
-  const reviewAction = bundle.actions.actions.find((action) => action.id === "review-local-changes");
+  const prCommand = bundle.actions.actions.find((action) => action.id === "pr-summary");
+  const gateCommand = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
+  const reviewCommand = bundle.actions.actions.find((action) => action.id === "review-local-changes");
   const changedFiles = bundle.diff.files.slice(0, 6);
   const primaryChangedFiles = changedFiles.slice(0, 3);
   const changedAreas = [...new Set(bundle.diff.files.map((file) => changeAreaLabel(file.category)).filter(Boolean))].slice(0, 8);
@@ -715,16 +752,16 @@ function ApprovalInbox({
             </ul>
           </details>
           <div className="approvalItemActions">
-            {prAction && (
-              <button className="actionButton" onClick={() => onRun(prAction)} title={actionReason(prAction)}>
+            {prCommand && (
+              <button className="actionButton" onClick={() => onRun(prCommand)} title={operatorCommandReason(prCommand)}>
                 <Play size={16} />
-                <span>{approvalActionLabel(prAction.id)}</span>
+                <span>{approvalCommandLabel(prCommand.id)}</span>
               </button>
             )}
-            {reviewAction && (
-              <button className="secondaryButton" onClick={() => onRun(reviewAction)} title={actionReason(reviewAction)}>
+            {reviewCommand && (
+              <button className="secondaryButton" onClick={() => onRun(reviewCommand)} title={operatorCommandReason(reviewCommand)}>
                 <Search size={16} />
-                <span>{approvalActionLabel(reviewAction.id)}</span>
+                <span>{approvalCommandLabel(reviewCommand.id)}</span>
               </button>
             )}
           </div>
@@ -790,10 +827,10 @@ function ApprovalInbox({
             </ul>
           </details>
           <div className="approvalItemActions">
-            {gateAction && (
-              <button className="actionButton" onClick={() => onRun(gateAction)} title={actionReason(gateAction)}>
+            {gateCommand && (
+              <button className="actionButton" onClick={() => onRun(gateCommand)} title={operatorCommandReason(gateCommand)}>
                 <Play size={16} />
-                <span>{approvalActionLabel(gateAction.id)}</span>
+                <span>{approvalCommandLabel(gateCommand.id)}</span>
               </button>
             )}
           </div>
@@ -1098,12 +1135,66 @@ function GitWorkflowPanel({
 // bookmarks keep working with zero rendering cost. Their components lived
 // here until the 2026-07 cleanup.
 
-export function App() {
-  const url = useRouteUrl();
-  const route = useMemo<Route>(() => {
-    const [pathname, search = ""] = url.split("?");
-    return parseRoute(pathname, search ? `?${search}` : "");
-  }, [url]);
+export function App({ ports }: { ports: ApplicationPorts }) {
+  const { navigation, operator } = ports;
+  const [url, setUrl] = useState(() => navigation.getSnapshot());
+  useEffect(
+    () => navigation.subscribe(() => setUrl(navigation.getSnapshot())),
+    [navigation]
+  );
+  const route = useMemo<Route>(() => navigation.parseUrl(url), [navigation, url]);
+  // UI code emits navigation intentions through the injected application port.
+  // URL grammar remains pure and independently testable on the same boundary.
+  const navigate = (target: Route | string, options: { replace?: boolean } = {}) =>
+    navigation.dispatch({ type: "navigate", target, replace: options.replace });
+  const buildUrl = navigation.href;
+  const patchWorld = navigation.patch;
+  const worldFromRoute = navigation.toWorld;
+  const hrefForWorldPatch = (worldRoute: WorldRoute, patch: WorldPatch) => {
+    const nativeV8 = (!worldRoute.perspectiveExplicit || isNativeWorldViewId(worldRoute.query.view)) &&
+      worldRoute.query.runtime !== "compat" && worldRoute.query.runtime !== "legacy";
+    if (!nativeV8) return buildUrl(patchWorld(worldRoute, patch));
+
+    // App-owned docks render beside RuntimeWorldView, so their callbacks do
+    // not pass through WorldView's canonical writer. Mirror the same query
+    // ownership here: page/group state lives in the v8 query and the emitted
+    // path remains exactly `/w`, while patchWorld still enforces the surface
+    // singleton and clears dock-only qualifiers.
+    const patched = patchWorld(worldRoute, {
+      ...patch,
+      ...(patch.pageId !== undefined ? { page: patch.pageId } : {}),
+      ...(patch.worldGroup === undefined && patch.group !== undefined ? { worldGroup: patch.group } : {})
+    });
+    const compatibilityHref = buildUrl(patched);
+    const queryIndex = compatibilityHref.indexOf("?");
+    return `${patched.demo ? "/demo" : ""}/w${queryIndex >= 0 ? compatibilityHref.slice(queryIndex) : ""}`;
+  };
+  const {
+    buildIngestionPlan,
+    composeBrief,
+    composeSourceBrief,
+    discardBrief,
+    getBrief,
+    applySourceOperation,
+    applySourceGroups,
+    listCodexJobs,
+    listSourceOperationReceipts,
+    loadAgentCapabilities,
+    loadCodexCapability,
+    loadSnapshotBundle,
+    previewSourceOperation,
+    previewSourceGroups,
+    previewSourceRefresh,
+    returnCodexJob,
+    runOperatorCommand,
+    runGitWorkflow,
+    runIngestionStep,
+    saveBriefText,
+    spawnCodexJob,
+    runSourceRefresh,
+    streamCodexLog,
+    cancelCodexJob
+  } = operator;
   const [realState, setRealState] = useState<LoadState>({ status: "loading" });
   const [demoState, setDemoState] = useState<LoadState>({ status: "loading" });
   const [commandResult, setCommandResult] = useState<CommandRunResult | null>(null);
@@ -1114,21 +1205,163 @@ export function App() {
   const [codexCapability, setCodexCapability] = useState<CodexCapability>(CODEX_UNAVAILABLE);
   const [claudeCapability, setClaudeCapability] = useState<CodexCapability>({ ...CODEX_UNAVAILABLE });
   const [codexBusy, setCodexBusy] = useState(false);
-
-  // One snapshot bundle per universe, loaded once per session — it survives
-  // all navigation. Demo is an in-memory switch, never a document reload.
-  useEffect(() => {
-    loadSnapshotBundle({ demo: false })
-      .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
-      .catch((error: Error) => setRealState({ status: "error", error: error.message }));
+  const [realRevalidationFailure, setRealRevalidationFailure] = useState<{ lastSuccessAt: number | null } | null>(null);
+  const realLoadControllerRef = useRef<AbortController | null>(null);
+  const realBundleLoadedRef = useRef(false);
+  const lastRealLoadStartedAtRef = useRef(0);
+  const lastRealSuccessAtRef = useRef<number | null>(null);
+  const previousDemoRef = useRef(route.demo);
+  const realRevalidationNoticeRef = useRef<string | null>(null);
+  const codexProbeControllerRef = useRef<AbortController | null>(null);
+  // React may commit the route render one task after history changes. Abort the
+  // real read on the navigation notification itself, before an operator
+  // response can finish under a newly-entered demo URL. The loading effect
+  // below keeps the same guard as a second, idempotent boundary.
+  useEffect(
+    () => navigation.subscribe(() => {
+      if (!navigation.parseUrl(navigation.getSnapshot()).demo) return;
+      realLoadControllerRef.current?.abort();
+      realLoadControllerRef.current = null;
+    }),
+    [navigation]
+  );
+  const markRealSnapshotSuccess = useCallback(() => {
+    const failedNotice = realRevalidationNoticeRef.current;
+    lastRealSuccessAtRef.current = Date.now();
+    setRealRevalidationFailure(null);
+    setNotice((current) => current?.text === failedNotice ? null : current);
+    realRevalidationNoticeRef.current = null;
   }, []);
+  const markRealRevalidationFailure = useCallback(() => {
+    const failure = { lastSuccessAt: lastRealSuccessAtRef.current };
+    const text = t("snapshot.revalidationFailed", { when: snapshotVerifiedAtLabel(failure.lastSuccessAt) });
+    setRealRevalidationFailure(failure);
+    realRevalidationNoticeRef.current = text;
+    setNotice({ text, tone: "warn", showResult: false });
+  }, []);
+
+  // One mounted snapshot universe survives all navigation. A session that
+  // starts in /demo must never probe the real operator; crossing into /demo
+  // aborts an in-flight real snapshot before the synthetic universe starts.
+  // The live universe is revalidated conservatively below without remounting.
+  useEffect(() => {
+    const returningFromDemo = previousDemoRef.current && !route.demo;
+    previousDemoRef.current = route.demo;
+    if (route.demo) {
+      realLoadControllerRef.current?.abort();
+      realLoadControllerRef.current = null;
+      return undefined;
+    }
+    if (realBundleLoadedRef.current && !returningFromDemo) return undefined;
+
+    // When a previously loaded real world returns from demo, keep that world
+    // mounted while one unthrottled/coalesced read checks what changed during
+    // the synthetic visit. A first-ever real load still owns the loading UI.
+    const silent = realBundleLoadedRef.current;
+    const controller = new AbortController();
+    realLoadControllerRef.current?.abort();
+    realLoadControllerRef.current = controller;
+    lastRealLoadStartedAtRef.current = Date.now();
+    if (!silent) setRealState({ status: "loading" });
+    loadSnapshotBundle({ demo: false, signal: controller.signal })
+      .then(({ bundle, source, runtime }) => {
+        if (controller.signal.aborted) return;
+        realBundleLoadedRef.current = true;
+        markRealSnapshotSuccess();
+        if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+        setRealState((current) => {
+          if (silent && current.status === "ready" && snapshotRevisionKey(current.bundle) === snapshotRevisionKey(bundle)) {
+            return current;
+          }
+          return { status: "ready", bundle, source, runtime };
+        });
+      })
+      .catch((error: Error) => {
+        if (controller.signal.aborted) return;
+        if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+        if (silent) markRealRevalidationFailure();
+        else setRealState({ status: "error", error: error.message });
+      });
+    return () => {
+      if (realLoadControllerRef.current !== controller) return;
+      controller.abort();
+      realLoadControllerRef.current = null;
+    };
+  }, [loadSnapshotBundle, markRealRevalidationFailure, markRealSnapshotSuccess, route.demo]);
   // Refetch the real bundle after a mutating action (e.g. running gates writes
   // receipts) so the world reacts. Keeps the same runtime/source.
   const refetchReal = () => {
-    loadSnapshotBundle({ demo: false })
-      .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
-      .catch(() => undefined);
+    if (route.demo) return;
+    const controller = new AbortController();
+    realLoadControllerRef.current?.abort();
+    realLoadControllerRef.current = controller;
+    lastRealLoadStartedAtRef.current = Date.now();
+    loadSnapshotBundle({ demo: false, signal: controller.signal })
+      .then(({ bundle, source, runtime }) => {
+        if (controller.signal.aborted) return;
+        realBundleLoadedRef.current = true;
+        markRealSnapshotSuccess();
+        if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+        setRealState({ status: "ready", bundle, source, runtime });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+        markRealRevalidationFailure();
+      });
   };
+
+  // A live wiki can change while its cockpit tab is in the background. On a
+  // return to the tab, silently load one coherent real bundle and swap it only
+  // when its immutable revision changed. URL-owned page/dock state and the
+  // mounted world stay intact, so dialogs and keyboard focus are preserved.
+  // Demo routes never install these listeners and can never cross this read
+  // boundary. The shared controller + interval guard prevent overlap and the
+  // usual focus/visibility event pair from becoming a request storm.
+  useEffect(() => {
+    if (route.demo) return undefined;
+
+    const revalidate = () => {
+      // The URL store can advance one render before this effect is removed.
+      // Re-read its current snapshot so a same-turn live -> demo navigation
+      // cannot even invoke the real loader (which also fails closed itself).
+      if (navigation.parseUrl(navigation.getSnapshot()).demo) return;
+      if (document.visibilityState === "hidden") return;
+      if (!realBundleLoadedRef.current || realLoadControllerRef.current) return;
+      const now = Date.now();
+      if (now - lastRealLoadStartedAtRef.current < REAL_SNAPSHOT_REVALIDATION_INTERVAL_MS) return;
+
+      const controller = new AbortController();
+      realLoadControllerRef.current = controller;
+      lastRealLoadStartedAtRef.current = now;
+      loadSnapshotBundle({ demo: false, signal: controller.signal })
+        .then(({ bundle, source, runtime }) => {
+          if (controller.signal.aborted) return;
+          markRealSnapshotSuccess();
+          if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+          setRealState((current) => {
+            if (current.status === "ready" && snapshotRevisionKey(current.bundle) === snapshotRevisionKey(bundle)) {
+              return current;
+            }
+            return { status: "ready", bundle, source, runtime };
+          });
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+          markRealRevalidationFailure();
+        });
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") revalidate();
+    };
+    window.addEventListener("focus", revalidate);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", revalidate);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [loadSnapshotBundle, markRealRevalidationFailure, markRealSnapshotSuccess, navigation, route.demo]);
   // Demo universe, stage-aware: the genesis tutorial loads stages/<k>/ (a real
   // pre-built snapshot per stage); the full demo loads the base sample. A stage
   // ref guards against stale fetches when the player advances quickly.
@@ -1138,7 +1371,14 @@ export function App() {
     route.kind === "world" && route.demo && route.query.genesis
       ? Math.min(route.query.stage, GENESIS_FINAL_STAGE)
       : null;
-  const stageRef = useRef<{ target: number | null | undefined; loaded: number | null | undefined }>({
+  const desiredDemoScenario =
+    route.kind === "world" && route.demo && !route.query.genesis
+      ? route.query.demoScenario || "normal_operations"
+      : null;
+  const desiredDemoTarget = desiredStage !== null
+    ? `stage:${desiredStage}`
+    : `scenario:${desiredDemoScenario || "normal_operations"}`;
+  const stageRef = useRef<{ target: string | undefined; loaded: string | undefined }>({
     target: undefined,
     loaded: undefined
   });
@@ -1148,18 +1388,18 @@ export function App() {
   const [bornPageIds, setBornPageIds] = useState<string[]>([]);
   useEffect(() => {
     if (!route.demo) return;
-    if (demoState.status === "ready" && stageRef.current.loaded === desiredStage) return;
-    if (stageRef.current.target === desiredStage && demoState.status === "loading") return;
+    if (demoState.status === "ready" && stageRef.current.loaded === desiredDemoTarget) return;
+    if (stageRef.current.target === desiredDemoTarget && demoState.status === "loading") return;
     // A failed load for THIS stage stays failed (the error panel shows) — the
     // effect must not flip error→loading→error forever. Navigating to another
     // stage (new target) retries naturally.
-    if (stageRef.current.target === desiredStage && demoState.status === "error") return;
-    stageRef.current.target = desiredStage;
+    if (stageRef.current.target === desiredDemoTarget && demoState.status === "error") return;
+    stageRef.current.target = desiredDemoTarget;
     setDemoState({ status: "loading" });
-    loadSnapshotBundle({ demo: true, stage: desiredStage })
+    loadSnapshotBundle({ demo: true, stage: desiredStage, demoScenario: desiredDemoScenario })
       .then(({ bundle, source, runtime }) => {
-        if (stageRef.current.target !== desiredStage) return; // a newer stage won
-        stageRef.current.loaded = desiredStage;
+        if (stageRef.current.target !== desiredDemoTarget) return; // a newer universe/stage won
+        stageRef.current.loaded = desiredDemoTarget;
         const ids = bundle.pages.pages.map((page) => page.id);
         const previous = lastDemoPageIdsRef.current;
         // Births are a GENESIS beat (a stage advance): entering the full world
@@ -1171,30 +1411,49 @@ export function App() {
         setDemoState({ status: "ready", bundle, source, runtime });
       })
       .catch((error: Error) => {
-        if (stageRef.current.target !== desiredStage) return;
+        if (stageRef.current.target !== desiredDemoTarget) return;
         setDemoState({ status: "error", error: error.message });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demoState.status, route.demo, desiredStage]);
+  }, [demoState.status, route.demo, desiredDemoScenario, desiredDemoTarget, desiredStage]);
 
   // The SPA router owns every internal anchor click.
-  useEffect(() => installLinkInterceptor(), []);
+  useEffect(() => navigation.attachLinkInterceptor(), [navigation]);
 
-  const loadState = route.demo ? demoState : realState;
+  // A route change is observable one render before the loading effect above
+  // commits. Do not expose the previous stage's bundle under the next stage's
+  // guide during that frame: a fast keyboard user could start a form that is
+  // then remounted and lose their input when the requested snapshot arrives.
+  const visibleDemoState: LoadState =
+    demoState.status === "ready" && stageRef.current.loaded !== desiredDemoTarget
+      ? { status: "loading" }
+      : demoState;
+  const loadState = route.demo ? visibleDemoState : realState;
+  const blockedSampleFallback = isBlockedSampleFallback(route, loadState);
 
   // Live Codex capability: only meaningful with the local operator, so it is
   // probed once the real bundle is ready and never in the demo. It fails closed.
   useEffect(() => {
-    if (loadState.status !== "ready") return;
-    loadAgentCapabilities(loadState.runtime)
+    codexProbeControllerRef.current?.abort();
+    codexProbeControllerRef.current = null;
+    if (loadState.status !== "ready" || route.demo) return undefined;
+    const controller = new AbortController();
+    codexProbeControllerRef.current = controller;
+    loadAgentCapabilities(loadState.runtime, { signal: controller.signal })
       .then((capabilities) => {
+        if (controller.signal.aborted) return;
         setCodexCapability(capabilities.codex);
         setClaudeCapability(capabilities.claude);
       })
       .catch(() => {
+        if (controller.signal.aborted) return;
         setCodexCapability(CODEX_UNAVAILABLE);
         setClaudeCapability({ ...CODEX_UNAVAILABLE });
       });
+    return () => {
+      controller.abort();
+      if (codexProbeControllerRef.current === controller) codexProbeControllerRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadState.status, route.demo]);
 
@@ -1202,15 +1461,25 @@ export function App() {
   // moment the owner reinstalls / logs in / restarts the operator, the ladder
   // flips without a page reload.
   const reverifyCodex = () => {
-    if (loadState.status !== "ready" || codexBusy) return;
+    if (loadState.status !== "ready" || route.demo || codexBusy) return;
+    codexProbeControllerRef.current?.abort();
+    const controller = new AbortController();
+    codexProbeControllerRef.current = controller;
     setCodexBusy(true);
-    loadCodexCapability(loadState.runtime)
-      .then(setCodexCapability)
-      .catch(() => setCodexCapability(CODEX_UNAVAILABLE))
-      .finally(() => setCodexBusy(false));
+    loadCodexCapability(loadState.runtime, { signal: controller.signal })
+      .then((capability) => {
+        if (!controller.signal.aborted) setCodexCapability(capability);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setCodexCapability(CODEX_UNAVAILABLE);
+      })
+      .finally(() => {
+        if (codexProbeControllerRef.current === controller) codexProbeControllerRef.current = null;
+        setCodexBusy(false);
+      });
   };
   const openCodexDock = () => {
-    if (route.kind === "world") navigate(buildUrl(patchWorld(route, { dock: "codex" })));
+    if (route.kind === "world") navigate(hrefForWorldPatch(route, { dock: "codex" }));
   };
 
   // The base system is English; the whole UI flips when the wiki's configured
@@ -1220,8 +1489,8 @@ export function App() {
     loadState.status === "ready" ? loadState.runtime.strings : undefined
   );
 
-  // Hue = area: register every context of THIS wiki so sorted names get
-  // distinct palette slots (deterministic, no hash collisions up to 12 areas).
+  // Context accents remain deterministic secondary keylines for labels and
+  // guides; node body color is resolved exclusively from the active overlay.
   // Inline during render — like configureLanguage above — so the very first
   // scene paint already uses the registered slots (idempotent, module state).
   if (loadState.status === "ready") {
@@ -1241,18 +1510,29 @@ export function App() {
     }
   }, [route.kind]);
 
-  // Legacy alias: /pages/:id lands on the same page in the new world
-  // (/w/atlas/:context/:group/:id?reader=1). /pages lists become the atlas.
+  // Legacy alias: /pages/:id lands on the same page in the query-owned world
+  // (`/w?view=atlas&page=...&reader=1&runtime=compat`). /pages lists become
+  // the Atlas compatibility projection without re-emitting its old path.
   useEffect(() => {
     if (route.kind !== "pageAlias" || loadState.status !== "ready") return;
     const world = worldFromRoute(route);
     if (!route.pageId) {
-      navigate(buildUrl({ ...world, perspective: "atlas" }), { replace: true });
+      navigate(buildUrl({
+        ...world,
+        perspective: "atlas",
+        perspectiveExplicit: true,
+        query: { ...world.query, view: "atlas", runtime: "compat" }
+      }), { replace: true });
       return;
     }
     const page = loadState.bundle.pages.pages.find((item) => item.id === route.pageId || item.path === route.pageId);
     if (!page) {
-      navigate(buildUrl({ ...world, perspective: "atlas" }), { replace: true });
+      navigate(buildUrl({
+        ...world,
+        perspective: "atlas",
+        perspectiveExplicit: true,
+        query: { ...world.query, view: "atlas", runtime: "compat" }
+      }), { replace: true });
       return;
     }
     navigate(
@@ -1262,7 +1542,15 @@ export function App() {
         context: page.context || "system",
         group: groupKeyForPage("atlas", page),
         pageId: page.id,
-        query: { ...world.query, reader: true }
+        perspectiveExplicit: true,
+        query: {
+          ...world.query,
+          view: "atlas",
+          worldGroup: groupKeyForPage("atlas", page) || "",
+          page: page.id,
+          reader: true,
+          runtime: "compat"
+        }
       }),
       { replace: true }
     );
@@ -1279,7 +1567,8 @@ export function App() {
     setNotice({ text: ok ? t("toast.completed", { title }) : t("toast.needsAttention", { title }), tone: ok ? "good" : "warn", showResult: true });
   };
   const scrollToResult = () => {
-    document.getElementById("actionResult")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    document.getElementById("actionResult")?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
   };
 
   // When a world dock is open, the left rail highlights the item that opened it
@@ -1297,19 +1586,20 @@ export function App() {
   // Nav points straight at the dock on the CURRENT world (no redirect hop),
   // preserving the operator's perspective/context.
   const navWorld = worldFromRoute(route);
-  const dockHref = (dock: "approve" | "intake" | "gates" | "source" | "create") => buildUrl(patchWorld(navWorld, { dock }));
+  const dockHref = (dock: "approve" | "intake" | "gates" | "source" | "create") =>
+    hrefForWorldPatch(navWorld, { dock });
 
-  const runAction = async (action: ActionCard) => {
+  const executeOperatorCommand = async (action: OperatorCommandCard) => {
     if (busyAction) return;
     if (route.demo) {
       setNotice({ text: t("demo.actionsOff"), tone: "info", showResult: false });
       return;
     }
-    const title = actionTitle(action);
+    const title = operatorCommandTitle(action);
     setBusyAction(title);
     setNotice(null);
     try {
-      const result = await runCockpitAction(action.id, action.default_dry_run);
+      const result = await runOperatorCommand(action.id, action.default_dry_run);
       setCommandResult(result);
       announceResult(title, result.ok);
     } catch (error) {
@@ -1474,7 +1764,8 @@ export function App() {
       setActiveBrief(null);
       // Land the operator on the monitoring surface: delegated work should be
       // WATCHED, not fired and forgotten.
-      navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "work" })));
+      const currentWorld = worldFromRoute(route);
+      navigate(hrefForWorldPatch(currentWorld, { dock: "work" }));
     } catch (error) {
       setNotice({
         text: t("codex.job.failed", { error: error instanceof Error ? error.message : "failed" }),
@@ -1489,19 +1780,66 @@ export function App() {
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
   const sourceWorkspaceOpen = route.kind === "world" && route.query.dock === "source";
+  const requestedDock = worldRoute && ["codex", "approve", "gates", "intake", "work", "blocks"].includes(worldRoute.query.dock || "")
+    ? worldRoute.query.dock
+    : null;
+  const dockPresence = useSurfacePresence(Boolean(requestedDock));
+  const [lastDock, setLastDock] = useState<string | null>(requestedDock);
+  if (requestedDock && requestedDock !== lastDock) setLastDock(requestedDock);
+  const renderedDock = requestedDock ?? lastDock;
+  const closeRequestedDock = () => {
+    if (!worldRoute) return;
+    const target = hrefForWorldPatch(worldRoute, { dock: null });
+    // WebKit may keep the old navigation-store snapshot for the rest of the
+    // touch turn when a fixed dock unmounts from its own close button. Crossing
+    // one task boundary makes the URL and rendered surface resolve together.
+    window.setTimeout(() => {
+      navigate(target);
+      // Also drive one local render. WebKit occasionally updates history but
+      // defers the subscribed render for a fixed element's touch turn;
+      // the local phase update makes the closing surface inert immediately
+      // and lets React re-read the now-current URL snapshot.
+      dockPresence.beginExit();
+    }, 0);
+  };
 
   // The demo TITLE SCREEN: /demo asks how you want to enter — found a world
   // from zero (genesis tutorial) or explore the full one. No bundle needed.
   if (route.kind === "demoGate") {
-    return <DemoGate />;
+    return (
+      <div className="demoGateShell">
+        <div className="demoGateAppearance">
+          <AppearanceControl />
+        </div>
+        <DemoGate />
+      </div>
+    );
   }
 
   const content = (() => {
     if (loadState.status === "loading") {
+      if (worldRoute) {
+        return <WorldRouteLoading readerOpen={Boolean(worldRoute.pageId && worldRoute.query.reader)} />;
+      }
       return <main className="workspace"><section className="panel"><h1>Loading cockpit</h1></section></main>;
     }
-    if (loadState.status === "error") {
-      return <main className="workspace"><section className="panel"><h1>Snapshot unavailable</h1><p>{loadState.error}</p></section></main>;
+    if (loadState.status === "error" || blockedSampleFallback) {
+      const error =
+        loadState.status === "error"
+          ? loadState.error
+          : "Sample fallback is blocked outside /demo. Start the backend on 127.0.0.1:8765 and Vite with WIKI_COCKPIT_PROXY_API=1 so /api/snapshot/pages.json returns the real repo JSON.";
+      return (
+        <main className="workspace">
+          <section className="panel sampleFallbackBlocker" role="alert">
+            <h1>Real snapshot required</h1>
+            <p>{error}</p>
+            <p>
+              Demo/sample data is available only under <code>/demo</code>; the private cockpit must prove its own
+              snapshot before visual validation.
+            </p>
+          </section>
+        </main>
+      );
     }
     const { bundle, runtime } = loadState;
     // Legacy routes render the one-frame "opening" placeholder while the
@@ -1511,56 +1849,64 @@ export function App() {
     }
     if (worldRoute && sourceWorkspaceOpen) {
       return (
-        <SourceWorkspace
-          bundle={bundle}
-          sourceId={worldRoute.query.src}
-          demo={route.demo}
-          agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
-          onComposeBrief={runBrief}
-          onRequestBrief={composeSourceBrief}
-          onPreviewConfiguration={previewSourceOperation}
-          onApplyConfiguration={applySourceOperation}
-          onPreviewSourceGroups={previewSourceGroups}
-          onApplySourceGroups={applySourceGroups}
-          onListReceipts={listSourceOperationReceipts}
-          onPreviewRefresh={previewSourceRefresh}
-          onRunRefresh={runSourceRefresh}
-          onListJobs={listCodexJobs}
-          onStreamJobLog={streamCodexLog}
-          onCancelJob={cancelCodexJob}
-          onSourceChanged={refetchReal}
-          onNotice={notify}
-          onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
-          onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
-          onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
-        />
+        <Suspense fallback={<WorldRouteLoading readerOpen={false} />}>
+          <SourceWorkspace
+            bundle={bundle}
+            sourceId={worldRoute.query.src}
+            demo={route.demo}
+            agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
+            onComposeBrief={runBrief}
+            onRequestBrief={composeSourceBrief}
+            onPreviewConfiguration={previewSourceOperation}
+            onApplyConfiguration={applySourceOperation}
+            onPreviewSourceGroups={previewSourceGroups}
+            onApplySourceGroups={applySourceGroups}
+            onListReceipts={listSourceOperationReceipts}
+            onPreviewRefresh={previewSourceRefresh}
+            onRunRefresh={runSourceRefresh}
+            onListJobs={listCodexJobs}
+            onStreamJobLog={streamCodexLog}
+            onCancelJob={cancelCodexJob}
+            onSourceChanged={refetchReal}
+            onNotice={notify}
+            onOpenPage={(pathOrId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId: pathOrId, reader: true }))}
+            onOpenSource={(id) => navigate(hrefForWorldPatch(worldRoute, { dock: "source", src: id || null }))}
+            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
+          />
+        </Suspense>
       );
     }
     if (worldRoute) {
       return (
         <>
-          <WorldView
-            key={worldRoute.demo ? (worldRoute.query.genesis ? `genesis-${worldRoute.query.stage}` : "demo") : "real"}
+          <Suspense fallback={<WorldRouteLoading readerOpen={Boolean(worldRoute.pageId && worldRoute.query.reader)} />}>
+          <RuntimeWorldView
+            key={worldRoute.demo ? (worldRoute.query.genesis ? "genesis" : "demo") : "real"}
             bundle={bundle}
             runtime={runtime}
             route={worldRoute}
             bornPageIds={worldRoute.demo ? bornPageIds : []}
-            onRun={runAction}
+            onRun={executeOperatorCommand}
             onNotice={notify}
             onComposeBrief={runBrief}
+            navigation={navigation}
+            loadPageContent={operator.loadPageContent}
+            loadTemporalGraph={operator.loadTemporalGraph}
+            onSnapshotMismatch={worldRoute.demo ? undefined : refetchReal}
           />
+          </Suspense>
         </>
       );
     }
     return null;
   })();
 
-  const codexDockOpen = route.kind === "world" && route.query.dock === "codex";
-  const gateDockOpen = route.kind === "world" && route.query.dock === "approve";
-  const gatesDockOpen = route.kind === "world" && route.query.dock === "gates";
-  const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
-  const workDockOpen = route.kind === "world" && route.query.dock === "work";
-  const blocksDockOpen = route.kind === "world" && route.query.dock === "blocks";
+  const codexDockOpen = dockPresence.mounted && renderedDock === "codex";
+  const gateDockOpen = dockPresence.mounted && renderedDock === "approve";
+  const gatesDockOpen = dockPresence.mounted && renderedDock === "gates";
+  const intakeDockOpen = dockPresence.mounted && renderedDock === "intake";
+  const workDockOpen = dockPresence.mounted && renderedDock === "work";
+  const blocksDockOpen = dockPresence.mounted && renderedDock === "blocks";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -1583,26 +1929,40 @@ export function App() {
               Approve mission. Being on a long-lived proposal branch (the private
               cockpit worktree always is) is NOT "pending approval"; an always-on
               git label was noise. Nothing to approve → no pill. */}
-          {loadState.status === "ready" &&
-            !route.demo &&
-            loadState.bundle.git.worktree.changed_files.length > 0 && (
-              <a href={dockHref("approve")} className="topBarPillLink">
-                <StatusPill tone="warn">
-                  <span title={t("git.pendingApprovalTitle")}>
-                    {t("git.pendingApprovalN", { n: loadState.bundle.git.worktree.changed_files.length })}
-                  </span>
-                </StatusPill>
-              </a>
+          <div className="topBarActions">
+            {realRevalidationFailure && !route.demo && (
+              <StatusPill tone="warn">
+                <span title={t("snapshot.revalidationFailed", {
+                  when: snapshotVerifiedAtLabel(realRevalidationFailure.lastSuccessAt)
+                })}>
+                  {t("snapshot.revalidationFailedShort", {
+                    when: snapshotVerifiedAtLabel(realRevalidationFailure.lastSuccessAt)
+                  })}
+                </span>
+              </StatusPill>
             )}
+            {loadState.status === "ready" &&
+              !route.demo &&
+              loadState.bundle.git.worktree.changed_files.length > 0 && (
+                <a href={dockHref("approve")} className="topBarPillLink">
+                  <StatusPill tone="warn">
+                    <span title={t("git.pendingApprovalTitle")}>
+                      {t("git.pendingApprovalN", { n: loadState.bundle.git.worktree.changed_files.length })}
+                    </span>
+                  </StatusPill>
+                </a>
+              )}
+            <AppearanceControl />
+          </div>
         </header>
         {route.demo && (
           <div className="demoBanner" role="note">
             <Sparkles size={15} />
-            <span>{t("demo.banner")}</span>
+            <span>{t(worldRoute?.query.genesis ? "demo.bannerGenesis" : "demo.banner")}</span>
           </div>
         )}
         {content}
-        {activeBrief && (
+        {activeBrief && !route.demo && (
           <BriefStudio
             brief={activeBrief}
             capability={codexCapability}
@@ -1617,12 +1977,24 @@ export function App() {
             onClose={() => setActiveBrief(null)}
           />
         )}
+        {dockPresence.mounted && (
+        <div
+          className={dockPresence.phase === "closing" ? "appDockPresence closing" : "appDockPresence"}
+          aria-hidden={dockPresence.phase === "closing" ? true : undefined}
+          ref={(target) => {
+            if (target) target.inert = dockPresence.phase === "closing";
+          }}
+          data-surface-phase={dockPresence.phase}
+          onAnimationEnd={(event) => {
+            if (dockPresence.phase === "closing" && event.currentTarget === event.target) dockPresence.completeExit();
+          }}
+        >
         {codexDockOpen && worldRoute && (
           <CodexDock
             capability={codexCapability}
             busy={codexBusy}
             onReverify={reverifyCodex}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={closeRequestedDock}
           />
         )}
         {gateDockOpen && worldRoute && loadState.status === "ready" && (
@@ -1630,42 +2002,48 @@ export function App() {
             bundle={loadState.bundle}
             busy={Boolean(busyAction)}
             demo={route.demo}
+            loadFileDiff={operator.loadFileDiff}
+            runGate={operator.runGate}
             onWorkflow={runWorkflow}
             onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={closeRequestedDock}
           />
         )}
         {gatesDockOpen && worldRoute && loadState.status === "ready" && (
           <GatesDock
             bundle={loadState.bundle}
             demo={route.demo}
+            runGate={operator.runGate}
             onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={closeRequestedDock}
           />
         )}
         {intakeDockOpen && worldRoute && loadState.status === "ready" && (
           <IntakeDock
             bundle={loadState.bundle}
             initialSrc={worldRoute.query.src}
+            demo={route.demo}
+            intakeCopy={operator.intakeCopy}
             onComposeBrief={runBrief}
-            onOpenCreate={() => navigate(buildUrl(patchWorld(worldRoute, { dock: "create", src: null })))}
+            onOpenCreate={() => navigate(hrefForWorldPatch(worldRoute, { dock: "create", src: null }))}
             onNotice={notify}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={closeRequestedDock}
           />
         )}
         {workDockOpen && worldRoute && (
           <WorkDock
             capability={codexCapability}
             demo={route.demo}
+            operator={operator}
             onResumeBrief={resumeBrief}
             onReturn={returnJob}
             onDiagnose={openCodexDock}
             onNotice={notify}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={closeRequestedDock}
           />
         )}
         {/* dock=create is answered INSIDE WorldView: the spatial seed flow in
@@ -1674,8 +2052,9 @@ export function App() {
           <BlocksDock
             bundle={loadState.bundle}
             focusId={worldRoute.query.center || worldRoute.query.src || worldRoute.pageId || null}
-            onSelectAnchor={(anchorId) => navigate(buildUrl(patchWorld(worldRoute, { dock: "blocks", src: anchorId, center: anchorId })))}
-            onOpenPage={(pageId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId, reader: true })))}
+            readOnly={route.demo && !worldRoute.query.genesis}
+            onSelectAnchor={(anchorId) => navigate(hrefForWorldPatch(worldRoute, { dock: "blocks", src: anchorId, center: anchorId }))}
+            onOpenPage={(pageId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId, reader: true }))}
             onAttach={(id, anchorId) => {
               // The REAL attach action. Genesis: the expected attach advances the
               // stage (the world re-renders with the block truly in the stack).
@@ -1699,8 +2078,10 @@ export function App() {
                   `snapshot, and open a draft PR. Never touch main directly.`
               });
             }}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={closeRequestedDock}
           />
+        )}
+        </div>
         )}
         {commandResult && (
           <div className={isWorld ? "worldOutputDock" : undefined}>
@@ -1718,7 +2099,7 @@ export function App() {
             <span>{t("toast.running", { title: busyAction })}</span>
           </div>
         )}
-        {!busyAction && notice && (
+        {!busyAction && notice && !(route.demo && notice.text === realRevalidationNoticeRef.current) && (
           <div className={`actionToast tone-${notice.tone}`} role="status">
             <span>{notice.text}</span>
             {notice.showResult && (

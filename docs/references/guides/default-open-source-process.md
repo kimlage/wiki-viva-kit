@@ -18,11 +18,10 @@ open-source Markdown/Git living wiki. It describes the default entities, the
 ingestion lifecycle, the human gate, the deterministic gates, and the boundaries
 between public reusable toolkit behavior and downstream private wiki content.
 
-It is intentionally a reference guide, not a status page. The live meta-wiki is
-under [memories/system/wiki](../../../memories/system/wiki/index.md), the command
-catalog is [command-reference.md](../../../memories/system/wiki/command-reference.md),
-and the implementation lives in [wiki_core](../../../wiki_core/__init__.py) and
-[scripts](../../../scripts/wiki_ingest.py).
+It is intentionally a reference guide, not a status page. Live method pages,
+the root memory and the command-reference page are resolved from
+`wiki.config.yaml`; the implementation lives in
+[wiki_core](../../../wiki_core/__init__.py) and [scripts](../../../scripts/wiki_ingest.py).
 
 ## Executive model
 
@@ -70,22 +69,22 @@ default layout is:
 | [wiki_core](../../../wiki_core/__init__.py) | Deterministic Python core. |
 | [scripts](../../../scripts/wiki_ingest.py) | `wiki_*` CLIs that expose the core. |
 | [tests](../../../tests/test_wiki_pipeline.py) | Unit and fixture tests for the reusable kit. |
-| [memories](../../../memories/index.md) | Living wiki: canonical Markdown memory. |
-| [memories/system/wiki-viva-kit.md](../../../memories/system/wiki-viva-kit.md) | Dogfood root entity for the kit itself. |
-| [memories/system/input-stage.md](../../../memories/system/input-stage.md) | Generated root/channel/source staging page. |
-| [memories/system/wiki](../../../memories/system/wiki/index.md) | Meta-wiki: the kit documents itself. |
-| [memories/system/ingestion](../../../memories/system/ingestion/README.md) | Proposals, normalized events and archived ingestion records. |
-| [docs/references](../../README.md) | Perennial guides, templates, release notes, synthetic fixtures and snapshots. |
-| [docs/references/templates/wiki](../templates/wiki/page-contract.md) | Page contracts used by `wiki_new.py` and by humans. |
+| Configured `paths.memory_root` | Living wiki: canonical Markdown memory. |
+| Configured `root_entity.page` | Semantic root entity for this consumer. |
+| Configured `root_entity.input_stage_page` | Generated root/channel/source staging page. |
+| Configured system/method pages | The kit documents its local operating model. |
+| `WikiPaths.ingest_dir` | Proposals, normalized events and archived ingestion records. |
+| Configured `paths.references_root` | Perennial guides, templates, release notes, synthetic fixtures and snapshots. |
+| Consumer-owned wiki templates | Page contracts resolved from the configured template and page-type registries, used by `wiki_new.py` and by humans. |
 | `data/raw/` | Local raw-source cache, gitignored by default. |
 | `data/derived/wiki/` | Deterministic manifests, chunks, indexes, requests, cache and reports. |
-| [.skills](../../../.skills/README.md) | Portable agent playbooks. |
+| Portable `.skills/wiki-*` packages | Agent playbooks. |
 | [.github/workflows/wiki.yml](../../../.github/workflows/wiki.yml) | CI gate wiring. |
 | [wiki.config.yaml](../../../wiki.config.yaml) | Repo profile, paths, privacy and gate settings. |
 | [wiki.page-types.yaml](../../../wiki.page-types.yaml) | Typed page registry and required frontmatter. |
 | [wiki.targets.yaml](../../../wiki.targets.yaml) | Local context-to-target map used by ingestion proposals. |
 
-Only [memories](../../../memories/index.md), [docs/references](../../README.md),
+Only the configured memory and reference roots,
 the toolkit code, config and tests belong in Git. Raw and derived artifacts are
 cache unless a specific metadata mirror is intentionally versioned.
 
@@ -156,8 +155,7 @@ The default open-source profile uses:
 
 The root entity is the first semantic page of a wiki. It answers what this wiki
 serves: a person, team, company, project, product or community. The open-source
-kit dogfoods this model with
-[Wiki Viva Kit](../../../memories/system/wiki-viva-kit.md).
+kit dogfoods this model through its configured `root_entity.page`.
 
 The root page carries:
 
@@ -176,7 +174,7 @@ relationship explicit before the first ingestion.
 
 [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) compiles the root
 entity, input-channel pages, canonical source pages and source-config sidecars
-into [input-stage.md](../../../memories/system/input-stage.md). The input stage
+into the configured `root_entity.input_stage_page`. The input stage
 does not fetch external tools. It only stages what has already been declared so
 the next LLM context package receives the right inherited perspectives, channel
 metadata and target pages.
@@ -192,9 +190,8 @@ metadata and target pages.
 ### Context
 
 A context is a top-level area of memory. Each configured context must have a hub
-page at `<memory_root>/<context>/index.md`; with English defaults, that is
-[memories/example/index.md](../../../memories/example/index.md) for the example
-context. The context hub is the first page to update when a source changes the
+page at `<memory_root>/<context>/index.md`; the context hub is the first page to
+update when a source changes the
 meaning of that domain.
 
 Contexts are not tags. They are operational ownership boundaries. They decide
@@ -202,7 +199,7 @@ freshness cadence, target pages, and where integration should land.
 
 ### Root MOC and hubs
 
-The root map of content is [memories/index.md](../../../memories/index.md). It
+The root map of content is the index under configured `paths.memory_root`. It
 links the major hubs. Hubs carry the current synthesis for a context or domain.
 Typed relation pages should point back to a hub through `moc_parent`; provenance
 through `source_refs` does not replace navigation through a parent hub.
@@ -243,8 +240,9 @@ Typed pages should be created from templates with
 ### Source
 
 A source page is a canonical node for something the wiki may read: a document,
-repo, URL, exported email, table, meeting, card or external artifact. The source
-template is [source.md](../templates/wiki/source.md). Important fields are:
+repo, URL, exported email, table, meeting, card or external artifact. Its
+consumer-owned `source` template is resolved from the configured template and
+page-type registries. Important fields are:
 
 | Field | Meaning |
 | --- | --- |
@@ -256,8 +254,8 @@ template is [source.md](../templates/wiki/source.md). Important fields are:
 | `config_ref` | Optional link to source-specific rules. |
 | `source_refs` | Upstream provenance when this source derives from another source. |
 
-The generated registry [source-registry.md](../../../memories/system/source-registry.md)
-lists sources, state, last update and next suggested refresh.
+The source-registry page resolved by `WikiPaths.source_registry_page` lists
+sources, state, last update and next suggested refresh.
 
 ### Source config
 
@@ -271,9 +269,9 @@ page. It is the correct place for:
 - Required and optional perspectives for the deep read.
 - Privacy boundaries.
 
-The source config template is
-[source-config.md](../templates/wiki/source-config.md), and the source onboarding
-procedure is summarized in [.skills/wiki-viva/reference/sources.md](../../../.skills/wiki-viva/reference/sources.md).
+The consumer-owned `source_config` template is resolved from the configured
+template and page-type registries, and the source onboarding procedure is
+summarized in [.skills/wiki-viva/reference/sources.md](../../../.skills/wiki-viva/reference/sources.md).
 
 ### Typed relation pages
 
@@ -299,8 +297,7 @@ the right lenses.
 
 ### Ingestion proposal
 
-An ingestion proposal is a Markdown proposal in
-[memories/system/ingestion](../../../memories/system/ingestion/README.md). It is
+An ingestion proposal is Markdown under `WikiPaths.ingest_dir`. It is
 not the final memory. It carries source references, quadrants, privacy risks,
 target pages and gate state. It moves through the state machine with
 [wiki_gate.py](../../../scripts/wiki_gate.py).
@@ -309,24 +306,26 @@ target pages and gate state. It moves through the state machine with
 
 An ingestion event is the normalized record that a source was read. It captures
 the integral quadrants, candidate claims, decisions, actions, risks,
-uncertainties and the `consolidated_into` closure list. The template is
-[ingestion-event.md](../templates/wiki/ingestion-event.md). The event is not
-closed until every target page it changed references the source back.
+uncertainties and the `consolidated_into` closure list. Its consumer-owned
+`ingestion_event` template is resolved from the configured template and
+page-type registries. The event is not closed until it has at least one
+non-source target and every non-source target page it changed references the
+source back. Source identity targets use the event/lifecycle closure and must
+not self-reference.
 
 ### Operational cockpit and operational pass
 
-The cockpit [memories/operations.md](../../../memories/operations.md) is a
-generated dashboard. The operational pass
-[operational-pass.md](../../../memories/system/operational-pass.md) is a broader
+The page resolved by `WikiPaths.operation_page` is a generated dashboard. The
+page resolved by `WikiPaths.operational_pass_page` is a broader
 source/action/context compilation. Neither should be hand-edited. They are
 recompiled by [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py)
 and [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py).
 
 ### System log
 
-The system log [log.md](../../../memories/system/log.md) is append-only. When a
-change touches [memories](../../../memories/index.md), the log must record the
-memory-layer change. Documentation under [docs/references](../../README.md) can
+The page resolved by `WikiPaths.log_page` is append-only. When a change touches
+the configured memory root, the log must record the
+memory-layer change. Documentation under configured `paths.references_root` can
 be maintained as reference material, but once memory pages change the log gate
 applies.
 
@@ -458,8 +457,7 @@ The pre-scan runs the detectors before semantic work advances:
 - PII becomes an error at the public boundary or under `--public-export`.
 
 The detectors are in [wiki_core/detectors](../../../wiki_core/detectors/__init__.py),
-and the privacy model is documented in
-[privacy.md](../../../memories/system/wiki/privacy.md).
+and the privacy model is documented in the consumer's configured method pages.
 
 ### 7. LLM context request
 
@@ -624,8 +622,7 @@ contract.
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Reviewer-ready diff summary. |
 | `git diff --check` | Whitespace and patch hygiene. |
 
-The detailed gate documentation is
-[gates-and-audit.md](../../../memories/system/wiki/gates-and-audit.md).
+Detailed gate documentation belongs in the consumer's configured method pages.
 
 ## Privacy defaults
 
@@ -703,8 +700,7 @@ The default daily loop is:
 9. Human reviews.
 10. Merge to `main`.
 
-The detailed daily loop is
-[daily-operation.md](../../../memories/system/wiki/daily-operation.md).
+The detailed daily loop belongs in the consumer's configured method pages.
 
 ## OKF interoperability
 
@@ -746,8 +742,8 @@ pages, links and audited proposals.
 A process change is done when:
 
 - The relevant doc, template, skill or code path is updated.
-- The change is discoverable from [README.md](../../../README.md),
-  [docs/README.md](../../README.md), the meta-wiki, or the command reference.
+- The change is discoverable from [README.md](../../../README.md), the
+  configured reference root, the meta-wiki, or the command reference.
 - New core behavior has a test or synthetic fixture.
 - Public docs contain no private downstream references.
 - Memory-layer changes, if any, have an append-only log entry.
@@ -764,7 +760,8 @@ A source ingestion is done when:
 - The normalized event exists and has filled quadrants.
 - Integration updated target hubs/pages.
 - Conflicts, uncertainties and no-change outcomes are explicit.
-- `consolidated_into` and reverse `source_refs` are closed.
+- `consolidated_into` has at least one non-source target; reverse `source_refs`
+  are closed on non-source targets, while source identity lineage stays acyclic.
 - Source state and registry are updated.
 - Gates pass before PR review.
 
@@ -788,14 +785,9 @@ A source ingestion is done when:
 - [wiki.config.yaml](../../../wiki.config.yaml): repo profile.
 - [wiki.page-types.yaml](../../../wiki.page-types.yaml): page-type registry.
 - [wiki.targets.yaml](../../../wiki.targets.yaml): local ingestion target map.
-- [architecture.md](../../../memories/system/wiki/architecture.md): architecture.
-- [ingestion-flow.md](../../../memories/system/wiki/ingestion-flow.md): source
-  to consolidation flow.
-- [gates-and-audit.md](../../../memories/system/wiki/gates-and-audit.md): gates.
-- [privacy.md](../../../memories/system/wiki/privacy.md): privacy model.
-- [pr-governance.md](../../../memories/system/wiki/pr-governance.md): PR gate.
-- [command-reference.md](../../../memories/system/wiki/command-reference.md):
-  CLI catalog.
+- Configured method pages: architecture, ingestion flow, gates, privacy and PR
+  governance.
+- Configured `paths.command_reference_page`: CLI catalog.
 - [canonical-entity-navigation.md](canonical-entity-navigation.md): entity
   navigation rules.
 - [source-refresh-cadence.md](source-refresh-cadence.md): source refresh rules.

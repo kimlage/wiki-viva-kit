@@ -36,6 +36,7 @@ export type GitState = {
 export type TimelineEvent = {
   id: string;
   kind: string;
+  lane?: "source" | "action" | "decision" | "receipt" | "page" | "system" | "other";
   timestamp: string;
   label: string;
   context: string;
@@ -43,6 +44,123 @@ export type TimelineEvent = {
   status: string;
   weight: number;
   commit: string;
+};
+
+export type TemporalPrecision = "year" | "month" | "day" | "instant";
+export type TemporalConfidence = "confirmed" | "inferred" | "uncertain" | "conflicting";
+
+export type TemporalEvent = {
+  schema_version: "wiki_temporal_event.v1" | string;
+  event_id: string;
+  kind: string;
+  lane?: "source" | "action" | "decision" | "receipt" | "page" | "system" | "other";
+  subject_refs: string[];
+  context_refs: string[];
+  occurred_at: string | null;
+  recorded_at: string | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  created_at: string | null;
+  due_at: string | null;
+  completed_at: string | null;
+  verified_at: string | null;
+  ingested_at: string | null;
+  superseded_at: string | null;
+  precision: Partial<Record<
+    | "occurred_at"
+    | "recorded_at"
+    | "valid_from"
+    | "valid_to"
+    | "created_at"
+    | "due_at"
+    | "completed_at"
+    | "verified_at"
+    | "ingested_at"
+    | "superseded_at",
+    TemporalPrecision
+  >>;
+  actor: { kind: "human" | "agent" | "system" | "unknown"; ref: string } | null;
+  source_refs: string[];
+  evidence_refs: string[];
+  caused_by: string[];
+  supersedes: string[];
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  confidence: TemporalConfidence;
+  visibility: "public" | "private";
+  origin: { adapter: string; legacy_kind?: string };
+  temporal_conflicts: string[];
+  anchor: { field: string; value: string; precision: TemporalPrecision } | null;
+};
+
+export type TemporalGraphPayload = {
+  schema_version: "wiki_temporal_graph.v1" | string;
+  event_schema_version: "wiki_temporal_event.v1" | string;
+  repo_id: string;
+  revision: string;
+  generated_at: string;
+  event_count: number;
+  total_count: number;
+  returned_count: number;
+  truncated: boolean;
+  next_cursor: string | null;
+  page: {
+    offset: number;
+    limit: number;
+    remaining_count: number;
+    fingerprint: string;
+  };
+  range: TemporalGraphRange;
+  returned_range: TemporalGraphRange;
+  summary: {
+    scope: "full_result" | string;
+    event_count: number;
+    by_kind: Record<string, number>;
+    by_context: Record<string, number>;
+    conflict_count: number;
+    imprecise_count: number;
+    diagnostic_count: number;
+  };
+  diagnostics: Record<string, unknown>[];
+  events: TemporalEvent[];
+};
+
+export type TemporalGraphRange = {
+  from: string | null;
+  to: string | null;
+  from_precision: TemporalPrecision | null;
+  to_precision: TemporalPrecision | null;
+  event_count: number;
+  dated_count: number;
+  undated_count: number;
+  basis: "full_result" | "returned_page" | string;
+};
+
+export type ExperiencePackSlot = {
+  pack: string;
+  slot: string;
+  contribution: string;
+  mode: "append" | "exclusive" | string;
+};
+
+export type ExperiencePackPresentation = {
+  default_locale: "en" | string;
+  locales: Record<string, Record<string, string>>;
+};
+
+export type ExperiencePackComposition = {
+  schema_version: "wiki_experience_pack_composition.v1" | string;
+  core_version: string;
+  packs: { id: string; version: string }[];
+  block_packages: string[];
+  slots: {
+    views: ExperiencePackSlot[];
+    commands: ExperiencePackSlot[];
+    operations: ExperiencePackSlot[];
+    timelines: ExperiencePackSlot[];
+  };
+  presentation: ExperiencePackPresentation;
+  composition_sha256: string;
 };
 
 export type DiffFile = {
@@ -74,9 +192,15 @@ export type PageRecord = {
   risk_flags: string[];
   source_refs: string[];
   moc_parent: string;
+  collection_refs?: string[];
+  collection?: Record<string, unknown>;
   summary: string;
   summary_truncated?: boolean;
   moc_children_count?: number;
+  collection_members_count?: number;
+  work?: Record<string, unknown>;
+  source_lifecycle_state?: string;
+  source_blocked_reason?: string;
 };
 
 export type ResolvedLink =
@@ -103,7 +227,11 @@ export type ResolvedSourceRef =
 export type PageContent = {
   ok: boolean;
   error?: string;
+  error_code?: string;
+  page_id?: string;
   schema_version?: string;
+  snapshot_id?: string;
+  expected_snapshot_id?: string;
   page?: PageBrief & {
     summary: string;
     summary_truncated: boolean;
@@ -133,6 +261,24 @@ export type GraphNode = {
     outbound_links: number;
     source_ref_count: number;
   };
+  overlay_metrics?: OverlayMetrics;
+};
+
+export type OverlayMetric = {
+  state: string;
+  value: number | null;
+  count: number;
+  reasons: string[];
+  refs: string[];
+};
+
+export type OverlayMetrics = {
+  attention: OverlayMetric;
+  freshness: OverlayMetric;
+  actions: OverlayMetric;
+  ownership: OverlayMetric;
+  evidence: OverlayMetric;
+  quality: OverlayMetric;
 };
 
 export type GraphEdge = {
@@ -141,22 +287,27 @@ export type GraphEdge = {
   type: string;
   status: string;
   weight: number;
+  id?: string;
+  direction?: string;
+  basis?: string;
+  provenance?: Record<string, string>;
+  observed_at?: string;
 };
 
-export type ActionCommand = {
+export type OperatorCommandStep = {
   label: string;
   argv: string[];
   writes: boolean;
 };
 
-export type ActionCard = {
+export type OperatorCommandCard = {
   id: string;
   kind: string;
   title: string;
   human_reason: string;
   risk_level: "read" | "derive" | "proposal_write" | "external_write" | "destructive";
   default_dry_run: boolean;
-  commands: ActionCommand[];
+  commands: OperatorCommandStep[];
 };
 
 export type GateRecord = {
@@ -182,9 +333,26 @@ export type GateRunResult = {
 export type SnapshotBundle = {
   manifest: {
     schema_version: string;
+    snapshot_id?: string;
+    root_page_id?: string | null;
+    fixture?: {
+      fixture_id?: string;
+      scenario_id?: string;
+      genesis_stage?: number;
+    };
+    bundle_hash?: string;
+    capabilities?: string[];
+    versions?: Record<string, string>;
+    integrity?: Record<string, { sha256: string; bytes: number }>;
+    contract_errors?: string[];
+    compatibility?: {
+      state: "current" | "stale_version" | "partial";
+      warnings: string[];
+    };
     generated_at: string;
     mode: string;
     content_sidecars?: boolean;
+    source_sha?: string;
     source_commit: string | null;
     repo: {
       repo_id: string;
@@ -207,12 +375,17 @@ export type SnapshotBundle = {
   graph: {
     nodes: GraphNode[];
     edges: GraphEdge[];
+    relation_vocabulary_version?: string;
+    relation_types?: Record<string, unknown>[];
+    relation_diagnostics?: Record<string, unknown>[];
   };
   pages: {
     pages: PageRecord[];
   };
   actions: {
-    actions: ActionCard[];
+    // `actions.json` is the v1 transport compatibility surface. Its records
+    // are operator commands, never canonical `page_type: action` work items.
+    actions: OperatorCommandCard[];
   };
   freshness: {
     summary: Record<FreshnessState, number>;
@@ -273,13 +446,23 @@ export type SnapshotBundle = {
     quality_flags?: Record<string, unknown[]>;
   };
   commands: {
-    commands: ActionCommand[];
+    commands: OperatorCommandStep[];
   };
   score: ScorePayload;
   sourceEntities: SourceEntitiesPayload;
   templates: TemplatesPayload;
   blocks: BlocksPayload;
   blockStacks: BlockStacksPayload;
+  operatorCommands?: { schema_version: string; operator_commands: Record<string, unknown>[] };
+  workItems?: { schema_version: string; actions: Record<string, unknown>[] };
+  regionGroups?: { schema_version: string; groups: RegionGroupPayload[] };
+  sourceLifecycle?: { schema_version: string; sources: Record<string, unknown>[] };
+  snapshotWarnings?: { schema_version: string; warnings: Record<string, unknown>[] };
+  // Capability-gated payloads: old v1/v2 snapshots remain readable without
+  // fabricating empty history or an empty pack registry.
+  temporalGraph?: TemporalGraphPayload;
+  temporalGraphSource?: { base: string; operatorBoundary: boolean };
+  experiencePacks?: ExperiencePackComposition;
 };
 
 // --- Modular template blocks (v2) ---
@@ -337,6 +520,7 @@ export type BlockInterface = {
   };
   intake: { forms: string[] };
   score: { loops: string[]; no_leaderboard: boolean };
+  regions?: { active: boolean; visual_pack: string };
   has_quadrants: boolean;
   has_relations: boolean;
 };
@@ -376,14 +560,62 @@ export type BlockDerived = {
   quadrant_projections?: Record<string, QuadrantProjection[]>;
   quadrant_sub_lens?: Record<string, Record<string, string[]>>;
   empty_quadrants?: string[];
+  region_groups?: RegionGroupsPayload;
   relations?: { due: RelationDue[]; upcoming_dates: RelationUpcoming[]; open_commitments: RelationCommitment[] };
   missing_subpages?: { rel: string; page_type: string; slug: string }[];
+};
+
+export type VisualGrammar = {
+  schema_version: string;
+  default_pack: string;
+  allowed_packs?: string[];
+  packs: Record<string, { extends?: string; slots: Record<string, string> }>;
+  primitive_purpose?: Record<string, string>;
+};
+
+export type RegionGroupSummary = {
+  total: number;
+  shown: number;
+  hidden: number;
+  stale: number;
+  proposal: number;
+  risk: number;
+  raw: number;
+  unsourced: number;
+  open_actions: number;
+  source_backed: number;
+};
+
+export type RegionGroupPayload = {
+  id: string;
+  kind: string;
+  label_key: string;
+  purpose: string;
+  visual_role: string;
+  member_ids: string[];
+  summary: RegionGroupSummary;
+  type_mix: { page_type: string; family: string; count: number }[];
+  attention_hints: { kind: string; count: number }[];
+  action_hints: { kind: string; label_key: string; count: number; target?: Record<string, unknown> }[];
+  visual: {
+    grammar_id: string;
+    pack_id: string;
+    slots: Record<string, string>;
+    emphasis: string[];
+  };
+};
+
+export type RegionGroupsPayload = {
+  schema_version: string;
+  anchor: string;
+  groups: RegionGroupPayload[];
 };
 
 export type AnchorRecord = {
   stack: ResolvedBlock[];
   interface: BlockInterface;
   identity: BlockIdentity;
+  visual_grammar?: VisualGrammar;
   derived: BlockDerived;
 };
 
@@ -640,7 +872,7 @@ export type CommandResultEntry = {
   dry_run: boolean;
 };
 
-export type ActionRunResult = {
+export type OperatorCommandRunResult = {
   ok: boolean;
   action_id: string;
   dry_run: boolean;
@@ -672,8 +904,9 @@ export type CodexCapability = {
   usable: boolean;
   reason: string;
   connectors?: string[];
-  // The local operator process predates the code on disk (its /api/health lacks
-  // the codex capability). This is rung 0 of the diagnostics ladder: restart it.
+  // The local process fails the shared v6/v2/default-deny handshake (including
+  // required capabilities), even if it exposes a plausible Codex block. This is
+  // rung 0 of the diagnostics ladder: restart it before trusting other fields.
   operator_outdated?: boolean;
 };
 
@@ -695,6 +928,16 @@ export type OperatorHealth = {
   repo?: string;
   server_version?: string;
   schema_capabilities?: string[];
+  operator_security?: {
+    version: "wiki_operator_security.v2" | string;
+    nonce_header: string;
+    nonce: string;
+    attempt_header: string;
+    max_body_bytes: number;
+    mutations: "post_only" | string;
+    browser_origin_default?: "deny" | string;
+    cors_opt_in?: "exact_loopback_allowlist" | string;
+  };
   codex?: CodexCapability;
   claude?: CodexCapability;
 };
@@ -837,4 +1080,4 @@ export type IngestionStepResult = {
   plan: IngestionPlan;
 };
 
-export type CommandRunResult = ActionRunResult | WorkflowRunResult | IngestionStepResult;
+export type CommandRunResult = OperatorCommandRunResult | WorkflowRunResult | IngestionStepResult;

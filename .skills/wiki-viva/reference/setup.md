@@ -50,8 +50,8 @@ list and defaults. The essentials:
 
 Create one top page that says what this wiki is about. For a personal wiki it
 is the person page; for a team it is the team page; for a company it is the
-company page; for this kit it is
-[wiki-viva-kit.md](../../../memories/system/wiki-viva-kit.md). Configure it in
+company page; for this kit it is the page declared by `root_entity.page`.
+Configure it in
 [wiki.config.yaml](../../../wiki.config.yaml):
 
 ```yaml
@@ -111,11 +111,19 @@ paths:
   sources_dirname: fontes
   operation_page: memorias/operacao.md
   command_reference_page: memorias/sistema/wiki/referencia-comandos.md
+  operational_pass_page: memorias/sistema/passe-operacional.md
 ```
 
 The code never hardcodes layout paths; it reads them from here via
 [wiki_core/paths.py](../../../wiki_core/paths.py). The directory and file names
 then follow your pins, while code, comments and CLIs stay English.
+
+For a downstream update, localization remains consumer-owned C3. Review the B0
+plan first, let C1 copy only kit-owned paths, regenerate configured read models
+in C2, and apply localized routing/config changes through an explicit C3
+command. The resulting `kit.lock` records only portable kit-owned inventory;
+it must never contain local paths, routes, private evidence or consumer data.
+The consumer PR is the reversible review and promotion boundary.
 
 ## 6. Verify the gates are green
 

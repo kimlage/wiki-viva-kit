@@ -5,6 +5,13 @@
     "older": 0,
     "undated": 0
   },
+  "compatibility": {
+    "legacy_event_kinds_preserved": true,
+    "legacy_schema_version": "wiki_web_timeline.v1",
+    "replacement_payload": "temporal_graph.json"
+  },
+  "contract_version": "activity_timeline.v1",
+  "event_count": 2,
   "events": [
     {
       "commit": "",
@@ -14,7 +21,7 @@
       "label": "Snapshot generated",
       "path": "",
       "status": "blocked",
-      "timestamp": "2026-07-07T22:55:36Z",
+      "timestamp": "2026-07-09T00:00:00Z",
       "weight": 1
     },
     {
@@ -29,8 +36,10 @@
       "weight": 2
     }
   ],
-  "generated_at": "2026-07-07T22:55:36Z",
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
   "repo_id": "wiki-viva-demo",
+  "returned_count": 2,
   "schema_version": "wiki_web_timeline.v1",
   "summary": {
     "by_context": {
@@ -43,6 +52,7 @@
     },
     "event_count": 2,
     "first_at": "2026-07-03T00:00:00Z",
-    "last_at": "2026-07-07T22:55:36Z"
-  }
+    "last_at": "2026-07-09T00:00:00Z"
+  },
+  "truncated": false
 }

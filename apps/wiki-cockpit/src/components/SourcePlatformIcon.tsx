@@ -22,7 +22,7 @@ type SourceBrandIdentity = NonNullable<SourceEntity["visual_identity"]>;
 const GOOGLE_DRIVE_IDENTITY: SourceBrandIdentity = {
   key: "google-drive",
   label: "Google Drive",
-  asset_path: "/source-icons/google-drive.png",
+  asset_path: "/source-icons/google-drive.svg",
   background: "transparent"
 };
 

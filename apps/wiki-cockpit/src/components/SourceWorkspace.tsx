@@ -36,6 +36,7 @@ import {
   X
 } from "lucide-react";
 import { t } from "../data/i18n";
+import "../styles.css";
 import type { SourceGroup, SourceGroupsOperationResult } from "../types";
 import { SourceDock } from "./SourceDock";
 import { SourcePendingOverview } from "./SourcePendingOverview";

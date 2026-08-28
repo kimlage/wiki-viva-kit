@@ -1,0 +1,23 @@
+{
+  "available": false,
+  "commands": [],
+  "compare": {
+    "base_ref": "",
+    "current_branch": "",
+    "default_branch": "main",
+    "head_commit": "",
+    "merge_base": ""
+  },
+  "files": [],
+  "repo_id": "wiki-viva-demo-personal-finance-showcase",
+  "schema_version": "wiki_web_diff.v1",
+  "summary": {
+    "branch_file_count": 0,
+    "deletions": 0,
+    "file_count": 0,
+    "insertions": 0,
+    "privacy_review_required": false,
+    "status_counts": {},
+    "working_tree_file_count": 0
+  }
+}

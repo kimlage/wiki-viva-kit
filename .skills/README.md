@@ -32,6 +32,16 @@ Each repo adopting the kit can add its own specific skills (local profile, e.g.
 a `repo-*` or `<name>-*` prefix) alongside the `wiki-*` ones. Keep the local
 profile separate so the kit stays copyable.
 
+In the current simple upgrade flow, toolkit-owned
+[.skills/wiki-*/**](wiki-viva/SKILL.md) directories are byte-equal C1. The
+consumer's root [.skills/README.md](README.md), [AGENTS.md](../AGENTS.md),
+routers and non-`wiki-*` skills are reviewed C3 routing policy; the root index
+is named literally because [.skills/*/**](wiki-viva/SKILL.md) intentionally
+matches only nested skill packages. A changed C3 skill surface is reviewed as a
+consumer-owned PR change. Core upgrades use the idempotent
+`wiki_sync_from_kit.py` B0/apply flow and `kit.lock`, not the retired
+lane/capsule runner.
+
 The portable skills assume hierarchical navigation by default: root MOC ->
 context/domain hub -> entity/subdomain hub -> relation/evidence pages ->
 execution/event pages. Relation pages must declare `moc_parent` so multiple

@@ -1,0 +1,30 @@
+schema_version: wiki_demo_scenarios.v1
+fixture_id: wiki-viva-demo-v8
+seed: 8008
+public_safe: true
+builder:
+  module: scripts/wiki_build_demo.py
+  full_entrypoint: build_demo
+  scenario_entrypoint: build_scenario_pages
+  domain_builders:
+    - root_entity
+    - source
+    - person
+    - action
+    - meeting
+    - artifact
+    - nested_center
+  composition: manifest_selectors
+scenario_manifests:
+  - walking_skeleton.yaml
+  - normal_operations.yaml
+  - dense_stress.yaml
+  - source_lifecycle.yaml
+  - failures.yaml
+  - compatibility.yaml
+  - accessibility.yaml
+generated:
+  fixture_root: docs/references/fixtures/demo-wiki
+  snapshot_root: apps/wiki-cockpit/public/sample-snapshot
+  regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py
+  drift_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py --check

@@ -1,0 +1,17 @@
+{
+  "schema_version": "wiki_snapshot_warnings.v1",
+  "warnings": [
+    {
+      "code": "source_blocked",
+      "reason": "The synthetic trace export is malformed.",
+      "severity": "warning",
+      "source_id": "source-error-traces"
+    },
+    {
+      "code": "source_blocked",
+      "reason": "The synthetic health endpoint returned an operational failure.",
+      "severity": "warning",
+      "source_id": "source-health-checks"
+    }
+  ]
+}

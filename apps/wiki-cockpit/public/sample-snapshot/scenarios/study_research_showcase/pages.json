@@ -1,0 +1,252 @@
+{
+  "pages": [
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "f194d823cd5daa8a72796d7f042e95871b81038ebe40cf92b72f178d06afa05f",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "concept-feedback",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [
+          "source-learning-loops"
+        ],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [
+          "concept-retention"
+        ],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "A synthetic concept connected to retention. Back to pack showcase",
+      "summary_truncated": false,
+      "title": "Feedback",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "a165d8f68a2a4fde71c472d5db1670e6a7156436091a99d4e2aaead9461bc298",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "source-learning-loops",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "study_research_source",
+      "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "reviewed",
+      "summary": "Synthetic evidence about review cadence and retrieval practice. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {
+          "captured_at": "2026-01-10",
+          "source_refs": [],
+          "status": "reviewed"
+        },
+        "dates": {
+          "captured_at": "2026-01-10"
+        },
+        "precision": {}
+      },
+      "title": "Learning loops reference",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "639d557651cccc7fba0c2bc1c2f65d1b4e48e7b0c9ff21d98fd8fd863d393e12",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "concept-retention",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [
+          "source-learning-loops"
+        ],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [
+          "concept-feedback"
+        ],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "A synthetic concept used by the concept-graph fixture. Back to pack showcase",
+      "summary_truncated": false,
+      "title": "Retention",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "d6fcf891e5e874bc12f0163fce063120d06873d7549d548ca16c236b973648ce",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "claim-review-cadence",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "study_research_claim",
+      "path": "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [
+          "source-learning-loops"
+        ],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Short review intervals can improve recall under the synthetic fixture model. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {
+          "claim_state": "supported",
+          "confidence": "moderate",
+          "evidence_against": [],
+          "evidence_for": [
+            "source-learning-loops"
+          ],
+          "evidence_refs": [
+            "source-learning-loops"
+          ],
+          "recorded_at": "2026-01-12",
+          "source_refs": [],
+          "verified_at": "2026-01-14"
+        },
+        "dates": {
+          "recorded_at": "2026-01-12",
+          "verified_at": "2026-01-14"
+        },
+        "precision": {}
+      },
+      "title": "Review cadence claim",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "27dfd6921e42504863dfbc090ef5c9d5dba4c3cda0e499667a6d464ea30d1e87",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "root-study-research-showcase",
+      "moc_children_count": 5,
+      "moc_parent": "",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Public, synthetic, deterministic experience-pack showcase. Learning loops reference Feedback Retention Review cadence claim",
+      "summary_truncated": false,
+      "title": "Study and Research Observatory",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "e2f577da9c2673000298303ebd5c82a3cc45ef52b845c2cf66a49af229789661",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "question-next-review",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "study_research_question",
+      "path": "memories/showcases/study_research_showcase/study-research/question-next-review.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Synthetic spaced-review fixture with an explicit day-precision due date. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {
+          "next_review_at": "2026-02-14",
+          "question_state": "open",
+          "source_refs": []
+        },
+        "dates": {},
+        "precision": {}
+      },
+      "title": "When should the review cadence be checked again?",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    }
+  ],
+  "repo_id": "wiki-viva-demo-study-research-showcase",
+  "schema_version": "wiki_web_pages.v1"
+}

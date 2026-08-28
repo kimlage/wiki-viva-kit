@@ -2,15 +2,42 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { saveBriefText } from "./snapshot";
+import { resetOperatorSecurityForTests } from "../world/clients/operatorClient";
 
 let response: { ok: boolean; status?: number; json: () => Promise<unknown> };
 
 beforeEach(() => {
+  resetOperatorSecurityForTests();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
       if (String(url).includes("wiki-cockpit.config.json")) {
         return { ok: true, json: async () => ({ api_base: "/api", mode: "local_operator" }) };
+      }
+      if (String(url).endsWith("/api/health")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ok: true,
+            server_version: "wiki_web_server.v6",
+            schema_capabilities: [
+              "operator_security_v2",
+              "cors_default_deny_v1",
+              "action_state_transitions_v1"
+            ],
+            operator_security: {
+              version: "wiki_operator_security.v2",
+              nonce_header: "X-Wiki-Operator-Nonce",
+              nonce: "test-nonce",
+              attempt_header: "X-Wiki-Attempt-Key",
+              max_body_bytes: 1_048_576,
+              mutations: "post_only",
+              browser_origin_default: "deny",
+              cors_opt_in: "exact_loopback_allowlist"
+            }
+          })
+        };
       }
       return response;
     })

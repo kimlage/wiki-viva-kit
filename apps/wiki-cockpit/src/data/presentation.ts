@@ -5,7 +5,7 @@
 
 import { t, uiLanguage } from "./i18n";
 
-export type NodeShape = "sphere" | "hub" | "crystal" | "diamond" | "comet" | "slab" | "spark";
+export type NodeShape = "sphere" | "hub" | "crystal" | "diamond" | "comet" | "slab" | "spark" | "totem";
 
 export type PageTypeStyle = {
   label: string;
@@ -43,7 +43,7 @@ const FAMILY_STYLE: Record<string, { shape: NodeShape; accent: string }> = {
   action: { shape: "comet", accent: "#ff9c54" },
   rule: { shape: "slab", accent: "#8fa3ff" },
   event: { shape: "spark", accent: "#d989ff" },
-  person: { shape: "sphere", accent: "#ffb3c1" }
+  person: { shape: "totem", accent: "#ffb3c1" }
 };
 
 function style(family: string, label: string): PageTypeStyle {
@@ -59,6 +59,7 @@ const DEFAULT_PAGE_TYPES: Record<string, PageTypeStyle> = {
   source_catalog: style("hub", "source library"),
   relationship_map: style("hub", "relationship map"),
   source: style("source", "evidence source"),
+  evidence: style("source", "evidence record"),
   source_config: style("source", "source rules"),
   source_registry: style("source", "source registry"),
   input_channel: style("source", "input channel"),
@@ -82,7 +83,18 @@ const DEFAULT_PAGE_TYPES: Record<string, PageTypeStyle> = {
   artifact: style("content", "artifact"),
   context_note: style("content", "context note"),
   perspective: style("rule", "reading lens"),
-  proposal: style("event", "review draft")
+  proposal: style("event", "review draft"),
+  visual_group: style("hub", "group"),
+  visual_group_region: style("hub", "region group"),
+  visual_group_source: style("source", "sources & evidence"),
+  visual_group_hub: style("hub", "areas & workspaces"),
+  visual_group_decision: style("decision", "decisions and claims"),
+  visual_group_action: style("action", "actions & workflows"),
+  visual_group_rule: style("rule", "rules & governance"),
+  visual_group_event: style("event", "ingestion events"),
+  visual_group_person: style("person", "people & responsibilities"),
+  visual_group_content: style("content", "tools in this world"),
+  visual_group_root: style("root", "independent worlds")
 };
 
 // Portuguese labels for the built-in page types. Config `page_types` overrides
@@ -95,6 +107,7 @@ const PT_PAGE_TYPE_LABELS: Record<string, string> = {
   source_catalog: "biblioteca de fontes",
   relationship_map: "mapa de relações",
   source: "fonte de evidência",
+  evidence: "registro de evidência",
   source_config: "regras da fonte",
   source_registry: "registro de fontes",
   input_channel: "canal de entrada",
@@ -118,7 +131,18 @@ const PT_PAGE_TYPE_LABELS: Record<string, string> = {
   artifact: "artefato",
   context_note: "nota de contexto",
   perspective: "lente de leitura",
-  proposal: "rascunho de revisão"
+  proposal: "rascunho de revisão",
+  visual_group: "grupo",
+  visual_group_region: "grupo de região",
+  visual_group_source: "fontes & evidências",
+  visual_group_hub: "áreas & espaços de trabalho",
+  visual_group_decision: "decisões e claims",
+  visual_group_action: "ações & fluxos",
+  visual_group_rule: "regras & governança",
+  visual_group_event: "eventos de ingestão",
+  visual_group_person: "pessoas & responsabilidades",
+  visual_group_content: "ferramentas deste mundo",
+  visual_group_root: "mundos independentes"
 };
 
 const DEFAULT_TRUST_COLORS: TrustColors = {
@@ -212,10 +236,10 @@ export function trustColor(state: keyof TrustColors): string {
 }
 
 // ---------------------------------------------------------------------------
-// Aging: hue = WHO a node is (context); tone = HOW it is (state). The state
-// tones are normalized to fixed OKLCH lightness bands so "darker = staler"
-// holds ACROSS contexts (a fresh purple must never be as dark as a stale
-// cyan) — the one channel color-blind users can always trust. Ordering:
+// Compatibility/reference utility for context-accent aging outside node-body
+// encoding. Native v8 node bodies are owned by the active overlay token;
+// context stays in position, labels and keylines. These fixed OKLCH bands keep
+// older/auxiliary surfaces deterministic while they migrate. Ordering:
 // proposal-bleach (≈0.82) > fresh-calm (≈0.58) > stale-aged (≈0.46) >
 // unknown-veil (≈0.35). Stale BRIGHTNESS comes from the amber emissive/glow
 // annotation, not the body. Invariants pinned in presentation.test.ts.
@@ -284,6 +308,7 @@ export type EdgeStyle = { label: string; color: string };
 
 const EDGE_STYLES: Record<string, EdgeStyle> = {
   moc_parent: { label: "navigation", color: "#4f8fb5" },
+  collection_member: { label: "collection", color: "#70a9cc" },
   source_ref: { label: "evidence", color: "#57d9a0" },
   markdown_link: { label: "reference", color: "#5a6a76" },
   pr_impact: { label: "review impact", color: "#c57cff" },
@@ -303,12 +328,21 @@ export function worldGroupLabel(kind: string, labelKey: string): string {
   if (kind === "orphan") return t("group.orphan");
   if (kind === "relation") return t(`relation.${labelKey}`);
   if (kind === "facet" || kind === "quadrant") return t(`facet.${labelKey}`);
+  if (kind === "family" || kind === "region_family") return pageTypeLabel(`visual_group_${labelKey}`);
+  if (kind === "source_flow") return t(`source.flow.${labelKey}`);
+  if (kind === "work_queue") return t(`work.queue.${labelKey}`);
   if (kind === "core") return t("quadrant.core");
   return labelKey;
 }
 
+export function worldGroupDescription(kind: string, labelKey: string): string {
+  if (kind === "family" || kind === "region_family") return t(`group.family.${labelKey}.description`);
+  if (kind === "source_flow") return t(`group.source_flow.${labelKey}.description`);
+  return "";
+}
+
 export function perspectiveLabel(perspective: string): { label: string; hint: string; glyph: string } {
-  const glyphs: Record<string, string> = { radar: "◎", atlas: "🜨", districts: "⬡", trails: "⇢", focus: "✦", quadrants: "田" };
+  const glyphs: Record<string, string> = { radar: "◎", atlas: "🜨", districts: "⬡", trails: "⇢", focus: "✦", center: "⌾", quadrants: "田", sources: "▣", work: "✓" };
   return {
     label: t(`perspective.${perspective}`),
     hint: t(`perspective.${perspective}.hint`),

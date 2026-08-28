@@ -11,15 +11,15 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-08-28
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-purpose: "Meta-wiki: the living wiki itself documenting its operation and its process."
-moc_parent: memories/index.md
 source_refs:
   - sources-wiki-viva-methodology
+purpose: "Meta-wiki: the living wiki itself documenting its operation and its process."
+moc_parent: memories/index.md
 related_pages:
   - memories/system/ingestion-process.md
   - memories/system/operational-wiki-contract.md
@@ -28,7 +28,7 @@ related_pages:
 
 # Meta-wiki: how the living wiki works
 
-Last updated: 2026-08-26.
+Last updated: 2026-08-28.
 
 This is the **meta-wiki**: the living wiki itself used to document, in a
 complete and organized way, how the system **operates** and what its **process** is.
@@ -62,8 +62,7 @@ flowchart TD
 | If you want to... | Read |
 | --- | --- |
 | Understand the system for the first time | [../wiki-viva-kit.md](../wiki-viva-kit.md), [architecture.md](architecture.md), then [daily-operation.md](daily-operation.md) |
-| Configure a repo's top entity and source channels | [../wiki-viva-kit.md](../wiki-viva-kit.md), [../input-stage.md](../input-stage.md), [template-authoring.md](../../../docs/references/guides/template-authoring.md), then [command-reference.md](command-reference.md) |
-| Understand source recipes, streams and freshness | [ingestion-flow.md](ingestion-flow.md) and [source-refresh-cadence.md](../../../docs/references/guides/source-refresh-cadence.md) |
+| Configure a repo's top entity and source channels | [../wiki-viva-kit.md](../wiki-viva-kit.md), [../input-stage.md](../input-stage.md), then [command-reference.md](command-reference.md) |
 | Ingest a source | [ingestion-flow.md](ingestion-flow.md) |
 | Open or review a PR | [pr-governance.md](pr-governance.md) and [gates-and-audit.md](gates-and-audit.md) |
 
@@ -75,7 +74,7 @@ flowchart TD
 | [../input-stage.md](../input-stage.md) | Generated input catalog from root entity, input channels, source pages and source configs. |
 | [architecture.md](architecture.md) | Overview, principles and map of the modules. |
 | [daily-operation.md](daily-operation.md) | The daily loop: cockpit, resumption and gates before the PR. |
-| [ingestion-flow.md](ingestion-flow.md) | Source entity/recipe -> manifest -> chunks -> index -> LLM -> event -> consolidation and cursor update. |
+| [ingestion-flow.md](ingestion-flow.md) | Source -> manifest -> chunks -> index -> LLM -> event -> consolidation. |
 | [gates-and-audit.md](gates-and-audit.md) | The honesty gates: audit, coverage, freshness, LLM pass. |
 | [perspectives/index.md](../perspectives/index.md) | Reusable viewpoints for perspective-aware deep reads. |
 | [privacy.md](privacy.md) | Two axes: PII free in private; secrets blocked always. |

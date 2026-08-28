@@ -1,0 +1,63 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "page_id": "source-agenda",
+      "page_type": "source",
+      "path": "memories/sources/source-agenda.md",
+      "relation": "source_emission",
+      "title": "Agenda"
+    }
+  ],
+  "body": "\n# Ingest\u00e3o: agenda\n\nNormalized import of the calendar \u2014 encounters and cadences refreshed and accepted.\n\n## Source\n\n- Source: `source-agenda`\n- Normalized event: this page IS the record of the sync.\n",
+  "frontmatter": {
+    "consolidated_into": [
+      "meeting-weekly-sync"
+    ],
+    "context": "sistema",
+    "event_id": "event-ingest-agenda-2026-07",
+    "moc_parent": "memories/sources/source-agenda.md",
+    "page_id": "event-ingest-agenda-2026-07",
+    "page_type": "ingestion_event",
+    "source_id": "source-agenda",
+    "source_refs": [
+      "source-agenda"
+    ],
+    "stale_after_days": "365",
+    "title": "Ingest\u00e3o: agenda",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sources/source-agenda.md",
+    "page_id": "event-ingest-agenda-2026-07",
+    "page_type": "ingestion_event",
+    "path": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
+    "summary": "Normalized import of the calendar \u2014 encounters and cadences refreshed and accepted. Source: source-agenda Normalized event: this page IS the record of the sync.",
+    "summary_truncated": false,
+    "title": "Ingest\u00e3o: agenda",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-2830e4dd880e44a2",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "page_id": "source-agenda",
+      "page_type": "source",
+      "path": "memories/sources/source-agenda.md",
+      "ref": "source-agenda",
+      "resolved": true,
+      "title": "Agenda"
+    }
+  ]
+}

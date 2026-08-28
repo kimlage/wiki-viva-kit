@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kimlage/wiki-viva-kit/wiki_viva_migration_report.v2.schema.json",
+  "title": "Wiki Viva v8 downstream migration report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "status",
+    "public_export",
+    "evidence_context",
+    "source",
+    "consumer_before",
+    "consumer_after",
+    "omitted_boundaries",
+    "files_imported",
+    "generated_artifacts",
+    "downstream_adaptations",
+    "migration_summary",
+    "local_overrides_kept",
+    "warnings",
+    "fixtures_added",
+    "gates",
+    "visual_qa_evidence",
+    "rollback",
+    "rollback_verification",
+    "validation_errors"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_viva_migration_report.v2"},
+    "report_id": {"type": "string", "pattern": "^migration:[0-9a-f]{20}$"},
+    "status": {"enum": ["complete", "blocked"]},
+    "public_export": {"type": "boolean"},
+    "evidence_context": {"$ref": "#/$defs/evidence_context"},
+    "source": {"$ref": "#/$defs/source"},
+    "consumer_before": {"$ref": "#/$defs/consumer_before"},
+    "consumer_after": {"$ref": "#/$defs/consumer_after"},
+    "omitted_boundaries": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/omitted_boundary"},
+      "uniqueItems": true
+    },
+    "files_imported": {"$ref": "#/$defs/string_array"},
+    "generated_artifacts": {"$ref": "#/$defs/string_array"},
+    "downstream_adaptations": {"$ref": "#/$defs/string_array"},
+    "migration_summary": {"$ref": "#/$defs/migration_summary"},
+    "local_overrides_kept": {"$ref": "#/$defs/string_array"},
+    "warnings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/warning"}
+    },
+    "fixtures_added": {"$ref": "#/$defs/string_array"},
+    "gates": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/gate"}
+    },
+    "visual_qa_evidence": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/visual_evidence"}
+    },
+    "rollback": {"$ref": "#/$defs/rollback"},
+    "rollback_verification": {"$ref": "#/$defs/rollback_verification"},
+    "validation_errors": {"$ref": "#/$defs/string_array"}
+  },
+  "$defs": {
+    "nullable_string": {"type": ["string", "null"]},
+    "string_array": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "partition_summary": {
+      "type": "object",
+      "required": ["path_count", "paths_sha256", "source_projection_sha256"],
+      "properties": {
+        "path_count": {"type": "integer", "minimum": 0},
+        "paths_sha256": {"$ref": "#/$defs/nullable_string"},
+        "source_projection_sha256": {"$ref": "#/$defs/nullable_string"}
+      },
+      "additionalProperties": false
+    },
+    "adaptation_summary": {
+      "type": "object",
+      "required": ["path_count", "validated_count", "blocked_count", "unverified_count"],
+      "properties": {
+        "path_count": {"type": "integer", "minimum": 0},
+        "validated_count": {"type": "integer", "minimum": 0},
+        "blocked_count": {"type": "integer", "minimum": 0},
+        "unverified_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "migration_summary": {
+      "type": "object",
+      "required": ["faithful_public_import", "regenerated_artifacts", "downstream_adaptations"],
+      "properties": {
+        "faithful_public_import": {"$ref": "#/$defs/partition_summary"},
+        "regenerated_artifacts": {"$ref": "#/$defs/partition_summary"},
+        "downstream_adaptations": {"$ref": "#/$defs/adaptation_summary"}
+      },
+      "additionalProperties": false
+    },
+    "evidence_context": {
+      "type": "object",
+      "required": ["package_sha256", "validator_version", "captured_consumer_head"],
+      "properties": {
+        "package_sha256": {"$ref": "#/$defs/nullable_string"},
+        "validator_version": {"$ref": "#/$defs/nullable_string"},
+        "captured_consumer_head": {"$ref": "#/$defs/nullable_string"}
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["release", "sha", "plan"],
+      "properties": {
+        "release": {"$ref": "#/$defs/nullable_string"},
+        "sha": {"$ref": "#/$defs/nullable_string"},
+        "plan": {"$ref": "#/$defs/nullable_string"}
+      },
+      "additionalProperties": false
+    },
+    "consumer_before": {
+      "type": "object",
+      "required": [
+        "repository",
+        "branch",
+        "head_sha",
+        "kit_version",
+        "gate_status",
+        "memory_root",
+        "references_root",
+        "preflight"
+      ],
+      "properties": {
+        "repository": {"$ref": "#/$defs/nullable_string"},
+        "branch": {"$ref": "#/$defs/nullable_string"},
+        "head_sha": {"$ref": "#/$defs/nullable_string"},
+        "kit_version": {"$ref": "#/$defs/nullable_string"},
+        "gate_status": {"$ref": "#/$defs/nullable_string"},
+        "memory_root": {"$ref": "#/$defs/nullable_string"},
+        "references_root": {"$ref": "#/$defs/nullable_string"},
+        "preflight": {"$ref": "#/$defs/preflight_binding"}
+      },
+      "additionalProperties": false
+    },
+    "preflight_binding": {
+      "type": "object",
+      "required": [
+        "status",
+        "report_id",
+        "report_sha256",
+        "report_ref",
+        "package_sha256",
+        "consumer_head"
+      ],
+      "properties": {
+        "status": {"$ref": "#/$defs/nullable_string"},
+        "report_id": {"$ref": "#/$defs/nullable_string"},
+        "report_sha256": {"$ref": "#/$defs/nullable_string"},
+        "report_ref": {"$ref": "#/$defs/nullable_string"},
+        "package_sha256": {"$ref": "#/$defs/nullable_string"},
+        "consumer_head": {"$ref": "#/$defs/nullable_string"}
+      },
+      "additionalProperties": false
+    },
+    "consumer_after": {
+      "type": "object",
+      "required": ["branch", "import_commit_sha", "artifact_commit_sha", "adaptation_commit_sha"],
+      "properties": {
+        "branch": {"$ref": "#/$defs/nullable_string"},
+        "import_commit_sha": {"$ref": "#/$defs/nullable_string"},
+        "artifact_commit_sha": {"$ref": "#/$defs/nullable_string"},
+        "adaptation_commit_sha": {"$ref": "#/$defs/nullable_string"}
+      },
+      "additionalProperties": false
+    },
+    "omitted_boundary": {
+      "type": "object",
+      "required": ["boundary", "reason"],
+      "properties": {
+        "boundary": {"enum": ["artifact_commit_sha", "adaptation_commit_sha"]},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "warning": {
+      "type": "object",
+      "required": ["code", "message", "owner", "removal_window"],
+      "properties": {
+        "code": {"type": "string"},
+        "message": {"type": "string"},
+        "owner": {"type": "string"},
+        "removal_window": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "gate": {
+      "type": "object",
+      "required": ["id", "command", "status", "exit_code", "captured_consumer_head"],
+      "properties": {
+        "id": {"type": "string"},
+        "command": {"type": "string"},
+        "status": {"enum": ["pass", "fail", "blocked", "not_run"]},
+        "exit_code": {"type": ["integer", "null"]},
+        "captured_consumer_head": {"$ref": "#/$defs/nullable_string"}
+      },
+      "additionalProperties": false
+    },
+    "dimensions": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": ["integer", "null"], "minimum": 1, "maximum": 16384},
+        "height": {"type": ["integer", "null"], "minimum": 1, "maximum": 16384}
+      },
+      "additionalProperties": false
+    },
+    "visual_evidence": {
+      "type": "object",
+      "required": [
+        "profile",
+        "route_ref",
+        "center_ref",
+        "viewport",
+        "browser",
+        "screenshot_ref",
+        "screenshot_sha256",
+        "screenshot_bytes",
+        "screenshot_dimensions",
+        "captured_consumer_head",
+        "console_status",
+        "network_status",
+        "sample_fallback"
+      ],
+      "properties": {
+        "profile": {"type": "string"},
+        "route_ref": {"type": "string"},
+        "center_ref": {"type": "string"},
+        "viewport": {"type": "string"},
+        "browser": {"type": "string"},
+        "screenshot_ref": {"type": "string", "pattern": "^[^/\\\\][^\\\\]*\\.png$"},
+        "screenshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "screenshot_bytes": {"type": ["integer", "null"], "minimum": 1, "maximum": 67108864},
+        "screenshot_dimensions": {"$ref": "#/$defs/dimensions"},
+        "captured_consumer_head": {"type": "string", "minLength": 1},
+        "console_status": {"type": "string"},
+        "network_status": {"type": "string"},
+        "sample_fallback": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "rollback": {
+      "type": "object",
+      "required": ["previous_sha", "import_commit_sha", "command", "preserves_local_paths"],
+      "properties": {
+        "previous_sha": {"$ref": "#/$defs/nullable_string"},
+        "import_commit_sha": {"$ref": "#/$defs/nullable_string"},
+        "command": {"$ref": "#/$defs/nullable_string"},
+        "preserves_local_paths": {"$ref": "#/$defs/string_array"}
+      },
+      "additionalProperties": false
+    },
+    "rollback_verification": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "failure_code",
+        "previous_sha",
+        "checked_consumer_head",
+        "final_migration_sha",
+        "command_sha256",
+        "previous_tree_sha",
+        "rollback_tree_sha",
+        "tree_matches_before",
+        "worktree_matches_index",
+        "preserved_path_count"
+      ],
+      "properties": {
+        "schema_version": {"const": "wiki_viva_rollback_verification.v1"},
+        "status": {"enum": ["not_run", "failed", "pass"]},
+        "failure_code": {"type": "string"},
+        "previous_sha": {"$ref": "#/$defs/nullable_string"},
+        "checked_consumer_head": {"$ref": "#/$defs/nullable_string"},
+        "final_migration_sha": {"$ref": "#/$defs/nullable_string"},
+        "command_sha256": {"$ref": "#/$defs/nullable_string"},
+        "previous_tree_sha": {"$ref": "#/$defs/nullable_string"},
+        "rollback_tree_sha": {"$ref": "#/$defs/nullable_string"},
+        "tree_matches_before": {"type": "boolean"},
+        "worktree_matches_index": {"type": "boolean"},
+        "preserved_path_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

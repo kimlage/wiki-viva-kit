@@ -5,41 +5,118 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   audit-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22.22.3"
+          cache: npm
+          cache-dependency-path: apps/wiki-cockpit/package-lock.json
       - name: Install poppler (pdftotext)
         run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - name: Install deps
-        run: pip install -r requirements.txt
+        run: |
+          python3 -m pip install -r requirements.txt
+          npm install --global npm@10.9.8
+          test "$(node --version)" = "v22.22.3"
+          test "$(npm --version)" = "10.9.8"
       - name: Tests
-        run: python -m pytest tests/ -q
+        run: python3 -m pytest -q -W error tests/
+      - name: Exact-base page graph and impact evidence
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          test -n "$BASE_SHA"
+          python3 scripts/wiki_page_graph.py --check --impact --base "$BASE_SHA" > /tmp/wiki-page-graph-impact.json
+          python3 -m json.tool /tmp/wiki-page-graph-impact.json
       - name: OKF interop smoke
         run: |
-          python scripts/wiki_okf_export.py --out tmp/okf-ci --clean
-          python scripts/wiki_okf_check.py --bundle tmp/okf-ci --check
-          python scripts/wiki_okf_visualize.py --bundle tmp/okf-ci --out tmp/okf-ci/viz.html
-          python scripts/wiki_okf_import.py --bundle tmp/okf-ci --context system --dry-run
+          python3 scripts/wiki_okf_export.py --out tmp/okf-ci --clean
+          python3 scripts/wiki_okf_check.py --bundle tmp/okf-ci --check
+          python3 scripts/wiki_okf_visualize.py --bundle tmp/okf-ci --out tmp/okf-ci/viz.html
+          python3 scripts/wiki_okf_import.py --bundle tmp/okf-ci --context system --dry-run
       - name: Wiki audit (secrets, PII on public pages, links, quadrants, promotion gate)
-        run: python scripts/wiki_audit.py --check
+        run: python3 scripts/wiki_audit.py --check
+      - name: Public-export privacy boundary
+        run: python3 scripts/wiki_audit.py --public-export --check
+      - name: Experience-pack registry, assets and composition
+        run: python3 scripts/wiki_pack.py validate --all
       - name: Wiki quality ratchet
-        run: python scripts/wiki_quality_report.py --check
+        run: python3 scripts/wiki_quality_report.py --check
       - name: Methodology coverage (presence + content)
-        run: python scripts/wiki_check_methodology_coverage.py --check
+        run: python3 scripts/wiki_check_methodology_coverage.py --check
       - name: Operation cockpit freshness (decisions/actions)
-        run: python scripts/wiki_operation_compile.py --check
+        run: python3 scripts/wiki_operation_compile.py --check
       - name: Operational pass freshness (sources/actions/contexts)
-        run: python scripts/wiki_operational_pass.py --check
+        run: python3 scripts/wiki_operational_pass.py --check
       - name: Source registry freshness (state + last update)
-        run: python scripts/wiki_source_registry.py --check
+        run: python3 scripts/wiki_source_registry.py --check
       - name: Input stage freshness (root entity + channels)
-        run: python scripts/wiki_input_stage.py --check
+        run: python3 scripts/wiki_input_stage.py --check
+      - name: Authored event and relation parity
+        run: python3 scripts/wiki_semantic_inventory.py --check
+      - name: Deterministic v8 demo artifacts
+        run: python3 scripts/wiki_build_demo.py --check
+      - name: Atomic v8 snapshot contract
+        run: python3 scripts/wiki_web_snapshot.py --check-contract
       - name: Consolidation closed (ingesting = integrating)
-        run: python scripts/wiki_consolidate.py --check
+        run: python3 scripts/wiki_consolidate.py --check
+
+  cockpit-v8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22.22.3"
+          cache: npm
+          cache-dependency-path: apps/wiki-cockpit/package-lock.json
+      - name: Install frontend dependencies
+        run: |
+          npm install --global npm@10.9.8
+          test "$(node --version)" = "v22.22.3"
+          test "$(npm --version)" = "10.9.8"
+          npm --prefix apps/wiki-cockpit ci
+      - name: Frontend unit tests
+        run: npm --prefix apps/wiki-cockpit test
+      - name: Architecture, assets and gate contracts
+        run: |
+          npm --prefix apps/wiki-cockpit run check:architecture
+          npm --prefix apps/wiki-cockpit run check:assets
+          npm --prefix apps/wiki-cockpit run test:gates
+      - name: TypeScript
+        run: npm --prefix apps/wiki-cockpit exec -- tsc -p apps/wiki-cockpit/tsconfig.json --noEmit
+      - name: Production build
+        run: npm --prefix apps/wiki-cockpit run build
+
+  snapshot-flat-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Flat snapshot remains supported
+        run: >-
+          python -m pytest -q
+          tests/test_web_snapshot.py::test_atomic_legacy_migration_fails_closed_on_unsupported_platform
+          tests/test_web_snapshot.py::test_live_revision_publication_fails_closed_without_posix_leases
+          tests/test_web_snapshot.py::test_flat_reader_rejects_valid_but_unowned_directory
+          tests/test_web_snapshot_cli.py::test_web_snapshot_cli_rejects_absolute_output_outside_repo
+          tests/test_action_transition.py::test_action_writes_fail_closed_on_windows_boundary

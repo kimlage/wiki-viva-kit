@@ -1,0 +1,77 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "root-study-research-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "relation": "markdown_link",
+      "title": "Study and Research Observatory"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "concept-retention",
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md",
+      "relation": "related_page",
+      "title": "Retention"
+    }
+  ],
+  "body": "\n# Feedback\n\nA synthetic concept connected to retention.\n\n## Demo navigation\n\n[Back to pack showcase](../../../index.md)\n",
+  "frontmatter": {
+    "context": "showcase",
+    "definition": "Information used to adjust a learning process.",
+    "evidence_refs": [
+      "source-learning-loops"
+    ],
+    "moc_parent": "memories/index.md",
+    "page_id": "concept-feedback",
+    "page_type": "study_research_concept",
+    "related_concepts": [
+      "concept-retention"
+    ],
+    "related_pages": [
+      "concept-retention"
+    ],
+    "source_refs": [],
+    "stale_after_days": "3650",
+    "title": "Feedback",
+    "updated_at": "2026-07-09",
+    "visibility": "public"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "showcase",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "concept-feedback",
+    "page_type": "study_research_concept",
+    "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md",
+    "summary": "A synthetic concept connected to retention. Back to pack showcase",
+    "summary_truncated": false,
+    "title": "Feedback",
+    "updated_at": "2026-07-09"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "../../../index.md",
+      "kind": "page",
+      "page_id": "root-study-research-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "text": "Back to pack showcase",
+      "title": "Study and Research Observatory"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-study-research-showcase-a589b4a240f07ed7",
+  "source_refs": []
+}

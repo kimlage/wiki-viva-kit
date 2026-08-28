@@ -7,7 +7,8 @@
 // the stack — not because tutorial code toggles panels.
 
 import type { AnchorRecord, SnapshotBundle } from "../types";
-import type { DockId, PerspectiveId } from "../router";
+import type { PerspectiveId } from "../router";
+import type { DockId } from "../world/contracts";
 import { PERSPECTIVES } from "../router";
 
 export type Instruments = {

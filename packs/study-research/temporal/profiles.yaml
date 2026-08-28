@@ -1,0 +1,103 @@
+schema_version: wiki_experience_pack_temporal_profiles.v2
+pack: study-research
+profiles:
+  study-research.learning-history:
+    slot: timeline.history
+    event_times: [captured_at, reviewed_at]
+    lanes: [sources, notes, syntheses]
+    precision_policy: preserve_unknown
+  study-research.spaced-review:
+    slot: timeline.review
+    event_times: [next_review_at, reviewed_at]
+    lanes: [due, completed, deferred]
+    precision_policy: preserve_unknown
+  study-research.claim-evolution:
+    slot: timeline.evolution
+    event_times: [recorded_at, verified_at, superseded_at]
+    lanes: [proposed, supported, challenged, superseded]
+    precision_policy: preserve_unknown
+adapters:
+  study-research.learning-captured:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: study_research_source
+    event_kind: study-research.learning-captured
+    lane: source
+    time: {occurred_at: captured_at}
+    required_times: [occurred_at]
+    state:
+      before: {}
+      after: {status: status}
+    provenance:
+      source_refs: {policy: optional, fields: [source_refs]}
+      evidence_refs: {policy: optional, fields: [evidence_refs]}
+    confidence: confirmed
+  study-research.learning-reviewed:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: study_research_synthesis
+    event_kind: study-research.learning-reviewed
+    lane: page
+    time: {occurred_at: reviewed_at}
+    required_times: [occurred_at]
+    state:
+      before: {}
+      after: {}
+    provenance:
+      source_refs: {policy: optional, fields: [source_refs]}
+      evidence_refs: {policy: optional, fields: [evidence_refs]}
+    confidence: confirmed
+  study-research.spaced-review-due:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: study_research_question
+    event_kind: study-research.spaced-review-due
+    lane: page
+    time: {due_at: next_review_at}
+    required_times: [due_at]
+    state:
+      before: {}
+      after: {question_state: question_state}
+    provenance:
+      source_refs: {policy: optional, fields: [source_refs]}
+      evidence_refs: {policy: optional, fields: [evidence_refs]}
+    confidence: confirmed
+  study-research.claim-recorded:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: study_research_claim
+    event_kind: study-research.claim-recorded
+    lane: page
+    time: {recorded_at: recorded_at}
+    required_times: [recorded_at]
+    state:
+      before: {}
+      after: {claim_state: claim_state, confidence: confidence}
+    provenance:
+      source_refs: {policy: optional, fields: [source_refs]}
+      evidence_refs: {policy: required, fields: [evidence_for, evidence_against, evidence_refs]}
+    confidence: confirmed
+  study-research.claim-verified:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: study_research_claim
+    event_kind: study-research.claim-verified
+    lane: page
+    time: {verified_at: verified_at}
+    required_times: [verified_at]
+    state:
+      before: {}
+      after: {claim_state: claim_state, confidence: confidence}
+    provenance:
+      source_refs: {policy: optional, fields: [source_refs]}
+      evidence_refs: {policy: required, fields: [evidence_for, evidence_against, evidence_refs]}
+    confidence: confirmed
+  study-research.claim-superseded:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: study_research_claim
+    event_kind: study-research.claim-superseded
+    lane: page
+    time: {superseded_at: superseded_at}
+    required_times: [superseded_at]
+    state:
+      before: {}
+      after: {claim_state: claim_state, confidence: confidence}
+    provenance:
+      source_refs: {policy: optional, fields: [source_refs]}
+      evidence_refs: {policy: required, fields: [evidence_for, evidence_against, evidence_refs]}
+    confidence: confirmed

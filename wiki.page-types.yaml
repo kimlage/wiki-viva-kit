@@ -4,6 +4,54 @@ page_types:
     template: docs/references/templates/wiki/action.md
     allowed_dirs:
       - memories/actions
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - source_refs
+      - moc_parent
+      - action_state
+      - owner_kind
+      - created_at
+      - priority
+      - attention_basis
+    field_types:
+      <<: &relation_field_types
+        updated_at: date
+        stale_after_days: string
+        source_refs: list
+        collection_refs: list
+        collection: object
+        moc_parent: string
+        subject_ref: string
+        subject_role: string
+        parent_projection: object
+        projection_overrides: object
+        evidence_refs: list
+        claims: list
+        decisions: list
+        actions: list
+      action_state: enum:open,in_progress,blocked,waiting_human,done,cancelled
+      action_state_history: list
+      owner_kind: enum:human,agent,system,other,unassigned
+      owner_ref: string
+      created_at: date
+      due_at: date
+      completed_at: date_or_instant
+      blocked_by: list
+      blocker_reason: string
+      next_action: string
+      priority: string
+      attention_basis: string
+      completion_receipt: string
+      cancellation_receipt: string
+  claim:
+    template: docs/references/templates/wiki/claim.md
+    allowed_dirs:
+      - memories/claims
     required_frontmatter: &relation_required
       - page_id
       - page_type
@@ -13,24 +61,6 @@ page_types:
       - stale_after_days
       - source_refs
       - moc_parent
-    field_types: &relation_field_types
-      updated_at: date
-      stale_after_days: string
-      source_refs: list
-      moc_parent: string
-      subject_ref: string
-      subject_role: string
-      parent_projection: object
-      projection_overrides: object
-      evidence_refs: list
-      claims: list
-      decisions: list
-      actions: list
-  claim:
-    template: docs/references/templates/wiki/claim.md
-    allowed_dirs:
-      - memories/claims
-    required_frontmatter: *relation_required
     field_types:
       <<: *relation_field_types
       perspectives_required: list
@@ -68,6 +98,7 @@ page_types:
     field_types:
       updated_at: date
       stale_after_days: string
+      collection: object
   dashboard:
     template: docs/references/templates/wiki/operation.md
     allowed_dirs:
@@ -82,6 +113,8 @@ page_types:
     field_types: &common_field_types
       updated_at: date
       stale_after_days: string
+      collection_refs: list
+      collection: object
   artifact:
     template: docs/references/templates/wiki/artifact.md
     allowed_dirs:
@@ -107,8 +140,25 @@ page_types:
     template: docs/references/templates/wiki/ingestion-event.md
     allowed_dirs:
       - memories/system/ingestion/events
-    required_frontmatter: *common_required
-    field_types: *common_field_types
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - event_id
+      - moc_parent
+    required_frontmatter_any_of:
+      - [source_id, source_refs]
+    field_types:
+      <<: *common_field_types
+      event_id: string
+      source_id: string
+      source_ref: string
+      source_refs: list
+      moc_parent: string
+      consolidated_into: list
     required_sections:
       - Source
       - Quadrants
@@ -124,7 +174,11 @@ page_types:
     allowed_dirs:
       - memories
     required_frontmatter: *common_required
-    field_types: *common_field_types
+    field_types:
+      <<: *common_field_types
+      moc_parent: string
+      parent_projection: object
+      collection: object
   operational_rule:
     template: docs/references/templates/wiki/gate.md
     allowed_dirs:
@@ -279,6 +333,13 @@ page_types:
     field_types:
       <<: *relation_field_types
       source_type: string
+      source_lifecycle: object
+      source_lifecycle_state: string
+      source_freshness_state: string
+      source_last_attempt_state: string
+      source_pipeline_stage: string
+      source_adoption_state: string
+      source_blocked_reason: string
   source_catalog:
     template: none
     template_none_reason: "Catalog pages are navigation or generated registries with local structure."
@@ -302,8 +363,18 @@ page_types:
     template_none_reason: "The source registry is generated from source frontmatter."
     allowed_dirs:
       - memories/system
-    required_frontmatter: *common_required
-    field_types: *common_field_types
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - parent_projection
+    field_types:
+      <<: *common_field_types
+      parent_projection: object
+      collection: object
   input_stage:
     template: none
     template_none_reason: "The input stage is generated from the root entity, input channels, sources and source configs."

@@ -1,0 +1,335 @@
+{
+  "groups": [
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "add_evidence",
+          "label_key": "region.action.addEvidence"
+        }
+      ],
+      "anchor_id": "root-personal-finance-showcase",
+      "attention_hints": [
+        {
+          "count": 1,
+          "kind": "unsourced"
+        }
+      ],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:intencao",
+      "kind": "quadrant",
+      "label_key": "intencao",
+      "member_ids": [
+        "finance-review-july"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "verify",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 1,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 1,
+        "unsourced": 1
+      },
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "decision",
+          "page_type": "decision"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "attention"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "evidence_first",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "dock.action": "action_lane",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "reader.badge": "source_badge",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [],
+      "anchor_id": "root-personal-finance-showcase",
+      "attention_hints": [],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:pratica",
+      "kind": "quadrant",
+      "label_key": "pratica",
+      "member_ids": [
+        "finance-source-july"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 1,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 1,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "content",
+          "page_type": "artifact"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "root-personal-finance-showcase",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:relacoes",
+      "kind": "quadrant",
+      "label_key": "relacoes",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "root-personal-finance-showcase",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:sistemas",
+      "kind": "quadrant",
+      "label_key": "sistemas",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 8,
+          "kind": "open_blocks",
+          "label_key": "region.action.openBlocks"
+        }
+      ],
+      "anchor_id": "root-personal-finance-showcase",
+      "attention_hints": [],
+      "expectation": "present",
+      "expectation_basis": "No explicit template, source or operator expectation is registered.",
+      "expectation_state": "unknown",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "core:q0",
+      "kind": "core",
+      "label_key": "core",
+      "member_ids": [
+        "finance-account-main",
+        "finance-category-housing",
+        "finance-category-income",
+        "finance-closing-july",
+        "finance-obligation-rent",
+        "finance-reconciliation-july",
+        "finance-transaction-housing",
+        "finance-transaction-income"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "understand",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 8,
+        "source_backed": 5,
+        "stale": 0,
+        "total": 8,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 2,
+          "family": "content",
+          "page_type": "personal_finance_category"
+        },
+        {
+          "count": 2,
+          "family": "content",
+          "page_type": "personal_finance_transaction"
+        },
+        {
+          "count": 1,
+          "family": "content",
+          "page_type": "personal_finance_account"
+        },
+        {
+          "count": 1,
+          "family": "content",
+          "page_type": "personal_finance_monthly_closing"
+        },
+        {
+          "count": 1,
+          "family": "content",
+          "page_type": "personal_finance_obligation"
+        },
+        {
+          "count": 1,
+          "family": "content",
+          "page_type": "personal_finance_reconciliation"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "attention"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "quiet_structure",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "center_badge",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "scope_chip",
+          "region.rail": "core_debt_meter",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "core"
+    }
+  ],
+  "schema_version": "wiki_region_groups.v2"
+}

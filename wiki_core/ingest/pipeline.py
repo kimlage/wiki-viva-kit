@@ -22,8 +22,11 @@ artifacts that actually exist.
 from __future__ import annotations
 
 import json
+import time
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Callable, Iterator
 
 from wiki_core.chunking import chunk_text
 from wiki_core.config import DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION, WikiConfig
@@ -39,6 +42,24 @@ from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest, write_manifest
 
 SCHEMA_VERSION = "wiki_ingest_pipeline.v1"
+IngestObserver = Callable[[str, int, dict[str, object]], None]
+
+
+@contextmanager
+def _observed(
+    observer: IngestObserver | None,
+    stage: str,
+    **metrics: object,
+) -> Iterator[dict[str, object]]:
+    """Emit opt-in timings without changing the functional result."""
+
+    started = time.perf_counter_ns()
+    dynamic: dict[str, object] = {}
+    try:
+        yield dynamic
+    finally:
+        if observer is not None:
+            observer(stage, time.perf_counter_ns() - started, {**metrics, **dynamic})
 
 
 @dataclass(frozen=True)
@@ -86,6 +107,7 @@ def run(
     actor: str | None = None,
     ts: str | None = None,
     stream_id: str | None = None,
+    observer: IngestObserver | None = None,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -94,12 +116,15 @@ def run(
     """
     paths = WikiPaths(root, config)
 
-    manifest = build_manifest(source, context)
+    source_path = Path(source).expanduser()
+    source_bytes = source_path.stat().st_size if source_path.is_file() else None
+    with _observed(observer, "manifest_hash", bytes_read=source_bytes):
+        manifest = build_manifest(source, context)
     source_id = str(manifest["source_id"])
     source_type = str(manifest["source_type"])
     warnings: list[str] = []
 
-    src_path = Path(source).expanduser()
+    src_path = source_path
     is_local_file = bool(manifest.get("exists")) and source_type != "url" and src_path.is_file()
 
     # --- Extraction and chunking in MEMORY (nothing written yet) ---
@@ -107,11 +132,19 @@ def run(
     extracted = None
     chunk_count = 0
     if is_local_file:
-        extracted = extract_source(source, source_type)
+        with _observed(observer, "extraction", bytes_read=source_bytes) as metrics:
+            extracted = extract_source(source, source_type)
+            metrics["text_characters"] = len(extracted.text)
         warnings = list(extracted.warnings)
         target = int(config.llm.get("chunk_target_tokens", 1200))
         overlap = int(config.llm.get("chunk_overlap_tokens", 150))
-        text_chunks = chunk_text(source_id, extracted.text, target, overlap)
+        with _observed(
+            observer,
+            "chunking",
+            text_characters=len(extracted.text),
+        ) as metrics:
+            text_chunks = chunk_text(source_id, extracted.text, target, overlap)
+            metrics["chunk_count"] = len(text_chunks)
         chunk_count = len(text_chunks)
         chunk_dicts = [
             {
@@ -130,9 +163,18 @@ def run(
     secret_findings: list[dict[str, object]] = []
     pii_findings: list[dict[str, object]] = []
     if is_local_file:
-        findings = list(scan_file(src_path))
+        with _observed(observer, "raw_scan", bytes_read=source_bytes) as metrics:
+            findings = list(scan_file(src_path))
+            metrics["finding_count"] = len(findings)
         if extracted is not None and extracted.text:
-            findings += list(scan_text(extracted.text))
+            with _observed(
+                observer,
+                "extracted_text_scan",
+                text_characters=len(extracted.text),
+            ) as metrics:
+                extracted_findings = list(scan_text(extracted.text))
+                metrics["finding_count"] = len(extracted_findings)
+            findings += extracted_findings
         seen: set[tuple[str, int, str]] = set()
         for finding in findings:
             dedup = (finding.kind, finding.line, finding.excerpt)
@@ -152,59 +194,70 @@ def run(
     if persist:
         paths.ensure()
 
-    manifest_path = _rel(write_manifest(manifest, paths.source_manifests), root) if persist else None
-
     text_path: str | None = None
     chunks_path: str | None = None
-    if persist and is_local_file and extracted is not None:
-        text_file = paths.source_text / f"{source_id}.json"
-        text_file.write_text(
-            json.dumps(
-                {
-                    "schema_version": "wiki_extracted_text.v1",
-                    "source_id": source_id,
-                    "source_uri": source,
-                    "source_type": source_type,
-                    "context": context,
-                    "warnings": warnings,
-                    "text_characters": len(extracted.text),
-                    "units": extracted.units,
-                },
-                ensure_ascii=False,
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        text_path = _rel(text_file, root)
-        chunks_file = paths.chunks / f"{source_id}.json"
-        chunks_file.write_text(
-            json.dumps(
-                {
-                    "schema_version": "wiki_chunks.v1",
-                    "source_id": source_id,
-                    "source_hash_sha256": manifest.get("hash_sha256"),
-                    "chunks": chunk_dicts,
-                },
-                ensure_ascii=False,
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        chunks_path = _rel(chunks_file, root)
+    manifest_path: str | None = None
+    if persist:
+        with _observed(observer, "persistence") as metrics:
+            manifest_file = write_manifest(manifest, paths.source_manifests)
+            manifest_path = _rel(manifest_file, root)
+            written_files = [manifest_file]
+            if is_local_file and extracted is not None:
+                text_file = paths.source_text / f"{source_id}.json"
+                text_file.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "wiki_extracted_text.v1",
+                            "source_id": source_id,
+                            "source_uri": source,
+                            "source_type": source_type,
+                            "context": context,
+                            "warnings": warnings,
+                            "text_characters": len(extracted.text),
+                            "units": extracted.units,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                        sort_keys=True,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                text_path = _rel(text_file, root)
+                chunks_file = paths.chunks / f"{source_id}.json"
+                chunks_file.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "wiki_chunks.v1",
+                            "source_id": source_id,
+                            "source_hash_sha256": manifest.get("hash_sha256"),
+                            "chunks": chunk_dicts,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                        sort_keys=True,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                chunks_path = _rel(chunks_file, root)
+                written_files.extend([text_file, chunks_file])
+            metrics["files_written"] = len(written_files)
+            metrics["bytes_written"] = sum(path.stat().st_size for path in written_files)
 
     chunks_indexed = 0
     if persist and chunk_dicts:
         # INCREMENTAL indexing: only the just-written source is (re)indexed,
         # instead of a full rebuild of the whole directory on every ingestion
         # (finding 13).
-        index_result = index_source(
-            paths.indexes / "wiki.sqlite", paths.chunks / f"{source_id}.json"
-        )
-        chunks_indexed = int(index_result.get("chunks_indexed", 0))
+        with _observed(observer, "fts") as metrics:
+            index_result = index_source(
+                paths.indexes / "wiki.sqlite", paths.chunks / f"{source_id}.json"
+            )
+            chunks_indexed = int(index_result.get("chunks_indexed", 0))
+            metrics["chunks_indexed"] = chunks_indexed
+            index_path = paths.indexes / "wiki.sqlite"
+            metrics["sqlite_bytes"] = index_path.stat().st_size if index_path.exists() else None
 
     request_path: str | None = None
     pending = 0
@@ -215,34 +268,39 @@ def run(
             )
         )
         model_profile = str(config.llm.get("default_model_profile", "deep_context"))
-        source_config = find_source_config(root, config, source)
-        input_context = input_context_for_source(root, config, source)
-        perspectives_required, perspectives_optional = merge_perspectives(
-            source_config,
-            required=[],
-            optional=[],
-            root_required=list(input_context.get("perspectives_required") or []),
-            root_optional=list(input_context.get("perspectives_optional") or []),
-        )
-        request = build_context_request(
-            manifest,
-            chunk_dicts,
-            paths.llm_cache,
-            prompt_version,
-            CONTEXT_PASS_SCHEMA_VERSION,
-            model_profile,
-            perspectives_required=perspectives_required,
-            perspectives_optional=perspectives_optional,
-            root_entity=input_context.get("root_entity") if isinstance(input_context.get("root_entity"), dict) else None,
-            input_channel=input_context.get("input_channel") if isinstance(input_context.get("input_channel"), dict) else None,
-            quadrant_map=input_context.get("quadrant_map") if isinstance(input_context.get("quadrant_map"), dict) else None,
-            quadrant_semantics=input_context.get("quadrant_semantics")
-            if isinstance(input_context.get("quadrant_semantics"), dict)
-            else None,
-            quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
-            target_pages=list(input_context.get("target_pages") or []),
-            input_stage_status=str(input_context.get("input_stage_status") or ""),
-        )
+        with _observed(observer, "input_stage_context") as metrics:
+            source_config = find_source_config(root, config, source)
+            input_context = input_context_for_source(root, config, source)
+            perspectives_required, perspectives_optional = merge_perspectives(
+                source_config,
+                required=[],
+                optional=[],
+                root_required=list(input_context.get("perspectives_required") or []),
+                root_optional=list(input_context.get("perspectives_optional") or []),
+            )
+            metrics["target_page_count"] = len(input_context.get("target_pages") or [])
+            metrics["perspective_count"] = len(perspectives_required) + len(perspectives_optional)
+        with _observed(observer, "llm_request", chunk_count=len(chunk_dicts)) as metrics:
+            request = build_context_request(
+                manifest,
+                chunk_dicts,
+                paths.llm_cache,
+                prompt_version,
+                CONTEXT_PASS_SCHEMA_VERSION,
+                model_profile,
+                perspectives_required=perspectives_required,
+                perspectives_optional=perspectives_optional,
+                root_entity=input_context.get("root_entity") if isinstance(input_context.get("root_entity"), dict) else None,
+                input_channel=input_context.get("input_channel") if isinstance(input_context.get("input_channel"), dict) else None,
+                quadrant_map=input_context.get("quadrant_map") if isinstance(input_context.get("quadrant_map"), dict) else None,
+                quadrant_semantics=input_context.get("quadrant_semantics")
+                if isinstance(input_context.get("quadrant_semantics"), dict)
+                else None,
+                quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
+                target_pages=list(input_context.get("target_pages") or []),
+                input_stage_status=str(input_context.get("input_stage_status") or ""),
+            )
+            metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
         if source_config:
             request["source_config_ref"] = source_config["path"]
             request["source_config_perspectives_applied"] = True
@@ -257,15 +315,16 @@ def run(
 
     score_event_id: str | None = None
     if persist and record_score and chunk_count > 0:
-        event = record_event(
-            paths.derived_root / "score-events.jsonl",
-            event_type="ingestar_fonte_valida",
-            actor=actor or config.owner_label,
-            context=context,
-            ts=ts,
-            dedup_key=f"ingest:{source_id}",
-        )
-        score_event_id = event.event_id
+        with _observed(observer, "score_event"):
+            event = record_event(
+                paths.derived_root / "score-events.jsonl",
+                event_type="ingestar_fonte_valida",
+                actor=actor or config.owner_label,
+                context=context,
+                ts=ts,
+                dedup_key=f"ingest:{source_id}",
+            )
+            score_event_id = event.event_id
 
     if blocked:
         llm_context_status = "blocked"
@@ -276,12 +335,10 @@ def run(
     else:
         llm_context_status = "recorded"
 
-    # The processing cursor is written ONLY here, after every durable artifact
-    # owned by this deterministic pipeline (manifest, text, chunks, index,
-    # context request and optional score event) has landed. The separate deep
-    # read + normalized event + memory integration still have their own gates;
-    # this mutable cursor alone is not proof of canonical completion. Never on a
-    # dry-run or a blocked ingest.
+    # F8 — the stream cursor is written ONLY here, after every durable write
+    # (manifest, text, chunks, index, event) has landed. A crash before this
+    # point re-reads next time; the manifest sha dedup makes that safe. Never on
+    # a dry-run or a blocked ingest.
     stream_cursor_written = False
     if persist and not blocked and stream_id and chunk_count > 0:
         from wiki_core.source_state import write_stream_cursor

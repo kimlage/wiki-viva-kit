@@ -12,7 +12,6 @@ context: example
 visibility: private_self
 updated_at: 2026-06-09
 stale_after_days: 30
-stale_exempt: true
 sources_policy: fontes_vivas_e_propostas
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
@@ -30,7 +29,6 @@ Updated on: 2026-06-09.
 This is a demonstration context. Each repo that adopts the kit declares its
 contexts in [wiki.config.yaml](../../wiki.config.yaml) (`contexts:`) and creates a context
 hub like this one (one index page per context, in [memories/](../index.md)).
-It is an evergreen synthetic fixture, not a live domain context.
 
 ## What lives here
 

@@ -16,6 +16,8 @@ sources_policy: propostas_de_ingestao
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 purpose: "Directory of ingestion proposals (one per source), with gate_state and normalized events."
+source_refs:
+  - sources-wiki-viva-methodology
 moc_parent: memories/index.md
 related_pages:
   - memories/system/ingestion-process.md

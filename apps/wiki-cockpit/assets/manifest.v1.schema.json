@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:wiki-viva:cockpit:asset-manifest:v1",
+  "title": "Wiki Viva Cockpit asset manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy",
+    "external_assets",
+    "icon_dependencies",
+    "assets"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki_cockpit_asset_manifest.v1"
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_asset_roots",
+        "allowed_spdx",
+        "hotlinks",
+        "inline_data_assets",
+        "budgets"
+      ],
+      "properties": {
+        "allowed_asset_roots": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "public",
+              "src/assets"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "allowed_spdx": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "Apache-2.0",
+              "BSD-3-Clause",
+              "CC-BY-4.0",
+              "CC0-1.0",
+              "ISC",
+              "MIT",
+              "OFL-1.1"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "hotlinks": {
+          "const": "forbidden"
+        },
+        "inline_data_assets": {
+          "const": "forbidden"
+        },
+        "budgets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_asset_count",
+            "max_total_bytes",
+            "max_single_asset_bytes"
+          ],
+          "properties": {
+            "max_asset_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 128
+            },
+            "max_total_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5242880
+            },
+            "max_single_asset_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1048576
+            }
+          }
+        }
+      }
+    },
+    "external_assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "declared_count"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "none",
+            "present"
+          ]
+        },
+        "declared_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "icon_dependencies": {
+      "type": "array",
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "package",
+          "version",
+          "classification",
+          "vendored",
+          "lock_integrity",
+          "license"
+        ],
+        "properties": {
+          "package": {
+            "const": "lucide-react"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+          },
+          "classification": {
+            "const": "runtime_component_dependency"
+          },
+          "vendored": {
+            "const": false
+          },
+          "lock_integrity": {
+            "type": "string",
+            "pattern": "^sha512-[A-Za-z0-9+/]+={0,2}$"
+          },
+          "license": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["spdx", "file", "sha256"],
+            "properties": {
+              "spdx": {"const": "ISC"},
+              "file": {"type": "string", "minLength": 1},
+              "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    }
+  },
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "kind",
+        "origin",
+        "license",
+        "integrity",
+        "budget",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(public|src/assets)/"
+        },
+        "kind": {
+          "enum": [
+            "audio",
+            "font",
+            "image",
+            "model",
+            "video"
+          ]
+        },
+        "origin": {
+          "enum": [
+            "first_party",
+            "third_party"
+          ]
+        },
+        "license": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "spdx",
+            "file",
+            "sha256"
+          ],
+          "properties": {
+            "spdx": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "integrity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm",
+            "value",
+            "bytes"
+          ],
+          "properties": {
+            "algorithm": {
+              "const": "sha256"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_bytes"
+          ],
+          "properties": {
+            "max_bytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "upstream_url",
+            "attribution"
+          ],
+          "properties": {
+            "source": {
+              "enum": [
+                "repository",
+                "vendored"
+              ]
+            },
+            "upstream_url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "attribution": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

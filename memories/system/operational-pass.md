@@ -36,11 +36,11 @@ Read this first: a compact daily state of items that still need review, decision
 
 ### Latest updates
 
-- **system:** [Operational pass - sources, actions and contexts](operational-pass.md) (2026-08-28)
-- **system:** [Command reference](wiki/command-reference.md) (2026-08-28)
-- **system:** [Memory log](log.md) (2026-08-27)
-- **system:** [Impact acknowledgements](ingestion/impact-acks.md) (2026-08-27)
-- **system:** [Canonical source registry](source-registry.md) (2026-08-27)
+- **system:** [Operations - wiki-viva-kit](../operations.md) (2026-08-28)
+- **system:** [Meta-wiki: how the living wiki works](wiki/index.md) (2026-08-28)
+- **system:** [Living wiki architecture](wiki/architecture.md) (2026-08-28)
+- **system:** [Input stage](input-stage.md) (2026-08-28)
+- **system:** [Ingestion process](ingestion-process.md) (2026-08-28)
 
 
 ## Context summary
@@ -48,7 +48,7 @@ Read this first: a compact daily state of items that still need review, decision
 | Context | Hub | Vitality | Sources | Sources needing attention | Actions | Actions needing attention | Claims / decisions | Next steps |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | example | [Example context - hub](../example/index.md) | stale | 0 | 0 | 0 | 0 | 0 / 0 | - |
-| system | [Memory - root MOC](../index.md) | fresh | 1 | 0 | 0 | 0 | 0 / 0 | - |
+| system | [Memory - root MOC](../index.md) | stale | 1 | 0 | 0 | 0 | 0 / 0 | - |
 
 ## Consolidation output matrix
 

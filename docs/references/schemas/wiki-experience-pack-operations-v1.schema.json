@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-experience-pack-operations-v1.schema.json",
+  "title": "Wiki Viva experience pack operations v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pack", "write_policy", "permissions", "skills", "operations"],
+  "properties": {
+    "schema_version": {"const": "wiki_experience_pack_operations.v1"},
+    "pack": {"$ref": "#/$defs/packId"},
+    "write_policy": {"const": "proposal_branch_only"},
+    "permissions": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "required": ["scope", "mode"],
+        "properties": {
+          "scope": {"$ref": "#/$defs/identifier"},
+          "mode": {"enum": ["read_only", "proposal_only", "human_approval_required"]}
+        }
+      }
+    },
+    "skills": {
+      "type": "object", "additionalProperties": false,
+      "required": ["human", "agent"],
+      "properties": {
+        "human": {"$ref": "#/$defs/skills"},
+        "agent": {"$ref": "#/$defs/skills"}
+      }
+    },
+    "operations": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "required": ["slot", "command", "inputs", "outputs", "permissions", "dry_run", "human_gate", "policies"],
+        "properties": {
+          "slot": {"$ref": "#/$defs/identifier"},
+          "command": {"$ref": "#/$defs/identifier"},
+          "inputs": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "outputs": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "permissions": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "dry_run": {"const": true},
+          "human_gate": {"const": "required"},
+          "policies": {
+            "type": "object",
+            "propertyNames": {"$ref": "#/$defs/identifier"},
+            "additionalProperties": {
+              "anyOf": [
+                {"type": "string"}, {"type": "boolean"}, {"type": "number"},
+                {"type": "array", "items": {"type": ["string", "boolean", "number"]}}
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "packId": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+    "nonEmptyIdentifiers": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "permissions", "responsibility"],
+        "properties": {
+          "id": {"$ref": "#/$defs/identifier"},
+          "permissions": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "responsibility": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

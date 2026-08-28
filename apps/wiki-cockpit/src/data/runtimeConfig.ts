@@ -42,7 +42,7 @@ function cleanBase(value: string | undefined): string {
   return (value || "").trim().replace(/\/+$/, "");
 }
 
-function normalize(raw: RawRuntimeConfig): RuntimeConfig {
+export function normalizeRuntimeConfig(raw: RawRuntimeConfig): RuntimeConfig {
   const hasApiBase = Object.prototype.hasOwnProperty.call(raw, "api_base");
   return {
     apiBase: hasApiBase ? cleanBase(raw.api_base) : DEFAULT_CONFIG.apiBase,
@@ -65,7 +65,7 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
     runtimeConfigPromise = fetch("/wiki-cockpit.config.json", { cache: "no-store", headers: { accept: "application/json" } })
       .then(async (response) => {
         if (!response.ok) return DEFAULT_CONFIG;
-        return normalize((await response.json()) as RawRuntimeConfig);
+        return normalizeRuntimeConfig((await response.json()) as RawRuntimeConfig);
       })
       .catch(() => DEFAULT_CONFIG)
       .then((config) => {

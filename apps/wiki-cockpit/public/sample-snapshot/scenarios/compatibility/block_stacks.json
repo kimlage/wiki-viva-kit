@@ -1,0 +1,1915 @@
+{
+  "anchor_tree": {
+    "nodes": {
+      "holon-product-ops": {
+        "children": [
+          "project-atlas-launch"
+        ],
+        "id": "holon-product-ops",
+        "page_type": "holon",
+        "parent": "",
+        "path": "memories/clientes/product-ops/index.md",
+        "title": "Product Ops Team"
+      },
+      "library-ai-safety": {
+        "children": [],
+        "id": "library-ai-safety",
+        "page_type": "context_hub",
+        "parent": "",
+        "path": "memories/estudio/biblioteca-ai-safety/index.md",
+        "title": "Biblioteca AI Safety"
+      },
+      "project-atlas-launch": {
+        "children": [],
+        "id": "project-atlas-launch",
+        "page_type": "project",
+        "parent": "holon-product-ops",
+        "path": "memories/clientes/product-ops/atlas-launch/index.md",
+        "title": "Atlas Launch"
+      },
+      "root-alex-rivera": {
+        "children": [],
+        "id": "root-alex-rivera",
+        "page_type": "root_entity",
+        "parent": "",
+        "path": "memories/index.md",
+        "title": "Alex Rivera"
+      }
+    },
+    "roots": [
+      "holon-product-ops",
+      "library-ai-safety",
+      "root-alex-rivera"
+    ]
+  },
+  "anchors": {
+    "holon-product-ops": {
+      "derived": {
+        "empty_quadrants": [
+          "q2",
+          "q3",
+          "q4"
+        ],
+        "missions": [
+          {
+            "anchor": "holon-product-ops",
+            "provider": "quadrant_absence",
+            "quadrant": "q2"
+          },
+          {
+            "anchor": "holon-product-ops",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          },
+          {
+            "anchor": "holon-product-ops",
+            "provider": "quadrant_absence",
+            "quadrant": "q4"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [
+            "project-atlas-launch"
+          ],
+          "q2": [],
+          "q3": [],
+          "q4": []
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {
+          "project-atlas-launch": [
+            {
+              "basis": "nested_center_self_projection",
+              "center": "holon-product-ops",
+              "facet": "intencao",
+              "local_facet_under_subject": "intencao",
+              "local_quadrant_under_subject": "q1",
+              "local_sub_lens_under_subject": "intencao",
+              "page": "project-atlas-launch",
+              "quadrant": "q1",
+              "reason": "anchor_type:project",
+              "sub_lens": "intencao",
+              "subject_center": "project-atlas-launch",
+              "through_center": "project-atlas-launch"
+            }
+          ]
+        },
+        "quadrant_sub_lens": {
+          "q1": {
+            "intencao": [
+              "project-atlas-launch"
+            ]
+          },
+          "q2": {},
+          "q3": {},
+          "q4": {}
+        },
+        "region_groups": {
+          "anchor": "holon-product-ops",
+          "groups": [
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:intencao",
+              "kind": "quadrant",
+              "label_key": "intencao",
+              "member_ids": [
+                "project-atlas-launch"
+              ],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 1,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 1,
+                "unsourced": 0
+              },
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "content",
+                  "page_type": "project"
+                }
+              ],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:pratica",
+              "kind": "quadrant",
+              "label_key": "pratica",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:relacoes",
+              "kind": "quadrant",
+              "label_key": "relacoes",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:sistemas",
+              "kind": "quadrant",
+              "label_key": "sistemas",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            }
+          ],
+          "schema_version": "wiki.region_groups.v1"
+        },
+        "relations": {
+          "due": [],
+          "open_commitments": [],
+          "upcoming_dates": []
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "none",
+        "context": "clientes",
+        "horizon_label": "title",
+        "horizon_text": "Product Ops Team",
+        "landmark": "plaza",
+        "motif": "grid"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_quadrant",
+          "catalog": [
+            "meeting",
+            "decision",
+            "action",
+            "person",
+            "role"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": true,
+        "intake": {
+          "forms": [
+            "meeting_note",
+            "interaction_note"
+          ]
+        },
+        "missions": {
+          "active": true,
+          "providers": [
+            "stale",
+            "meeting_followup",
+            "quadrant_absence",
+            "relation_cadence_overdue",
+            "date_upcoming",
+            "commitment_open"
+          ],
+          "quiet": false,
+          "weather_contrib": true
+        },
+        "regions": {
+          "active": true,
+          "visual_pack": "region_operations"
+        },
+        "score": {
+          "loops": [],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "quadrants",
+            "atlas",
+            "focus"
+          ],
+          "default": "quadrants"
+        }
+      },
+      "stack": [
+        {
+          "collection_scope": true,
+          "config": {
+            "labels": {
+              "q1": "Inten\u00e7\u00e3o da equipe",
+              "q2": "Entregas e evid\u00eancias",
+              "q3": "Rela\u00e7\u00f5es e rituais",
+              "q4": "Sistemas e governan\u00e7a"
+            }
+          },
+          "declared_scope": "descendants",
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
+        },
+        {
+          "collection_scope": true,
+          "config": {},
+          "declared_scope": "descendants",
+          "id": "wiki.block.relations.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "template:holon",
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "default": "quadrants"
+          },
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:holon",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "visual_pack": "region_operations"
+          },
+          "id": "wiki.block.ui_regions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:holon",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "providers": [
+              "stale",
+              "meeting_followup",
+              "quadrant_absence"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:holon",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "arrangement": "by_quadrant",
+            "catalog": [
+              "meeting",
+              "decision",
+              "action",
+              "person",
+              "role"
+            ]
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:holon",
+          "scope": "descendants"
+        }
+      ],
+      "visual_grammar": {
+        "allowed_packs": [
+          "evidence_first",
+          "quiet_structure",
+          "region_operations",
+          "review_first"
+        ],
+        "default_pack": "region_operations",
+        "packs": {
+          "evidence_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "action_lane",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "reader.badge": "source_badge",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "quiet_structure": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "center_badge",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "scope_chip",
+              "region.rail": "core_debt_meter",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "region_operations": {
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "review_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "review_halo",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "review_halo",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          }
+        },
+        "primitive_purpose": {
+          "action_lane": "separate work items from context",
+          "attention_rail": "filter attention inside the active region",
+          "bridge_count": "explain cross-region dependencies",
+          "center_badge": "show the active anchor center",
+          "core_debt_meter": "flag classification debt in the core ring",
+          "empty_region_affordance": "explain required absences and valid creation paths",
+          "hidden_histogram": "describe hidden work behind render limits",
+          "legend_key": "explain the resolved visual grammar",
+          "region_card": "summarize region size and purpose",
+          "region_work_card": "show composition, attention and next actions",
+          "review_halo": "show pending proposal or approval review",
+          "risk_notch": "show risk without flooding the region",
+          "scope_chip": "show the active center, region or filter scope",
+          "source_badge": "mark raw, synced and consolidated evidence",
+          "type_shelf": "show why a region is dense by page family"
+        },
+        "schema_version": "wiki.visual_grammar.v1"
+      }
+    },
+    "library-ai-safety": {
+      "derived": {
+        "empty_quadrants": [
+          "q1",
+          "q2",
+          "q3",
+          "q4"
+        ],
+        "missions": [
+          {
+            "anchor": "library-ai-safety",
+            "provider": "quadrant_absence",
+            "quadrant": "q1"
+          },
+          {
+            "anchor": "library-ai-safety",
+            "provider": "quadrant_absence",
+            "quadrant": "q2"
+          },
+          {
+            "anchor": "library-ai-safety",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          },
+          {
+            "anchor": "library-ai-safety",
+            "provider": "quadrant_absence",
+            "quadrant": "q4"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [],
+          "q2": [],
+          "q3": [],
+          "q4": []
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {},
+        "quadrant_sub_lens": {
+          "q1": {},
+          "q2": {},
+          "q3": {},
+          "q4": {}
+        },
+        "region_groups": {
+          "anchor": "library-ai-safety",
+          "groups": [
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:intencao",
+              "kind": "quadrant",
+              "label_key": "intencao",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:pratica",
+              "kind": "quadrant",
+              "label_key": "pratica",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:relacoes",
+              "kind": "quadrant",
+              "label_key": "relacoes",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:sistemas",
+              "kind": "quadrant",
+              "label_key": "sistemas",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            }
+          ],
+          "schema_version": "wiki.region_groups.v1"
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "motes",
+        "context": "estudio",
+        "horizon_label": "title",
+        "horizon_text": "Biblioteca AI Safety",
+        "landmark": "shelf",
+        "motif": "shelves"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_family",
+          "catalog": [
+            "artifact",
+            "claim",
+            "insight"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": false,
+        "intake": {
+          "forms": [
+            "promote_reference"
+          ]
+        },
+        "missions": {
+          "active": true,
+          "providers": [
+            "stale",
+            "template_conformity",
+            "quadrant_absence"
+          ],
+          "quiet": true,
+          "weather_contrib": false
+        },
+        "regions": {
+          "active": true,
+          "visual_pack": "region_operations"
+        },
+        "score": {
+          "loops": [
+            "context_vitality"
+          ],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "districts",
+            "atlas",
+            "focus"
+          ],
+          "default": "districts"
+        }
+      },
+      "stack": [
+        {
+          "collection_scope": false,
+          "config": {
+            "providers": [
+              "stale",
+              "template_conformity"
+            ],
+            "quiet": true,
+            "weather_contrib": false
+          },
+          "id": "wiki.block.ui_missions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "arrangement": "by_family",
+            "catalog": [
+              "artifact",
+              "claim",
+              "insight"
+            ]
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "forms": [
+              "promote_reference"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "self"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "loops": [
+              "context_vitality"
+            ]
+          },
+          "id": "wiki.block.gamification.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:context_hub",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": true,
+          "config": {
+            "labels": {
+              "q1": "Ideias e pressupostos",
+              "q2": "Benchmarks e evid\u00eancias",
+              "q3": "Autores e escolas",
+              "q4": "Institui\u00e7\u00f5es e standards"
+            },
+            "mode": "optional_lens"
+          },
+          "declared_scope": "descendants",
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "default": "districts"
+          },
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        }
+      ],
+      "visual_grammar": {
+        "allowed_packs": [
+          "evidence_first",
+          "quiet_structure",
+          "region_operations",
+          "review_first"
+        ],
+        "default_pack": "region_operations",
+        "packs": {
+          "evidence_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "action_lane",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "reader.badge": "source_badge",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "quiet_structure": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "center_badge",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "scope_chip",
+              "region.rail": "core_debt_meter",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "region_operations": {
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "review_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "review_halo",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "review_halo",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          }
+        },
+        "primitive_purpose": {
+          "action_lane": "separate work items from context",
+          "attention_rail": "filter attention inside the active region",
+          "bridge_count": "explain cross-region dependencies",
+          "center_badge": "show the active anchor center",
+          "core_debt_meter": "flag classification debt in the core ring",
+          "empty_region_affordance": "explain required absences and valid creation paths",
+          "hidden_histogram": "describe hidden work behind render limits",
+          "legend_key": "explain the resolved visual grammar",
+          "region_card": "summarize region size and purpose",
+          "region_work_card": "show composition, attention and next actions",
+          "review_halo": "show pending proposal or approval review",
+          "risk_notch": "show risk without flooding the region",
+          "scope_chip": "show the active center, region or filter scope",
+          "source_badge": "mark raw, synced and consolidated evidence",
+          "type_shelf": "show why a region is dense by page family"
+        },
+        "schema_version": "wiki.visual_grammar.v1"
+      }
+    },
+    "project-atlas-launch": {
+      "derived": {
+        "empty_quadrants": [
+          "q1",
+          "q2",
+          "q3",
+          "q4"
+        ],
+        "missions": [
+          {
+            "anchor": "project-atlas-launch",
+            "provider": "quadrant_absence",
+            "quadrant": "q1"
+          },
+          {
+            "anchor": "project-atlas-launch",
+            "provider": "quadrant_absence",
+            "quadrant": "q2"
+          },
+          {
+            "anchor": "project-atlas-launch",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          },
+          {
+            "anchor": "project-atlas-launch",
+            "provider": "quadrant_absence",
+            "quadrant": "q4"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [],
+          "q2": [],
+          "q3": [],
+          "q4": []
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {},
+        "quadrant_sub_lens": {
+          "q1": {},
+          "q2": {},
+          "q3": {},
+          "q4": {}
+        },
+        "region_groups": {
+          "anchor": "project-atlas-launch",
+          "groups": [
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:intencao",
+              "kind": "quadrant",
+              "label_key": "intencao",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:pratica",
+              "kind": "quadrant",
+              "label_key": "pratica",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:relacoes",
+              "kind": "quadrant",
+              "label_key": "relacoes",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:sistemas",
+              "kind": "quadrant",
+              "label_key": "sistemas",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            }
+          ],
+          "schema_version": "wiki.region_groups.v1"
+        },
+        "relations": {
+          "due": [],
+          "open_commitments": [],
+          "upcoming_dates": []
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "none",
+        "context": "clientes",
+        "horizon_label": "title",
+        "horizon_text": "Atlas Launch",
+        "landmark": "forge",
+        "motif": "orbits"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_quadrant",
+          "catalog": [
+            "action",
+            "decision",
+            "artifact",
+            "claim",
+            "meeting"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": true,
+        "intake": {
+          "forms": [
+            "meeting_note",
+            "interaction_note"
+          ]
+        },
+        "missions": {
+          "active": true,
+          "providers": [
+            "stale",
+            "template_conformity",
+            "quadrant_absence",
+            "relation_cadence_overdue",
+            "date_upcoming",
+            "commitment_open"
+          ],
+          "quiet": false,
+          "weather_contrib": true
+        },
+        "regions": {
+          "active": true,
+          "visual_pack": "region_operations"
+        },
+        "score": {
+          "loops": [
+            "mission_health"
+          ],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "trails",
+            "atlas",
+            "focus"
+          ],
+          "default": "trails"
+        }
+      },
+      "stack": [
+        {
+          "collection_scope": true,
+          "config": {
+            "labels": {
+              "q1": "Inten\u00e7\u00e3o da equipe",
+              "q2": "Entregas e evid\u00eancias",
+              "q3": "Rela\u00e7\u00f5es e rituais",
+              "q4": "Sistemas e governan\u00e7a"
+            },
+            "mode": "optional_lens"
+          },
+          "declared_scope": "descendants",
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "template:project",
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
+        },
+        {
+          "collection_scope": true,
+          "config": {},
+          "declared_scope": "descendants",
+          "id": "wiki.block.relations.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "anchor:holon-product-ops",
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "default": "trails"
+          },
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:project",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "visual_pack": "region_operations"
+          },
+          "id": "wiki.block.ui_regions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "anchor:holon-product-ops",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "providers": [
+              "stale",
+              "template_conformity"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:project",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "arrangement": "by_quadrant",
+            "catalog": [
+              "action",
+              "decision",
+              "artifact",
+              "claim",
+              "meeting"
+            ]
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:project",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "loops": [
+              "mission_health"
+            ]
+          },
+          "id": "wiki.block.gamification.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:project",
+          "scope": "descendants"
+        }
+      ],
+      "visual_grammar": {
+        "allowed_packs": [
+          "evidence_first",
+          "quiet_structure",
+          "region_operations",
+          "review_first"
+        ],
+        "default_pack": "region_operations",
+        "packs": {
+          "evidence_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "action_lane",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "reader.badge": "source_badge",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "quiet_structure": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "center_badge",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "scope_chip",
+              "region.rail": "core_debt_meter",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "region_operations": {
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "review_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "review_halo",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "review_halo",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          }
+        },
+        "primitive_purpose": {
+          "action_lane": "separate work items from context",
+          "attention_rail": "filter attention inside the active region",
+          "bridge_count": "explain cross-region dependencies",
+          "center_badge": "show the active anchor center",
+          "core_debt_meter": "flag classification debt in the core ring",
+          "empty_region_affordance": "explain required absences and valid creation paths",
+          "hidden_histogram": "describe hidden work behind render limits",
+          "legend_key": "explain the resolved visual grammar",
+          "region_card": "summarize region size and purpose",
+          "region_work_card": "show composition, attention and next actions",
+          "review_halo": "show pending proposal or approval review",
+          "risk_notch": "show risk without flooding the region",
+          "scope_chip": "show the active center, region or filter scope",
+          "source_badge": "mark raw, synced and consolidated evidence",
+          "type_shelf": "show why a region is dense by page family"
+        },
+        "schema_version": "wiki.visual_grammar.v1"
+      }
+    },
+    "root-alex-rivera": {
+      "derived": {
+        "empty_quadrants": [
+          "q1",
+          "q2",
+          "q3",
+          "q4"
+        ],
+        "missions": [
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q1"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q2"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q4"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [],
+          "q2": [],
+          "q3": [],
+          "q4": []
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {},
+        "quadrant_sub_lens": {
+          "q1": {},
+          "q2": {},
+          "q3": {},
+          "q4": {}
+        },
+        "region_groups": {
+          "anchor": "root-alex-rivera",
+          "groups": [
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:intencao",
+              "kind": "quadrant",
+              "label_key": "intencao",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:pratica",
+              "kind": "quadrant",
+              "label_key": "pratica",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:relacoes",
+              "kind": "quadrant",
+              "label_key": "relacoes",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:sistemas",
+              "kind": "quadrant",
+              "label_key": "sistemas",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            }
+          ],
+          "schema_version": "wiki.region_groups.v1"
+        },
+        "relations": {
+          "due": [],
+          "open_commitments": [],
+          "upcoming_dates": []
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "motes",
+        "context": "pessoal",
+        "horizon_label": "title",
+        "horizon_text": "Alex Rivera",
+        "landmark": "observatory",
+        "motif": "rings"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_quadrant",
+          "catalog": [
+            "context_note",
+            "source",
+            "person",
+            "project",
+            "holon",
+            "decision",
+            "tool"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": true,
+        "intake": {
+          "forms": [
+            "copy_file",
+            "paste_text",
+            "meeting_note",
+            "interaction_note"
+          ]
+        },
+        "missions": {
+          "active": true,
+          "providers": [
+            "stale",
+            "gates_failing",
+            "approvals_pending",
+            "template_conformity",
+            "source_closure",
+            "quadrant_absence",
+            "relation_cadence_overdue",
+            "date_upcoming",
+            "commitment_open"
+          ],
+          "quiet": false,
+          "weather_contrib": true
+        },
+        "regions": {
+          "active": true,
+          "visual_pack": "region_operations"
+        },
+        "score": {
+          "loops": [],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "quadrants",
+            "atlas",
+            "focus"
+          ],
+          "default": "quadrants"
+        }
+      },
+      "stack": [
+        {
+          "collection_scope": false,
+          "config": {},
+          "id": "wiki.block.privacy_boundary.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {},
+          "id": "wiki.block.git_human_gate.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {},
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "catalog": [
+              "context_note",
+              "source",
+              "person",
+              "project",
+              "holon",
+              "decision",
+              "tool"
+            ],
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "forms": [
+              "copy_file",
+              "paste_text"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "self"
+        },
+        {
+          "collection_scope": true,
+          "config": {},
+          "declared_scope": "descendants",
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
+        },
+        {
+          "collection_scope": true,
+          "config": {},
+          "declared_scope": "descendants",
+          "id": "wiki.block.relations.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "optional": [
+              "perspective-financial"
+            ],
+            "required": [
+              "perspective-privacy-publication"
+            ]
+          },
+          "id": "wiki.block.perspective_bundle.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {},
+          "id": "wiki.block.ui_missions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {},
+          "id": "wiki.block.gamification.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        }
+      ],
+      "visual_grammar": {
+        "allowed_packs": [
+          "evidence_first",
+          "quiet_structure",
+          "region_operations",
+          "review_first"
+        ],
+        "default_pack": "region_operations",
+        "packs": {
+          "evidence_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "action_lane",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "reader.badge": "source_badge",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "quiet_structure": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "center_badge",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "scope_chip",
+              "region.rail": "core_debt_meter",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "region_operations": {
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "review_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "review_halo",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "review_halo",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          }
+        },
+        "primitive_purpose": {
+          "action_lane": "separate work items from context",
+          "attention_rail": "filter attention inside the active region",
+          "bridge_count": "explain cross-region dependencies",
+          "center_badge": "show the active anchor center",
+          "core_debt_meter": "flag classification debt in the core ring",
+          "empty_region_affordance": "explain required absences and valid creation paths",
+          "hidden_histogram": "describe hidden work behind render limits",
+          "legend_key": "explain the resolved visual grammar",
+          "region_card": "summarize region size and purpose",
+          "region_work_card": "show composition, attention and next actions",
+          "review_halo": "show pending proposal or approval review",
+          "risk_notch": "show risk without flooding the region",
+          "scope_chip": "show the active center, region or filter scope",
+          "source_badge": "mark raw, synced and consolidated evidence",
+          "type_shelf": "show why a region is dense by page family"
+        },
+        "schema_version": "wiki.visual_grammar.v1"
+      }
+    }
+  },
+  "schema_version": "wiki_web_block_stacks.v1"
+}

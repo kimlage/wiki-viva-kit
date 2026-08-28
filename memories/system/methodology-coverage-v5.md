@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-06-09
 stale_after_days: 30
 sources_policy: metodologia_e_implementacao
 gate: github_pr
@@ -25,7 +25,7 @@ related_pages:
 
 # Methodology coverage
 
-Updated on: 2026-08-26.
+Updated on: 2026-06-09.
 
 This matrix tracks what the kit implements of the
 [Living wiki methodology](../sources/wiki-viva-methodology-v5.md).
@@ -38,10 +38,7 @@ This matrix tracks what the kit implements of the
 | Text and chunk extraction | implemented | [scripts/wiki_extract_text.py](../../scripts/wiki_extract_text.py) |
 | Local index (FTS) | implemented | [scripts/wiki_build_index.py](../../scripts/wiki_build_index.py) |
 | Ingestion orchestrator | implemented | [scripts/wiki_ingest.py](../../scripts/wiki_ingest.py) |
-| Source entity + recipe | implemented and used by the canonical methodology source | [wiki_core/source_recipe.py](../../wiki_core/source_recipe.py), [source config](../sources/config/wiki-viva-methodology-v5.md) |
-| Stream state and clean-clone freshness | implemented; cursor preferred, single-stream versioned receipt fallback | [wiki_core/source_state.py](../../wiki_core/source_state.py), [wiki_core/web/sources.py](../../wiki_core/web/sources.py) |
 | Contextual LLM pass (gate) | implemented | [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py); delegated to the agent |
-| Consolidation closure | implemented and exercised by a real methodology refresh | [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py), [2026-08-26 event](ingestion/events/2026-08-26-wiki-viva-methodology-v5-md.md) |
 | Proposal gate + rebase | implemented | [wiki_core/gate/](../../wiki_core/gate/README.md), [scripts/wiki_gate.py](../../scripts/wiki_gate.py) |
 | Secret/PII detectors | implemented | [wiki_core/detectors/](../../wiki_core/detectors/README.md); `--public-export` and `--strict-local` modes |
 | Visibility model | implemented | PII free in private; blocked at the public boundary; secret always blocked |
@@ -54,9 +51,8 @@ This matrix tracks what the kit implements of the
 
 ## Overall status
 
-- The kit runs end to end: recipe-grounded ingestion, delegated reading,
-  consolidation/integration, gate, score (karma), cockpit, perceptive layer and
-  insight job, with a blocking audit in CI.
+- The kit runs end to end: ingestion, gate, score (karma), cockpit, perceptive layer,
+  and insight job, with a blocking audit in CI.
 - The contexts and the owner are configurable; no context is hardcoded in the code.
 
 ## Related

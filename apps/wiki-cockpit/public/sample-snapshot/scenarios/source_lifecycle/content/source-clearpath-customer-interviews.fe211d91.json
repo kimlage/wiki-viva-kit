@@ -1,0 +1,60 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath customer interviews\n\nQ2 inside the company: an observable evidence source owned by the company root. This fixture demonstrates lifecycle `ingested`, freshness `fresh` and last attempt `ok`.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "owner": "company-clearpath-labs",
+    "page_id": "source-clearpath-customer-interviews",
+    "page_type": "source",
+    "platform": "Interview notes",
+    "source_lifecycle": {
+      "accepted_ref": "demo-sha:clearpath-interviews-accepted",
+      "adoption_state": "accepted",
+      "emitted_page_ids": [
+        "claim-clearpath-market-signal"
+      ],
+      "freshness_state": "fresh",
+      "last_attempt_at": "2026-07-03",
+      "last_attempt_state": "ok",
+      "last_ingested_at": "2026-07-03",
+      "last_sync_success_at": "2026-07-03",
+      "pipeline_stage": "complete",
+      "raw_artifact_count": 4,
+      "secret_safe_log_refs": [
+        "logs/demo/source-clearpath-customer-interviews-attempt"
+      ],
+      "state": "ingested"
+    },
+    "source_type": "document",
+    "stale_after_days": 30,
+    "sub_lens": "evidencias",
+    "subject_ref": "company-clearpath-labs",
+    "sync": {
+      "last_event_ref": "",
+      "last_run_at": "2026-07-03",
+      "last_status": "ok"
+    },
+    "title": "Clearpath customer interviews",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "source-clearpath-customer-interviews",
+    "page_type": "source",
+    "path": "memories/empresas/clearpath/source-customer-interviews.md",
+    "summary": "Q2 inside the company: an observable evidence source owned by the company root. This fixture demonstrates lifecycle ingested, freshness fresh and last attempt ok.",
+    "summary_truncated": false,
+    "title": "Clearpath customer interviews",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-2830e4dd880e44a2",
+  "source_refs": []
+}

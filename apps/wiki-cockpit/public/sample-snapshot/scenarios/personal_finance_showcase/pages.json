@@ -1,0 +1,469 @@
+{
+  "pages": [
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "b72fd7203faa1986232d7b639e2307b91b05f1b551c87cc35c3c356abe97c5d8",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "root-personal-finance-showcase",
+      "moc_children_count": 10,
+      "moc_parent": "",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Public, synthetic, deterministic experience-pack showcase. Synthetic operating account Synthetic income Synthetic housing",
+      "summary_truncated": false,
+      "title": "Personal Finance Mission Control",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "732ace3ffe72dcb90d1d9e6f9a29208093d387fe91a84ff2b8ac3cb01ed5f86f",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-obligation-rent",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "personal_finance_obligation",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/obligation-rent.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [
+          "finance-category-housing"
+        ],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [
+        "finance-source-july"
+      ],
+      "stale_after_days": "3650",
+      "status": "scheduled",
+      "summary": "Public fixture obligation with an explicit day-precision due date. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {
+          "due_at": "2026-08-10",
+          "recurrence": "monthly",
+          "source_refs": [
+            "finance-source-july"
+          ],
+          "status": "scheduled"
+        },
+        "dates": {
+          "due_at": "2026-08-10"
+        },
+        "precision": {}
+      },
+      "title": "Synthetic August rent obligation",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "15afb3181a8f8b59787fc1b800c138b65044428721a8b09e39fa3c949cf877c5",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-review-july",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "decision",
+      "path": "memories/showcases/personal_finance_showcase/support/finance-review-july.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Fixture-only human-gate anchor confirming that the synthetic reconciliation was reviewed before the synthetic monthly close. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {},
+        "dates": {
+          "decided_at": "2026-08-03"
+        },
+        "precision": {}
+      },
+      "title": "Synthetic July close review",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "57e6e57095d61d4b2b7b45960a27d5711b0ab790931b694b32c1b19e3a6dc23a",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-closing-july",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "personal_finance_monthly_closing",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [
+          "finance-review-july",
+          "finance-reconciliation-july"
+        ],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [
+        "finance-source-july"
+      ],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Complete fixture close with explicit source, reconciliation and review links. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {
+          "close_state": "reviewed",
+          "closed_at": "2026-08-03",
+          "period": "2026-07",
+          "source_refs": [
+            "finance-source-july"
+          ]
+        },
+        "dates": {},
+        "precision": {}
+      },
+      "title": "Synthetic July closing",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "350948b72c88237d15c2fc9c42c99abc9b9bea9f69c016c103923915598fdbdd",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-reconciliation-july",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "personal_finance_reconciliation",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/reconciliation-july.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [
+          "finance-account-main"
+        ],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [
+        "finance-source-july"
+      ],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "The source and ledger balances agree in this normal fixture. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {
+          "period": "2026-07",
+          "reconciliation_state": "reconciled",
+          "source_refs": [
+            "finance-source-july"
+          ]
+        },
+        "dates": {},
+        "precision": {}
+      },
+      "title": "Synthetic July reconciliation",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "a11a552b7bfcc9a51f7c6df2cfd526d559a080277eb12b11a868bec6f74bdb5a",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-source-july",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "artifact",
+      "path": "memories/showcases/personal_finance_showcase/support/finance-source-july.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Fixture-only evidence anchor for the transactions and reconciliation in the public finance showcase. It contains no account number, counterparty, person or external access link. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {},
+        "dates": {
+          "recorded_at": "2026-08-01"
+        },
+        "precision": {}
+      },
+      "title": "Synthetic July statement",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "dc7ccd7898ef9259b40a33606dc6176507cab047d0645434d7c8cf3f10e336ee",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-category-housing",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "personal_finance_category",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/category-housing.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Fixture category for a recurring expense. Back to pack showcase",
+      "summary_truncated": false,
+      "title": "Synthetic housing",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "d3ca4520a87e3693609f593d36258222165302fb5e54777b5031744d647e8549",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-transaction-housing",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "personal_finance_transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [
+          "finance-account-main",
+          "finance-category-housing"
+        ],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [
+        "finance-source-july"
+      ],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Public fixture record used by cashflow and category variance. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {
+          "classification_state": "reviewed",
+          "direction": "expense",
+          "occurred_at": "2026-07-05",
+          "source_ref": "finance-source-july",
+          "source_refs": [
+            "finance-source-july"
+          ]
+        },
+        "dates": {
+          "occurred_at": "2026-07-05"
+        },
+        "precision": {}
+      },
+      "title": "Synthetic housing transaction",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "413fcc1b2b1485ac1a1a6e1121362e85a1b95aeb04f18d1d01c389e6eb75afb3",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-category-income",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "personal_finance_category",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/category-income.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Fixture category for incoming value. Back to pack showcase",
+      "summary_truncated": false,
+      "title": "Synthetic income",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "dff57965916cf05e90f75b67ad3188297f9eaf9fa4c4dda1f8333b2b3894e985",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-transaction-income",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "personal_finance_transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [
+          "finance-account-main",
+          "finance-category-income"
+        ],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [
+        "finance-source-july"
+      ],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Public fixture record with source and reviewed classification. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {
+          "classification_state": "reviewed",
+          "direction": "income",
+          "occurred_at": "2026-07-02",
+          "source_ref": "finance-source-july",
+          "source_refs": [
+            "finance-source-july"
+          ]
+        },
+        "dates": {
+          "occurred_at": "2026-07-02"
+        },
+        "precision": {}
+      },
+      "title": "Synthetic income transaction",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "7a2c6aca90c6aea8e8ef005250d10d69a84b2991ddf981a1f0ec1d6d54da34d1",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-account-main",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "personal_finance_account",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/account-main.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "active",
+      "summary": "Fixture-only account used for a complete monthly flow. Back to pack showcase",
+      "summary_truncated": false,
+      "title": "Synthetic operating account",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    }
+  ],
+  "repo_id": "wiki-viva-demo-personal-finance-showcase",
+  "schema_version": "wiki_web_pages.v1"
+}

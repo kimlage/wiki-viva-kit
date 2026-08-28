@@ -1,0 +1,245 @@
+{
+  "bundle_hash": "a589b4a240f07ed71c2475d20967bdcc87290242729857597d218368e3d9de2a",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
+    "content_sidecars"
+  ],
+  "content_sidecars": true,
+  "contract_errors": [],
+  "files": [
+    "manifest.json",
+    "operations.json",
+    "graph.json",
+    "pages.json",
+    "sources.json",
+    "source_entities.json",
+    "templates.json",
+    "actions.json",
+    "decisions.json",
+    "freshness.json",
+    "gates.json",
+    "git.json",
+    "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
+    "diff.json",
+    "ingestion.json",
+    "quality.json",
+    "commands.json",
+    "score.json",
+    "blocks.json",
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/claim-review-cadence.03799cb8.json",
+    "content/concept-feedback.ebb2f061.json",
+    "content/concept-retention.ab0c20c0.json",
+    "content/question-next-review.c0501c50.json",
+    "content/root-study-research-showcase.ca995dfd.json",
+    "content/source-learning-loops.ab164037.json"
+  ],
+  "fixture": {
+    "active_pack_ids": [
+      "study-research"
+    ],
+    "fixture_id": "wiki-viva-demo-v8",
+    "pack_showcase_ids": [
+      "study_research_showcase",
+      "personal_finance_showcase"
+    ],
+    "public_synthetic": true,
+    "reference_date": "2026-07-09",
+    "scenario_id": "study_research_showcase",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8011,
+    "source_input_sha256": "d01a7091d8cba80acfa0459e68e622df86c21de8dbecf82abcc15e19cd444f28"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2857,
+      "sha256": "a3e490bbe66d014fcad8e5c7e043c6bffe42ce203c587ed56e3344954a5f9871"
+    },
+    "block_stacks.json": {
+      "bytes": 10181,
+      "sha256": "9f82be8d7a659dd0de2859a5014faf91f5899db3def971ed4b56d50c2913699a"
+    },
+    "blocks.json": {
+      "bytes": 9051,
+      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+    },
+    "commands.json": {
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
+    },
+    "content/claim-review-cadence.03799cb8.json": {
+      "bytes": 1823,
+      "sha256": "25e3c01ec0d058093235d2b3ffc2be3c7272e27948ee6aea659be1468e82fba8"
+    },
+    "content/concept-feedback.ebb2f061.json": {
+      "bytes": 1965,
+      "sha256": "1781191fbd07f85917a0933809c82f3eee970141afa8654d5ee0359170c32879"
+    },
+    "content/concept-retention.ab0c20c0.json": {
+      "bytes": 1988,
+      "sha256": "0c825758613ebe176e35ff58cb02c46a086e433525acb062c6b0487474c286e5"
+    },
+    "content/question-next-review.c0501c50.json": {
+      "bytes": 1788,
+      "sha256": "07313a2951956e500f38e2c9f5cff43786190b01ee04190bc72273be6b364c88"
+    },
+    "content/root-study-research-showcase.ca995dfd.json": {
+      "bytes": 6522,
+      "sha256": "1028f8fa0b71c80a557030075291ee8c406ba3c6323d779ec3a670349bcf5284"
+    },
+    "content/source-learning-loops.ab164037.json": {
+      "bytes": 1684,
+      "sha256": "e4b1aefc9b0b62a07f55afc4dba2c1eb16ddc105fe02a1c85f037c659c4ce008"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 391,
+      "sha256": "76bb154169006d370f9f2430e02c497c4426a2ece0b4090b4374613869dc75bf"
+    },
+    "experience_packs.json": {
+      "bytes": 4647,
+      "sha256": "12f33b1293839e63677d196830497de424a7259a7624ecc68b512f9d34157ff4"
+    },
+    "freshness.json": {
+      "bytes": 163,
+      "sha256": "43bd1102a252f9b270aa2fef4b3d53df6892da9889870faa774438169588fd7d"
+    },
+    "gates.json": {
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 17062,
+      "sha256": "4f683d39a0fd53ade5498cb25a6d8f35f92d436439c9b2e0165e77498d8444d7"
+    },
+    "ingestion.json": {
+      "bytes": 527,
+      "sha256": "1cfa2b1708cce03094386a13487f29ceea0f615190e159f88e9d70e01861d59d"
+    },
+    "operations.json": {
+      "bytes": 227,
+      "sha256": "147fc1d627670bd3f3ab2e6e6b885d5eca8a720a803f993de0e36b55351116e4"
+    },
+    "operator_commands.json": {
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
+    },
+    "pages.json": {
+      "bytes": 6059,
+      "sha256": "07ff30615cfcee68a6424664c23df2e28e685aed144e8bd797178b553b82461c"
+    },
+    "quality.json": {
+      "bytes": 3810,
+      "sha256": "e186441c83df6d020c9168356e9f140e0ffd0f9b1faead8480e17ffe698991f6"
+    },
+    "region_groups.json": {
+      "bytes": 6041,
+      "sha256": "564effe612d952dd355050805c18f06444a35f00a1a39fd2ca79bc2de326d59c"
+    },
+    "score.json": {
+      "bytes": 670,
+      "sha256": "93fc080a7379978fa802bf7bd949feee629e40427572d1cda440867788e4b82d"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 60,
+      "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
+    },
+    "source_entities.json": {
+      "bytes": 621,
+      "sha256": "49cf7f204dd01f512fccbe671af892bba985e4f13b4166379dbcca6230f3ac62"
+    },
+    "source_lifecycle.json": {
+      "bytes": 58,
+      "sha256": "fae2169dc386a6fc7caaaa74d1990c34433b478868cb06deaa288d176fe214ff"
+    },
+    "sources.json": {
+      "bytes": 53,
+      "sha256": "3e06d1354853a719039a50edcbbbd52504c3cceca302f82f4c84b276d8a7fb75"
+    },
+    "templates.json": {
+      "bytes": 25395,
+      "sha256": "6c08b3e8a4f086083977470112cff6f8769c671842ae0c2e5fb277b55447b5bc"
+    },
+    "temporal_graph.json": {
+      "bytes": 9936,
+      "sha256": "a72835fb458957b5fbd8cdd3e60f9ca401cf70b7c2f6bdb99215e22e9e7a5ed6"
+    },
+    "timeline.json": {
+      "bytes": 2423,
+      "sha256": "b9484bd1b9ac945321b904c12a93eaa99250d40d3b193dd2e1ac36d9d3af95c5"
+    },
+    "work_items.json": {
+      "bytes": 52,
+      "sha256": "17bed50b6bb4ca952dd73d966240c34a7a4e0cc4225edabf56fac829fa2066a5"
+    }
+  },
+  "mode": "static",
+  "repo": {
+    "branch_prefix": "wiki/",
+    "default_branch": "main",
+    "default_context": "showcase",
+    "karma_enabled": true,
+    "language": "en",
+    "memory_root": "memories",
+    "repo_id": "wiki-viva-demo-study-research-showcase"
+  },
+  "root_page_id": "root-study-research-showcase",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-study-research-showcase-a589b4a240f07ed7",
+  "source_commit": null,
+  "source_sha": "uncommitted:78e59e99d0df9c42c28b7a50180b7b6fbed43fd7a313d1947f33e65667610fd3",
+  "versions": {
+    "activity_timeline": "activity_timeline.v1",
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
+}

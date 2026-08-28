@@ -1,0 +1,93 @@
+{
+  "bands": {
+    "last_30_days": 0,
+    "last_7_days": 4,
+    "older": 1,
+    "undated": 0
+  },
+  "compatibility": {
+    "legacy_event_kinds_preserved": true,
+    "legacy_schema_version": "wiki_web_timeline.v1",
+    "replacement_payload": "temporal_graph.json"
+  },
+  "contract_version": "activity_timeline.v1",
+  "event_count": 5,
+  "events": [
+    {
+      "commit": "",
+      "context": "system",
+      "id": "snapshot-generated",
+      "kind": "snapshot",
+      "label": "Snapshot generated",
+      "path": "",
+      "status": "blocked",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-source-health-checks",
+      "kind": "page_updated",
+      "label": "Health checks output",
+      "path": "memories/sources/source-health-checks.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-source-error-traces",
+      "kind": "page_updated",
+      "label": "Error trace export",
+      "path": "memories/sources/source-error-traces.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "pessoal",
+      "id": "page-root-alex-rivera",
+      "kind": "page_updated",
+      "label": "Alex Rivera",
+      "path": "memories/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-action-region-sync-support",
+      "kind": "page_updated",
+      "label": "Refresh support ticket source",
+      "path": "memories/actions/action-region-sync-support.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "repo_id": "wiki-viva-demo",
+  "returned_count": 5,
+  "schema_version": "wiki_web_timeline.v1",
+  "summary": {
+    "by_context": {
+      "clientes": 2,
+      "pessoal": 1,
+      "sistema": 1,
+      "system": 1
+    },
+    "by_kind": {
+      "page_updated": 4,
+      "snapshot": 1
+    },
+    "event_count": 5,
+    "first_at": "2026-05-04T00:00:00Z",
+    "last_at": "2026-07-09T00:00:00Z"
+  },
+  "truncated": false
+}

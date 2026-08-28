@@ -20,9 +20,9 @@ stale_after_days: 30
 sources_policy: evento_normalizado_com_quadrantes
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
+source_id: source-example
 source_refs:
   - source-example
-source_ref: source-example # backward-compatible singular alias
 source_type: pdf | email | meeting | sheet | chat | repo | image | audio | manual_note
 captured_at: YYYY-MM-DD
 verified_at: YYYY-MM-DD
@@ -32,7 +32,7 @@ requires_gate: true
 target_pages: []
 purpose: "Why this event exists."
 owner: {{owner_id}}
-moc_parent: memories/system/ingestion/events/
+moc_parent: memories/sources/source-example.md
 related_pages: []
 backlinks_expected: []
 source_counts:

@@ -1,0 +1,73 @@
+{
+  "schema_version": "wiki_web_sources.v1",
+  "sources": [
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "cb076a9b894a38569dbbcd09c0fd327d35e2ac2a73367ea25d93c29fb04d427b",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-product-analytics",
+      "moc_children_count": 0,
+      "moc_parent": "memories/clientes/index.md",
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_blocked_reason": "",
+      "source_lifecycle_state": "",
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "",
+      "summary": "A live Analytics source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle ingested, freshness fresh and last attempt ok.",
+      "summary_truncated": false,
+      "title": "Product analytics export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "5e931ca1c26497a03c555afb7e83c6e3aac5aa146a6cbff3006dbb1ae4363ebf",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-support-tickets",
+      "moc_children_count": 0,
+      "moc_parent": "memories/clientes/index.md",
+      "page_type": "source",
+      "path": "memories/sources/source-support-tickets.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_blocked_reason": "",
+      "source_lifecycle_state": "",
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "",
+      "summary": "A live Helpdesk source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle proposed, freshness stale and last attempt ok.",
+      "summary_truncated": false,
+      "title": "Support tickets export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    }
+  ]
+}

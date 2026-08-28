@@ -11,10 +11,11 @@ import { ExternalLink, FileText, GitPullRequest, Package, ShieldAlert, X } from 
 import { t } from "../data/i18n";
 import { deriveApproval } from "../data/approval";
 import { contextLabel } from "../data/presentation";
-import { loadFileDiff } from "../data/snapshot";
+import { DockTelemetryRail, type DockTelemetryItem, type DockTelemetryTone } from "./DockTelemetryRail";
 import { GateChecks } from "./GateChecks";
 import { ExpandablePre } from "./ExpandablePre";
 import type { BriefSpec, DiffFile, PageRecord, SnapshotBundle } from "../types";
+import type { OperatorPort } from "../application/ports";
 
 const TONE: Record<string, "good" | "warn" | "bad" | "info" | "muted"> = {
   clean: "good",
@@ -28,12 +29,67 @@ const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   partial: "warn",
   not_run: "muted"
 };
+const GATE_TELEMETRY_TONE: Record<string, DockTelemetryTone> = {
+  pass: "good",
+  fail: "bad",
+  partial: "warn",
+  not_run: "muted"
+};
 
-function FileRow({ file, page }: { file: DiffFile; page?: PageRecord }) {
+function approvalTelemetry(view: ReturnType<typeof deriveApproval>): DockTelemetryItem[] {
+  const total = Math.max(view.fileCount, 1);
+  return [
+    {
+      key: "content",
+      label: t("gate.telemetry.content"),
+      value: view.contentFiles.length,
+      tone: view.contentFiles.length > 0 ? "info" : "muted",
+      ratio: view.contentFiles.length / total,
+      detail: t("gate.content", { n: view.contentFiles.length })
+    },
+    {
+      key: "code",
+      label: t("gate.telemetry.code"),
+      value: view.codeFiles.length,
+      tone: view.codeFiles.length > 0 ? "warn" : "muted",
+      ratio: view.codeFiles.length / total,
+      detail: t("gate.crate", { n: view.codeFiles.length })
+    },
+    {
+      key: "privacy",
+      label: t("gate.telemetry.privacy"),
+      value: view.privacyFiles.length,
+      tone: view.privacyFiles.length > 0 ? "bad" : "good",
+      ratio: view.privacyFiles.length / total,
+      detail: view.privacyFiles.length > 0 ? t("gate.privacy", { n: view.privacyFiles.length }) : t("gate.telemetry.privacyClear")
+    },
+    {
+      key: "checks",
+      label: t("gate.telemetry.checks"),
+      value: t(`gate.gate.${view.gateStatus}`),
+      tone: GATE_TELEMETRY_TONE[view.gateStatus] ?? "muted",
+      ratio: view.gateStatus === "pass" ? 1 : view.gateStatus === "partial" ? 0.55 : view.gateStatus === "fail" ? 1 : 0,
+      detail: t("gate.gates.label")
+    }
+  ];
+}
+
+function FileRow({
+  file,
+  page,
+  demo,
+  loadFileDiff
+}: {
+  file: DiffFile;
+  page?: PageRecord;
+  demo?: boolean;
+  loadFileDiff: OperatorPort["loadFileDiff"];
+}) {
   const [open, setOpen] = useState(false);
   const [lines, setLines] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const toggle = async () => {
+    if (demo) return;
     if (open) {
       setOpen(false);
       return;
@@ -64,7 +120,14 @@ function FileRow({ file, page }: { file: DiffFile; page?: PageRecord }) {
           +{file.additions} −{file.deletions}
         </small>
         {file.risk_hints.length > 0 && <small className="gateFileHints">{file.risk_hints.join(" · ")}</small>}
-        <button className="textButton" onClick={toggle} type="button">
+        <button
+          className="textButton"
+          onClick={toggle}
+          disabled={Boolean(demo)}
+          aria-label={demo ? `${t("gate.viewDiff")} — ${t("demo.readOnlyControl")}` : undefined}
+          title={demo ? t("demo.readOnlyControl") : undefined}
+          type="button"
+        >
           {open ? t("gate.hideDiff") : t("gate.viewDiff")}
         </button>
       </div>
@@ -87,6 +150,8 @@ export function GateDock({
   bundle,
   busy,
   demo,
+  loadFileDiff,
+  runGate,
   onWorkflow,
   onComposeBrief,
   onNotice,
@@ -96,6 +161,8 @@ export function GateDock({
   bundle: SnapshotBundle;
   busy: boolean;
   demo?: boolean;
+  loadFileDiff: OperatorPort["loadFileDiff"];
+  runGate: OperatorPort["runGate"];
   onWorkflow: (operation: string, payload?: Record<string, unknown>, dryRun?: boolean) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
   onNotice: (text: string) => void;
@@ -120,11 +187,12 @@ export function GateDock({
         <header className="dockHeader">
           <strong>{t("gate.title")}</strong>
           <span className={`pill pill-${TONE[view.decision]}`}>{t(`gate.decision.${view.decision}`)}</span>
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>
         <p className="dockIntro">{t("gate.intro")}</p>
+        <DockTelemetryRail label={t("gate.telemetry.approvalAria")} items={approvalTelemetry(view)} />
 
         {summary && view.fileCount > 0 && (
           <div className="gateSummary" aria-label={t("gate.summary.aria")}>
@@ -152,7 +220,7 @@ export function GateDock({
             </h4>
             <p className="dockIntro">{t("gate.privacy.hint")}</p>
             {view.privacyFiles.map((file) => (
-              <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} />
+              <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} demo={demo} loadFileDiff={loadFileDiff} />
             ))}
           </div>
         )}
@@ -161,7 +229,7 @@ export function GateDock({
           <h4>{t("gate.content", { n: view.contentFiles.length })}</h4>
           {view.contentFiles.length === 0 && <p className="dockIntro">{t("gate.noContent")}</p>}
           {view.contentFiles.map((file) => (
-            <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} />
+            <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} demo={demo} loadFileDiff={loadFileDiff} />
           ))}
         </div>
 
@@ -172,7 +240,7 @@ export function GateDock({
             </summary>
             <p className="dockIntro">{t("gate.crate.hint")}</p>
             {view.codeFiles.map((file) => (
-              <FileRow key={file.path} file={file} />
+              <FileRow key={file.path} file={file} demo={demo} loadFileDiff={loadFileDiff} />
             ))}
           </details>
         )}
@@ -185,6 +253,7 @@ export function GateDock({
             gates={bundle.gates?.gates ?? []}
             busy={busy}
             demo={demo}
+            runGate={runGate}
             onComposeBrief={onComposeBrief}
             onNotice={onNotice}
             onRefetch={onRefetch}
@@ -201,7 +270,9 @@ export function GateDock({
             <button
               className="primaryButton"
               onClick={() => onWorkflow("open_draft_pr", {}, false)}
-              disabled={busy || !view.isProposalBranch}
+              disabled={Boolean(demo) || busy || !view.isProposalBranch}
+              aria-label={demo ? `${t("gate.pr.prepare")} — ${t("demo.readOnlyControl")}` : undefined}
+              title={demo ? t("demo.readOnlyControl") : undefined}
               type="button"
             >
               <GitPullRequest size={14} />

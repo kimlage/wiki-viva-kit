@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-experience-pack-views-v1.schema.json",
+  "title": "Wiki Viva experience pack views v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pack", "views"],
+  "properties": {
+    "schema_version": {"const": "wiki_experience_pack_views.v1"},
+    "pack": {"$ref": "#/$defs/packId"},
+    "views": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slot", "fallback", "empty_state"],
+        "properties": {
+          "slot": {"$ref": "#/$defs/identifier"},
+          "fallback": {"$ref": "#/$defs/identifier"},
+          "empty_state": {"$ref": "#/$defs/identifier"},
+          "required_fields": {"$ref": "#/$defs/nonEmptyIdentifiers"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "packId": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+    "nonEmptyIdentifiers": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    }
+  }
+}

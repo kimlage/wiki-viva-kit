@@ -2,6 +2,10 @@
   "pages": [
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "328f885522aa1c082191ccb0c7873deb0b3ae36263eb26c4e88b5526c218864b",
       "context": "estudio",
       "freshness_state": "stale",
       "id": "person-marina-costa",
@@ -9,6 +13,15 @@
       "moc_parent": "memories/index.md",
       "page_type": "person",
       "path": "memories/people/person-marina-costa.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "45",
@@ -21,6 +34,10 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "f8234a71e1009f6eade6b3aa4a6b1952e0cb011c11e67d6b4302abfe4f68cfbc",
       "context": "financeiro",
       "freshness_state": "fresh",
       "id": "claim-custos-sobem",
@@ -28,6 +45,15 @@
       "moc_parent": "memories/financeiro/index.md",
       "page_type": "claim",
       "path": "memories/claims/claim-custos-sobem.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [
         "source-banco-export"
@@ -42,6 +68,10 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "350d2592f7d5bf75e82c57225ed1f8d4ec2686d1fe1f9891baba9d596e5f97c7",
       "context": "financeiro",
       "freshness_state": "fresh",
       "id": "hub-financeiro",
@@ -49,6 +79,15 @@
       "moc_parent": "memories/index.md",
       "page_type": "context_hub",
       "path": "memories/financeiro/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",
@@ -61,6 +100,10 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "a9ff6a97b2ebe0d2fcff342e124272d9ff5df9702f2ee2d0daea0b86ef671c79",
       "context": "financeiro",
       "freshness_state": "fresh",
       "id": "artifact-relatorio-recon",
@@ -68,6 +111,15 @@
       "moc_parent": "memories/financeiro/index.md",
       "page_type": "artifact",
       "path": "memories/artifacts/artifact-relatorio-recon.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [
         "source-banco-export"
@@ -82,6 +134,10 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "71fb5e7f7759840bec038fb7da0764f3795b18568da66f87b22195e06d88b80b",
       "context": "pessoal",
       "freshness_state": "fresh",
       "id": "root-alex-rivera",
@@ -89,6 +145,15 @@
       "moc_parent": "",
       "page_type": "root_entity",
       "path": "memories/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",

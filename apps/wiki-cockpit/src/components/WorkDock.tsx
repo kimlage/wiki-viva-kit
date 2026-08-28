@@ -10,13 +10,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import { codexUnavailableReason, t } from "../data/i18n";
 import type { BriefRecord, CodexCapability, CodexJobRecord } from "../types";
-import {
-  cancelCodexJob,
-  discardBrief,
-  listBriefs,
-  listCodexJobs,
-  streamCodexLog
-} from "../data/snapshot";
+import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
+import type { OperatorPort } from "../application/ports";
 
 type PillTone = "good" | "warn" | "bad" | "info" | "muted";
 
@@ -58,9 +53,51 @@ function jobClock(job: CodexJobRecord): string {
   return "";
 }
 
+function workTelemetry(jobs: CodexJobRecord[], drafts: BriefRecord[], offline: boolean): DockTelemetryItem[] {
+  const active = jobs.filter((job) => ACTIVE.has(job.status)).length;
+  const delivered = jobs.filter((job) => job.status === "delivered" || job.status === "returned").length;
+  const failed = jobs.filter((job) => job.status === "failed" || job.status === "cancelled").length;
+  const total = Math.max(jobs.length + drafts.length, 1);
+  return [
+    {
+      key: "active",
+      label: t("work.telemetry.active"),
+      value: active,
+      tone: active > 0 ? "info" : offline ? "warn" : "muted",
+      ratio: active / total,
+      detail: offline ? t("work.offlineTitle") : t("work.telemetry.activeDetail", { n: active })
+    },
+    {
+      key: "delivered",
+      label: t("work.telemetry.delivered"),
+      value: delivered,
+      tone: delivered > 0 ? "warn" : "muted",
+      ratio: delivered / total,
+      detail: t("work.telemetry.deliveredDetail", { n: delivered })
+    },
+    {
+      key: "drafts",
+      label: t("work.telemetry.drafts"),
+      value: drafts.length,
+      tone: drafts.length > 0 ? "info" : "muted",
+      ratio: drafts.length / total,
+      detail: t("work.telemetry.draftsDetail", { n: drafts.length })
+    },
+    {
+      key: "failed",
+      label: t("work.telemetry.failed"),
+      value: failed,
+      tone: failed > 0 ? "bad" : "good",
+      ratio: failed / total,
+      detail: t("work.telemetry.failedDetail", { n: failed })
+    }
+  ];
+}
+
 export function WorkDock({
   capability,
   demo,
+  operator,
   onResumeBrief,
   onReturn,
   onDiagnose,
@@ -69,12 +106,14 @@ export function WorkDock({
 }: {
   capability: CodexCapability;
   demo: boolean;
+  operator: Pick<OperatorPort, "cancelCodexJob" | "discardBrief" | "listBriefs" | "listCodexJobs" | "streamCodexLog">;
   onResumeBrief: (briefId: string) => void;
   onReturn?: (jobId: string, feedback: string) => void;
   onDiagnose?: () => void;
   onNotice: (text: string) => void;
   onClose: () => void;
 }) {
+  const { cancelCodexJob, discardBrief, listBriefs, listCodexJobs, streamCodexLog } = operator;
   const [jobs, setJobs] = useState<CodexJobRecord[]>([]);
   const [drafts, setDrafts] = useState<BriefRecord[]>([]);
   const [openLog, setOpenLog] = useState<string | null>(null);
@@ -86,38 +125,48 @@ export function WorkDock({
   // the poll keeps running and clears it the moment the operator answers again.
   const [offline, setOffline] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     if (demo) return;
     try {
-      const [jobList, briefList] = await Promise.all([listCodexJobs(), listBriefs()]);
+      const [jobList, briefList] = await Promise.all([
+        listCodexJobs({ signal }),
+        listBriefs({ signal })
+      ]);
+      if (signal?.aborted) return;
       setJobs(jobList);
       setDrafts(briefList.filter((b) => b.status === "draft"));
       setOffline(false);
     } catch {
+      if (signal?.aborted) return;
       // Keep the last known list AND the interval alive — an operator outage
       // must not kill the monitoring surface, only mark it as possibly stale.
       setOffline(true);
     }
-  }, [demo]);
+  }, [demo, listBriefs, listCodexJobs]);
 
   // Poll while the dock is open — a monitoring surface must not go quiet the
   // moment the last job leaves the ACTIVE set (that is exactly when the human
   // wants to see the outcome). The interval also refreshes running clocks.
   useEffect(() => {
-    load();
     if (demo) return undefined;
-    const id = window.setInterval(load, 2500);
-    return () => window.clearInterval(id);
+    const controller = new AbortController();
+    void load(controller.signal);
+    const id = window.setInterval(() => void load(controller.signal), 2500);
+    return () => {
+      controller.abort();
+      window.clearInterval(id);
+    };
   }, [demo, load]);
 
   // Live log for the expanded job.
   useEffect(() => {
-    if (!openLog) return undefined;
+    if (!openLog || demo) return undefined;
+    const controller = new AbortController();
     let stop = false;
     const pull = async () => {
       try {
-        const text = await streamCodexLog(openLog);
-        if (!stop) setLogText(text);
+        const text = await streamCodexLog(openLog, { signal: controller.signal });
+        if (!stop && !controller.signal.aborted) setLogText(text);
       } catch {
         /* operator unreachable — keep the last tail; load()'s chip reports it */
       }
@@ -126,9 +175,10 @@ export function WorkDock({
     const id = window.setInterval(pull, 2000);
     return () => {
       stop = true;
+      controller.abort();
       window.clearInterval(id);
     };
-  }, [openLog]);
+  }, [demo, openLog, streamCodexLog]);
 
   const doDiscard = async (briefId: string) => {
     try {
@@ -175,13 +225,14 @@ export function WorkDock({
             ) : (
               <span className="pill pill-muted">{t("work.unavailable")}</span>
             ))}
-          <button className="textButton" onClick={load} title={t("work.refresh")} type="button">
+          <button className="textButton" onClick={() => void load()} title={t("work.refresh")} type="button">
             <RefreshCw size={13} />
           </button>
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>
+        <DockTelemetryRail label={t("work.telemetry.aria")} items={workTelemetry(jobs, drafts, offline)} />
 
         {demo ? (
           <p className="workEmpty">{t("work.demoOff")}</p>

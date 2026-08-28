@@ -41,12 +41,19 @@ def main() -> int:
 
     config = load_config(ROOT)
     paths = WikiPaths(ROOT, config)
-    target = ROOT / args.output if args.output else paths.operational_pass_page
+    target_path = Path(args.output) if args.output else None
+    target = ROOT / target_path if target_path is not None else paths.operational_pass_page
     contexts = tuple(args.context)
 
     if args.format == "json":
         as_of = dt.date.fromisoformat(args.date)
-        report = build_operational_pass_report(ROOT, config, as_of=as_of, contexts=contexts)
+        report = build_operational_pass_report(
+            ROOT,
+            config,
+            as_of=as_of,
+            contexts=contexts,
+            exclude_path=target_path,
+        )
         payload = json.dumps(report_to_dict(report), ensure_ascii=False, indent=2)
         if args.write or args.output:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -65,6 +72,7 @@ def main() -> int:
             config,
             updated_at=_recorded_date(target, args.date),
             contexts=contexts,
+            target_path=target_path,
         )
         actual = target.read_text(encoding="utf-8")
         if expected != actual:
@@ -73,7 +81,13 @@ def main() -> int:
         print(f"{paths.rel(target)}: operational pass up to date.")
         return 0
 
-    page = build_operational_pass_page(ROOT, config, updated_at=args.date, contexts=contexts)
+    page = build_operational_pass_page(
+        ROOT,
+        config,
+        updated_at=args.date,
+        contexts=contexts,
+        target_path=target_path,
+    )
     if args.write or args.output:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(page, encoding="utf-8")

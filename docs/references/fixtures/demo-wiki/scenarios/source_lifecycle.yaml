@@ -1,0 +1,85 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: source_lifecycle
+seed: 8004
+purpose: Source lifecycle, freshness and last-attempt state matrix.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, source, ingestion_event]
+source_pages:
+  - memories/sources
+  - memories/system/ingestion/events
+composition:
+  include_ids: [root-alex-rivera]
+  include_page_types: [source, ingestion_event]
+expected:
+  page_count: 36
+  page_id_sha256: 24084240cfd0383c6120beb3fb7d35d1dccf6a170fb29f15c591021bb819b0ed
+  required_artifact_capabilities: [source_lifecycle]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  source_lifecycle: wiki_source_lifecycle.v2
+canonical_routes:
+  - /demo/w?demo_scenario=source_lifecycle&center=root-alex-rivera&view=sources&overlay=freshness&dock=source
+  - /demo/w?demo_scenario=source_lifecycle&center=source-banco-export&view=sources&overlay=evidence&dock=source
+legacy_routes: []
+interactions: [open_each_source_state, inspect_attempt, inspect_freshness, open_evidence]
+automated_assertions:
+  - claim_id: every_source_exposes_all_lifecycle_axes
+    statement: Every source exposes lifecycle, freshness, last-attempt and governed failure axes.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome"
+      - "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+      - "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+      - tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis
+    covers:
+      interactions: [open_each_source_state, inspect_attempt, inspect_freshness]
+      visual_steps: [open_sources_view, inspect_fresh, inspect_stale, inspect_never_synced]
+      visual_viewports: [1440x960, 390x844]
+      browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+      expected_warnings: [stale_source, never_synced_source, blocked_source]
+      expected_failures: [needs_auth, parser_error, secret_blocked]
+  - claim_id: successful_history_blocks_never_synced_inference
+    statement: Never-synced is never inferred when a successful ingestion event exists.
+    test_ids:
+      - "apps/wiki-cockpit/src/data/visualEncoding.test.ts::keeps never-synced sources distinct from unknown freshness"
+      - tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis
+    covers:
+      interactions: []
+      visual_steps: []
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+  - claim_id: source_dock_and_world_state_agree
+    statement: Source dock identity, evidence and visual lifecycle state agree.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+    covers:
+      interactions: [open_evidence]
+      visual_steps: [inspect_blocked]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+test_capabilities:
+  - capability: evidence_links
+    test_id: tests/test_web_snapshot.py::test_frontmatter_relations_keep_field_semantics_and_allow_related_reciprocity
+  - capability: freshness
+    test_id: tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis
+  - capability: last_attempt
+    test_id: tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis
+  - capability: source_lifecycle
+    test_id: tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis
+visual:
+  matrix_semantics: representative_shell_evidence_not_route_cross_product
+  viewports: [1440x960, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+  steps: [open_sources_view, inspect_fresh, inspect_stale, inspect_never_synced, inspect_blocked]
+expected_warnings: [stale_source, never_synced_source, blocked_source]
+artifact_warning_codes: [region_expected_missing, source_blocked]
+expected_failures: [needs_auth, parser_error, secret_blocked]
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/scenarios/source_lifecycle]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

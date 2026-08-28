@@ -1,0 +1,48 @@
+{
+  "backlinks": [],
+  "body": "\n# Artefato operacional extremamente detalhado para validar colis\u00e3o e leitura em portugu\u00eas n\u00famero 228\n\nPublic deterministic density artifact 228; source links and freshness are real fixture fields.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "page_id": "artifact-region-pressure-228",
+    "page_type": "artifact",
+    "source_refs": [
+      "source-support-tickets"
+    ],
+    "stale_after_days": 30,
+    "sub_lens": "producao",
+    "title": "Artefato operacional extremamente detalhado para validar colis\u00e3o e leitura em portugu\u00eas n\u00famero 228",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "page_id": "artifact-region-pressure-228",
+    "page_type": "artifact",
+    "path": "memories/artifacts/artifact-region-pressure-228.md",
+    "summary": "Public deterministic density artifact 228; source links and freshness are real fixture fields.",
+    "summary_truncated": false,
+    "title": "Artefato operacional extremamente detalhado para validar colis\u00e3o e leitura em portugu\u00eas n\u00famero 228",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-92120ab7ad26aabe",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-support-tickets",
+      "page_type": "source",
+      "path": "memories/sources/source-support-tickets.md",
+      "ref": "source-support-tickets",
+      "resolved": true,
+      "title": "Support tickets export"
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-experience-pack-fixture-compiler-v1.schema.json",
+  "title": "Trusted compiler input for dense and intentional-failure pack fixtures",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "seed",
+    "reference_date",
+    "base_fixture",
+    "type_counts",
+    "mutations",
+    "checks",
+    "expected_diagnostic_codes"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_experience_pack_fixture_compiler.v1"},
+    "mode": {"enum": ["dense", "failure"]},
+    "seed": {"type": "integer", "minimum": 0},
+    "reference_date": {"type": "string", "format": "date"},
+    "base_fixture": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"}
+      ]
+    },
+    "type_counts": {
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {"type": "integer", "minimum": 1, "maximum": 10000}
+    },
+    "mutations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/mutation"}
+    },
+    "checks": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/check"}
+    },
+    "expected_diagnostic_codes": {"$ref": "#/$defs/identifiers"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+    "identifiers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    },
+    "scalar": {
+      "type": ["null", "boolean", "integer", "number", "string"]
+    },
+    "mutation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operation", "page_id", "new_page_id"],
+          "properties": {
+            "operation": {"const": "clone_page"},
+            "page_id": {"$ref": "#/$defs/identifier"},
+            "new_page_id": {"$ref": "#/$defs/identifier"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operation", "page_id"],
+          "properties": {
+            "operation": {"const": "remove_page"},
+            "page_id": {"$ref": "#/$defs/identifier"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operation", "page_id", "field", "value"],
+          "properties": {
+            "operation": {"const": "set_field"},
+            "page_id": {"$ref": "#/$defs/identifier"},
+            "field": {"$ref": "#/$defs/identifier"},
+            "value": {"$ref": "#/$defs/scalar"}
+          }
+        }
+      ]
+    },
+    "check": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "fields", "code"],
+          "properties": {
+            "kind": {"const": "reference_integrity"},
+            "fields": {"$ref": "#/$defs/identifiers"},
+            "code": {"$ref": "#/$defs/identifier"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "page_type", "fields", "code"],
+          "properties": {
+            "kind": {"const": "duplicate_key"},
+            "page_type": {"$ref": "#/$defs/identifier"},
+            "fields": {"$ref": "#/$defs/identifiers"},
+            "code": {"$ref": "#/$defs/identifier"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "page_type", "state_field", "active_values", "due_field", "code"],
+          "properties": {
+            "kind": {"const": "overdue_state"},
+            "page_type": {"$ref": "#/$defs/identifier"},
+            "state_field": {"$ref": "#/$defs/identifier"},
+            "active_values": {"$ref": "#/$defs/identifiers"},
+            "due_field": {"$ref": "#/$defs/identifier"},
+            "code": {"$ref": "#/$defs/identifier"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "code"],
+          "properties": {
+            "kind": {"const": "public_boundary"},
+            "code": {"$ref": "#/$defs/identifier"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "page_type", "key_fields", "value_field", "code"],
+          "properties": {
+            "kind": {"const": "conflicting_values"},
+            "page_type": {"$ref": "#/$defs/identifier"},
+            "key_fields": {"$ref": "#/$defs/identifiers"},
+            "value_field": {"$ref": "#/$defs/identifier"},
+            "code": {"$ref": "#/$defs/identifier"}
+          }
+        }
+      ]
+    }
+  }
+}

@@ -15,8 +15,6 @@ stale_after_days: 90
 sources_policy: perspective_contract
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-source_refs:
-  - sources-wiki-viva-methodology
 applies_to_source_types:
   - statement
   - invoice

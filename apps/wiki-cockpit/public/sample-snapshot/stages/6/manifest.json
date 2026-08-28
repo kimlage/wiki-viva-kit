@@ -1,5 +1,25 @@
 {
+  "bundle_hash": "cb863e18116208ded9fdc846f47490633a5d3195855404c7acc386623593e152",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
+    "content_sidecars"
+  ],
   "content_sidecars": true,
+  "contract_errors": [],
   "files": [
     "manifest.json",
     "operations.json",
@@ -14,15 +34,180 @@
     "gates.json",
     "git.json",
     "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
     "diff.json",
     "ingestion.json",
     "quality.json",
     "commands.json",
     "score.json",
     "blocks.json",
-    "block_stacks.json"
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/artifact-relatorio-recon.8b3a520f.json",
+    "content/claim-custos-sobem.0be31ee0.json",
+    "content/event-ingest-banco-2026-05.60d41f0b.json",
+    "content/hub-financeiro.405d007d.json",
+    "content/person-marina-costa.3db0e184.json",
+    "content/root-alex-rivera.f4a10886.json",
+    "content/source-banco-export.21d8fe1f.json"
   ],
-  "generated_at": "2026-07-07T22:55:36Z",
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "genesis_stage": 6,
+    "reference_date": "2026-07-09",
+    "scenario_id": "walking_skeleton",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8001,
+    "source_input_sha256": "7ca886c59a85ac143a70d110f676eafb61ef73649744d6446ea354e270d2411c"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2833,
+      "sha256": "2b1bef112fba8f5fe8a730133007e40c915fff1b9c61d8c12cb5856baa8d7efd"
+    },
+    "block_stacks.json": {
+      "bytes": 30402,
+      "sha256": "f0511076923c8e6fd4d887f3eb55d1339c14b50ecfade2415c2c0c24910e696f"
+    },
+    "blocks.json": {
+      "bytes": 9051,
+      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+    },
+    "commands.json": {
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
+    },
+    "content/artifact-relatorio-recon.8b3a520f.json": {
+      "bytes": 1494,
+      "sha256": "c64925b272c22d555ee3dfb45a15b67b41264309404b6e5af8f3b92f55ff630b"
+    },
+    "content/claim-custos-sobem.0be31ee0.json": {
+      "bytes": 1462,
+      "sha256": "ca77fbe91678906a59ef16734066145b09217bb47bee7922ea73de598c5fcb68"
+    },
+    "content/event-ingest-banco-2026-05.60d41f0b.json": {
+      "bytes": 1968,
+      "sha256": "6af8aedf8af068018a0eee9c99d544382e970af6846c64ee719bf5e07645a640"
+    },
+    "content/hub-financeiro.405d007d.json": {
+      "bytes": 1979,
+      "sha256": "1ec413b0570c81b3eb49520588fb4cc6d2a6ff31d0f17d53625b28e6e9195f2f"
+    },
+    "content/person-marina-costa.3db0e184.json": {
+      "bytes": 1215,
+      "sha256": "b514ad9cb06156e8d5c18a9953632a57cd8d24adc6113636c0048eec6daa7847"
+    },
+    "content/root-alex-rivera.f4a10886.json": {
+      "bytes": 2270,
+      "sha256": "09ee5c3db2300955f14253bffaf580b8beb00e70851858c5ab6168594619b39e"
+    },
+    "content/source-banco-export.21d8fe1f.json": {
+      "bytes": 2978,
+      "sha256": "4a66cb363a78681350f37632f9473a097580d7092a7609908bfb6e6a826e61fa"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+    },
+    "freshness.json": {
+      "bytes": 490,
+      "sha256": "396ae68293ea1491789e483673aa512df4731adae2c342abe199174de69da1e2"
+    },
+    "gates.json": {
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 15779,
+      "sha256": "ec2f4a8cacdaf2c54c6317c47cfe1c755e72e4310ce595f2b94f111f127f91d6"
+    },
+    "ingestion.json": {
+      "bytes": 908,
+      "sha256": "a68568c1d4f107fb285d24c5462d0cb13c70bab135484d2e42e710e9dd109d30"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
+    },
+    "pages.json": {
+      "bytes": 6510,
+      "sha256": "645a15bc63e0f9e18988c31f94358fd5520ce2713252e453a97b9721ec2473dc"
+    },
+    "quality.json": {
+      "bytes": 3634,
+      "sha256": "de7366b770f91781505e7a01c17169d3ab7e24a236cc5237285519001dca9516"
+    },
+    "region_groups.json": {
+      "bytes": 14121,
+      "sha256": "e2b029945f58aa82f4021b540080d16de09d3942556ab80046176b6bbda24d63"
+    },
+    "score.json": {
+      "bytes": 1757,
+      "sha256": "b19d3ad8d52d4a011577e0ffedf34860a45441deb5451f0abe7c4587d39e9cf2"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 60,
+      "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
+    },
+    "source_entities.json": {
+      "bytes": 2171,
+      "sha256": "2635192abc9d41b8530951b7829018772e038452d4df237939114762dd634ac8"
+    },
+    "source_lifecycle.json": {
+      "bytes": 851,
+      "sha256": "2cc7905a39f3b22c113a063e7b416f9307e51d9804c0e1c177cdae00af475d58"
+    },
+    "sources.json": {
+      "bytes": 1103,
+      "sha256": "ebc2a7f5cdf5c054eac288b4201b3bdf5f7df00c9e649882bab3d639b2c96517"
+    },
+    "templates.json": {
+      "bytes": 23927,
+      "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
+    },
+    "temporal_graph.json": {
+      "bytes": 8677,
+      "sha256": "0c9c47bfb7d53ef0cfbd5cea21768ed447ccd7b8b35c41e5fb79e20e717abd43"
+    },
+    "timeline.json": {
+      "bytes": 2461,
+      "sha256": "839e2faeb39e828712c29ba06a7da61ed990ea9bdf2530248ef38fd684c5c61f"
+    },
+    "work_items.json": {
+      "bytes": 52,
+      "sha256": "17bed50b6bb4ca952dd73d966240c34a7a4e0cc4225edabf56fac829fa2066a5"
+    }
+  },
   "mode": "static",
   "repo": {
     "branch_prefix": "wiki/",
@@ -33,6 +218,26 @@
     "memory_root": "memories",
     "repo_id": "wiki-viva-demo"
   },
-  "schema_version": "wiki_web_snapshot.v1",
-  "source_commit": null
+  "root_page_id": "root-alex-rivera",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-cb863e18116208de",
+  "source_commit": null,
+  "source_sha": "uncommitted:7e9675e86dc7ccb8661a8c28dbd8cc81ddd0e3387be427c93d7cc73a335495f0",
+  "versions": {
+    "activity_timeline": "activity_timeline.v1",
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
 }

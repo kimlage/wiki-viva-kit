@@ -1,0 +1,55 @@
+{
+  "backlinks": [],
+  "body": "\n# Action ledger export\n\nA live Action tracker source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `configured`, freshness `never_synced` and last attempt `never`.\n",
+  "frontmatter": {
+    "context": "sistema",
+    "moc_parent": "memories/index.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-action-ledger",
+    "page_type": "source",
+    "platform": "Action tracker",
+    "region_expectations": {
+      "intencao": {
+        "basis": "The action-ledger source contract requires at least one declared intent or reviewed no-change receipt.",
+        "expected_action_hints": [
+          "review_source_contract"
+        ],
+        "expected_type_hints": [
+          "action"
+        ],
+        "next_interaction": "seedPage",
+        "state": "required"
+      }
+    },
+    "source_lifecycle": {
+      "adoption_state": "pending",
+      "freshness_state": "never_synced",
+      "last_attempt_state": "never",
+      "pipeline_stage": "configured",
+      "state": "configured"
+    },
+    "source_type": "live",
+    "stale_after_days": 30,
+    "title": "Action ledger export",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "source-action-ledger",
+    "page_type": "source",
+    "path": "memories/sources/source-action-ledger.md",
+    "summary": "A live Action tracker source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle configured, freshness never_synced and last attempt never.",
+    "summary_truncated": false,
+    "title": "Action ledger export",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-8d1c5584a934c732",
+  "source_refs": []
+}

@@ -64,8 +64,10 @@ __all__ = [
     "unquote",
 ]
 
-# Matches a leading ``---\n ... \n---`` block, capturing the inner YAML.
-FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
+# Matches a leading YAML fence with either LF or CRLF line endings. Snapshot
+# compilation reads canonical bytes to hash them, so Windows-authored CRLF must
+# parse without normalizing those bytes first.
+FRONTMATTER_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n)?", re.DOTALL)
 
 
 def _read_text(source: str | Path) -> str:
@@ -194,7 +196,15 @@ def parse_frontmatter_flat_with_errors(
         stripped = raw.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        if raw.startswith((" ", "\t")) and stripped.startswith("- ") and current_key:
+        # YAML permits block-sequence entries at the same indentation as their
+        # mapping key (the style emitted by ``yaml.safe_dump``):
+        #
+        #   source_refs:
+        #   - source-a
+        #
+        # Keep the flat parser's string contract while accepting both valid
+        # YAML spellings so generated fixtures and hand-authored pages agree.
+        if stripped.startswith("- ") and current_key:
             current = values.setdefault(current_key, [])
             if isinstance(current, list):
                 current.append(unquote(stripped[2:].strip()))

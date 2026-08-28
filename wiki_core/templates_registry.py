@@ -54,13 +54,16 @@ class TemplateSpec:
     subpages: tuple[dict[str, Any], ...] = ()  # {rel, page_type, slug?, required|generated}
     skills: dict[str, Any] = field(default_factory=dict)  # {human: [...], agent: [...]}
     home_quadrant: str | None = None  # per-type quadrant home override
+    # Optional collection contract for real index pages. Membership is
+    # orthogonal to moc_parent and compiled by wiki_core.collections.
+    collection: dict[str, Any] = field(default_factory=dict)
     # Can a HUMAN create this type from the generic palette? Generated/system
     # types (ingestion events, registries, logs) and rite-owned types (the
     # root) say no — offering the uncreatable is lying to the user.
     creatable: bool = True
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        payload = {
             "page_type": self.page_type,
             "extends": self.extends,
             "body_template": self.body_template,
@@ -77,6 +80,9 @@ class TemplateSpec:
             "home_quadrant": self.home_quadrant,
             "creatable": self.creatable,
         }
+        if self.collection:
+            payload["collection"] = dict(self.collection)
+        return payload
 
 
 @dataclass(frozen=True)
@@ -120,6 +126,28 @@ def _merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _merge_named_section(
+    base: dict[str, Any] | None,
+    over: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Merge a registry section without erasing sibling contract keys.
+
+    Local registries are documented as overrides layered on top of the kit.
+    Replacing a whole named type/block/package when only one property was
+    overridden made that contract misleading (for example,
+    ``can_anchor_blocks`` silently reset ``creatable`` and ``view``).  Merge
+    each named entry with the same one-level semantics used by resolved specs.
+    """
+    merged = {str(key): dict(value) for key, value in (base or {}).items() if isinstance(value, dict)}
+    for key, value in (over or {}).items():
+        name = str(key)
+        if isinstance(value, dict) and isinstance(merged.get(name), dict):
+            merged[name] = _merge(merged[name], value)
+        elif isinstance(value, dict):
+            merged[name] = dict(value)
+    return merged
+
+
 def load_template_registry(
     root: Path,
     config: WikiConfig | None = None,
@@ -136,8 +164,7 @@ def load_template_registry(
     if local_file.exists():
         local = yaml.safe_load(local_file.read_text(encoding="utf-8")) or {}
         for section in ("bases", "types", "blocks", "packages"):
-            merged = {**(data.get(section) or {}), **(local.get(section) or {})}
-            data[section] = merged
+            data[section] = _merge_named_section(data.get(section), local.get(section))
         if isinstance(local.get("vocabulary"), dict):
             data["vocabulary"] = {**(data.get("vocabulary") or {}), **local["vocabulary"]}
     return TemplateRegistry(
@@ -165,6 +192,7 @@ _DEFAULT_SPEC: dict[str, Any] = {
     "subpages": [],
     "skills": {},
     "home_quadrant": None,
+    "collection": {},
     "creatable": True,
 }
 
@@ -191,6 +219,7 @@ def resolve_template_spec(registry: TemplateRegistry, page_type: str) -> Templat
         if k in FACETS
     }
     home_q = merged.get("home_quadrant")
+    collection = merged.get("collection")
     return TemplateSpec(
         page_type=page_type,
         extends=raw.get("extends"),
@@ -206,6 +235,7 @@ def resolve_template_spec(registry: TemplateRegistry, page_type: str) -> Templat
         subpages=tuple(dict(s) for s in (merged.get("subpages") or []) if isinstance(s, dict)),
         skills=dict(merged.get("skills") or {}),
         home_quadrant=str(home_q) if home_q else None,
+        collection=dict(collection) if isinstance(collection, dict) else {},
         creatable=bool(merged.get("creatable", True)),
     )
 
@@ -216,6 +246,9 @@ def validate_template_registry(registry: TemplateRegistry) -> list[str]:
     a template-authoring mistake, not a data-corruption risk."""
     errors: list[str] = []
     for page_type in list(registry.raw_types):
+        raw_collection = registry.raw_types[page_type].get("collection")
+        if raw_collection is not None and not isinstance(raw_collection, dict):
+            errors.append(f"{page_type}: collection must be an object")
         spec = registry.resolve(page_type)
         # Facets are checked from the RAW map (resolve() drops unknown ids, so
         # a typo would silently vanish rather than surface here).
@@ -242,4 +275,18 @@ def validate_template_registry(registry: TemplateRegistry) -> list[str]:
         base_name = registry.raw_types[page_type].get("extends")
         if base_name and base_name not in registry.bases:
             errors.append(f"{page_type}: extends unknown base `{base_name}`")
+        collection = spec.collection
+        unknown_collection_keys = sorted(
+            set(collection) - {"member_types", "members", "contexts"}
+        )
+        for key in unknown_collection_keys:
+            errors.append(f"{page_type}: unknown collection key `{key}`")
+        for key in ("member_types", "members", "contexts"):
+            if key in collection and not isinstance(collection.get(key), list):
+                errors.append(f"{page_type}: collection.{key} must be a list")
+        for member_type in collection.get("member_types") or []:
+            if str(member_type) not in registry.raw_types:
+                errors.append(
+                    f"{page_type}: collection references unknown member type `{member_type}`"
+                )
     return errors

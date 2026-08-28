@@ -1,18 +1,21 @@
-# Scripts
+# Wiki command-line tools
 
-Command-line entry points for operating the wiki viva kit.
+Every `wiki_*.py` command is deterministic and local. Contextual LLM reading is
+performed by the operating agent, never by an embedded client. See the
+[command reference](../memories/system/wiki/command-reference.md) and use
+`--help` for exact flags.
 
-The scripts wrap deterministic behavior from [wiki_core](../wiki_core/README.md):
-ingestion, audit, source registry, operation cockpit, quality reports, PR
-summaries and format conversions. They do not call an LLM directly; model
-reading remains delegated to the agent running the repo.
+## Primary lifecycle
 
-Use [wiki_audit.py](wiki_audit.py), [wiki_input_stage.py](wiki_input_stage.py),
-[wiki_operation_compile.py](wiki_operation_compile.py) and
-[wiki_pr_summary.py](wiki_pr_summary.py) as the default PR gate surface.
+```text
+wiki_ingest.py -> wiki_llm_context_pass.py -> wiki_consolidate.py
+  -> wiki_operation_compile.py / wiki_input_stage.py
+  -> wiki_semantic_inventory.py / wiki_web_snapshot.py -> wiki_audit.py
+```
 
-Use [wiki_sync_from_kit.py](wiki_sync_from_kit.py) to preview and apply the
-portable kit-owned layer to a downstream consumer:
+## Downstream kit sync
+
+[wiki_sync_from_kit.py](wiki_sync_from_kit.py) is the supported orchestrator:
 
 ```sh
 python3 scripts/wiki_sync_from_kit.py \
@@ -22,18 +25,14 @@ python3 scripts/wiki_sync_from_kit.py \
   --c3-command "python3 scripts/consumer_migration.py"
 ```
 
-The dry run is B0 and never mutates. Apply performs C1 managed-file sync, C2
-deterministic generators, explicit consumer-owned C3 commands and then writes a
-portable `kit.lock`. It refuses a dirty consumer unless the operator explicitly
-supplies `--allow-dirty` after reviewing the plan.
+`--dry-run` is B0 and never mutates. Apply performs C1 kit-owned sync, C2
+generators, explicit C3 and writes `kit.lock`. It is idempotent and does not
+copy consumer memory/configuration or private evidence.
 
-Use [wiki_quadrant_contract.py](wiki_quadrant_contract.py) when an external
-consumer needs the canonical Wilber/AQAL `q1/q2/q3/q4` mapping without scraping
-templates or historical proposals.
+The old lane/capsule/attestation runner and migration receipts are retired and
+removed. Frozen `upgrade-package.yaml` is historical documentation only.
 
-Use [wiki_web_snapshot.py](wiki_web_snapshot.py) to generate the local/static
-JSON read model for the web cockpit, and [wiki_web_server.py](wiki_web_server.py)
-to run the localhost-only operator API with allowlisted commands.
-Use [wiki_web_deploy_bundle.py](wiki_web_deploy_bundle.py) when one
-implementation needs portable static deploy inputs plus a deployment proof
-without choosing Vercel, GCP or any other host inside the core kit.
+## Privacy
+
+Private consumer PII is valid. Use `wiki_audit.py --public-export --check` at
+public boundaries. Access secrets are blocked everywhere.

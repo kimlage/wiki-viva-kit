@@ -80,6 +80,75 @@ attachment_policy: "Attachments go in data/raw, data/derived, or docs/references
 - The `## Related` section must repeat these links in Markdown for humans,
   PR review, and auditing.
 
+### Canonical hierarchy versus collection-owned subworlds
+
+`moc_parent` has one job: it records the page's canonical structural parent.
+Do not reparent a claim, decision, meeting, action, source, or other real page
+just to make a family index look populated. A real index owns its navigable
+members through the separate `collection_member` relation.
+
+| Need | Author on | Field | Meaning |
+| --- | --- | --- | --- |
+| One page joins one or more indexes | Member page | `collection_refs: [claims-index]` | Explicit member-to-collection link; strongest provenance. |
+| A small index enumerates exact members | Index page | `collection.members: [claim-a]` | Explicit collection-side membership. |
+| A family index gathers a page type | Index page | `collection.member_types: [claim]` | Deterministic typed collection. |
+| A global registry spans contexts | Index page | `collection.contexts: ['*']` | Explicit cross-context scope; without it, typed membership stays in the index's own context. |
+
+Example family index:
+
+```yaml
+---
+page_id: claims-index
+page_type: ontology_index
+moc_parent: memories/index.md
+collection:
+  member_types: [claim]
+  contexts: ['*']
+---
+```
+
+Any block anchor keeps its existing `descendants` behavior until the page (or a
+member pointing to it) declares a collection contract. The compiler then
+resolves installed collection-aware quadrant and relation blocks to
+`scope: linked`; the canonical `moc_parent` ancestry of every member remains
+unchanged. This applies equally to an `ontology_index`, a contextual hub, or a
+downstream anchor type, and preserves legacy worlds whose real children already
+live below them. `source_registry` declares the same linked
+contract at the template-type level for `member_types: [source]`: entering the
+registry shows canonical source pages, while entering one source follows
+`source_refs` to that source's ingestion events. This prevents a global
+registry from flattening every raw event into one Q2 list.
+
+Rules:
+
+- `collection`, `collection_refs`, and every list inside the collection object
+  are explicit frontmatter contracts; unknown keys and invalid shapes are
+  reported by block validation.
+- Normal page authors do not set the template registry's internal
+  `collection_scope` marker. They declare membership through the fields above;
+  the resolved stack exposes `declared_scope` and `scope_basis` so linked
+  activation is inspectable. A nearest block instance may explicitly set the
+  marker to `false` only as an advanced, reviewable opt-out.
+- `contexts` narrows a typed selector; it is not a selector by itself. A
+  contexts-only collection without `member_types`, `members`, or inbound
+  `collection_refs` is reported as incomplete and stays on descendant scope.
+- Missing member/index references remain visible as collection diagnostics;
+  they are never silently discarded.
+- `collection_member` is acyclic. An explicit self-reference is invalid, and a
+  multi-page cycle is reported with every edge's declaration basis and origin.
+  A typed selector still excludes its own anchor, even when `member_types`
+  contains the anchor's page type; that exclusion is not a hidden self-loop.
+- To migrate a forbidden cycle, remove the indicated `collection_refs` or
+  `collection.members` entry, or narrow the indicated `member_types` selector
+  with `contexts`. Do not repair a collection cycle by changing `moc_parent`:
+  canonical hierarchy and collection membership are separate relations.
+- The compiled graph emits `collection_member` from the member to the real
+  index page. Reader hierarchy shows both directions (`member of this
+  collection` / `in collection`) without calling the relation a citation.
+- Virtual family/region groups remain filters only. A collection subworld is
+  center-eligible because its index is a canonical page, not because a renderer
+  promoted a visual group.
+
 ## Aliases and wikilinks
 
 - `aliases` must contain short human names, acronyms, and likely search names.

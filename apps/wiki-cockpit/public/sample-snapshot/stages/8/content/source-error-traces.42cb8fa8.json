@@ -1,0 +1,93 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "source-health-checks",
+      "page_type": "source",
+      "path": "memories/sources/source-health-checks.md",
+      "relation": "markdown_link",
+      "title": "Health checks output"
+    }
+  ],
+  "body": "\n# Error trace export\n\nA live Observability source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `blocked`, freshness `stale` and last attempt `parser_error`.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-error-traces",
+    "page_type": "source",
+    "platform": "Observability",
+    "region_expectations": {
+      "intencao": {
+        "basis": "No template or operator rule has decided whether error traces should project intent.",
+        "next_interaction": "openDock:blocks",
+        "state": "unknown"
+      }
+    },
+    "relation_cases": [
+      {
+        "basis": "synthetic_allowed_cycle",
+        "direction": "directed",
+        "provenance": {
+          "field": "relation_cases",
+          "fixture": "failures"
+        },
+        "target": "source-health-checks",
+        "type": "markdown_link"
+      },
+      {
+        "direction": "directed",
+        "target": "missing-demo-page",
+        "type": "unknown_demo_relation"
+      },
+      {
+        "direction": "reverse",
+        "target": "source-health-checks",
+        "type": "source_ref"
+      }
+    ],
+    "source_blocked_reason": "The synthetic trace export is malformed.",
+    "source_lifecycle": {
+      "adoption_state": "pending",
+      "freshness_state": "stale",
+      "last_attempt_at": "2026-07-03",
+      "last_attempt_state": "parser_error",
+      "pipeline_stage": "extracted",
+      "raw_artifact_count": 1,
+      "secret_safe_log_refs": [
+        "logs/demo/source-error-traces-parser"
+      ],
+      "state": "blocked"
+    },
+    "source_type": "live",
+    "stale_after_days": 30,
+    "sync": {
+      "last_event_ref": "",
+      "last_run_at": "2026-07-03",
+      "last_status": "parser_error"
+    },
+    "title": "Error trace export",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "page_id": "source-error-traces",
+    "page_type": "source",
+    "path": "memories/sources/source-error-traces.md",
+    "summary": "A live Observability source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle blocked, freshness stale and last attempt parser_error.",
+    "summary_truncated": false,
+    "title": "Error trace export",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-8d1c5584a934c732",
+  "source_refs": []
+}

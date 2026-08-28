@@ -29,7 +29,7 @@ from typing import Any
 import yaml
 
 
-DEFAULT_MANIFEST = Path("docs/references/upgrades/sync-manifest.yaml")
+DEFAULT_MANIFEST = Path("docs/references/upgrades/wiki-viva-v8/sync-manifest.yaml")
 LOCK_NAME = "kit.lock"
 
 

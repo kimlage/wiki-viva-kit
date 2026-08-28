@@ -1,0 +1,32 @@
+schema_version: wiki_experience_pack_i18n.v1
+locale: en
+pack: study-research
+copy:
+  title: Study and Research
+  source: Study source
+  note: Research note
+  concept: Concept
+  question: Research question
+  claim: Claim
+  citation: Citation
+  synthesis: Synthesis
+  capture: Capture source
+  annotate: Annotate source
+  connect: Connect knowledge
+  review: Review evidence
+  synthesize: Synthesize topic
+  capture_source: Capture source
+  review_evidence: Review evidence
+  synthesize_topic: Synthesize topic
+  concept_graph: Concept graph
+  reading_queue: Reading queue
+  evidence_matrix: Evidence matrix
+  learning_history: Learning history
+  spaced_review: Spaced review
+  claim_evolution: Claim evolution
+  learning_captured: Learning captured
+  learning_reviewed: Learning reviewed
+  spaced_review_due: Spaced review due
+  claim_recorded: Claim recorded
+  claim_verified: Claim verified
+  claim_superseded: Claim superseded

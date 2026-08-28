@@ -10,7 +10,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-06-25
 stale_after_days: 30
 sources_policy: input_stage_contract
 gate: github_pr
@@ -18,7 +18,7 @@ sensitive_data_policy: private_sensitive_allowed
 owner: root-wiki-viva-kit
 moc_parent: memories/system/wiki-viva-kit.md
 channel_type: document
-input_status: integrated
+input_status: configured
 quadrants:
   - q1
   - q2
@@ -42,7 +42,6 @@ target_pages:
   - memories/system/wiki/index.md
   - memories/system/wiki/architecture.md
   - memories/system/wiki/ingestion-flow.md
-  - memories/system/ingestion-process.md
 claims: []
 decisions: []
 actions: []
@@ -60,15 +59,15 @@ privacy_boundary: private_self
 | Field | Value |
 | --- | --- |
 | Type | `document` |
-| Status | `integrated`; repository recipe configured |
+| Status | `configured` |
 | Refresh policy | Event-driven; revisit when methodology, templates, gates or release notes change. |
-| Privacy boundary | Public repository methodology; private downstream material must never enter this source. |
+| Privacy boundary | Private operational docs; public exports must stay synthetic/public-safe. |
 
 ## Sources and Configs
 
 | Source | Config | Status |
 | --- | --- | --- |
-| [Living wiki methodology](../../sources/wiki-viva-methodology-v5.md) | [wiki-viva-methodology-v5.md](../../sources/config/wiki-viva-methodology-v5.md) | integrated; recipe valid |
+| [Living wiki methodology](../../sources/wiki-viva-methodology-v5.md) | [wiki-viva-methodology-v5.md](../../sources/config/wiki-viva-methodology-v5.md) | configured |
 
 ## Quadrants and Perspectives
 
@@ -79,11 +78,11 @@ privacy_boundary: private_self
 ## Process Links
 
 - Process: [Wiki methodology maintenance](../processes/wiki-methodology-maintenance.md)
-- Target pages: root entity, meta-wiki index, architecture, ingestion flow and ingestion process.
+- Target pages: root entity, meta-wiki index, architecture and ingestion flow.
 
 ## Fetching Rules
 
-- Connector or agent action required: no external connector; read the reviewed local repository checkout on demand.
+- Connector or agent action required: local repo read only.
 - What never to copy: private downstream examples, credentials, cookies, tokens
   or individualized authenticated links.
 - Staging location or external reference: versioned repo docs and synthetic

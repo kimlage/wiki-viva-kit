@@ -1,0 +1,205 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "concept-feedback",
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md",
+      "relation": "markdown_link",
+      "title": "Feedback"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "source-learning-loops",
+      "page_type": "study_research_source",
+      "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md",
+      "relation": "markdown_link",
+      "title": "Learning loops reference"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "concept-retention",
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md",
+      "relation": "markdown_link",
+      "title": "Retention"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "claim-review-cadence",
+      "page_type": "study_research_claim",
+      "path": "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md",
+      "relation": "markdown_link",
+      "title": "Review cadence claim"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "question-next-review",
+      "page_type": "study_research_question",
+      "path": "memories/showcases/study_research_showcase/study-research/question-next-review.md",
+      "relation": "markdown_link",
+      "title": "When should the review cadence be checked again?"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "concept-feedback",
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md",
+      "relation": "moc_parent",
+      "title": "Feedback"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "source-learning-loops",
+      "page_type": "study_research_source",
+      "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md",
+      "relation": "moc_parent",
+      "title": "Learning loops reference"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "concept-retention",
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md",
+      "relation": "moc_parent",
+      "title": "Retention"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "claim-review-cadence",
+      "page_type": "study_research_claim",
+      "path": "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md",
+      "relation": "moc_parent",
+      "title": "Review cadence claim"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "question-next-review",
+      "page_type": "study_research_question",
+      "path": "memories/showcases/study_research_showcase/study-research/question-next-review.md",
+      "relation": "moc_parent",
+      "title": "When should the review cadence be checked again?"
+    }
+  ],
+  "body": "\n# Study and Research Observatory\n\nPublic, synthetic, deterministic experience-pack showcase.\n\n## Browse the fixture\n\n- [Learning loops reference](showcases/study_research_showcase/study-research/source-learning-loops.md)\n- [Feedback](showcases/study_research_showcase/study-research/concept-feedback.md)\n- [Retention](showcases/study_research_showcase/study-research/concept-retention.md)\n- [Review cadence claim](showcases/study_research_showcase/study-research/claim-review-cadence.md)\n- [When should the review cadence be checked again?](showcases/study_research_showcase/study-research/question-next-review.md)\n",
+  "frontmatter": {
+    "blocks": [
+      {
+        "id": "wiki.block.quadrants.v1",
+        "scope": "descendants"
+      }
+    ],
+    "context": "showcase",
+    "packages": [
+      "gamification",
+      "quadrant_lenses"
+    ],
+    "page_id": "root-study-research-showcase",
+    "page_type": "root_entity",
+    "root_entity_type": "system",
+    "source_refs": [],
+    "stale_after_days": "3650",
+    "title": "Study and Research Observatory",
+    "updated_at": "2026-07-09",
+    "visibility": "public"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "showcase",
+    "freshness_state": "fresh",
+    "moc_parent": "",
+    "page_id": "root-study-research-showcase",
+    "page_type": "root_entity",
+    "path": "memories/index.md",
+    "summary": "Public, synthetic, deterministic experience-pack showcase. Learning loops reference Feedback Retention Review cadence claim",
+    "summary_truncated": false,
+    "title": "Study and Research Observatory",
+    "updated_at": "2026-07-09"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "showcases/study_research_showcase/study-research/source-learning-loops.md",
+      "kind": "page",
+      "page_id": "source-learning-loops",
+      "page_type": "study_research_source",
+      "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md",
+      "text": "Learning loops reference",
+      "title": "Learning loops reference"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "showcases/study_research_showcase/study-research/concept-feedback.md",
+      "kind": "page",
+      "page_id": "concept-feedback",
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md",
+      "text": "Feedback",
+      "title": "Feedback"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "showcases/study_research_showcase/study-research/concept-retention.md",
+      "kind": "page",
+      "page_id": "concept-retention",
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md",
+      "text": "Retention",
+      "title": "Retention"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "showcases/study_research_showcase/study-research/claim-review-cadence.md",
+      "kind": "page",
+      "page_id": "claim-review-cadence",
+      "page_type": "study_research_claim",
+      "path": "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md",
+      "text": "Review cadence claim",
+      "title": "Review cadence claim"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "showcases/study_research_showcase/study-research/question-next-review.md",
+      "kind": "page",
+      "page_id": "question-next-review",
+      "page_type": "study_research_question",
+      "path": "memories/showcases/study_research_showcase/study-research/question-next-review.md",
+      "text": "When should the review cadence be checked again?",
+      "title": "When should the review cadence be checked again?"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-study-research-showcase-a589b4a240f07ed7",
+  "source_refs": []
+}

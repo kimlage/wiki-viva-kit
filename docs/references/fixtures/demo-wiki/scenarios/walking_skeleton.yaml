@@ -1,0 +1,92 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: walking_skeleton
+seed: 8001
+purpose: Minimum root, source, person, action, family, reader and fallback vertical slice.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, source, person, action, artifact, ingestion_event]
+source_pages:
+  - memories/index.md
+  - memories/financeiro/index.md
+  - memories/sources/source-banco-export.md
+  - memories/people/person-marina-costa.md
+  - memories/actions/action-enviar-proposta.md
+composition:
+  include_ids:
+    - root-alex-rivera
+    - hub-financeiro
+    - source-banco-export
+    - event-ingest-banco-2026-05
+    - person-marina-costa
+    - action-enviar-proposta
+    - claim-custos-sobem
+    - artifact-relatorio-recon
+expected:
+  page_count: 8
+  page_id_sha256: 1e8cd58682b7d23fec3a689d2a40dfcd9200ae46aef9398547ed5cead89c6eab
+  required_artifact_capabilities: [stable_page_ids, validated_runtime_boundary]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  blocks: wiki_blocks.v2
+canonical_routes:
+  - /demo/w?demo_scenario=walking_skeleton&center=root-alex-rivera&view=quadrants&overlay=actions
+  - /demo/w?demo_scenario=walking_skeleton&center=source-banco-export&view=sources&overlay=evidence&dock=source
+legacy_routes: []
+interactions: [inspect, select, read, recenter, open_family_group, open_dock, close_reader]
+automated_assertions:
+  - claim_id: center_stays_stable_across_semantic_navigation
+    statement: Center remains stable while reader, family groups and docks open.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome"
+      - "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+      - "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+    covers:
+      interactions: [inspect, select, read, recenter, open_family_group, open_dock, close_reader]
+      visual_steps: [open_root, inspect_source, open_reader, recenter_person, verify_fallback]
+      visual_viewports: [1440x960, 390x844]
+      browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+      expected_warnings: []
+      expected_failures: []
+  - claim_id: genesis_page_sets_are_monotonic
+    statement: Stage page sets are monotonic and deterministic.
+    test_ids:
+      - tests/test_build_demo.py::test_stage_fixtures_are_monotonic_subsets
+      - tests/test_build_demo.py::test_genesis_stage_zero_emits_a_declared_null_root_empty_world
+    covers:
+      interactions: []
+      visual_steps: []
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: [empty_world_at_stage_0]
+      expected_failures: []
+  - claim_id: static_operator_preview_remains_inert
+    statement: Static operator command previews remain inert and emit no writes.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::demo mutation surfaces are visibly disabled and emit zero write requests"
+    covers:
+      interactions: []
+      visual_steps: []
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+test_capabilities:
+  - capability: stable_page_ids
+    test_id: tests/test_build_demo.py::test_committed_core_scenario_snapshots_match_every_executable_manifest
+  - capability: static_demo_inert
+    test_id: apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::demo mutation surfaces are visibly disabled and emit zero write requests
+  - capability: validated_runtime_boundary
+    test_id: apps/wiki-cockpit/src/data/snapshot.test.ts::fails real loading when /api/snapshot returns HTML instead of JSON
+visual:
+  matrix_semantics: representative_shell_evidence_not_route_cross_product
+  viewports: [1440x960, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+  steps: [open_root, inspect_source, open_reader, recenter_person, verify_fallback]
+expected_warnings: [empty_world_at_stage_0]
+artifact_warning_codes: []
+expected_failures: []
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/scenarios/walking_skeleton]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

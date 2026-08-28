@@ -28,7 +28,7 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from wiki_core.config import WikiConfig
 from wiki_core.paths import WikiPaths
@@ -90,6 +90,7 @@ class JobRunner:
         claude_cmd: list[str] | None = None,
         timeout_seconds: int = _DEFAULT_JOB_TIMEOUT,
         autostart: bool = True,
+        on_change: Callable[[], None] | None = None,
     ) -> None:
         self.root = root
         self.config = config
@@ -101,6 +102,7 @@ class JobRunner:
         claude_binary = str(claude_cfg.get("binary") or "claude")
         self.claude_cmd = list(claude_cmd) if claude_cmd else [claude_binary]
         self.timeout_seconds = timeout_seconds
+        self._on_change = on_change
         self.dir = WikiPaths(root, config).derived_root / "codex-jobs"
         self.briefs = BriefStore(root, config)
         self._queue: "queue.Queue[str]" = queue.Queue()
@@ -147,13 +149,20 @@ class JobRunner:
         path = self._record_path(record["job_id"])
         temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
         try:
-            temporary.write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
+            temporary.write_text(
+                json.dumps(record, indent=2, sort_keys=True), encoding="utf-8"
+            )
             # Readers poll while the worker updates steps and cancellation state.
             # Replace a complete sibling file so they can only observe the old
             # or new JSON document, never a truncated in-place write.
             temporary.replace(path)
         finally:
             temporary.unlink(missing_ok=True)
+        if self._on_change is not None:
+            try:
+                self._on_change()
+            except Exception:  # noqa: BLE001 - cache notification cannot fail a job
+                pass
         return record
 
     def get(self, job_id: str) -> dict[str, Any] | None:
@@ -563,15 +572,31 @@ class JobRunner:
         # Feed the whole brief on a SEPARATE thread: a large brief can exceed the
         # OS pipe buffer, and writing it to completion before reading stdout would
         # deadlock (the child blocks writing stdout while we block writing stdin).
+        # Keep the thread handle: returning while this closure still owns ``proc``
+        # lets Popen and its pipe wrappers be finalized later by an unrelated
+        # thread.  Besides leaking descriptors, Python 3.12 reports that as an
+        # unraisable ResourceWarning.  Every exit below therefore joins both
+        # helpers and explicitly closes both parent-side pipes.
         def _feed() -> None:
+            stream = proc.stdin
+            if stream is None:
+                return
             try:
-                if proc.stdin:
-                    proc.stdin.write(brief_text)
-                    proc.stdin.close()
+                stream.write(brief_text)
             except (BrokenPipeError, OSError):
                 pass
+            finally:
+                try:
+                    stream.close()
+                except OSError:
+                    pass
 
-        threading.Thread(target=_feed, daemon=True).start()
+        feed_thread = threading.Thread(
+            target=_feed,
+            name=f"wiki-codex-feed-{job_id}",
+            daemon=True,
+        )
+        feed_thread.start()
 
         # Independent watchdog: kill the process after the timeout even if it
         # produces NO output and never closes stdout (a silent hang would
@@ -580,23 +605,61 @@ class JobRunner:
 
         def _watchdog() -> None:
             if not finished.wait(self.timeout_seconds):
-                proc.kill()
+                try:
+                    if proc.poll() is None:
+                        proc.kill()
+                except OSError:
+                    # The process may exit between poll() and kill().  Cleanup
+                    # and wait() remain owned by the calling thread below.
+                    pass
 
-        threading.Thread(target=_watchdog, daemon=True).start()
+        watchdog_thread = threading.Thread(
+            target=_watchdog,
+            name=f"wiki-codex-watchdog-{job_id}",
+            daemon=True,
+        )
+        watchdog_thread.start()
 
-        with log_path.open("w", encoding="utf-8") as log:
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                log.write(_redact(line))
-                log.flush()
-                if job_id in self._cancelled:
-                    proc.terminate()
-                    break
-        rc = proc.wait()  # stdout is drained/closed (exit, terminate or watchdog kill)
-        finished.set()
-        with self._lock:
-            self._procs.pop(job_id, None)
-        return rc, job_id in self._cancelled
+        try:
+            with log_path.open("w", encoding="utf-8") as log:
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    log.write(_redact(line))
+                    log.flush()
+                    if job_id in self._cancelled:
+                        try:
+                            proc.terminate()
+                        except OSError:
+                            pass
+                        break
+            rc = proc.wait()  # exit, terminate or watchdog kill
+            return rc, job_id in self._cancelled
+        finally:
+            # Stop and reap the process on exceptional exits too.  Killing a
+            # still-running child also releases a feeder blocked on a full stdin
+            # pipe, so the join cannot outlive the subprocess.
+            finished.set()
+            if proc.poll() is None:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+            try:
+                proc.wait()
+            except OSError:
+                pass
+
+            feed_thread.join()
+            watchdog_thread.join()
+
+            for stream in (proc.stdin, proc.stdout):
+                if stream is not None and not stream.closed:
+                    try:
+                        stream.close()
+                    except OSError:
+                        pass
+            with self._lock:
+                self._procs.pop(job_id, None)
 
     def cancel(self, job_id: str) -> dict[str, Any] | None:
         record = self.get(job_id)

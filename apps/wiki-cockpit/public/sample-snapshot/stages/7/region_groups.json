@@ -1,0 +1,1161 @@
+{
+  "groups": [
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "block-library-lens",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:intencao",
+      "kind": "quadrant",
+      "label_key": "intencao",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "block-library-lens",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:pratica",
+      "kind": "quadrant",
+      "label_key": "pratica",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "block-library-lens",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:relacoes",
+      "kind": "quadrant",
+      "label_key": "relacoes",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "block-library-lens",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:sistemas",
+      "kind": "quadrant",
+      "label_key": "sistemas",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [],
+      "anchor_id": "hub-financeiro",
+      "attention_hints": [],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:intencao",
+      "kind": "quadrant",
+      "label_key": "intencao",
+      "member_ids": [
+        "claim-custos-sobem"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 1,
+        "source_backed": 1,
+        "stale": 0,
+        "total": 1,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "decision",
+          "page_type": "claim"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "refresh",
+          "label_key": "region.action.refresh"
+        },
+        {
+          "count": 1,
+          "kind": "inspect_sources",
+          "label_key": "region.action.inspectSources"
+        }
+      ],
+      "anchor_id": "hub-financeiro",
+      "attention_hints": [
+        {
+          "count": 1,
+          "kind": "stale"
+        },
+        {
+          "count": 1,
+          "kind": "raw"
+        }
+      ],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:pratica",
+      "kind": "quadrant",
+      "label_key": "pratica",
+      "member_ids": [
+        "artifact-relatorio-recon",
+        "source-banco-export"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "verify",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 1,
+        "risk": 0,
+        "shown": 2,
+        "source_backed": 1,
+        "stale": 1,
+        "total": 2,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "content",
+          "page_type": "artifact"
+        },
+        {
+          "count": 1,
+          "family": "source",
+          "page_type": "source"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "attention"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "evidence_first",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "dock.action": "action_lane",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "reader.badge": "source_badge",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "hub-financeiro",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:relacoes",
+      "kind": "quadrant",
+      "label_key": "relacoes",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "hub-financeiro",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:sistemas",
+      "kind": "quadrant",
+      "label_key": "sistemas",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [],
+      "anchor_id": "hub-sistema",
+      "attention_hints": [],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:intencao",
+      "kind": "quadrant",
+      "label_key": "intencao",
+      "member_ids": [
+        "perspective-artifacts-evidence",
+        "perspective-financial",
+        "perspective-identity-intent",
+        "perspective-privacy-publication",
+        "perspective-roles-relationships",
+        "perspective-systems-processes"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 6,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 6,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 6,
+          "family": "content",
+          "page_type": "perspective"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "hub-sistema",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:pratica",
+      "kind": "quadrant",
+      "label_key": "pratica",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "hub-sistema",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:relacoes",
+      "kind": "quadrant",
+      "label_key": "relacoes",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [],
+      "anchor_id": "hub-sistema",
+      "attention_hints": [],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:sistemas",
+      "kind": "quadrant",
+      "label_key": "sistemas",
+      "member_ids": [
+        "block-library-lens",
+        "skill-agent-classify-quadrants",
+        "skill-agent-deep-read",
+        "skill-human-review-privacy"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 4,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 4,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 3,
+          "family": "content",
+          "page_type": "skill"
+        },
+        {
+          "count": 1,
+          "family": "rule",
+          "page_type": "template_block"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "root-alex-rivera",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:intencao",
+      "kind": "quadrant",
+      "label_key": "intencao",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "root-alex-rivera",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:pratica",
+      "kind": "quadrant",
+      "label_key": "pratica",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "refresh",
+          "label_key": "region.action.refresh"
+        }
+      ],
+      "anchor_id": "root-alex-rivera",
+      "attention_hints": [
+        {
+          "count": 1,
+          "kind": "stale"
+        }
+      ],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:relacoes",
+      "kind": "quadrant",
+      "label_key": "relacoes",
+      "member_ids": [
+        "person-marina-costa"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "verify",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 1,
+        "source_backed": 0,
+        "stale": 1,
+        "total": 1,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "person",
+          "page_type": "person"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "attention"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [],
+      "anchor_id": "root-alex-rivera",
+      "attention_hints": [],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:sistemas",
+      "kind": "quadrant",
+      "label_key": "sistemas",
+      "member_ids": [
+        "hub-financeiro",
+        "hub-sistema"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 2,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 2,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 2,
+          "family": "hub",
+          "page_type": "context_hub"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [],
+      "anchor_id": "source-banco-export",
+      "attention_hints": [],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:intencao",
+      "kind": "quadrant",
+      "label_key": "intencao",
+      "member_ids": [
+        "claim-custos-sobem"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 1,
+        "source_backed": 1,
+        "stale": 0,
+        "total": 1,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "decision",
+          "page_type": "claim"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "inspect_sources",
+          "label_key": "region.action.inspectSources"
+        }
+      ],
+      "anchor_id": "source-banco-export",
+      "attention_hints": [
+        {
+          "count": 1,
+          "kind": "raw"
+        }
+      ],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:pratica",
+      "kind": "quadrant",
+      "label_key": "pratica",
+      "member_ids": [
+        "artifact-relatorio-recon",
+        "event-ingest-banco-2026-05"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 1,
+        "risk": 0,
+        "shown": 2,
+        "source_backed": 2,
+        "stale": 0,
+        "total": 2,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "content",
+          "page_type": "artifact"
+        },
+        {
+          "count": 1,
+          "family": "event",
+          "page_type": "ingestion_event"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "evidence_first",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "dock.action": "action_lane",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "reader.badge": "source_badge",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "source-banco-export",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:relacoes",
+      "kind": "quadrant",
+      "label_key": "relacoes",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "source-banco-export",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:sistemas",
+      "kind": "quadrant",
+      "label_key": "sistemas",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "region_operations",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    }
+  ],
+  "schema_version": "wiki_region_groups.v2"
+}

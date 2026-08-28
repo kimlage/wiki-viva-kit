@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-experience-pack-commands-v1.schema.json",
+  "title": "Wiki Viva experience pack commands v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pack", "commands"],
+  "properties": {
+    "schema_version": {"const": "wiki_experience_pack_commands.v1"},
+    "pack": {"$ref": "#/$defs/packId"},
+    "commands": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slot", "inputs", "outputs", "permissions", "mode", "dry_run", "human_gate"],
+        "properties": {
+          "slot": {"$ref": "#/$defs/identifier"},
+          "inputs": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "outputs": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "permissions": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "mode": {"const": "proposal_only"},
+          "dry_run": {"const": true},
+          "human_gate": {"const": "required"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "packId": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+    "nonEmptyIdentifiers": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    }
+  }
+}

@@ -1,0 +1,16 @@
+schema_version: wiki_experience_pack_fixture.v1
+id: study-paper-review
+story: Review a synthetic paper, connect two concepts and record a qualified claim.
+expected_state: ready
+public_synthetic: true
+pages:
+  - source-learning-loops
+  - concept-feedback
+  - concept-retention
+  - claim-review-cadence
+  - question-next-review
+assertions:
+  - concept_graph_has_two_linked_nodes
+  - evidence_matrix_has_supporting_evidence
+  - learning_history_has_capture_and_review
+  - spaced_review_has_explicit_due_date

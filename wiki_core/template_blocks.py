@@ -24,12 +24,25 @@ and every resolved block carrying its `origin`.
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from wiki_core.action_state import (
+    legacy_action_state_from_body,
+    resolve_action_state,
+)
 from wiki_core.config import WikiConfig, load_config
+from wiki_core.collections import (
+    collection_cycle_diagnostics,
+    collection_spec,
+    collection_reference_diagnostics,
+    collection_membership_basis,
+    member_collection_refs,
+    validate_collection_declaration,
+)
 from wiki_core.facets import FACET_QUADRANTS, FACETS, facet_of, home_quadrant
+from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph.page_graph import PageGraph, build_page_graph
 from wiki_core.quadrants import DEFAULT_QUADRANT_MAP, quadrant_contract
@@ -37,10 +50,11 @@ from wiki_core.templates_registry import TemplateRegistry, load_template_registr
 
 BLOCKS_SCHEMA_VERSION = "wiki_web_blocks.v1"
 BLOCK_STACKS_SCHEMA_VERSION = "wiki_web_block_stacks.v1"
+VISUAL_GRAMMAR_SCHEMA_VERSION = "wiki.visual_grammar.v1"
 
 # --- The FIXED vocabulary (source of truth in code) -------------------------
 BLOCK_KINDS = frozenset({"interpretation", "interface", "gate", "skill"})
-SCOPE_MODES = frozenset({"self", "children", "descendants", "context"})
+SCOPE_MODES = frozenset({"self", "children", "descendants", "context", "linked"})
 NESTED_MODES = frozenset({"summarize", "project_all", "hide_nested"})
 SURFACES = frozenset({"views", "missions", "create", "intake", "score", "panels"})
 MISSION_PROVIDERS = frozenset(
@@ -86,6 +100,93 @@ IDENTITY_LANDMARKS = frozenset(
 )
 IDENTITY_MOTIFS = frozenset({"rings", "grid", "ledger", "shelves", "orbits", "streams", "none"})
 IDENTITY_AMBIENTS = frozenset({"none", "motes", "drift"})
+VISUAL_PRIMITIVES = frozenset(
+    {
+        "region_card",
+        "region_work_card",
+        "attention_rail",
+        "type_shelf",
+        "source_badge",
+        "action_lane",
+        "risk_notch",
+        "review_halo",
+        "hidden_histogram",
+        "core_debt_meter",
+        "empty_region_affordance",
+        "bridge_count",
+        "center_badge",
+        "scope_chip",
+        "legend_key",
+    }
+)
+VISUAL_PRIMITIVE_SLOTS = frozenset(
+    {
+        "region.card",
+        "region.rail",
+        "region.shelf",
+        "region.marker",
+        "region.empty",
+        "cluster.tooltip",
+        "fallback.card",
+        "reader.badge",
+        "dock.action",
+        "legend.entry",
+    }
+)
+VISUAL_PRIMITIVE_PACKS = frozenset({"region_operations", "evidence_first", "review_first", "quiet_structure"})
+VISUAL_PRIMITIVE_PURPOSES = {
+    "region_card": "summarize region size and purpose",
+    "region_work_card": "show composition, attention and next actions",
+    "attention_rail": "filter attention inside the active region",
+    "type_shelf": "show why a region is dense by page family",
+    "source_badge": "mark raw, synced and consolidated evidence",
+    "action_lane": "separate work items from context",
+    "risk_notch": "show risk without flooding the region",
+    "review_halo": "show pending proposal or approval review",
+    "hidden_histogram": "describe hidden work behind render limits",
+    "core_debt_meter": "flag classification debt in the core ring",
+    "empty_region_affordance": "explain required absences and valid creation paths",
+    "bridge_count": "explain cross-region dependencies",
+    "center_badge": "show the active anchor center",
+    "scope_chip": "show the active center, region or filter scope",
+    "legend_key": "explain the resolved visual grammar",
+}
+DEFAULT_VISUAL_PACKS: dict[str, dict[str, Any]] = {
+    "region_operations": {
+        "slots": {
+            "region.card": "region_card",
+            "region.rail": "attention_rail",
+            "region.shelf": "type_shelf",
+            "region.marker": "action_lane",
+            "region.empty": "empty_region_affordance",
+            "cluster.tooltip": "hidden_histogram",
+            "fallback.card": "region_work_card",
+            "legend.entry": "legend_key",
+        }
+    },
+    "evidence_first": {
+        "extends": "region_operations",
+        "slots": {
+            "reader.badge": "source_badge",
+            "dock.action": "action_lane",
+        },
+    },
+    "review_first": {
+        "extends": "region_operations",
+        "slots": {
+            "region.marker": "review_halo",
+            "dock.action": "review_halo",
+        },
+    },
+    "quiet_structure": {
+        "extends": "region_operations",
+        "slots": {
+            "region.card": "center_badge",
+            "region.rail": "core_debt_meter",
+            "region.marker": "scope_chip",
+        },
+    },
+}
 
 # Quadrant IDs in canonical order, derived from the facet contract
 # (wiki_core.facets encodes the honest 1:1 facet <-> quadrant mapping; one lens
@@ -145,7 +246,6 @@ SUBLENS_DEFAULT_BY_TYPE: dict[str, str] = {
     "input_stage": "fontes",
     "template_block": "governanca",
     "skill": "automacoes",
-    "tool": "ferramentas",
 }
 
 ROOT_ENTITY_TYPE_PARENT_PROJECTION: dict[str, tuple[str, str]] = {
@@ -236,7 +336,7 @@ def _page_records(root: Path, config: WikiConfig, today: dt.date) -> list[dict[s
         return records
     for path in sorted(p for p in memory_root.rglob("*.md") if p.is_file()):
         rel = path.relative_to(root).as_posix()
-        values, _body = parse_frontmatter(path)
+        values, body = parse_frontmatter(path)
         page_id = str(values.get("page_id") or rel).strip()
         records.append(
             {
@@ -249,6 +349,9 @@ def _page_records(root: Path, config: WikiConfig, today: dt.date) -> list[dict[s
                 "moc_parent": str(values.get("moc_parent") or ""),
                 "updated_at": str(values.get("updated_at") or ""),
                 "values": values,
+                # Internal-only input for the legacy action adapter. Derived
+                # payloads select explicit fields and never publish this body.
+                "body": body,
             }
         )
     return records
@@ -349,6 +452,27 @@ def _is_descendant(world: BlockWorld, anchor: dict[str, Any], target: dict[str, 
     return False
 
 
+_PROJECT_MEMBER_PROJECTION: dict[str, tuple[str, str]] = {
+    "claims": ("intencao", "percepcao"),
+    "decisions": ("intencao", "intencao"),
+    "actions": ("pratica", "comportamento"),
+    "evidence_refs": ("pratica", "evidencias"),
+    "roles": ("relacoes", "pessoas"),
+    "responsibilities": ("relacoes", "cultura"),
+    "related_holons": ("relacoes", "cultura"),
+    "source_refs": ("sistemas", "fontes"),
+}
+
+
+def _project_member_role(anchor: dict[str, Any], target: dict[str, Any]) -> tuple[str, str, str] | None:
+    if anchor["page_type"] != "project":
+        return None
+    for field, (facet, sub_lens) in _PROJECT_MEMBER_PROJECTION.items():
+        if any(_page_ref_matches(ref, target) for ref in list_values(anchor["values"].get(field))):
+            return field, facet, sub_lens
+    return None
+
+
 def _scope_reaches(
     world: BlockWorld, scope: str, anchor: dict[str, Any], target: dict[str, Any]
 ) -> bool:
@@ -356,8 +480,42 @@ def _scope_reaches(
         return True
     if scope == "self":
         return False
+    if scope == "linked" and collection_membership_basis(
+        anchor,
+        target,
+        default=world.registry.resolve(anchor["page_type"]).collection,
+    ):
+        return True
     if _page_ref_matches(target["values"].get("subject_ref") or target["values"].get("subject"), anchor):
         return True
+    if (
+        anchor["page_type"] == "source"
+        and not _is_descendant(world, target, anchor)
+        and any(
+            _page_ref_matches(ref, anchor)
+            for ref in [
+                *list_values(target["values"].get("source_ref")),
+                *list_values(target["values"].get("source_refs")),
+            ]
+        )
+    ):
+        return True
+    if (
+        anchor["page_type"] == "holon"
+        and not _is_descendant(world, target, anchor)
+        and any(
+            _page_ref_matches(ref, anchor)
+            for ref in list_values(target["values"].get("related_holons"))
+        )
+    ):
+        return True
+    if not _is_descendant(world, target, anchor) and _project_member_role(anchor, target):
+        return True
+    # ``linked`` is an explicit relation scope. It must not silently degrade to
+    # the descendants fallback below; doing so would re-flatten collection
+    # indexes into their canonical hierarchy.
+    if scope == "linked":
+        return False
     if scope == "children":
         return target["moc_parent"] in {anchor["path"], anchor["id"]}
     if scope == "context":
@@ -392,6 +550,14 @@ def _block_instances(entries: Any) -> list[dict[str, Any]]:
     return out
 
 
+def _collection_scope_instance_errors(label: str, instance: dict[str, Any]) -> list[str]:
+    if "collection_scope" in instance and not isinstance(
+        instance.get("collection_scope"), bool
+    ):
+        return [f"{label}: collection_scope must be boolean"]
+    return []
+
+
 def _package_instances(world: BlockWorld, entries: Any) -> list[dict[str, Any]]:
     """Expand a `packages:` list into block instances (attachment sugar: a
     package is a named group; its blocks apply in order at the same ring)."""
@@ -420,12 +586,18 @@ def _apply(stack: list[dict[str, Any]], instance: dict[str, Any], *, origin: str
     config = dict(instance.get("config") or {})
     definition = world.blocks.get(block_id) or {}
     kind = str(definition.get("kind") or "")
+    collection_scope = (
+        bool(instance.get("collection_scope"))
+        if "collection_scope" in instance
+        else bool(definition.get("collection_scope", False))
+    )
     for existing in stack:
         if existing["id"] == block_id:
             # Nearer ring wins: override config key-by-key, adopt nearer scope/origin.
             existing["config"].update(config)
             existing["scope"] = scope
             existing["origin"] = origin
+            existing["collection_scope"] = collection_scope
             return
     stack.append(
         {
@@ -435,8 +607,45 @@ def _apply(stack: list[dict[str, Any]], instance: dict[str, Any], *, origin: str
             "kind": kind,
             "config": config,
             "known": block_id in world.blocks,
+            "collection_scope": collection_scope,
         }
     )
+
+
+def _has_collection_contract(world: BlockWorld, anchor: dict[str, Any]) -> bool:
+    default = world.registry.resolve(anchor["page_type"]).collection
+    spec = collection_spec(anchor, default)
+    if spec["member_types"] or spec["members"]:
+        return True
+    return any(
+        page["id"] != anchor["id"]
+        and any(
+            ref in {anchor["id"], anchor["path"]}
+            for ref in member_collection_refs(page)
+        )
+        for page in world.pages
+    )
+
+
+def _activate_collection_scopes(
+    world: BlockWorld, page: dict[str, Any], stack: list[dict[str, Any]]
+) -> None:
+    """Switch collection-aware type blocks only when membership is declared.
+
+    Legacy ontology indexes often own real moc descendants. They must keep that
+    behavior until the page or one of its members explicitly declares a
+    collection relation. The resolved stack records the basis either way.
+    """
+
+    active = _has_collection_contract(world, page)
+    for entry in stack:
+        if not entry.get("collection_scope"):
+            continue
+        entry["declared_scope"] = str(entry.get("scope") or "descendants")
+        entry["scope"] = "linked" if active else entry["declared_scope"]
+        entry["scope_basis"] = (
+            "collection_contract" if active else "canonical_hierarchy"
+        )
 
 
 def resolve_stack(world: BlockWorld, page: dict[str, Any]) -> list[dict[str, Any]]:
@@ -471,6 +680,7 @@ def resolve_stack(world: BlockWorld, page: dict[str, Any]) -> list[dict[str, Any
         world, page["values"].get("packages")
     ):
         _apply(stack, inst, origin="page", world=world)
+    _activate_collection_scopes(world, page, stack)
     return stack
 
 
@@ -789,6 +999,18 @@ def _direct_page_projections(
     explicit = _subject_role_projection(center, page)
     if explicit:
         return [explicit]
+    project_role = _project_member_role(center, page)
+    if project_role:
+        field, facet, sub_lens = project_role
+        projected = _projection_from_raw(
+            {"facet": facet, "sub_lens": sub_lens, "reason": f"project_field:{field}"},
+            page=page,
+            center=center,
+            basis="project_reference",
+            subject_center=center["id"],
+        )
+        if projected:
+            return [projected]
     facets = _page_quadrants(world, page, overrides)
     if not facets:
         edge_facet = _edge_facet(world, page, center)
@@ -928,10 +1150,11 @@ def quadrant_assignments(
 
 def _edge_facet(world: BlockWorld, page: dict[str, Any], anchor: dict[str, Any]) -> str | None:
     """The facet implied by how `page` links to `anchor` (source_ref etc.)."""
-    node = world.graph.nodes.get(page["path"])
-    if node is None:
-        return None
-    if anchor["path"] in node.outbound_frontmatter_refs or anchor["id"] in node.outbound_frontmatter_refs:
+    source_refs = [
+        *list_values(page["values"].get("source_ref")),
+        *list_values(page["values"].get("source_refs")),
+    ]
+    if any(_page_ref_matches(ref, anchor) for ref in source_refs):
         return facet_of(page["page_type"], "source_ref")
     return facet_of(page["page_type"], None)
 
@@ -1070,10 +1293,74 @@ def _block_config(entry: dict[str, Any] | None) -> dict[str, Any]:
     return dict((entry or {}).get("config") or {})
 
 
+def _merge_visual_pack(pack_id: str, packs: dict[str, dict[str, Any]], seen: set[str] | None = None) -> dict[str, Any]:
+    seen = seen or set()
+    if pack_id in seen:
+        return {"slots": {}}
+    seen.add(pack_id)
+    pack = packs.get(pack_id) or {}
+    base_id = str(pack.get("extends") or "").strip()
+    merged = _merge_visual_pack(base_id, packs, seen) if base_id else {"slots": {}}
+    slots = dict(merged.get("slots") or {})
+    slots.update({str(k): str(v) for k, v in dict(pack.get("slots") or {}).items()})
+    result = dict(pack)
+    result["slots"] = slots
+    if base_id:
+        result["extends"] = base_id
+    return result
+
+
+def _configured_visual_packs(*configs: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    packs = {key: dict(value) for key, value in DEFAULT_VISUAL_PACKS.items()}
+    for cfg in configs:
+        raw = cfg.get("packs")
+        if not isinstance(raw, dict):
+            continue
+        for pack_id, definition in raw.items():
+            if isinstance(definition, dict):
+                base = dict(packs.get(str(pack_id), {}))
+                base.update(definition)
+                packs[str(pack_id)] = base
+    return {pack_id: _merge_visual_pack(pack_id, packs) for pack_id in sorted(packs)}
+
+
+def resolve_visual_grammar(world: BlockWorld, anchor: dict[str, Any], stack: list[dict[str, Any]]) -> dict[str, Any]:
+    quad = _stack_block(stack, "wiki.block.quadrants")
+    regions_entry = _stack_block(stack, "wiki.block.ui_regions")
+    grammar_entry = _stack_block(stack, "wiki.block.visual_grammar")
+    if quad is None and regions_entry is None and grammar_entry is None:
+        return {}
+    regions_cfg = _block_config(regions_entry)
+    grammar_cfg = _block_config(grammar_entry)
+    default_pack = str(
+        regions_cfg.get("visual_pack")
+        or grammar_cfg.get("default_pack")
+        or grammar_cfg.get("visual_pack")
+        or "region_operations"
+    )
+    if default_pack not in VISUAL_PRIMITIVE_PACKS:
+        default_pack = "region_operations"
+    packs = _configured_visual_packs(grammar_cfg, regions_cfg)
+    allowed = [str(item) for item in regions_cfg.get("allowed_packs") or grammar_cfg.get("allowed_packs") or sorted(VISUAL_PRIMITIVE_PACKS)]
+    allowed = [item for item in allowed if item in VISUAL_PRIMITIVE_PACKS]
+    if default_pack not in allowed:
+        allowed.insert(0, default_pack)
+    resolved_packs = {pack_id: packs[pack_id] for pack_id in sorted(packs) if pack_id in allowed}
+    return {
+        "schema_version": VISUAL_GRAMMAR_SCHEMA_VERSION,
+        "default_pack": default_pack,
+        "allowed_packs": allowed,
+        "packs": resolved_packs,
+        "primitive_purpose": {key: VISUAL_PRIMITIVE_PURPOSES[key] for key in sorted(VISUAL_PRIMITIVES)},
+    }
+
+
 def resolve_interface(world: BlockWorld, anchor: dict[str, Any], stack: list[dict[str, Any]]) -> dict[str, Any]:
     quad = _stack_block(stack, "wiki.block.quadrants")
     relations = _stack_block(stack, "wiki.block.relations")
     has_quadrants = quad is not None
+    regions_entry = _stack_block(stack, "wiki.block.ui_regions")
+    visual_grammar = resolve_visual_grammar(world, anchor, stack)
 
     # views: the home view comes from the stack — quadrants ONLY when the
     # quadrants block is attached; a bare root reads as a radar. The DEFAULT
@@ -1154,6 +1441,10 @@ def resolve_interface(world: BlockWorld, anchor: dict[str, Any], stack: list[dic
         },
         "intake": {"forms": forms},
         "score": {"loops": loops, "no_leaderboard": True},
+        "regions": {
+            "active": regions_entry is not None or has_quadrants,
+            "visual_pack": visual_grammar.get("default_pack") or "region_operations",
+        },
         "has_quadrants": has_quadrants,
         "has_relations": relations is not None,
     }
@@ -1183,9 +1474,241 @@ def resolve_identity(world: BlockWorld, anchor: dict[str, Any]) -> dict[str, Any
 # --- Derived outputs & per-anchor record ------------------------------------
 
 
+PAGE_TYPE_FAMILIES = {
+    "root_index": "root",
+    "root_entity": "root",
+    "context_hub": "hub",
+    "ontology_index": "hub",
+    "source_catalog": "hub",
+    "relationship_map": "hub",
+    "source": "source",
+    "source_config": "source",
+    "source_registry": "source",
+    "input_channel": "source",
+    "input_stage": "source",
+    "decision": "decision",
+    "claim": "decision",
+    "action": "action",
+    "process": "action",
+    "operational_rule": "rule",
+    "dashboard": "rule",
+    "system_log": "rule",
+    "methodology_plan": "rule",
+    "template_block": "rule",
+    "ingestion_event": "event",
+    "journal_entry": "event",
+    "meeting": "event",
+    "proposal": "event",
+    "person": "person",
+    "role": "person",
+    "responsibility": "person",
+}
+RAW_PAGE_TYPES = {"source", "source_config", "source_registry", "input_channel", "input_stage", "ingestion_event"}
+
+
+def _page_family(page: dict[str, Any]) -> str:
+    return PAGE_TYPE_FAMILIES.get(page["page_type"], "content")
+
+
+def _page_freshness(page: dict[str, Any], world: BlockWorld) -> str:
+    values = page["values"]
+    return freshness_state(
+        values.get("updated_at") or values.get("date"),
+        values.get("stale_after_days"),
+        world.today,
+        stale_exempt=is_stale_exempt(values.get("stale_exempt")),
+    )
+
+
+def _page_is_proposal(page: dict[str, Any]) -> bool:
+    status = str(page["values"].get("status") or "").lower()
+    return page["page_type"] == "proposal" or status in {"proposal", "draft", "proposed", "pending_review"}
+
+
+def _page_has_risk(page: dict[str, Any]) -> bool:
+    return bool(list_values(page["values"].get("risk_flags")) or list_values(page["values"].get("risks")))
+
+
+def _page_is_open_action(page: dict[str, Any]) -> bool:
+    if page["page_type"] != "action":
+        return False
+    return not resolve_action_state(
+        page["values"],
+        legacy_state=legacy_action_state_from_body(str(page.get("body") or "")),
+    ).terminal
+
+
+REGION_PREVIEW_LIMIT = 40
+
+
+def _summary_for_pages(world: BlockWorld, pages: list[dict[str, Any]]) -> dict[str, int]:
+    total = len(pages)
+    shown = min(total, REGION_PREVIEW_LIMIT)
+    stale = sum(1 for page in pages if _page_freshness(page, world) == "stale")
+    raw = sum(1 for page in pages if page["page_type"] in RAW_PAGE_TYPES)
+    source_backed = sum(1 for page in pages if list_values(page["values"].get("source_refs")))
+    unsourced = sum(
+        1
+        for page in pages
+        if page["page_type"] in {"claim", "decision", "methodology_plan"} and not list_values(page["values"].get("source_refs"))
+    )
+    return {
+        "total": total,
+        "shown": shown,
+        "hidden": total - shown,
+        "stale": stale,
+        "proposal": sum(1 for page in pages if _page_is_proposal(page)),
+        "risk": sum(1 for page in pages if _page_has_risk(page)),
+        "raw": raw,
+        "unsourced": unsourced,
+        "open_actions": sum(1 for page in pages if _page_is_open_action(page)),
+        "source_backed": source_backed,
+    }
+
+
+def _type_mix(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    counts: dict[tuple[str, str], int] = {}
+    for page in pages:
+        key = (page["page_type"], _page_family(page))
+        counts[key] = counts.get(key, 0) + 1
+    return [
+        {"page_type": page_type, "family": family, "count": count}
+        for (page_type, family), count in sorted(counts.items(), key=lambda item: (-item[1], item[0][1], item[0][0]))
+    ]
+
+
+def _attention_hints(summary: dict[str, int]) -> list[dict[str, Any]]:
+    hints: list[dict[str, Any]] = []
+    for kind, key in (
+        ("risk", "risk"),
+        ("proposal", "proposal"),
+        ("stale", "stale"),
+        ("unsourced", "unsourced"),
+        ("raw", "raw"),
+        ("hidden", "hidden"),
+    ):
+        count = int(summary.get(key) or 0)
+        if count > 0:
+            hints.append({"kind": kind, "count": count})
+    return hints
+
+
+def _action_hints(summary: dict[str, int]) -> list[dict[str, Any]]:
+    hints: list[dict[str, Any]] = []
+    if summary["open_actions"] > 0:
+        hints.append({"kind": "review", "label_key": "region.action.review", "count": summary["open_actions"]})
+    if summary["stale"] > 0:
+        hints.append({"kind": "refresh", "label_key": "region.action.refresh", "count": summary["stale"]})
+    if summary["unsourced"] > 0:
+        hints.append({"kind": "add_evidence", "label_key": "region.action.addEvidence", "count": summary["unsourced"]})
+    if summary["raw"] > 0:
+        hints.append({"kind": "inspect_sources", "label_key": "region.action.inspectSources", "count": summary["raw"]})
+    return hints
+
+
+def _visual_config_errors(label: str, config: Any) -> list[str]:
+    if not isinstance(config, dict):
+        return []
+    errors: list[str] = []
+    for key in ("visual_pack", "default_pack"):
+        value = config.get(key)
+        if value is not None and str(value) not in VISUAL_PRIMITIVE_PACKS:
+            errors.append(f"{label}: unknown visual pack `{value}` (use {sorted(VISUAL_PRIMITIVE_PACKS)})")
+    for pack_id in config.get("allowed_packs") or []:
+        if str(pack_id) not in VISUAL_PRIMITIVE_PACKS:
+            errors.append(f"{label}: unknown allowed visual pack `{pack_id}`")
+    raw_packs = config.get("packs")
+    if isinstance(raw_packs, dict):
+        for pack_id, pack in raw_packs.items():
+            if str(pack_id) not in VISUAL_PRIMITIVE_PACKS:
+                errors.append(f"{label}: unknown visual pack `{pack_id}`")
+            if not isinstance(pack, dict):
+                continue
+            extends = pack.get("extends")
+            if extends is not None and str(extends) not in VISUAL_PRIMITIVE_PACKS:
+                errors.append(f"{label}: visual pack `{pack_id}` extends unknown pack `{extends}`")
+            for slot, primitive in dict(pack.get("slots") or {}).items():
+                if str(slot) not in VISUAL_PRIMITIVE_SLOTS:
+                    errors.append(f"{label}: unknown visual primitive slot `{slot}`")
+                if str(primitive) not in VISUAL_PRIMITIVES:
+                    errors.append(f"{label}: unknown visual primitive `{primitive}`")
+    return errors
+
+
+def region_groups_derived(
+    world: BlockWorld,
+    anchor: dict[str, Any],
+    assignments: dict[str, Any],
+    visual_grammar: dict[str, Any],
+) -> dict[str, Any]:
+    default_pack = str(visual_grammar.get("default_pack") or "region_operations")
+    quadrant_labels = {"q1": "intencao", "q2": "pratica", "q3": "relacoes", "q4": "sistemas"}
+    groups: list[dict[str, Any]] = []
+    by_quadrant = assignments.get("by_quadrant") or {}
+    for quadrant in ("q1", "q2", "q3", "q4"):
+        ids = [page_id for page_id in by_quadrant.get(quadrant, []) if page_id != anchor["id"]]
+        pages = [world.by_id[page_id] for page_id in ids if page_id in world.by_id]
+        summary = _summary_for_pages(world, pages)
+        label = quadrant_labels[quadrant]
+        pack = "evidence_first" if summary["raw"] or summary["unsourced"] else "review_first" if summary["proposal"] else default_pack
+        groups.append(
+            {
+                "id": f"quadrant:{label}",
+                "kind": "quadrant",
+                "label_key": label,
+                "purpose": "act" if summary["open_actions"] else "verify" if summary["stale"] or summary["unsourced"] else "navigate",
+                "visual_role": "quadrant",
+                "member_ids": ids,
+                "summary": summary,
+                "type_mix": _type_mix(pages),
+                "attention_hints": _attention_hints(summary),
+                "action_hints": _action_hints(summary),
+                "visual": {
+                    "grammar_id": visual_grammar.get("schema_version") or VISUAL_GRAMMAR_SCHEMA_VERSION,
+                    "pack_id": pack if pack in VISUAL_PRIMITIVE_PACKS else default_pack,
+                    "slots": dict((visual_grammar.get("packs") or {}).get(pack, {}).get("slots") or {}),
+                    "emphasis": [
+                        label
+                        for label, active in (
+                            ("attention", bool(summary["stale"] or summary["risk"] or summary["proposal"] or summary["unsourced"])),
+                            ("healthy", not bool(summary["stale"] or summary["risk"] or summary["proposal"] or summary["unsourced"])),
+                        )
+                        if active
+                    ],
+                },
+            }
+        )
+    core_ids = [page_id for page_id in by_quadrant.get("q0_core", []) if page_id != anchor["id"]]
+    if core_ids:
+        pages = [world.by_id[page_id] for page_id in core_ids if page_id in world.by_id]
+        summary = _summary_for_pages(world, pages)
+        groups.append(
+            {
+                "id": "core:q0",
+                "kind": "core",
+                "label_key": "core",
+                "purpose": "understand",
+                "visual_role": "core",
+                "member_ids": core_ids,
+                "summary": summary,
+                "type_mix": _type_mix(pages),
+                "attention_hints": _attention_hints(summary),
+                "action_hints": [{"kind": "open_blocks", "label_key": "region.action.openBlocks", "count": summary["total"]}],
+                "visual": {
+                    "grammar_id": visual_grammar.get("schema_version") or VISUAL_GRAMMAR_SCHEMA_VERSION,
+                    "pack_id": "quiet_structure",
+                    "slots": dict((visual_grammar.get("packs") or {}).get("quiet_structure", {}).get("slots") or {}),
+                    "emphasis": ["attention"] if summary["total"] > 0 else ["muted"],
+                },
+            }
+        )
+    return {"schema_version": "wiki.region_groups.v1", "anchor": anchor["id"], "groups": groups}
+
+
 def derived_outputs(world: BlockWorld, anchor: dict[str, Any], stack: list[dict[str, Any]]) -> dict[str, Any]:
     derived: dict[str, Any] = {"missions": [], "warnings": []}
     quad = _stack_block(stack, "wiki.block.quadrants")
+    visual_grammar = resolve_visual_grammar(world, anchor, stack)
     if quad is not None:
         assignments = quadrant_assignments(world, anchor, quad)
         derived["quadrant_assignments"] = assignments["by_quadrant"]
@@ -1193,6 +1716,7 @@ def derived_outputs(world: BlockWorld, anchor: dict[str, Any], stack: list[dict[
         derived["quadrant_sub_lens"] = assignments["sub_lens"]
         derived["quadrant_nested_mode"] = assignments["nested_mode"]
         derived["empty_quadrants"] = assignments["empty_quadrants"]
+        derived["region_groups"] = region_groups_derived(world, anchor, assignments, visual_grammar)
         for quadrant in assignments["empty_quadrants"]:
             derived["missions"].append(
                 {
@@ -1233,6 +1757,7 @@ def anchor_record(world: BlockWorld, anchor: dict[str, Any]) -> dict[str, Any]:
         "stack": stack,
         "interface": resolve_interface(world, anchor, stack),
         "identity": resolve_identity(world, anchor),
+        "visual_grammar": resolve_visual_grammar(world, anchor, stack),
         "derived": derived_outputs(world, anchor, stack),
     }
 
@@ -1270,6 +1795,78 @@ def validate_blocks(world: BlockWorld) -> list[str]:
     """WARN-first: an unknown surface/provider/landmark is an authoring mistake,
     not data corruption. Returns human-readable strings for the audit gate."""
     errors: list[str] = []
+    collection_defaults = {
+        page_type: dict(world.registry.resolve(page_type).collection)
+        for page_type in world.registry.raw_types
+        if world.registry.resolve(page_type).collection
+    }
+    for diagnostic in collection_reference_diagnostics(
+        world.pages, defaults_by_type=collection_defaults
+    ):
+        errors.append(
+            f"page `{diagnostic['page_id']}`: {diagnostic['field']} references "
+            f"missing page `{diagnostic['ref']}`"
+        )
+    for diagnostic in collection_cycle_diagnostics(
+        world.pages,
+        defaults_by_type=collection_defaults,
+        allows_cycles=False,
+    ):
+        edge_details = "; ".join(
+            f"{edge['member']} -> {edge['collection']} via {edge['basis']} "
+            f"declared by {edge['declaration_page']} ({edge['origin']})"
+            for edge in diagnostic["cycle_edges"]
+        )
+        errors.append(
+            "collection cycle is forbidden: "
+            f"{diagnostic['cycle_path_text']}; remove or narrow one declared "
+            f"membership edge: {edge_details}"
+        )
+    for page in world.pages:
+        for problem in validate_collection_declaration(page):
+            errors.append(f"page `{page['id']}`: {problem}")
+        declared_collection = page["values"].get("collection")
+        if isinstance(declared_collection, dict):
+            if not is_anchor_type(world, page["page_type"]):
+                errors.append(
+                    f"page `{page['id']}`: collection requires a block-anchor page type"
+                )
+            for member_type in declared_collection.get("member_types") or []:
+                if str(member_type) not in world.registry.raw_types:
+                    errors.append(
+                        f"page `{page['id']}`: collection references unknown member type `{member_type}`"
+                    )
+            known_contexts = set(world.config.contexts)
+            for context in declared_collection.get("contexts") or []:
+                if str(context) != "*" and str(context) not in known_contexts:
+                    errors.append(
+                        f"page `{page['id']}`: collection references unknown context `{context}`"
+                    )
+            merged_collection = collection_spec(
+                page, world.registry.resolve(page["page_type"]).collection
+            )
+            inbound_collection_refs = any(
+                candidate["id"] != page["id"]
+                and any(
+                    ref in {page["id"], page["path"]}
+                    for ref in member_collection_refs(candidate)
+                )
+                for candidate in world.pages
+            )
+            if not (
+                merged_collection["member_types"]
+                or merged_collection["members"]
+                or inbound_collection_refs
+            ):
+                errors.append(
+                    f"page `{page['id']}`: collection has no member selector or inbound collection_refs"
+                )
+        for ref in member_collection_refs(page):
+            target = world.by_id.get(ref) or world.by_path.get(ref)
+            if target is not None and not is_anchor_type(world, target["page_type"]):
+                errors.append(
+                    f"page `{page['id']}`: collection_refs target `{ref}` is not a block anchor"
+                )
     for block_id, definition in sorted(world.blocks.items()):
         kind = str(definition.get("kind") or "")
         if kind not in BLOCK_KINDS:
@@ -1277,6 +1874,9 @@ def validate_blocks(world: BlockWorld) -> list[str]:
         scope = (definition.get("scope") or {}).get("default_mode")
         if scope is not None and scope not in SCOPE_MODES:
             errors.append(f"block `{block_id}`: unknown scope mode `{scope}`")
+        errors.extend(
+            _collection_scope_instance_errors(f"block `{block_id}`", definition)
+        )
         for anchor_type in definition.get("anchors") or []:
             if anchor_type not in world.registry.raw_types:
                 errors.append(f"block `{block_id}`: anchors unknown page type `{anchor_type}`")
@@ -1295,17 +1895,28 @@ def validate_blocks(world: BlockWorld) -> list[str]:
         for overlay in profile.get("overlays") or []:
             if overlay not in SCENE_OVERLAYS:
                 errors.append(f"block `{block_id}`: unknown overlay `{overlay}`")
+        errors.extend(_visual_config_errors(f"block `{block_id}`", definition.get("config")))
     # Identity vocabulary on types.
     for page_type in world.registry.raw_types:
-        identity = world.registry.resolve(page_type).identity
-        if not identity:
-            continue
-        if identity.get("landmark") and identity["landmark"] not in IDENTITY_LANDMARKS:
-            errors.append(f"type `{page_type}`: unknown identity landmark `{identity['landmark']}`")
-        if identity.get("motif") and identity["motif"] not in IDENTITY_MOTIFS:
-            errors.append(f"type `{page_type}`: unknown identity motif `{identity['motif']}`")
-        if identity.get("ambient") and identity["ambient"] not in IDENTITY_AMBIENTS:
-            errors.append(f"type `{page_type}`: unknown identity ambient `{identity['ambient']}`")
+        spec = world.registry.resolve(page_type)
+        identity = spec.identity
+        if identity:
+            if identity.get("landmark") and identity["landmark"] not in IDENTITY_LANDMARKS:
+                errors.append(f"type `{page_type}`: unknown identity landmark `{identity['landmark']}`")
+            if identity.get("motif") and identity["motif"] not in IDENTITY_MOTIFS:
+                errors.append(f"type `{page_type}`: unknown identity motif `{identity['motif']}`")
+            if identity.get("ambient") and identity["ambient"] not in IDENTITY_AMBIENTS:
+                errors.append(f"type `{page_type}`: unknown identity ambient `{identity['ambient']}`")
+        for inst in _block_instances(list(spec.blocks)):
+            if inst["id"] not in world.blocks:
+                errors.append(
+                    f"type `{page_type}`: references unknown block `{inst['id']}`"
+                )
+            errors.extend(
+                _collection_scope_instance_errors(
+                    f"type `{page_type}` block `{inst['id']}`", inst
+                )
+            )
     # Packages: every block a package groups must exist.
     for name, package in sorted(world.registry.raw_packages.items()):
         for inst in _block_instances(package.get("blocks")):
@@ -1330,6 +1941,12 @@ def validate_blocks(world: BlockWorld) -> list[str]:
         for inst in instances:
             if inst["id"] not in world.blocks:
                 errors.append(f"page `{page['id']}`: references unknown block `{inst['id']}`")
+            errors.extend(
+                _collection_scope_instance_errors(
+                    f"page `{page['id']}` block `{inst['id']}`", inst
+                )
+            )
+            errors.extend(_visual_config_errors(f"page `{page['id']}` block `{inst['id']}`", inst.get("config")))
         for name in package_names:
             if name and name not in world.registry.raw_packages:
                 errors.append(f"page `{page['id']}`: references unknown package `{name}`")
@@ -1434,6 +2051,9 @@ def build_blocks_payload(world: BlockWorld) -> dict[str, Any]:
             "identity_landmarks": sorted(IDENTITY_LANDMARKS),
             "identity_motifs": sorted(IDENTITY_MOTIFS),
             "identity_ambients": sorted(IDENTITY_AMBIENTS),
+            "visual_primitives": sorted(VISUAL_PRIMITIVES),
+            "visual_primitive_slots": sorted(VISUAL_PRIMITIVE_SLOTS),
+            "visual_primitive_packs": sorted(VISUAL_PRIMITIVE_PACKS),
             "sub_lenses": {q: list(SUB_LENSES[q]) for q in QUADRANT_IDS},
         },
         "blocks": blocks,

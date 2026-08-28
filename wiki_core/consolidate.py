@@ -61,7 +61,7 @@ CONSOLIDATE_STRINGS: dict[str, dict[str, str]] = {
         "h_relationships": "## Relacoes extraidas",
         "th_relationships": "| De | Para | Relacao |",
         "h_integration": "## Integracao",
-        "integration_note": "Preencha `consolidated_into:` no frontmatter com as paginas ATUALIZADAS por esta ingestao (cada uma deve referenciar a fonte em `source_refs:`). Catalogar a fonte NAO e ingerir.",
+        "integration_note": "Preencha `consolidated_into:` no frontmatter com as paginas ATUALIZADAS por esta ingestao (cada alvo que nao seja `source` deve referenciar a fonte em `source_refs:`; paginas de identidade da fonte usam o fechamento do evento/lifecycle e nunca autorreferencia). Inclua ao menos um alvo que nao seja `source`: catalogar a fonte NAO e ingerir.",
         "empty": "- (nenhum)",
     },
     "en": {
@@ -85,7 +85,7 @@ CONSOLIDATE_STRINGS: dict[str, dict[str, str]] = {
         "h_relationships": "## Extracted relationships",
         "th_relationships": "| From | To | Relationship |",
         "h_integration": "## Integration",
-        "integration_note": "Fill `consolidated_into:` in the frontmatter with the pages UPDATED by this ingestion (each must reference the source in `source_refs:`). Cataloging the source is NOT ingesting.",
+        "integration_note": "Fill `consolidated_into:` in the frontmatter with the pages UPDATED by this ingestion (each non-source target must reference the source in `source_refs:`; source identity pages are linked by the event/lifecycle and must not self-reference). Include at least one non-source target: cataloging the source is NOT ingesting.",
         "empty": "- (none)",
     },
 }
@@ -252,6 +252,13 @@ def build_event_markdown(
     impact: dict[str, object] | None = None,
 ) -> str:
     """The normalized event, generated from the recorded deep read."""
+    source_page = str(source_page or "").strip() or None
+    source_ref = str(source_ref or "").strip() or None
+    canonical_source_parent = source_page or source_ref
+    if canonical_source_parent is None:
+        raise ValueError(
+            "normalized ingestion event requires source_page or source_ref"
+        )
     s = _strings(config.language)
     source_id = str(aggregated.get("source_id") or "source")
     slug = _source_slug(source_id)
@@ -313,12 +320,20 @@ def build_event_markdown(
         f"updated_at: {date.isoformat()}",
         f"stale_after_days: {freshness_for(context, 'ingestion_event', config)}",
         "sources_policy: evento_normalizado_com_quadrantes",
-        "gate: github_pr",
-        "sensitive_data_policy: private_sensitive_allowed",
-        f"source_id: {source_id}",
     ]
+    # The registry is an index/collection of source pages, never the
+    # hierarchical parent of every ingestion event. Keep the normalized event
+    # under its canonical source so the journey is registry -> source -> event
+    # without flattening the event ledger.
+    fm.append(f"moc_parent: {canonical_source_parent}")
+    fm.extend(
+        [
+            "gate: github_pr",
+            "sensitive_data_policy: private_sensitive_allowed",
+            f"source_id: {source_id}",
+        ]
+    )
     if source_ref:
-        fm.extend(["source_refs:", f"  - {source_ref}"])
         fm.append(f"source_ref: {source_ref}")
     fm.extend(
         [
@@ -551,8 +566,9 @@ def build_packet(
             "Integrate: update the candidate target pages (hubs/concepts) with the new "
             "information; create/update load-bearing claim pages (conflict fields when "
             "they collide); resolve or record each potential_conflict and uncertainty; "
-            "then fill the event's consolidated_into with the pages you updated (each "
-            "must reference the source in source_refs)."
+            "then fill the event's consolidated_into with the pages you updated (at "
+            "least one non-source target; every non-source target must reference the "
+            "source in source_refs, while source identities remain acyclic)."
         ),
     }
 

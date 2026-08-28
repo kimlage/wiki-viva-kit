@@ -12,7 +12,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-06-09
 stale_after_days: 60
 sources_policy: derivado_da_arquitetura_real
 gate: github_pr
@@ -20,8 +20,6 @@ sensitive_data_policy: private_sensitive_allowed
 status_epistemologico: percepcao
 purpose: "Map how the real system modules connect, to see the organism (not islands) at a glance."
 moc_parent: memories/system/perception/index.md
-source_refs:
-  - sources-wiki-viva-methodology
 related_pages:
   - memories/system/perception/2026-06-09-wiki-construction-journal.md
   - memories/system/methodology-coverage-v5.md
@@ -41,7 +39,7 @@ attachment_policy: "Optional diagram in data/derived with a Markdown link. Priva
 
 # Relationship map - living wiki system
 
-Updated on: 2026-08-26.
+Updated on: 2026-06-09.
 
 > **Private** page and **perception** (an at-a-glance reading of the architecture),
 > not a contract. The source of truth for the modules is the code in [wiki_core/](../../../wiki_core/README.md)
@@ -49,11 +47,10 @@ Updated on: 2026-08-26.
 
 ## Plain-language summary
 
-A text diagram of how the system pieces connect: the recipe scopes an authorized
-source or exported RAW, the deterministic pipeline generates artifacts and a
-processing cursor, the reading agent creates the contextual result, and a closed
-event integrates the synthesis before the human PR gate. The versioned sync
-receipt is the canonical completion evidence that survives a clean clone.
+A text diagram of how the system pieces connect: ingestion pulls the source,
+generates artifacts, triggers the privacy pre-scan, assembles the package for the
+reading agent, and feeds the scoreboard and the cockpit. The gate by PR sits in
+the middle, watching.
 
 ## Diagram (graph, accessible)
 
@@ -63,30 +60,23 @@ without relying on the rendered shapes or any color.
 
 ```mermaid
 flowchart TD
-    Recipe["Source page + secret-free recipe"]
-    Source["Authorized source or exported RAW"]
+    Source["Source (raw data, Drive)"]
     Orchestrator["Ingestion orchestrator"]
     Prescan["Pre-scan: secret blocks, PII informs"]
     Package["LLM context package"]
-    Cursor["Derived processing cursor"]
     Score["Score event (8-dimension karma)"]
     Agent(["Repo agent: reads and writes the result"])
-    Event["Closed ingestion event"]
-    Receipt["Versioned sync receipt"]
     Auditor["Auditor: honesty gate"]
     Cockpit["Cockpit"]
     PRGate{"PR gate on GitHub"}
     Memory[("Canonical memory")]
 
-    Recipe --> Source --> Orchestrator
+    Source --> Orchestrator
     Orchestrator --> Prescan
     Orchestrator --> Package
-    Package --> Cursor
     Orchestrator --> Score
     Package --> Agent
-    Agent --> Event
-    Event --> Auditor
-    Event --> Receipt
+    Agent --> Auditor
     Prescan --> Auditor
     Score --> Cockpit
     Auditor --> PRGate
@@ -99,12 +89,9 @@ flowchart TD
 | --- | --- | --- |
 | orchestrator | detectors | privacy pre-scan at capture (secret blocks) |
 | orchestrator | LLM package | emits the `-request.json` that the auditor watches |
-| LLM package | derived cursor | records deterministic processing progress; does not prove integration |
 | orchestrator | score | records `ingestar_fonte_valida` (karma) |
 | LLM package | repo agent | deep reading delegated (no LLM in Python) |
 | agent | cache | writes the result; closes the `required_context_pass` gate |
-| cache | ingestion event | generates quadrants, impact and integration closure |
-| ingestion event | versioned sync receipt | proves canonical completion and survives clean clones |
 | score | cockpit | the cockpit displays karma per dimension |
 | auditor | PR gate | blocks the merge while there is a pending pass or secret |
 | PR gate | canonical memory | only after human review does the proposal become memory |
@@ -112,10 +99,9 @@ flowchart TD
 ## Perceptive reading
 
 The drawing makes clear what was previously invisible: no module is an island.
-Ingestion is the axis; recipe scope, privacy and scoreboard are coordinated
-parts of the same pass; the closed event and PR gate keep processing progress
-from being mistaken for canonical truth. Wherever an arrow disappears, an
-island reappears.
+Ingestion is the axis; privacy and scoreboard are by-products of the same pass; the
+gate by PR is the valve that keeps honesty. Wherever an arrow disappears, an island
+reappears.
 
 ## Related
 

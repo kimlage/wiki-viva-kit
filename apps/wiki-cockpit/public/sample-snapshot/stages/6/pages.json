@@ -2,6 +2,10 @@
   "pages": [
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "328f885522aa1c082191ccb0c7873deb0b3ae36263eb26c4e88b5526c218864b",
       "context": "estudio",
       "freshness_state": "stale",
       "id": "person-marina-costa",
@@ -9,6 +13,15 @@
       "moc_parent": "memories/index.md",
       "page_type": "person",
       "path": "memories/people/person-marina-costa.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "45",
@@ -21,6 +34,10 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "f8234a71e1009f6eade6b3aa4a6b1952e0cb011c11e67d6b4302abfe4f68cfbc",
       "context": "financeiro",
       "freshness_state": "fresh",
       "id": "claim-custos-sobem",
@@ -28,6 +45,15 @@
       "moc_parent": "memories/financeiro/index.md",
       "page_type": "claim",
       "path": "memories/claims/claim-custos-sobem.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [
         "source-banco-export"
@@ -42,18 +68,33 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "08d8302a6f80f939a7e4cd3590f10bb5b64e009495287f98cfc428da7c515428",
       "context": "financeiro",
       "freshness_state": "stale",
       "id": "source-banco-export",
-      "moc_children_count": 0,
+      "moc_children_count": 1,
       "moc_parent": "memories/financeiro/index.md",
       "page_type": "source",
       "path": "memories/sources/source-banco-export.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
+      "source_blocked_reason": "",
+      "source_lifecycle_state": "",
       "source_refs": [],
       "stale_after_days": "30",
       "status": "",
-      "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+      "summary": "A live Banco source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle consolidated, freshness stale and last attempt ok. The bank export is intentionally overdue so the refresh mission has real evidence.",
       "summary_truncated": false,
       "title": "Extrato do Banco",
       "updated_at": "2026-05-04",
@@ -61,6 +102,10 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "350d2592f7d5bf75e82c57225ed1f8d4ec2686d1fe1f9891baba9d596e5f97c7",
       "context": "financeiro",
       "freshness_state": "fresh",
       "id": "hub-financeiro",
@@ -68,6 +113,15 @@
       "moc_parent": "memories/index.md",
       "page_type": "context_hub",
       "path": "memories/financeiro/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",
@@ -80,6 +134,10 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "a9ff6a97b2ebe0d2fcff342e124272d9ff5df9702f2ee2d0daea0b86ef671c79",
       "context": "financeiro",
       "freshness_state": "fresh",
       "id": "artifact-relatorio-recon",
@@ -87,6 +145,15 @@
       "moc_parent": "memories/financeiro/index.md",
       "page_type": "artifact",
       "path": "memories/artifacts/artifact-relatorio-recon.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [
         "source-banco-export"
@@ -101,13 +168,26 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "71fb5e7f7759840bec038fb7da0764f3795b18568da66f87b22195e06d88b80b",
       "context": "pessoal",
       "freshness_state": "fresh",
       "id": "root-alex-rivera",
-      "moc_children_count": 3,
+      "moc_children_count": 2,
       "moc_parent": "",
       "page_type": "root_entity",
       "path": "memories/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",
@@ -120,14 +200,32 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "333f4db7f36fe0c08da4c25f374aebad704fb9adbb4bc7ae809c6176079f3e5d",
       "context": "sistema",
+      "event_id": "event-ingest-banco-2026-05",
       "freshness_state": "fresh",
       "id": "event-ingest-banco-2026-05",
       "moc_children_count": 0,
-      "moc_parent": "memories/index.md",
+      "moc_parent": "memories/sources/source-banco-export.md",
       "page_type": "ingestion_event",
       "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "relation_refs": {
+        "consolidated_into": [
+          "claim-custos-sobem",
+          "artifact-relatorio-recon"
+        ],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
+      "source_id": "source-banco-export",
       "source_refs": [
         "source-banco-export"
       ],

@@ -24,7 +24,12 @@ except ImportError:  # pragma: no cover - used when imported from tests
         sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import load_config
-from wiki_core.template_blocks import build_block_stacks_payload, load_block_world
+from wiki_core.template_blocks import (
+    ANCHOR_TYPE_PARENT_PROJECTION,
+    ROOT_ENTITY_TYPE_PARENT_PROJECTION,
+    build_block_stacks_payload,
+    load_block_world,
+)
 
 
 def _as_rel(root: Path, path: Path) -> str:
@@ -56,6 +61,21 @@ def _anchor_projection_values(page: dict[str, Any]) -> dict[str, Any]:
     return {"quadrant": "", "sub_lens": "", "reason": "", "explicit": False}
 
 
+def _has_contract_default(page: dict[str, Any]) -> bool:
+    """Whether core defines an intentional parent projection for this anchor.
+
+    Source, holon and project anchors (plus typed nested roots) already have a
+    deterministic contract default. Reporting each of those as an actionable
+    inference buried real downstream ambiguities in dozens of false warnings.
+    """
+    if page["page_type"] in ANCHOR_TYPE_PARENT_PROJECTION:
+        return True
+    if page["page_type"] == "root_entity":
+        entity_type = str(page["values"].get("root_entity_type") or "").strip()
+        return entity_type in ROOT_ENTITY_TYPE_PARENT_PROJECTION
+    return False
+
+
 def build_report(root: Path = ROOT, *, q0_warn_threshold: int = 8) -> dict[str, Any]:
     config = load_config(root)
     world = load_block_world(root, config)
@@ -84,7 +104,8 @@ def build_report(root: Path = ROOT, *, q0_warn_threshold: int = 8) -> dict[str, 
         q0_pages = list(assignments.get("q0_core") or [])
         parent_projection = _anchor_projection_values(page)
         parent_id = str(tree_node.get("parent") or "")
-        inferred_parent = parent_id and not parent_projection["explicit"]
+        contract_default = bool(parent_id and not parent_projection["explicit"] and _has_contract_default(page))
+        inferred_parent = bool(parent_id and not parent_projection["explicit"] and not contract_default)
         if inferred_parent:
             warnings.append(
                 {
@@ -128,6 +149,9 @@ def build_report(root: Path = ROOT, *, q0_warn_threshold: int = 8) -> dict[str, 
             "projection_summary": _projection_summary(flat_projections),
             "q0_core_count": len(q0_pages),
             "inferred_parent_projection": bool(inferred_parent),
+            "parent_projection_source": (
+                "explicit" if parent_projection["explicit"] else "contract_default" if contract_default else "none"
+            ),
         }
 
     multi_quadrant_pages: list[dict[str, Any]] = []

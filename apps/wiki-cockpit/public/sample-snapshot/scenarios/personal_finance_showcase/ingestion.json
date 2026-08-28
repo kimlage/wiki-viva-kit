@@ -1,0 +1,23 @@
+{
+  "events": [],
+  "ingested_sources": [],
+  "quality_flags": {
+    "events_without_consolidated_into": [],
+    "ingested_sources_without_closed_event": []
+  },
+  "repo_id": "wiki-viva-demo-personal-finance-showcase",
+  "schema_version": "wiki_ingestion_closure_report.v2",
+  "summary": {
+    "candidate_actions": 0,
+    "candidate_claims": 0,
+    "candidate_decisions": 0,
+    "candidate_total": 0,
+    "candidate_units_per_target": 0.0,
+    "consolidated_targets": 0,
+    "events_closed": 0,
+    "events_total": 0,
+    "events_without_consolidated_into": 0,
+    "ingested_sources": 0,
+    "ingested_sources_without_closed_event": 0
+  }
+}

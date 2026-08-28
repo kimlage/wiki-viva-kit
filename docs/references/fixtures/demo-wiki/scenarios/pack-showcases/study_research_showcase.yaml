@@ -1,0 +1,28 @@
+schema_version: wiki_demo_pack_showcase.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: study_research_showcase
+seed: 8011
+title: Study and Research Observatory
+public_synthetic: true
+packs:
+  - id: study-research
+    fixture: fixtures/normal
+support_pages: []
+expected:
+  page_count: 6
+  page_id_sha256: fba25203f4a5c5675bdca1ac769a39bba9a7791d2454907a738e57b5d80a1263
+  active_pack_ids: [study-research]
+  minimum_temporal_events: 5
+  required_temporal_event_kinds:
+    - study-research.claim-recorded
+    - study-research.claim-verified
+    - study-research.learning-captured
+    - study-research.spaced-review-due
+  expected_temporal_diagnostic_codes: []
+canonical_routes:
+  - /demo/w?demo_scenario=study_research_showcase&center=root-study-research-showcase&view=quadrants&overlay=evidence&tour=0
+  - /demo/w?demo_scenario=study_research_showcase&center=claim-review-cadence&view=timeline&time_mode=event&tour=0
+generated_dir: scenarios/study_research_showcase
+limitations:
+  - The showcase compiles declarative pack slots and fixture pages; it does not execute pack operations.
+  - Pack fixture fields are adapted to the core relation vocabulary only inside the disposable demo wiki.

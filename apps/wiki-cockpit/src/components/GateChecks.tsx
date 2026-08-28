@@ -9,9 +9,9 @@ import { useState } from "react";
 import { Check, Loader2, Play, Sparkles } from "lucide-react";
 import { t } from "../data/i18n";
 import { gateFixSpec, trimGateOutput } from "../data/approval";
-import { runGate } from "../data/snapshot";
 import { ExpandablePre } from "./ExpandablePre";
 import type { BriefSpec, GateRecord, GateRunResult } from "../types";
+import type { OperatorPort } from "../application/ports";
 
 const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   pass: "good",
@@ -32,7 +32,7 @@ function failureReason(output: string): string {
   return line.length > 200 ? `${line.slice(0, 200)}…` : line;
 }
 
-// Human names for the five honesty gates (EN+PT via i18n; id is the fallback
+// Human names for the honesty gates (EN+PT via i18n; id is the fallback
 // for gates this build does not know yet).
 export function gateName(id: string): string {
   const key = `gate.name.${id}`;
@@ -44,6 +44,7 @@ export function GateChecks({
   gates,
   busy,
   demo,
+  runGate,
   onComposeBrief,
   onNotice,
   onRefetch
@@ -51,6 +52,7 @@ export function GateChecks({
   gates: GateRecord[];
   busy?: boolean;
   demo?: boolean;
+  runGate: OperatorPort["runGate"];
   onComposeBrief?: (spec: BriefSpec) => void;
   onNotice: (text: string) => void;
   onRefetch: () => void;
@@ -136,7 +138,14 @@ export function GateChecks({
                 </span>
                 <span className="gateRowName">{gateName(gate.id)}</span>
                 <span className={`pill pill-${pillTone}`}>{pillLabel}</span>
-                <button className="textButton gateRunBtn" onClick={() => run(gate.id)} disabled={rowBusy || Boolean(busy)} type="button">
+                <button
+                  className="textButton gateRunBtn"
+                  onClick={() => run(gate.id)}
+                  disabled={Boolean(demo) || rowBusy || Boolean(busy)}
+                  aria-label={demo ? `${t("gate.run")} ${gateName(gate.id)} — ${t("demo.readOnlyControl")}` : undefined}
+                  title={demo ? t("demo.readOnlyControl") : undefined}
+                  type="button"
+                >
                   <Play size={12} />
                   <span>{t("gate.run")}</span>
                 </button>
@@ -159,6 +168,9 @@ export function GateChecks({
                     <button
                       className="textButton gateFixButton"
                       onClick={() => onComposeBrief(gateFixSpec(gate, output || undefined))}
+                      disabled={Boolean(demo)}
+                      aria-label={demo ? `${t("gate.fix")} — ${t("demo.readOnlyControl")}` : undefined}
+                      title={demo ? t("demo.readOnlyControl") : undefined}
                       type="button"
                     >
                       <Sparkles size={12} />
@@ -176,7 +188,14 @@ export function GateChecks({
         })}
       </ul>
       <div className="gateChecksActions">
-        <button className="secondaryButton" onClick={runAll} disabled={running !== null || Boolean(busy)} type="button">
+        <button
+          className="secondaryButton"
+          onClick={runAll}
+          disabled={Boolean(demo) || running !== null || Boolean(busy)}
+          aria-label={demo ? `${t("gate.runGates")} — ${t("demo.readOnlyControl")}` : undefined}
+          title={demo ? t("demo.readOnlyControl") : undefined}
+          type="button"
+        >
           <Play size={14} />
           <span>{running === "*" ? t("gate.running") : t("gate.runGates")}</span>
         </button>

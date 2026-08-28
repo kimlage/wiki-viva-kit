@@ -1,0 +1,8 @@
+schema_version: wiki_demo_pack_showcases.v1
+fixture_id: wiki-viva-demo-v8
+public_safe: true
+scenario_manifests:
+  - study_research_showcase.yaml
+  - personal_finance_showcase.yaml
+generated_root: apps/wiki-cockpit/public/sample-snapshot/scenarios
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

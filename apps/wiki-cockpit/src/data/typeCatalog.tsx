@@ -27,6 +27,7 @@ import {
   Lock,
   NotebookPen,
   Package,
+  PanelTop,
   Quote,
   Repeat,
   Scale,
@@ -119,6 +120,7 @@ const BLOCK_ICONS: Record<string, ReactNode> = {
   ui_missions: <Trophy size={15} />,
   ui_create: <Sprout size={15} />,
   ui_intake: <Inbox size={15} />,
+  ui_regions: <PanelTop size={15} />,
   gamification: <Gauge size={15} />
 };
 

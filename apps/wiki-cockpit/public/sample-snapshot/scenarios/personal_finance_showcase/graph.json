@@ -1,0 +1,1744 @@
+{
+  "edges": [
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "ff079e7102ff54e19a5a",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-account-main",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/account-main.md"
+      },
+      "source": "finance-account-main",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "5b4816412117ea36f785",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-account-main",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/account-main.md"
+      },
+      "source": "finance-account-main",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "37bc254f7bece00d523b",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-category-housing",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/category-housing.md"
+      },
+      "source": "finance-category-housing",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "f38458ffcc582bc53d53",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-category-housing",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/category-housing.md"
+      },
+      "source": "finance-category-housing",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "4d7cac7f1848626d6495",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-category-income",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/category-income.md"
+      },
+      "source": "finance-category-income",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "bfd49a696801800c9e05",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-category-income",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/category-income.md"
+      },
+      "source": "finance-category-income",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "7865c951dab700520627",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "finance-closing-july",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md"
+      },
+      "source": "finance-closing-july",
+      "status": "valid",
+      "target": "finance-reconciliation-july",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "5207e697572210c9f441",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "finance-closing-july",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md"
+      },
+      "source": "finance-closing-july",
+      "status": "valid",
+      "target": "finance-review-july",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "dfadf2106b7a30c7cea1",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "finance-closing-july",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md"
+      },
+      "source": "finance-closing-july",
+      "status": "valid",
+      "target": "finance-source-july",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "a661920e1c0c465c376f",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-closing-july",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md"
+      },
+      "source": "finance-closing-july",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "68bdb67248cdf63d511b",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-closing-july",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md"
+      },
+      "source": "finance-closing-july",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "a6e0d19fc2fd2ac73fce",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "finance-obligation-rent",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/obligation-rent.md"
+      },
+      "source": "finance-obligation-rent",
+      "status": "valid",
+      "target": "finance-category-housing",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "f0f4d57586de6bf20ce2",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "finance-obligation-rent",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/obligation-rent.md"
+      },
+      "source": "finance-obligation-rent",
+      "status": "valid",
+      "target": "finance-source-july",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "3bb963b85eec8dc41439",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-obligation-rent",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/obligation-rent.md"
+      },
+      "source": "finance-obligation-rent",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "dc004c412d311b1e531e",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-obligation-rent",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/obligation-rent.md"
+      },
+      "source": "finance-obligation-rent",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "ee07d17fc37ced8e42d9",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "finance-reconciliation-july",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/reconciliation-july.md"
+      },
+      "source": "finance-reconciliation-july",
+      "status": "valid",
+      "target": "finance-account-main",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "350b6c2373d6062d9566",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "finance-reconciliation-july",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/reconciliation-july.md"
+      },
+      "source": "finance-reconciliation-july",
+      "status": "valid",
+      "target": "finance-source-july",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "768929be8133d4012bc5",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-reconciliation-july",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/reconciliation-july.md"
+      },
+      "source": "finance-reconciliation-july",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "20dd893d74feecbfb5ac",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-reconciliation-july",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/reconciliation-july.md"
+      },
+      "source": "finance-reconciliation-july",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "e1d81ab105d18fe761a4",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-review-july",
+        "path": "memories/showcases/personal_finance_showcase/support/finance-review-july.md"
+      },
+      "source": "finance-review-july",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "de26b48a8460c3fc9686",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-review-july",
+        "path": "memories/showcases/personal_finance_showcase/support/finance-review-july.md"
+      },
+      "source": "finance-review-july",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "8243a338733d1fbfc2a5",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-source-july",
+        "path": "memories/showcases/personal_finance_showcase/support/finance-source-july.md"
+      },
+      "source": "finance-source-july",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "77115167cbe2aba6e5e5",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-source-july",
+        "path": "memories/showcases/personal_finance_showcase/support/finance-source-july.md"
+      },
+      "source": "finance-source-july",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "b93dd5742b0a888b546b",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "finance-transaction-housing",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md"
+      },
+      "source": "finance-transaction-housing",
+      "status": "valid",
+      "target": "finance-account-main",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "418b301ea6ab1a5a86d7",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "finance-transaction-housing",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md"
+      },
+      "source": "finance-transaction-housing",
+      "status": "valid",
+      "target": "finance-category-housing",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "36214c33c2421f6d3385",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "finance-transaction-housing",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md"
+      },
+      "source": "finance-transaction-housing",
+      "status": "valid",
+      "target": "finance-source-july",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "15547817b0510fd5304a",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-transaction-housing",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md"
+      },
+      "source": "finance-transaction-housing",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "06d21193a084ad3a8e10",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-transaction-housing",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md"
+      },
+      "source": "finance-transaction-housing",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "8700171d6f3028c4f28c",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "finance-transaction-income",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md"
+      },
+      "source": "finance-transaction-income",
+      "status": "valid",
+      "target": "finance-account-main",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "0498e8fc68df6a08b046",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "finance-transaction-income",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md"
+      },
+      "source": "finance-transaction-income",
+      "status": "valid",
+      "target": "finance-category-income",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "c083d93d1b2a08ef0b84",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "finance-transaction-income",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md"
+      },
+      "source": "finance-transaction-income",
+      "status": "valid",
+      "target": "finance-source-july",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "9c45a9a64d4f0ea06fcc",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "finance-transaction-income",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md"
+      },
+      "source": "finance-transaction-income",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "b94d6421ec27613f1b28",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "finance-transaction-income",
+        "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md"
+      },
+      "source": "finance-transaction-income",
+      "status": "valid",
+      "target": "root-personal-finance-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "1a857a3f2df8b4aa9eae",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-account-main",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "fb09ea1b72093e15794f",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-category-housing",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "fe700376194abe6b7d17",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-category-income",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "b43e59ec1e988f3ab933",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-closing-july",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "146837791eeec049699f",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-obligation-rent",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "c9daeefec600e19dbb4d",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-reconciliation-july",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "3d837a7f52b8f3f0fc0a",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-review-july",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "82f23f6d5f5469c5674a",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-source-july",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "d76bd9d7ebecd64a1370",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-transaction-housing",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "1f7964b20539200469ad",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-personal-finance-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-personal-finance-showcase",
+      "status": "valid",
+      "target": "finance-transaction-income",
+      "type": "markdown_link",
+      "weight": 1
+    }
+  ],
+  "nodes": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-account-main",
+      "metrics": {
+        "inbound_links": 4,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "personal_finance_account",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/account-main.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "active",
+      "title": "Synthetic operating account",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-category-housing",
+      "metrics": {
+        "inbound_links": 3,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "personal_finance_category",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/category-housing.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Synthetic housing",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-category-income",
+      "metrics": {
+        "inbound_links": 2,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "personal_finance_category",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/category-income.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Synthetic income",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-closing-july",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 4,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "finance-source-july"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "personal_finance_monthly_closing",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Synthetic July closing",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-obligation-rent",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 3,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "finance-source-july"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "personal_finance_obligation",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/obligation-rent.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "scheduled",
+      "title": "Synthetic August rent obligation",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-reconciliation-july",
+      "metrics": {
+        "inbound_links": 2,
+        "outbound_links": 3,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "finance-source-july"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "personal_finance_reconciliation",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/reconciliation-july.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Synthetic July reconciliation",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-review-july",
+      "metrics": {
+        "inbound_links": 2,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "decision",
+      "path": "memories/showcases/personal_finance_showcase/support/finance-review-july.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Synthetic July close review",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-source-july",
+      "metrics": {
+        "inbound_links": 6,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "artifact",
+      "path": "memories/showcases/personal_finance_showcase/support/finance-source-july.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Synthetic July statement",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-transaction-housing",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 4,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "finance-source-july"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "personal_finance_transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Synthetic housing transaction",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-transaction-income",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 4,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "finance-source-july"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "personal_finance_transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Synthetic income transaction",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "root-personal-finance-showcase",
+      "metrics": {
+        "inbound_links": 10,
+        "outbound_links": 10,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "snapshot_warning:q0_overload"
+          ],
+          "refs": [
+            "warning:q0_overload"
+          ],
+          "state": "urgent",
+          "value": 1
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Personal Finance Mission Control",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    }
+  ],
+  "overlay_metrics_version": "wiki_semantic_visual_tokens.v1",
+  "relation_diagnostics": [],
+  "relation_types": [
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "collection membership row",
+      "family": "collection",
+      "id": "collection_member",
+      "label": "collection member",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "member to collection index"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "blocked-by row",
+      "family": "dependency",
+      "id": "dependency",
+      "label": "dependency",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "blocker to dependent work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "supporting evidence row",
+      "family": "evidence",
+      "id": "evidence_supports",
+      "label": "evidence supports",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence to supported work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "affected page row",
+      "family": "impact",
+      "id": "impact",
+      "label": "impact",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest/proposal to canonical change"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "linked page row",
+      "family": "citation",
+      "id": "markdown_link",
+      "label": "markdown link",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored citation"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "parent/child row",
+      "family": "hierarchy",
+      "id": "moc_parent",
+      "label": "moc parent",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "structural parent"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "owner row",
+      "family": "ownership",
+      "id": "ownership",
+      "label": "ownership",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "owner to owned object"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "participant row",
+      "family": "participation",
+      "id": "participation",
+      "label": "participation",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "participant to event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "proposal transition row",
+      "family": "impact",
+      "id": "proposal_transition",
+      "label": "proposal transition",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest event to review proposal"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "related page row",
+      "family": "association",
+      "id": "related_page",
+      "label": "related page",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored related-page association"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "emitted event row",
+      "family": "source_emission",
+      "id": "source_emission",
+      "label": "source emission",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "source to ingest event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "source reference row",
+      "family": "evidence",
+      "id": "source_ref",
+      "label": "source ref",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence reference"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "previous/next row",
+      "family": "temporal",
+      "id": "temporal_sequence",
+      "label": "temporal sequence",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "earlier to later event"
+    }
+  ],
+  "relation_vocabulary_version": "wiki_relation_types.v1",
+  "repo_id": "wiki-viva-demo-personal-finance-showcase",
+  "schema_version": "wiki_web_graph.v2",
+  "wanted_pages": {}
+}

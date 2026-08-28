@@ -22,15 +22,35 @@ The Vite app reads `/wiki-cockpit.config.json` at runtime:
 | Key | Meaning | Local default |
 | --- | --- | --- |
 | `api_base` | Operator API base URL. | `/api` |
-| `snapshot_base` | Static snapshot base URL. Empty means try `${api_base}/snapshot`, then sample data. | empty |
+| `snapshot_base` | Static snapshot base URL. Empty means try `${api_base}/snapshot`. Sample data is allowed only under `/demo`. | empty |
 | `repo_label` | Display label for the deployed surface. | empty |
 | `mode` | Runtime label shown in the UI. | `local_operator` |
 
 The static build never needs repository write credentials. Any hosted writer
 must still operate through proposal branches and Pull Requests.
 
+Local/private validation must prove the data origin before visual review:
+
+```sh
+python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
+cd apps/wiki-cockpit
+npm run dev:proxy -- --port 5174
+WIKI_COCKPIT_SNAPSHOT_URL=http://127.0.0.1:5174/api/snapshot/pages.json \
+  WIKI_COCKPIT_EXPECT_REPO_ID=<repo-id> \
+  WIKI_COCKPIT_MIN_PAGES=<expected-minimum> \
+  npm run check:snapshot-api
+```
+
+If `/api/snapshot/*.json` returns `text/html`, the Vite proxy is not active and
+the check must fail. The app also blocks `sample_fallback` outside `/demo`, so a
+private cockpit cannot silently impersonate the bundled demo snapshot.
+
 Static snapshots include operational JSON files such as `manifest.json`,
-`operations.json`, `git.json`, `timeline.json` and `diff.json`. Treat
+`operations.json`, `git.json`, `timeline.json`, `temporal_graph.json`,
+`experience_packs.json` and `diff.json`. The experience-pack composition is a
+mandatory integrity-covered payload, including when its pack and slot lists are
+empty; invalid active pack state blocks the build instead of degrading to an
+empty composition. Treat
 `diff.json` as review evidence: public deployments should use synthetic/open
 snapshots, while private implementations should keep real branch diffs behind
 their private deployment boundary.
@@ -58,6 +78,11 @@ The command writes:
 
 The output stays under `data/derived/` by default. Copy it into a host-specific
 build only after reviewing the data boundary for that implementation.
+The snapshot inside this deploy bundle is intentionally flat and offline. Do
+not regenerate the directory while a web server is reading it; build a new
+bundle elsewhere and let the host atomically switch releases. The live
+Darwin/Linux revision-pointer protocol is for filesystem publication, while
+Windows static builds use this flat host-owned activation path.
 
 ## Vercel Static Review
 

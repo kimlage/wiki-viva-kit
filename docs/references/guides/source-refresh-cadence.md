@@ -21,9 +21,8 @@ Use these fields on `page_type: source`, `source_catalog` and `artifact` pages:
 | `refresh_trigger` | Short human cue for why/when the source should be refreshed. |
 | `refresh_priority` | Optional `high`, `medium` or `low` for operator triage. |
 
-These fields remain the compatibility contract used by the source registry. It
-uses `last_ingested_at` when present, otherwise `updated_at`, adds
-`refresh_cadence_days`, and prints `Next refresh` plus `Status`. An explicit
+The source registry uses `last_ingested_at` when present, otherwise `updated_at`,
+adds `refresh_cadence_days`, and prints `Next refresh` plus `Status`. An explicit
 `next_refresh_at` wins over the calculated date.
 
 ## Recipe and stream freshness
@@ -156,7 +155,6 @@ The asset lives below `apps/wiki-cockpit/public/source-icons/`. Only local
 image paths in that directory are projected; remote URLs, traversal paths and
 unsupported extensions are rejected. The consumer must also record provenance
 and the applicable license or brand-use terms.
-
 ## Suggested Cadences
 
 | Source shape | Policy | Cadence | Trigger |

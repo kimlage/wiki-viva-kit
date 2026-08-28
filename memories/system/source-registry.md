@@ -4,17 +4,21 @@ page_type: source_registry
 title: "Canonical source registry"
 context: system
 visibility: private_self
-updated_at: 2026-08-27
+updated_at: 2026-08-28
 stale_after_days: 30
 sources_policy: memoria_consolidada
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 moc_parent: memories/index.md
+parent_projection:
+  quadrant: q2
+  sub_lens: evidencias
+  reason: "The generated source registry is an observable evidence index of canonical sources."
 ---
 
 # Canonical source registry
 
-Updated at: 2026-08-27.
+Updated at: 2026-08-28.
 
 Index of canonical sources: link, type, ingestion state, last update and next suggested refresh.
 

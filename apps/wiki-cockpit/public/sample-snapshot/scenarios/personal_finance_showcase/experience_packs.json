@@ -1,0 +1,192 @@
+{
+  "block_packages": [
+    "gamification",
+    "quadrant_lenses"
+  ],
+  "composition_sha256": "8e7cc1f9f7d2cf9324b80162e7cbeed602e3c510f9a4ccc6f1d32ca1227f65e6",
+  "core_version": "8.0.0",
+  "packs": [
+    {
+      "id": "personal-finance",
+      "version": "0.1.0"
+    }
+  ],
+  "presentation": {
+    "default_locale": "en",
+    "locales": {
+      "en": {
+        "personal-finance": "Personal Finance",
+        "personal-finance.cashflow": "Cashflow",
+        "personal-finance.category-variance": "Category variance",
+        "personal-finance.classify": "Classify transaction",
+        "personal-finance.classify-transaction": "Classify transaction",
+        "personal-finance.due-horizon": "Due horizon",
+        "personal-finance.financial-calendar": "Financial calendar",
+        "personal-finance.forecast": "Forecast cashflow",
+        "personal-finance.forecast-cashflow": "Forecast cashflow",
+        "personal-finance.import": "Import transactions",
+        "personal-finance.import-transactions": "Import transactions",
+        "personal-finance.month-comparison": "Month comparison",
+        "personal-finance.monthly-close": "Close month",
+        "personal-finance.monthly-closed": "Month closed",
+        "personal-finance.monthly-closing-tape": "Monthly closing tape",
+        "personal-finance.monthly-period": "Monthly period",
+        "personal-finance.obligation-due": "Obligation due",
+        "personal-finance.reconcile": "Reconcile account",
+        "personal-finance.reconcile-account": "Reconcile account",
+        "personal-finance.reconciliation": "Reconciliation",
+        "personal-finance.reconciliation-recorded": "Reconciliation recorded",
+        "personal-finance.transaction-occurred": "Transaction occurred",
+        "personal_finance_account": "Account",
+        "personal_finance_category": "Category",
+        "personal_finance_monthly_closing": "Monthly closing",
+        "personal_finance_obligation": "Obligation",
+        "personal_finance_reconciliation": "Reconciliation",
+        "personal_finance_transaction": "Transaction"
+      },
+      "pt-BR": {
+        "personal-finance": "Finan\u00e7as pessoais",
+        "personal-finance.cashflow": "Fluxo de caixa",
+        "personal-finance.category-variance": "Varia\u00e7\u00e3o por categoria",
+        "personal-finance.classify": "Classificar transa\u00e7\u00e3o",
+        "personal-finance.classify-transaction": "Classificar transa\u00e7\u00e3o",
+        "personal-finance.due-horizon": "Horizonte de vencimentos",
+        "personal-finance.financial-calendar": "Calend\u00e1rio financeiro",
+        "personal-finance.forecast": "Projetar fluxo de caixa",
+        "personal-finance.forecast-cashflow": "Projetar fluxo de caixa",
+        "personal-finance.import": "Importar transa\u00e7\u00f5es",
+        "personal-finance.import-transactions": "Importar transa\u00e7\u00f5es",
+        "personal-finance.month-comparison": "Compara\u00e7\u00e3o mensal",
+        "personal-finance.monthly-close": "Fechar m\u00eas",
+        "personal-finance.monthly-closed": "M\u00eas fechado",
+        "personal-finance.monthly-closing-tape": "Linha de fechamentos mensais",
+        "personal-finance.monthly-period": "Per\u00edodo mensal",
+        "personal-finance.obligation-due": "Obriga\u00e7\u00e3o a vencer",
+        "personal-finance.reconcile": "Reconciliar conta",
+        "personal-finance.reconcile-account": "Reconciliar conta",
+        "personal-finance.reconciliation": "Reconcilia\u00e7\u00e3o",
+        "personal-finance.reconciliation-recorded": "Reconcilia\u00e7\u00e3o registrada",
+        "personal-finance.transaction-occurred": "Transa\u00e7\u00e3o realizada",
+        "personal_finance_account": "Conta",
+        "personal_finance_category": "Categoria",
+        "personal_finance_monthly_closing": "Fechamento mensal",
+        "personal_finance_obligation": "Obriga\u00e7\u00e3o",
+        "personal_finance_reconciliation": "Reconcilia\u00e7\u00e3o",
+        "personal_finance_transaction": "Transa\u00e7\u00e3o"
+      }
+    }
+  },
+  "schema_version": "wiki_experience_pack_composition.v1",
+  "slots": {
+    "commands": [
+      {
+        "contribution": "personal-finance.classify",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "command.classify"
+      },
+      {
+        "contribution": "personal-finance.forecast",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "command.forecast"
+      },
+      {
+        "contribution": "personal-finance.import",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "command.import"
+      },
+      {
+        "contribution": "personal-finance.monthly-close",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "command.monthly-close"
+      },
+      {
+        "contribution": "personal-finance.reconcile",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "command.reconcile"
+      }
+    ],
+    "operations": [
+      {
+        "contribution": "personal-finance.classify-transaction",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "operation.classify"
+      },
+      {
+        "contribution": "personal-finance.forecast-cashflow",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "operation.forecast"
+      },
+      {
+        "contribution": "personal-finance.import-transactions",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "operation.import"
+      },
+      {
+        "contribution": "personal-finance.monthly-close",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "operation.monthly-close"
+      },
+      {
+        "contribution": "personal-finance.reconcile-account",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "operation.reconcile"
+      }
+    ],
+    "timelines": [
+      {
+        "contribution": "personal-finance.financial-calendar",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "timeline.calendar"
+      },
+      {
+        "contribution": "personal-finance.month-comparison",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "timeline.comparison"
+      },
+      {
+        "contribution": "personal-finance.due-horizon",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "timeline.horizon"
+      }
+    ],
+    "views": [
+      {
+        "contribution": "personal-finance.category-variance",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "view.analysis"
+      },
+      {
+        "contribution": "personal-finance.cashflow",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "view.cashflow"
+      },
+      {
+        "contribution": "personal-finance.reconciliation",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "view.reconciliation"
+      },
+      {
+        "contribution": "personal-finance.monthly-closing-tape",
+        "mode": "append",
+        "pack": "personal-finance",
+        "slot": "view.tape"
+      }
+    ]
+  }
+}

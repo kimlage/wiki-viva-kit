@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,7 @@ def _run_git(root: Path, args: list[str]) -> tuple[int, str, str]:
             text=True,
             capture_output=True,
             check=False,
+            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
             timeout=15,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:

@@ -1,215 +1,132 @@
-# Wiki Viva Kit (Living Wiki Kit)
+# Wiki Viva Kit
 
-A Markdown/Git-first **living operational wiki** with a deterministic Python core,
-honesty gates in CI, and deep reading delegated to the AI agent that runs the
-repo (Claude, Codex, Gemini or any other) — no LLM client embedded in the code.
+A Markdown/Git-first living operational wiki with a deterministic core,
+privacy-aware honesty gates, a dense visual cockpit and deep reading delegated
+to the AI agent operating the repository. No LLM client is embedded.
 
-![The 3D knowledge world — Radar perspective, bundled demo with synthetic data](docs/assets/cockpit-radar-demo.png)
+The wiki is one navigable world rather than a set of dashboard islands. Pages
+remain canonical Markdown; registered views project the same world as spatial
+quadrants, timelines, graph relations, source provenance and operational work.
 
-Your wiki is a **navigable 3D world**, not a file tree. Every dot is a page:
-**hue = its area** (finance stays one color everywhere), and **state shows as
-aging** — up-to-date pages sit vivid and calm, overdue ones darken and shed
-amber embers, drafts float bleached on stems, never-checked pages recede behind
-a gray veil. Shape = kind, lines = real relations, hidden pages are always
-countable. Nothing is decorative: **if it glows, it needs you.**
+Current public baseline: [Wiki Viva v8.1.0](docs/references/releases/wiki-viva-v8.1.md).
 
-The shot above is the bundled demo (synthetic sample data — no account, no
-tokens): `npm --prefix apps/wiki-cockpit install && npm --prefix
-apps/wiki-cockpit run dev`, then open `http://localhost:5173/demo` — a title
-screen offers **start from zero** (the genesis tutorial: found a world in an
-empty void and watch the interface materialize block by block) or the **full
-world**.
+```mermaid
+flowchart LR
+    Sources["Sources + Markdown"] --> Snapshot["Atomic snapshot"]
+    Packs["Experience packs"] --> Snapshot
+    Events["Typed multi-clock events"] --> Snapshot
+    Snapshot --> World["Spatial world"]
+    Snapshot --> Timeline["Chronoscope + timelines"]
+    Snapshot --> Reader["Reader + operations"]
+```
 
-## Six perspectives, one world
+## Try the public synthetic demo
 
-![MORPH between perspectives — Radar → Atlas → Districts → Radar (demo)](docs/assets/cockpit-morph-demo.gif)
+```sh
+npm --prefix apps/wiki-cockpit ci
+npm --prefix apps/wiki-cockpit run dev
+```
 
-The same pages, six arrangements — **Quadrants** (the AQAL home map and the
-default landing view: four fixed regions around the root entity at the center),
-**Radar** (what needs attention now), **Atlas** (what lives where),
-**Districts** (everything by kind), **Trails** (one page's connections),
-**Focus** (one page through the four lenses, key `F` with a page locked).
-Switching (keys `1–5`) MORPHs the world: every node keeps its identity and
-glides to its new place, so nothing is lost between views. The URL follows you
-— back button, refresh and sharing just work.
+Open `http://localhost:5173/demo`. The demo contains synthetic Study/Research
+and Personal Finance scenarios and requires no account, token or private data.
 
-The interface lives **in** the world, composed from the template block stack
-(see [modular blocks](docs/references/guides/modular-blocks.md)): an empty wiki
-shows only the **founding rite** (choose who the world is, name it, a ghost
-root breathes where it will be born); creating a page is a **spatial seed
-flow** (the scope's curated palette as cards, a ghost at the type's home
-quadrant, one anchored question); clicking a node opens a summary **plate at
-the node** — the full reader is a chosen second step, never the price of a
-click.
+## What the kit provides
 
-The official language of this project is **English**. Generated pages and
-artifacts (cockpit, ingestion proposals) are rendered in the language configured
-in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
-
-## What it does
-
-- **Memory layer** in [memories/](memories/index.md): consolidated, auditable
-  Markdown pages with frontmatter contracts (freshness, visibility, gate).
-- **Root entity + input stage**: a configured top page defines the wiki's
-  subject, integral perspective bundle, input channels, source configs and
-  default target pages before ingestion starts.
-- **Ingestion pipeline**: source → deterministic manifest → stable chunks →
-  FTS index → secret pre-scan (blocks BEFORE persisting) → input-stage-aware
-  LLM context package → normalized event → proposal that enters the human gate
-  (GitHub PR).
-- **Honesty gates in CI**: contract audit, methodology coverage, cockpit
-  freshness, required LLM pass, freshness budget, quality/hierarchy telemetry,
-  doc-code drift — all deterministic (zero model tokens).
-- **Operational cockpit** ([memories/operations.md](memories/operations.md)):
-  compiled daily, self-verifiable (`--check` fails if semantically stale).
-- **Local web cockpit** ([apps/wiki-cockpit](apps/wiki-cockpit)): a Vite/React
-  + Three.js interface over generated snapshot JSON and a localhost-only
-  allowlisted operator API. Static/sample mode needs no GitHub token or cloud
-  account; mutating workflows remain proposal/PR-oriented.
-- **Hierarchical navigation**: root MOC -> context/domain hub -> typed
-  relation/evidence pages, with `moc_parent` checked by the quality report.
-- **OKF interoperability**: export the rich Wiki Viva memory tree as an Open
-  Knowledge Format v0.1 bundle, check conformance, preview imports, and generate
-  a local HTML viewer without changing the internal page contracts. The adapter
-  follows Google's [Open Knowledge Format announcement](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing/)
-  and the [knowledge-catalog reference project](https://github.com/GoogleCloudPlatform/knowledge-catalog).
-- **Karma layer**: 8-dimension operational scoring as a by-product, append-only,
-  no toxic leaderboard.
-
-## The human gate, in-world
-
-![Approve changes — the gate dock over the 3D world (demo)](docs/assets/cockpit-gate-demo.png)
-
-Approving, adding knowledge, creating pages, inspecting block stacks, source
-sync, health checks and local Codex jobs are **docks inside the world**
-(`?dock=approve|intake|gates|codex|work|source|create|blocks`) — deep-linkable
-URL state, not separate pages. The gate shows changed **content pages first**
-(title · area · state, per-file diffs on demand), repository code collapsed
-into one crate, every honesty check with its real status and output, and a
-one-click **"Fix with Codex"** brief when a check fails. The cockpit prepares;
-GitHub decides.
+- deterministic source manifests, extraction, chunking and local search;
+- secret detection everywhere and PII checks at public boundaries;
+- delegated LLM context packages with auditable consolidation;
+- a self-contained source operations workspace for grouping, authorizing,
+  inventorying, refreshing and monitoring real sources;
+- typed relations, temporal events and multiple timeline projections;
+- a responsive React/Three.js cockpit with equivalent information surfaces;
+- declarative experience packs with synthetic conformance fixtures;
+- per-PR gates, operational compilation and Git-native review history.
 
 ## Quickstart
 
 ```sh
-pip install -r requirements.txt
-
-# 1. Configure your repo profile and root entity
-$EDITOR wiki.config.yaml          # language, root_entity, contexts, gates
-$EDITOR wiki.targets.yaml         # context -> pages/entities map
-$EDITOR memories/system/wiki-viva-kit.md
-python3 scripts/wiki_input_stage.py --write
-
-# 2. Ingest a source end to end
-python3 scripts/wiki_ingest.py --source path/to/source.md --context example
-
-# 3. Run the gates (same ones CI runs)
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -r requirements.txt
 python3 scripts/wiki_audit.py --check
-python3 scripts/wiki_quality_report.py --check
-python3 scripts/wiki_check_methodology_coverage.py --check
-python3 scripts/wiki_operation_compile.py --check
-python3 scripts/wiki_input_stage.py --check
-
-# 4. Compile the daily cockpit
-python3 scripts/wiki_operation_compile.py --write
-
-# 5. Optional: exchange the wiki through Open Knowledge Format
-python3 scripts/wiki_okf_export.py --out tmp/okf-bundle --clean
-python3 scripts/wiki_okf_check.py --bundle tmp/okf-bundle --check
-python3 scripts/wiki_okf_visualize.py --bundle tmp/okf-bundle
-python3 scripts/wiki_okf_import.py --bundle tmp/okf-bundle --context system --dry-run
-
-# 6. Optional: run the local web cockpit
-python3 scripts/wiki_web_snapshot.py --out data/derived/wiki/web-snapshot --clean
-python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
-cd apps/wiki-cockpit && npm install && npm run dev
+python3 scripts/wiki_web_snapshot.py --check-contract
 ```
 
-The local operator server serves snapshot JSON, allowlisted checks, source
-pre-triage, the ingestion wizard and proposal-branch Git workflows. Mutating Git
-and ingestion write steps are dry-run first in the UI and stay oriented around
-`wiki/<topic>` branches plus draft PRs; hosted deployments are later adapters,
-not a prerequisite for local operation.
+Edit `wiki.config.yaml` to define the repository id, owner label, root entity,
+memory root, contexts and privacy boundary. See [docs/README.md](docs/README.md)
+and the [Wiki Viva skill](.skills/wiki-viva/SKILL.md).
 
-The deep reading itself is performed by the agent that runs the repo: the
-pipeline emits a `*-llm-context-request.json` package; the agent records results
-back with `scripts/wiki_llm_context_pass.py --record-result` (provenance is
-enforced). For batch/cheap processing, export pending requests with
-`scripts/wiki_export_batch.py` (Anthropic Message Batches format, −50%).
+## Downstream upgrading
 
-## Official documentation — the wiki documents itself
+The previous subject/lane/capsule/attestation machine is retired. Its final
+`upgrade-package.yaml` is frozen as historical documentation; it is not a
+current gate.
 
-There is no separate doc site. The official documentation **is the living wiki
-documenting itself** — same Markdown pages, same frontmatter contracts, same
-honesty gates in CI. This is dogfooding: if the method works, the kit's own
-documentation is the proof, and it goes stale the moment the gates say it does.
+The supported flow is a single consumer PR:
 
-So the entry point is not a static manual — **open
-[memories/index.md](memories/index.md) and you are already inside the living
-wiki.** From there, the meta-wiki (under [memories/system/wiki/](memories/system/wiki/index.md))
-is the context that explains how the wiki itself works:
+```sh
+# B0: readable and mutation-free
+python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
+  --kit /path/to/wiki-viva-kit --consumer /path/to/consumer --dry-run
 
-| Page | Covers |
+# C1 + C2; add one or more explicit consumer-owned C3 commands when required
+python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
+  --kit /path/to/wiki-viva-kit --consumer /path/to/consumer \
+  --c3-command "python3 scripts/consumer_migration.py"
+```
+
+The command is idempotent, copies only Git-tracked kit-owned paths, regenerates
+declared derived artifacts and writes `kit.lock`. It never copies consumer
+memory or configuration and never invents C3 domain changes. The PR itself is
+the reversible boundary. Run the kit's normal CI, the consumer's own gates and
+obtain human approval before promotion.
+
+Full instructions: [downstream upgrade runbook](docs/references/guides/wiki-viva-v8-downstream-upgrade.md).
+
+## Release policy
+
+A kit release consists of:
+
+1. a Git tag;
+2. release notes describing product and contract changes;
+3. an **Upgrading** section with required consumer migrations;
+4. green normal CI: audit, pytest, Vitest, TypeScript and production build;
+5. a human-reviewed PR.
+
+No capsule, receipt or exact-matrix rite is required.
+
+## Privacy
+
+Personal data belongs in private consumer wikis and needs no warning there.
+Public pages/exports must remain public-safe. Access secrets—tokens, passwords,
+private keys, cookies and equivalent credentials—are blocked everywhere.
+
+## Repository layout
+
+| Path | Purpose |
 | --- | --- |
-| [Default open-source process](docs/references/guides/default-open-source-process.md) | Complete default model: entities, ingestion, gates and PR flow |
-| [Web cockpit deployment adapters](docs/references/guides/web-cockpit-deployment.md) | Runtime config plus Vercel read-only and GCP controlled-operator examples |
-| [Root entity](memories/system/wiki-viva-kit.md) | Semantic top page for this kit and its integral quadrants |
-| [Input stage](memories/system/input-stage.md) | Generated catalog of root entity, channels, source configs and target pages |
-| [Meta-wiki index](memories/system/wiki/index.md) | Map of all documentation |
-| [Architecture](memories/system/wiki/architecture.md) | Principles and module map |
-| [Daily operation](memories/system/wiki/daily-operation.md) | The daily loop |
-| [Ingestion flow](memories/system/wiki/ingestion-flow.md) | Source → consolidation |
-| [Gates & audit](memories/system/wiki/gates-and-audit.md) | The honesty gates |
-| [Privacy](memories/system/wiki/privacy.md) | PII free in private; secrets always blocked |
-| [Costs](memories/system/wiki/operation-costs.md) | Where money goes + levers |
-| [Command reference](memories/system/wiki/command-reference.md) | Every `wiki_*` CLI (gated against drift) |
+| `wiki_core/` | Deterministic core and contracts |
+| `scripts/` | `wiki_*` command-line operations |
+| `apps/wiki-cockpit/` | Visual cockpit and local operator |
+| `memories/` | Public synthetic canonical wiki |
+| `docs/` | Guides, templates and references |
+| `packs/` | Declarative experience packs |
+| `.skills/` | Portable agent playbooks |
 
-Agent-facing entry point: [AGENTS.md](AGENTS.md).
+## Normal gates
 
-## Related projects and reference material
+```sh
+python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_audit.py --public-export --check
+python3 -m pytest tests/
+npm --prefix apps/wiki-cockpit test
+npm --prefix apps/wiki-cockpit exec -- tsc -p apps/wiki-cockpit/tsconfig.json --noEmit
+npm --prefix apps/wiki-cockpit run build
+```
 
-- **Open Knowledge Format (OKF)**: Wiki Viva v6.6+ targets OKF v0.1 as described
-  in the Google Cloud [OKF article](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing/)
-  and the [GoogleCloudPlatform/knowledge-catalog](https://github.com/GoogleCloudPlatform/knowledge-catalog)
-  project. OKF is the exchange layer; Wiki Viva remains the richer operational
-  memory model.
-- **Reference pattern**: Andrej Karpathy's
-  [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
-  article describes the persistent Markdown wiki pattern that inspired this
-  toolkit's source -> synthesis -> schema workflow.
+Core changes should use public synthetic fixtures first. Private repositories
+are downstream QA, never the source of public examples.
 
-## Layout
+## License
 
-The tree is **English by default**: `memories/` (the wiki, one hub per context),
-`memories/system/ingestion/` (proposals, `events/`, `archive/`),
-`docs/references/` (templates, references, snapshots), `data/raw/` and
-`data/derived/wiki/` (gitignored caches). Every directory and file name is
-configurable via `paths.*` in [wiki.config.yaml](wiki.config.yaml) — see
-`WikiConfig` in [wiki_core/config.py](wiki_core/config.py) for the full key
-list. Localized repos pin their own names there (e.g. a Portuguese repo sets
-`paths: {memory_root: memorias}`); the code never hardcodes layout paths.
-
-## Principles
-
-1. **Determinism first** — everything that can be deterministic is (hashing,
-   chunking, index, gates). Intelligence lives in the agent, not in the toolkit.
-2. **Honesty gates that bite** — claims about freshness/coverage are verified in
-   CI, not asserted in prose.
-3. **Privacy by boundary** — personal data is welcome on private pages; access
-   secrets are blocked everywhere; PII blocks at the public boundary
-   (`--public-export`).
-4. **Human gate** — memory changes ship via PR (`wiki/<topic>` branches),
-   reviewed by the owner.
-5. **Language by config** — code and docs in English; generated pages in the
-   configured language.
-6. **Root-driven operation** — setup starts by declaring the main entity and its
-   integral perspectives; source channels inherit that context deterministically.
-7. **Interop by adapter** — OKF is an exchange layer. The internal wiki keeps the
-   richer `page_type`, perspective, privacy and PR-gate contracts.
-
-## License & contributing
-
-**MIT** — free for any use, modification and redistribution; see
-[LICENSE](LICENSE). Contributions are welcome under the same terms: see
-[CONTRIBUTING.md](CONTRIBUTING.md). Personal-context-free by design — this
-branch carries no personal data and its git history is clean (orphan).
+See [LICENSE](LICENSE) and [CONTRIBUTING.md](CONTRIBUTING.md).

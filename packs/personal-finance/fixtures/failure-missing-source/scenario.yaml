@@ -1,0 +1,26 @@
+schema_version: wiki_experience_pack_fixture.v1
+id: finance-missing-source
+story: Block reconciliation and closing when the declared synthetic statement source is absent.
+expected_state: operation_blocked
+public_synthetic: true
+failure_code: missing_source
+compiler:
+  schema_version: wiki_experience_pack_fixture_compiler.v1
+  mode: failure
+  seed: 8201
+  reference_date: "2026-07-09"
+  base_fixture: fixtures/normal
+  type_counts: {}
+  mutations:
+    - operation: remove_page
+      page_id: finance-source-july
+  checks:
+    - kind: reference_integrity
+      fields: [source_ref, source_refs]
+      code: missing_source
+  expected_diagnostic_codes: [missing_source]
+blocked_operations: [personal-finance.reconcile-account, personal-finance.monthly-close]
+assertions:
+  - missing_source_is_visible
+  - no_balance_is_invented
+  - close_state_remains_open

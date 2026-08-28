@@ -1,0 +1,88 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: dense_stress
+seed: 8003
+purpose: Dense public pressure for hidden clusters, long labels and visual budgets.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, source, action, artifact]
+source_pages:
+  - memories/artifacts/artifact-region-map-01.md
+  - memories/actions/action-region-review-evidence.md
+  - memories/claims/claim-region-hidden-work.md
+composition:
+  include_ids:
+    - root-alex-rivera
+    - hub-clientes
+    - source-product-analytics
+    - source-support-tickets
+  include_id_prefixes: [artifact-region-, action-region-, claim-region-]
+expected:
+  page_count: 378
+  page_id_sha256: f3433934ec5ea7d133ed5425f704919c6857a67972264a436c7f7e9651a5d246
+  required_artifact_capabilities: [region_groups]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  blocks: wiki_blocks.v2
+canonical_routes:
+  - /demo/w?demo_scenario=dense_stress&center=root-alex-rivera&view=quadrants&overlay=quality&group=family:artifact
+legacy_routes: []
+interactions: [zoom_out, open_hidden_cluster, resize, switch_overlay, open_dock]
+automated_assertions:
+  - claim_id: region_groups_never_impersonate_pages
+    statement: Region groups never become page centers and keep all members reachable.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome"
+      - "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+      - "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+      - "apps/wiki-cockpit/src/scene/perspectives.test.ts::keeps every page reachable in ≤4 interactions: galaxy → context → group → page"
+      - "apps/wiki-cockpit/src/scene/perspectives.test.ts::quadrants: dense groups use LOD caps instead of filling the canvas with children"
+    covers:
+      interactions: [zoom_out, open_hidden_cluster, open_dock]
+      visual_steps: [open_dense_root, inspect_hidden_count]
+      visual_viewports: [1440x960, 390x844]
+      browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+      expected_warnings: [hidden_clusters_present]
+      expected_failures: []
+  - claim_id: hidden_counts_equal_canonical_members
+    statement: Hidden counts equal grouped canonical pages at desktop and compact thresholds.
+    test_ids:
+      - "apps/wiki-cockpit/src/scene/perspectives.test.ts::honors the per-level cap and never hides pages silently: shown + hidden = total"
+      - "apps/wiki-cockpit/src/world/performance.test.ts::evaluates normal and stress budgets for both device classes"
+    covers:
+      interactions: [resize]
+      visual_steps: [resize_mobile]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: [compact_mode_allowed]
+      expected_failures: []
+  - claim_id: overlay_changes_preserve_coordinates
+    statement: Overlay switches preserve semantic identity and node coordinates.
+    test_ids:
+      - "apps/wiki-cockpit/src/data/visualEncoding.test.ts::changes encoding without touching identity or spatial coordinates"
+    covers:
+      interactions: [switch_overlay]
+      visual_steps: [switch_all_overlays]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+test_capabilities:
+  - capability: compact_fallback
+    test_id: apps/wiki-cockpit/src/world/performance.test.ts::reports compact rendering separately from a budget violation
+  - capability: density_instrumentation
+    test_id: apps/wiki-cockpit/src/world/performance.test.ts::encodes the plan's desktop/mobile normal and stress limits
+  - capability: region_groups
+    test_id: "apps/wiki-cockpit/src/scene/perspectives.test.ts::quadrants: dense groups use LOD caps instead of filling the canvas with children"
+visual:
+  matrix_semantics: representative_shell_evidence_not_route_cross_product
+  viewports: [1440x960, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+  steps: [open_dense_root, inspect_hidden_count, resize_mobile, switch_all_overlays]
+expected_warnings: [hidden_clusters_present, compact_mode_allowed]
+artifact_warning_codes: [region_hidden_density]
+expected_failures: []
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/scenarios/dense_stress]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

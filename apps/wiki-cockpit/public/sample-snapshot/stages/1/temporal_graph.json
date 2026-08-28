@@ -1,0 +1,145 @@
+{
+  "diagnostics": [],
+  "event_count": 2,
+  "event_schema_version": "wiki_temporal_event.v1",
+  "events": [
+    {
+      "actor": null,
+      "after": {
+        "status": "blocked"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "instant",
+        "value": "2026-07-09T00:00:00Z"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:system"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_snapshot_recorded_a3af43d15361d0f03a17e157",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "snapshot_recorded",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "activity_timeline.v1",
+        "legacy_kind": "snapshot"
+      },
+      "precision": {
+        "recorded_at": "instant"
+      },
+      "recorded_at": "2026-07-09T00:00:00Z",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "system:snapshot-generated"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "root_entity"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:pessoal"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_06555020f9d575e82e51c8bf",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:root-alex-rivera"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "page": {
+    "fingerprint": "260ddce3472c3ac13016e8e3795feec9ba6c283fd15da43e8f21503e89e2abb6",
+    "limit": 2,
+    "offset": 0,
+    "remaining_count": 0
+  },
+  "range": {
+    "basis": "full_result",
+    "dated_count": 2,
+    "event_count": 2,
+    "from": "2026-07-03",
+    "from_precision": "day",
+    "to": "2026-07-09T00:00:00Z",
+    "to_precision": "instant",
+    "undated_count": 0
+  },
+  "repo_id": "wiki-viva-demo",
+  "returned_count": 2,
+  "returned_range": {
+    "basis": "returned_page",
+    "dated_count": 2,
+    "event_count": 2,
+    "from": "2026-07-03",
+    "from_precision": "day",
+    "to": "2026-07-09T00:00:00Z",
+    "to_precision": "instant",
+    "undated_count": 0
+  },
+  "revision": "sha256:260ddce3472c3ac13016e8e3795feec9ba6c283fd15da43e8f21503e89e2abb6",
+  "schema_version": "wiki_temporal_graph.v1",
+  "summary": {
+    "by_context": {
+      "context:pessoal": 1,
+      "context:system": 1
+    },
+    "by_kind": {
+      "page_updated": 1,
+      "snapshot_recorded": 1
+    },
+    "conflict_count": 0,
+    "diagnostic_count": 0,
+    "event_count": 2,
+    "imprecise_count": 0,
+    "scope": "full_result"
+  },
+  "total_count": 2,
+  "truncated": false
+}

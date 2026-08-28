@@ -1,11 +1,10 @@
 """Per-source incremental cursor state — the Singer STATE analogue.
 
 Cursors live here, in a mutable derived artifact, NEVER in the versioned source
-config (F7). The pipeline writes a processing checkpoint only after its own
-deterministic artifacts are durable; that checkpoint is not, by itself, proof
-that the deep read and canonical integration event are closed. Versioned source
-sync evidence carries that stronger claim. This module gives callers an atomic,
-per-source read/update/write API.
+config (F7). The write-timing invariant (F8) is enforced by the caller: a
+stream's cursor is committed ONLY after its manifest + normalized event are
+durably written, trading duplicates (deduped by manifest sha) over silent loss.
+This module gives that caller an atomic, per-source read/update/write API.
 """
 
 from __future__ import annotations
@@ -52,12 +51,9 @@ def write_stream_cursor(
     last_unit: str = "",
     updated_at: str = "",
 ) -> dict[str, Any]:
-    """Persist a stream processing cursor after the caller's durable writes.
-
-    This atomic derived checkpoint does not prove canonical integration; the
-    source page's successful sync receipt + closed event do that. Atomic write
-    via a temp file + replace prevents a half-written state.
-    """
+    """Persist a stream's cursor. The CALLER must invoke this only AFTER the
+    ingested data for that cursor is durably committed (F8). Atomic write via a
+    temp file + replace so a crash never leaves a half-written state."""
     state_root.mkdir(parents=True, exist_ok=True)
     state = read_state(state_root, source_id)
     state["streams"][stream_id] = {

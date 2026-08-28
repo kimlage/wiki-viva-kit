@@ -1,0 +1,30 @@
+schema_version: wiki_experience_pack_fixture.v1
+id: study-literature-synthesis
+story: Synthesize a broad synthetic reading set with several concepts, claims and open tensions.
+expected_state: dense_ready
+public_synthetic: true
+generated_counts:
+  sources: 24
+  notes: 48
+  concepts: 16
+  claims: 20
+  syntheses: 3
+compiler:
+  schema_version: wiki_experience_pack_fixture_compiler.v1
+  mode: dense
+  seed: 8301
+  reference_date: "2026-07-09"
+  base_fixture: null
+  type_counts:
+    study_research_source: 24
+    study_research_note: 48
+    study_research_concept: 16
+    study_research_claim: 20
+    study_research_synthesis: 3
+  mutations: []
+  checks: []
+  expected_diagnostic_codes: []
+assertions:
+  - reading_queue_preserves_all_items
+  - evidence_matrix_exposes_conflicts
+  - timeline_reports_full_count

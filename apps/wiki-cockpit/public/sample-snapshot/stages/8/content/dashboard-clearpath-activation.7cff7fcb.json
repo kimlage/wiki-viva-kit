@@ -1,5 +1,26 @@
 {
-  "backlinks": [],
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-product-analytics-2026-07",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "relation": "impact",
+      "title": "Ingest\u00e3o: product analytics"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "proposal-ingest-product-analytics-2026-07",
+      "page_type": "proposal",
+      "path": "memories/system/ingestion/proposals/proposal-ingest-product-analytics-2026-07.md",
+      "relation": "impact",
+      "title": "Proposal: integrate product analytics evidence"
+    }
+  ],
   "body": "\n# Clearpath activation dashboard\n\nQ2 inside the company: a metric surface that shows what the company produced and measured.\n",
   "frontmatter": {
     "context": "clientes",
@@ -29,5 +50,6 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-8d1c5584a934c732",
   "source_refs": []
 }

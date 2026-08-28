@@ -1,9 +1,30 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { canUseWebGL, SystemScene } from "./SystemScene";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  canUseWebGL,
+  reduceSpatialMotionSettlement,
+  sceneFrameloop,
+  sceneMotionDurationSeconds,
+  sceneMotionIntent,
+  spatialMotionReadyForFinalPaint,
+  spatialMotionSettlementState,
+  SystemScene
+} from "./SystemScene";
+import type { SceneMotionSnapshot } from "./SystemScene";
+import {
+  cameraRequestMustWait,
+  interruptCameraMotion,
+  settleCameraMotion
+} from "../renderers/scene/parts/camera";
 import type { GitState, GraphNode } from "../types";
+import {
+  latchRuntimePerformanceFallback,
+  RUNTIME_PERFORMANCE_FALLBACK_EVENT,
+  RUNTIME_PERFORMANCE_FALLBACK_SESSION_KEY,
+  runtimePerformanceFallbackLatched
+} from "../world/performance";
 
 const nodes: GraphNode[] = [
   {
@@ -47,13 +68,157 @@ const git: GitState = {
   }
 };
 
+afterEach(() => {
+  cleanup();
+  window.sessionStorage.removeItem(RUNTIME_PERFORMANCE_FALLBACK_SESSION_KEY);
+});
+
+const motionSnapshot = (patch: Partial<SceneMotionSnapshot> = {}): SceneMotionSnapshot => ({
+  key: "quadrants|q2|actions||0|root|",
+  view: "quadrants",
+  lens: "q2",
+  overlay: "actions",
+  group: "",
+  level: 0,
+  center: "root",
+  page: "",
+  ...patch
+});
+
+describe("scene semantic motion transaction", () => {
+  it("distinguishes view, lens, overlay and page control without a generic fallback", () => {
+    const root = motionSnapshot();
+    expect(sceneMotionIntent(null, root)).toBe("view");
+    expect(sceneMotionIntent(root, motionSnapshot({ view: "radar" }))).toBe("view");
+    expect(sceneMotionIntent(root, motionSnapshot({ lens: "q3" }))).toBe("lens");
+    expect(sceneMotionIntent(root, motionSnapshot({ overlay: "evidence" }))).toBe("overlay");
+    expect(sceneMotionIntent(root, motionSnapshot({ page: "page-a" }))).toBe("control");
+  });
+
+  it("uses travel for entering or recentering and retreat for reversing depth", () => {
+    const root = motionSnapshot();
+    const drilled = motionSnapshot({ group: "family:source", level: 2 });
+    expect(sceneMotionIntent(root, drilled)).toBe("travel");
+    expect(sceneMotionIntent(drilled, root)).toBe("retreat");
+    expect(sceneMotionIntent(root, motionSnapshot({ center: "root-b" }))).toBe("travel");
+    expect(sceneMotionIntent(motionSnapshot({ page: "page-a" }), root)).toBe("retreat");
+  });
+
+  it("keeps real overlay crossfades short and cuts them under reduced motion", () => {
+    expect(sceneMotionDurationSeconds("overlay", 0.78)).toBeGreaterThanOrEqual(0.3);
+    expect(sceneMotionDurationSeconds("overlay", 0.78)).toBeLessThanOrEqual(0.4);
+    expect(sceneMotionDurationSeconds("overlay", 0.2)).toBe(0.4);
+    expect(sceneMotionDurationSeconds("overlay", 1.4)).toBe(0.3);
+    expect(sceneMotionDurationSeconds("overlay", 0.78, true)).toBe(0);
+  });
+
+  it("stops the render loop while a semantic 2D view owns the workspace", () => {
+    expect(sceneFrameloop(true, true)).toBe("never");
+    expect(sceneFrameloop(false, true)).toBe("always");
+    expect(sceneFrameloop(false, false)).toBe("demand");
+  });
+
+  it("settles one sequence only after morph, camera and the final paint boundary", () => {
+    let settlement = spatialMotionSettlementState(12);
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "settled",
+      lane: "morph",
+      sequence: 12
+    });
+    expect(spatialMotionReadyForFinalPaint(settlement)).toBe(false);
+    expect(reduceSpatialMotionSettlement(settlement, { type: "final", sequence: 12 }).final).toBe(false);
+
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "settled",
+      lane: "camera",
+      sequence: 12
+    });
+    expect(spatialMotionReadyForFinalPaint(settlement)).toBe(true);
+    settlement = reduceSpatialMotionSettlement(settlement, { type: "final", sequence: 12 });
+    expect(settlement).toEqual({ sequence: 12, morph: true, camera: true, final: true });
+
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "pending",
+      lane: "camera",
+      sequence: 12
+    });
+    expect(settlement).toEqual({ sequence: 12, morph: true, camera: false, final: false });
+  });
+
+  it("ignores stale callbacks and resets every lane for a new semantic sequence", () => {
+    const previous = {
+      sequence: 7,
+      morph: true,
+      camera: true,
+      final: true
+    };
+    let settlement = reduceSpatialMotionSettlement(previous, { type: "begin", sequence: 8 });
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "settled",
+      lane: "camera",
+      sequence: 7
+    });
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "settled",
+      lane: "morph",
+      sequence: 7
+    });
+    settlement = reduceSpatialMotionSettlement(settlement, { type: "final", sequence: 7 });
+    expect(settlement).toEqual({ sequence: 8, morph: false, camera: false, final: false });
+  });
+
+  it("acknowledges camera cuts, no-ops and a control interruption before the clock starts", () => {
+    const reports: Array<{ sequence: number; state: string }> = [];
+    const report = (sequence: number, state: "pending" | "settled") => reports.push({ sequence, state });
+    const interrupted = { sequence: 20, active: true, start: null };
+
+    expect(interruptCameraMotion(interrupted, 21, report)).toBe(21);
+    expect(interrupted.active).toBe(false);
+    expect(settleCameraMotion(null, 22, report)).toBe(22);
+
+    const staleInactive = { sequence: 9, active: false, start: null };
+    expect(interruptCameraMotion(staleInactive, 24, report)).toBe(24);
+
+    const reducedMotionCut = { sequence: 23, active: true, start: null };
+    expect(settleCameraMotion(reducedMotionCut, 99, report)).toBe(23);
+    expect(reducedMotionCut.active).toBe(false);
+    expect(reports).toEqual([
+      { sequence: 21, state: "settled" },
+      { sequence: 22, state: "settled" },
+      { sequence: 24, state: "settled" },
+      { sequence: 23, state: "settled" }
+    ]);
+  });
+
+  it("keeps every camera subject pending until its exact worker request commits", () => {
+    expect(cameraRequestMustWait(false)).toBe(true);
+    expect(cameraRequestMustWait(true)).toBe(false);
+  });
+});
+
 describe("SystemScene fallback", () => {
-  it("uses the 2D fallback with the same topology and URLs when WebGL is unavailable", () => {
+  it("shares the adaptive session verdict with the containing world shell", () => {
+    let broadcasts = 0;
+    const onFallback = () => {
+      broadcasts += 1;
+    };
+    window.addEventListener(RUNTIME_PERFORMANCE_FALLBACK_EVENT, onFallback);
+    expect(runtimePerformanceFallbackLatched()).toBe(false);
+
+    latchRuntimePerformanceFallback();
+
+    expect(runtimePerformanceFallbackLatched()).toBe(true);
+    expect(broadcasts).toBe(1);
+    window.removeEventListener(RUNTIME_PERFORMANCE_FALLBACK_EVENT, onFallback);
+  });
+
+  it("uses the 2D fallback with the same topology, URLs and measurable fallback reason", async () => {
     expect(canUseWebGL()).toBe(false);
 
-    render(
+    const { container } = render(
       <SystemScene
         nodes={nodes}
+        sourceNodeCount={107}
         git={git}
         route={{ perspective: "radar", reader: false, filter: "" }}
         highlightedPageIds={["alpha"]}
@@ -62,12 +227,61 @@ describe("SystemScene fallback", () => {
     );
 
     expect(screen.getByLabelText("Content map")).toBeTruthy();
+    const scene = container.querySelector(".sceneShell");
+    expect(scene?.getAttribute("data-scene-fallback-reason")).toBe("webgl_unavailable");
+    expect(scene?.getAttribute("data-scene-performance-profile")).toContain("dense");
+    expect(container.querySelector(".sceneFallback")?.getAttribute("data-fallback-reason")).toBe("webgl_unavailable");
+    expect(scene?.getAttribute("data-motion-intent")).toBe("view");
+    expect(scene?.getAttribute("data-motion-duration-ms")).toBe("0");
+    await waitFor(() => {
+      expect(scene?.getAttribute("data-morph-motion-settled")).toBe("true");
+      expect(scene?.getAttribute("data-camera-motion-settled")).toBe("true");
+      expect(scene?.getAttribute("data-spatial-motion-settled")).toBe("true");
+    });
     expect(screen.getByText("Draft change")).toBeTruthy();
     // Groups render as links sharing the world URL grammar.
     const groupLink = screen.getByRole("link", { name: /example · 1/ });
     expect(groupLink.getAttribute("href")).toBe("/w/radar/example");
-    // Alpha is stale in the fixture: its accessible name now carries the state
-    // chip too (fallback never encodes state in color alone).
-    expect(screen.getByRole("link", { name: /Alpha needs refresh/ })).toBeTruthy();
+    // Alpha is stale in the fixture: the active attention overlay resolves it
+    // to a labelled/symbol-backed signal, never color alone.
+    const alpha = screen.getByRole("link", { name: /Alpha Attention: Needs attention/ });
+    expect(alpha.getAttribute("data-overlay")).toBe("attention");
+    expect(alpha.getAttribute("data-overlay-state")).toBe("watch");
+    const output = container.querySelector('[data-testid="runtime-performance"]') as HTMLOutputElement;
+    await waitFor(() => expect(output.dataset.performanceReady).toBe("true"));
+    const evidence = JSON.parse(output.value) as {
+      counters: { sourceNodes: number; interactiveNodes: number; fallbackReason: string; particles: number };
+      evaluations: { desktop: { normal: { status: string } } };
+    };
+    expect(evidence.counters).toMatchObject({
+      sourceNodes: 107,
+      interactiveNodes: 2,
+      fallbackReason: "webgl_unavailable",
+      particles: 0
+    });
+    expect(evidence.evaluations.desktop.normal.status).toBe("fallback");
+  });
+
+  it("keeps a session-latched performance fallback explicit and navigable", async () => {
+    window.sessionStorage.setItem(RUNTIME_PERFORMANCE_FALLBACK_SESSION_KEY, "1");
+    const { container } = render(
+      <SystemScene
+        nodes={nodes}
+        git={git}
+        route={{ perspective: "radar", reader: false, filter: "" }}
+        makeHref={() => "/w/radar"}
+      />
+    );
+
+    expect(container.querySelector(".sceneShell")?.getAttribute("data-scene-fallback-reason")).toBe("performance_budget");
+    expect(screen.getByText("Performance-safe map")).toBeTruthy();
+    expect(screen.getByText(/same pages, groups and navigation/)).toBeTruthy();
+    const output = screen.getByTestId("runtime-performance") as HTMLOutputElement;
+    await waitFor(() => expect(output.dataset.performanceFallbackReason).toBe("performance_budget"));
+    expect(JSON.parse(output.value).evaluations.desktop.normal.status).toBe("fallback");
+    const latchedEvidence = output.value;
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(output.dataset.performanceFallbackReason).toBe("performance_budget");
+    expect(output.value).toBe(latchedEvidence);
   });
 });

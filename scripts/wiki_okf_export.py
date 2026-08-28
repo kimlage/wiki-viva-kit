@@ -20,6 +20,14 @@ def main() -> int:
     parser.add_argument("--source-root", help="repo-relative source root; defaults to config paths.memory_root")
     parser.add_argument("--out", required=True, help="output bundle directory")
     parser.add_argument("--clean", action="store_true", help="delete the output directory before exporting")
+    parser.add_argument(
+        "--force-unowned-output",
+        action="store_true",
+        help=(
+            "Explicitly adopt a non-empty unmarked output directory inside the repo. "
+            "Review its contents first; external paths remain forbidden."
+        ),
+    )
     args = parser.parse_args()
 
     config = load_config(ROOT)
@@ -28,6 +36,7 @@ def main() -> int:
         source_root=args.source_root or str(config.paths["memory_root"]),
         bundle_root=ROOT / args.out,
         clean=args.clean,
+        force_unowned_output=args.force_unowned_output,
     )
     print(json.dumps(result.__dict__, ensure_ascii=False, indent=2, sort_keys=True))
     return 0

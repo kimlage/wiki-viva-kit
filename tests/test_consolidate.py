@@ -1,6 +1,7 @@
 """Tests for the consolidation layer (the integration half of ingestion):
 aggregate from llm-cache, event generation, integration packet, pending check,
 the audit_consolidation gate and wiki-page indexing."""
+# ruff: noqa: E402 - standalone execution bootstraps the repository import path
 
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ from wiki_core.consolidate import (
     pending_consolidations,
 )
 from wiki_core.chunking import chunk_text
-from wiki_core.index import PAGE_SOURCE_PREFIX, build_index, index_pages, index_source, prune_index
+from wiki_core.index import PAGE_SOURCE_PREFIX, build_index, index_pages, prune_index
 from wiki_core.index.sqlite import search
 from wiki_core.paths import WikiPaths
 
@@ -108,19 +109,68 @@ def test_event_markdown_is_specific_never_placeholder(repo, language, forbidden)
     agg = aggregate_results(request, paths.llm_cache)
     md = build_event_markdown(
         agg, config=cfg, context="system", date=dt.date(2026, 6, 11),
-        source_ref="source-test", event_dir=paths.ingest_events_dir, root=tmp,
+        source_ref="source-test",
+        event_dir=paths.ingest_events_dir, root=tmp,
     )
     assert forbidden not in md
     assert "Ana wants the migration" in md          # real content from the cache
+    assert "page_type: ingestion_event" in md       # distinct provenance family
+    assert "page_type: source_catalog" not in md
+    assert "moc_parent: source-test" in md
     assert f"source_id: {SOURCE_ID}" in md           # gate hook
-    assert "page_type: ingestion_event" in md        # ontology contract
-    assert "source_refs:" in md                      # canonical provenance list
     assert "consolidated_into: []" in md             # integration to close
     assert "affected_pages: {must_update: [], should_review: []}" in md
     assert "impact_closure:" in md
     assert "Cataloging the source is NOT ingesting" not in md
     assert "Catalogar a fonte NAO e ingerir" not in md
     assert "| Tight window" not in md                # risks are bullets, not table rows
+
+
+def test_event_markdown_lives_under_its_canonical_source(repo):
+    tmp, cfg, paths, request = repo
+    agg = aggregate_results(request, paths.llm_cache)
+
+    with_path = build_event_markdown(
+        agg,
+        config=cfg,
+        context="system",
+        date=dt.date(2026, 6, 11),
+        source_page="memories/sources/source-test.md",
+        source_ref="source-test",
+        event_dir=paths.ingest_events_dir,
+        root=tmp,
+    )
+    assert "moc_parent: memories/sources/source-test.md" in with_path
+    assert "moc_parent: memories/system/source-registry.md" not in with_path
+
+    with_id_only = build_event_markdown(
+        agg,
+        config=cfg,
+        context="system",
+        date=dt.date(2026, 6, 11),
+        source_ref="source-test",
+        event_dir=paths.ingest_events_dir,
+        root=tmp,
+    )
+    assert "moc_parent: source-test" in with_id_only
+
+
+def test_event_markdown_refuses_missing_canonical_source(repo):
+    tmp, cfg, paths, request = repo
+    agg = aggregate_results(request, paths.llm_cache)
+
+    with pytest.raises(
+        ValueError,
+        match="normalized ingestion event requires source_page or source_ref",
+    ):
+        build_event_markdown(
+            agg,
+            config=cfg,
+            context="system",
+            date=dt.date(2026, 6, 11),
+            event_dir=paths.ingest_events_dir,
+            root=tmp,
+        )
 
 
 def test_pending_lifecycle_until_consolidated(repo):
@@ -131,6 +181,7 @@ def test_pending_lifecycle_until_consolidated(repo):
     agg = aggregate_results(request, paths.llm_cache)
     md = build_event_markdown(
         agg, config=cfg, context="system", date=dt.date(2026, 6, 11),
+        source_ref="source-test",
         event_dir=paths.ingest_events_dir, root=tmp,
     )
     event = paths.ingest_events_dir / "2026-06-11-test-doc.md"
@@ -227,6 +278,46 @@ def test_audit_consolidation_bites_and_passes(tmp_path, monkeypatch):
     errors, warnings = [], []
     audit.audit_consolidation(errors, warnings, cfg)
     assert any("does not reference the source back" in e for e in errors)
+
+    # A source identity page can be listed as a touched target without
+    # source-referring to itself. The event/lifecycle carries that closure;
+    # forcing a reverse edge would create a forbidden provenance cycle.
+    target.write_text(
+        "---\npage_id: source-test\npage_type: source\nsource_refs: []\n---\n",
+        encoding="utf-8",
+    )
+    (events / "e1.md").write_text(
+        _event_text(
+            "consolidated_into:\n"
+            "  - memories/index.md\n"
+            "sem_claim: source identity refreshed"
+        ),
+        encoding="utf-8",
+    )
+    audit.parse_frontmatter.cache_clear()
+    errors, warnings = [], []
+    audit.audit_consolidation(errors, warnings, cfg)
+    assert any("[source_only_consolidation]" in error for error in errors)
+
+    source_target = tmp_path / "memories/source.md"
+    source_target.write_text(target.read_text(encoding="utf-8"), encoding="utf-8")
+    target.write_text(
+        "---\npage_id: memories-index\nsource_refs:\n  - source-test\n---\n",
+        encoding="utf-8",
+    )
+    (events / "e1.md").write_text(
+        _event_text(
+            "consolidated_into:\n"
+            "  - memories/source.md\n"
+            "  - memories/index.md\n"
+            "sem_claim: synthesis merged into hub"
+        ),
+        encoding="utf-8",
+    )
+    audit.parse_frontmatter.cache_clear()
+    errors, warnings = [], []
+    audit.audit_consolidation(errors, warnings, cfg)
+    assert errors == []
 
     # 4) legacy event (no source_id) -> warning only
     (events / "e1.md").write_text("---\npage_id: old\n---\n## Quadrantes\n", encoding="utf-8")

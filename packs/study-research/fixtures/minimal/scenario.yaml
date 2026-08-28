@@ -1,0 +1,11 @@
+schema_version: wiki_experience_pack_fixture.v1
+id: study-minimal
+story: Capture one synthetic source and one open question.
+expected_state: ready
+public_synthetic: true
+pages:
+  - source-foundations
+  - question-foundations
+assertions:
+  - reading_queue_has_one_item
+  - public_export_has_no_private_identifier

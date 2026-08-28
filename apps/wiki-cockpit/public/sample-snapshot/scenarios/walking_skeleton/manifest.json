@@ -1,0 +1,247 @@
+{
+  "bundle_hash": "79fab84e71aed812b296d5b2d12ca34df870ad9f989f4523b330e60deaf63398",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
+    "content_sidecars"
+  ],
+  "content_sidecars": true,
+  "contract_errors": [],
+  "files": [
+    "manifest.json",
+    "operations.json",
+    "graph.json",
+    "pages.json",
+    "sources.json",
+    "source_entities.json",
+    "templates.json",
+    "actions.json",
+    "decisions.json",
+    "freshness.json",
+    "gates.json",
+    "git.json",
+    "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
+    "diff.json",
+    "ingestion.json",
+    "quality.json",
+    "commands.json",
+    "score.json",
+    "blocks.json",
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/action-enviar-proposta.05a0afa6.json",
+    "content/artifact-relatorio-recon.8b3a520f.json",
+    "content/claim-custos-sobem.0be31ee0.json",
+    "content/event-ingest-banco-2026-05.60d41f0b.json",
+    "content/hub-financeiro.405d007d.json",
+    "content/person-marina-costa.3db0e184.json",
+    "content/root-alex-rivera.f4a10886.json",
+    "content/source-banco-export.21d8fe1f.json"
+  ],
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "reference_date": "2026-07-09",
+    "scenario_id": "walking_skeleton",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8001,
+    "source_input_sha256": "091455d35dfca333f56232035f69d48195eebac55f4f9552e867144e2d7d20bb"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2833,
+      "sha256": "2b1bef112fba8f5fe8a730133007e40c915fff1b9c61d8c12cb5856baa8d7efd"
+    },
+    "block_stacks.json": {
+      "bytes": 31151,
+      "sha256": "0a838c5b5d94f82839829c2be71c298ca2818e2dfc363ab36e3b909dbf465a2e"
+    },
+    "blocks.json": {
+      "bytes": 9051,
+      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+    },
+    "commands.json": {
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
+    },
+    "content/action-enviar-proposta.05a0afa6.json": {
+      "bytes": 2113,
+      "sha256": "bbd94bc51988f0e865b8b7e77ccffb6379027f0e227db3eff0a96f0d7343b23e"
+    },
+    "content/artifact-relatorio-recon.8b3a520f.json": {
+      "bytes": 1494,
+      "sha256": "306de753923e4d01aff91688f030c54b0d2114de22bad2e595c153cd1222ba5d"
+    },
+    "content/claim-custos-sobem.0be31ee0.json": {
+      "bytes": 1462,
+      "sha256": "f5accbaac2b9a8cdde02fdf728b67e9d3856b9a80edf9a80aee2c475f303c191"
+    },
+    "content/event-ingest-banco-2026-05.60d41f0b.json": {
+      "bytes": 1968,
+      "sha256": "66e941eb09b5f5287cb615cf2707583453622fb144288084e584e6e90b1afebf"
+    },
+    "content/hub-financeiro.405d007d.json": {
+      "bytes": 1979,
+      "sha256": "66ef6dfbce5164dbbb4394031270376d9ac9869d67e99762e1decfeff6de286c"
+    },
+    "content/person-marina-costa.3db0e184.json": {
+      "bytes": 1215,
+      "sha256": "f785764ccf08cd20638623edb42b709ff541c8875186f091b9e2193020fe453c"
+    },
+    "content/root-alex-rivera.f4a10886.json": {
+      "bytes": 2429,
+      "sha256": "11034f3b010f9e568edb5ccf29e6e0a53b0c915804b6852523418c0935eb03f8"
+    },
+    "content/source-banco-export.21d8fe1f.json": {
+      "bytes": 2978,
+      "sha256": "d2c1d0d62d1fc009f23d4810866cd467784078b4da35d77afbfc682220d68f80"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+    },
+    "freshness.json": {
+      "bytes": 535,
+      "sha256": "a765e67adb1a07e96faa991a922b8928d8183e21b46ec27e4a3e87616d80c995"
+    },
+    "gates.json": {
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 17054,
+      "sha256": "4c0bf1db5946d0bb4599b89735051fd9e2b3ab087f50af182c1cca4580bf8508"
+    },
+    "ingestion.json": {
+      "bytes": 908,
+      "sha256": "a68568c1d4f107fb285d24c5462d0cb13c70bab135484d2e42e710e9dd109d30"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
+    },
+    "pages.json": {
+      "bytes": 8189,
+      "sha256": "5a52fb316f7e79803c7a55869735560f129814991cb240a2d5a92d0b83ab1f06"
+    },
+    "quality.json": {
+      "bytes": 4067,
+      "sha256": "75582b338a377d04eeef7204016301d3f55ec85842b777877a1efa5b4b641be8"
+    },
+    "region_groups.json": {
+      "bytes": 14121,
+      "sha256": "e2b029945f58aa82f4021b540080d16de09d3942556ab80046176b6bbda24d63"
+    },
+    "score.json": {
+      "bytes": 2120,
+      "sha256": "e4f554d878a026727880352a295f54932d25a7cb8660acdb19fa6f890ec026ad"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 60,
+      "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
+    },
+    "source_entities.json": {
+      "bytes": 2171,
+      "sha256": "2635192abc9d41b8530951b7829018772e038452d4df237939114762dd634ac8"
+    },
+    "source_lifecycle.json": {
+      "bytes": 851,
+      "sha256": "2cc7905a39f3b22c113a063e7b416f9307e51d9804c0e1c177cdae00af475d58"
+    },
+    "sources.json": {
+      "bytes": 1103,
+      "sha256": "ebc2a7f5cdf5c054eac288b4201b3bdf5f7df00c9e649882bab3d639b2c96517"
+    },
+    "templates.json": {
+      "bytes": 23927,
+      "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
+    },
+    "temporal_graph.json": {
+      "bytes": 12014,
+      "sha256": "605a903430631482079e4e1ad6f955639424b203687a2288afa7d27c8a97b7e7"
+    },
+    "timeline.json": {
+      "bytes": 2717,
+      "sha256": "f5e0f0f99f4d371e527d382309a81c9bacec5267e9f00879ca0391124a099b07"
+    },
+    "work_items.json": {
+      "bytes": 721,
+      "sha256": "f1ce3f3a428481a4c8ed96b90f1d9873078ecd93e097aedd73ecd8195104e32d"
+    }
+  },
+  "mode": "static",
+  "repo": {
+    "branch_prefix": "wiki/",
+    "default_branch": "main",
+    "default_context": "pessoal",
+    "karma_enabled": true,
+    "language": "en",
+    "memory_root": "memories",
+    "repo_id": "wiki-viva-demo"
+  },
+  "root_page_id": "root-alex-rivera",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-79fab84e71aed812",
+  "source_commit": null,
+  "source_sha": "uncommitted:30a55cf43e57892e5a8d0f3ad8705d00bf3bb84756b1bed60ff1459be2071e8d",
+  "versions": {
+    "activity_timeline": "activity_timeline.v1",
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
+}

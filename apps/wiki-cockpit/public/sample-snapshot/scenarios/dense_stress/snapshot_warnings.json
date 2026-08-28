@@ -1,0 +1,40 @@
+{
+  "schema_version": "wiki_snapshot_warnings.v1",
+  "warnings": [
+    {
+      "anchor_id": "hub-clientes",
+      "code": "region_hidden_density",
+      "count": 22,
+      "region_id": "quadrant:intencao",
+      "severity": "info"
+    },
+    {
+      "anchor_id": "hub-clientes",
+      "code": "region_hidden_density",
+      "count": 148,
+      "region_id": "quadrant:pratica",
+      "severity": "info"
+    },
+    {
+      "anchor_id": "source-product-analytics",
+      "code": "region_hidden_density",
+      "count": 6,
+      "region_id": "quadrant:intencao",
+      "severity": "info"
+    },
+    {
+      "anchor_id": "source-product-analytics",
+      "code": "region_hidden_density",
+      "count": 94,
+      "region_id": "quadrant:pratica",
+      "severity": "info"
+    },
+    {
+      "anchor_id": "source-support-tickets",
+      "code": "region_hidden_density",
+      "count": 88,
+      "region_id": "quadrant:pratica",
+      "severity": "info"
+    }
+  ]
+}

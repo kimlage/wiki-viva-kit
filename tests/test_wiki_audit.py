@@ -22,14 +22,16 @@ WIKI_AUDIT_PATH = ROOT / "scripts" / "wiki_audit.py"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from wiki_core.config import WikiConfig, load_config
+from wiki_core.config import WikiConfig, load_config  # noqa: E402
 
 
 def _load_wiki_audit():
     # Ensure ROOT is importable for the module's internal `wiki_core` imports.
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
-    spec = importlib.util.spec_from_file_location("wiki_audit_under_test", WIKI_AUDIT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "wiki_audit_under_test", WIKI_AUDIT_PATH
+    )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     # Register before exec so dataclasses / from __future__ resolve cleanly.
@@ -210,7 +212,7 @@ def test_parse_frontmatter_strips_quotes(tmp_path, audit):
     # Finding 15: quoted visibility escaped the public PII block.
     path = tmp_path / "quoted.md"
     path.write_text(
-        '---\npage_id: p\npage_type: dashboard\ncontext: c\n'
+        "---\npage_id: p\npage_type: dashboard\ncontext: c\n"
         'visibility: "public_candidate"\nupdated_at: 2026-06-09\n'
         "stale_after_days: 7\nsources_policy: required\ngate: github_pr\n"
         "sensitive_data_policy: private_sensitive_allowed\n---\n\n# t\n",
@@ -221,11 +223,172 @@ def test_parse_frontmatter_strips_quotes(tmp_path, audit):
 
 
 # ---------------------------------------------------------------------------
+# Source lifecycle authoring diagnostics
+# ---------------------------------------------------------------------------
+
+
+def _seed_source_lifecycle_page(
+    tmp_path, audit, monkeypatch, lifecycle_yaml: str, *, updated_at: str = "2026-07-01"
+):
+    rel = "memories/sources/bank.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "---\n"
+        "page_id: source-bank\n"
+        "page_type: source\n"
+        "context: system\n"
+        "visibility: private_self\n"
+        f"updated_at: {updated_at}\n"
+        "stale_after_days: 365\n"
+        "sources_policy: required\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        "owner: root-example\n"
+        "related_holons: []\n"
+        "roles: []\n"
+        "responsibilities: []\n"
+        "source_refs: []\n"
+        "claims: []\n"
+        "decisions: []\n"
+        "actions: []\n"
+        "evidence_refs: []\n"
+        f"{lifecycle_yaml}"
+        "---\n\n"
+        "# Bank\n",
+        encoding="utf-8",
+    )
+    audit.parse_frontmatter.cache_clear()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "markdown_files", lambda: [rel])
+    monkeypatch.setattr(audit, "primary_pages", lambda config: ())
+    return rel
+
+
+def test_frontmatter_audit_reports_source_lifecycle_typos_before_date_early_exit(
+    tmp_path, audit, monkeypatch
+):
+    rel = _seed_source_lifecycle_page(
+        tmp_path,
+        audit,
+        monkeypatch,
+        "source_last_attempt_state: retrying\n" "source_pipeline_stage: em_progresso\n",
+        updated_at="not-a-date",
+    )
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    audit.audit_frontmatter(errors, warnings, WikiConfig(audit={}))
+
+    assert f"{rel}: invalid `source_last_attempt_state` value `retrying`" in errors[0]
+    assert (
+        "allowed: failed, needs_auth, never, ok, parser_error, secret_blocked"
+        in errors[0]
+    )
+    assert any(
+        f"{rel}: invalid `source_pipeline_stage` value `em_progresso`" in error
+        and "proposal_ready" in error
+        for error in errors
+    )
+    assert f"{rel}: invalid updated_at or stale_after_days" in errors
+    assert warnings == []
+
+
+def test_frontmatter_audit_warns_but_accepts_legacy_source_attempt_state(
+    tmp_path, audit, monkeypatch
+):
+    rel = _seed_source_lifecycle_page(
+        tmp_path,
+        audit,
+        monkeypatch,
+        "source_lifecycle:\n"
+        "  last_attempt_state: partial\n"
+        "  pipeline_stage: configured\n",
+    )
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    audit.audit_frontmatter(errors, warnings, WikiConfig(audit={}))
+
+    assert errors == []
+    assert warnings == [
+        f"{rel}: legacy `source_lifecycle.last_attempt_state` value `partial` "
+        "normalizes to `failed`; prefer the canonical value"
+    ]
+
+
+def test_frontmatter_audit_rejects_accepted_source_without_ref(
+    tmp_path, audit, monkeypatch
+):
+    rel = _seed_source_lifecycle_page(
+        tmp_path,
+        audit,
+        monkeypatch,
+        "source_lifecycle:\n"
+        "  state: ingested\n"
+        "  freshness_state: fresh\n"
+        "  last_attempt_state: ok\n"
+        "  pipeline_stage: complete\n"
+        "  adoption_state: accepted\n"
+        "  emitted_page_ids: [page-one]\n",
+    )
+    errors: list[str] = []
+
+    audit.audit_frontmatter(errors, [], WikiConfig(audit={}))
+
+    assert f"{rel}: accepted adoption requires `accepted_ref`" in errors
+
+
+def test_frontmatter_audit_rejects_flattened_nested_conflict(
+    tmp_path, audit, monkeypatch
+):
+    rel = _seed_source_lifecycle_page(
+        tmp_path,
+        audit,
+        monkeypatch,
+        "source_last_attempt_state: ok\n"
+        "source_lifecycle:\n"
+        "  last_attempt_state: failed\n",
+    )
+    errors: list[str] = []
+
+    audit.audit_frontmatter(errors, [], WikiConfig(audit={}))
+
+    assert (
+        f"{rel}: conflicting declarations for `last_attempt_state`; "
+        "flattened and nested values must match"
+    ) in errors
+
+
+def test_frontmatter_audit_never_echoes_secret_shaped_invalid_state(
+    tmp_path, audit, monkeypatch
+):
+    secret = "sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz123456"
+    rel = _seed_source_lifecycle_page(
+        tmp_path,
+        audit,
+        monkeypatch,
+        f"source_lifecycle:\n  state: {secret}\n",
+    )
+    errors: list[str] = []
+
+    audit.audit_frontmatter(errors, [], WikiConfig(audit={}))
+    rendered = "\n".join(errors)
+
+    assert secret not in rendered
+    assert (
+        f"{rel}: invalid `source_lifecycle.state` value `<redacted:secret>`" in rendered
+    )
+
+
+# ---------------------------------------------------------------------------
 # audit_stale_coverage: freshness for EVERY memory page
 # ---------------------------------------------------------------------------
 
 
-def _seed_memory_page(tmp_path, audit, monkeypatch, rel, *, stale_days, updated, extra=""):
+def _seed_memory_page(
+    tmp_path, audit, monkeypatch, rel, *, stale_days, updated, extra=""
+):
     page = tmp_path / rel
     page.parent.mkdir(parents=True, exist_ok=True)
     fm = f"---\nvisibility: private_self\nupdated_at: {updated}\n"
@@ -240,7 +403,12 @@ def _seed_memory_page(tmp_path, audit, monkeypatch, rel, *, stale_days, updated,
 
 def test_stale_coverage_warns_stale_outside_primary(tmp_path, audit, monkeypatch):
     _seed_memory_page(
-        tmp_path, audit, monkeypatch, "memories/x/old.md", stale_days=7, updated="2020-01-01"
+        tmp_path,
+        audit,
+        monkeypatch,
+        "memories/x/old.md",
+        stale_days=7,
+        updated="2020-01-01",
     )
     warnings: list[str] = []
     audit.audit_stale_coverage(warnings, WikiConfig())
@@ -249,7 +417,12 @@ def test_stale_coverage_warns_stale_outside_primary(tmp_path, audit, monkeypatch
 
 def test_stale_coverage_reports_gap_without_field(tmp_path, audit, monkeypatch):
     _seed_memory_page(
-        tmp_path, audit, monkeypatch, "memories/x/nofield.md", stale_days=None, updated="2026-06-09"
+        tmp_path,
+        audit,
+        monkeypatch,
+        "memories/x/nofield.md",
+        stale_days=None,
+        updated="2026-06-09",
     )
     warnings: list[str] = []
     audit.audit_stale_coverage(warnings, WikiConfig())
@@ -312,7 +485,10 @@ def test_audit_pii_strict_mode_errors_in_private(tmp_path, audit, monkeypatch):
     errors: list[str] = []
     warnings: list[str] = []
     audit.audit_pii(
-        errors, warnings, WikiConfig(private_sensitive_allowed=False), public_export=False
+        errors,
+        warnings,
+        WikiConfig(private_sensitive_allowed=False),
+        public_export=False,
     )
     assert any("private_sensitive_allowed=false" in e for e in errors)
 
@@ -335,7 +511,12 @@ def test_strict_local_requires_derived_link_to_exist(tmp_path, audit, monkeypatc
     real = tmp_path / "data/derived/wiki/present.json"
     real.parent.mkdir(parents=True, exist_ok=True)
     real.write_text("{}\n", encoding="utf-8")
-    assert audit.local_link_target_exists("memories/note.md", "../data/derived/wiki/present.json") is True
+    assert (
+        audit.local_link_target_exists(
+            "memories/note.md", "../data/derived/wiki/present.json"
+        )
+        is True
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -415,7 +596,9 @@ def test_append_only_drive_artifact_links_are_ignored(tmp_path, audit, monkeypat
 # ---------------------------------------------------------------------------
 
 
-def _seed_prompts(tmp_path, audit, monkeypatch, *, checksums: str | None, prompt_text="prompt body\n"):
+def _seed_prompts(
+    tmp_path, audit, monkeypatch, *, checksums: str | None, prompt_text="prompt body\n"
+):
     prompts_dir = tmp_path / "wiki_core/llm/prompts"
     prompts_dir.mkdir(parents=True, exist_ok=True)
     (prompts_dir / "context_deep_read.v1.md").write_text(prompt_text, encoding="utf-8")
@@ -459,14 +642,18 @@ def test_prompt_checksums_missing_file_is_error(tmp_path, audit, monkeypatch):
 def test_prompt_checksums_unpinned_prompt_is_error(tmp_path, audit, monkeypatch):
     body = "prompt body\n"
     line = f"{_sha256_of(body)}  context_deep_read.v1.md\n"
-    prompts_dir = _seed_prompts(tmp_path, audit, monkeypatch, checksums=line, prompt_text=body)
+    prompts_dir = _seed_prompts(
+        tmp_path, audit, monkeypatch, checksums=line, prompt_text=body
+    )
     (prompts_dir / "new_prompt.v1.md").write_text("new\n", encoding="utf-8")
     errors: list[str] = []
     audit.audit_prompt_checksums(errors)
     assert any("new_prompt.v1.md" in e and "not pinned" in e for e in errors)
 
 
-def test_prompt_checksums_pinned_but_missing_prompt_is_error(tmp_path, audit, monkeypatch):
+def test_prompt_checksums_pinned_but_missing_prompt_is_error(
+    tmp_path, audit, monkeypatch
+):
     body = "prompt body\n"
     lines = (
         f"{_sha256_of(body)}  context_deep_read.v1.md\n"
@@ -479,7 +666,9 @@ def test_prompt_checksums_pinned_but_missing_prompt_is_error(tmp_path, audit, mo
 
 
 def test_prompt_checksums_invalid_line_is_error(tmp_path, audit, monkeypatch):
-    _seed_prompts(tmp_path, audit, monkeypatch, checksums="not-a-sha context_deep_read.v1.md\n")
+    _seed_prompts(
+        tmp_path, audit, monkeypatch, checksums="not-a-sha context_deep_read.v1.md\n"
+    )
     errors: list[str] = []
     audit.audit_prompt_checksums(errors)
     assert any("invalid checksum line" in e for e in errors)
@@ -571,11 +760,13 @@ def test_declared_perspectives_must_exist(tmp_path, audit, monkeypatch):
         "config root_entity.perspective_bundle.required `perspective-missing-config` is not a perspective page",
         "memories/system/input-channels/repository.md: perspectives_optional `perspective-missing-channel` is not a perspective page",
         "memories/example/index.md: perspective_bundle_optional `perspective-missing-root` is not a perspective page",
-        "memories/sources/config/example.md: perspectives_required `perspective-missing` is not a perspective page"
+        "memories/sources/config/example.md: perspectives_required `perspective-missing` is not a perspective page",
     ]
 
 
-def test_append_only_entity_mentions_are_ignored_when_changed(tmp_path, audit, monkeypatch):
+def test_append_only_entity_mentions_are_ignored_when_changed(
+    tmp_path, audit, monkeypatch
+):
     audit.parse_frontmatter.cache_clear()
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     monkeypatch.setattr(
@@ -636,14 +827,18 @@ def test_append_only_entity_mentions_are_ignored_when_changed(tmp_path, audit, m
 
     warnings: list[str] = []
     errors: list[str] = []
-    config = WikiConfig(audit={**WikiConfig().audit, "mention_links_on_changed": "error"})
+    config = WikiConfig(
+        audit={**WikiConfig().audit, "mention_links_on_changed": "error"}
+    )
     audit.audit_entity_mention_links(warnings, config, errors)
 
     assert errors == []
     assert warnings == []
 
 
-def test_changed_canonical_page_entity_mentions_still_error(tmp_path, audit, monkeypatch):
+def test_changed_canonical_page_entity_mentions_still_error(
+    tmp_path, audit, monkeypatch
+):
     audit.parse_frontmatter.cache_clear()
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     monkeypatch.setattr(
@@ -681,7 +876,9 @@ def test_changed_canonical_page_entity_mentions_still_error(tmp_path, audit, mon
 
     warnings: list[str] = []
     errors: list[str] = []
-    config = WikiConfig(audit={**WikiConfig().audit, "mention_links_on_changed": "error"})
+    config = WikiConfig(
+        audit={**WikiConfig().audit, "mention_links_on_changed": "error"}
+    )
     audit.audit_entity_mention_links(warnings, config, errors)
 
     assert warnings == []
@@ -762,7 +959,9 @@ def test_parse_frontmatter_is_memoized_per_path(tmp_path, audit):
     assert first["page_id"] == "test-page"
 
     # Rewrite the file: the memoized parse still returns the cached value...
-    path.write_text(VALID_FRONTMATTER.replace("test-page", "other-page"), encoding="utf-8")
+    path.write_text(
+        VALID_FRONTMATTER.replace("test-page", "other-page"), encoding="utf-8"
+    )
     cached, _ = audit.parse_frontmatter(path)
     assert cached["page_id"] == "test-page"
     assert audit.parse_frontmatter.cache_info().hits >= 1
@@ -781,7 +980,9 @@ def test_main_clears_parse_frontmatter_cache(audit):
     assert "parse_frontmatter.cache_clear()" in source
 
 
-def test_audit_pii_public_visibility_errors_without_export(tmp_path, audit, monkeypatch):
+def test_audit_pii_public_visibility_errors_without_export(
+    tmp_path, audit, monkeypatch
+):
     # A page marked public (public_candidate) blocks PII even without --public-export.
     page = tmp_path / "memories" / "pub.md"
     page.parent.mkdir(parents=True, exist_ok=True)
@@ -818,8 +1019,14 @@ def test_ontology_dir_vocabulary_accepts_en_and_pt_dirnames(audit):
     assert audit.ontology_dir_for("memories/people/ana.md", en) == "memories/people"
     assert "person" in audit.ONTOLOGY_DIRNAME_TYPES["people"]
     # Compatibility superset: pt dirnames share the same page-type vocabulary.
-    assert audit.ONTOLOGY_DIRNAME_TYPES["pessoas"] == audit.ONTOLOGY_DIRNAME_TYPES["people"]
-    assert audit.ONTOLOGY_DIRNAME_TYPES["fontes"] == audit.ONTOLOGY_DIRNAME_TYPES["sources"]
+    assert (
+        audit.ONTOLOGY_DIRNAME_TYPES["pessoas"]
+        == audit.ONTOLOGY_DIRNAME_TYPES["people"]
+    )
+    assert (
+        audit.ONTOLOGY_DIRNAME_TYPES["fontes"]
+        == audit.ONTOLOGY_DIRNAME_TYPES["sources"]
+    )
     # A file directly under the memory root is not an ontology page.
     assert audit.ontology_dir_for("memories/people", en) is None
     assert audit.ontology_dir_for("docs/people/x.md", en) is None
@@ -876,7 +1083,9 @@ def test_pt_pinned_layout_keeps_localized_repo_working(tmp_path, audit, monkeypa
     ]
 
     # Ontology dirs resolve under the pt memory root.
-    assert audit.ontology_dir_for("memorias/pessoas/ana.md", config) == "memorias/pessoas"
+    assert (
+        audit.ontology_dir_for("memorias/pessoas/ana.md", config) == "memorias/pessoas"
+    )
 
     # Local-path regexes rebuild around the pt roots.
     _, _, bare_re = audit._compile_local_path_regexes(config)
@@ -886,7 +1095,9 @@ def test_pt_pinned_layout_keeps_localized_repo_working(tmp_path, audit, monkeypa
     # Operation cockpit gate points at memorias/operacao.md.
     errors: list[str] = []
     audit.audit_operation_page(errors, [], config)
-    assert any(e.startswith("memorias/operacao.md: missing operation cockpit") for e in errors)
+    assert any(
+        e.startswith("memorias/operacao.md: missing operation cockpit") for e in errors
+    )
 
     # Ingestion gate fails loud at the pt events dir.
     errors = []
@@ -904,6 +1115,646 @@ def test_pt_pinned_layout_keeps_localized_repo_working(tmp_path, audit, monkeypa
     )
 
 
+def test_command_reference_discovers_repo_local_wiki_clis(
+    tmp_path, audit, monkeypatch
+):
+    reference = tmp_path / "memories/system/command-reference.md"
+    reference.parent.mkdir(parents=True)
+    reference.write_text(
+        "# Commands\n\n- `wiki_public.py`\n- `wiki_private.py`\n",
+        encoding="utf-8",
+    )
+    config = WikiConfig(
+        paths={
+            **WikiConfig().paths,
+            "command_reference_page": "memories/system/command-reference.md",
+        }
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "tracked_files",
+        lambda: [
+            "scripts/wiki_public.py",
+            "private/scripts/wiki_private.py",
+        ],
+    )
+    errors: list[str] = []
+
+    audit.audit_command_reference(errors, config)
+
+    assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# Existing action lifecycle changes require a receipt chain
+# ---------------------------------------------------------------------------
+
+
+def _action_document(state: str) -> str:
+    return (
+        "---\n"
+        "page_id: action-audit-synthetic\n"
+        "page_type: action\n"
+        "title: Synthetic action\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-07-11\n"
+        "stale_after_days: 30\n"
+        f"action_state: {state}\n"
+        "next_action: Review synthetic evidence.\n"
+        "owner_kind: unassigned\n"
+        "created_at: 2026-07-10\n"
+        "priority: normal\n"
+        "attention_basis: Synthetic audit coverage.\n"
+        "source_refs: []\n"
+        "moc_parent: memories/index.md\n"
+        "---\n\n"
+        "# Synthetic action\n"
+    )
+
+
+def test_action_transition_audit_rejects_manual_state_edit(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/action-audit-synthetic.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    previous = _action_document("open")
+    path.write_text(_action_document("in_progress"), encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == [
+        f"{rel}: action_state changed without a transition receipt "
+        "[missing_action_transition_receipt]"
+    ]
+
+
+def test_action_transition_audit_rejects_manual_governed_support_edit(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/action-audit-synthetic.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    previous = _action_document("open")
+    path.write_text(
+        previous.replace(
+            "next_action: Review synthetic evidence.",
+            "next_action: Bypass the governed writer.",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == [
+        f"{rel}: governed action support changed without a transition receipt "
+        "[missing_action_transition_receipt]"
+    ]
+
+
+def test_action_transition_audit_follows_page_id_across_rename(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/action-renamed.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    previous = _action_document("open")
+    path.write_text(_action_document("in_progress"), encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {
+            "action-audit-synthetic": (
+                ("memories/actions/action-old-name.md", previous),
+            )
+        },
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == [
+        f"{rel}: action_state changed without a transition receipt "
+        "[missing_action_transition_receipt]"
+    ]
+def test_action_transition_audit_blocks_deletion_but_allows_identity_preserving_move(
+    tmp_path, monkeypatch, audit
+):
+    old_rel = "memories/actions/action-old-name.md"
+    previous = _action_document("open")
+    base = {"action-audit-synthetic": ((old_rel, previous),)}
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "_base_action_texts_by_page_id", lambda: base)
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {old_rel})
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == [
+        f"{old_rel}: deleting an existing action discards its lifecycle history; "
+        "transition it to `cancelled` with a receipt and retain the page "
+        "[action_page_deleted]"
+    ]
+
+    new_rel = "memories/actions/action-new-name.md"
+    new_path = tmp_path / new_rel
+    new_path.parent.mkdir(parents=True)
+    new_path.write_text(previous, encoding="utf-8")
+    monkeypatch.setattr(
+        audit,
+        "changed_paths_for_audit",
+        lambda: {old_rel, new_rel},
+    )
+    errors = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == []
+
+
+def test_action_transition_audit_accepts_central_writer_receipt(
+    tmp_path, monkeypatch, audit
+):
+    from wiki_core.action_transition import transition_action_page
+
+    rel = "memories/actions/action-audit-synthetic.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    previous = _action_document("open")
+    path.write_text(previous, encoding="utf-8")
+    transition_action_page(
+        tmp_path,
+        rel,
+        "in_progress",
+        recorded_at="2026-07-11T15:00:00Z",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == []
+
+
+def test_action_transition_audit_uses_verified_one_time_adoption_baseline(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/action-audit-synthetic.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    adopted = _action_document("waiting_human")
+    path.write_text(adopted, encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "_action_adoption_baseline",
+        lambda errors, config: ("baseline-commit", False),
+    )
+    monkeypatch.setattr(
+        audit,
+        "_action_candidate_texts_by_path_at_ref",
+        lambda ref: {rel: adopted},
+    )
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == []
+
+
+def test_action_adoption_receipt_is_byte_immutable_after_the_first_pr(
+    tmp_path, monkeypatch, audit
+):
+    rel = audit.ACTION_ADOPTION_RECEIPT_PATH
+    path = tmp_path / rel
+    path.write_text("schema_version: wiki_action_transition_adoption.v1\n", encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "_text_at_audit_base",
+        lambda candidate: (
+            "schema_version: wiki_action_transition_adoption.v1"
+            if candidate == rel
+            else None
+        ),
+    )
+    errors: list[str] = []
+
+    baseline, invalid = audit._action_adoption_baseline(errors, WikiConfig())
+
+    assert baseline is None and invalid is True
+    assert errors == [
+        f"{rel}: action adoption receipt is immutable "
+        "[action_adoption_receipt_rewritten]"
+    ]
+
+
+def test_new_action_adoption_receipt_exposes_only_a_verified_baseline(
+    tmp_path, monkeypatch, audit
+):
+    rel = audit.ACTION_ADOPTION_RECEIPT_PATH
+    path = tmp_path / rel
+    path.write_text(
+        "schema_version: wiki_action_transition_adoption.v1\n"
+        "baseline_commit: " + "b" * 40 + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "_text_at_audit_base", lambda candidate: None)
+    monkeypatch.setattr(audit, "_audit_base_ref", lambda: "origin/main")
+    monkeypatch.setattr(
+        audit,
+        "run_git",
+        lambda args: "a" * 40 if args[:1] == ["rev-parse"] else "",
+    )
+    verified: list[tuple[str, str]] = []
+
+    def verify(root, receipt, **kwargs):
+        verified.append((str(receipt["baseline_commit"]), kwargs["audit_base_commit"]))
+        return []
+
+    monkeypatch.setattr(audit, "verify_action_adoption_git_contract", verify)
+    errors: list[str] = []
+
+    baseline, invalid = audit._action_adoption_baseline(errors, WikiConfig())
+
+    assert baseline == "b" * 40 and invalid is False
+    assert errors == []
+    assert verified == [("b" * 40, "a" * 40)]
+
+
+def test_action_transition_audit_checks_untracked_half_of_identity_move(
+    tmp_path, monkeypatch, audit
+):
+    old_rel = "memories/actions/action-old-name.md"
+    new_rel = "memories/actions/action-new-name.md"
+    previous = _action_document("open")
+    new_path = tmp_path / new_rel
+    new_path.parent.mkdir(parents=True)
+    new_path.write_text(_action_document("in_progress"), encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {old_rel})
+    monkeypatch.setattr(
+        audit,
+        "_base_action_texts_by_page_id",
+        lambda: {"action-audit-synthetic": ((old_rel, previous),)},
+    )
+    monkeypatch.setattr(audit, "_malformed_base_actions", lambda: {})
+    monkeypatch.setattr(
+        audit,
+        "run_git",
+        lambda args: new_rel
+        if args[:3] == ["ls-files", "--others", "--exclude-standard"]
+        else "",
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == [
+        f"{new_rel}: action_state changed without a transition receipt "
+        "[missing_action_transition_receipt]"
+    ]
+
+
+def test_action_transition_audit_fails_closed_on_malformed_base_action(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/action-malformed.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    path.write_text(_action_document("open"), encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "_base_action_texts_by_page_id", lambda: {})
+    monkeypatch.setattr(
+        audit,
+        "_malformed_base_actions",
+        lambda: {rel: "action-audit-synthetic"},
+    )
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == [
+        f"{rel}: existing base action has malformed or incomplete frontmatter; "
+        "repair must preserve and validate its lifecycle origin "
+        "[malformed_base_action]"
+    ]
+
+
+def test_action_transition_audit_rejects_history_on_new_untracked_action(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/action-new.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    authored = _action_document("open").replace(
+        "next_action: Review synthetic evidence.\n",
+        "action_state_history:\n"
+        "- schema_version: wiki_action_transition_receipt.v2\n"
+        "  from: done\n"
+        "  to: open\n"
+        "next_action: Review synthetic evidence.\n",
+    )
+    path.write_text(authored, encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: set())
+    monkeypatch.setattr(audit, "_base_action_texts_by_page_id", lambda: {})
+    monkeypatch.setattr(audit, "_malformed_base_actions", lambda: {})
+    monkeypatch.setattr(
+        audit,
+        "run_git",
+        lambda args: rel
+        if args[:3] == ["ls-files", "--others", "--exclude-standard"]
+        else "",
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == [
+        f"{rel}: a new action cannot author historical transition receipts "
+        "[new_action_history_not_allowed]"
+    ]
+
+
+def test_action_transition_audit_ignores_portable_fixture_actions(
+    tmp_path, monkeypatch, audit
+):
+    rel = "docs/references/fixtures/demo-wiki/memories/actions/action-new.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        _action_document("open").replace(
+            "next_action: Review synthetic evidence.\n",
+            "action_state_history:\n"
+            "- schema_version: wiki_action_transition_receipt.v2\n"
+            "  from: done\n"
+            "  to: open\n"
+            "next_action: Review synthetic evidence.\n",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "_base_action_texts_by_page_id", lambda: {})
+    monkeypatch.setattr(audit, "_malformed_base_actions", lambda: {})
+    monkeypatch.setattr(
+        audit,
+        "run_git",
+        lambda args: rel
+        if args[:3] == ["ls-files", "--others", "--exclude-standard"]
+        else "",
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == []
+
+
+def test_base_action_index_ignores_explicit_non_action_pages_in_action_directory(
+    monkeypatch, audit
+):
+    index = (
+        "---\n"
+        "page_id: actions-index\n"
+        "page_type: ontology_index\n"
+        "---\n\n"
+        "# Actions\n"
+    )
+    malformed = (
+        "---\n"
+        "page_id: action-broken\n"
+        "page_type: action\n"
+        "broken: [\n"
+        "---\n"
+    )
+    monkeypatch.setattr(
+        audit,
+        "_base_action_candidate_texts_by_path",
+        lambda: {
+            "memories/actions/index.md": index,
+            "memories/actions/broken.md": malformed,
+        },
+    )
+    audit._malformed_base_actions.cache_clear()
+
+    assert audit._malformed_base_actions() == {
+        "memories/actions/broken.md": "action-broken"
+    }
+
+
+def test_base_action_index_discovers_nested_commented_yaml_in_real_git_repo(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/nested/action-commented.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    previous = _action_document("open").replace(
+        "page_type: action", "page_type: action # still canonical YAML"
+    )
+    path.write_text(previous, encoding="utf-8")
+    subprocess.run(
+        ["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "add", rel],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-m",
+            "base action",
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    path.write_text(
+        previous.replace("action_state: open", "action_state: in_progress"),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    for cached in (
+        audit._audit_base_ref,
+        audit._text_at_audit_base,
+        audit._base_action_candidate_texts_by_path,
+        audit._base_action_texts_by_page_id,
+        audit._malformed_base_actions,
+    ):
+        cached.cache_clear()
+
+    indexed = audit._base_action_texts_by_page_id()
+    errors: list[str] = []
+    audit.audit_action_state_transitions(errors)
+
+    assert indexed["action-audit-synthetic"][0][0] == rel
+    assert errors == [
+        f"{rel}: action_state changed without a transition receipt "
+        "[missing_action_transition_receipt]"
+    ]
+    for cached in (
+        audit._audit_base_ref,
+        audit._text_at_audit_base,
+        audit._base_action_candidate_texts_by_path,
+        audit._base_action_texts_by_page_id,
+        audit._malformed_base_actions,
+    ):
+        cached.cache_clear()
+
+
+def test_base_action_index_excludes_fixture_page_id_collisions(
+    tmp_path, monkeypatch, audit
+):
+    canonical_rel = "memories/actions/action.md"
+    fixture_rel = "docs/references/fixtures/demo-wiki/memories/actions/action.md"
+    for rel in (canonical_rel, fixture_rel):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(_action_document("open"), encoding="utf-8")
+    subprocess.run(
+        ["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True
+    )
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "add",
+            ".",
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-m",
+            "canonical and fixture actions",
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    for cached in (
+        audit._audit_base_ref,
+        audit._text_at_audit_base,
+        audit._base_action_candidate_texts_by_path,
+        audit._base_action_texts_by_page_id,
+        audit._malformed_base_actions,
+    ):
+        cached.cache_clear()
+
+    candidates = audit._base_action_texts_by_page_id()["action-audit-synthetic"]
+
+    assert [rel for rel, _text in candidates] == [canonical_rel]
+
+
+def _source_audit_document(
+    *, state: str, adoption: str = "pending", accepted: bool = False
+) -> str:
+    closure = (
+        "  accepted_ref: sha256:synthetic\n" "  emitted_page_ids: [page-one]\n"
+        if accepted
+        else ""
+    )
+    return (
+        "---\n"
+        "page_id: source-audit-synthetic\n"
+        "page_type: source\n"
+        "source_lifecycle:\n"
+        f"  state: {state}\n"
+        "  freshness_state: fresh\n"
+        "  last_attempt_state: ok\n"
+        "  pipeline_stage: complete\n"
+        f"  adoption_state: {adoption}\n"
+        f"{closure}"
+        "---\n\n"
+        "# Synthetic source\n"
+    )
+
+
+def test_source_transition_audit_uses_base_identity_and_rejects_reset(
+    tmp_path, monkeypatch, audit
+):
+    old_rel = "memories/sources/source-old.md"
+    rel = "memories/sources/source-renamed.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    previous = _source_audit_document(
+        state="ingested", adoption="accepted", accepted=True
+    )
+    path.write_text(
+        _source_audit_document(state="ingested", adoption="pending"),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(
+        audit,
+        "_base_source_texts_by_page_id",
+        lambda: {"source-audit-synthetic": ((old_rel, previous),)},
+    )
+    errors: list[str] = []
+
+    audit.audit_source_lifecycle_transitions(errors)
+
+    assert errors == [
+        f"{rel}: source adoption changed through a reset or edge that is not "
+        "allowed by SOURCE_ADOPTION_TRANSITIONS "
+        "[illegal_source_adoption_transition]"
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Declarative check registry (CHECKS) + --only / --list-checks
 # ---------------------------------------------------------------------------
@@ -913,6 +1764,8 @@ def test_pt_pinned_layout_keeps_localized_repo_working(tmp_path, audit, monkeypa
 # dropping any entry would change gate behavior, so the test pins it exactly.
 EXPECTED_CHECK_ORDER = [
     "frontmatter",
+    "action_state_transitions",
+    "source_lifecycle_transitions",
     "stale_coverage",
     "freshness_budget",
     "drive_artifact_links",
@@ -956,7 +1809,9 @@ def test_registry_matches_canonical_order(audit):
     assert len(set(audit.CHECK_NAMES)) == len(audit.CHECK_NAMES)
 
 
-def test_page_type_registry_accepts_nested_object_frontmatter(tmp_path, monkeypatch, audit):
+def test_page_type_registry_accepts_nested_object_frontmatter(
+    tmp_path, monkeypatch, audit
+):
     (tmp_path / "memories/sources").mkdir(parents=True)
     (tmp_path / "wiki.page-types.yaml").write_text(
         "schema_version: wiki_page_types.v1\n"
@@ -1043,8 +1898,14 @@ def test_only_runs_a_strict_subset():
     assert "wiki_audit:" in one.stdout
     # Subset output is a proper subset of the full run's lines (fewer or equal
     # WARN/ERROR lines, since only one gate ran).
-    full_lines = [l for l in full.stdout.splitlines() if l.startswith(("WARN:", "ERROR:"))]
-    one_lines = [l for l in one.stdout.splitlines() if l.startswith(("WARN:", "ERROR:"))]
+    full_lines = [
+        line
+        for line in full.stdout.splitlines()
+        if line.startswith(("WARN:", "ERROR:"))
+    ]
+    one_lines = [
+        line for line in one.stdout.splitlines() if line.startswith(("WARN:", "ERROR:"))
+    ]
     assert len(one_lines) <= len(full_lines)
 
 
@@ -1074,13 +1935,31 @@ def test_only_default_run_uses_full_registry(audit):
 
 
 def test_text_at_audit_base_preserves_trailing_newline(tmp_path, monkeypatch, audit):
-    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
-    subprocess.run(["git", "config", "user.name", "Wiki Audit Test"], cwd=tmp_path, check=True)
-    subprocess.run(["git", "config", "user.email", "wiki-audit@example.invalid"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "init", "-b", "main"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Wiki Audit Test"],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "wiki-audit@example.invalid"],
+        cwd=tmp_path,
+        check=True,
+    )
     target = tmp_path / "receipt.yaml"
     target.write_text("schema_version: receipt.v1\n", encoding="utf-8")
     subprocess.run(["git", "add", "receipt.yaml"], cwd=tmp_path, check=True)
-    subprocess.run(["git", "commit", "-m", "fixture"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "fixture"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
 
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     audit._audit_base_ref.cache_clear()

@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-source-lifecycle-v2.schema.json",
+  "title": "Wiki Viva source lifecycle v2",
+  "description": "Canonical nested source_lifecycle authoring contract. Flattened compatibility fields are resolved and conflict-checked by wiki_core.source_lifecycle.",
+  "type": "object",
+  "required": [
+    "state",
+    "freshness_state",
+    "last_attempt_state",
+    "pipeline_stage",
+    "adoption_state"
+  ],
+  "properties": {
+    "state": {
+      "enum": [
+        "configured",
+        "ready",
+        "syncing",
+        "proposed",
+        "consolidated",
+        "ingested",
+        "blocked"
+      ]
+    },
+    "freshness_state": {
+      "enum": ["fresh", "stale", "never_synced"]
+    },
+    "last_attempt_state": {
+      "enum": [
+        "never",
+        "ok",
+        "failed",
+        "needs_auth",
+        "parser_error",
+        "secret_blocked"
+      ]
+    },
+    "pipeline_stage": {
+      "enum": [
+        "configured",
+        "manifested",
+        "extracted",
+        "indexed",
+        "deep_read",
+        "proposal_ready",
+        "integrating",
+        "gate_pending",
+        "complete"
+      ]
+    },
+    "pipeline_stage_timestamps": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "configured",
+          "manifested",
+          "extracted",
+          "indexed",
+          "deep_read",
+          "proposal_ready",
+          "integrating",
+          "gate_pending",
+          "complete"
+        ]
+      },
+      "additionalProperties": {"type": "string"}
+    },
+    "adoption_state": {
+      "enum": ["pending", "accepted", "reviewed_no_change"]
+    },
+    "last_sync_success_at": {"type": "string"},
+    "last_ingested_at": {"type": "string"},
+    "last_attempt_at": {"type": "string"},
+    "blocked_reason": {"type": "string"},
+    "emitted_page_ids": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "emitted_action_ids": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "proposal_ids": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "raw_artifact_count": {"type": "integer", "minimum": 0},
+    "secret_safe_log_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "reviewed_no_change_receipt": {"type": "string"},
+    "accepted_ref": {"type": "string"}
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {"adoption_state": {"const": "accepted"}},
+        "required": ["adoption_state"]
+      },
+      "then": {
+        "required": ["state", "accepted_ref", "emitted_page_ids"],
+        "properties": {
+          "state": {"const": "ingested"},
+          "accepted_ref": {"type": "string", "minLength": 1},
+          "emitted_page_ids": {"type": "array", "minItems": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"adoption_state": {"const": "reviewed_no_change"}},
+        "required": ["adoption_state"]
+      },
+      "then": {
+        "required": ["state", "accepted_ref", "reviewed_no_change_receipt"],
+        "properties": {
+          "state": {"const": "ingested"},
+          "accepted_ref": {"type": "string", "minLength": 1},
+          "reviewed_no_change_receipt": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"state": {"const": "ingested"}},
+        "required": ["state"]
+      },
+      "then": {
+        "properties": {
+          "adoption_state": {"enum": ["accepted", "reviewed_no_change"]}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"state": {"const": "blocked"}},
+        "required": ["state"]
+      },
+      "then": {
+        "required": ["blocked_reason"],
+        "properties": {
+          "blocked_reason": {"type": "string", "minLength": 1},
+          "last_attempt_state": {
+            "enum": ["failed", "needs_auth", "parser_error", "secret_blocked"]
+          },
+          "adoption_state": {"const": "pending"}
+        }
+      }
+    }
+  ]
+}

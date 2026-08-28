@@ -35,6 +35,14 @@ def main() -> int:
     parser.add_argument("--data-boundary", default="synthetic_or_public", help="Declared data boundary for this deploy proof.")
     parser.add_argument("--target", default="static", help="Deployment target label, such as vercel_static or cloud_run_operator.")
     parser.add_argument("--clean", action="store_true", help="Remove existing snapshot *.json files first.")
+    parser.add_argument(
+        "--force-unowned-output",
+        action="store_true",
+        help=(
+            "Explicitly adopt a non-empty unmarked output directory inside the repo. "
+            "Review its contents first; external paths remain forbidden."
+        ),
+    )
     args = parser.parse_args()
 
     config = load_config(ROOT)
@@ -43,18 +51,23 @@ def main() -> int:
         out_dir = raw_out if raw_out.is_absolute() else ROOT / raw_out
     else:
         out_dir = WikiPaths(ROOT, config).derived_root / "web-cockpit-deploy"
-    written = write_deploy_bundle(
-        ROOT,
-        out_dir,
-        config,
-        snapshot_base=args.snapshot_base,
-        api_base=args.api_base,
-        repo_label=args.repo_label,
-        runtime_mode=args.mode,
-        data_boundary=args.data_boundary,
-        target=args.target,
-        clean=args.clean,
-    )
+    try:
+        written = write_deploy_bundle(
+            ROOT,
+            out_dir,
+            config,
+            snapshot_base=args.snapshot_base,
+            api_base=args.api_base,
+            repo_label=args.repo_label,
+            runtime_mode=args.mode,
+            data_boundary=args.data_boundary,
+            target=args.target,
+            clean=args.clean,
+            force_unowned_output=args.force_unowned_output,
+        )
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     for name in sorted(written):
         print(f"{name}: {_display(written[name])}")
     return 0

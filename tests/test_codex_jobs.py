@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -57,8 +58,45 @@ def _saved_brief(root: Path, config: WikiConfig):
     return BriefStore(root, config).save_new(composed)
 
 
-def _runner(root: Path, config: WikiConfig, *, autostart: bool = False, **env) -> JobRunner:
-    return JobRunner(root, config, codex_cmd=["python3", SHIM], timeout_seconds=30, autostart=autostart)
+def _runner(
+    root: Path,
+    config: WikiConfig,
+    *,
+    autostart: bool = False,
+    timeout_seconds: int = 30,
+    **env,
+) -> JobRunner:
+    return JobRunner(
+        root,
+        config,
+        codex_cmd=["python3", SHIM],
+        timeout_seconds=timeout_seconds,
+        autostart=autostart,
+        **env,
+    )
+
+
+def test_job_state_writes_notify_the_snapshot_cache_owner(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    notifications: list[str] = []
+    runner = _runner(
+        tmp_path,
+        config,
+        on_change=lambda: notifications.append("changed"),
+    )
+
+    result = runner.submit(
+        brief_id=brief["brief_id"],
+        brief_sha=brief["brief_sha"],
+        dry_run=True,
+    )
+    assert result["ok"] is True
+    submitted_notifications = len(notifications)
+    assert submitted_notifications >= 1
+    runner.run_job(result["job_id"])
+    assert len(notifications) > submitted_notifications
+    assert runner.get(result["job_id"])["status"] == "delivered"
 
 
 def test_build_argv_is_sandboxed_and_never_yolo() -> None:
@@ -89,6 +127,42 @@ def test_pipeline_dry_run_reaches_delivered(tmp_path, monkeypatch) -> None:
     assert "codex:" in log.stdout
     # The brief page was actually edited by the shim.
     assert "codex shim edit" in (tmp_path / "memories/index.md").read_text()
+
+
+def test_codex_timeout_reaps_process_closes_pipes_and_joins_helpers(tmp_path, monkeypatch) -> None:
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    monkeypatch.setenv("CODEX_SHIM_SLEEP", "3")
+    runner = _runner(tmp_path, config, timeout_seconds=1)
+    spawned: list[subprocess.Popen[str]] = []
+    original_popen = subprocess.Popen
+
+    def tracking_popen(*args, **kwargs):
+        proc = original_popen(*args, **kwargs)
+        argv = args[0] if args else kwargs.get("args")
+        if isinstance(argv, list) and len(argv) > 1 and argv[1] == SHIM:
+            spawned.append(proc)
+        return proc
+
+    monkeypatch.setattr("wiki_core.web.codex_jobs.subprocess.Popen", tracking_popen)
+    result = runner.submit(
+        brief_id=brief["brief_id"],
+        brief_sha=brief["brief_sha"],
+        dry_run=True,
+    )
+    runner.run_job(result["job_id"])
+
+    record = runner.get(result["job_id"])
+    assert record["status"] == "failed"
+    assert "codex exited" in record["reason"]
+    assert len(spawned) == 1
+    proc = spawned[0]
+    assert proc.poll() is not None
+    assert proc.stdin is not None and proc.stdin.closed
+    assert proc.stdout is not None and proc.stdout.closed
+    helper_names = {thread.name for thread in threading.enumerate()}
+    assert f"wiki-codex-feed-{result['job_id']}" not in helper_names
+    assert f"wiki-codex-watchdog-{result['job_id']}" not in helper_names
 
 
 def test_sha_mismatch_rejected(tmp_path) -> None:

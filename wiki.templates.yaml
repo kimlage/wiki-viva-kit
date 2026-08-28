@@ -22,12 +22,15 @@ schema_version: wiki_templates.v2
 # surface/provider/landmark needs code there, never just YAML here.
 vocabulary:
   block_kinds: [interpretation, interface, gate, skill]
-  scope_modes: [self, children, descendants, context]
+  scope_modes: [self, children, descendants, context, linked]
   surfaces: [views, missions, create, intake, score, panels]
   scene_layouts: [quadrants, radar, atlas, districts, trails, focus]
   identity_landmarks: [observatory, beacon, crystal_spire, plaza, forge, shelf, engine]
   identity_motifs: [rings, grid, ledger, shelves, orbits, streams, none]
   identity_ambients: [none, motes, drift]
+  visual_primitives: [region_card, region_work_card, attention_rail, type_shelf, source_badge, action_lane, risk_notch, review_halo, hidden_histogram, core_debt_meter, empty_region_affordance, bridge_count, center_badge, scope_chip, legend_key]
+  visual_primitive_slots: [region.card, region.rail, region.shelf, region.marker, region.empty, cluster.tooltip, fallback.card, reader.badge, dock.action, legend.entry]
+  visual_primitive_packs: [region_operations, evidence_first, review_first, quiet_structure]
 
 # --- v2 packages -----------------------------------------------------------
 # A PACKAGE is a named group of blocks — attachment sugar for setup flows and
@@ -41,7 +44,7 @@ packages:
   quadrant_lenses:
     title: "Quadrant lenses"
     summary: "The four AQAL lenses with full interiors, plus the relations module on Q3."
-    blocks: [wiki.block.quadrants.v1, wiki.block.relations.v1]
+    blocks: [wiki.block.quadrants.v1, wiki.block.relations.v1, wiki.block.ui_regions.v1]
 
 # --- v2 blocks -------------------------------------------------------------
 # A block contributes interpretation, interface, gate or skill to a scope. It
@@ -54,14 +57,18 @@ blocks:
     family: quadrants
     title: "Quadrants"
     summary: "Four AQAL lenses with full interiors over any anchored scope."
+    # Any anchor that declares a collection can reuse this same block with a
+    # linked scope. The compiler activates it conditionally; hierarchy remains
+    # the default when no collection contract exists.
+    collection_scope: true
     contract_ref: wiki_core.quadrants
     perspectives:
       q1: perspective-identity-intent
       q2: perspective-artifacts-evidence
       q3: perspective-roles-relationships
       q4: perspective-systems-processes
-    scope: { default_mode: descendants, allowed_modes: [children, descendants, context] }
-    anchors: [root_entity, context_hub, holon, project, source, template_block]
+    scope: { default_mode: descendants, allowed_modes: [children, descendants, context, linked] }
+    anchors: [root_entity, context_hub, holon, project, source, template_block, ontology_index, source_registry]
     fields:
       optional_frontmatter:
         - home_quadrant
@@ -100,8 +107,9 @@ blocks:
     family: relations
     title: "Relations"
     summary: "People below this anchor read as a cared-for network: bond, cadence, dates, open loops."
-    scope: { default_mode: descendants }
-    anchors: [root_entity, context_hub, holon]
+    collection_scope: true
+    scope: { default_mode: descendants, allowed_modes: [descendants, linked] }
+    anchors: [root_entity, context_hub, holon, ontology_index]
     perspectives: { q3: perspective-roles-relationships }
     contributes:
       missions_providers: [relation_cadence_overdue, date_upcoming, commitment_open]
@@ -146,7 +154,7 @@ blocks:
     title: "Views"
     summary: "Which perspectives this scope offers, and which is home."
     scope: { default_mode: descendants }
-    anchors: [root_entity, context_hub, holon, project, source]
+    anchors: [root_entity, context_hub, holon, project, source, ontology_index, source_registry]
     config_schema: { available: list, default: enum }
 
   wiki.block.ui_missions.v1:
@@ -177,6 +185,28 @@ blocks:
       arrangement: enum:by_quadrant,by_family,by_frequency
       obligations_first: bool
       disabled_reason: string
+
+  wiki.block.ui_regions.v1:
+    kind: interface
+    surface: panels
+    family: ui_regions
+    title: "Region groups"
+    summary: "Region cards, attention rails and action-aware grouping for dense map regions."
+    scope: { default_mode: descendants }
+    anchors: [root_entity, context_hub, holon, project, source, template_block, ontology_index, source_registry]
+    config_schema:
+      summaries: bool
+      actions: bool
+      hidden_histograms: bool
+      attention_rail: bool
+      visual_pack: enum:region_operations,evidence_first,review_first,quiet_structure
+      allowed_packs: list
+    defaults:
+      summaries: true
+      actions: true
+      hidden_histograms: true
+      attention_rail: true
+      visual_pack: region_operations
 
   wiki.block.ui_intake.v1:
     kind: interface
@@ -283,7 +313,6 @@ types:
   journal_entry:
     extends: relation_base
     body_template: docs/references/templates/wiki/journal.md
-    pinned_fields: [updated_at]
     view: { center: timeline, badges: [freshness] }
   perspective:
     extends: relation_base
@@ -306,7 +335,6 @@ types:
   dashboard:
     extends: relation_base
     body_template: docs/references/templates/wiki/operation.md
-    pinned_fields: [updated_at]
     view: { center: dashboard, badges: [freshness] }
     scene: { shape: slab, emphasis: practice }
 
@@ -357,7 +385,6 @@ types:
   ingestion_event:
     extends: relation_base
     body_template: docs/references/templates/wiki/ingestion-event.md
-    pinned_fields: [updated_at]
     view: { center: timeline, badges: [freshness] }
     scene: { shape: spark, emphasis: practice }
     creatable: false # born by ingestion runs, never by hand
@@ -410,6 +437,7 @@ types:
       - { id: wiki.block.quadrants.v1, scope: descendants }
       - { id: wiki.block.relations.v1, scope: descendants }
       - { id: wiki.block.ui_views.v1, config: { default: quadrants } }
+      - { id: wiki.block.ui_regions.v1, config: { visual_pack: region_operations } }
       - { id: wiki.block.ui_missions.v1, config: { providers: [stale, meeting_followup, quadrant_absence] } }
       - { id: wiki.block.ui_create.v1, config: { catalog: [meeting, decision, action, person, role], arrangement: by_quadrant } }
     skills: { agent: [skill-agent-classify-quadrants] }
@@ -491,10 +519,27 @@ types:
   ontology_index:
     view: { center: dashboard, badges: [] }
     scene: { shape: hub, emphasis: none }
+    can_anchor_blocks: true
+    identity: { landmark: shelf, motif: shelves, ambient: none, horizon_label: title }
+    # Registry-internal resolution flag: page authors declare `collection`, not
+    # `collection_scope`. Without a real selector/member link these blocks keep
+    # descendants, preserving legacy indexes with canonical children.
+    blocks:
+      - { id: wiki.block.quadrants.v1, scope: descendants, config: { mode: optional_lens } }
+      - { id: wiki.block.relations.v1, scope: descendants }
+      - { id: wiki.block.ui_views.v1, scope: descendants, config: { default: quadrants } }
+      - { id: wiki.block.ui_regions.v1, scope: descendants, config: { visual_pack: quiet_structure } }
     creatable: false
   source_registry:
     view: { center: dashboard, badges: [] }
     scene: { shape: hub, emphasis: none }
+    can_anchor_blocks: true
+    collection: { member_types: [source], contexts: ['*'] }
+    identity: { landmark: engine, motif: streams, ambient: none, horizon_label: title }
+    blocks:
+      - { id: wiki.block.quadrants.v1, scope: linked, config: { mode: optional_lens } }
+      - { id: wiki.block.ui_views.v1, scope: linked, config: { default: sources } }
+      - { id: wiki.block.ui_regions.v1, scope: linked, config: { visual_pack: evidence_first } }
     creatable: false
   source_catalog:
     view: { center: dashboard, badges: [] }

@@ -102,6 +102,64 @@ def test_orphan_reachability_and_impact(tmp_path: Path) -> None:
     assert impact.references == {"memories/projects/summary.md": ("memories/projects/x.md",)}
 
 
+def test_deleted_page_impact_uses_exact_base_backlinks(tmp_path: Path) -> None:
+    base_root = tmp_path / "base"
+    current_root = tmp_path / "current"
+    for root in (base_root, current_root):
+        _write(
+            root / "memories/index.md",
+            _page(
+                "root",
+                "root_index",
+                "Root",
+                "- [Summary](projects/summary.md)\n",
+            ),
+        )
+        _write(
+            root / "memories/projects/summary.md",
+            _page(
+                "project-summary",
+                "project",
+                "Summary",
+                "- [Deleted project](deleted.md)\n",
+            ),
+        )
+    deleted_rel = "memories/projects/deleted.md"
+    _write(
+        base_root / deleted_rel,
+        _page(
+            "project-deleted",
+            "project",
+            "Deleted project",
+            "- [Root](../../index.md)\n",
+        ),
+    )
+
+    base_graph = build_page_graph(base_root, WikiConfig())
+    current_graph = build_page_graph(current_root, WikiConfig())
+    assert deleted_rel in base_graph.nodes
+    assert deleted_rel not in current_graph.nodes
+    assert current_graph.wanted_pages[deleted_rel] == (
+        "memories/projects/summary.md",
+    )
+
+    without_base = compute_impact(current_graph, {deleted_rel})
+    assert without_base.changed_pages == ()
+
+    impact = compute_impact(
+        current_graph,
+        {deleted_rel},
+        base_graph=base_graph,
+    )
+
+    assert impact.changed_pages == (deleted_rel,)
+    assert impact.removed_pages == (deleted_rel,)
+    assert impact.affected_pages == ("memories/projects/summary.md",)
+    assert impact.references == {
+        "memories/projects/summary.md": (deleted_rel,)
+    }
+
+
 def test_assignments_frontmatter_field_becomes_an_edge(tmp_path: Path) -> None:
     _write(
         tmp_path / "memories/index.md",

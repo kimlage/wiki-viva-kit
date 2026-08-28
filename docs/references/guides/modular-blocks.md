@@ -33,6 +33,12 @@ perspective pages (e.g. `quadrants.v1` maps q1→`perspective-identity-intent`);
 the lens content lives on those pages, human-authored and PR-gated — the block
 never duplicates it.
 
+`ui_regions` is the interface block for practical region grouping. It turns the
+same interpreted regions into work groups: region cards, attention rails, type
+shelves, hidden histograms and action hints. The visual layer is still a fixed
+vocabulary: templates choose known primitive packs (`region_operations`,
+`evidence_first`, `review_first`, `quiet_structure`), never arbitrary CSS.
+
 The vocabulary is **fixed in code** — a new kind, surface, mission provider,
 intake form, score loop, scene layout/overlay or identity landmark needs code
 in `wiki_core/template_blocks.py`, never just YAML. The `vocabulary:` section
@@ -129,9 +135,8 @@ lower-right/exterior-collective. See [Four Quadrants](https://integrallife.com/f
 [The Four Quadrants: A Guided Tour](https://integrallife.com/the-four-quadrants-a-guided-tour/),
 [What Is Integral Approach?](https://integrallife.com/what-is-integral-approach/)
 and [The Five Elements of AQAL](https://integrallife.com/five-elements-aqal/).
-The local audit report
-[AQAL quadrant alignment check](../reports/aqal-quadrant-alignment-2026-06-25.md)
-records how those sources map into the kit's operational tests.
+The kit's local AQAL alignment audit records how those sources map into the
+operational tests; downstream consumers do not need that release-time report.
 
 The compiler emits two compatible outputs:
 
@@ -188,48 +193,61 @@ A type's `subpages:` with `required: true` that are absent become
 `template_conformity` missions (and feed the create surface's
 `obligations` list).
 
+### Region groups and visual grammar
+
+When a quadrant-capable anchor also has `wiki.block.ui_regions.v1` (or receives
+it through a package), the compiler emits:
+
+- `visual_grammar`: the resolved primitive packs and slots for the anchor.
+- `derived.region_groups`: one deterministic work-group record per quadrant
+  and, when populated, the honest core group.
+
+Each region group carries practical counts (`total`, `shown`, `hidden`,
+`stale`, `raw`, `unsourced`, `open_actions`, `source_backed`), `type_mix`,
+`attention_hints`, `action_hints`, member IDs and the resolved visual primitive
+slots. The cockpit uses this payload in the quadrant compass, rim cards,
+fallback list and Blocks dock. It does not infer actions from styling.
+
 ## 7. How the interface materializes from the stack
 
-The stack decides what interface exists — per anchor in the compiler
-(`resolve_interface()`), and for the whole cockpit shell in
-[apps/wiki-cockpit/src/data/surfaces.ts](../../../apps/wiki-cockpit/src/data/surfaces.ts)
-(`composeInstruments()`, which reads the ROOT anchor's record):
+The stack produces declarative requests; it does not import or render a dock by
+name. The v8 flow is:
 
-- **Empty world → founding rite.** With zero pages, `composeInstruments`
-  returns `worldEmpty: true` — no destinations, no search, no missions. The
-  founding rite (`FoundingRite` in
-  [apps/wiki-cockpit/src/scene/spatial.tsx](../../../apps/wiki-cockpit/src/scene/spatial.tsx))
-  is the empty world's ONLY interface: 3+1 cards (person/team/company, plus
-  project/community/product behind "something else…"), a ghost root, one name
-  question. Its single outcome is a create brief for the `root_entity` — the
-  root is rite-owned, never offered by the generic palette.
-- **Views.** The home view comes from the stack: `ui_views` config `default`,
-  else `quadrants` when the quadrants block is attached, else `radar`. The
-  default offer is deliberately small (`[default, atlas, focus]`) — radar/
-  districts/trails exist in the vocabulary but a wiki opts INTO them via
-  `available:`. A view that has no purpose yet has no button.
-- **`ui_create` catalog → curated palette.** The scope's `catalog:` is the
-  small first level of the create surface; everything else creatable waits
-  behind "more types…" ([apps/wiki-cockpit/src/data/creation.ts](../../../apps/wiki-cockpit/src/data/creation.ts),
-  `curatedPalette()`). Arrangement is `by_quadrant` only when the quadrants
-  block is present. A catalog may be empty with a `disabled_reason` (the kit's
-  `source` type: content is born by ingestion, not by hand).
-- **`ui_missions` / `gamification` → missions + weather.** The missions surface
-  exists only when `ui_missions` is on the stack (usually via the
-  `gamification` package). Providers = explicit config, else the block's
-  declared defaults, plus whatever interpretation blocks contribute
-  (`contributes.missions_providers`). The world's weather/condition strip is
-  gated the same way — the world only asks for attention when a template asks
-  it to.
-- **Destinations.** The command-bar docks exist per surface: `approve` and
-  `gates` arrive with the root (law-tier), `intake` only with intake forms,
-  `create` only with `ui_create` on the stack, `source` only when source pages
-  exist (or an intake form is `source_sync`), `blocks` whenever there is a
-  root anchor.
-- **Identity.** `resolve_identity()` merges the type's `identity:` with a
-  page-level frontmatter `identity:` override — one `root_entity` type can show
-  as an observatory while a team holon shows as a plaza, without a new page
-  type per flavor.
+```mermaid
+flowchart LR
+    Stack["Resolved block stack"] --> Request["Interface / view / primitive requests"]
+    Request --> Kernel["RegistryKernel validation"]
+    Kernel --> Runtime["WorldRuntime selectors + interactions"]
+    Runtime --> Host["Generic registered surface/scene hosts"]
+    Host --> Fallback["Equivalent 2D/accessibility fallback"]
+```
+
+- **Empty world → founding interaction.** With zero pages, only the registered
+  founding interaction is eligible. Its result is a typed root-entity draft;
+  generic create/search/missions do not pretend a world already exists.
+- **Views.** `ui_views` requests registered view IDs and a default. Unknown or
+  capability-incompatible IDs fail registry validation. Changing view changes
+  geometry around the same real center — it does not create a dashboard island.
+- **`ui_create` → registered create surface.** The catalog is the small first
+  level; other creatable types remain behind explicit expansion. A type that
+  cannot be created through its page contract stays `creatable: false`.
+- **`ui_missions` / `gamification` → registered providers and surfaces.**
+  Providers consume compiled/snapshot facts. Weather, missions and attention
+  marks exist only when requested and data-backed.
+- **Source/intake/work/gates/blocks.** A block stack requests a surface by
+  registry ID. The generic surface host owns singleton/modal/focus behavior;
+  components do not add parallel route branches.
+- **Visual grammar.** Blocks select registered primitive packs. Color encodes
+  the active overlay metric through semantic tokens; it is not a fixed context
+  hue. Unknown packs/slots are contract errors, never arbitrary CSS hooks.
+- **Identity.** Type identity plus a page-level override selects registered
+  landmarks/motifs/ambient behavior without creating a page type per visual
+  flavor.
+
+Every requested runtime module declares its required capabilities, fallback,
+accessibility/reduced-motion behavior and tests. Static demo and operator mode
+resolve the same stack; unavailable write capabilities are rejected rather than
+hidden behind disabled-looking UI.
 
 ## 8. The creatable honesty rule
 
@@ -249,11 +267,16 @@ short-circuiting.
    `template_block` page) using only the fixed vocabulary.
 2. Attach it: `types.<t>.blocks` for every instance of a type, or frontmatter
    `blocks:`/`packages:` on one anchor page.
-3. Validate: `python3 scripts/wiki_audit.py` (the `templates_registry` check
-   runs `validate_blocks`).
-4. Inspect: open the anchor in the cockpit and press the **Blocks** dock — the
+3. Validate: `python3 scripts/wiki_audit.py --check` (the
+   `templates_registry` check runs `validate_blocks`) and run the synthetic
+   block/template tests.
+4. Inspect: open the anchor in the cockpit and use the **Blocks** surface — the
    resolved stack with each block's origin, the composed interface and the
    derived outputs.
+5. Verify the selected registered modules in desktop, mobile and fallback; run
+   architecture, bundle and demo-drift gates before release.
 
-For the exact file lists when a block needs new code, see
-[extending-the-kit.md](extending-the-kit.md).
+For the registry-first extension contract — including a new block, source,
+visual primitive or person module — see
+[extending-the-kit.md](extending-the-kit.md). A block that needs unrelated
+manual route/app-shell/button edits is not a complete v8 extension.

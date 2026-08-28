@@ -5,7 +5,6 @@ import html
 import json
 import posixpath
 import re
-import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -15,6 +14,7 @@ import yaml
 
 from wiki_core.frontmatter import list_values, parse_frontmatter, split_frontmatter
 from wiki_core.ids import slugify
+from wiki_core.output_safety import prepare_managed_output_directory
 
 OKF_VERSION = "0.1"
 OKF_EXPORT_SCHEMA_VERSION = "wiki_okf_export.v1"
@@ -211,7 +211,18 @@ def _rewrite_links(body: str, source_rel: str, export_rel: str, mapping: dict[st
     def replace(match: re.Match[str]) -> str:
         href = match.group(2)
         target, anchor = _resolve_source_link(source_rel, href)
-        if target is None or target not in mapping:
+        if target is None:
+            return match.group(0)
+        if target not in mapping:
+            # The OKF bundle is intentionally self-contained around the chosen
+            # memory root.  Repository-relative links that escape that root
+            # cannot remain clickable after export; retain their human label
+            # and make the boundary explicit instead of emitting a known-broken
+            # link.  Missing links *inside* the memory root remain links so the
+            # checker can still diagnose real graph defects.
+            if href.startswith("/") or target == ".." or target.startswith("../"):
+                label = match.group(1)[1:-2]
+                return f"{label} (outside OKF bundle)"
             return match.group(0)
         return f"{match.group(1)}{_rel_link(export_rel, mapping[target])}{anchor}{match.group(3)}"
 
@@ -327,15 +338,21 @@ def export_okf_bundle(
     source_root: str,
     bundle_root: Path,
     clean: bool = False,
+    force_unowned_output: bool = False,
 ) -> OKFExportResult:
     source_base = root / source_root
     if not source_base.exists():
         raise FileNotFoundError(f"source root not found: {source_root}")
-    if clean and bundle_root.exists():
-        if bundle_root.resolve() in {root.resolve(), source_base.resolve()}:
-            raise ValueError("refusing to clean repo root or source root")
-        shutil.rmtree(bundle_root)
-    bundle_root.mkdir(parents=True, exist_ok=True)
+    if bundle_root.resolve() == source_base.resolve():
+        raise ValueError("OKF output cannot replace its source root")
+    bundle_root = prepare_managed_output_directory(
+        root,
+        bundle_root,
+        kind="okf_bundle",
+        repo_id=root.resolve().name,
+        clean=clean,
+        force_unowned=force_unowned_output,
+    )
 
     markdown = _all_markdown(source_base)
     mapping = {

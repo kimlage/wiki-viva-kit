@@ -1,0 +1,146 @@
+{
+  "cost_telemetry": {
+    "model_profile": "deep_context",
+    "note": "Telemetry only. The quality report does not enforce a hard budget.",
+    "prompt_version": "v3",
+    "schema_version": "wiki_llm_context_pass.v4",
+    "source_costs": []
+  },
+  "memory_root": "memories",
+  "pages": [
+    {
+      "body_links": 5,
+      "context": "showcase",
+      "estimated_tokens": 87,
+      "information_density_per_1000_words": 89.55,
+      "link_density_per_1000_words": 74.63,
+      "outbound_links": 5,
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "quality_exempt": [],
+      "useful_lines": 6,
+      "words": 67
+    },
+    {
+      "body_links": 1,
+      "context": "showcase",
+      "estimated_tokens": 28,
+      "information_density_per_1000_words": 90.91,
+      "link_density_per_1000_words": 90.91,
+      "outbound_links": 2,
+      "page_type": "study_research_claim",
+      "path": "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md",
+      "quality_exempt": [],
+      "useful_lines": 2,
+      "words": 22
+    },
+    {
+      "body_links": 1,
+      "context": "showcase",
+      "estimated_tokens": 19,
+      "information_density_per_1000_words": 133.33,
+      "link_density_per_1000_words": 200.0,
+      "outbound_links": 3,
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md",
+      "quality_exempt": [],
+      "useful_lines": 2,
+      "words": 15
+    },
+    {
+      "body_links": 1,
+      "context": "showcase",
+      "estimated_tokens": 23,
+      "information_density_per_1000_words": 111.11,
+      "link_density_per_1000_words": 166.67,
+      "outbound_links": 3,
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md",
+      "quality_exempt": [],
+      "useful_lines": 2,
+      "words": 18
+    },
+    {
+      "body_links": 1,
+      "context": "showcase",
+      "estimated_tokens": 35,
+      "information_density_per_1000_words": 74.07,
+      "link_density_per_1000_words": 37.04,
+      "outbound_links": 1,
+      "page_type": "study_research_question",
+      "path": "memories/showcases/study_research_showcase/study-research/question-next-review.md",
+      "quality_exempt": [],
+      "useful_lines": 2,
+      "words": 27
+    },
+    {
+      "body_links": 1,
+      "context": "showcase",
+      "estimated_tokens": 24,
+      "information_density_per_1000_words": 105.26,
+      "link_density_per_1000_words": 52.63,
+      "outbound_links": 1,
+      "page_type": "study_research_source",
+      "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md",
+      "quality_exempt": [],
+      "useful_lines": 2,
+      "words": 19
+    }
+  ],
+  "quality_flags": {
+    "bad_repetition_blocks": [],
+    "contexts_without_role": [],
+    "events_without_consolidated_into": [],
+    "events_without_impact_closure": [],
+    "low_information_density_pages": [
+      "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md",
+      "memories/showcases/study_research_showcase/study-research/concept-feedback.md",
+      "memories/showcases/study_research_showcase/study-research/concept-retention.md",
+      "memories/showcases/study_research_showcase/study-research/question-next-review.md",
+      "memories/showcases/study_research_showcase/study-research/source-learning-loops.md"
+    ],
+    "orphan_actions": [],
+    "quality_exempt_pages": [],
+    "quality_exemption_missing_reason": [],
+    "relation_pages_without_parent": [],
+    "repeated_blocks": [],
+    "responsibilities_without_action": [],
+    "role_responsibility_edge_mismatch": [],
+    "thin_link_pages": []
+  },
+  "repo_id": "wiki-viva-demo-study-research-showcase",
+  "schema_version": "wiki_quality_report.v1",
+  "summary": {
+    "bad_repetition_blocks": 0,
+    "cache_reuse_rate": 0.0,
+    "cached_calls": 0,
+    "chunk_sources": 0,
+    "chunks_total": 0,
+    "contexts": {
+      "showcase": 6
+    },
+    "contexts_without_role": 0,
+    "estimated_context_tokens": 0,
+    "events_without_consolidated_into": 0,
+    "events_without_impact_closure": 0,
+    "ingestion_events": 0,
+    "low_information_density_pages": 5,
+    "orphan_actions": 0,
+    "page_types": {
+      "root_entity": 1,
+      "study_research_claim": 1,
+      "study_research_concept": 2,
+      "study_research_question": 1,
+      "study_research_source": 1
+    },
+    "pages_total": 6,
+    "pending_calls": 0,
+    "quality_exempt_pages": 0,
+    "quality_exemption_missing_reason": 0,
+    "relation_pages_without_parent": 0,
+    "repeated_blocks": 0,
+    "responsibilities_without_action": 0,
+    "role_responsibility_edge_mismatch": 0,
+    "thin_link_pages": 0
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-experience-pack-temporal-profiles-v1.schema.json",
+  "title": "Wiki Viva experience pack temporal profiles v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pack", "profiles"],
+  "properties": {
+    "schema_version": {"const": "wiki_experience_pack_temporal_profiles.v1"},
+    "pack": {"$ref": "#/$defs/packId"},
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "required": ["slot", "event_times", "lanes", "precision_policy"],
+        "properties": {
+          "slot": {"$ref": "#/$defs/identifier"},
+          "event_times": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "lanes": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "precision_policy": {"const": "preserve_unknown"},
+          "horizon": {"$ref": "#/$defs/identifier"},
+          "comparison": {"$ref": "#/$defs/identifier"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "packId": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+    "nonEmptyIdentifiers": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-product-analytics",
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "relation": "source_emission",
+      "title": "Product analytics export"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-agenda-2026-07",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
+      "relation": "temporal_sequence",
+      "title": "Ingest\u00e3o: agenda"
+    }
+  ],
+  "body": "\n# Ingest\u00e3o: product analytics\n\nNormalized import of product analytics used by the region-grouping stress demo.\n\n## Source\n\n- Source: `source-product-analytics`\n- Normalized event: this page IS the record of the sync.\n",
+  "frontmatter": {
+    "consolidated_into": [
+      "dashboard-clearpath-activation"
+    ],
+    "context": "sistema",
+    "event_id": "event-ingest-product-analytics-2026-07",
+    "moc_parent": "memories/sources/source-product-analytics.md",
+    "page_id": "event-ingest-product-analytics-2026-07",
+    "page_type": "ingestion_event",
+    "previous_refs": [
+      "event-ingest-agenda-2026-07"
+    ],
+    "proposal_ids": [
+      "proposal-ingest-product-analytics-2026-07"
+    ],
+    "source_id": "source-product-analytics",
+    "source_refs": [
+      "source-product-analytics"
+    ],
+    "stale_after_days": "365",
+    "title": "Ingest\u00e3o: product analytics",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sources/source-product-analytics.md",
+    "page_id": "event-ingest-product-analytics-2026-07",
+    "page_type": "ingestion_event",
+    "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+    "summary": "Normalized import of product analytics used by the region-grouping stress demo. Source: source-product-analytics Normalized event: this page IS the record of the sync.",
+    "summary_truncated": false,
+    "title": "Ingest\u00e3o: product analytics",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-8d1c5584a934c732",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-product-analytics",
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "ref": "source-product-analytics",
+      "resolved": true,
+      "title": "Product analytics export"
+    }
+  ]
+}

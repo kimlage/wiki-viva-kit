@@ -1,0 +1,2533 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-004",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-004.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 004"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-010",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-010.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 010"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-016",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-016.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 016"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-022",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-022.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 022"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-028",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-028.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 028"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-034",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-034.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 034"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-040",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-040.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 040"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-046",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-046.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 046"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-052",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-052.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 052"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-058",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-058.md",
+      "relation": "moc_parent",
+      "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 058"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-clean-unsourced",
+      "page_type": "action",
+      "path": "memories/actions/action-region-clean-unsourced.md",
+      "relation": "moc_parent",
+      "title": "Clean unsourced region claims"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-010",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-010.md",
+      "relation": "moc_parent",
+      "title": "Conclus\u00e3o sint\u00e9tica sem evid\u00eancia precisa permanecer vis\u00edvel e explic\u00e1vel 010"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-020",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-020.md",
+      "relation": "moc_parent",
+      "title": "Conclus\u00e3o sint\u00e9tica sem evid\u00eancia precisa permanecer vis\u00edvel e explic\u00e1vel 020"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-030",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-030.md",
+      "relation": "moc_parent",
+      "title": "Conclus\u00e3o sint\u00e9tica sem evid\u00eancia precisa permanecer vis\u00edvel e explic\u00e1vel 030"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-040",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-040.md",
+      "relation": "moc_parent",
+      "title": "Conclus\u00e3o sint\u00e9tica sem evid\u00eancia precisa permanecer vis\u00edvel e explic\u00e1vel 040"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-050",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-050.md",
+      "relation": "moc_parent",
+      "title": "Conclus\u00e3o sint\u00e9tica sem evid\u00eancia precisa permanecer vis\u00edvel e explic\u00e1vel 050"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-060",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-060.md",
+      "relation": "moc_parent",
+      "title": "Conclus\u00e3o sint\u00e9tica sem evid\u00eancia precisa permanecer vis\u00edvel e explic\u00e1vel 060"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-001",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-001.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 001"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-002",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-002.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 002"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-003",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-003.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 003"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-005",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-005.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 005"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-006",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-006.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 006"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-007",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-007.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 007"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-008",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-008.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 008"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-009",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-009.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 009"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-011",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-011.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 011"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-012",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-012.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 012"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-013",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-013.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 013"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-014",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-014.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 014"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-015",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-015.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 015"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-017",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-017.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 017"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-018",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-018.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 018"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-019",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-019.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 019"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-020",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-020.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 020"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-021",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-021.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 021"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-023",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-023.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 023"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-024",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-024.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 024"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-025",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-025.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 025"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-026",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-026.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 026"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-027",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-027.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 027"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-029",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-029.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 029"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-030",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-030.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 030"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-031",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-031.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 031"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-032",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-032.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 032"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-033",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-033.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 033"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-035",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-035.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 035"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-036",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-036.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 036"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-037",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-037.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 037"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-038",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-038.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 038"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-039",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-039.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 039"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-041",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-041.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 041"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-042",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-042.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 042"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-043",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-043.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 043"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-044",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-044.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 044"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-045",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-045.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 045"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-047",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-047.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 047"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-048",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-048.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 048"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-049",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-049.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 049"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-050",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-050.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 050"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-051",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-051.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 051"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-053",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-053.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 053"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-054",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-054.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 054"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-055",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-055.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 055"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-056",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-056.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 056"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-057",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-057.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 057"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-pressure-059",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-059.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 059"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-pressure-060",
+      "page_type": "action",
+      "path": "memories/actions/action-region-pressure-060.md",
+      "relation": "moc_parent",
+      "title": "Dense canonical action 060"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-001",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-001.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 001"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-003",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-003.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 003"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-005",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-005.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 005"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-007",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-007.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 007"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-009",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-009.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 009"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-011",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-011.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 011"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-013",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-013.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 013"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-015",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-015.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 015"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-017",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-017.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 017"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-019",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-019.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 019"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-021",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-021.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 021"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-023",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-023.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 023"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-025",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-025.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 025"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-027",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-027.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 027"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-029",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-029.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 029"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-031",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-031.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 031"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-033",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-033.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 033"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-035",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-035.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 035"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-037",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-037.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 037"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-039",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-039.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 039"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-041",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-041.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 041"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-043",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-043.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 043"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-045",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-045.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 045"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-047",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-047.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 047"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-049",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-049.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 049"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-051",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-051.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 051"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-053",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-053.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 053"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-055",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-055.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 055"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-057",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-057.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 057"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-059",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-059.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 059"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-061",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-061.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 061"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-063",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-063.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 063"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-065",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-065.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 065"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-067",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-067.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 067"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-069",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-069.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 069"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-071",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-071.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 071"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-073",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-073.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 073"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-075",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-075.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 075"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-077",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-077.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 077"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-079",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-079.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 079"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-081",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-081.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 081"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-083",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-083.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 083"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-085",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-085.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 085"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-087",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-087.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 087"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-089",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-089.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 089"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-091",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-091.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 091"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-093",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-093.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 093"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-095",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-095.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 095"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-097",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-097.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 097"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-099",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-099.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 099"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-101",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-101.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 101"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-103",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-103.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 103"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-105",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-105.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 105"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-107",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-107.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 107"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-109",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-109.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 109"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-111",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-111.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 111"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-113",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-113.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 113"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-115",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-115.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 115"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-117",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-117.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 117"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-119",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-119.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 119"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-121",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-121.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 121"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-123",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-123.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 123"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-125",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-125.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 125"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-127",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-127.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 127"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-129",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-129.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 129"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-131",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-131.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 131"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-133",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-133.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 133"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-135",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-135.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 135"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-137",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-137.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 137"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-139",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-139.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 139"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-141",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-141.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 141"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-143",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-143.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 143"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-145",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-145.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 145"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-147",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-147.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 147"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-149",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-149.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 149"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-151",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-151.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 151"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-153",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-153.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 153"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-155",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-155.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 155"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-157",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-157.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 157"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-159",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-159.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 159"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-161",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-161.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 161"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-163",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-163.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 163"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-165",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-165.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 165"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-167",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-167.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 167"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-169",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-169.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 169"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-171",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-171.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 171"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-173",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-173.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 173"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-175",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-175.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 175"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-177",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-177.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 177"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-179",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-179.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 179"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-181",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-181.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 181"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-183",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-183.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 183"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-185",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-185.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 185"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-187",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-187.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 187"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-189",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-189.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 189"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-191",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-191.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 191"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-193",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-193.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 193"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-195",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-195.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 195"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-197",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-197.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 197"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-199",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-199.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 199"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-201",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-201.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 201"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-203",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-203.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 203"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-205",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-205.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 205"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-207",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-207.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 207"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-209",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-209.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 209"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-211",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-211.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 211"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-213",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-213.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 213"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-215",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-215.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 215"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-217",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-217.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 217"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-219",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-219.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 219"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-221",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-221.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 221"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-223",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-223.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 223"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-225",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-225.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 225"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-227",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-227.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 227"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-229",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-229.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 229"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-pressure-231",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-231.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 231"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-233",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-233.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 233"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-235",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-235.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 235"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-237",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-237.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 237"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-239",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-239.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence artifact 239"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-001",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-001.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 001"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-002",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-002.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 002"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-003",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-003.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 003"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-004",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-004.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 004"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-005",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-005.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 005"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-006",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-006.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 006"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-007",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-007.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 007"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-008",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-008.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 008"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-009",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-009.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 009"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-011",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-011.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 011"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-012",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-012.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 012"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-013",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-013.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 013"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-014",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-014.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 014"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-015",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-015.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 015"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-016",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-016.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 016"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-017",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-017.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 017"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-018",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-018.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 018"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-019",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-019.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 019"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-021",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-021.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 021"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-022",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-022.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 022"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-023",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-023.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 023"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-024",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-024.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 024"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-025",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-025.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 025"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-026",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-026.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 026"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-027",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-027.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 027"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-028",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-028.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 028"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-029",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-029.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 029"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-031",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-031.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 031"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-032",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-032.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 032"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-033",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-033.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 033"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-034",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-034.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 034"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-035",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-035.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 035"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-036",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-036.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 036"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-037",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-037.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 037"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-038",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-038.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 038"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-039",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-039.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 039"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-041",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-041.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 041"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-042",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-042.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 042"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-043",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-043.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 043"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-044",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-044.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 044"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-045",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-045.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 045"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-046",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-046.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 046"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-047",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-047.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 047"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-048",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-048.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 048"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-049",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-049.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 049"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-051",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-051.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 051"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-052",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-052.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 052"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-053",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-053.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 053"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-pressure-054",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-054.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 054"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-055",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-055.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 055"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-056",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-056.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 056"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-057",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-057.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 057"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-058",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-058.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 058"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-pressure-059",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-pressure-059.md",
+      "relation": "moc_parent",
+      "title": "Dense evidence claim 059"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-grouping-needed",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-grouping-needed.md",
+      "relation": "moc_parent",
+      "title": "Dense regions need summaries"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-hidden-work",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-hidden-work.md",
+      "relation": "moc_parent",
+      "title": "Hidden clusters can hide work"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-product-analytics",
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "relation": "moc_parent",
+      "title": "Product analytics export"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-sync-support",
+      "page_type": "action",
+      "path": "memories/actions/action-region-sync-support.md",
+      "relation": "moc_parent",
+      "title": "Refresh support ticket source"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-01",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-01.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 01"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-02",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-02.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 02"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-map-03",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-03.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 03"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-review-evidence",
+      "page_type": "action",
+      "path": "memories/actions/action-region-review-evidence.md",
+      "relation": "moc_parent",
+      "title": "Review region evidence"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-support-tickets",
+      "page_type": "source",
+      "path": "memories/sources/source-support-tickets.md",
+      "relation": "moc_parent",
+      "title": "Support tickets export"
+    }
+  ],
+  "body": "\n# Clientes\n\nEngagements, the people in them, the meetings and the deliverables.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/index.md",
+    "page_id": "hub-clientes",
+    "page_type": "context_hub",
+    "stale_after_days": 30,
+    "title": "Clientes",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "hub-clientes",
+    "page_type": "context_hub",
+    "path": "memories/clientes/index.md",
+    "summary": "Engagements, the people in them, the meetings and the deliverables.",
+    "summary_truncated": false,
+    "title": "Clientes",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-92120ab7ad26aabe",
+  "source_refs": []
+}

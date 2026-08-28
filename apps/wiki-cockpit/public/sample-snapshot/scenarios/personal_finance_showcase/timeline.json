@@ -1,0 +1,168 @@
+{
+  "bands": {
+    "last_30_days": 0,
+    "last_7_days": 12,
+    "older": 0,
+    "undated": 0
+  },
+  "compatibility": {
+    "legacy_event_kinds_preserved": true,
+    "legacy_schema_version": "wiki_web_timeline.v1",
+    "replacement_payload": "temporal_graph.json"
+  },
+  "contract_version": "activity_timeline.v1",
+  "event_count": 12,
+  "events": [
+    {
+      "commit": "",
+      "context": "system",
+      "id": "snapshot-generated",
+      "kind": "snapshot",
+      "label": "Snapshot generated",
+      "path": "",
+      "status": "blocked",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-root-personal-finance-showcase",
+      "kind": "page_updated",
+      "label": "Personal Finance Mission Control",
+      "path": "memories/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-transaction-income",
+      "kind": "page_updated",
+      "label": "Synthetic income transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-transaction-housing",
+      "kind": "page_updated",
+      "label": "Synthetic housing transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-source-july",
+      "kind": "page_updated",
+      "label": "Synthetic July statement",
+      "path": "memories/showcases/personal_finance_showcase/support/finance-source-july.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-review-july",
+      "kind": "page_updated",
+      "label": "Synthetic July close review",
+      "path": "memories/showcases/personal_finance_showcase/support/finance-review-july.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-reconciliation-july",
+      "kind": "page_updated",
+      "label": "Synthetic July reconciliation",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/reconciliation-july.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-obligation-rent",
+      "kind": "page_updated",
+      "label": "Synthetic August rent obligation",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/obligation-rent.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-closing-july",
+      "kind": "page_updated",
+      "label": "Synthetic July closing",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-category-income",
+      "kind": "page_updated",
+      "label": "Synthetic income",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/category-income.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-category-housing",
+      "kind": "page_updated",
+      "label": "Synthetic housing",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/category-housing.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-finance-account-main",
+      "kind": "page_updated",
+      "label": "Synthetic operating account",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/account-main.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "repo_id": "wiki-viva-demo-personal-finance-showcase",
+  "returned_count": 12,
+  "schema_version": "wiki_web_timeline.v1",
+  "summary": {
+    "by_context": {
+      "showcase": 11,
+      "system": 1
+    },
+    "by_kind": {
+      "page_updated": 11,
+      "snapshot": 1
+    },
+    "event_count": 12,
+    "first_at": "2026-07-09T00:00:00Z",
+    "last_at": "2026-07-09T00:00:00Z"
+  },
+  "truncated": false
+}

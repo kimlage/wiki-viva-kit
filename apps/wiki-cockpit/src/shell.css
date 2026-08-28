@@ -1,0 +1,598 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0a0d0f;
+  color: #e9edf1;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+.visuallyHidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #0a0d0f; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; }
+.appShell { display: grid; grid-template-columns: 92px minmax(0, 1fr); min-height: 100vh; }
+.appShell.worldShellMode { grid-template-columns: minmax(0, 1fr); }
+.mainColumn { min-width: 0; }
+.topBar {
+  position: relative;
+  z-index: 130;
+  min-height: 58px;
+  padding: 12px 22px;
+  border-bottom: 1px solid #253038;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(12, 17, 19, 0.92);
+}
+
+/* RuntimeWorldView loads styles.css lazily; its compatibility `.topBar`
+   selector otherwise lowers this stacking context back to z-index 4 after
+   the appearance menu has opened. Keep the shell-owned popup above the world
+   with a deliberately more specific invariant. */
+.appShell .topBar {
+  z-index: 130;
+}
+.topBar div { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.topBar span { color: #9aa7b4; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace, .worldRouteLoading { padding: 22px; }
+.worldRouteLoading { position: relative; min-height: calc(100dvh - 58px); color: #9fb4c2; overflow: hidden; }
+.worldRouteLoadingFrame { position: relative; min-height: calc(100dvh - 102px); border: 1px solid #1e303b; border-radius: 12px; overflow: hidden; background: radial-gradient(circle at 52% 44%, rgba(30,72,91,.22), transparent 34%), #050a0e; }
+.worldRouteLoadingTop { min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid #1b2b34; color: #a9bfcb; font-size: 12px; }
+.worldRouteLoadingTop strong { margin-right: auto; color: #dcebf2; }
+.worldRouteLoadingTop span { padding: 7px 9px; border: 1px solid #223541; border-radius: 8px; background: rgba(9,18,24,.82); }
+.worldRouteLoadingStage { min-height: calc(100dvh - 152px); display: grid; grid-template-columns: minmax(190px, 280px) minmax(0, 1fr); gap: 18px; padding: 14px; }
+.worldRouteLoadingStage > aside { align-self: start; display: grid; gap: 5px; padding: 14px; border: 1px solid #253945; border-radius: 10px; background: rgba(8,18,24,.88); }
+.worldRouteLoadingStage > aside strong { color: #e5f0f5; }
+.worldRouteLoadingStage > aside span { font-size: 12px; }
+.worldRouteLoadingStage > section { align-self: center; justify-self: center; width: min(460px, 88%); display: grid; justify-items: center; gap: 8px; padding: 20px; color: #7fb8cc; text-align: center; }
+.worldRouteLoadingStage > section strong { color: #dff2f8; font-size: 16px; }
+.worldRouteLoadingStage > section span { max-width: 42ch; font-size: 12px; line-height: 1.5; }
+.worldRouteReaderLoading { position: absolute; inset: 48px 0 0 auto; z-index: 2; width: clamp(420px,52vw,560px); display: flex; flex-direction: column; gap: 12px; padding: 18px; border-left: 1px solid #2b414d; background: rgba(7,13,19,.985); box-shadow: -22px 0 56px rgba(0,0,0,.48); color: #a7bdc9; }
+.worldRouteReaderLoading > div { display: flex; gap: 6px; }
+.worldRouteReaderLoading > div span { padding: 4px 8px; border: 1px solid #2a4c5b; border-radius: 999px; color: #83d9ef; font-size: 10px; text-transform: uppercase; }
+.worldRouteReaderLoading h2 { margin: 0; color: #edf6f9; font-size: 22px; }
+.worldRouteReaderLoading p { margin: 0; max-width: 42ch; line-height: 1.5; }
+.worldRouteReaderLoading > section { display: grid; gap: 7px; margin-top: 8px; padding: 16px; border: 1px solid #275c56; border-radius: 10px; background: rgba(12,37,37,.72); }
+.worldRouteReaderLoading > section small { color: #78c9b8; letter-spacing: .08em; }
+.worldRouteReaderLoading > section strong { color: #e5f7f1; }
+@media (max-width: 760px) {
+  .worldRouteLoading { padding: 0; }
+  .worldRouteLoadingFrame { min-height: calc(100dvh - 58px); border: 0; border-radius: 0; }
+  .worldRouteLoadingTop { overflow-x: auto; }
+  .worldRouteLoadingTop span { flex: 0 0 auto; }
+  .worldRouteLoadingStage { min-height: calc(100dvh - 106px); grid-template-columns: 1fr; align-content: start; }
+  .worldRouteLoadingStage > section { align-self: start; margin-top: 10vh; }
+  .worldRouteReaderLoading { inset: 0; width: 100%; border: 0; box-shadow: none; padding: 18px 16px; }
+  .worldRouteReaderLoading h2 { font-size: 24px; }
+}
+.panel { border: 1px solid #27343b; background: #12181b; border-radius: 8px; padding: 18px; }
+.demoGate { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; overflow-y: auto; background: radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--wiki-accent) 12%, var(--wiki-bg-elevated)) 0%, var(--wiki-bg) 68%); }
+.demoGateInner { display: flex; flex-direction: column; align-items: center; gap: 18px; width: min(980px, 100%); max-width: 980px; margin: auto; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); text-align: center; }
+.demoGateInner h1 { margin: 0; font-size: 30px; letter-spacing: .02em; color: var(--wiki-text); }
+.demoGateBrand { color: var(--wiki-accent-strong); }
+.demoGateSubtitle { margin: 0; color: var(--wiki-text-muted); font-size: 13.5px; line-height: 1.5; max-width: 650px; }
+.demoGateDoors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: 100%; }
+.demoGateDoor { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px; border-radius: 12px; border: 1px solid var(--wiki-border); background: color-mix(in srgb, var(--wiki-surface) 94%, transparent); color: var(--wiki-text); text-align: left; }
+.demoGateDoor:hover { transform: translateY(-2px); border-color: var(--wiki-accent); background: var(--wiki-surface-raised); }
+.demoGateDoor.guided { border-color: color-mix(in srgb, var(--wiki-accent) 58%, var(--wiki-border)); background: color-mix(in srgb, var(--wiki-accent) 9%, var(--wiki-surface)); box-shadow: inset 0 3px var(--wiki-accent); }
+.demoGateDoor.guided strong { color: var(--wiki-accent-strong); }
+.demoGateDoor.genesis strong { color: var(--wiki-state-good); }
+.demoGateDoor.world strong, .demoGateBrand { color: var(--wiki-accent-strong); }
+.demoGateDoor.pack { border-color: color-mix(in srgb, var(--wiki-focus) 46%, var(--wiki-border)); background: color-mix(in srgb, var(--wiki-focus) 7%, var(--wiki-surface)); }
+.demoGateDoor.pack strong { color: var(--wiki-focus); }
+.demoGateDoor.pack.finance { border-color: color-mix(in srgb, var(--wiki-state-good) 46%, var(--wiki-border)); }
+.demoGateDoor.pack.finance strong { color: var(--wiki-state-good); }
+.demoGateDoor span { font-size: 12px; color: var(--wiki-text-muted); line-height: 1.45; }
+.demoValidationLabs { width: 100%; overflow: hidden; border: 1px solid var(--wiki-border); border-radius: 12px; background: color-mix(in srgb, var(--wiki-surface) 90%, transparent); color: var(--wiki-text); text-align: left; box-shadow: var(--wiki-shadow); }
+.demoValidationLabs > summary { display: grid; min-height: 54px; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 14px; color: var(--wiki-accent-strong); cursor: pointer; list-style: none; }
+.demoValidationLabs > summary::-webkit-details-marker { display: none; }
+.demoValidationLabs > summary > span { display: grid; gap: 2px; min-width: 0; }
+.demoValidationLabs > summary strong { font-size: 13px; letter-spacing: .02em; }
+.demoValidationLabs > summary small { color: var(--wiki-text-muted); font-size: 11px; line-height: 1.4; }
+.demoValidationLabs > summary:hover { background: var(--wiki-surface-raised); }
+.demoValidationLabs > summary:focus-visible { outline: 3px solid var(--wiki-focus); outline-offset: -3px; }
+.demoValidationLabs[open] > summary { border-bottom: 1px solid var(--wiki-border); background: var(--wiki-surface-raised); }
+.demoValidationChevron { transition: transform 160ms ease; }
+.demoValidationLabs[open] .demoValidationChevron { transform: rotate(180deg); }
+.demoValidationGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; padding: 1px; background: var(--wiki-border); }
+.demoValidationLab { display: grid; min-height: 68px; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 11px 12px; background: var(--wiki-surface); color: var(--wiki-text); }
+.demoValidationLab:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.demoValidationLab > svg { margin-top: 2px; color: var(--wiki-accent); }
+.demoValidationLab:hover { background: var(--wiki-surface-raised); }
+.demoValidationLab:focus-visible { position: relative; z-index: 1; outline: 3px solid var(--wiki-focus); outline-offset: -3px; }
+.demoValidationCopy { display: grid; gap: 3px; min-width: 0; }
+.demoValidationCopy strong { font-size: 12px; line-height: 1.25; }
+.demoValidationCopy small { color: var(--wiki-text-muted); font-size: 10.5px; line-height: 1.4; }
+.demoValidationCount { align-self: start; padding: 3px 6px; border: 1px solid var(--wiki-border); border-radius: 999px; color: var(--wiki-text-muted); font-size: 9px; font-weight: 760; white-space: nowrap; }
+.demoGateExit {
+  color: var(--wiki-text-muted);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 6px 10px;
+}
+@media (max-width: 820px) { .demoGateDoors, .demoValidationGrid { grid-template-columns: 1fr; } .demoValidationLab:last-child:nth-child(odd) { grid-column: auto; } }
+@media (max-width: 520px) { .demoGateInner { align-items: stretch; padding-inline: 14px; } .demoGateInner h1, .demoGateSubtitle { align-self: center; } .demoValidationLab { grid-template-columns: auto minmax(0, 1fr); } .demoValidationCount { grid-column: 2; justify-self: start; } }
+
+/* -------------------------------------------------------------------------
+   First-party appearance system
+
+   These are semantic presentation tokens. The selected theme and density are
+   local browser preferences; they never alter routes, snapshot data or wiki
+   semantics. World-specific surfaces consume the same tokens in styles.css. */
+
+:root {
+  --wiki-bg: #05090f;
+  --wiki-bg-elevated: #09121b;
+  --wiki-surface: #0c1721;
+  --wiki-surface-raised: #122331;
+  --wiki-text: #f2f8fb;
+  --wiki-text-muted: #aec1cc;
+  --wiki-border: #3d5868;
+  --wiki-accent: #73ddff;
+  --wiki-accent-strong: #c3f2ff;
+  --wiki-focus: #ffd166;
+  --wiki-state-good: #66e0aa;
+  --wiki-shadow: 0 18px 48px rgba(0, 0, 0, 0.48);
+  --wiki-glass: rgba(9, 18, 27, 0.94);
+  --wiki-density-pad: 1;
+  --wiki-density-gap: 1;
+  --wiki-density-type: 1;
+  color-scheme: dark;
+}
+
+html[data-wiki-theme="night-mission-control"] {
+  --wiki-bg: #05090f;
+  --wiki-bg-elevated: #09121b;
+  --wiki-surface: #0c1721;
+  --wiki-surface-raised: #122331;
+  --wiki-text: #f2f8fb;
+  --wiki-text-muted: #aec1cc;
+  --wiki-border: #3d5868;
+  --wiki-accent: #73ddff;
+  --wiki-accent-strong: #c3f2ff;
+  --wiki-focus: #ffd166;
+  --wiki-state-good: #66e0aa;
+  --wiki-shadow: 0 18px 48px rgba(0, 0, 0, 0.48);
+  --wiki-glass: rgba(9, 18, 27, 0.94);
+  color-scheme: dark;
+}
+
+html[data-wiki-theme="luminous-observatory"] {
+  --wiki-bg: #e8f1f4;
+  --wiki-bg-elevated: #dbe9ed;
+  --wiki-surface: #f8fcfd;
+  --wiki-surface-raised: #ffffff;
+  --wiki-text: #0a2530;
+  --wiki-text-muted: #405e69;
+  --wiki-border: #7896a2;
+  --wiki-accent: #006d8b;
+  --wiki-accent-strong: #004d65;
+  --wiki-focus: #5a3fc0;
+  --wiki-state-good: #087b57;
+  --wiki-shadow: 0 18px 48px rgba(25, 62, 75, 0.18);
+  --wiki-glass: rgba(248, 252, 253, 0.94);
+  color-scheme: light;
+}
+
+/* `:root` and the legacy body bootstrap have higher/equal cascade weight than
+   bare `html, body` selectors. Bind the selected theme explicitly so the
+   viewport behind translucent surfaces cannot retain the dark bootstrap when
+   Luminous Observatory is chosen. */
+html[data-wiki-theme] {
+  background: var(--wiki-bg);
+  color: var(--wiki-text);
+}
+
+html[data-wiki-theme] body {
+  background:
+    radial-gradient(circle at 84% -8%, color-mix(in srgb, var(--wiki-accent) 13%, transparent), transparent 32rem),
+    linear-gradient(180deg, var(--wiki-bg-elevated), var(--wiki-bg) 52%);
+  color: var(--wiki-text);
+}
+
+html[data-wiki-density="focus"] {
+  --wiki-density-pad: 1.16;
+  --wiki-density-gap: 1.18;
+  --wiki-density-type: 1.04;
+}
+
+html[data-wiki-density="balanced"] {
+  --wiki-density-pad: 1;
+  --wiki-density-gap: 1;
+  --wiki-density-type: 1;
+}
+
+html[data-wiki-density="command"] {
+  --wiki-density-pad: 0.78;
+  --wiki-density-gap: 0.76;
+  --wiki-density-type: 0.94;
+}
+
+html,
+body,
+.appShell {
+  background: var(--wiki-bg);
+  color: var(--wiki-text);
+}
+
+body {
+  background:
+    radial-gradient(circle at 84% -8%, color-mix(in srgb, var(--wiki-accent) 13%, transparent), transparent 32rem),
+    linear-gradient(180deg, var(--wiki-bg-elevated), var(--wiki-bg) 52%);
+}
+
+.topBar {
+  min-height: calc(58px * var(--wiki-density-pad));
+  padding: calc(12px * var(--wiki-density-pad)) calc(22px * var(--wiki-density-pad));
+  border-color: var(--wiki-border);
+  background: var(--wiki-glass);
+  color: var(--wiki-text);
+  backdrop-filter: blur(16px) saturate(1.15);
+}
+
+.topBar > div:first-child > span,
+.topBar span {
+  color: var(--wiki-text-muted);
+  font-size: calc(13px * var(--wiki-density-type));
+}
+
+.topBar .topBarActions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: calc(9px * var(--wiki-density-gap));
+  overflow: visible;
+  flex: none;
+}
+
+.workspace,
+.worldRouteLoading {
+  padding: calc(22px * var(--wiki-density-pad));
+}
+
+.panel,
+.navRail {
+  border-color: var(--wiki-border);
+  background: var(--wiki-surface);
+  color: var(--wiki-text);
+}
+
+.panel {
+  padding: calc(18px * var(--wiki-density-pad));
+}
+
+.navRail {
+  gap: calc(8px * var(--wiki-density-gap));
+}
+
+.navItem {
+  color: var(--wiki-text-muted);
+}
+
+.navItem.active,
+.navItem:hover {
+  border-color: var(--wiki-border);
+  background: var(--wiki-surface-raised);
+  color: var(--wiki-text);
+}
+
+.appearanceControl {
+  position: relative;
+  flex: none;
+  color: var(--wiki-text);
+}
+
+.appearanceControl > summary {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 9px;
+  background: var(--wiki-surface);
+  color: var(--wiki-text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.appearanceControl > summary::-webkit-details-marker {
+  display: none;
+}
+
+.appearanceControl > summary:hover,
+.appearanceControl > summary:focus-visible,
+.appearanceControl[open] > summary {
+  border-color: var(--wiki-accent);
+  background: var(--wiki-surface-raised);
+  color: var(--wiki-accent-strong);
+  outline: none;
+}
+
+.appearanceControl > summary:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--wiki-focus) 36%, transparent);
+}
+
+.appearanceControlSummaryText {
+  color: inherit !important;
+  font-size: 12px !important;
+  font-weight: 720;
+}
+
+.topBar .appearanceControlMenu,
+.demoGateAppearance .appearanceControlMenu {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 9px);
+  right: 0;
+  display: grid;
+  width: min(420px, calc(100vw - 24px));
+  gap: calc(14px * var(--wiki-density-gap));
+  padding: calc(16px * var(--wiki-density-pad));
+  border: 1px solid var(--wiki-border);
+  border-radius: 14px;
+  background: var(--wiki-glass);
+  box-shadow: var(--wiki-shadow);
+  color: var(--wiki-text);
+  backdrop-filter: blur(22px) saturate(1.15);
+}
+
+.topBar .appearanceControlMenu header,
+.demoGateAppearance .appearanceControlMenu header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.topBar .appearanceControlMenu header > div,
+.demoGateAppearance .appearanceControlMenu header > div {
+  display: grid;
+  align-items: initial;
+  gap: 3px;
+}
+
+.appearanceControlMenu header strong {
+  color: var(--wiki-text);
+  font-size: 14px;
+}
+
+.appearanceControlMenu header small,
+.appearanceOption small,
+.appearanceDensityDescription {
+  color: var(--wiki-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.appearanceControlMenu fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.appearanceControlMenu legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+  color: var(--wiki-text);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.appearanceOptionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.appearanceOption {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 10px;
+  background: var(--wiki-surface);
+  color: var(--wiki-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.appearanceOption > span:not(.appearanceThemeSwatch) {
+  display: grid;
+  gap: 3px;
+}
+
+.appearanceOption strong {
+  color: var(--wiki-text);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.appearanceOption:hover,
+.appearanceOption:focus-visible,
+.appearanceOption.selected {
+  border-color: var(--wiki-accent);
+  background: var(--wiki-surface-raised);
+  outline: none;
+}
+
+.appearanceOption:focus-visible,
+.appearanceDensityOptions button:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--wiki-focus) 34%, transparent);
+}
+
+.appearanceThemeSwatch {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 50%;
+}
+
+.appearanceThemeSwatch--luminous-observatory {
+  background: linear-gradient(135deg, #ffffff 5%, #c8e6ee 50%, #006d8b 100%);
+}
+
+.appearanceThemeSwatch--night-mission-control {
+  background: linear-gradient(135deg, #05090f 5%, #153044 56%, #73ddff 100%);
+}
+
+.appearanceSelectedIcon {
+  color: var(--wiki-state-good);
+}
+
+.appearanceDensityOptions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.appearanceDensityOptions button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 8px;
+  background: var(--wiki-surface);
+  color: var(--wiki-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.appearanceDensityOptions button:hover,
+.appearanceDensityOptions button.selected {
+  border-color: var(--wiki-accent);
+  background: var(--wiki-surface-raised);
+  color: var(--wiki-accent-strong);
+}
+
+.appearanceDensityDescription {
+  min-height: 2.9em;
+  margin: 7px 0 0;
+}
+
+.demoGateAppearance {
+  position: fixed;
+  z-index: 100;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+}
+
+html[data-wiki-theme="luminous-observatory"] .demoGate {
+  background:
+    radial-gradient(ellipse at 50% 28%, rgba(77, 173, 201, 0.24), transparent 45%),
+    linear-gradient(160deg, var(--wiki-bg-elevated), var(--wiki-bg));
+}
+
+html[data-wiki-theme="luminous-observatory"] .demoGateInner h1,
+html[data-wiki-theme="luminous-observatory"] .demoGateDoor,
+html[data-wiki-theme="luminous-observatory"] .demoGateDoor strong {
+  color: var(--wiki-text);
+}
+
+html[data-wiki-theme="luminous-observatory"] .demoGateSubtitle,
+html[data-wiki-theme="luminous-observatory"] .demoGateDoor span,
+html[data-wiki-theme="luminous-observatory"] .demoGateExit {
+  color: var(--wiki-text-muted);
+}
+
+html[data-wiki-theme="luminous-observatory"] .demoGateDoor {
+  border-color: var(--wiki-border);
+  background: var(--wiki-surface);
+  box-shadow: 0 8px 24px rgba(25, 62, 75, 0.1);
+}
+
+@media (max-width: 720px) {
+  .appearanceControlSummaryText {
+    display: none;
+  }
+
+  .appearanceOptionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .topBar {
+    padding-inline: 12px;
+  }
+
+  .topBar > div:first-child > span {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  .topBar,
+  .panel,
+  .appearanceControl > summary,
+  .appearanceOption,
+  .appearanceDensityOptions button {
+    transition:
+      color 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .topBar,
+  .panel,
+  .appearanceControl *,
+  .appearanceControl *::before,
+  .appearanceControl *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .topBar,
+  .panel,
+  .navRail,
+  .appearanceControl > summary,
+  .appearanceControlMenu,
+  .appearanceOption,
+  .appearanceDensityOptions button {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+    forced-color-adjust: auto;
+  }
+
+  .appearanceOption.selected,
+  .appearanceDensityOptions button.selected,
+  .appearanceControl > summary:focus-visible,
+  .appearanceOption:focus-visible,
+  .appearanceDensityOptions button:focus-visible {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .appearanceThemeSwatch {
+    display: none;
+  }
+}

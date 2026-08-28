@@ -14,30 +14,17 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
-## [2026-08-28] System | Wiki Viva v6.10.1 portable consumer sync
+## [2026-08-28] System | V8.1 source operations consolidated for downstream migration
 
-- Added the missing public `wiki_sync_from_kit.py` implementation, its
-  synthetic regression suite and the stable portable sync manifest required by
-  the v6.10 upgrade procedure.
-- The B0/C1/C2/C3 flow is fail-closed for dirty consumers by default, copies
-  only tracked regular files selected by the public manifest, removes only
-  files previously managed by `kit.lock` and records portable hashes without
-  host paths.
-- Marked `v6.10.0` as superseded for consumer migration; downstream adoption
-  must pin `v6.10.1` or later.
-
-## [2026-08-28] System | Wiki Viva v6.10.0 source operations release
-
-- Versioned the source operations workspace as Wiki Viva `v6.10.0`, including
-  the governed update lifecycle, portable platform identities, resizable and
-  groupable source registry, Codex/Claude adapters and the pending-source batch
-  overview.
-- Added a migration contract that keeps shared core and synthetic fixtures in
-  the public kit while requiring each private consumer to own source records,
-  authorization pointers, source groups, deterministic routes and RAW inputs.
-- Revalidated the public and public-export audits, source and operation
-  compilers, page graph, Python and frontend suites, TypeScript, production
-  build and secret scan before publication.
+- Consolidated the v8 living-world runtime with the dedicated source operations
+  workspace while preserving the v8 operator security contract.
+- Added portable migration guidance for existing consumers, including additive
+  source-contract migration and generated source/cockpit read models.
+- Confirmed that v6-to-v8 replacement is a downgrade and must be rejected at B0;
+  downstream adoption now pins the v8.1 tag and exact kit SHA in `kit.lock`.
+- Corrected snapshot freshness to use the snapshot's declared `generated_at`
+  date so reproducible fixtures and deployed snapshots do not drift with the
+  host clock.
 
 ## [2026-08-27] System | Source operations workspace and lifecycle contract
 
@@ -91,6 +78,24 @@ Append-only record of changes in the [memories/](../index.md) layer.
   external directory and reports an absolute path instead of failing after the
   snapshot was written.
 
+## [2026-07-16] System | Public branches consolidated before main review
+
+- `wiki/integracao-final-20260716` now contains the complete v8 living-world
+  line, the simple B0/C1/C2/C3 kit-sync flow and the current `origin/main`
+  fixes for configured language, audit newline preservation and atomic job
+  records. The branch has not been promoted to `main`.
+- The isolated Cycle 1 performance work was ported as a public-synthetic,
+  fail-closed evidence harness. It instruments ingestion and snapshot loading,
+  provides deterministic fixture profiles and keeps heavy profiles behind
+  explicit plan and authorization checks.
+- Superseded public plan, rehearsal, package and portability branches were
+  joined by ancestry while retaining the integration tree. Their historical
+  commits remain reachable, but retired lanes, capsules and certification
+  files were not restored.
+- The separate private-mirror lineage remains excluded from the public
+  integration boundary. Branch and worktree deletion follows only after the
+  consolidated tree passes the normal project gates.
+
 ## [2026-07-12] System | Configured-language CLI regression coverage
 
 - The quadrant contract CLI regression test now compares output with the
@@ -98,6 +103,393 @@ Append-only record of changes in the [memories/](../index.md) layer.
   downstream wikis exercise the same contract without patching the shared suite.
 - [Operational pass](operational-pass.md) was regenerated for the current
   source/action/context state required by CI.
+
+## [2026-07-12] System | V8 rc8 pins S9 with exact public and private automated proof
+
+- Current public payload `S9` is
+  `b45378d37e96eed04fb355392d10bd8471c5fda7`; package
+  `wiki-viva-v8-rc8` pins that exact subject. Its complete 102-cell browser,
+  1,356-test Python, 489-test frontend, 106-test Node and deterministic public
+  matrix pass on that exact subject; no historical count is promoted to S9.
+- Historical rc4/S4 and rc5/S6 remain immutable. `S7=fa83a705...` closes
+  RT-142 by replacing invented `pages.snapshot_id` proof with manifest
+  integrity and accepting the current action migration event kinds.
+  `S8=d0a6168c...` closes RT-143 by observing the atomic
+  `/api/snapshot/boot` envelope consumed by the UI; its 102/102 public and 2/2
+  downstream receipts remain S8-only evidence.
+- S9 implements RT-144 after real 390x844 inspection found inner label overflow
+  in all five mobile view controls despite zero document overflow. Mobile icons
+  are hidden, spacing is tightened and the regression requires five controls
+  with zero `scrollWidth - clientWidth` overflow.
+- The exact private S9 adoption passed 2/2 mandatory downstream cells on the
+  first attempt in 7.8 seconds with 0 skips/retries. Redacted preflight
+  aggregates are 562 pages, 772 temporal events, one active pack and one
+  adapter file. Manual mobile reinspection measured five 62 px controls,
+  44 px minimum height and zero inner/document overflow; Timeline exposed 772
+  events across sanitized lane counts 143/29/11/8/562/19.
+- The official read-only upgrade preflight consumed current gate evidence bound
+  to the exact private subject and returned ready with 0 blockers, toolkit
+  drift 0, five required gates passing, a real snapshot and one expected
+  local-overrides warning. The redacted report stays in the private ignored
+  evidence cache; its public-safe SHA-256 is
+  `0e38c895350097485f701f8a2285ed604d4744f626b4db34fef3a62bc9614e23`.
+- Independently revalidated Claude direction remains future kit input, not rc8
+  evidence: Setup Studio, a contract interview wizard, Quiet Reference
+  Library/Knowledge Garden, Module Orbit plus bento docks, and separate pack
+  series for finance, teams, PDLC, notes, studies and references.
+- RT-145 records a non-blocking P2 observability residual: closing/reloading a
+  client during a large atomic boot write can log expected
+  `BrokenPipeError`/`ConnectionResetError` tracebacks. A future narrow
+  write/flush guard and aborted-client test must not hide serialization or
+  unexpected server faults.
+- Human conceptual, privacy and VoiceOver review, merge and external E5 remain
+  mandatory before any tag. Consumer-semantic evidence for RT-09/10/29/33/36,
+  RT-47 and RT-48 also remains explicit; the exact public/private automated
+  suites and machine-readable upgrade preflight are complete.
+
+## [2026-07-12] System | V8 rc5 closes downstream attestation and observer boundaries
+
+- Current public browser-closure payload `S6` is
+  `b852a992afa3eae64e220c461c2eff052572377c`; package
+  `wiki-viva-v8-rc5` pins that exact subject. Historical rc4/S4 remains
+  immutable evidence for its own parser and live-to-demo closure.
+- Immediate predecessor `S5=605ad66b...` closes RT-138 by shipping
+  `assets/FIRST_PARTY_ASSET_LICENSE.md` instead of referencing an absent
+  downstream `../../LICENSE`, and closes RT-139 by including `presentation`
+  when the downstream E2E independently recomputes pack composition.
+- Exact `S5` passed 1,356/1,356 Python tests, 489/489 frontend tests, 106/106
+  Node gates and the deterministic non-browser stack. Those counts remain S5
+  evidence. Exact `S6` independently repeated 1,356/1,356 Python tests in
+  346.27 seconds with the two known multiprocessing warnings.
+- `S6` closes RT-140 by measuring each observed request against its route at
+  start and finish and forcing the actual live-to-demo transition in the
+  regression. Exact `S6` passed 102/102 browser cells on the first attempt,
+  with 0 skips/retries in 6.0 minutes; retained result:
+  `public-mrhjnxhu-0b3e0e14-d9d3-430c-9b11-8c03b3bb3fed/run-result.json`.
+- RT-141 records one non-blocking P2 hygiene residual: the runtime
+  `.wiki-viva/pack-operation.lock` path still lacks a portable ignore contract.
+- The private pilot remains in upgrade. Exact rc5 import, protected downstream
+  reconciliation and the redacted real-data operator/browser proof are still
+  mandatory before adoption can be claimed.
+
+## [2026-07-12] System | V8 rc4 closes real parser and live-to-demo boundaries
+
+- Final public pressure payload `S4` is
+  `f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb`; package
+  `wiki-viva-v8-rc4` pins that exact subject.
+- A real downstream audit proved that the action writer's valid default YAML
+  was outside the flat frontmatter parser's accepted subset. Intermediate
+  `S3=8904d69d...` introduced indented sequences and unwrapped long scalars;
+  exact replay of four legacy terminal actions then produced zero flat-parser
+  and transition diagnostics.
+- The exact `S3` browser run was rejected at 101/102 when one live manifest
+  completed between `popstate` and the demo render. `S4` moves abort to the
+  navigation notification and retains effect cleanup as an idempotent guard.
+- Exact `S4` passed 1,356/1,356 Python tests, 489/489 frontend tests, 106/106
+  Node gates and 102/102 browser cells on the first attempt with 0
+  skips/retries in 5.9 minutes. Audit is 0 errors / 6 date-driven warnings;
+  methodology, operation, input stage, 26-payload snapshot, demo, packs,
+  build, architecture, assets and bundle are green.
+- The private pilot already holds exact rc3 with zero portable drift. Its next
+  boundary is the reviewed three-file rc4 import, Finance pack installation,
+  regenerated real artifacts and the non-skippable downstream browser proof.
+
+## [2026-07-12] System | V8 rc3 pressure payload proven
+
+- Public pressure payload `S2` is
+  `f0936539ca44c34ff5eacf5817b22ff9451b9cef`; historical `S=b781882a...`
+  remains immutable evidence for its exact subject.
+- Exact `S2` passed 1,355/1,355 Python tests, 489/489 frontend tests, 106/106
+  Node gates and 102/102 public browser cells on the first attempt with 0
+  skips/retries in 6.4 minutes. Normal audit remains 0 errors / 6 date-driven
+  freshness warnings; demo, build, architecture, assets and bundle are green.
+- The delta closes config-driven portable links, acyclic source integration,
+  content-bound pre-gate action adoption, exact reverse-order rollback with a
+  disposable Git proof, JSON/Markdown fixture parity and one broken demo link.
+- A ninth read-only Claude checkpoint recovered the completed structured
+  workflow behind the visible rate-limit stop. It produced the rollback/report
+  residuals above and four future design directions, but no repository write or
+  second plan.
+- Upgrade package `wiki-viva-v8-rc3` pins `S2`. The next gate is faithful
+  private import, Finance pack activation, real-data audit/operator/browser
+  proof and a redacted three-boundary migration report.
+
+## [2026-07-12] System | V8 exact public payload proven; private adoption next
+
+- Portable payload `S` is
+  `b781882a11e8bbac3ae9684d199979a1f4ee1bf7`. Its first 102-cell browser
+  attempt was rejected at 84 passed / 18 failed; the failure exposed a real
+  compatibility-route write bug, stale browser expectations and measurable
+  short/tall-phone occlusion.
+- After the corrections, exact `S` passed 102/102 public browser cells on the
+  first attempt with 0 skips/retries in 5.8 minutes, 1,339/1,339 Python tests
+  with 0 skips in 355.06 seconds, 489/489 frontend tests and 106/106 Node gates.
+  Build, architecture, assets, snapshot, packs, demo, bundle and matrix gates
+  are green; browser closure remains deliberately narrower than full release.
+- Upgrade package v2 and the current release-truth plan now pin exact `S` and
+  declare the temporal, appearance, asset, experience-pack and downstream
+  adapter contracts. Consumer-owned config, memory, pack lock, adapter manifest
+  and runtime config remain blocked from portable import.
+- Eight process/filesystem checks found no newer Claude-authored project plan,
+  repository edit, test result or screenshot. The detached Claude worktree is
+  historical July 1 material; only previously recovered and independently
+  reproduced observations were consolidated.
+- The next required boundary is the private pilot: read-only preflight, Finance
+  dry-run, three reviewable commits, real operator identity, non-empty
+  Chronoscope, themes, desktop/mobile/fallback and the two mandatory downstream
+  browser cells. Human merge/tag and external E5 authority remain pending.
+- The first redacted private preflight correctly blocked blind import: the
+  branch, pinned source, real snapshot and privacy checks passed, while 1,486
+  portable differences and unsafe historical drift-ignore patterns remained.
+  Package v2 now treats CI workflows as consumer-owned policy. Private-only
+  tests/scripts must move under the already blocked private extension surface.
+  The follow-up semantic read proved that page-type local overlays are not yet
+  loaded by the runtime, so dependency and base page-type/template registries
+  are now protected consumer-owned merge surfaces: preserve local extensions,
+  add public minimums and prove the merged result instead of claiming a
+  nonexistent overlay capability.
+- A second semantic check found that one upstream test intentionally assumes
+  the public English fixture while the private suite correctly exercises its
+  Portuguese configuration. Package v2 therefore protects the complete
+  downstream test suite as consumer-owned integration policy. Public core tests
+  remain proven on exact `S`; the private suite remains mandatory on exact `P`
+  without byte-copying incompatible test policy between repositories.
+- The private audit also proved that `wiki_audit.py --public-export` is not a
+  valid whole-repository preflight for a private PII-bearing wiki: it correctly
+  blocks private pages when forced through the public boundary. Package v2 now
+  requires normal private audit before import and reserves public-boundary proof
+  for the redacted migration report. Toolkit drift evidence is likewise the
+  package-aware pinned-tree comparison, not the legacy prefix-only script.
+
+## [2026-07-11] System | V8 release readiness reopened
+
+- A current-HEAD public code review, real-browser navigation/UX pass and
+  sanitized private-downstream validation reproduced release-blocking gaps
+  that the prior green ledger did not cover.
+- The v8 implementation remains the architectural foundation, but its release
+  status is blocked until privacy projection, canonical action state, Genesis,
+  keyboard focus, route transitions, mobile target stability, snapshot
+  atomicity and ingestion-event truth pass current closure tests.
+- The single active correction and extension contract is the
+  [release truth, temporal world and experience packs plan](../../docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
+- The plan sequences stabilization before a temporal kernel, clearer visual
+  themes and complete installable experience packs. Public synthetic fixtures
+  remain the proving ground; private data is used only as sanitized downstream
+  pressure.
+- A second-agent checkpoint was recovered and adjudicated rather than treated
+  as evidence by volume. Independent reproduction confirmed Genesis 0 and
+  Galaxy, refuted the alleged native-Enter and out-of-viewport mobile failures,
+  and found a Sources-URL/Quadrants-runtime identity split.
+- The adversarial pass also elevated revision-mixed dynamic reader content and
+  destructive unowned snapshot output to P0, and independently confirmed that
+  the former default loopback CORS trust exposed the nonce/mutation surface to
+  another local browser app. The public worktree now uses default-deny direct
+  CORS, a same-origin Vite proxy and a versioned security handshake that rejects
+  stale operator processes before mutation.
+- Public closure candidates now cover fail-closed export projection, explicit
+  Genesis empty-world state, native keyboard traversal, canonical/legacy action
+  state parity, revision-bound content, owned output promotion, deploy-boundary
+  preflight, WebKit target geometry and actionable source-lifecycle authoring.
+  They remain uncommitted review candidates, not release evidence.
+- The post-review non-browser ledger is now 787 Python tests with zero skips,
+  402 frontend tests, 15 static gates, clean build/bundle, deterministic
+  methodology/operation/input/demo checks and normal/public audit with zero
+  errors. Hypothesis is required so frontmatter collection fails loudly, while
+  tests for downstream-only finance scripts remain with their downstream
+  owner. The final browser rerun, mandatory real-operator cells and human gate
+  remain blocked work rather than being hidden as skips or retries.
+- A second read found no newer parallel-agent artifact. Its coordinator state
+  is complete but its task cards are stale, so only independently reproduced
+  findings and the current repository ledger are used as release truth.
+- A third live check again found no newer Claude transcript, workflow result or
+  repository write. A fresh adversarial review instead reopened the release
+  machinery itself: project-level Playwright config leaked downstream tests,
+  minimal hand-authored JSON could fabricate E5, dirty receipts did not bind
+  bytes, and stale snapshots/reports could be recarimbados as current.
+- A fourth process/filesystem check found the Claude worker and preview still
+  alive but sleeping. No project artifact changed; the only recent local
+  session write was runtime plugin inventory metadata, not analysis. The
+  canonical plan therefore records another verified no-delta and does not use
+  process liveness as evidence of completed parallel work.
+- A fifth live check at 16:40 BRT found no Claude project-store write in the
+  preceding 30 minutes. The same long-sleeping worker and public/private Vite
+  previews were still alive. A 16:41 refresh touched only the small local
+  plugin-inventory manifest whose listed plugin record still dated from
+  2026-07-09; it added no project analysis. No new plan, code edit, verifier
+  output or evidence manifest existed to merge, so the already adjudicated
+  Claude set remains the complete parallel input for this round.
+- A sixth live check at 17:51 BRT extended the negative-delta window to 90
+  minutes: no Claude project-store or repository artifact changed, while the
+  worker remained alive but sleeping. The only fresh local-session file was the
+  runtime plugin inventory, whose listed plugin record still dated from
+  2026-07-09. It is not project analysis, so there is still no second plan,
+  code patch, verifier result or visual manifest to merge.
+- `wiki_release_receipt.v1` is now explicitly closure-only. It binds staged,
+  unstaged, untracked and clean-submodule state; requires raw gate evidence and
+  allowlisted command IDs; uses one-read/no-follow evidence hashing and atomic
+  readback; distinguishes public-safe from private-internal output; and always
+  blocks local E5 until an external signed CI/reviewer authority exists.
+- The canonical plan now records these reproductions as RT-57 through RT-67.
+  None is hidden behind the historical v8 release note or a coordinator label.
+- Exact release cells are now a receipt invariant: gate files and
+  `project::spec::title` cells must equal the versioned Playwright matrix, and
+  the normalized receipt records their count and digest. A nondeterministic
+  public-scan false positive discovered during the full slice is tracked as
+  RT-78: opaque cryptographic digests are excluded from prose PII matching,
+  while the same Luhn-valid digits remain blocked in human-controlled IDs.
+- Independent follow-up review then reopened two apparently green slices.
+  Browser-evidence helper arguments also exposed an in-repo tracked-file
+  deletion path (RT-71). Demo read-only tests had missed a Genesis guide intercept, a live-to-demo
+  POST race and a real-snapshot GET in the background (RT-68 through RT-70).
+  Atomic snapshot tests had missed active-prune deletion, lease symlink escape,
+  unowned revision removal, wrong-hash reuse and false post-commit failure
+  semantics (RT-72 through RT-77). These findings remain blockers until their
+  minimized repros turn green; earlier focused pass counts do not override them.
+- The corrected demo slice now completes Genesis 0 through 8 by touch and
+  keyboard, keeps every mutation surface inert, aborts live reads when crossing
+  into demo and rejects any `/api/**` request. Its focused ledger is 411/411
+  Vitest tests, 4/4 no-retry browser cells, a 3/3 keyboard repeat and an exact
+  unchanged release collection of 66 public plus 2 downstream cells. This is a
+  closure candidate only; the independent adversarial rereview and full public
+  browser matrix still govern acceptance.
+- That independent rereview then reopened RT-69: the mutation POST was blocked,
+  but a delayed runtime-config lookup could still start the operator health GET
+  after the browser URL had already crossed into demo. The accepted contract is
+  zero new operator GET/OPTIONS/POST after that boundary; the earlier 4/4 and
+  411/411 results are retained as historical controls, not closure proof.
+- The same rereview added RT-79 and RT-80. At 390x844 the stage-2 Create
+  surface avoids the guide but compresses its template overview into an
+  unreadably narrow column and gives the disabled CTA insufficient visual
+  distinction. The full Genesis keyboard helper also focuses targets directly;
+  it proves Enter activation, not native Tab order or focus visibility. Both
+  need dedicated responsive and accessibility evidence.
+- RT-81 keeps platform evidence honest: the flat Windows branch has a local
+  monkeypatched control, while current CI is Ubuntu-only. A real
+  `windows-latest` flat-build/path-safety job remains required; live revision
+  publication stays explicitly Darwin/Linux-only.
+- A new `snapshot-flat-windows` workflow candidate now runs four narrow
+  flat-build/path-safety controls on `windows-latest`; its YAML and the same four
+  tests are green locally. RT-81 closes only after the real Windows runner is
+  green on the reviewed commit.
+- The independent RT-08 rereview confirmed the original prune/lease/hash/server
+  and post-commit repros green, then opened RT-82 through RT-84. Strict revision
+  validation still missed symlink/extra-file inventory and manifest-repo versus
+  owner identity, the durability claim
+  exceeded the fsync trace for rename/exchange source directories, and
+  activation cleanup could remove its marker before a failed `rmdir`, leaving
+  an unreconcilable empty orphan. These remain blockers despite the preceding
+  119-test green slice.
+- A final RT-08 pathname-race review kept 15 focused controls green but opened
+  RT-87 through RT-90 with four minimized reproductions: an external file could
+  appear after activation validation and be clobbered by `os.replace`; a prune
+  victim could be replaced after leased validation and the replacement deleted
+  by pathname; a cleanup receipt minted before rename could authenticate a
+  pre-existing empty collision for later deletion; and the one-second health
+  cache could false-green same-size corruption when mtime was restored because
+  ctime was absent. These are release blockers until the no-clobber/CAS,
+  quarantine/revalidation, rename-before-receipt and ctime controls pass.
+- Post-fix hooks reopened RT-88/89 one layer deeper. Swapping the random prune
+  quarantine inside `shutil.rmtree` still deleted the replacement, and swapping
+  cleanup after receipt fsync let an external empty inode inherit the
+  name-bound receipt. Closure now requires descriptor-relative deletion and a
+  cleanup receipt bound to dev/inode/type, not another pathname recheck.
+- Independent rereview of the receipt handoff then opened RT-91 and RT-92.
+  Python accepted a private-adoption preflight whose consumer/snapshot source
+  SHAs differed from the gate subject after all repository-authored hashes were
+  refreshed, and the required visual manifest could point to a nonexistent
+  image because only its metadata strings were validated. Private consumer
+  identity must be cross-bound in Python, and every referenced visual must be
+  safely opened and hash/size/signature checked before closure can pass.
+- The same rereview opened RT-93: changing only an existing action's `page_id`
+  produced no transition diagnostic because history bound lifecycle/support but
+  not identity. Receipt v1 now needs immutable existing action IDs and
+  page-ID-bound transition entries before the action gate is complete.
+- The receipt rereview then opened RT-94 and RT-95. Python accepted a fabricated
+  one-public/one-downstream-cell matrix from a derived path instead of binding
+  the tracked 68+2 contract, and coherent `99.99.99` runtime-version claims
+  passed because file hashes were checked but runtime/browser identity was not.
+  The canonical matrix must be an exact tracked dependency, and executable
+  runtime/browser versions must be cross-checked or remain release blockers.
+- RT-96 records the same provenance review's stale-run replay: a coherent gate
+  and terminal dated in 2000 still validated inside a receipt created in 2026.
+  Release closure now needs bounded run duration and an internal
+  terminal-finish-to-receipt window without making historical receipts expire
+  against the current wall clock.
+- RT-97 through RT-99 extend that rereview: public raw/support/terminal evidence
+  was secret-scanned but not PII-scanned; a five-field invented snapshot
+  manifest passed without binding a bundle; and local release Playwright could
+  reuse a stale server on port 4173 after building the current subject. Public
+  evidence scanning must be scope-aware, the open snapshot artifact kind must
+  be removed or fully closed, and release runs must own their server/port.
+- RT-100 applies the same no-clobber rule to release evidence itself: Node and
+  Python still mutated by pathname after a precheck. Unique run artifacts and
+  receipts must be immutable create-once outputs; an occupied or raced path
+  blocks without unlinking, truncating or replacing external bytes.
+- RT-101 was discovered by the final public snapshot gate: the graph compiler
+  had flattened all frontmatter links and mislabeled reciprocal
+  `related_pages` as `source_ref`, inventing three provenance cycles in real
+  methodology/perception pages. Relation compilation now preserves field
+  semantics so only authored `source_refs` carry source provenance, while
+  reciprocal related-page navigation stays legal without weakening the
+  no-cycle source gate.
+- RT-102 was exposed only by the first complete 68-cell hardened wrapper:
+  three nested contexts and a snapshot intercept still hard-coded port 4173,
+  contradicting the new unique-port server contract. They now inherit the
+  actual Playwright project/request origin; five affected cells pass on a
+  dedicated non-default port.
+- RT-103 records a second evidence-ownership conflict: ad-hoc Playwright cleared
+  the parent `test-results` directory and deleted earlier immutable
+  `release-runs`. Disposable local artifacts now live in a disjoint child, and
+  the Node gate proves that child cannot contain the release root.
+- RT-104 separates concerns in the browser matrix. The local-only/zero-write
+  Genesis proof no longer duplicates a direct keyboard-like journey that
+  failed once under the full GPU sequence; native Tab/Enter remains mandatory
+  in dedicated Chromium/WebKit cells, while the zero-write cell uses a
+  deterministic pointer path. The isolated control passed 10/10 before this
+  separation and the focused post-fix set is green without retries.
+- The next complete public wrapper then passed all 68 canonical cells in 4.7
+  minutes on first attempt, with zero skip and zero retry across Chromium
+  performance/desktop, WebKit keyboard/mobile, forced fallback and Firefox.
+  This is current-worktree E2 evidence only: the dirty subject still cannot
+  mint E5, and the private 2-cell adoption matrix plus human review remain
+  independent gates.
+- Primary-source visual precedents are governed by the new
+  [visual inspiration register](../../docs/references/visual-inspiration/index.md),
+  with explicit borrow/reject, license and evidence status rather than an
+  untracked mood board.
+
+## [2026-07-10] System | Canonical action-state authoring
+
+- The public [action template](../../docs/references/templates/wiki/action.md)
+  now authors the same `action_state`, next-step, ownership, due/blocker and
+  receipt fields consumed by the v8 work model.
+- Human `status` wording remains readable during migration, while runtime state
+  is restricted to `open`, `in_progress`, `blocked`, `waiting_human`, `done`
+  or `cancelled`. Recurrence remains cadence metadata rather than a false work
+  state.
+
+## [2026-07-10] System | Collection-owned subworld contract
+
+- [People registry](../people/index.md) now declares a typed `person`
+  collection while remaining intentionally empty in the public kit; this makes
+  the privacy-safe empty state explicit and lets downstream private members
+  populate the subworld without changing their canonical `moc_parent`.
+- Collection membership is separate from hierarchy, compiles to the typed
+  `collection_member` relation and activates linked block scope only when a
+  collection is declared. Legacy ontology indexes without a collection keep
+  their descendant behavior.
+
+## [2026-07-09] System | v8 downstream upgrade commands documented
+
+- The [command reference](wiki/command-reference.md) now documents the three
+  read-only v8 downstream tools: consumer inventory validation, preflight and
+  deterministic migration-report compilation.
+- Their public package, allowlist/blocklist, redaction boundary and per-repo
+  rollback are documented in the
+  [v8 downstream upgrade runbook](../../docs/references/guides/wiki-viva-v8-downstream-upgrade.md).
+- This log entry records documentation/tooling only; it does not claim that the
+  blocked release candidate has a final public SHA or that any private consumer
+  has been migrated.
 
 ## [2026-07-07] System | Quadrant terminology clarified
 
@@ -687,9 +1079,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
   [2026-06-09-example.md](ingestion/events/2026-06-09-example.md) now has
   `consolidated_into`, so the kit baseline no longer advertises an unclosed
   event.
-- [wiki_toolkit_drift.py](../../scripts/wiki_toolkit_drift.py) accepts
-  `--ref-path` for comparing against a real checkout instead of only a branch
-  ref, and the active ingestion-flow docs now reference
+- The historical toolkit-drift helper gained checkout comparison before that
+  release machinery was retired; active ingestion-flow docs now reference
   `wiki_llm_context_pass.v3`.
 
 ## [2026-06-12] System | Impact ack audit works in PR CI
@@ -821,7 +1212,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - chunking.py: content-based boundaries (paragraphs/lines) instead of a fixed word window — editing one paragraph only changes that paragraph's chunk (was rebuilding all downstream); structure preserved. cache.py: cache_key no longer includes the whole-source hash — identical chunks dedupe across versions/sources (was invalidating 100% of the cache on any edit). Finding 4.
 - source_manifest.py: deterministic sha256_directory_listing (no mtime, no dotfiles) — directory-source source_id now matches between local and clean clone/CI. Finding 3.
 - ids.py: slugify normalizes accents (NFKD); accent collisions gone.
-- [scripts/wiki_toolkit_drift.py](../../scripts/wiki_toolkit_drift.py): detects toolkit drift between branches (main vs opensource).
+- The historical toolkit-drift helper detected differences between branches
+  before downstream adoption moved to the idempotent sync command.
 
 ## [2026-06-10] P1 | Scale: incremental index + orphan GC + faster auditor
 

@@ -1,0 +1,59 @@
+{
+  "backlinks": [],
+  "body": "\n# CRM accounts export\n\nA live CRM source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `blocked`, freshness `never_synced` and last attempt `needs_auth`.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/index.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-crm-accounts",
+    "page_type": "source",
+    "platform": "CRM",
+    "region_expectations": {
+      "intencao": {
+        "basis": "This blocked CRM adapter exposes account evidence, not intent records.",
+        "next_interaction": "openDock:source",
+        "state": "not_applicable"
+      }
+    },
+    "source_blocked_reason": "Authorization is required; no credential value is stored in the fixture.",
+    "source_lifecycle": {
+      "adoption_state": "pending",
+      "freshness_state": "never_synced",
+      "last_attempt_at": "2026-07-03",
+      "last_attempt_state": "needs_auth",
+      "pipeline_stage": "configured",
+      "secret_safe_log_refs": [
+        "logs/demo/source-crm-accounts-needs-auth"
+      ],
+      "state": "blocked"
+    },
+    "source_type": "live",
+    "stale_after_days": 30,
+    "sync": {
+      "last_event_ref": "",
+      "last_run_at": "2026-07-03",
+      "last_status": "needs_auth"
+    },
+    "title": "CRM accounts export",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "source-crm-accounts",
+    "page_type": "source",
+    "path": "memories/sources/source-crm-accounts.md",
+    "summary": "A live CRM source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle blocked, freshness never_synced and last attempt needs_auth.",
+    "summary_truncated": false,
+    "title": "CRM accounts export",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-2830e4dd880e44a2",
+  "source_refs": []
+}

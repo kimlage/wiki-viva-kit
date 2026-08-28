@@ -50,6 +50,7 @@ const PAGE_TYPE_FACET: Record<string, SceneFacet | null> = {
 
 const EDGE_FACET: Record<string, SceneFacet | null> = {
   moc_parent: null,
+  collection_member: null,
   markdown_link: null,
   source_ref: "pratica",
   pr_impact: "sistemas",

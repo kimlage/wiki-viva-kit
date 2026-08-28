@@ -1,0 +1,767 @@
+{
+  "fixture_id": "wiki-viva-demo-v8",
+  "scenarios": [
+    {
+      "artifact_warning_codes": [],
+      "canonical_routes": [
+        "/demo/w?demo_scenario=walking_skeleton&center=root-alex-rivera&view=quadrants&overlay=actions",
+        "/demo/w?demo_scenario=walking_skeleton&center=source-banco-export&view=sources&overlay=evidence&dock=source"
+      ],
+      "claims": [
+        {
+          "claim_id": "center_stays_stable_across_semantic_navigation",
+          "covers": {
+            "browser_projects": [
+              "chromium-desktop",
+              "webkit-mobile",
+              "chromium-fallback"
+            ],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [
+              "inspect",
+              "select",
+              "read",
+              "recenter",
+              "open_family_group",
+              "open_dock",
+              "close_reader"
+            ],
+            "visual_steps": [
+              "open_root",
+              "inspect_source",
+              "open_reader",
+              "recenter_person",
+              "verify_fallback"
+            ],
+            "visual_viewports": [
+              "1440x960",
+              "390x844"
+            ]
+          },
+          "statement": "Center remains stable while reader, family groups and docks open.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome",
+            "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity",
+            "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+          ]
+        },
+        {
+          "claim_id": "genesis_page_sets_are_monotonic",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [
+              "empty_world_at_stage_0"
+            ],
+            "interactions": [],
+            "visual_steps": [],
+            "visual_viewports": []
+          },
+          "statement": "Stage page sets are monotonic and deterministic.",
+          "test_ids": [
+            "tests/test_build_demo.py::test_stage_fixtures_are_monotonic_subsets",
+            "tests/test_build_demo.py::test_genesis_stage_zero_emits_a_declared_null_root_empty_world"
+          ]
+        },
+        {
+          "claim_id": "static_operator_preview_remains_inert",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [],
+            "visual_steps": [],
+            "visual_viewports": []
+          },
+          "statement": "Static operator command previews remain inert and emit no writes.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::demo mutation surfaces are visibly disabled and emit zero write requests"
+          ]
+        }
+      ],
+      "id": "walking_skeleton",
+      "page_count": 8,
+      "snapshot_base": "/sample-snapshot/scenarios/walking_skeleton",
+      "test_capabilities": [
+        {
+          "capability": "stable_page_ids",
+          "test_id": "tests/test_build_demo.py::test_committed_core_scenario_snapshots_match_every_executable_manifest"
+        },
+        {
+          "capability": "static_demo_inert",
+          "test_id": "apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::demo mutation surfaces are visibly disabled and emit zero write requests"
+        },
+        {
+          "capability": "validated_runtime_boundary",
+          "test_id": "apps/wiki-cockpit/src/data/snapshot.test.ts::fails real loading when /api/snapshot returns HTML instead of JSON"
+        }
+      ]
+    },
+    {
+      "artifact_warning_codes": [
+        "region_expected_missing",
+        "source_blocked"
+      ],
+      "canonical_routes": [
+        "/demo/w?demo_scenario=normal_operations&center=root-alex-rivera&view=quadrants&overlay=actions",
+        "/demo/w?demo_scenario=normal_operations&center=root-alex-rivera&view=radar&overlay=attention",
+        "/demo/w?demo_scenario=normal_operations&center=root-alex-rivera&view=work&overlay=ownership"
+      ],
+      "claims": [
+        {
+          "claim_id": "navigation_axes_change_without_losing_center",
+          "covers": {
+            "browser_projects": [
+              "chromium-desktop",
+              "webkit-mobile",
+              "chromium-fallback",
+              "firefox-smoke"
+            ],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [
+              "switch_view",
+              "switch_lens",
+              "switch_overlay",
+              "open_reader",
+              "open_dock",
+              "open_tray",
+              "recenter"
+            ],
+            "visual_steps": [
+              "open_root",
+              "visit_all_views",
+              "visit_all_overlays",
+              "open_work_dock"
+            ],
+            "visual_viewports": [
+              "1440x960",
+              "1280x900",
+              "390x844"
+            ]
+          },
+          "statement": "View, lens, overlay, reader, dock and URL-owned tray state change independently from the active center.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome",
+            "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity",
+            "apps/wiki-cockpit/e2e/firefox-smoke.spec.ts::Firefox keeps center, source reader and Back/Forward semantics across 3D or automatic fallback",
+            "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows",
+            "apps/wiki-cockpit/e2e/v8-navigation-regressions.spec.ts::URL-owned Missions tray hydrates deep links, resolves singleton conflicts and follows Back/Forward with focus",
+            "apps/wiki-cockpit/src/router.test.ts::round-trips the complete demo workflow context across canonical route writes"
+          ]
+        },
+        {
+          "claim_id": "healthy_regions_remain_visually_quiet",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [],
+            "visual_steps": [
+              "verify_calm_region"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "Healthy regions remain visually quiet while stronger signals stay bounded.",
+          "test_ids": [
+            "apps/wiki-cockpit/src/data/visualEncoding.test.ts::caps strong attention marks deterministically while preserving all node data"
+          ]
+        },
+        {
+          "claim_id": "generated_identity_is_deterministic",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [],
+            "visual_steps": [],
+            "visual_viewports": []
+          },
+          "statement": "Generated page IDs, inputs and committed scenario artifacts remain stable.",
+          "test_ids": [
+            "tests/test_build_demo.py::test_committed_core_scenario_snapshots_match_every_executable_manifest"
+          ]
+        }
+      ],
+      "id": "normal_operations",
+      "page_count": 107,
+      "snapshot_base": "/sample-snapshot",
+      "test_capabilities": [
+        {
+          "capability": "integrity_sha256",
+          "test_id": "apps/wiki-cockpit/src/data/snapshot.test.ts::verifies a content sidecar lazily against the manifest integrity entry"
+        },
+        {
+          "capability": "region_groups",
+          "test_id": "apps/wiki-cockpit/src/scene/perspectives.test.ts::quadrants: dense groups use LOD caps instead of filling the canvas with children"
+        },
+        {
+          "capability": "source_lifecycle",
+          "test_id": "tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis"
+        },
+        {
+          "capability": "stable_page_ids",
+          "test_id": "tests/test_build_demo.py::test_committed_core_scenario_snapshots_match_every_executable_manifest"
+        }
+      ]
+    },
+    {
+      "artifact_warning_codes": [
+        "region_hidden_density"
+      ],
+      "canonical_routes": [
+        "/demo/w?demo_scenario=dense_stress&center=root-alex-rivera&view=quadrants&overlay=quality&group=family:artifact"
+      ],
+      "claims": [
+        {
+          "claim_id": "region_groups_never_impersonate_pages",
+          "covers": {
+            "browser_projects": [
+              "chromium-desktop",
+              "webkit-mobile",
+              "chromium-fallback"
+            ],
+            "expected_failures": [],
+            "expected_warnings": [
+              "hidden_clusters_present"
+            ],
+            "interactions": [
+              "zoom_out",
+              "open_hidden_cluster",
+              "open_dock"
+            ],
+            "visual_steps": [
+              "open_dense_root",
+              "inspect_hidden_count"
+            ],
+            "visual_viewports": [
+              "1440x960",
+              "390x844"
+            ]
+          },
+          "statement": "Region groups never become page centers and keep all members reachable.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome",
+            "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity",
+            "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows",
+            "apps/wiki-cockpit/src/scene/perspectives.test.ts::keeps every page reachable in ≤4 interactions: galaxy → context → group → page",
+            "apps/wiki-cockpit/src/scene/perspectives.test.ts::quadrants: dense groups use LOD caps instead of filling the canvas with children"
+          ]
+        },
+        {
+          "claim_id": "hidden_counts_equal_canonical_members",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [
+              "compact_mode_allowed"
+            ],
+            "interactions": [
+              "resize"
+            ],
+            "visual_steps": [
+              "resize_mobile"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "Hidden counts equal grouped canonical pages at desktop and compact thresholds.",
+          "test_ids": [
+            "apps/wiki-cockpit/src/scene/perspectives.test.ts::honors the per-level cap and never hides pages silently: shown + hidden = total",
+            "apps/wiki-cockpit/src/world/performance.test.ts::evaluates normal and stress budgets for both device classes"
+          ]
+        },
+        {
+          "claim_id": "overlay_changes_preserve_coordinates",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [
+              "switch_overlay"
+            ],
+            "visual_steps": [
+              "switch_all_overlays"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "Overlay switches preserve semantic identity and node coordinates.",
+          "test_ids": [
+            "apps/wiki-cockpit/src/data/visualEncoding.test.ts::changes encoding without touching identity or spatial coordinates"
+          ]
+        }
+      ],
+      "id": "dense_stress",
+      "page_count": 378,
+      "snapshot_base": "/sample-snapshot/scenarios/dense_stress",
+      "test_capabilities": [
+        {
+          "capability": "compact_fallback",
+          "test_id": "apps/wiki-cockpit/src/world/performance.test.ts::reports compact rendering separately from a budget violation"
+        },
+        {
+          "capability": "density_instrumentation",
+          "test_id": "apps/wiki-cockpit/src/world/performance.test.ts::encodes the plan's desktop/mobile normal and stress limits"
+        },
+        {
+          "capability": "region_groups",
+          "test_id": "apps/wiki-cockpit/src/scene/perspectives.test.ts::quadrants: dense groups use LOD caps instead of filling the canvas with children"
+        }
+      ]
+    },
+    {
+      "artifact_warning_codes": [
+        "region_expected_missing",
+        "source_blocked"
+      ],
+      "canonical_routes": [
+        "/demo/w?demo_scenario=source_lifecycle&center=root-alex-rivera&view=sources&overlay=freshness&dock=source",
+        "/demo/w?demo_scenario=source_lifecycle&center=source-banco-export&view=sources&overlay=evidence&dock=source"
+      ],
+      "claims": [
+        {
+          "claim_id": "every_source_exposes_all_lifecycle_axes",
+          "covers": {
+            "browser_projects": [
+              "chromium-desktop",
+              "webkit-mobile",
+              "chromium-fallback"
+            ],
+            "expected_failures": [
+              "needs_auth",
+              "parser_error",
+              "secret_blocked"
+            ],
+            "expected_warnings": [
+              "stale_source",
+              "never_synced_source",
+              "blocked_source"
+            ],
+            "interactions": [
+              "open_each_source_state",
+              "inspect_attempt",
+              "inspect_freshness"
+            ],
+            "visual_steps": [
+              "open_sources_view",
+              "inspect_fresh",
+              "inspect_stale",
+              "inspect_never_synced"
+            ],
+            "visual_viewports": [
+              "1440x960",
+              "390x844"
+            ]
+          },
+          "statement": "Every source exposes lifecycle, freshness, last-attempt and governed failure axes.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome",
+            "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity",
+            "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows",
+            "tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis"
+          ]
+        },
+        {
+          "claim_id": "successful_history_blocks_never_synced_inference",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [],
+            "visual_steps": [],
+            "visual_viewports": []
+          },
+          "statement": "Never-synced is never inferred when a successful ingestion event exists.",
+          "test_ids": [
+            "apps/wiki-cockpit/src/data/visualEncoding.test.ts::keeps never-synced sources distinct from unknown freshness",
+            "tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis"
+          ]
+        },
+        {
+          "claim_id": "source_dock_and_world_state_agree",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [
+              "open_evidence"
+            ],
+            "visual_steps": [
+              "inspect_blocked"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "Source dock identity, evidence and visual lifecycle state agree.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+          ]
+        }
+      ],
+      "id": "source_lifecycle",
+      "page_count": 36,
+      "snapshot_base": "/sample-snapshot/scenarios/source_lifecycle",
+      "test_capabilities": [
+        {
+          "capability": "evidence_links",
+          "test_id": "tests/test_web_snapshot.py::test_frontmatter_relations_keep_field_semantics_and_allow_related_reciprocity"
+        },
+        {
+          "capability": "freshness",
+          "test_id": "tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis"
+        },
+        {
+          "capability": "last_attempt",
+          "test_id": "tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis"
+        },
+        {
+          "capability": "source_lifecycle",
+          "test_id": "tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis"
+        }
+      ]
+    },
+    {
+      "artifact_warning_codes": [
+        "source_blocked"
+      ],
+      "canonical_routes": [
+        "/demo/w?demo_scenario=failures&center=root-alex-rivera&view=radar&overlay=attention"
+      ],
+      "claims": [
+        {
+          "claim_id": "real_routes_never_impersonate_sample_data",
+          "covers": {
+            "browser_projects": [
+              "chromium-desktop",
+              "webkit-mobile",
+              "chromium-fallback"
+            ],
+            "expected_failures": [
+              "api_offline"
+            ],
+            "expected_warnings": [
+              "old_snapshot"
+            ],
+            "interactions": [
+              "disconnect_api"
+            ],
+            "visual_steps": [
+              "verify_offline_banner"
+            ],
+            "visual_viewports": [
+              "1440x960",
+              "390x844"
+            ]
+          },
+          "statement": "Real routes never swap to sample data when the operator is unavailable.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome",
+            "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity",
+            "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows",
+            "apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::non-demo cockpit blocks missing operator instead of rendering sample data",
+            "apps/wiki-cockpit/src/data/snapshot.test.ts::distinguishes current, previous and unsupported snapshot contracts"
+          ]
+        },
+        {
+          "claim_id": "partial_or_missing_content_degrades_honestly",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [
+              "corrupt_snapshot",
+              "torn_snapshot"
+            ],
+            "expected_warnings": [
+              "partial_snapshot",
+              "missing_content"
+            ],
+            "interactions": [
+              "load_partial_snapshot",
+              "request_missing_content"
+            ],
+            "visual_steps": [
+              "verify_partial_data",
+              "verify_missing_reader"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "Partial snapshots and missing content preserve context and expose an honest recovery state.",
+          "test_ids": [
+            "apps/wiki-cockpit/src/components/PageReader.test.tsx::degrades honestly when content is unavailable: summary + operator notice, no dead end",
+            "apps/wiki-cockpit/src/data/snapshot.test.ts::classifies an incomplete v2 envelope as partial before rendering"
+          ]
+        },
+        {
+          "claim_id": "renderer_and_effect_failures_remain_explicit",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [
+              "webgl_loss",
+              "effect_timeout"
+            ],
+            "expected_warnings": [],
+            "interactions": [
+              "lose_webgl",
+              "preview_effect"
+            ],
+            "visual_steps": [
+              "verify_webgl_fallback"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "WebGL and effect failures use explicit fallbacks while the static demo rejects fabricated execution.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::demo mutation surfaces are visibly disabled and emit zero write requests",
+            "apps/wiki-cockpit/src/components/SystemScene.test.tsx::uses the 2D fallback with the same topology, URLs and measurable fallback reason",
+            "apps/wiki-cockpit/src/world/effects/effects.test.ts::aborts stale reads when a new route requests the same resource"
+          ]
+        }
+      ],
+      "id": "failures",
+      "page_count": 4,
+      "snapshot_base": "/sample-snapshot/scenarios/failures",
+      "test_capabilities": [
+        {
+          "capability": "fallback_2d",
+          "test_id": "apps/wiki-cockpit/src/components/SystemScene.test.tsx::uses the 2D fallback with the same topology, URLs and measurable fallback reason"
+        },
+        {
+          "capability": "inert_static_effects",
+          "test_id": "apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::demo mutation surfaces are visibly disabled and emit zero write requests"
+        },
+        {
+          "capability": "offline_banner",
+          "test_id": "apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::non-demo cockpit blocks missing operator instead of rendering sample data"
+        },
+        {
+          "capability": "partial_snapshot",
+          "test_id": "apps/wiki-cockpit/src/data/snapshot.test.ts::classifies an incomplete v2 envelope as partial before rendering"
+        }
+      ]
+    },
+    {
+      "artifact_warning_codes": [],
+      "canonical_routes": [
+        "/demo/w?demo_scenario=compatibility&center=root-alex-rivera&view=quadrants&overlay=actions",
+        "/demo/w?demo_scenario=compatibility&center=library-ai-safety&view=quadrants&overlay=evidence"
+      ],
+      "claims": [
+        {
+          "claim_id": "legacy_routes_preserve_their_question",
+          "covers": {
+            "browser_projects": [
+              "chromium-desktop",
+              "webkit-mobile",
+              "chromium-fallback",
+              "firefox-smoke"
+            ],
+            "expected_failures": [],
+            "expected_warnings": [
+              "legacy_route_normalized"
+            ],
+            "interactions": [
+              "hydrate_legacy_route",
+              "open_old_snapshot"
+            ],
+            "visual_steps": [
+              "open_each_legacy_route",
+              "compare_canonical_state"
+            ],
+            "visual_viewports": [
+              "1440x960",
+              "390x844"
+            ]
+          },
+          "statement": "Legacy routes normalize into the documented world question without losing context.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome",
+            "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity",
+            "apps/wiki-cockpit/e2e/firefox-smoke.spec.ts::Firefox keeps center, source reader and Back/Forward semantics across 3D or automatic fallback",
+            "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows",
+            "apps/wiki-cockpit/src/router.test.ts::aliases /ops to the default (quadrants) world and keeps /pages/:id as a redirectable alias",
+            "apps/wiki-cockpit/src/world/WorldRuntime.test.ts::normalizes legacy route state and writes the canonical grammar"
+          ]
+        },
+        {
+          "claim_id": "canonical_writers_never_emit_legacy_state",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [
+              "copy_canonical_link"
+            ],
+            "visual_steps": [],
+            "visual_viewports": []
+          },
+          "statement": "Canonical link writers emit query-owned /w?view state; positional routes remain read-only compatibility inputs.",
+          "test_ids": [
+            "apps/wiki-cockpit/src/router.test.ts::round-trips URLs through buildUrl using only the canonical query-owned grammar",
+            "apps/wiki-cockpit/src/router.test.ts::keeps positional routes as readable inputs but normalizes every writer back to /w?view"
+          ]
+        },
+        {
+          "claim_id": "unsupported_versions_fail_visibly",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [
+              "unsupported_snapshot_version"
+            ],
+            "expected_warnings": [
+              "old_snapshot_version"
+            ],
+            "interactions": [
+              "inspect_warning"
+            ],
+            "visual_steps": [
+              "inspect_deprecation_warning"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "Unsupported snapshot versions fail visibly instead of rendering ambiguous data.",
+          "test_ids": [
+            "apps/wiki-cockpit/src/data/snapshot.test.ts::distinguishes current, previous and unsupported snapshot contracts"
+          ]
+        }
+      ],
+      "id": "compatibility",
+      "page_count": 4,
+      "snapshot_base": "/sample-snapshot/scenarios/compatibility",
+      "test_capabilities": [
+        {
+          "capability": "canonical_link_writer",
+          "test_id": "apps/wiki-cockpit/src/router.test.ts::round-trips URLs through buildUrl using only the canonical query-owned grammar"
+        },
+        {
+          "capability": "legacy_route_normalization",
+          "test_id": "apps/wiki-cockpit/src/router.test.ts::aliases /ops to the default (quadrants) world and keeps /pages/:id as a redirectable alias"
+        },
+        {
+          "capability": "schema_version_negotiation",
+          "test_id": "apps/wiki-cockpit/src/data/snapshot.test.ts::distinguishes current, previous and unsupported snapshot contracts"
+        }
+      ]
+    },
+    {
+      "artifact_warning_codes": [],
+      "canonical_routes": [
+        "/demo/w?demo_scenario=accessibility&center=root-alex-rivera&view=quadrants&overlay=actions"
+      ],
+      "claims": [
+        {
+          "claim_id": "keyboard_order_matches_visible_semantics",
+          "covers": {
+            "browser_projects": [
+              "chromium-desktop",
+              "webkit-mobile",
+              "chromium-fallback"
+            ],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [
+              "tab_all_controls",
+              "activate_with_keyboard"
+            ],
+            "visual_steps": [
+              "keyboard_walk"
+            ],
+            "visual_viewports": [
+              "1440x960",
+              "390x844"
+            ]
+          },
+          "statement": "Keyboard focus follows visible semantic order with activation and focus evidence.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome",
+            "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::appearance is operable by Tab, Shift+Tab, Enter and Space with visible focus",
+            "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity",
+            "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+          ]
+        },
+        {
+          "claim_id": "dialogs_trap_and_restore_focus",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [],
+            "visual_steps": [
+              "screen_reader_fallback"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "Dialog-like explanations expose close semantics and restore focus to their opener.",
+          "test_ids": [
+            "apps/wiki-cockpit/src/components/world/WorldNavigator.test.tsx::supports controlled explanation state, reports explicit close and restores focus"
+          ]
+        },
+        {
+          "claim_id": "reduced_motion_preserves_semantic_state",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [
+              "enable_reduced_motion"
+            ],
+            "visual_steps": [
+              "reduced_motion_walk"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "Reduced motion removes nonessential animation without removing route state.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::reduced motion removes appearance animation while preserving the semantic route"
+          ]
+        },
+        {
+          "claim_id": "non_color_touch_and_fallback_parity",
+          "covers": {
+            "browser_projects": [],
+            "expected_failures": [],
+            "expected_warnings": [],
+            "interactions": [
+              "inspect_without_color",
+              "use_touch"
+            ],
+            "visual_steps": [
+              "grayscale_state_check",
+              "touch_target_check"
+            ],
+            "visual_viewports": []
+          },
+          "statement": "Forced-color, touch and 2D fallback paths expose the same inspect, select, read and recenter capabilities.",
+          "test_ids": [
+            "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::forced colors preserves selected state, system color adjustment and visible focus",
+            "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::mobile appearance keeps both themes, all densities and 44px controls inside the viewport",
+            "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+          ]
+        }
+      ],
+      "id": "accessibility",
+      "page_count": 6,
+      "snapshot_base": "/sample-snapshot/scenarios/accessibility",
+      "test_capabilities": [
+        {
+          "capability": "keyboard_navigation",
+          "test_id": "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::appearance is operable by Tab, Shift+Tab, Enter and Space with visible focus"
+        },
+        {
+          "capability": "non_color_state",
+          "test_id": "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::forced colors preserves selected state, system color adjustment and visible focus"
+        },
+        {
+          "capability": "reduced_motion",
+          "test_id": "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::reduced motion removes appearance animation while preserving the semantic route"
+        },
+        {
+          "capability": "semantic_fallback",
+          "test_id": "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+        },
+        {
+          "capability": "touch_targets",
+          "test_id": "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::mobile appearance keeps both themes, all densities and 44px controls inside the viewport"
+        }
+      ]
+    }
+  ],
+  "schema_version": "wiki_demo_scenario_execution.v1"
+}

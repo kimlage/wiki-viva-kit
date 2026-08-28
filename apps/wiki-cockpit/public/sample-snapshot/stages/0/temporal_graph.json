@@ -1,0 +1,99 @@
+{
+  "diagnostics": [],
+  "event_count": 1,
+  "event_schema_version": "wiki_temporal_event.v1",
+  "events": [
+    {
+      "actor": null,
+      "after": {
+        "status": "blocked"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "instant",
+        "value": "2026-07-09T00:00:00Z"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:system"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_snapshot_recorded_a3af43d15361d0f03a17e157",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "snapshot_recorded",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "activity_timeline.v1",
+        "legacy_kind": "snapshot"
+      },
+      "precision": {
+        "recorded_at": "instant"
+      },
+      "recorded_at": "2026-07-09T00:00:00Z",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "system:snapshot-generated"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "page": {
+    "fingerprint": "0f977e89a788dfb82842f5dfcd9e33cd0d44c3ab89fe0b8539a5673644cd4ef3",
+    "limit": 1,
+    "offset": 0,
+    "remaining_count": 0
+  },
+  "range": {
+    "basis": "full_result",
+    "dated_count": 1,
+    "event_count": 1,
+    "from": "2026-07-09T00:00:00Z",
+    "from_precision": "instant",
+    "to": "2026-07-09T00:00:00Z",
+    "to_precision": "instant",
+    "undated_count": 0
+  },
+  "repo_id": "wiki-viva-demo",
+  "returned_count": 1,
+  "returned_range": {
+    "basis": "returned_page",
+    "dated_count": 1,
+    "event_count": 1,
+    "from": "2026-07-09T00:00:00Z",
+    "from_precision": "instant",
+    "to": "2026-07-09T00:00:00Z",
+    "to_precision": "instant",
+    "undated_count": 0
+  },
+  "revision": "sha256:0f977e89a788dfb82842f5dfcd9e33cd0d44c3ab89fe0b8539a5673644cd4ef3",
+  "schema_version": "wiki_temporal_graph.v1",
+  "summary": {
+    "by_context": {
+      "context:system": 1
+    },
+    "by_kind": {
+      "snapshot_recorded": 1
+    },
+    "conflict_count": 0,
+    "diagnostic_count": 0,
+    "event_count": 1,
+    "imprecise_count": 0,
+    "scope": "full_result"
+  },
+  "total_count": 1,
+  "truncated": false
+}

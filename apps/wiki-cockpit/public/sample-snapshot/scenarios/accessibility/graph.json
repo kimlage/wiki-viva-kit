@@ -1,0 +1,730 @@
+{
+  "edges": [
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "d9b12f2e5b156f713aa7",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "person-marina-costa",
+        "path": "memories/people/person-marina-costa.md"
+      },
+      "source": "person-marina-costa",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    }
+  ],
+  "nodes": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "action-region-clean-unsourced",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 0,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 1,
+          "reasons": [
+            "action:action-region-clean-unsourced:open"
+          ],
+          "refs": [
+            "action-region-clean-unsourced"
+          ],
+          "state": "open",
+          "value": 1
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "action:action-region-clean-unsourced:open"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-product-analytics"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:unassigned"
+          ],
+          "refs": [],
+          "state": "unassigned",
+          "value": null
+        },
+        "quality": {
+          "count": 4,
+          "reasons": [
+            "quality:low_information_density_pages",
+            "quality:orphan_actions",
+            "quality:repeated_blocks",
+            "quality:thin_link_pages"
+          ],
+          "refs": [],
+          "state": "flagged",
+          "value": 4
+        }
+      },
+      "page_type": "action",
+      "path": "memories/actions/action-region-clean-unsourced.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "open",
+      "title": "Clean unsourced region claims",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "artifact-dashboard-atlas",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 0,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 2,
+          "reasons": [
+            "quality:low_information_density_pages",
+            "quality:thin_link_pages"
+          ],
+          "refs": [],
+          "state": "flagged",
+          "value": 2
+        }
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-dashboard-atlas.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Dashboard do Atlas",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "claim-region-grouping-needed",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 0,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 3,
+          "reasons": [
+            "quality:low_information_density_pages",
+            "quality:repeated_blocks",
+            "quality:thin_link_pages"
+          ],
+          "refs": [],
+          "state": "flagged",
+          "value": 3
+        }
+      },
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-grouping-needed.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Dense regions need summaries",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "estudio",
+      "freshness_state": "stale",
+      "id": "person-marina-costa",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "stale",
+          "value": 0
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "person",
+      "path": "memories/people/person-marina-costa.md",
+      "risk_flags": [],
+      "stale_after_days": "45",
+      "status": "",
+      "title": "Marina Costa",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "root-alex-rivera",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 0,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:thin_link_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Alex Rivera",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "rule-nada-publica-sem-review",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 0,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "operational_rule",
+      "path": "memories/rules/rule-nada-publica-sem-review.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Nada publica sem review humano",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    }
+  ],
+  "overlay_metrics_version": "wiki_semantic_visual_tokens.v1",
+  "relation_diagnostics": [],
+  "relation_types": [
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "collection membership row",
+      "family": "collection",
+      "id": "collection_member",
+      "label": "collection member",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "member to collection index"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "blocked-by row",
+      "family": "dependency",
+      "id": "dependency",
+      "label": "dependency",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "blocker to dependent work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "supporting evidence row",
+      "family": "evidence",
+      "id": "evidence_supports",
+      "label": "evidence supports",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence to supported work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "affected page row",
+      "family": "impact",
+      "id": "impact",
+      "label": "impact",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest/proposal to canonical change"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "linked page row",
+      "family": "citation",
+      "id": "markdown_link",
+      "label": "markdown link",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored citation"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "parent/child row",
+      "family": "hierarchy",
+      "id": "moc_parent",
+      "label": "moc parent",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "structural parent"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "owner row",
+      "family": "ownership",
+      "id": "ownership",
+      "label": "ownership",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "owner to owned object"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "participant row",
+      "family": "participation",
+      "id": "participation",
+      "label": "participation",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "participant to event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "proposal transition row",
+      "family": "impact",
+      "id": "proposal_transition",
+      "label": "proposal transition",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest event to review proposal"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "related page row",
+      "family": "association",
+      "id": "related_page",
+      "label": "related page",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored related-page association"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "emitted event row",
+      "family": "source_emission",
+      "id": "source_emission",
+      "label": "source emission",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "source to ingest event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "source reference row",
+      "family": "evidence",
+      "id": "source_ref",
+      "label": "source ref",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence reference"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "previous/next row",
+      "family": "temporal",
+      "id": "temporal_sequence",
+      "label": "temporal sequence",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "earlier to later event"
+    }
+  ],
+  "relation_vocabulary_version": "wiki_relation_types.v1",
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_graph.v2",
+  "wanted_pages": {
+    "memories/clientes/index.md": [
+      "memories/actions/action-region-clean-unsourced.md",
+      "memories/claims/claim-region-grouping-needed.md"
+    ],
+    "memories/clientes/product-ops/atlas-launch/index.md": [
+      "memories/artifacts/artifact-dashboard-atlas.md"
+    ],
+    "memories/sistema/index.md": [
+      "memories/rules/rule-nada-publica-sem-review.md"
+    ]
+  }
+}

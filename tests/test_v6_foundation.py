@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -240,6 +241,43 @@ def test_source_registry_is_deterministic_and_titled():
     assert a == b  # deterministic
     assert reg.STRINGS[config.language]["title"] in a
     assert "page_type: source_registry" in a
+    frontmatter = yaml.safe_load(a.split("---", 2)[1])
+    assert frontmatter["parent_projection"] == {
+        "quadrant": "q2",
+        "sub_lens": "evidencias",
+        "reason": "The generated source registry is an observable evidence index of canonical sources.",
+    }
+
+
+def test_source_registry_contract_requires_explicit_evidence_projection():
+    registry = yaml.safe_load((ROOT / "wiki.page-types.yaml").read_text(encoding="utf-8"))
+    shape = registry["page_types"]["source_registry"]
+    assert "parent_projection" in shape["required_frontmatter"]
+    assert shape["field_types"]["parent_projection"] == "object"
+
+
+@pytest.mark.parametrize(
+    ("language", "reason"),
+    [
+        ("en", "The generated source registry is an observable evidence index of canonical sources."),
+        ("pt", "O registro de fontes gerado e um indice observavel de evidencias das fontes canonicas."),
+    ],
+)
+def test_source_registry_projection_reason_follows_repo_language(tmp_path, monkeypatch, language, reason):
+    reg = _load_script("wiki_source_registry")
+    (tmp_path / "wiki.config.yaml").write_text(
+        f"repo_id: demo\nlanguage: {language}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(reg, "ROOT", tmp_path)
+    config = WikiConfig(language=language)
+    rendered = reg.build_registry(WikiPaths(tmp_path, config), config, "2026-06-10")
+    frontmatter = yaml.safe_load(rendered.split("---", 2)[1])
+    assert frontmatter["parent_projection"] == {
+        "quadrant": "q2",
+        "sub_lens": "evidencias",
+        "reason": reason,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -298,6 +336,31 @@ def test_registry_config_column_only_links_existing_config(tmp_path, monkeypatch
     rows = {r["title"]: r["config"] for r in reg.collect_sources(paths)}
     assert rows["S"] == "memories/sources/config/s.md"  # exists -> linkable
     assert rows["T"] == ""                              # missing -> not linked
+
+
+def test_source_registry_recurses_and_excludes_catalogs_and_artifacts(tmp_path, monkeypatch):
+    reg = _load_script("wiki_source_registry")
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    _write(
+        tmp_path / "memories/sources/nested/source.md",
+        '---\npage_id: source-nested\npage_type: source\ntitle: "Nested source"\n---\n',
+    )
+    _write(
+        tmp_path / "memories/sources/catalog.md",
+        '---\npage_id: source-catalog\npage_type: source_catalog\ntitle: "Catalog"\n---\n',
+    )
+    _write(
+        tmp_path / "memories/sources/evidence.md",
+        '---\npage_id: source-artifact\npage_type: artifact\ntitle: "Evidence artifact"\n---\n',
+    )
+    monkeypatch.setattr(reg, "ROOT", tmp_path)
+
+    rows = reg.collect_sources(paths, "2026-06-10")
+
+    assert [(row["title"], row["rel"]) for row in rows] == [
+        ("Nested source", "memories/sources/nested/source.md")
+    ]
 
 
 def test_source_registry_marks_next_refresh_status(tmp_path, monkeypatch):

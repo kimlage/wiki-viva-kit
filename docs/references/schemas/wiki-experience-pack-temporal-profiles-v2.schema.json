@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-experience-pack-temporal-profiles-v2.schema.json",
+  "title": "Wiki Viva experience pack temporal profiles and declarative adapters v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pack", "profiles", "adapters"],
+  "properties": {
+    "schema_version": {"const": "wiki_experience_pack_temporal_profiles.v2"},
+    "pack": {"$ref": "#/$defs/packId"},
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slot", "event_times", "lanes", "precision_policy"],
+        "properties": {
+          "slot": {"$ref": "#/$defs/identifier"},
+          "event_times": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "lanes": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+          "precision_policy": {"const": "preserve_unknown"},
+          "horizon": {"$ref": "#/$defs/identifier"},
+          "comparison": {"$ref": "#/$defs/identifier"}
+        }
+      }
+    },
+    "adapters": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {"$ref": "#/$defs/adapter"}
+    }
+  },
+  "$defs": {
+    "packId": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+    "eventKind": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*){1,5}$", "maxLength": 80},
+    "sourceField": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+    "stateKey": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+    "nonEmptyIdentifiers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    },
+    "stateMap": {
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/stateKey"},
+      "additionalProperties": {"$ref": "#/$defs/sourceField"}
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "page_type", "event_kind", "lane", "time", "required_times", "state", "provenance", "confidence"],
+      "properties": {
+        "schema_version": {"const": "wiki_experience_pack_temporal_adapter.v1"},
+        "page_type": {"$ref": "#/$defs/identifier"},
+        "event_kind": {"$ref": "#/$defs/eventKind"},
+        "lane": {"enum": ["source", "action", "decision", "receipt", "page", "system", "other"]},
+        "time": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "enum": ["occurred_at", "recorded_at", "valid_from", "valid_to", "created_at", "due_at", "completed_at", "verified_at", "ingested_at", "superseded_at"]
+          },
+          "additionalProperties": {"$ref": "#/$defs/sourceField"}
+        },
+        "required_times": {"$ref": "#/$defs/nonEmptyIdentifiers"},
+        "state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["before", "after"],
+          "properties": {
+            "before": {"$ref": "#/$defs/stateMap"},
+            "after": {"$ref": "#/$defs/stateMap"}
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_refs", "evidence_refs"],
+          "properties": {
+            "source_refs": {"$ref": "#/$defs/provenanceMap"},
+            "evidence_refs": {"$ref": "#/$defs/provenanceMap"}
+          }
+        },
+        "confidence": {"enum": ["confirmed", "inferred", "uncertain"]}
+      }
+    },
+    "provenanceMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "fields"],
+      "properties": {
+        "policy": {"enum": ["optional", "required"]},
+        "fields": {"$ref": "#/$defs/nonEmptyIdentifiers"}
+      }
+    }
+  }
+}

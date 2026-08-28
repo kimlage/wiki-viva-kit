@@ -1,0 +1,55 @@
+{
+  "backlinks": [],
+  "body": "\n# Clean unsourced region claims\n\nSynthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.\n",
+  "frontmatter": {
+    "action_state": "open",
+    "attention_basis": "Unsourced claims weaken evidence quality.",
+    "context": "clientes",
+    "created_at": "2026-07-03",
+    "moc_parent": "memories/clientes/index.md",
+    "next_action": "Link each unsourced claim or mark it for removal.",
+    "owner_kind": "unassigned",
+    "page_id": "action-region-clean-unsourced",
+    "page_type": "action",
+    "priority": "normal",
+    "source_refs": [
+      "source-product-analytics"
+    ],
+    "stale_after_days": 30,
+    "status": "open",
+    "sub_lens": "producao",
+    "title": "Clean unsourced region claims",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "action-region-clean-unsourced",
+    "page_type": "action",
+    "path": "memories/actions/action-region-clean-unsourced.md",
+    "summary": "Synthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.",
+    "summary_truncated": false,
+    "title": "Clean unsourced region claims",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-92120ab7ad26aabe",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-product-analytics",
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "ref": "source-product-analytics",
+      "resolved": true,
+      "title": "Product analytics export"
+    }
+  ]
+}

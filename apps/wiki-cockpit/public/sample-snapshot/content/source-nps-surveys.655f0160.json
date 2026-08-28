@@ -1,0 +1,42 @@
+{
+  "backlinks": [],
+  "body": "\n# NPS survey export\n\nA live Survey tool source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `ready`, freshness `never_synced` and last attempt `never`.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/index.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-nps-surveys",
+    "page_type": "source",
+    "platform": "Survey tool",
+    "source_lifecycle": {
+      "adoption_state": "pending",
+      "freshness_state": "never_synced",
+      "last_attempt_state": "never",
+      "pipeline_stage": "configured",
+      "state": "ready"
+    },
+    "source_type": "live",
+    "stale_after_days": 30,
+    "title": "NPS survey export",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "source-nps-surveys",
+    "page_type": "source",
+    "path": "memories/sources/source-nps-surveys.md",
+    "summary": "A live Survey tool source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle ready, freshness never_synced and last attempt never.",
+    "summary_truncated": false,
+    "title": "NPS survey export",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-8d1c5584a934c732",
+  "source_refs": []
+}

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-experience-pack-v1.schema.json",
+  "title": "Wiki Viva experience pack manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "name", "description", "version", "license",
+    "compatible_core", "capabilities", "dependencies", "conflicts", "privacy",
+    "assets", "fixtures", "tests", "migrations", "artifacts", "slots", "i18n"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_experience_pack.v1"},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+    "name": {"type": "string", "minLength": 1},
+    "description": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "license": {"enum": ["MIT", "Apache-2.0"]},
+    "compatible_core": {"type": "string", "minLength": 1},
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page_types", "blocks", "block_packages", "views", "commands", "operations", "temporal_profiles"],
+      "properties": {
+        "page_types": {"$ref": "#/$defs/uniqueIdentifiers"},
+        "blocks": {"$ref": "#/$defs/uniqueIdentifiers"},
+        "block_packages": {"$ref": "#/$defs/uniqueIdentifiers"},
+        "views": {"$ref": "#/$defs/uniqueIdentifiers"},
+        "commands": {"$ref": "#/$defs/uniqueIdentifiers"},
+        "operations": {"$ref": "#/$defs/uniqueIdentifiers"},
+        "temporal_profiles": {"$ref": "#/$defs/uniqueIdentifiers"}
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "version"],
+        "properties": {"id": {"$ref": "#/$defs/packId"}, "version": {"type": "string", "minLength": 1}}
+      }
+    },
+    "conflicts": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/packId"}},
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["default_visibility", "public_fixture_only", "access_secrets", "pii_public_export"],
+      "properties": {
+        "default_visibility": {"enum": ["private", "private_self", "internal"]},
+        "public_fixture_only": {"const": true},
+        "access_secrets": {"const": "block"},
+        "pii_public_export": {"const": "block"}
+      }
+    },
+    "assets": {
+      "type": "object", "additionalProperties": false, "required": ["manifest", "allow_remote"],
+      "properties": {"manifest": {"$ref": "#/$defs/relativePath"}, "allow_remote": {"const": false}}
+    },
+    "fixtures": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/relativePath"}},
+    "tests": {
+      "type": "object", "additionalProperties": false, "required": ["contracts"],
+      "properties": {"contracts": {"$ref": "#/$defs/uniqueIdentifiers"}}
+    },
+    "migrations": {
+      "type": "object", "additionalProperties": false, "required": ["install", "upgrades"],
+      "properties": {"install": {"$ref": "#/$defs/relativePath"}, "upgrades": {"$ref": "#/$defs/relativePath"}}
+    },
+    "artifacts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["page_types", "templates", "blocks", "views", "commands", "operations", "temporal", "i18n"],
+      "properties": {
+        "page_types": {"$ref": "#/$defs/relativePath"}, "templates": {"$ref": "#/$defs/relativePath"},
+        "blocks": {"$ref": "#/$defs/relativePath"}, "views": {"$ref": "#/$defs/relativePath"},
+        "commands": {"$ref": "#/$defs/relativePath"},
+        "operations": {"$ref": "#/$defs/relativePath"}, "temporal": {"$ref": "#/$defs/relativePath"},
+        "i18n": {"$ref": "#/$defs/relativePath"}
+      }
+    },
+    "slots": {
+      "type": "object", "additionalProperties": false, "required": ["views", "commands", "operations", "timelines"],
+      "properties": {
+        "views": {"$ref": "#/$defs/slotRecords"}, "commands": {"$ref": "#/$defs/slotRecords"},
+        "operations": {"$ref": "#/$defs/slotRecords"}, "timelines": {"$ref": "#/$defs/slotRecords"}
+      }
+    },
+    "i18n": {
+      "type": "object", "additionalProperties": false, "required": ["locales", "default_locale"],
+      "properties": {"locales": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "default_locale": {"type": "string"}}
+    }
+  },
+  "$defs": {
+    "packId": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"},
+    "uniqueIdentifiers": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+    "relativePath": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"},
+    "slotRecords": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["slot", "contribution", "mode"],
+        "properties": {"slot": {"$ref": "#/$defs/identifier"}, "contribution": {"$ref": "#/$defs/identifier"}, "mode": {"enum": ["append", "exclusive"]}}
+      }
+    }
+  }
+}

@@ -57,7 +57,7 @@ export function CodexDock({
         <header className="dockHeader">
           <strong>{t("codex.dock.title")}</strong>
           {capability.version && <span className="pill pill-muted">{capability.version}</span>}
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>

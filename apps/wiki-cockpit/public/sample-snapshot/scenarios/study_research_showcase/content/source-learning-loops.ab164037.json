@@ -1,0 +1,60 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "root-study-research-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "relation": "markdown_link",
+      "title": "Study and Research Observatory"
+    }
+  ],
+  "body": "\n# Learning loops reference\n\nSynthetic evidence about review cadence and retrieval practice.\n\n## Demo navigation\n\n[Back to pack showcase](../../../index.md)\n",
+  "frontmatter": {
+    "captured_at": "2026-01-10",
+    "context": "showcase",
+    "moc_parent": "memories/index.md",
+    "page_id": "source-learning-loops",
+    "page_type": "study_research_source",
+    "source_kind": "synthetic-paper",
+    "source_refs": [],
+    "stale_after_days": "3650",
+    "status": "reviewed",
+    "title": "Learning loops reference",
+    "updated_at": "2026-07-09",
+    "visibility": "public"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "showcase",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "source-learning-loops",
+    "page_type": "study_research_source",
+    "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md",
+    "summary": "Synthetic evidence about review cadence and retrieval practice. Back to pack showcase",
+    "summary_truncated": false,
+    "title": "Learning loops reference",
+    "updated_at": "2026-07-09"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "../../../index.md",
+      "kind": "page",
+      "page_id": "root-study-research-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "text": "Back to pack showcase",
+      "title": "Study and Research Observatory"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-study-research-showcase-a589b4a240f07ed7",
+  "source_refs": []
+}

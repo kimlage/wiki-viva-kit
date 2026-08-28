@@ -1,52 +1,195 @@
 {
   "edges": [
     {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "1ccfa82f4582321f8661",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "artifact-relatorio-recon",
+        "path": "memories/artifacts/artifact-relatorio-recon.md"
+      },
       "source": "artifact-relatorio-recon",
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "2af2bafbbc4d259ea68b",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-relatorio-recon",
+        "path": "memories/artifacts/artifact-relatorio-recon.md"
+      },
+      "source": "artifact-relatorio-recon",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
       "weight": 2
     },
     {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "6b0cae73a6bdb57eb410",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "claim-custos-sobem",
+        "path": "memories/claims/claim-custos-sobem.md"
+      },
       "source": "claim-custos-sobem",
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "f5011f4312f64aff53d3",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "claim-custos-sobem",
+        "path": "memories/claims/claim-custos-sobem.md"
+      },
+      "source": "claim-custos-sobem",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
       "weight": 2
     },
     {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "5424926ee263c5cdf4d8",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "consolidated_into",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
       "source": "event-ingest-banco-2026-05",
       "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "moc_parent",
+      "target": "artifact-relatorio-recon",
+      "type": "impact",
       "weight": 2
     },
     {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "49f8a31a879da4b245b4",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "consolidated_into",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
+      "source": "event-ingest-banco-2026-05",
+      "status": "valid",
+      "target": "claim-custos-sobem",
+      "type": "impact",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "fd2cf0490e0b3173a0d7",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
+      "source": "event-ingest-banco-2026-05",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "a9d7521f042c23305f17",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
+      "source": "event-ingest-banco-2026-05",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "fe5cab1c56d415d34e56",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "hub-financeiro",
+        "path": "memories/financeiro/index.md"
+      },
       "source": "hub-financeiro",
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "d9b12f2e5b156f713aa7",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "person-marina-costa",
+        "path": "memories/people/person-marina-costa.md"
+      },
       "source": "person-marina-costa",
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "66fe56a25d49ced05d8c",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
+      "source": "source-banco-export",
+      "status": "valid",
+      "target": "event-ingest-banco-2026-05",
+      "type": "source_emission",
       "weight": 2
     },
     {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "f9e3109821e8da826994",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-banco-export",
+        "path": "memories/sources/source-banco-export.md"
+      },
       "source": "source-banco-export",
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "source": "source-banco-export",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     }
   ],
@@ -57,9 +200,63 @@
       "freshness_state": "fresh",
       "id": "artifact-relatorio-recon",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-banco-export"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
       },
       "page_type": "artifact",
       "path": "memories/artifacts/artifact-relatorio-recon.md",
@@ -76,9 +273,63 @@
       "freshness_state": "fresh",
       "id": "claim-custos-sobem",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-banco-export"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
       },
       "page_type": "claim",
       "path": "memories/claims/claim-custos-sobem.md",
@@ -96,8 +347,62 @@
       "id": "event-ingest-banco-2026-05",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-banco-export"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
       },
       "page_type": "ingestion_event",
       "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
@@ -118,6 +423,58 @@
         "outbound_links": 1,
         "source_ref_count": 0
       },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
       "page_type": "context_hub",
       "path": "memories/financeiro/index.md",
       "risk_flags": [],
@@ -137,6 +494,60 @@
         "outbound_links": 1,
         "source_ref_count": 0
       },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "stale",
+          "value": 0
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
       "page_type": "person",
       "path": "memories/people/person-marina-costa.md",
       "risk_flags": [],
@@ -152,9 +563,61 @@
       "freshness_state": "fresh",
       "id": "root-alex-rivera",
       "metrics": {
-        "inbound_links": 4,
+        "inbound_links": 3,
         "outbound_links": 0,
         "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:thin_link_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
       },
       "page_type": "root_entity",
       "path": "memories/index.md",
@@ -171,9 +634,63 @@
       "freshness_state": "stale",
       "id": "source-banco-export",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 3,
         "outbound_links": 2,
         "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "stale",
+          "value": 0
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
       },
       "page_type": "source",
       "path": "memories/sources/source-banco-export.md",
@@ -185,7 +702,259 @@
       "visibility": "private_self"
     }
   ],
+  "overlay_metrics_version": "wiki_semantic_visual_tokens.v1",
+  "relation_diagnostics": [],
+  "relation_types": [
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "collection membership row",
+      "family": "collection",
+      "id": "collection_member",
+      "label": "collection member",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "member to collection index"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "blocked-by row",
+      "family": "dependency",
+      "id": "dependency",
+      "label": "dependency",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "blocker to dependent work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "supporting evidence row",
+      "family": "evidence",
+      "id": "evidence_supports",
+      "label": "evidence supports",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence to supported work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "affected page row",
+      "family": "impact",
+      "id": "impact",
+      "label": "impact",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest/proposal to canonical change"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "linked page row",
+      "family": "citation",
+      "id": "markdown_link",
+      "label": "markdown link",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored citation"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "parent/child row",
+      "family": "hierarchy",
+      "id": "moc_parent",
+      "label": "moc parent",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "structural parent"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "owner row",
+      "family": "ownership",
+      "id": "ownership",
+      "label": "ownership",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "owner to owned object"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "participant row",
+      "family": "participation",
+      "id": "participation",
+      "label": "participation",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "participant to event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "proposal transition row",
+      "family": "impact",
+      "id": "proposal_transition",
+      "label": "proposal transition",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest event to review proposal"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "related page row",
+      "family": "association",
+      "id": "related_page",
+      "label": "related page",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored related-page association"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "emitted event row",
+      "family": "source_emission",
+      "id": "source_emission",
+      "label": "source emission",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "source to ingest event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "source reference row",
+      "family": "evidence",
+      "id": "source_ref",
+      "label": "source ref",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence reference"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "previous/next row",
+      "family": "temporal",
+      "id": "temporal_sequence",
+      "label": "temporal sequence",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "earlier to later event"
+    }
+  ],
+  "relation_vocabulary_version": "wiki_relation_types.v1",
   "repo_id": "wiki-viva-demo",
-  "schema_version": "wiki_web_graph.v1",
+  "schema_version": "wiki_web_graph.v2",
   "wanted_pages": {}
 }

@@ -1,0 +1,45 @@
+{
+  "decisions": [
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "15afb3181a8f8b59787fc1b800c138b65044428721a8b09e39fa3c949cf877c5",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "finance-review-july",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "decision",
+      "path": "memories/showcases/personal_finance_showcase/support/finance-review-july.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "summary": "Fixture-only human-gate anchor confirming that the synthetic reconciliation was reviewed before the synthetic monthly close. Back to pack showcase",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {},
+        "dates": {
+          "decided_at": "2026-08-03"
+        },
+        "precision": {}
+      },
+      "title": "Synthetic July close review",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    }
+  ],
+  "schema_version": "wiki_web_decisions.v1"
+}

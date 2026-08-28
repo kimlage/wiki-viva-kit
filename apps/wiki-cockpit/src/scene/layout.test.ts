@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GraphNode } from "../types";
-import { computeGalaxyLayout, scenePerformanceProfile } from "./layout";
+import { computeGalaxyLayout, layoutNodeInstanceKeys, scenePerformanceProfile } from "./layout";
+import type { LayoutNode } from "./layout";
 
 function node(id: string, context: string, overrides: Partial<GraphNode> & { stale_after_days?: string } = {}): GraphNode {
   return {
@@ -20,6 +21,54 @@ function node(id: string, context: string, overrides: Partial<GraphNode> & { sta
 }
 
 const SNAPSHOT = "2026-07-01T00:00:00Z";
+
+function layoutNode(id: string, position: [number, number, number]): LayoutNode {
+  return {
+    id,
+    path: id,
+    title: id,
+    context: "system",
+    page_type: "visual_group_source",
+    freshness_state: "fresh",
+    approved_state: "approved",
+    risk_flags: [],
+    source_ref_count: 0,
+    inbound_links: 0,
+    outbound_links: 0,
+    ageDays: 0,
+    overdueRatio: 0,
+    isHub: true,
+    isRoot: false,
+    isGroup: true,
+    position,
+    scale: 0.3
+  };
+}
+
+describe("layout node render identity", () => {
+  it("keeps semantic ids for unique nodes and disambiguates repeated v1 family projections", () => {
+    const nodes = [
+      layoutNode("root", [0, 0, 0]),
+      layoutNode("family:source", [-2, 0, 1]),
+      layoutNode("family:source", [2, 0, -1])
+    ];
+
+    const keys = layoutNodeInstanceKeys(nodes);
+
+    expect(keys[0]).toBe("root");
+    expect(keys.slice(1)).toEqual(["family:source@-2,0,1", "family:source@2,0,-1"]);
+    expect(new Set(keys).size).toBe(nodes.length);
+    expect(nodes.map((item) => item.id)).toEqual(["root", "family:source", "family:source"]);
+  });
+
+  it("uses an occurrence suffix for exact duplicate physical instances", () => {
+    const duplicate = layoutNode("family:content", [1.25, 0, -0.5]);
+    expect(layoutNodeInstanceKeys([duplicate, { ...duplicate }])).toEqual([
+      "family:content@1.25,0,-0.5",
+      "family:content@1.25,0,-0.5#2"
+    ]);
+  });
+});
 
 describe("radar layout", () => {
   it("keeps the root at the origin and pins hubs at the wedge mouth", () => {
@@ -126,6 +175,19 @@ describe("scene performance profile", () => {
     expect(profile.quality).toBe("rich");
     expect(profile.maxNodes).toBeGreaterThanOrEqual(96);
     expect(profile.dpr[1]).toBeLessThanOrEqual(1.6);
+    expect(profile.antialias).toBe(true);
+  });
+
+  it("keeps the rich tier while applying dense geometry and MSAA LOD to the 107-node reference universe", () => {
+    const profile = scenePerformanceProfile(107, { width: 1440, pixelRatio: 2, hardwareConcurrency: 10 });
+    expect(profile).toMatchObject({
+      quality: "rich",
+      maxNodes: 160,
+      geometrySegments: 18,
+      antialias: false,
+      enableIntro: true,
+      label: "rich·dense"
+    });
   });
 
   it("keeps the rich tier for large repos on strong machines", () => {
@@ -133,6 +195,7 @@ describe("scene performance profile", () => {
     const profile = scenePerformanceProfile(532, { width: 1440, pixelRatio: 2, hardwareConcurrency: 14 });
     expect(profile.quality).toBe("rich");
     expect(profile.maxNodes).toBe(160);
+    expect(profile.antialias).toBe(false);
     // Dense repos trade geometry detail, not effects.
     expect(profile.geometrySegments).toBeLessThanOrEqual(18);
   });

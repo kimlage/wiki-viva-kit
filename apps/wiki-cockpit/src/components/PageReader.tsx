@@ -7,14 +7,29 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import type { Token } from "marked";
-import { ExternalLink, GitBranch, ListChecks, Maximize2, Minimize2, Search, Sparkles, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowRight,
+  CalendarClock,
+  Ellipsis,
+  ExternalLink,
+  FileCheck2,
+  Flag,
+  GitBranch,
+  ListChecks,
+  Maximize2,
+  Minimize2,
+  Search,
+  Sparkles,
+  User,
+  X
+} from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "../data/i18n";
 import { contextLabel, contextStyle, isMetaPage, isRawData, landmarkGlyph, pageTypeLabel, trustColor } from "../data/presentation";
 import { facetsOrder, pinnedFieldStatus, templateSpec } from "../data/templates";
 import { TemplateInspector } from "./TemplateInspector";
-import { loadPageContent } from "../data/snapshot";
-import type { ActionCard, BriefSpec, PageContent, PageRecord, QuadrantProjection, ResolvedLink, SnapshotBundle } from "../types";
+import type { OperatorCommandCard, BriefSpec, PageContent, PageRecord, QuadrantProjection, ResolvedLink, SnapshotBundle } from "../types";
+import type { OperatorPort } from "../application/ports";
 
 export type RelationGroupKey = "hierarquia" | "evidencia" | "links" | "citado-por";
 
@@ -37,106 +52,23 @@ function freshnessLabel(state: string): string {
   return t("trust.notChecked");
 }
 
-// A rendered mermaid diagram, shrunk to fit the reader column, is unreadable for
-// anything wide. Make each one open a full-screen lightbox on click, where it
-// renders at natural size, pans (scroll/drag) and zooms (+/−/wheel). Pure DOM +
-// CSS classes so it works inside the imperatively-built reader content.
-function makeDiagramZoomable(figure: HTMLElement): void {
-  figure.setAttribute("role", "button");
-  figure.setAttribute("tabindex", "0");
-  figure.title = t("reader.diagramExpand");
-  const hint = document.createElement("span");
-  hint.className = "readerDiagramHint";
-  hint.textContent = t("reader.diagramExpand");
-  figure.appendChild(hint);
-
-  const open = () => {
-    const overlay = document.createElement("div");
-    overlay.className = "diagramLightbox";
-    const stage = document.createElement("div");
-    stage.className = "diagramStage";
-    const svg = figure.querySelector("svg");
-    if (svg) stage.appendChild(svg.cloneNode(true));
-    let scale = 1;
-    const applyScale = () => {
-      const inner = stage.firstElementChild as HTMLElement | null;
-      if (inner) inner.style.transform = `scale(${scale})`;
-    };
-    const bar = document.createElement("div");
-    bar.className = "diagramLightboxBar";
-    const mkBtn = (label: string, on: () => void) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = label;
-      b.addEventListener("click", (e) => { e.stopPropagation(); on(); });
-      return b;
-    };
-    const close = () => { overlay.remove(); document.removeEventListener("keydown", onKey, true); };
-    bar.appendChild(mkBtn("−", () => { scale = Math.max(0.4, scale - 0.25); applyScale(); }));
-    bar.appendChild(mkBtn("+", () => { scale = Math.min(6, scale + 0.25); applyScale(); }));
-    bar.appendChild(mkBtn("⤢", () => { scale = 1; applyScale(); })).title = t("reader.diagramReset");
-    const closeBtn = mkBtn("✕", close);
-    closeBtn.className = "diagramLightboxClose";
-    bar.appendChild(closeBtn);
-    stage.addEventListener("wheel", (e) => {
-      if (!e.ctrlKey && !e.metaKey) return; // only zoom on ctrl/⌘+wheel; plain wheel pans
-      e.preventDefault();
-      scale = Math.min(6, Math.max(0.4, scale + (e.deltaY < 0 ? 0.15 : -0.15)));
-      applyScale();
-    }, { passive: false });
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // The lightbox is the TOP layer: Esc closes it and only it — the
-        // reader's own Esc handler (and the world ladder) must not also fire.
-        e.stopImmediatePropagation();
-        e.stopPropagation();
-        close();
-      }
-      else if (e.key === "+" || e.key === "=") { scale = Math.min(6, scale + 0.25); applyScale(); }
-      else if (e.key === "-") { scale = Math.max(0.4, scale - 0.25); applyScale(); }
-    };
-    // Capture phase: runs before the reader dock's bubbling Esc handler.
-    document.addEventListener("keydown", onKey, true);
-    overlay.append(bar, stage);
-    document.body.appendChild(overlay);
-  };
-  figure.addEventListener("click", open);
-  figure.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
-  });
-}
-
-// Fenced ```mermaid blocks render as real diagrams (lazy-loaded, strict
-// security level). Failures fall back to the source with an honest notice.
+// Mermaid source remains readable and safe in the core reader. Specialized
+// diagram rendering is an optional v8 capability: bundling every parser made
+// the default reader carry several oversized modules even when no diagram was
+// opened.
 async function renderMermaidBlocks(container: HTMLElement): Promise<void> {
   const blocks = [...container.querySelectorAll<HTMLElement>("pre code.language-mermaid")];
   if (blocks.length === 0) return;
-  try {
-    const { default: mermaid } = await import("mermaid");
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "dark", darkMode: true });
-    let index = 0;
-    for (const code of blocks) {
-      const pre = code.closest("pre");
-      if (!pre || !pre.parentElement) continue;
-      const source = code.textContent || "";
-      index += 1;
-      try {
-        const { svg } = await mermaid.render(`readerDiagram${index}-${Date.now() % 100000}`, source);
-        const wrapper = document.createElement("figure");
-        wrapper.className = "readerDiagram";
-        wrapper.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
-        makeDiagramZoomable(wrapper);
-        pre.replaceWith(wrapper);
-      } catch {
-        const note = document.createElement("p");
-        note.className = "readerNotice";
-        note.textContent = t("reader.diagramError");
-        pre.before(note);
-      }
-    }
-  } catch {
-    /* mermaid chunk unavailable (offline static build) — code stays visible */
+  for (const code of blocks) {
+    const pre = code.closest("pre");
+    if (!pre) continue;
+    pre.classList.add("diagramSource");
+    pre.setAttribute("role", "figure");
+    pre.setAttribute("aria-label", "Mermaid diagram source; optional renderer not loaded");
+    const note = document.createElement("small");
+    note.className = "diagramCapabilityNote";
+    note.textContent = "Diagram source · optional renderer";
+    pre.prepend(note);
   }
 }
 
@@ -147,14 +79,69 @@ function decisionLabel(page: PageRecord): string {
   return t("decision.trust");
 }
 
+function localizedRecordValue(prefix: string, value: string): string {
+  const key = `${prefix}.${value}`;
+  const localized = t(key);
+  return localized === key ? value.replaceAll("_", " ") : localized;
+}
+
+type ActionOverview = {
+  state: string;
+  dueAt: string;
+  overdue: boolean;
+  nextAction: string;
+  owner: string;
+  priority: string;
+  evidenceCount: number;
+};
+
+function actionOverviewForPage(bundle: SnapshotBundle, page: PageRecord): ActionOverview | null {
+  const compiled = bundle.workItems?.actions.find(
+    (item) => item.page_id === page.id || item.action_id === page.id
+  );
+  const record = { ...(page.work ?? {}), ...(compiled ?? {}) };
+  if (page.page_type !== "action" && Object.keys(record).length === 0) return null;
+  if (Object.keys(record).length === 0) return null;
+
+  const ownerRecord = record.owner && typeof record.owner === "object"
+    ? record.owner as Record<string, unknown>
+    : null;
+  const evidenceRefs = Array.isArray(record.evidence_refs) ? record.evidence_refs : page.source_refs;
+  const state = typeof record.state === "string" ? record.state : "open";
+  return {
+    state,
+    dueAt: typeof record.due_at === "string" ? record.due_at : "",
+    overdue: record.overdue === true,
+    // Defense in depth for a stale or pre-contract snapshot: terminal work is
+    // a historical fact and must never be presented as still actionable.
+    nextAction: !["done", "cancelled"].includes(state) && typeof record.next_action === "string"
+      ? record.next_action
+      : "",
+    owner: typeof ownerRecord?.ref === "string"
+      ? ownerRecord.ref
+      : typeof record.owner_ref === "string" ? record.owner_ref : "",
+    priority: typeof record.priority === "string" ? record.priority : "",
+    evidenceCount: evidenceRefs.length
+  };
+}
+
 function pageByKey(bundle: SnapshotBundle, key: string): PageRecord | undefined {
   return bundle.pages.pages.find((page) => page.id === key || page.path === key);
 }
 
 function projectionForPage(bundle: SnapshotBundle, centerId: string | null | undefined, pageId: string): QuadrantProjection | null {
-  if (!centerId) return null;
-  const entries = bundle.blockStacks?.anchors?.[centerId]?.derived?.quadrant_projections?.[pageId] ?? [];
-  return entries[0] ?? null;
+  const direct = centerId
+    ? bundle.blockStacks?.anchors?.[centerId]?.derived?.quadrant_projections?.[pageId]?.[0]
+    : null;
+  if (direct) return direct;
+  // A page can belong to a nested center even while the world is centered one
+  // level above it. Preserve that honest local placement in the reader instead
+  // of dropping all quadrant context when the compass is hidden behind it.
+  for (const anchor of Object.values(bundle.blockStacks?.anchors ?? {})) {
+    const projection = anchor.derived?.quadrant_projections?.[pageId]?.[0];
+    if (projection) return projection;
+  }
+  return null;
 }
 
 function pageTitle(bundle: SnapshotBundle, key: string): string {
@@ -176,6 +163,22 @@ function relationGroups(bundle: SnapshotBundle, page: PageRecord, content: PageC
   bundle.pages.pages
     .filter((candidate) => candidate.moc_parent && (candidate.moc_parent === page.path || candidate.moc_parent === page.id))
     .forEach((child) => hierarchy.push(entry(child, t("reader.below"))));
+  bundle.graph.edges
+    .filter((edge) => edge.type === "collection_member")
+    .forEach((edge) => {
+      if (edge.target === page.id || edge.target === page.path) {
+        const member = pageByKey(bundle, edge.source);
+        if (member && !hierarchy.some((item) => item.id === member.id)) {
+          hierarchy.push(entry(member, t("reader.collectionMember")));
+        }
+      }
+      if (edge.source === page.id || edge.source === page.path) {
+        const collection = pageByKey(bundle, edge.target);
+        if (collection && !hierarchy.some((item) => item.id === collection.id)) {
+          hierarchy.push(entry(collection, t("reader.inCollection")));
+        }
+      }
+    });
 
   // Without the content payload (static mode), refs still resolve against the
   // bundle — gap markers are reserved for refs that truly do not resolve.
@@ -197,8 +200,13 @@ function relationGroups(bundle: SnapshotBundle, page: PageRecord, content: PageC
     .map((link) => entry(link, t("reader.internalLink")));
 
   const cited: RelationEntry[] = (content?.backlinks ?? [])
-    .filter((backlink) => backlink.relation !== "moc_parent")
-    .map((backlink) => entry(backlink, backlink.relation === "source_ref" ? t("reader.usesAsSource") : t("reader.citesPage")));
+    .filter((backlink) => backlink.relation !== "moc_parent" && backlink.relation !== "collection_member")
+    .map((backlink) => entry(
+      backlink,
+      backlink.relation === "source_ref"
+        ? t("reader.usesAsSource")
+        : t("reader.citesPage")
+    ));
   (content?.backlinks ?? [])
     .filter((backlink) => backlink.relation === "moc_parent")
     .forEach((backlink) => {
@@ -210,8 +218,31 @@ function relationGroups(bundle: SnapshotBundle, page: PageRecord, content: PageC
 
 // Sectioned markdown: H2 blocks become collapsible sections so long pages
 // stay navigable inside the dock.
-function markdownSections(body: string): { title: string | null; html: string }[] {
+function normalizedHeading(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/<[^>]+>/g, "")
+    .replace(/[*_`~\[\]()\/]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase();
+}
+
+function markdownSections(body: string, pageTitle?: string): { title: string | null; html: string }[] {
   const tokens = marked.lexer(body);
+  const firstContentIndex = tokens.findIndex((token) => token.type !== "space");
+  const firstContent = firstContentIndex >= 0 ? tokens[firstContentIndex] : null;
+  if (
+    pageTitle &&
+    firstContent?.type === "heading" &&
+    firstContent.depth === 1 &&
+    normalizedHeading(firstContent.text) === normalizedHeading(pageTitle)
+  ) {
+    // The reader header already owns the page title. Keep a different leading
+    // H1 (it may be meaningful content), but remove the identical Markdown H1
+    // and any whitespace before it so the first viewport starts with substance.
+    tokens.splice(0, firstContentIndex + 1);
+  }
   const sections: { title: string | null; tokens: Token[] }[] = [{ title: null, tokens: [] }];
   tokens.forEach((token) => {
     if (token.type === "heading" && token.depth === 2) {
@@ -264,6 +295,16 @@ function ReaderBody({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    container.querySelectorAll<HTMLTableElement>("table").forEach((table) => {
+      if (table.parentElement?.classList.contains("readerTableScroll")) return;
+      const scroller = document.createElement("div");
+      scroller.className = "readerTableScroll";
+      scroller.setAttribute("role", "region");
+      scroller.setAttribute("aria-label", t("reader.tableScroll"));
+      scroller.tabIndex = 0;
+      table.before(scroller);
+      scroller.appendChild(table);
+    });
     container.querySelectorAll<HTMLAnchorElement>("a[href]").forEach((anchor) => {
       const href = anchor.getAttribute("href") || "";
       if (href.startsWith("#")) return; // in-page fragment anchors stay native
@@ -339,6 +380,60 @@ function ReaderBody({
   );
 }
 
+function ActionSummaryPanel({ overview }: { overview: ActionOverview }) {
+  const facts = [
+    overview.dueAt
+      ? { key: "due", icon: <CalendarClock size={14} aria-hidden="true" />, label: t("reader.action.due"), value: overview.dueAt }
+      : null,
+    overview.owner
+      ? { key: "owner", icon: <User size={14} aria-hidden="true" />, label: t("reader.action.owner"), value: overview.owner }
+      : null,
+    overview.priority
+      ? {
+          key: "priority",
+          icon: <Flag size={14} aria-hidden="true" />,
+          label: t("reader.action.priority"),
+          value: localizedRecordValue("reader.action.priority", overview.priority)
+        }
+      : null,
+    {
+      key: "evidence",
+      icon: <FileCheck2 size={14} aria-hidden="true" />,
+      label: t("reader.action.evidence"),
+      value: String(overview.evidenceCount)
+    }
+  ].filter((fact): fact is NonNullable<typeof fact> => Boolean(fact));
+
+  return (
+    <section className="actionSummaryPanel" aria-label={t("reader.action.summary")}>
+      <header className="actionSummaryHead">
+        <div>
+          <span className="actionSummaryEyebrow">{t("reader.action.summary")}</span>
+          <h3>{localizedRecordValue("reader.action.state", overview.state)}</h3>
+        </div>
+        {overview.overdue && <span className="pill pill-warn">{t("overlay.state.actions.overdue")}</span>}
+      </header>
+      {overview.nextAction && (
+        <div className="actionNextStep">
+          <div className="actionNextStepLabel">
+            <ArrowRight size={14} aria-hidden="true" />
+            <span>{t("reader.action.next")}</span>
+          </div>
+          <p>{overview.nextAction}</p>
+        </div>
+      )}
+      <dl className="actionFactGrid">
+        {facts.map((fact) => (
+          <div key={fact.key}>
+            <dt>{fact.icon}{fact.label}</dt>
+            <dd>{fact.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function RelationSection({
   groupKey,
   entries,
@@ -357,6 +452,10 @@ function RelationSection({
       className="readerRelationGroup"
       onMouseEnter={() => onIsolateRelation(groupKey)}
       onMouseLeave={() => onIsolateRelation(null)}
+      onFocus={() => onIsolateRelation(groupKey)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onIsolateRelation(null);
+      }}
     >
       <header>
         <h3>{relationGroupLabel(groupKey)}</h3>
@@ -371,11 +470,8 @@ function RelationSection({
               </span>
             ) : (
               <button className="textButton" onClick={() => onNavigatePage(item.id)} type="button">
-                {item.title}
-                <small>
-                  {" "}
-                  · {item.context ? contextLabel(item.context) : "—"} · {item.detail}
-                </small>
+                <span className="readerRelationTitle">{item.title}</span>
+                <small>{item.context ? contextLabel(item.context) : "—"} · {item.detail}</small>
               </button>
             )}
           </li>
@@ -396,6 +492,7 @@ export function PageReader({
   pageId,
   demo,
   snapshotSource,
+  loadPageContent,
   devMode,
   trail,
   packetIds,
@@ -403,16 +500,18 @@ export function PageReader({
   onNavigatePage,
   onClose,
   onTogglePacket,
-  onRunAction,
+  onRunOperatorCommand,
   onComposeBrief,
   onHoverLink,
   onIsolateRelation,
-  onEvidenceStep
+  onEvidenceStep,
+  onSnapshotMismatch
 }: {
   bundle: SnapshotBundle;
   pageId: string;
   demo: boolean;
   snapshotSource?: string;
+  loadPageContent: OperatorPort["loadPageContent"];
   devMode?: boolean;
   trail: PageRecord[];
   packetIds: string[];
@@ -420,11 +519,12 @@ export function PageReader({
   onNavigatePage: (id: string) => void;
   onClose: () => void;
   onTogglePacket: (id: string) => void;
-  onRunAction?: (action: ActionCard) => void;
+  onRunOperatorCommand?: (action: OperatorCommandCard) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
   onHoverLink?: (id: string | null) => void;
   onIsolateRelation?: (relation: RelationGroupKey | null) => void;
   onEvidenceStep?: (ids: string[], step: number) => void;
+  onSnapshotMismatch?: () => void;
 }) {
   const page = pageByKey(bundle, pageId);
   const [content, setContent] = useState<PageContent | null>(null);
@@ -434,9 +534,38 @@ export function PageReader({
   // Comfortable reading: the dock expands into a centered modal (key F).
   const [expanded, setExpanded] = useState(false);
   const dockRef = useRef<HTMLElement>(null);
+  const readerScrollRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const snapshotMismatchRef = useRef(onSnapshotMismatch);
+  const recoveredSnapshotRef = useRef<string | null>(null);
+  snapshotMismatchRef.current = onSnapshotMismatch;
+
+  // The reader is one persistent surface while its page changes. Reset its
+  // own scrollport before paint so a registry -> source -> event journey never
+  // inherits the previous document's reading position.
+  useLayoutEffect(() => {
+    if (readerScrollRef.current) readerScrollRef.current.scrollTop = 0;
+  }, [pageId]);
+
+  useEffect(() => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      const restoreFocus = () => {
+        const opener = openerRef.current;
+        if (opener?.isConnected && !opener.closest("[inert]")) {
+          opener.focus();
+          return;
+        }
+        document.querySelector<HTMLElement>(".commandSearch input")?.focus();
+      };
+      if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(restoreFocus);
+      else window.setTimeout(restoreFocus, 0);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
     setContent(null);
     setWalkStep(-1);
@@ -444,15 +573,29 @@ export function PageReader({
       setLoading(false);
       return undefined;
     }
-    loadPageContent(page.id, { demo, snapshotSource }).then((payload) => {
+    loadPageContent(page.id, {
+      demo,
+      snapshotSource,
+      snapshotId: bundle.manifest?.snapshot_id,
+      integrity: bundle.manifest?.integrity,
+      signal: controller.signal
+    }).then((payload) => {
       if (!active) return;
       setContent(payload);
       setLoading(false);
+      if (
+        payload.error_code === "snapshot_revision_mismatch"
+        && recoveredSnapshotRef.current !== bundle.manifest?.snapshot_id
+      ) {
+        recoveredSnapshotRef.current = bundle.manifest?.snapshot_id || "unknown";
+        snapshotMismatchRef.current?.();
+      }
     });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [demo, page, snapshotSource]);
+  }, [bundle.manifest?.integrity, bundle.manifest?.snapshot_id, demo, page, snapshotSource]);
 
   // Focus trap: the dock is a focused dialog; Esc returns to the scene.
   // onClose travels through a ref so parent re-renders never re-run the trap
@@ -474,7 +617,15 @@ export function PageReader({
         return;
       }
       if (event.key !== "Tab") return;
-      const focusables = dock.querySelectorAll<HTMLElement>("a[href], button, details summary, input, [tabindex]:not([tabindex='-1'])");
+      const focusables = [...dock.querySelectorAll<HTMLElement>(
+        "a[href], button, details summary, input, [tabindex]:not([tabindex='-1'])"
+      )].filter((element) => {
+        if ((element as HTMLButtonElement).disabled || element.closest("[hidden], [aria-hidden='true'], [inert]")) return false;
+        const closedDetails = element.closest<HTMLDetailsElement>("details:not([open])");
+        if (closedDetails && element !== closedDetails.querySelector(":scope > summary")) return false;
+        const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+        return style?.display !== "none" && style?.visibility !== "hidden";
+      });
       if (focusables.length === 0) return;
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
@@ -495,9 +646,13 @@ export function PageReader({
     () => (page ? projectionForPage(bundle, activeCenterId, page.id) : null),
     [activeCenterId, bundle, page]
   );
+  const actionOverview = useMemo(
+    () => (page ? actionOverviewForPage(bundle, page) : null),
+    [bundle, page]
+  );
   const sections = useMemo(
-    () => (content?.ok && content.body ? markdownSections(content.body) : []),
-    [content]
+    () => (content?.ok && content.body ? markdownSections(content.body, page?.title) : []),
+    [content, page?.title]
   );
 
   // Evidence walk: n/N steps the real chain page → source (→ ingestion event
@@ -546,9 +701,20 @@ export function PageReader({
   }
 
   const inPacket = packetIds.includes(page.id) || packetIds.includes(page.path);
-  const graphAction = bundle.actions.actions.find((action) => action.id === "graph-check");
-  const reviewAction = bundle.actions.actions.find((action) => action.id === "review-local-changes");
-  const prAction = bundle.actions.actions.find((action) => action.id === "pr-summary");
+  const graphCommand = bundle.actions.actions.find((action) => action.id === "graph-check");
+  const reviewCommand = bundle.actions.actions.find((action) => action.id === "review-local-changes");
+  const prCommand = bundle.actions.actions.find((action) => action.id === "pr-summary");
+  const relationOrder: RelationGroupKey[] = page.page_type === "action"
+    ? ["evidencia", "hierarquia", "citado-por", "links"]
+    : ["hierarquia", "evidencia", "links", "citado-por"];
+  const populatedRelations = groups ? relationOrder.filter((key) => groups[key].length > 0) : [];
+  const projectionFacet = projection?.facet || projection?.sub_lens;
+  const projectionMarkKey = projectionFacet ? `quadrant.aqal.${projectionFacet}.mark` : "";
+  const projectionMark = projectionMarkKey && t(projectionMarkKey) !== projectionMarkKey
+    ? t(projectionMarkKey)
+    : projection?.quadrant.toUpperCase();
+  const showDecision = page.risk_flags.length > 0 || page.freshness_state !== "stale";
+  const revisionMismatch = content?.error_code === "snapshot_revision_mismatch";
 
   return (
     <>
@@ -559,8 +725,9 @@ export function PageReader({
       <aside
         className={expanded ? "pageReader expanded" : "pageReader"}
         aria-label={t("reader.aria", { title: page.title })}
+        aria-labelledby="page-reader-title"
         role="dialog"
-        aria-modal={expanded}
+        aria-modal="true"
         ref={dockRef}
         tabIndex={-1}
       >
@@ -604,9 +771,8 @@ export function PageReader({
         return null;
       })()}
       <div className="readerHead">
-        <div>
-          <h2>{page.title}</h2>
-          <div className="readerChips">
+        <div className="readerHeading">
+          <div className="readerChips readerIdentityChips">
             <span className="pill pill-info">{contextLabel(page.context || "system")}</span>
             <button
               className={`pill pill-muted readerTypeChip${templateOpen ? " active" : ""}`}
@@ -616,20 +782,32 @@ export function PageReader({
             >
               {pageTypeLabel(page.page_type)}
             </button>
+            {projection && projectionMark && (
+              <span className="pill readerPositionChip">
+                {projectionMark} · {projectionFacet ? t(`facet.${projectionFacet}`) : projection.quadrant}
+              </span>
+            )}
+          </div>
+          <h2 id="page-reader-title">{page.title}</h2>
+          <div className="readerStatusLine">
             <span
               className="pill"
               style={{ borderColor: trustColor(page.freshness_state === "fresh" ? "fresh" : page.freshness_state === "stale" ? "stale" : "unknown") }}
             >
               {freshnessLabel(page.freshness_state)}
             </span>
-            <span className="pill pill-muted">{decisionLabel(page)}</span>
+            {showDecision && <span className="pill pill-muted">{decisionLabel(page)}</span>}
             {isRawData(page.page_type) && (
               <span className="pill rawPill" title={t("world.raw")}>
                 ◆ {t("world.raw")}
               </span>
             )}
-            {page.updated_at && <span className="pill pill-muted">{t("reader.updated", { when: page.updated_at.slice(0, 10) })}</span>}
-            <span className="pill pill-muted">{t("reader.evidence", { n: page.source_refs.length })}</span>
+            <span className="readerMetaLine">
+              {[
+                page.updated_at ? t("reader.updated", { when: page.updated_at.slice(0, 10) }) : "",
+                t("reader.evidence", { n: page.source_refs.length })
+              ].filter(Boolean).join(" · ")}
+            </span>
           </div>
           {templateOpen && (
             <TemplateInspector
@@ -637,7 +815,7 @@ export function PageReader({
               page={page}
               status={pinnedFieldStatus(templateSpec(bundle, page.page_type), content)}
               facetsOrder={facetsOrder(bundle)}
-              onComposeBrief={onComposeBrief}
+              onComposeBrief={demo ? undefined : onComposeBrief}
               onClose={() => setTemplateOpen(false)}
             />
           )}
@@ -646,18 +824,20 @@ export function PageReader({
           <button
             className="readerClose"
             onClick={() => setExpanded((value) => !value)}
+            aria-label={expanded ? t("reader.collapse") : t("reader.expand")}
             title={expanded ? t("reader.collapse") : t("reader.expand")}
             type="button"
           >
             {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
           </button>
-          <button className="readerClose" onClick={onClose} title={t("reader.close")} type="button">
+          <button className="readerClose" onClick={onClose} aria-label={t("reader.close")} title={t("reader.close")} type="button">
             <X size={16} />
           </button>
         </div>
       </div>
 
-      <div className="readerScroll">
+      <div className="readerScroll" ref={readerScrollRef}>
+        {actionOverview && <ActionSummaryPanel overview={actionOverview} />}
         {loading && <p className="readerNotice">{t("reader.loading")}</p>}
         {!loading && content?.ok && sections.length > 0 && (
           <ReaderBody
@@ -667,7 +847,14 @@ export function PageReader({
             onHoverLink={(id) => onHoverLink?.(id)}
           />
         )}
-        {!loading && !content?.ok && (
+        {!loading && !content?.ok && revisionMismatch && (
+          <div className="readerFallback readerRevisionChanged" role="status">
+            <strong>{t("reader.revisionChanged")}</strong>
+            <p>{page.summary || t("reader.noSummary")}</p>
+            <p className="readerNotice">{t("reader.revisionRecovering")}</p>
+          </div>
+        )}
+        {!loading && !content?.ok && !revisionMismatch && (
           <div className="readerFallback">
             <p>{page.summary || t("reader.noSummary")}</p>
             {page.summary_truncated && <span className="pill pill-warn">{t("reader.partial")}</span>}
@@ -676,8 +863,11 @@ export function PageReader({
         )}
 
         {projection && (
-          <section className="templatePanel projectionPanel" aria-label={t("reader.projectionTitle")}>
-            <h4>{t("reader.projectionTitle")}</h4>
+          <details className="templatePanel projectionPanel">
+            <summary>
+              <span>{t("reader.projectionTitle")}</span>
+              <strong>{projectionMark} · {projectionFacet ? t(`facet.${projectionFacet}`) : projection.quadrant}</strong>
+            </summary>
             <div className="projectionGrid">
               <div><span>{t("reader.projectionCenter")}</span><strong>{pageTitle(bundle, projection.center)}</strong></div>
               <div><span>{t("reader.projectionHere")}</span><strong>{projection.quadrant}{projection.sub_lens ? ` · ${projection.sub_lens}` : ""}</strong></div>
@@ -694,7 +884,7 @@ export function PageReader({
             <p className="readerNotice">
               {t("reader.projectionWhy", { basis: projection.basis, reason: projection.reason || projection.through_center || projection.subject_center || "—" })}
             </p>
-          </section>
+          </details>
         )}
 
         {/* Template panels: the type's declared view.panels, FINALLY rendered —
@@ -709,9 +899,9 @@ export function PageReader({
           />
         )}
 
-        {groups && (
+        {groups && populatedRelations.length > 0 && (
           <div className="readerRelations">
-            {(["hierarquia", "evidencia", "links", "citado-por"] as RelationGroupKey[]).map((key) => (
+            {populatedRelations.map((key) => (
               <RelationSection
                 key={key}
                 groupKey={key}
@@ -740,6 +930,16 @@ export function PageReader({
           </div>
         )}
 
+        <footer className="readerProvenance">
+          <code>{page.path}</code>
+          {devMode && (
+            <a className="textButton" href={`/${page.path}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink size={13} /> {t("reader.viewSource")}
+            </a>
+          )}
+        </footer>
+      </div>
+      <div className="readerActionBar" aria-label={t("reader.actions")}>
         <div className="readerActions">
           <button className={inPacket ? "secondaryButton active" : "secondaryButton"} onClick={() => onTogglePacket(page.id)} type="button">
             <ListChecks size={15} />
@@ -755,40 +955,65 @@ export function PageReader({
                   grounding: { page_ids: [page.id] }
                 })
               }
+              disabled={demo}
+              aria-label={demo ? `${t("reader.brief")} — ${t("demo.readOnlyControl")}` : undefined}
+              title={demo ? t("demo.readOnlyControl") : undefined}
               type="button"
             >
               <Sparkles size={15} />
               <span>{t("reader.brief")}</span>
             </button>
           )}
-          {onRunAction && graphAction && (
-            <button className="secondaryButton" onClick={() => onRunAction(graphAction)} type="button">
-              <Search size={15} />
-              <span>{t("reader.connections")}</span>
-            </button>
-          )}
-          {onRunAction && reviewAction && (
-            <button className="secondaryButton" onClick={() => onRunAction(reviewAction)} type="button">
-              <GitBranch size={15} />
-              <span>{t("reader.inspectChanges")}</span>
-            </button>
-          )}
-          {onRunAction && prAction && (
-            <button className="secondaryButton" onClick={() => onRunAction(prAction)} type="button">
-              <ListChecks size={15} />
-              <span>{t("reader.prepareApproval")}</span>
-            </button>
+          {onRunOperatorCommand && (graphCommand || reviewCommand || prCommand) && (
+            <details className="readerMoreActions">
+              <summary className="secondaryButton">
+                <Ellipsis size={16} />
+                <span>{t("reader.moreActions")}</span>
+              </summary>
+              <div className="readerMoreMenu">
+                {graphCommand && (
+                  <button
+                    className="secondaryButton"
+                    onClick={() => onRunOperatorCommand(graphCommand)}
+                    disabled={demo}
+                    aria-label={demo ? `${t("reader.connections")} — ${t("demo.readOnlyControl")}` : undefined}
+                    title={demo ? t("demo.readOnlyControl") : undefined}
+                    type="button"
+                  >
+                    <Search size={15} />
+                    <span>{t("reader.connections")}</span>
+                  </button>
+                )}
+                {reviewCommand && (
+                  <button
+                    className="secondaryButton"
+                    onClick={() => onRunOperatorCommand(reviewCommand)}
+                    disabled={demo}
+                    aria-label={demo ? `${t("reader.inspectChanges")} — ${t("demo.readOnlyControl")}` : undefined}
+                    title={demo ? t("demo.readOnlyControl") : undefined}
+                    type="button"
+                  >
+                    <GitBranch size={15} />
+                    <span>{t("reader.inspectChanges")}</span>
+                  </button>
+                )}
+                {prCommand && (
+                  <button
+                    className="secondaryButton"
+                    onClick={() => onRunOperatorCommand(prCommand)}
+                    disabled={demo}
+                    aria-label={demo ? `${t("reader.prepareApproval")} — ${t("demo.readOnlyControl")}` : undefined}
+                    title={demo ? t("demo.readOnlyControl") : undefined}
+                    type="button"
+                  >
+                    <ListChecks size={15} />
+                    <span>{t("reader.prepareApproval")}</span>
+                  </button>
+                )}
+              </div>
+            </details>
           )}
         </div>
-
-        <footer className="readerProvenance">
-          <code>{page.path}</code>
-          {devMode && (
-            <a className="textButton" href={`/${page.path}`} target="_blank" rel="noopener noreferrer">
-              <ExternalLink size={13} /> {t("reader.viewSource")}
-            </a>
-          )}
-        </footer>
       </div>
       </aside>
     </>

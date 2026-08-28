@@ -43,6 +43,16 @@
     {
       "argv": [
         "python3",
+        "scripts/wiki_semantic_inventory.py",
+        "--check"
+      ],
+      "finished_at": null,
+      "id": "semantic_inventory",
+      "status": "not_run"
+    },
+    {
+      "argv": [
+        "python3",
         "-m",
         "pytest",
         "tests/"

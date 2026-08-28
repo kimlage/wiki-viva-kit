@@ -1,0 +1,387 @@
+{
+  "bundle_hash": "2830e4dd880e44a227b0a4e09913b8ec0cd8358edd67515314df5be935c72752",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
+    "content_sidecars"
+  ],
+  "content_sidecars": true,
+  "contract_errors": [],
+  "files": [
+    "manifest.json",
+    "operations.json",
+    "graph.json",
+    "pages.json",
+    "sources.json",
+    "source_entities.json",
+    "templates.json",
+    "actions.json",
+    "decisions.json",
+    "freshness.json",
+    "gates.json",
+    "git.json",
+    "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
+    "diff.json",
+    "ingestion.json",
+    "quality.json",
+    "commands.json",
+    "score.json",
+    "blocks.json",
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/event-ingest-agenda-2026-07.239edae8.json",
+    "content/event-ingest-banco-2026-05.60d41f0b.json",
+    "content/event-ingest-chat-2026-07.1960cfa6.json",
+    "content/event-ingest-product-analytics-2026-07.736e4284.json",
+    "content/event-ingest-support-tickets-2026-06.fc48bb42.json",
+    "content/root-alex-rivera.f4a10886.json",
+    "content/source-action-ledger.ec9c5cd9.json",
+    "content/source-agenda.f538317f.json",
+    "content/source-banco-export.21d8fe1f.json",
+    "content/source-calendar-archive.b0c27d5e.json",
+    "content/source-call-recordings.493fa442.json",
+    "content/source-chat-export.ab08dca2.json",
+    "content/source-clearpath-billing.ac81b6b1.json",
+    "content/source-clearpath-customer-interviews.fe211d91.json",
+    "content/source-clearpath-risk-log.955fc04a.json",
+    "content/source-clearpath-roadmap.29eebdc2.json",
+    "content/source-clearpath-support.cff72d2d.json",
+    "content/source-crm-accounts.045e8fb4.json",
+    "content/source-decision-log.af7c319a.json",
+    "content/source-error-traces.42cb8fa8.json",
+    "content/source-evidence-ledger.a6cf164c.json",
+    "content/source-feature-flags.584ec4b5.json",
+    "content/source-health-checks.9ebc3675.json",
+    "content/source-inbox-capture.b68fa932.json",
+    "content/source-notes-vault.6052136d.json",
+    "content/source-nps-surveys.655f0160.json",
+    "content/source-product-analytics.7e84039f.json",
+    "content/source-publication-queue.e5fb37c5.json",
+    "content/source-reading-queue.39102ed7.json",
+    "content/source-reference-folder.e81dc9c7.json",
+    "content/source-relation-cadence.1e34d2f1.json",
+    "content/source-release-notes.32ff3a48.json",
+    "content/source-sales-pipeline.a320b636.json",
+    "content/source-support-tickets.e9968562.json",
+    "content/source-template-registry.159b91c7.json",
+    "content/source-usage-warehouse.460d4538.json"
+  ],
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "reference_date": "2026-07-09",
+    "scenario_id": "source_lifecycle",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8004,
+    "source_input_sha256": "741d52d44d44436b692803d2fa9555327f7c10c9dd5d6a1e79335cf8993861ce"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2833,
+      "sha256": "2b1bef112fba8f5fe8a730133007e40c915fff1b9c61d8c12cb5856baa8d7efd"
+    },
+    "block_stacks.json": {
+      "bytes": 167203,
+      "sha256": "de775f4db9b3d5b414b4945a422feefadb497df30e316d37de30ef762bec1c87"
+    },
+    "blocks.json": {
+      "bytes": 9051,
+      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+    },
+    "commands.json": {
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
+    },
+    "content/event-ingest-agenda-2026-07.239edae8.json": {
+      "bytes": 1745,
+      "sha256": "f5b810aa09b884b26cca9ee68f62d1751f44a133d3c78575655ca2e465fc5c02"
+    },
+    "content/event-ingest-banco-2026-05.60d41f0b.json": {
+      "bytes": 1968,
+      "sha256": "31b75d901bc689088333085b2861fd819bca6eddbd72267a312f63becca27e64"
+    },
+    "content/event-ingest-chat-2026-07.1960cfa6.json": {
+      "bytes": 1829,
+      "sha256": "0791c854ac90decd17314721accfa4143014c58239ed48bc786ef3b4f1861f62"
+    },
+    "content/event-ingest-product-analytics-2026-07.736e4284.json": {
+      "bytes": 2367,
+      "sha256": "12df292cec44f63d86dde3e76d813b1da25ef11a5f1e892fcedcaadda90b4a8e"
+    },
+    "content/event-ingest-support-tickets-2026-06.fc48bb42.json": {
+      "bytes": 1958,
+      "sha256": "4e248a224ec7ee6f156fbbeeb7001812855d9dd28a3d0a08fb875ae5fb5a4ff1"
+    },
+    "content/root-alex-rivera.f4a10886.json": {
+      "bytes": 5052,
+      "sha256": "0024309f7bbd18e39e618622181ab7980a79ee44527053947e6b54678500761e"
+    },
+    "content/source-action-ledger.ec9c5cd9.json": {
+      "bytes": 1655,
+      "sha256": "1afc7150c28aa4dc102e1d81354e40a0caa3da6b00539e5d93b6a1ee516105eb"
+    },
+    "content/source-agenda.f538317f.json": {
+      "bytes": 2267,
+      "sha256": "252c5d5c8e05006aa42150ed62c7d22d64bf5732fe2457002d4fcc6afac5999e"
+    },
+    "content/source-banco-export.21d8fe1f.json": {
+      "bytes": 2480,
+      "sha256": "051a72be88082330a73f113ebfce20ff9c14bd1094ad77882dd6362f8527f4d0"
+    },
+    "content/source-calendar-archive.b0c27d5e.json": {
+      "bytes": 1336,
+      "sha256": "a2cf4b968dd08271cfcfe11e317844fc58ac6a0cfa100cc8a568823e747b0be9"
+    },
+    "content/source-call-recordings.493fa442.json": {
+      "bytes": 1386,
+      "sha256": "b9a1a674492f5bb26c277ff661c34c6a5616f47b75de6c2010df1a76bc9d526f"
+    },
+    "content/source-chat-export.ab08dca2.json": {
+      "bytes": 2202,
+      "sha256": "d0eda14b2b2a55988b58ea3efdae81f13183b6ff0123a04c8041b37d1ba25eec"
+    },
+    "content/source-clearpath-billing.ac81b6b1.json": {
+      "bytes": 1392,
+      "sha256": "cd0d58bf91365776253d1fc14e04e746b19fa8269e121ba3de4bc060728fd281"
+    },
+    "content/source-clearpath-customer-interviews.fe211d91.json": {
+      "bytes": 1871,
+      "sha256": "d4965993a15f78ae96e8bb6994c1adfff8f80f7cbc99d519ff48995331702ffd"
+    },
+    "content/source-clearpath-risk-log.955fc04a.json": {
+      "bytes": 1401,
+      "sha256": "dab6f686c3276c021b14de6658cae9f3e5da008dab6d4b595fc5eeb8b7f47b30"
+    },
+    "content/source-clearpath-roadmap.29eebdc2.json": {
+      "bytes": 1401,
+      "sha256": "6343c5ea7d58450b274811278cd57ac13979e1119e873a94e92c79a822a26a23"
+    },
+    "content/source-clearpath-support.cff72d2d.json": {
+      "bytes": 1395,
+      "sha256": "0ab656ff2849c72af32d9c9ebde8864ea033c4ddfa6f9ba7ebc2cdc9a96b4ea2"
+    },
+    "content/source-crm-accounts.045e8fb4.json": {
+      "bytes": 1820,
+      "sha256": "9aeebaa1ccfdb1b72214d10525df4d38ed7355cfb6c3d5a7963bfd579048502c"
+    },
+    "content/source-decision-log.af7c319a.json": {
+      "bytes": 1697,
+      "sha256": "d2c2a012c9594ffd3f13087f5c376e63717a14893fada336276ba9874b5d0e75"
+    },
+    "content/source-error-traces.42cb8fa8.json": {
+      "bytes": 2443,
+      "sha256": "c206cdea9ec79806a8c3414361d72fcf9a6ed799faabd7aaac6913f18555d0ed"
+    },
+    "content/source-evidence-ledger.a6cf164c.json": {
+      "bytes": 1372,
+      "sha256": "b42722d7f8a7503a7441f0351dc992288698b3f3ae08a144a54adf7e48339583"
+    },
+    "content/source-feature-flags.584ec4b5.json": {
+      "bytes": 1392,
+      "sha256": "3103cdf27459355f27791e6df0083f745ed5f5b1a0525fdb12dd1ce39fc6d7e6"
+    },
+    "content/source-health-checks.9ebc3675.json": {
+      "bytes": 2012,
+      "sha256": "4c118be2a656dfd2ab3fc974ea059549ca6363763d6791adc0c2082a4c3bfb06"
+    },
+    "content/source-inbox-capture.b68fa932.json": {
+      "bytes": 1330,
+      "sha256": "069a256ba32764f715fa02d7fb724ee40b73668d76e0b54f03a3f4c8ab63a1c0"
+    },
+    "content/source-notes-vault.6052136d.json": {
+      "bytes": 1342,
+      "sha256": "b3e1c38b26b21c949de8a6840c11a9f85f4a8f8c40d04b16b4b24c1a1ae904a3"
+    },
+    "content/source-nps-surveys.655f0160.json": {
+      "bytes": 1353,
+      "sha256": "88ce741cd7238b40a0d7ca6ad85e1f46604435bfdbf5495bcfb00b4a5db05ef0"
+    },
+    "content/source-product-analytics.7e84039f.json": {
+      "bytes": 2480,
+      "sha256": "3d8c18465875254bd399e9ef35fc616f8eb7ef3b7ab707fd73ea28cb49d88f54"
+    },
+    "content/source-publication-queue.e5fb37c5.json": {
+      "bytes": 1671,
+      "sha256": "5b81b7884ae4a8de314f8680fdf38dfc64e72eacfbbc3a00c263229209b09df8"
+    },
+    "content/source-reading-queue.39102ed7.json": {
+      "bytes": 1354,
+      "sha256": "b65985b707ff6d7378bc7b841334b215e3f998143217b2b311930e427b925849"
+    },
+    "content/source-reference-folder.e81dc9c7.json": {
+      "bytes": 1559,
+      "sha256": "866e83cbf204bd6938d0b954b1b0ca5bb6e25ff19c59c74858f5a4adbdb256e4"
+    },
+    "content/source-relation-cadence.1e34d2f1.json": {
+      "bytes": 1360,
+      "sha256": "5584005a937625e33ee902f7fb5aace99670194d20773146e683d103b26209b7"
+    },
+    "content/source-release-notes.32ff3a48.json": {
+      "bytes": 1651,
+      "sha256": "8fbf6581ccfbef29ad854b1715d748770f2de059d39d1058736fadf3e13d8351"
+    },
+    "content/source-sales-pipeline.a320b636.json": {
+      "bytes": 1350,
+      "sha256": "a2974afc180ca16407a44c611f4397f5f0e51354a285ef0d86b76a5de06928bf"
+    },
+    "content/source-support-tickets.e9968562.json": {
+      "bytes": 2310,
+      "sha256": "59ad37c290797f1aec2fb95ee1b451b087eff8ee8611c24a5cfdaa757c53f017"
+    },
+    "content/source-template-registry.159b91c7.json": {
+      "bytes": 1396,
+      "sha256": "ef823aedf206c194d1027f2bffd150e108f4fd9a913dbe9058e309f62d96b81f"
+    },
+    "content/source-usage-warehouse.460d4538.json": {
+      "bytes": 1401,
+      "sha256": "914b486c327c0a79bcd48fd6c6926d51a7bc4cdcc263c0727bd99e9c4e002e08"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+    },
+    "freshness.json": {
+      "bytes": 445,
+      "sha256": "b29e1a22be8982d866ca16405096d2aca1472a68f79d5e128e41366fcc003584"
+    },
+    "gates.json": {
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 53024,
+      "sha256": "79b79bd9ea1f943ea04210519e2736d2bf8c81e21cc67dc2d28aed76d5fe0672"
+    },
+    "ingestion.json": {
+      "bytes": 2582,
+      "sha256": "51cfcd93e02b8ed46326fd4dcc3d4759559dc690e647240eca49d456718aca57"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
+    },
+    "pages.json": {
+      "bytes": 37611,
+      "sha256": "576497653bb5f1a2dabee8a9d5d1e686dbe4299136caa82329b94ff626f67ef6"
+    },
+    "quality.json": {
+      "bytes": 13178,
+      "sha256": "c9023cbf796623675bd78135efd4ef4a7dd06745da4059b929a65aa042a69b5d"
+    },
+    "region_groups.json": {
+      "bytes": 63485,
+      "sha256": "c403cd4efcdf7fd1c0dd7432c1f337a96ffdefdba830ebba80bb2b58507c1096"
+    },
+    "score.json": {
+      "bytes": 2130,
+      "sha256": "93864b72c196dc1df4ae200d028fd23189644ecb456fe6901631cfc55612447a"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 799,
+      "sha256": "8d9ae35803367fbd9c9f758cec4d4605a59fb5c2be8cbf52272a08e43b54dde7"
+    },
+    "source_entities.json": {
+      "bytes": 38461,
+      "sha256": "51ba7411cc7919abfe8947c49863b49082580fec812bf8d76b8ee0960ef75d30"
+    },
+    "source_lifecycle.json": {
+      "bytes": 18971,
+      "sha256": "1dc3f07e1f474d7972bb620cff537bebe61418016a950f9039440babf7af8e12"
+    },
+    "sources.json": {
+      "bytes": 31073,
+      "sha256": "c37b5f363cf7058f84b55ab53818dff90210dd9704f5541ba532223ab3a0f508"
+    },
+    "templates.json": {
+      "bytes": 23927,
+      "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
+    },
+    "temporal_graph.json": {
+      "bytes": 46943,
+      "sha256": "53fcca5ee136965a0bfd1c36e9e30104dbc88a07680b1acc93a62925aa3d0d77"
+    },
+    "timeline.json": {
+      "bytes": 9535,
+      "sha256": "b4a6795aef1499842080b57a8917242249e3dcebb68fd167ba94ac6f048587da"
+    },
+    "work_items.json": {
+      "bytes": 52,
+      "sha256": "17bed50b6bb4ca952dd73d966240c34a7a4e0cc4225edabf56fac829fa2066a5"
+    }
+  },
+  "mode": "static",
+  "repo": {
+    "branch_prefix": "wiki/",
+    "default_branch": "main",
+    "default_context": "pessoal",
+    "karma_enabled": true,
+    "language": "en",
+    "memory_root": "memories",
+    "repo_id": "wiki-viva-demo"
+  },
+  "root_page_id": "root-alex-rivera",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-2830e4dd880e44a2",
+  "source_commit": null,
+  "source_sha": "uncommitted:f8b4b1258ce603956f522613dace2fe14a0593179e8ea1479b32c5a78c9b023b",
+  "versions": {
+    "activity_timeline": "activity_timeline.v1",
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
+}

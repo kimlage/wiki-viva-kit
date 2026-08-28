@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import datetime as dt
+import sys
 from pathlib import Path
 
+import pytest
+
+import scripts.wiki_operational_pass as operational_pass_cli
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.operational_pass import (
     build_operational_pass_page,
@@ -291,6 +295,241 @@ def test_operational_pass_crosses_sources_actions_and_uncertainty(tmp_path: Path
     assert "[Contact owner](../actions/contact-owner.md)" in page
     assert "refresh source: [CRM export](../sources/crm.md)" in page
     assert any(row.page.page_id == "claim-missing-rating" for row in report.attention)
+
+
+def _write_recent_command_reference(root: Path) -> None:
+    _write(
+        root / "memories" / "system" / "wiki" / "command-reference.md",
+        "---\npage_id: command-reference\npage_type: source_catalog\n"
+        'title: "Command reference"\ncontext: system\nvisibility: private_self\n'
+        "updated_at: 2026-06-13\nstale_after_days: 90\n"
+        "sources_policy: documentation\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n---\n\n"
+        "# Command reference\n",
+    )
+
+
+def test_operational_pass_first_write_excludes_existing_self_from_recent_updates(
+    tmp_path: Path,
+):
+    target = tmp_path / "memories" / "system" / "operational-pass.md"
+    _write(
+        target,
+        "---\npage_id: operational-pass-acme\npage_type: dashboard\ncontext: system\n"
+        "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 1\n"
+        "sources_policy: memory\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n---\n\n"
+        "# Operational pass - sources, actions and contexts\n",
+    )
+    _write_recent_command_reference(tmp_path)
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("system",))
+
+    first_render = build_operational_pass_page(
+        tmp_path, config, updated_at="2026-06-14"
+    )
+    _write(target, first_render)
+    immediate_check_render = build_operational_pass_page(
+        tmp_path, config, updated_at="2026-06-14"
+    )
+
+    assert first_render == immediate_check_render
+    latest_updates = first_render.split("### Latest updates\n\n", 1)[1].split(
+        "\n\n", 1
+    )[0]
+    assert latest_updates.splitlines() == [
+        "- **system:** [Command reference](wiki/command-reference.md) (2026-06-13)",
+    ]
+
+
+def test_operational_pass_first_write_is_idempotent_when_target_is_missing(
+    tmp_path: Path,
+):
+    target = tmp_path / "memories" / "system" / "operational-pass.md"
+    _write_recent_command_reference(tmp_path)
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("system",))
+
+    first_render = build_operational_pass_page(
+        tmp_path, config, updated_at="2026-06-14"
+    )
+    _write(target, first_render)
+    immediate_check_render = build_operational_pass_page(
+        tmp_path, config, updated_at="2026-06-14"
+    )
+
+    assert first_render == immediate_check_render
+    latest_updates = first_render.split("### Latest updates\n\n", 1)[1].split(
+        "\n\n", 1
+    )[0]
+    assert latest_updates.splitlines() == [
+        "- **system:** [Command reference](wiki/command-reference.md) (2026-06-13)",
+    ]
+
+
+def test_operational_pass_report_and_json_exclude_configured_generated_page(
+    tmp_path: Path,
+):
+    target = tmp_path / "memories" / "system" / "operational-pass.md"
+    _write(
+        target,
+        "---\npage_id: operational-pass-acme\npage_type: dashboard\ncontext: system\n"
+        "visibility: private_self\nupdated_at: 2026-06-14\nstale_after_days: 1\n"
+        "sources_policy: memory\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n---\n\n"
+        "# Operational pass - sources, actions and contexts\n",
+    )
+    _write_recent_command_reference(tmp_path)
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("system",))
+
+    report = build_operational_pass_report(
+        tmp_path,
+        config,
+        as_of=dt.date(2026, 6, 14),
+    )
+    payload = report_to_dict(report)
+
+    assert "memories/system/operational-pass.md" not in {
+        page.rel for page in report.recent_pages
+    }
+    assert [page["path"] for page in payload["recent_pages"]] == [
+        "memories/system/wiki/command-reference.md",
+    ]
+
+
+def test_operational_pass_custom_output_is_one_write_idempotent_and_fail_closed(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+):
+    _write(
+        tmp_path / "wiki.config.yaml",
+        "repo_id: acme\nowner_label: Owner\nlanguage: en\n"
+        "default_context: system\ncontexts: system\n",
+    )
+    _write_recent_command_reference(tmp_path)
+    custom_rel = "memories/system/custom-operational-pass.md"
+    custom_target = tmp_path / custom_rel
+    monkeypatch.setattr(operational_pass_cli, "ROOT", tmp_path)
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "wiki_operational_pass.py",
+            "--check",
+            "--output",
+            custom_rel,
+            "--date",
+            "2026-06-14",
+        ],
+    )
+    assert operational_pass_cli.main() == 1
+    assert "missing" in capsys.readouterr().err
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "wiki_operational_pass.py",
+            "--write",
+            "--output",
+            custom_rel,
+            "--date",
+            "2026-06-14",
+        ],
+    )
+    assert operational_pass_cli.main() == 0
+    capsys.readouterr()
+    first_render = custom_target.read_text(encoding="utf-8")
+    assert "page_id: custom-operational-pass-acme" in first_render
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "wiki_operational_pass.py",
+            "--check",
+            "--output",
+            custom_rel,
+            "--date",
+            "2026-06-14",
+        ],
+    )
+    assert operational_pass_cli.main() == 0
+    assert "up to date" in capsys.readouterr().out
+    assert custom_target.read_text(encoding="utf-8") == first_render
+
+    custom_target.write_text(first_render + "\nmanual drift\n", encoding="utf-8")
+    assert operational_pass_cli.main() == 1
+    assert "out of date" in capsys.readouterr().err
+
+
+def test_operational_pass_relative_root_normalizes_default_and_custom_targets(
+    tmp_path: Path,
+    monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    root = Path("synthetic-wiki")
+    _write_recent_command_reference(root)
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("system",))
+
+    default_target = root / "memories" / "system" / "operational-pass.md"
+    default_first = build_operational_pass_page(
+        root,
+        config,
+        updated_at="2026-06-14",
+    )
+    _write(default_target, default_first)
+    default_check = build_operational_pass_page(
+        root,
+        config,
+        updated_at="2026-06-14",
+    )
+
+    assert default_first == default_check
+    assert "page_id: operational-pass-acme" in default_first
+    assert "[Command reference](wiki/command-reference.md)" in default_first
+
+    custom_rel = Path("memories/system/reports/custom-operational-pass.md")
+    custom_target = root / custom_rel
+    custom_first = build_operational_pass_page(
+        root,
+        config,
+        updated_at="2026-06-14",
+        target_path=custom_rel,
+    )
+    _write(custom_target, custom_first)
+    custom_check = build_operational_pass_page(
+        root,
+        config,
+        updated_at="2026-06-14",
+        target_path=custom_rel,
+    )
+
+    assert custom_first == custom_check
+    assert "page_id: custom-operational-pass-acme" in custom_first
+    assert "[Command reference](../wiki/command-reference.md)" in custom_first
+    assert not (root / root / "memories" / "system" / "operational-pass.md").exists()
+
+    with pytest.raises(ValueError, match="must stay inside repository root"):
+        build_operational_pass_page(
+            root,
+            config,
+            updated_at="2026-06-14",
+            target_path=Path("../escape.md"),
+        )
+
+    escaped_config = WikiConfig(
+        repo_id="acme",
+        owner_label="Owner",
+        contexts=("system",),
+        paths={**config.paths, "operational_pass_page": "../escape.md"},
+    )
+    with pytest.raises(ValueError, match="must stay inside repository root"):
+        build_operational_pass_report(
+            root,
+            escaped_config,
+            as_of=dt.date(2026, 6, 14),
+        )
 
 
 def test_operational_pass_does_not_surface_factual_claims_as_attention(
@@ -783,6 +1022,115 @@ def test_operational_pass_treats_dated_closed_action_as_closed(tmp_path: Path):
     assert resp_node.health == "ok"
     assert resp_node.open_actions == ()
     assert "No prioritized pending actions." in page
+
+
+def test_operational_pass_uses_canonical_action_state_over_status_and_body(
+    tmp_path: Path,
+):
+    mem = tmp_path / "memories"
+    _write(mem / "fin" / "index.md", _hub("fin"))
+    _write(
+        mem / "actions" / "done.md",
+        (
+            "---\npage_id: action-done\npage_type: action\ncontext: fin\n"
+            "action_state: done\nstatus: blocked\ncompletion_receipt: receipt:test\n"
+            "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
+            "sources_policy: x\ngate: github_pr\n---\n\n"
+            "# Action - Canonical done\n\nState: `pending`.\n"
+        ),
+    )
+    _write(
+        mem / "actions" / "open.md",
+        (
+            "---\npage_id: action-open\npage_type: action\ncontext: fin\n"
+            "action_state: open\nstatus: completed\n"
+            "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
+            "sources_policy: x\ngate: github_pr\n---\n\n"
+            "# Action - Canonical open\n\nState: `done`.\n"
+        ),
+    )
+    _write(
+        mem / "actions" / "pending.md",
+        (
+            "---\npage_id: pending\npage_type: ontology_index\ncontext: system\n"
+            "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
+            "sources_policy: x\ngate: github_pr\n---\n\n# Pending\n\n"
+            "- `action-done`\n- `action-open`\n"
+        ),
+    )
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("fin",))
+    report = build_operational_pass_report(
+        tmp_path, config, as_of=dt.date(2026, 6, 12)
+    )
+    payload = report_to_dict(report)
+
+    assert report.context_rows[0].next_steps == ("Canonical open (open)",)
+    states = {row["page_id"]: row for row in payload["actions"]}
+    assert {
+        key: states["action-done"][key]
+        for key in (
+            "action_state",
+            "action_state_raw",
+            "action_state_source",
+            "action_state_compatibility",
+        )
+    } == {
+        "action_state": "done",
+        "action_state_raw": "done",
+        "action_state_source": "action_state",
+        "action_state_compatibility": False,
+    }
+    assert states["action-open"]["action_state"] == "open"
+    assert states["action-open"]["action_state_raw"] == "open"
+
+
+def test_operational_pass_preserves_body_only_action_resolution(tmp_path: Path):
+    mem = tmp_path / "memories"
+    _write(mem / "fin" / "index.md", _hub("fin"))
+    _write(
+        mem / "actions" / "body-only.md",
+        (
+            "---\npage_id: action-body-only\npage_type: action\ncontext: fin\n"
+            "completion_receipt: receipt:body-only\n"
+            "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
+            "sources_policy: x\ngate: github_pr\n---\n\n"
+            "# Action - Body only\n\nState: `completed`.\n"
+        ),
+    )
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("fin",))
+    report = build_operational_pass_report(
+        tmp_path, config, as_of=dt.date(2026, 6, 12)
+    )
+    payload = report_to_dict(report)
+    row = next(
+        item for item in payload["actions"] if item["page_id"] == "action-body-only"
+    )
+
+    assert {
+        key: row[key]
+        for key in (
+            "status",
+            "action_state",
+            "action_state_raw",
+            "action_state_source",
+            "action_state_compatibility",
+            "action_state_warnings",
+        )
+    } == {
+        "status": "completed",
+        "action_state": "done",
+        "action_state_raw": "completed",
+        "action_state_source": "body_state",
+        "action_state_compatibility": True,
+        "action_state_warnings": ["legacy_action_state"],
+    }
+    assert report.context_rows[0].next_steps == ()
+    page = build_operational_pass_page(
+        tmp_path, config, updated_at="2026-06-12"
+    )
+    assert "| [Body only](../actions/body-only.md) | fin | `completed` |" in page
 
 
 def test_operational_model_marks_preventive_and_roleless(tmp_path: Path):

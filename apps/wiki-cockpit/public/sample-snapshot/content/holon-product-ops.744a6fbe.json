@@ -24,6 +24,36 @@
       "approved_state": "approved",
       "context": "clientes",
       "freshness_state": "fresh",
+      "page_id": "source-error-traces",
+      "page_type": "source",
+      "path": "memories/sources/source-error-traces.md",
+      "relation": "moc_parent",
+      "title": "Error trace export"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-evidence-ready",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-evidence-ready.md",
+      "relation": "moc_parent",
+      "title": "Evidence shelf clarifies source-backed work"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-feature-flags",
+      "page_type": "source",
+      "path": "memories/sources/source-feature-flags.md",
+      "relation": "moc_parent",
+      "title": "Feature flag audit"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
       "page_id": "person-joao-mendes",
       "page_type": "person",
       "path": "memories/people/person-joao-mendes.md",
@@ -39,6 +69,46 @@
       "path": "memories/decisions/decision-onboarding.md",
       "relation": "moc_parent",
       "title": "Padronizar onboarding de cliente"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-04",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-04.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 04"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-map-05",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-05.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 05"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-release-notes",
+      "page_type": "source",
+      "path": "memories/sources/source-release-notes.md",
+      "relation": "moc_parent",
+      "title": "Release notes archive"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-usage-warehouse",
+      "page_type": "source",
+      "path": "memories/sources/source-usage-warehouse.md",
+      "relation": "moc_parent",
+      "title": "Usage warehouse extract"
     },
     {
       "approved_state": "approved",
@@ -98,5 +168,6 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-8d1c5584a934c732",
   "source_refs": []
 }

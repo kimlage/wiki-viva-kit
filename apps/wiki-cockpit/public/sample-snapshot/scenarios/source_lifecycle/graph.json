@@ -1,0 +1,3434 @@
+{
+  "edges": [
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "18b95ebd32f168779d0f",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "previous_refs",
+        "page_id": "event-ingest-product-analytics-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md"
+      },
+      "source": "event-ingest-agenda-2026-07",
+      "status": "valid",
+      "target": "event-ingest-product-analytics-2026-07",
+      "type": "temporal_sequence",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "1f6f4001a5ce5371f3b4",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "event-ingest-agenda-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md"
+      },
+      "source": "event-ingest-agenda-2026-07",
+      "status": "valid",
+      "target": "source-agenda",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "7fc8d5b94a848fa1cb14",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-agenda-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md"
+      },
+      "source": "event-ingest-agenda-2026-07",
+      "status": "valid",
+      "target": "source-agenda",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "fd2cf0490e0b3173a0d7",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
+      "source": "event-ingest-banco-2026-05",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "a9d7521f042c23305f17",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
+      "source": "event-ingest-banco-2026-05",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "066e0c6259d537894715",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "event-ingest-chat-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md"
+      },
+      "source": "event-ingest-chat-2026-07",
+      "status": "valid",
+      "target": "source-chat-export",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "65f06ed5b6b6848e3936",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-chat-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md"
+      },
+      "source": "event-ingest-chat-2026-07",
+      "status": "valid",
+      "target": "source-chat-export",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "693411c9f5343a3f6b2f",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "event-ingest-product-analytics-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md"
+      },
+      "source": "event-ingest-product-analytics-2026-07",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "ffba0e89def35e40e47e",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-product-analytics-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md"
+      },
+      "source": "event-ingest-product-analytics-2026-07",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "a9943effcde5edeac2b5",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "event-ingest-support-tickets-2026-06",
+        "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md"
+      },
+      "source": "event-ingest-support-tickets-2026-06",
+      "status": "valid",
+      "target": "source-support-tickets",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "565d2ce4fe6a527a33a7",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-support-tickets-2026-06",
+        "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md"
+      },
+      "source": "event-ingest-support-tickets-2026-06",
+      "status": "valid",
+      "target": "source-support-tickets",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "cdd3922ac9cf21fc871d",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-action-ledger",
+        "path": "memories/sources/source-action-ledger.md"
+      },
+      "source": "source-action-ledger",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "d31f49700672102af3bc",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-agenda-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md"
+      },
+      "source": "source-agenda",
+      "status": "valid",
+      "target": "event-ingest-agenda-2026-07",
+      "type": "source_emission",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "daa001fecf5bbd24e0d1",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-agenda",
+        "path": "memories/sources/source-agenda.md"
+      },
+      "source": "source-agenda",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "66fe56a25d49ced05d8c",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
+      "source": "source-banco-export",
+      "status": "valid",
+      "target": "event-ingest-banco-2026-05",
+      "type": "source_emission",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "2bae28b190942f5fafad",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-calendar-archive",
+        "path": "memories/sources/source-calendar-archive.md"
+      },
+      "source": "source-calendar-archive",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "b46513faf520f0158649",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-chat-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md"
+      },
+      "source": "source-chat-export",
+      "status": "valid",
+      "target": "event-ingest-chat-2026-07",
+      "type": "source_emission",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "258671757b38e4d3f4f7",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-decision-log",
+        "path": "memories/sources/source-decision-log.md"
+      },
+      "source": "source-decision-log",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "synthetic_allowed_cycle",
+      "direction": "directed",
+      "id": "8c306c885039d896e76e",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "relation_cases",
+        "fixture": "failures"
+      },
+      "source": "source-error-traces",
+      "status": "valid",
+      "target": "source-health-checks",
+      "type": "markdown_link",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "33673edfc1429b5a290d",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-evidence-ledger",
+        "path": "memories/sources/source-evidence-ledger.md"
+      },
+      "source": "source-evidence-ledger",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "e434c3b761580b9a5233",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-health-checks",
+        "path": "memories/sources/source-health-checks.md"
+      },
+      "source": "source-health-checks",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "synthetic_allowed_cycle",
+      "direction": "directed",
+      "id": "58a57f8be1e7b43a7910",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "relation_cases",
+        "fixture": "failures"
+      },
+      "source": "source-health-checks",
+      "status": "valid",
+      "target": "source-error-traces",
+      "type": "markdown_link",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "2e746f0e6649842de98c",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-inbox-capture",
+        "path": "memories/sources/source-inbox-capture.md"
+      },
+      "source": "source-inbox-capture",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "bed18084d6b407458350",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-notes-vault",
+        "path": "memories/sources/source-notes-vault.md"
+      },
+      "source": "source-notes-vault",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "67041b6f13ef51da66e4",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-product-analytics-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md"
+      },
+      "source": "source-product-analytics",
+      "status": "valid",
+      "target": "event-ingest-product-analytics-2026-07",
+      "type": "source_emission",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "467602db009239ba1681",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-publication-queue",
+        "path": "memories/sources/source-publication-queue.md"
+      },
+      "source": "source-publication-queue",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "e591dd5679551e602d1f",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-reading-queue",
+        "path": "memories/sources/source-reading-queue.md"
+      },
+      "source": "source-reading-queue",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "c74b0b7bb1894500395b",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-reference-folder",
+        "path": "memories/sources/source-reference-folder.md"
+      },
+      "source": "source-reference-folder",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "2bfdc84dc0092e4c8b1b",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-relation-cadence",
+        "path": "memories/sources/source-relation-cadence.md"
+      },
+      "source": "source-relation-cadence",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "cf0736837870fb107d3a",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-support-tickets-2026-06",
+        "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md"
+      },
+      "source": "source-support-tickets",
+      "status": "valid",
+      "target": "event-ingest-support-tickets-2026-06",
+      "type": "source_emission",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "fb8a475a4aef84d9e181",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-template-registry",
+        "path": "memories/sources/source-template-registry.md"
+      },
+      "source": "source-template-registry",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 1
+    }
+  ],
+  "nodes": [
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "event-ingest-agenda-2026-07",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-agenda"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
+      "risk_flags": [],
+      "stale_after_days": "365",
+      "status": "",
+      "title": "Ingest\u00e3o: agenda",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "event-ingest-banco-2026-05",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-banco-export"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "risk_flags": [],
+      "stale_after_days": "365",
+      "status": "",
+      "title": "Ingest\u00e3o: extrato do banco (maio)",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "event-ingest-chat-2026-07",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-chat-export"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:events_without_consolidated_into"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
+      "risk_flags": [],
+      "stale_after_days": "365",
+      "status": "",
+      "title": "Ingest\u00e3o: export do chat",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "event-ingest-product-analytics-2026-07",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-product-analytics"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "risk_flags": [],
+      "stale_after_days": "365",
+      "status": "",
+      "title": "Ingest\u00e3o: product analytics",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "event-ingest-support-tickets-2026-06",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-support-tickets"
+          ],
+          "state": "linked",
+          "value": 1
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:events_without_consolidated_into"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md",
+      "risk_flags": [],
+      "stale_after_days": "365",
+      "status": "",
+      "title": "Ingest\u00e3o: support tickets",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "root-alex-rivera",
+      "metrics": {
+        "inbound_links": 29,
+        "outbound_links": 0,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:thin_link_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Alex Rivera",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "source-action-ledger",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 2,
+          "reasons": [
+            "freshness:never_synced",
+            "snapshot_warning:region_expected_missing"
+          ],
+          "refs": [
+            "warning:region_expected_missing"
+          ],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-action-ledger.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Action ledger export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "source-agenda",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-agenda.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Agenda",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "stale",
+      "id": "source-banco-export",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "stale",
+          "value": 0
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-banco-export.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Extrato do Banco",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "source-calendar-archive",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-calendar-archive.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Calendar archive",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-call-recordings",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-call-recordings.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Call recordings archive",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-chat-export",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-chat-export.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Export do Chat",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-clearpath-billing",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-clearpath-billing.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Clearpath billing feed",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-clearpath-customer-interviews",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 0,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 2,
+          "reasons": [
+            "quality:low_information_density_pages",
+            "quality:thin_link_pages"
+          ],
+          "refs": [],
+          "state": "flagged",
+          "value": 2
+        }
+      },
+      "page_type": "source",
+      "path": "memories/empresas/clearpath/source-customer-interviews.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Clearpath customer interviews",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-clearpath-risk-log",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-clearpath-risk-log.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Clearpath risk log",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-clearpath-roadmap",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-clearpath-roadmap.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Clearpath roadmap archive",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-clearpath-support",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-clearpath-support.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Clearpath support feed",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-crm-accounts",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 2,
+          "reasons": [
+            "freshness:never_synced",
+            "snapshot_warning:source_blocked"
+          ],
+          "refs": [
+            "warning:source_blocked"
+          ],
+          "state": "urgent",
+          "value": 1
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-crm-accounts.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "CRM accounts export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "source-decision-log",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-decision-log.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Decision log export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-error-traces",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 2,
+          "reasons": [
+            "freshness:stale",
+            "snapshot_warning:source_blocked"
+          ],
+          "refs": [
+            "warning:source_blocked"
+          ],
+          "state": "urgent",
+          "value": 1
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "stale",
+          "value": 0
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-error-traces.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Error trace export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "source-evidence-ledger",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-evidence-ledger.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Evidence ledger export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-feature-flags",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-feature-flags.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Feature flag audit",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "source-health-checks",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 2,
+          "reasons": [
+            "freshness:stale",
+            "snapshot_warning:source_blocked"
+          ],
+          "refs": [
+            "warning:source_blocked"
+          ],
+          "state": "urgent",
+          "value": 1
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "stale",
+          "value": 0
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-health-checks.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Health checks output",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "source-inbox-capture",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-inbox-capture.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Inbox capture stream",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "source-notes-vault",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-notes-vault.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Notes vault index",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-nps-surveys",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-nps-surveys.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "NPS survey export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-product-analytics",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Product analytics export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "source-publication-queue",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 2,
+          "reasons": [
+            "freshness:never_synced",
+            "snapshot_warning:source_blocked"
+          ],
+          "refs": [
+            "warning:source_blocked"
+          ],
+          "state": "urgent",
+          "value": 1
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-publication-queue.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Publication queue",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "estudio",
+      "freshness_state": "fresh",
+      "id": "source-reading-queue",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-reading-queue.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Reading queue export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "estudio",
+      "freshness_state": "fresh",
+      "id": "source-reference-folder",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-reference-folder.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Reference folder mirror",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "source-relation-cadence",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-relation-cadence.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Relation cadence export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-release-notes",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-release-notes.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Release notes archive",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-sales-pipeline",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-sales-pipeline.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Sales pipeline export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-support-tickets",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:stale"
+          ],
+          "refs": [],
+          "state": "stale",
+          "value": 0
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-support-tickets.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Support tickets export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "source-template-registry",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-template-registry.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Template registry snapshot",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-usage-warehouse",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:never_synced"
+          ],
+          "refs": [],
+          "state": "never_synced",
+          "value": null
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-usage-warehouse.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Usage warehouse extract",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    }
+  ],
+  "overlay_metrics_version": "wiki_semantic_visual_tokens.v1",
+  "relation_diagnostics": [
+    {
+      "id": "source-error-traces:relation-case:1",
+      "reasons": [
+        "unknown_type",
+        "invalid_endpoint"
+      ],
+      "source": "source-error-traces",
+      "status": "invalid",
+      "target": "missing-demo-page",
+      "type": "unknown_demo_relation"
+    },
+    {
+      "id": "source-error-traces:relation-case:2",
+      "reasons": [
+        "invalid_direction",
+        "missing_provenance"
+      ],
+      "source": "source-error-traces",
+      "status": "invalid",
+      "target": "source-health-checks",
+      "type": "source_ref"
+    }
+  ],
+  "relation_types": [
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "collection membership row",
+      "family": "collection",
+      "id": "collection_member",
+      "label": "collection member",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "member to collection index"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "blocked-by row",
+      "family": "dependency",
+      "id": "dependency",
+      "label": "dependency",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "blocker to dependent work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "supporting evidence row",
+      "family": "evidence",
+      "id": "evidence_supports",
+      "label": "evidence supports",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence to supported work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "affected page row",
+      "family": "impact",
+      "id": "impact",
+      "label": "impact",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest/proposal to canonical change"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "linked page row",
+      "family": "citation",
+      "id": "markdown_link",
+      "label": "markdown link",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored citation"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "parent/child row",
+      "family": "hierarchy",
+      "id": "moc_parent",
+      "label": "moc parent",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "structural parent"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "owner row",
+      "family": "ownership",
+      "id": "ownership",
+      "label": "ownership",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "owner to owned object"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "participant row",
+      "family": "participation",
+      "id": "participation",
+      "label": "participation",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "participant to event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "proposal transition row",
+      "family": "impact",
+      "id": "proposal_transition",
+      "label": "proposal transition",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest event to review proposal"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "related page row",
+      "family": "association",
+      "id": "related_page",
+      "label": "related page",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored related-page association"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "emitted event row",
+      "family": "source_emission",
+      "id": "source_emission",
+      "label": "source emission",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "source to ingest event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "source reference row",
+      "family": "evidence",
+      "id": "source_ref",
+      "label": "source ref",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence reference"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "previous/next row",
+      "family": "temporal",
+      "id": "temporal_sequence",
+      "label": "temporal sequence",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "earlier to later event"
+    }
+  ],
+  "relation_vocabulary_version": "wiki_relation_types.v1",
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_graph.v2",
+  "wanted_pages": {
+    "memories/clientes/index.md": [
+      "memories/sources/source-call-recordings.md",
+      "memories/sources/source-chat-export.md",
+      "memories/sources/source-crm-accounts.md",
+      "memories/sources/source-nps-surveys.md",
+      "memories/sources/source-product-analytics.md",
+      "memories/sources/source-sales-pipeline.md",
+      "memories/sources/source-support-tickets.md"
+    ],
+    "memories/clientes/product-ops/index.md": [
+      "memories/sources/source-error-traces.md",
+      "memories/sources/source-feature-flags.md",
+      "memories/sources/source-release-notes.md",
+      "memories/sources/source-usage-warehouse.md"
+    ],
+    "memories/empresas/clearpath-labs.md": [
+      "memories/empresas/clearpath/source-customer-interviews.md",
+      "memories/sources/source-clearpath-billing.md",
+      "memories/sources/source-clearpath-risk-log.md",
+      "memories/sources/source-clearpath-roadmap.md",
+      "memories/sources/source-clearpath-support.md"
+    ],
+    "memories/financeiro/index.md": [
+      "memories/sources/source-banco-export.md"
+    ]
+  }
+}

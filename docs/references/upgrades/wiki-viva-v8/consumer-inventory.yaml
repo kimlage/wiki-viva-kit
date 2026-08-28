@@ -1,0 +1,246 @@
+schema_version: wiki_viva_consumer_inventory.v1
+verified_on: "2026-07-15"
+
+publication_policy:
+  private_paths: redact
+  private_remotes: redact
+  private_commit_shas: keep_in_consumer_report_only
+  private_drift_paths: count_only
+
+consumers:
+  - id: wiki-viva-kit-public-source
+    repository:
+      name: wiki-viva-kit
+      path: .
+      remote: https://github.com/kimlage/wiki-viva-kit
+      owner: kimlage
+    consumer_type: public_example
+    role: implementation_source
+    current_kit_version: wiki-viva-v8-current-tree
+    current_layout:
+      memory_root: memories
+      references_root: docs/references
+      cockpit_root: apps/wiki-cockpit
+      generated_cache_root: data/derived/wiki
+    current_runtime: v8
+    local_operator: localhost_operator
+    local_templates:
+      registry: wiki.templates.yaml
+      local_override: absent
+      page_types: wiki.page-types.yaml
+      source_adapters: public_only
+    privacy_risk: public_safe
+    evidence_redaction_required: false
+    drift_status:
+      state: v8_current_tree_normal_ci_pending
+      drift_total: 0
+      compared_against: current_local_tree
+      worktree: current_local_tree_no_public_push
+    upgrade_wave: public_kit
+    status: ready_for_single_normal_ci_round
+    blocker: >-
+      Rc21 through rc33 remain frozen according to their recorded historical
+      outcomes. Rc34 source 533d2868 passed complete exact validation at
+      metadata subject 2afd435c and became candidate 59be853a, but downstream
+      read-only QA exposed RT-170 before productive capture: the pre-C1
+      preflight depended on C1-provided toolkit commands/equality and admitted
+      domain-memory repair inside C3. No productive capture was attempted and
+      no visual manifest, certification, capsule, trust or Lane B authority
+      exists. Rc34 is immutable historical_precapture_rejected. Rc35 exact
+      source 52491dfd passed its wholly new exact validation at metadata
+      subject 55910c37: 1754 Python checks with 3 declared skips, 518 frontend,
+      115 Node, every applicable static gate and browser run
+      public-mrlderie-ab48db4f-1355-47e9-bdc2-69f96f4bda85 at 102/102 with no
+      failure, skip, retry or flaky cell. Its reviewed but uncommitted local-QA
+      projection had canonical package/tree e7a3c448/1c8e6f69 with 521 entries;
+      no candidate metadata commit or authority was created. RT-171 then
+      rejected rc35 before productive capture because positional real-canary
+      routes and v1 capture/summary schemas did not prove the exact native view,
+      runtime_mode v8 and canary viewport together. Rc35 is immutable
+      historical_precapture_rejected. Rc36 source 8f96e1fd carried capture v2,
+      canary-summary v2 and exact native route/runtime/viewport enforcement.
+      Its validation-subject measurement bound package-file/canonical-package/
+      tree SHA-256
+      47c3dc7dff8336c7707a4c43cc37275aef3721e2b1a54109b94e64cbed6992f1 /
+      81a3b600f4cd6cd0f0d3abac0b886e9db15fdd3ad0120c9442ce7fc76cc07832 /
+      53ffdf8bc0a2c61f1bf7f426ba12e7e9a0c4995e92703a7264596b9f9a81594c
+      with 521 portable entries; those hashes remain exact-validation history,
+      not candidate authority. Rc36 then passed its first and only complete
+      exact validation at metadata subject 3db3f9f4: 23/23 recorded gates, 1782
+      Python passes with 3 declared skips in 1082.23 seconds, all 518 frontend
+      checks, 123 Node passes and browser run
+      public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651 at 102/102 with no
+      failure, skip, retry or flaky cell. Validation/toolchain/runner-payload
+      SHA-256 values are 5585819e60c5f7550f06e9990c4de23b42e5eb3113f2bdf5036cac563465a267 /
+      6728f4644bc18da8602f1c3ea982f6b5584c7e949716e2e3c2bb58110fba7083 /
+      03a75c4072048b8150e95737bb7c458562bd29da184286c09a3cea7699955424.
+      Its final candidate metadata subject ac0f49af bound
+      package-file/canonical-package/tree SHA-256
+      8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b /
+      8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2 /
+      4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3
+      with 521 portable entries. Its productive four-profile capture sealed
+      manifest 6199d1001ba98c2c772323069765ddc695cc8971f6d7e03390e496de64551808.
+      The first and only Lane A certification then stopped fail-closed at
+      101/102 browser cells after Back navigation exposed unsettled camera/Html
+      hit testing. Certification stream, browser-gate log, browser run-result
+      and Playwright-report SHA-256 values are
+      a95d70853be927ad29a6e98e619f62faad1dffa3dfc60f11299ca803f2e8f545 /
+      2d5405db94d8ba9af0d72d3cad564205d5af660513be29c1f7953cf746e77256 /
+      2b1c678a7e3bd46d7dc1a27c0e8cbf9a21269c781b8cb1b4bd17fc3bcd1ffa33 /
+      bb69c7acb697bbd33619765f30b6dc32851ef16c3675c5f4eaac1c7a29601c05.
+      No capsule, receipt, attestation, trust anchor, downstream plan or Lane B
+      authority was minted. Rc36 is immutable
+      historical_certification_failed; its exact validation remains valid
+      historical evidence but its candidate, capture and results cannot be
+      retried, reused, relabeled, promoted or imported.
+      The preceding metadata subject 7f1c859d bound candidate package-file /
+      canonical-package / tree 4b3dd32b / bca7d50a / 2f03cae7 and produced
+      visual manifest e314296c. Certification preflight rejected an
+      8372-character limitation against the 8192-character schema maximum
+      before any Lane A gate. Failure stream 1e816308 exists; no capsule,
+      receipt or authority was minted. That package and capture are immutable,
+      rejected and non-reusable; the correction was a distinct rc36 metadata
+      boundary without invalidating its then-valid source pin or exact
+      validation.
+      RT-172 source d87af15b binds exact layout request, morph, camera and Html
+      settlement to the same navigation sequence. Its first and only exact
+      validation passed 23/23 at metadata subject 775fe5bc in 1652 seconds:
+      1782 Python passes plus 3 declared skips, 522 frontend, 123 Node and
+      browser 102/102 first-attempt with no skip or retry. Validation result /
+      identity / browser result / browser gate are e409a148 / 68d11b2a /
+      acd03c5b / 3519fcec. Validation-subject package-file/canonical/tree remain
+      5b88cad7 / 8c7a107b / e40d77b8. The separately pinned rc37 candidate
+      package-file/canonical/tree are 6d409da4 / 1af897ce / 77799ece with 521
+      entries. Its only productive capture sealed manifest 3be7599a; its only
+      Lane A passed 11/11 and sealed capsule/receipt/attestation f5ae8e04 /
+      90cd0c27 / c7a1a4fe. RT-173 then proved that clean C1 had no sealed Node
+      dependency materialization authority: the first generator could not
+      resolve TypeScript until an ambient manual npm ci. Rc37 and every one of
+      those hashes remain immutable verified history, but they are not
+      executable Lane B authority. Rc38 source de879672 failed its one exact
+      matrix at operational_pass. Rc39 source 9dae4aa6 then passed 14/15 before
+      the default Vitest cache wrote one result under node_modules; result
+      a9aaad50 and both stable Git subjects remain immutable chronology under
+      non-invalidating WAIVER-CLASS-B-RC39. Rc40 source
+      0e24881a then passed 13 gates before portable_python failed closed on the
+      N+1 final Git verifier; result 4e6035d9 and both stable Git subjects remain
+      immutable chronology under non-invalidating WAIVER-CLASS-B-RC40. The one
+      direct corrective subject is now
+      pinned: wiki-viva-v8-rc41 at source
+      f42b624049e310100218bf4f99e3ea418b066689.
+      Its canonical scoreboard is 1/5: source pin is complete; exact validation,
+      capsule verification, private canary and private-main readback remain
+      pending or blocked. Draft PR #61 is stale and public
+      push, publication, external E5 and a release tag remain unauthorized
+
+  - id: private-pilot-01
+    repository:
+      name: private-pilot-01
+      path: <local-private-checkout>
+      remote: <private>
+      owner: <redacted>
+    consumer_type: private_operational_wiki
+    role: first_private_pilot
+    current_kit_version: wiki-viva-v8-rc8@b45378d3
+    current_layout:
+      memory_root: memorias
+      references_root: docs/referencias
+      cockpit_root: apps/wiki-cockpit
+      generated_cache_root: data/derived/wiki
+      language: pt
+      context_count: 7
+    current_runtime: v8
+    local_operator: localhost_operator
+    local_templates:
+      registry: wiki.templates.yaml
+      local_override: wiki.templates.local.yaml
+      page_types: downstream_owned
+      source_adapters: private
+    privacy_risk: financial_personal
+    evidence_redaction_required: true
+    drift_status:
+      state: v2_adoption_complete_rc41_validation_pending
+      scope: upgrade_package_rc41_source_pinned
+      drift_total: 0
+      compared_against: wiki-viva-v8-rc8@b45378d3
+      target_version: wiki-viva-v8-rc41@f42b6240
+      target_drift_total: pending_recompute
+      historical_rc16_target_drift_total: 887
+      details: >-
+        Exact S9 remains the installed private-main subject. The separate v2
+        adoption and its receipts stay immutable under their original full
+        gate set. Rc20 through rc33 retain their recorded historical outcomes
+        and cannot authorize a new import. Rc34 source 533d2868 passed complete
+        exact validation at metadata subject 2afd435c and became candidate
+        59be853a, but read-only downstream QA exposed RT-170 before productive
+        capture. No manifest, certification, capsule, trust or Lane B authority
+        exists, so rc34 is historical_precapture_rejected. Rc35 exact source
+        52491dfd passed wholly new exact validation at metadata subject
+        55910c37, but RT-171 rejected it before productive capture. Its reviewed
+        local-QA projection was never committed as candidate metadata and
+        minted no capsule or downstream authority. Rc36 source 8f96e1fd passed
+        its complete exact validation at metadata subject 3db3f9f4, then its
+        first and only Lane A certification stopped at 101/102 browser cells
+        after Back navigation exposed unsettled camera/Html hit testing. Rc36
+        is immutable historical_certification_failed and minted no capsule,
+        attestation or Lane B authority. RT-172 successor rc37 later passed its
+        exact validation 23/23, productive capture and Lane A 11/11; its
+        capsule, receipt and execution attestation remain immutable verified
+        history. RT-173 nevertheless proved that clean C1 could not materialize
+        the certified Node dependency tree, so rc37 cannot authorize Lane B.
+        Rc38 at source de879672 failed its one exact matrix at operational_pass.
+        Rc39 at source 9dae4aa6 passed 14/15 before default Vitest cache output
+        changed the sealed dependency tree; result a9aaad50 and both stable Git
+        subjects remain immutable chronology under WAIVER-CLASS-B-RC39. Rc40
+        source 0e24881a then passed
+        13 gates before portable_python failed closed on the N+1 final Git
+        verifier; result 4e6035d9 and both stable subjects remain immutable
+        chronology under WAIVER-CLASS-B-RC40.
+        The sole direct correction is pinned as wiki-viva-v8-rc41 at exact
+        source f42b624049e310100218bf4f99e3ea418b066689. Only after rc41 is validated
+        exactly once, captured, certified and independently verified may a
+        fresh v3 adoption start
+        from the then-current private main, not from private PR #211 or its
+        historical v2 C3/receipts.
+        Standing human authorization for incremental
+        merges to the private pilot's main branch is recorded, but it does not
+        waive technical fail-closed gates, privacy/secret audits, real canary,
+        rollback or report verification. Consumer AGENTS.md,
+        .skills/README.md and non-wiki local skills remain fresh-C3 routing
+        surfaces
+      verified_on: "2026-07-15"
+    upgrade_wave: pilot
+    status: blocked_on_rt173_successor_verified_capsule
+    blocker: >-
+      The current private v2 evidence remains immutable and cannot be reduced
+      by the v3 strategy. Rc34 is historical_precapture_rejected after RT-170
+      was found read-only, before any productive capture. Rc35 is also
+      historical_precapture_rejected after RT-171; its valid exact validation
+      remains historical but no candidate metadata, capsule or adoption
+      authority exists. Rc36 exact source 8f96e1fd passed its one complete
+      exact validation at metadata subject 3db3f9f4, but its first and only
+      Lane A certification failed closed at 101/102 browser cells. No capsule,
+      attestation or Lane B authority exists; rc36 is immutable
+      historical_certification_failed. Rc37 source d87af15b later passed exact
+      validation 23/23 at metadata 775fe5bc, productive capture and Lane A
+      11/11; its capsule/receipt/attestation remain immutable verified history.
+      RT-173 nevertheless proved that its clean C1 could not materialize the
+      certified Node dependency tree, so rc37 cannot authorize Lane B. The one
+      RT-173 rc38 failed exact validation at operational_pass; rc39 then stopped
+      at frontend on the default Vitest cache and carries non-invalidating
+      WAIVER-CLASS-B-RC39. Rc40 stopped at the N+1 final Git verifier and carries
+      non-invalidating WAIVER-CLASS-B-RC40. Their direct corrective subject rc41
+      is pinned with a 1/5
+      canonical scoreboard and must
+      be validated exactly once and certified with capsule v2 plus external
+      Node authority before a fresh current-main
+      consumer preflight or any v3 downstream QA.
+      Private PR #211 is
+      v2 historical evidence and cannot be promoted as a fresh v3 adoption.
+      Incremental
+      private-main merge authorization is already recorded; promotion remains
+      technically blocked until every applicable audit, semantic, adapter,
+      snapshot, canary, diff, rollback and report gate passes. Historical
+      subjects cannot authorize adoption. Public push remains unauthorized and
+      external E5 remains separate

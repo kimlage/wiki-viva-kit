@@ -1,0 +1,38 @@
+schema_version: wiki_experience_pack_page_types.v1
+pack: study-research
+page_types:
+  study_research_source:
+    title: Study source
+    visibility: private
+    template: templates/source.md
+    fields: [source_kind, status, captured_at]
+  study_research_note:
+    title: Research note
+    visibility: private
+    template: templates/note.md
+    fields: [source_refs, concepts, questions]
+  study_research_concept:
+    title: Concept
+    visibility: private
+    template: templates/concept.md
+    fields: [definition, related_concepts, evidence_refs]
+  study_research_question:
+    title: Research question
+    visibility: private
+    template: templates/question.md
+    fields: [question_state, claim_refs, next_review_at]
+  study_research_claim:
+    title: Claim
+    visibility: private
+    template: templates/claim.md
+    fields: [claim_state, evidence_for, evidence_against, confidence, recorded_at, verified_at, superseded_at]
+  study_research_citation:
+    title: Citation
+    visibility: private
+    template: templates/citation.md
+    fields: [source_ref, locator, excerpt_policy]
+  study_research_synthesis:
+    title: Synthesis
+    visibility: private
+    template: templates/synthesis.md
+    fields: [question_refs, claim_refs, open_tensions, reviewed_at]

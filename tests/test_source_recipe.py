@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from wiki_core.source_recipe import (
+    SOURCE_RECIPE_SAFETY_ERROR_CODE,
+    SOURCE_RECIPE_STRUCTURE_ERROR_CODES,
     extract_recipe_mapping,
     parse_recipe,
     validate_recipe,
@@ -110,8 +114,7 @@ def test_recipe_must_not_carry_credentials() -> None:
             "api_token": "xoxb-should-never-be-here",
         }
     )
-    errors = " | ".join(validate_recipe(recipe))
-    assert "must not contain credentials" in errors
+    assert validate_recipe(recipe) == [SOURCE_RECIPE_SAFETY_ERROR_CODE]
 
 
 def test_recipe_rejects_a_credential_in_a_VALUE_not_just_a_key() -> None:
@@ -128,10 +131,33 @@ def test_recipe_rejects_a_credential_in_a_VALUE_not_just_a_key() -> None:
             "streams": [{"id": "s1", "how_to_export": f"Authorization: Bearer {bearer_like}"}],
         }
     )
-    errors = " | ".join(validate_recipe(recipe))
-    assert "credential-looking value" in errors
+    errors = validate_recipe(recipe)
+    assert errors == [SOURCE_RECIPE_SAFETY_ERROR_CODE]
     # The secret itself is never echoed back.
-    assert "xox" not in errors and "sk-" not in errors
+    serialized_errors = " | ".join(errors)
+    assert "xox" not in serialized_errors and "sk-" not in serialized_errors
+
+
+@pytest.mark.parametrize(
+    "secret",
+    [
+        "github_" + "pat_" + "A" * 30,
+        "sk-" + "ant-" + "A" * 30,
+        "sk_" + "live_" + "A" * 20,
+        "postgresql" + "://alice:SuperSecret42@db.example",
+    ],
+)
+def test_recipe_uses_the_canonical_secret_detector_taxonomy(secret: str) -> None:
+    recipe = parse_recipe(
+        {
+            "platform": "slack",
+            "locator": secret,
+            "pipelines": [{"kind": "content", "cadence_days": 7}],
+            "streams": [],
+        }
+    )
+
+    assert validate_recipe(recipe) == [SOURCE_RECIPE_SAFETY_ERROR_CODE]
 
 
 def test_recipe_v2_auth_pointer_and_schedule_are_additive_and_pointer_only() -> None:
@@ -195,3 +221,31 @@ def test_non_numeric_cadence_days_does_not_crash() -> None:
     )
     assert recipe.pipelines[0].cadence_days == 0
     assert any("positive cadence_days" in e for e in validate_recipe(recipe))
+
+
+def test_malformed_nested_recipe_shapes_are_lenient_and_code_only() -> None:
+    recipe = parse_recipe(
+        {
+            "platform": "slack",
+            "locator": "T1",
+            "pipelines": [{"kind": "content", "cadence_days": 7}],
+            "streams": [
+                {
+                    "id": "broken",
+                    "filters": ["not", "a", "mapping"],
+                    "target_pages": "not-a-list",
+                }
+            ],
+            "ingest": "not-a-mapping",
+            "auth": {"method": "mcp", "ref": "source-mcp", "scopes": "all"},
+            "schedule": "weekly",
+        }
+    )
+
+    errors = validate_recipe(recipe)
+    assert set(recipe.structural_error_codes) <= SOURCE_RECIPE_STRUCTURE_ERROR_CODES
+    assert set(recipe.structural_error_codes) <= set(errors)
+    assert recipe.streams[0].filters == {}
+    assert recipe.streams[0].target_pages == ()
+    assert recipe.ingest_argv == ()
+    assert not any("not-a-mapping" in error or "not-a-list" in error for error in errors)

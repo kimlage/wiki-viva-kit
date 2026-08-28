@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldText, rankPages, searchTerms } from "./search";
+import { foldText, rankPages, searchPages, searchTerms } from "./search";
 import type { PageRecord } from "../types";
 
 function page(over: Partial<PageRecord>): PageRecord {
@@ -65,6 +65,43 @@ describe("search", () => {
       page({ id: "exact", title: "wiki" })
     ];
     expect(rankPages(pages, "wiki").map((p) => p.id)).toEqual(["exact", "prefix", "mid"]);
+  });
+
+  it("ranks an exact compound title above the same terms in another order", () => {
+    const pages = [
+      page({ id: "reordered", title: "System Wiki" }),
+      page({ id: "exact", title: "Wiki System" })
+    ];
+    expect(rankPages(pages, "wiki system").map((p) => p.id)).toEqual(["exact", "reordered"]);
+    expect(rankPages(pages, "wiki-system").map((p) => p.id)).toEqual(["exact", "reordered"]);
+  });
+
+  it("filters by type and context while exposing truthful opposite facets", () => {
+    const pages = [
+      page({ id: "a", title: "Finance note", page_type: "note", context: "finance" }),
+      page({ id: "b", title: "Finance source", page_type: "source", context: "finance" }),
+      page({ id: "c", title: "Finance source team", page_type: "source", context: "team" })
+    ];
+    const result = searchPages(pages, "finance", { pageType: "source", context: "finance" });
+    expect(result.hits.map((p) => p.id)).toEqual(["b"]);
+    expect(result.total).toBe(1);
+    expect(result.pageTypes).toEqual([
+      { value: "note", count: 1 },
+      { value: "source", count: 1 }
+    ]);
+    expect(result.contexts).toEqual([
+      { value: "finance", count: 1 },
+      { value: "team", count: 1 }
+    ]);
+  });
+
+  it("limits a scoped search to the current world's ids without changing global search", () => {
+    const pages = [
+      page({ id: "inside", title: "Finance inside", path: "memories/finance/inside.md" }),
+      page({ id: "outside", title: "Finance outside", path: "memories/finance/outside.md" })
+    ];
+    expect(searchPages(pages, "finance", { allowedIds: new Set(["inside"]) }).hits.map((p) => p.id)).toEqual(["inside"]);
+    expect(searchPages(pages, "finance").total).toBe(2);
   });
 
   it("returns nothing for an empty query", () => {

@@ -1,0 +1,23 @@
+schema_version: wiki_experience_pack_views.v1
+pack: personal-finance
+views:
+  personal-finance.cashflow:
+    slot: view.cashflow
+    fallback: cashflow-table
+    empty_state: import-first-source
+    required_fields: [occurred_at, amount, direction]
+  personal-finance.category-variance:
+    slot: view.analysis
+    fallback: category-comparison-table
+    empty_state: classify-transactions
+    required_fields: [category_ref, amount, period]
+  personal-finance.reconciliation:
+    slot: view.reconciliation
+    fallback: reconciliation-board
+    empty_state: add-source-balance
+    required_fields: [source_balance, ledger_balance, difference]
+  personal-finance.monthly-closing-tape:
+    slot: view.tape
+    fallback: closing-ledger
+    empty_state: begin-monthly-close
+    required_fields: [period, close_state, reconciliation_refs]

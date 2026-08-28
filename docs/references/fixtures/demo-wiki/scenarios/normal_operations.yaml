@@ -1,0 +1,88 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: normal_operations
+seed: 8002
+purpose: Representative calm daily world with healthy and actionable regions.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, source, person, action, meeting, artifact, nested_center]
+source_pages:
+  - memories/index.md
+  - memories/clientes/index.md
+  - memories/sistema/index.md
+composition:
+  include_all: true
+  exclude_id_prefixes: [artifact-region-pressure-, action-region-pressure-, claim-region-pressure-]
+expected:
+  page_count: 107
+  page_id_sha256: c3a7e172bbd0c57271eea9c99e1a8e0a90d98ee59545f07ce268619f3d5129e6
+  required_artifact_capabilities: [integrity_sha256, region_groups, source_lifecycle, stable_page_ids]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  blocks: wiki_blocks.v2
+canonical_routes:
+  - /demo/w?demo_scenario=normal_operations&center=root-alex-rivera&view=quadrants&overlay=actions
+  - /demo/w?demo_scenario=normal_operations&center=root-alex-rivera&view=radar&overlay=attention
+  - /demo/w?demo_scenario=normal_operations&center=root-alex-rivera&view=work&overlay=ownership
+legacy_routes: [/demo/w/quadrants, /demo/w/radar]
+interactions: [switch_view, switch_lens, switch_overlay, open_reader, open_dock, open_tray, recenter]
+automated_assertions:
+  - claim_id: navigation_axes_change_without_losing_center
+    statement: View, lens, overlay, reader, dock and URL-owned tray state change independently from the active center.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome"
+      - "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+      - "apps/wiki-cockpit/e2e/firefox-smoke.spec.ts::Firefox keeps center, source reader and Back/Forward semantics across 3D or automatic fallback"
+      - "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+      - "apps/wiki-cockpit/e2e/v8-navigation-regressions.spec.ts::URL-owned Missions tray hydrates deep links, resolves singleton conflicts and follows Back/Forward with focus"
+      - "apps/wiki-cockpit/src/router.test.ts::round-trips the complete demo workflow context across canonical route writes"
+    covers:
+      interactions: [switch_view, switch_lens, switch_overlay, open_reader, open_dock, open_tray, recenter]
+      visual_steps: [open_root, visit_all_views, visit_all_overlays, open_work_dock]
+      visual_viewports: [1440x960, 1280x900, 390x844]
+      browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback, firefox-smoke]
+      expected_warnings: []
+      expected_failures: []
+  - claim_id: healthy_regions_remain_visually_quiet
+    statement: Healthy regions remain visually quiet while stronger signals stay bounded.
+    test_ids:
+      - "apps/wiki-cockpit/src/data/visualEncoding.test.ts::caps strong attention marks deterministically while preserving all node data"
+    covers:
+      interactions: []
+      visual_steps: [verify_calm_region]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+  - claim_id: generated_identity_is_deterministic
+    statement: Generated page IDs, inputs and committed scenario artifacts remain stable.
+    test_ids:
+      - tests/test_build_demo.py::test_committed_core_scenario_snapshots_match_every_executable_manifest
+    covers:
+      interactions: []
+      visual_steps: []
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+test_capabilities:
+  - capability: integrity_sha256
+    test_id: apps/wiki-cockpit/src/data/snapshot.test.ts::verifies a content sidecar lazily against the manifest integrity entry
+  - capability: region_groups
+    test_id: "apps/wiki-cockpit/src/scene/perspectives.test.ts::quadrants: dense groups use LOD caps instead of filling the canvas with children"
+  - capability: source_lifecycle
+    test_id: tests/test_build_demo.py::test_committed_source_lifecycle_fixture_covers_every_contract_axis
+  - capability: stable_page_ids
+    test_id: tests/test_build_demo.py::test_committed_core_scenario_snapshots_match_every_executable_manifest
+visual:
+  matrix_semantics: representative_shell_evidence_not_route_cross_product
+  viewports: [1440x960, 1280x900, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback, firefox-smoke]
+  steps: [open_root, visit_all_views, visit_all_overlays, open_work_dock, verify_calm_region]
+expected_warnings: []
+artifact_warning_codes: [region_expected_missing, source_blocked]
+expected_failures: []
+generated_files: [apps/wiki-cockpit/public/sample-snapshot]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

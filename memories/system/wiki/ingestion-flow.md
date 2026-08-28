@@ -8,22 +8,22 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-08-28
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-purpose: "Describes the complete path of a source in the living wiki: from manifest to PR, with pre-scan, LLM context package, consolidation and integration."
-moc_parent: memories/system/wiki/index.md
 source_refs:
   - sources-wiki-viva-methodology
+purpose: "Describes the complete path of a source in the living wiki: from manifest to PR, with pre-scan, LLM context package, consolidation and integration."
+moc_parent: memories/system/wiki/index.md
 related_pages:
   - memories/system/wiki/index.md
 ---
 
 # End-to-end ingestion flow
 
-Updated on: 2026-08-26.
+Updated on: 2026-08-28.
 
 This page describes the path a source travels in the living wiki, from the moment
 it is captured until it becomes consolidated memory via Pull Request. The deterministic
@@ -49,19 +49,16 @@ owns; consolidation, INTEGRATION and the PR gate close the loop into memory.
 ```mermaid
 flowchart TD
     Root["Root entity"] --> Stage["Input stage"]
-    Entity["Source page + source_config recipe"] --> Source["Selected source/stream"]
-    Source --> Manifest["Manifest"]
+    Source["Source"] --> Manifest["Manifest"]
     Manifest --> Chunks["Text and chunks"]
     Chunks --> Index["Index"]
     Index --> Prescan["Pre-scan"]
     Stage --> Package["LLM context package"]
     Prescan --> Package["LLM context package"]
-    Package --> Cursor["Derived processing cursor"]
     Package --> DeepRead(["Deep read by the agent (into the cache)"])
     DeepRead --> Event["Normalized event (quadrants) + integration packet"]
     Event --> Integrate["Consolidate + integrate"]
-    Integrate --> Receipt["Versioned sync evidence"]
-    Receipt --> PR{"PR gate"}
+    Integrate --> PR{"PR gate"}
     PR --> Memory[("Consolidated memory")]
 ```
 
@@ -71,7 +68,6 @@ gate column says what can stop the source from advancing:
 | Stage | Command | Output | Gate |
 | --- | --- | --- | --- |
 | Root/input stage | [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) | Generated [input-stage.md](../input-stage.md) + optional cache catalog | stale generated page fails `--check` |
-| Source entity/recipe | [wiki_migrate_templates.py](../../../scripts/wiki_migrate_templates.py) for legacy pages; then reviewed configuration | Platform, locator, selected streams, cadence, targets and auth pointer | invalid recipe or credential-shaped content warns/fails the audit |
 | Manifest | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | `<source_id>` manifest JSON | none |
 | Text + chunks | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extracted text + stable chunks | none |
 | Index | [wiki_build_index.py](../../../scripts/wiki_build_index.py) | SQLite FTS index | none |
@@ -90,9 +86,6 @@ Invariant points of the design:
 - The input stage does not fetch Slack, Drive, Jira, email or any other system.
   It compiles already-declared root/channel/source-config pages so the source
   enters the LLM pass with the correct perspective bundle and target pages.
-- A recipe is a secret-free execution manual, not a connector credential. It
-  defines which streams are selected and when they are due; a real fetch still
-  requires an authorized connector or an already-exported RAW source.
 - The pre-triage separates two types of finding: an access secret BLOCKS at the origin;
   PII (personal data) merely INFORMS, because this repo is private and personal data is
   welcome in a private page.
@@ -123,29 +116,6 @@ python3 scripts/wiki_input_stage.py --write
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_input_stage.py --ready
 ```
-
-### Source recipe and synchronization scope
-
-The canonical `source` page identifies the evidence and records ingestion/sync
-telemetry. Its linked `source_config` page carries a fenced
-`wiki_source_recipe.v1` block parsed by
-[source_recipe.py](../../../wiki_core/source_recipe.py): platform, locator,
-typed pipelines, selected streams, filters, target pages, an authorization
-pointer and the schedule. Per-stream cursors live in derived state managed by
-[source_state.py](../../../wiki_core/source_state.py); the cursor timestamp,
-not an opaque cursor token, is compared with the cadence.
-
-The derived cursor is a processing checkpoint created after the deterministic
-pipeline artifacts persist; it is not proof that deep reading and canonical
-integration finished. A closed `ingestion_event` plus the versioned successful
-`sync:` receipt carry that stronger evidence. Because derived state disappears
-in a clean clone, a source with exactly one selected stream may use that
-versioned receipt as its freshness fallback. Multi-stream sources still require
-individual cursors.
-
-The legacy `refresh_policy` and `refresh_cadence_days` fields remain on source
-pages for the versioned registry. The recipe/cursor model is the operational
-sync truth for migrated sources.
 
 ## Step 1 - Manifest
 

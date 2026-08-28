@@ -110,6 +110,7 @@ const noop = () => undefined;
 afterEach(() => {
   cleanup();
   configureLanguage("en");
+  try { window.localStorage.clear(); } catch { /* unavailable in restricted test runtimes */ }
 });
 
 describe("SourceDock operational workspace", () => {
@@ -284,7 +285,7 @@ describe("SourceDock operational workspace", () => {
         onClose={noop}
       />
     );
-    expect(document.querySelector('img[src="/source-icons/google-drive.png"]')).toBeTruthy();
+    expect(document.querySelector('img[src="/source-icons/google-drive.svg"]')).toBeTruthy();
 
     rerender(
       <SourceWorkspace
