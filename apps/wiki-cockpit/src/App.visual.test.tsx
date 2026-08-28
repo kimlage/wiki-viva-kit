@@ -267,6 +267,22 @@ vi.mock("./data/snapshot", () => ({
     usable: false,
     reason: "not available in test"
   })),
+  loadAgentCapabilities: vi.fn(async () => ({
+    codex: {
+      enabled: true, installed: false, runnable: false, authed: false,
+      auth_mode: null, version: null, usable: false, reason: "not available in test"
+    },
+    claude: {
+      enabled: true, installed: false, runnable: false, authed: false,
+      auth_mode: null, version: null, usable: false, reason: "not available in test"
+    }
+  })),
+  composeSourceBrief: vi.fn(),
+  previewSourceOperation: vi.fn(),
+  applySourceOperation: vi.fn(),
+  listSourceOperationReceipts: vi.fn(async () => []),
+  previewSourceRefresh: vi.fn(),
+  runSourceRefresh: vi.fn(),
   composeBrief: vi.fn(),
   saveBriefText: vi.fn(),
   discardBrief: vi.fn(),

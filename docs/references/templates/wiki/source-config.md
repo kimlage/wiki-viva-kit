@@ -62,8 +62,9 @@ read model reports what is still invalid until you do.
 ```yaml
 recipe:
   schema_version: wiki_source_recipe.v1
-  platform: ""            # slack | gmail | whatsapp | web | repo | manual …
+  platform: ""            # slack | gchat | chatgpt | whatsapp | gmail | drive | google_photos | web | repo | file | calendar | manual
   locator: ""             # the stable address on that platform (must match the source page)
+  source_kind: collection # item | collection | account | endpoint | repository
   pipelines:
     - { kind: metadata, cadence_days: 30 }
     - { kind: content, cadence_days: 7 }
@@ -76,19 +77,35 @@ recipe:
       filters: {}         # e.g. { after: 2026-01-01, label: finance }
       target_pages: []    # the memory pages this stream keeps fresh
   auth:
-    method: none          # none | env | mcp | keychain | oauth_ref
+    method: none          # none | env | mcp | keychain | onepassword | oauth_file
     ref: ""               # env VAR name / mcp server id / keychain item — a POINTER, never a secret
     scopes: []
     note: ""
   schedule:
-    mode: on_demand       # on_demand | recurring
-    cadence_days: 0       # >0 when mode is recurring (days between scheduled syncs)
+    mode: on_demand       # one_shot | on_demand | recurring | event_driven
+    cadence_days: 0       # >0 only when mode is recurring; otherwise always 0
   how_to_export: |
     Describe exactly how a human exports the already-authorized RAW for this source
     (the sandbox has NO network). Point at the export location the agent should read.
+  refresh:
+    argv: []              # optional metadata-only collection adapter under scripts/
   ingest:
     argv: ["python3", "scripts/wiki_ingest.py", "--source", "{path}"]
+    mcp_hint: ""          # optional connector/tool hint, e.g. google_drive.list_folder
 ```
+
+When `refresh.argv` is present, the interface runs that repository-owned Python
+adapter read-only and requires a `wiki_source_inventory.v1` JSON result. It
+compares the complete collection before the operator applies selected records;
+provider-specific access remains outside `wiki_core`.
+
+The interface only runs `ingest.argv` directly when it is an allowlisted
+`python`/`python3` command whose program is repository-relative under
+[scripts](../../../../scripts/), and `{path}` resolves to a hashed file under
+[data/raw](../../../../data/raw/). If
+`ingest.argv` and `refresh.argv` are empty and `ingest.mcp_hint` is present, the update is delegated to a
+usable agent that actually exposes that connector. Otherwise the manual export
+instructions are shown as the honest next step.
 
 ## Ingestion rules
 

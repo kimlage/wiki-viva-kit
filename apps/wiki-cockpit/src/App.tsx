@@ -31,7 +31,7 @@ import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
-import { SourceDock } from "./components/SourceDock";
+import { SourceWorkspace } from "./components/SourceWorkspace";
 import { ExpandablePre } from "./components/ExpandablePre";
 import { GENESIS_FINAL_STAGE, genesisAttachMatches, genesisCreateMatches, genesisUrl } from "./data/genesis";
 import { configureLanguage, t } from "./data/i18n";
@@ -42,14 +42,26 @@ import {
   composeBrief,
   discardBrief,
   getBrief,
+  applySourceOperation,
+  applySourceGroups,
+  composeSourceBrief,
+  listCodexJobs,
+  listSourceOperationReceipts,
+  loadAgentCapabilities,
   loadCodexCapability,
   loadSnapshotBundle,
+  previewSourceOperation,
+  previewSourceGroups,
+  previewSourceRefresh,
   returnCodexJob,
   runCockpitAction,
   runGitWorkflow,
   runIngestionStep,
   saveBriefText,
-  spawnCodexJob
+  spawnCodexJob,
+  runSourceRefresh,
+  streamCodexLog,
+  cancelCodexJob
 } from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
 import { buildUrl, installLinkInterceptor, navigate, parseRoute, patchWorld, useRouteUrl, worldFromRoute } from "./router";
@@ -1100,6 +1112,7 @@ export function App() {
   const [activeBrief, setActiveBrief] = useState<BriefRecord | null>(null);
   const [briefBusy, setBriefBusy] = useState(false);
   const [codexCapability, setCodexCapability] = useState<CodexCapability>(CODEX_UNAVAILABLE);
+  const [claudeCapability, setClaudeCapability] = useState<CodexCapability>({ ...CODEX_UNAVAILABLE });
   const [codexBusy, setCodexBusy] = useState(false);
 
   // One snapshot bundle per universe, loaded once per session — it survives
@@ -1173,9 +1186,15 @@ export function App() {
   // probed once the real bundle is ready and never in the demo. It fails closed.
   useEffect(() => {
     if (loadState.status !== "ready") return;
-    loadCodexCapability(loadState.runtime)
-      .then(setCodexCapability)
-      .catch(() => setCodexCapability(CODEX_UNAVAILABLE));
+    loadAgentCapabilities(loadState.runtime)
+      .then((capabilities) => {
+        setCodexCapability(capabilities.codex);
+        setClaudeCapability(capabilities.claude);
+      })
+      .catch(() => {
+        setCodexCapability(CODEX_UNAVAILABLE);
+        setClaudeCapability({ ...CODEX_UNAVAILABLE });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadState.status, route.demo]);
 
@@ -1441,7 +1460,8 @@ export function App() {
         setNotice({ text: t("brief.exit.saveFailed", { error: saved.error || "no sha" }), tone: "warn", showResult: false });
         return;
       }
-      const job = await spawnCodexJob(saved.brief_id, saved.brief_sha, { dryRun: false });
+      const agent = saved.spec.agent === "claude" ? "claude" : "codex";
+      const job = await spawnCodexJob(saved.brief_id, saved.brief_sha, { dryRun: false, agent });
       if (job.ok === false) {
         setNotice({
           text: t("codex.job.failed", { error: job.error || job.reason || "rejected" }),
@@ -1468,6 +1488,7 @@ export function App() {
 
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
+  const sourceWorkspaceOpen = route.kind === "world" && route.query.dock === "source";
 
   // The demo TITLE SCREEN: /demo asks how you want to enter — found a world
   // from zero (genesis tutorial) or explore the full one. No bundle needed.
@@ -1487,6 +1508,33 @@ export function App() {
     // redirect effect above moves them to their world dock.
     if (route.kind === "review" || route.kind === "sources" || route.kind === "health" || route.kind === "pageAlias") {
       return <main className="workspace"><section className="panel"><h1>{t("misc.opening")}</h1></section></main>;
+    }
+    if (worldRoute && sourceWorkspaceOpen) {
+      return (
+        <SourceWorkspace
+          bundle={bundle}
+          sourceId={worldRoute.query.src}
+          demo={route.demo}
+          agentCapabilities={{ codex: codexCapability, claude: claudeCapability }}
+          onComposeBrief={runBrief}
+          onRequestBrief={composeSourceBrief}
+          onPreviewConfiguration={previewSourceOperation}
+          onApplyConfiguration={applySourceOperation}
+          onPreviewSourceGroups={previewSourceGroups}
+          onApplySourceGroups={applySourceGroups}
+          onListReceipts={listSourceOperationReceipts}
+          onPreviewRefresh={previewSourceRefresh}
+          onRunRefresh={runSourceRefresh}
+          onListJobs={listCodexJobs}
+          onStreamJobLog={streamCodexLog}
+          onCancelJob={cancelCodexJob}
+          onSourceChanged={refetchReal}
+          onNotice={notify}
+          onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
+          onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
+          onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+        />
+      );
     }
     if (worldRoute) {
       return (
@@ -1512,7 +1560,6 @@ export function App() {
   const gatesDockOpen = route.kind === "world" && route.query.dock === "gates";
   const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
   const workDockOpen = route.kind === "world" && route.query.dock === "work";
-  const sourceDockOpen = route.kind === "world" && route.query.dock === "source";
   const blocksDockOpen = route.kind === "world" && route.query.dock === "blocks";
 
   return (
@@ -1559,11 +1606,12 @@ export function App() {
           <BriefStudio
             brief={activeBrief}
             capability={codexCapability}
+            claudeCapability={claudeCapability}
             busy={briefBusy}
             git={loadState.status === "ready" ? loadState.bundle.git : undefined}
             onSaveText={saveBrief}
             onDiscard={removeBrief}
-            onExecute={codexCapability.usable ? executeBrief : undefined}
+            onExecute={(activeBrief.spec.agent === "claude" ? claudeCapability : codexCapability).usable ? executeBrief : undefined}
             onDiagnose={openCodexDock}
             onNotice={notify}
             onClose={() => setActiveBrief(null)}
@@ -1617,17 +1665,6 @@ export function App() {
             onReturn={returnJob}
             onDiagnose={openCodexDock}
             onNotice={notify}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
-          />
-        )}
-        {sourceDockOpen && worldRoute && loadState.status === "ready" && (
-          <SourceDock
-            bundle={loadState.bundle}
-            sourceId={worldRoute.query.src}
-            onComposeBrief={runBrief}
-            onNotice={notify}
-            onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
-            onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}

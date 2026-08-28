@@ -19,22 +19,21 @@ from typing import Any
 
 import yaml
 
+from wiki_core.source_schedule import SCHEDULE_MODES, SOURCE_KINDS, validate_schedule, validate_source_kind
+
 SOURCE_RECIPE_SCHEMA_VERSION = "wiki_source_recipe.v1"
 
 # Typed pipeline kinds (independently cadenced) — OpenMetadata pipelineType
 # analogue, scoped to what this wiki actually runs.
 PIPELINE_KINDS = frozenset({"metadata", "content", "deep_read", "usage"})
 PLATFORMS = frozenset(
-    {"slack", "gchat", "whatsapp", "gmail", "drive", "web", "repo", "file", "calendar", "manual"}
+    {"slack", "gchat", "chatgpt", "whatsapp", "gmail", "drive", "google_photos", "web", "repo", "file", "calendar", "manual"}
 )
 PRIVACY_LEVELS = frozenset(
     {"private_self", "private_sensitive_allowed", "team_shared", "public_ok"}
 )
 # How the operator's credential is REACHED (a pointer, never the secret itself).
 AUTH_METHODS = frozenset({"env", "keychain", "onepassword", "oauth_file", "mcp", "none"})
-# How often the source is meant to be synced.
-SCHEDULE_MODES = frozenset({"on_demand", "recurring", "event_driven"})
-
 _RECIPE_BLOCK_RE = re.compile(r"```ya?ml\n(.*?)\n```", re.S)
 
 
@@ -80,10 +79,12 @@ class SourceRecipe:
     schema_version: str
     platform: str
     locator: str
+    source_kind: str
     pipelines: tuple[Pipeline, ...]
     streams: tuple[Stream, ...]
     how_to_export: str
     ingest_argv: tuple[str, ...]
+    refresh_argv: tuple[str, ...]
     mcp_hint: str
     auth: AuthPointer | None = None
     schedule: SyncSchedule | None = None
@@ -94,6 +95,7 @@ class SourceRecipe:
             "schema_version": self.schema_version,
             "platform": self.platform,
             "locator": self.locator,
+            "source_kind": self.source_kind,
             "pipelines": [{"kind": p.kind, "cadence_days": p.cadence_days} for p in self.pipelines],
             "streams": [
                 {
@@ -110,6 +112,7 @@ class SourceRecipe:
             ],
             "how_to_export": self.how_to_export,
             "ingest": {"argv": list(self.ingest_argv), "mcp_hint": self.mcp_hint},
+            "refresh": {"argv": list(self.refresh_argv)},
             "auth": (
                 None
                 if self.auth is None
@@ -185,7 +188,10 @@ def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
         for s in (mapping.get("streams") or [])
         if isinstance(s, dict)
     )
-    ingest = mapping.get("ingest") or {}
+    ingest_raw = mapping.get("ingest")
+    ingest = ingest_raw if isinstance(ingest_raw, dict) else {}
+    refresh_raw = mapping.get("refresh")
+    refresh = refresh_raw if isinstance(refresh_raw, dict) else {}
     auth_raw = mapping.get("auth")
     auth = (
         AuthPointer(
@@ -211,10 +217,12 @@ def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
         schema_version=str(mapping.get("schema_version") or SOURCE_RECIPE_SCHEMA_VERSION),
         platform=str(mapping.get("platform") or ""),
         locator=str(mapping.get("locator") or ""),
+        source_kind=str(mapping.get("source_kind") or ""),
         pipelines=pipelines,
         streams=streams,
         how_to_export=str(mapping.get("how_to_export") or ""),
         ingest_argv=tuple(str(a) for a in (ingest.get("argv") or [])),
+        refresh_argv=tuple(str(a) for a in (refresh.get("argv") or [])),
         mcp_hint=str(ingest.get("mcp_hint") or "") if ingest.get("mcp_hint") else "",
         auth=auth,
         schedule=schedule,
@@ -230,6 +238,7 @@ def validate_recipe(recipe: SourceRecipe) -> list[str]:
         errors.append(f"unknown platform `{recipe.platform}` (use {sorted(PLATFORMS)})")
     if not recipe.locator:
         errors.append("recipe.locator is required (platform-native id)")
+    errors.extend(validate_source_kind(recipe.source_kind))
     if not recipe.pipelines:
         errors.append("recipe.pipelines is empty (declare at least one typed pipeline)")
     for pipeline in recipe.pipelines:
@@ -262,10 +271,9 @@ def validate_recipe(recipe: SourceRecipe) -> list[str]:
         if recipe.auth.method in {"mcp", "keychain"} and _URLish_RE.search(recipe.auth.ref):
             errors.append("auth.ref looks like a URL/blob — it should be a short pointer id")
     if recipe.schedule is not None:
-        if recipe.schedule.mode not in SCHEDULE_MODES:
-            errors.append(f"unknown schedule.mode `{recipe.schedule.mode}` (use {sorted(SCHEDULE_MODES)})")
-        if recipe.schedule.mode == "recurring" and recipe.schedule.cadence_days <= 0:
-            errors.append("a recurring schedule needs a positive cadence_days")
+        errors.extend(validate_schedule(recipe.schedule.mode, recipe.schedule.cadence_days))
+    else:
+        errors.append("recipe.schedule is required (declare one_shot, on_demand, recurring, or event_driven)")
     # Secret smell: a recipe must never carry tokens/passwords/keys — neither as
     # a KEY name nor as a VALUE. Structural metadata only.
     for key in _flatten_keys(recipe.raw):

@@ -18,6 +18,7 @@ recipe:
   schema_version: wiki_source_recipe.v1
   platform: slack
   locator: "T024/finance"
+  source_kind: collection
   pipelines:
     - { kind: metadata, cadence_days: 30 }
     - { kind: content, cadence_days: 7 }
@@ -34,6 +35,7 @@ recipe:
     Exportar via Slack export.
   ingest:
     argv: ["python3", "scripts/wiki_ingest.py", "--source", "{path}"]
+  schedule: { mode: recurring, cadence_days: 7 }
 ```
 """
 
@@ -51,6 +53,24 @@ def test_extract_and_parse_a_valid_recipe() -> None:
     assert recipe.streams[1].selected is False and recipe.streams[1].skip_reason
     assert validate_recipe(recipe) == []
     assert recipe.to_json()["streams"][0]["id"] == "#financeiro"
+
+
+def test_recipe_exposes_a_consumer_owned_deterministic_refresh_adapter() -> None:
+    mapping = extract_recipe_mapping(GOOD_CONFIG)
+    assert mapping is not None
+    mapping["refresh"] = {
+        "argv": ["python3", "scripts/source_inventory.py", "--source", "{source_id}", "--locator", "{locator}"]
+    }
+    recipe = parse_recipe(mapping)
+    assert recipe.refresh_argv == (
+        "python3",
+        "scripts/source_inventory.py",
+        "--source",
+        "{source_id}",
+        "--locator",
+        "{locator}",
+    )
+    assert recipe.to_json()["refresh"]["argv"] == list(recipe.refresh_argv)
 
 
 def test_absent_recipe_returns_none() -> None:
@@ -119,6 +139,7 @@ def test_recipe_v2_auth_pointer_and_schedule_are_additive_and_pointer_only() -> 
         {
             "platform": "slack",
             "locator": "T1",
+            "source_kind": "collection",
             "pipelines": [{"kind": "content", "cadence_days": 7}],
             "streams": [{"id": "eng", "cadence_days": 3}],
             "auth": {"method": "mcp", "ref": "slack-mcp", "scopes": ["channels:history"], "note": "read-only"},
@@ -139,9 +160,11 @@ def test_recipe_v2_rejects_bad_auth_method_and_env_ref_shape() -> None:
         {
             "platform": "slack",
             "locator": "T1",
+            "source_kind": "collection",
             "pipelines": [{"kind": "content", "cadence_days": 7}],
             "streams": [],
             "auth": {"method": "telepathy", "ref": "x"},
+            "schedule": {"mode": "on_demand", "cadence_days": 0},
         }
     )
     assert any("auth.method" in e for e in validate_recipe(bad))
@@ -149,9 +172,11 @@ def test_recipe_v2_rejects_bad_auth_method_and_env_ref_shape() -> None:
         {
             "platform": "web",
             "locator": "https://x",
+            "source_kind": "endpoint",
             "pipelines": [{"kind": "content", "cadence_days": 7}],
             "streams": [],
             "auth": {"method": "env", "ref": "lower-case-not-env"},
+            "schedule": {"mode": "on_demand", "cadence_days": 0},
         }
     )
     assert any("env var name" in e for e in validate_recipe(env_bad))

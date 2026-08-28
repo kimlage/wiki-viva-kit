@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-08-27
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,36 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-08-28] System | Wiki Viva v6.10.0 source operations release
+
+- Versioned the source operations workspace as Wiki Viva `v6.10.0`, including
+  the governed update lifecycle, portable platform identities, resizable and
+  groupable source registry, Codex/Claude adapters and the pending-source batch
+  overview.
+- Added a migration contract that keeps shared core and synthetic fixtures in
+  the public kit while requiring each private consumer to own source records,
+  authorization pointers, source groups, deterministic routes and RAW inputs.
+- Revalidated the public and public-export audits, source and operation
+  compilers, page graph, Python and frontend suites, TypeScript, production
+  build and secret scan before publication.
+
+## [2026-08-27] System | Source operations workspace and lifecycle contract
+
+- Added a self-contained two-dimensional source workspace with persistent
+  source registry, record inspection, source-level refresh, governed
+  configuration previews and operation history.
+- Separated source scope (`item`, `collection`, `account`, `endpoint`,
+  `repository`) from lifecycle (`one_shot`, `on_demand`, `event_driven`,
+  `recurring`). Only recurring sources can become due from elapsed time.
+- Source refresh now inventories the full declared source or RAW collection so
+  it can detect new, changed, removed or inaccessible records; selecting one
+  record no longer narrows a folder refresh to one file.
+- Clarified the honest pre-ingestion state as "registered, not yet ingested".
+  Existing ingest evidence takes precedence over contradictory legacy `never`
+  metadata.
+- Updated the public methodology recipe and generated source registry to the
+  explicit source-kind and lifecycle contract.
 
 ## [2026-08-26] System | Methodology source migrated and meta-wiki refreshed
 

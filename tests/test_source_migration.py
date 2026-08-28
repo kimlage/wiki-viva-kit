@@ -9,6 +9,7 @@ from wiki_core.source_migration import (
     apply_change,
     infer_locator,
     infer_platform,
+    initial_sync,
     insert_frontmatter_keys,
     plan_source_migration,
     scaffold_recipe_block,
@@ -32,6 +33,18 @@ def test_infer_locator_uses_page_path_for_repo_and_todo_for_chat() -> None:
     assert infer_locator("memories/sources/x.md", {"source_locator": "kept"}, "repo") == ("kept", False)
     loc, todo = infer_locator("memories/sources/x.md", {}, "slack")
     assert todo is True and loc.startswith("TODO-slack")
+
+
+def test_initial_sync_preserves_versioned_ingestion_evidence() -> None:
+    assert initial_sync({})["last_status"] == "never"
+    assert initial_sync({"last_ingested_at": "2026-06-09"}) == {
+        "last_run_at": "2026-06-09",
+        "last_status": "ok",
+        "last_event_ref": "",
+    }
+    assert initial_sync({"last_ingested_at": "2026-07-06", "ingestion_state": "partial"})[
+        "last_status"
+    ] == "partial"
 
 
 def test_insert_frontmatter_keys_is_additive_and_preserves_order() -> None:

@@ -14,6 +14,7 @@ import type { BriefRecord, CodexCapability, GitState } from "../types";
 export function BriefStudio({
   brief,
   capability,
+  claudeCapability,
   busy,
   git,
   onSaveText,
@@ -25,6 +26,7 @@ export function BriefStudio({
 }: {
   brief: BriefRecord;
   capability: CodexCapability;
+  claudeCapability?: CodexCapability;
   busy: boolean;
   git?: GitState;
   onSaveText: (briefId: string, text: string) => void;
@@ -44,10 +46,12 @@ export function BriefStudio({
   }, [brief.brief_id, brief.text]);
 
   const dirty = text !== composedRef.current;
-  const executeEnabled = Boolean(onExecute) && capability.usable && !busy;
-  const executeTitle = capability.usable
-    ? t("brief.exit.execute")
-    : capability.reason || codexUnavailableReason(capability);
+  const agent = brief.spec.agent === "claude" ? "claude" : "codex";
+  const activeCapability = agent === "claude" ? claudeCapability ?? capability : capability;
+  const executeEnabled = Boolean(onExecute) && activeCapability.usable && !busy;
+  const executeTitle = activeCapability.usable
+    ? t("brief.exit.executeAgent", { agent: agent === "claude" ? "Claude" : "Codex" })
+    : activeCapability.reason || codexUnavailableReason(activeCapability);
 
   const copy = async () => {
     await copyText(text);
@@ -132,18 +136,18 @@ export function BriefStudio({
             type="button"
           >
             <Play size={14} />
-            <span>{t("brief.exit.execute")}</span>
+            <span>{t("brief.exit.executeAgent", { agent: agent === "claude" ? "Claude" : "Codex" })}</span>
           </button>
           <button className="dangerButton" onClick={() => onDiscard(brief.brief_id)} disabled={busy} type="button">
             <Trash2 size={14} />
             <span>{t("brief.exit.discard")}</span>
           </button>
         </div>
-        {!capability.usable && (
+        {!activeCapability.usable && (
           // Honest, VISIBLE reason (not a disabled-button tooltip) + a door to
           // the diagnostics dock — the owner always has a next step.
           <p className="briefStudioCodexNote">
-            <span>{codexUnavailableReason(capability)}</span>
+            <span>{activeCapability.reason || codexUnavailableReason(activeCapability)}</span>
             {onDiagnose && (
               <button className="textButton" onClick={onDiagnose} type="button">
                 {t("codex.dock.open")}

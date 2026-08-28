@@ -1,6 +1,6 @@
 # Source Refresh Cadence
 
-Updated on: 2026-08-26
+Updated on: 2026-08-27
 
 This guide defines how a wiki page declares when a source should be read again.
 The goal is to control quality and cost: refresh sources when they are likely to
@@ -13,6 +13,7 @@ Use these fields on `page_type: source`, `source_catalog` and `artifact` pages:
 
 | Field | Meaning |
 | --- | --- |
+| `source_kind` | `item`, `collection`, `account`, `endpoint` or `repository`; defines what an update inventories. |
 | `last_ingested_at` | Last date the source was actually read or verified. |
 | `refresh_policy` | `recurring`, `event_driven`, `on_demand` or `archival`. |
 | `refresh_cadence_days` | Number of days after the last read when review should be suggested. |
@@ -39,7 +40,7 @@ for synchronization and declares:
 | `streams[].filters` | Explicit scope of the next read. |
 | `streams[].target_pages` | Memory pages that the stream is responsible for keeping current. |
 | `auth` | Pointer to an authorized mechanism; never the credential itself. |
-| `schedule` | `on_demand` or `recurring`; describes when a sync is due. |
+| `schedule` | `one_shot`, `on_demand`, `recurring` or `event_driven`; defines whether time can make work due. |
 
 The cockpit computes stream freshness from the cursor state written after a
 successful deterministic source pass. That mutable cursor is a processing
@@ -47,10 +48,114 @@ checkpoint, not canonical integration proof. The closed ingestion event and
 versioned successful `sync:` receipt provide that proof and survive a clean
 clone. For exactly one selected stream, the receipt is also the safe freshness
 fallback; multiple selected streams still require individual cursors. A
-recurring schedule marks work as due; it does not grant access or fetch a live
-system without an authorized connector or exported RAW.
+recurring schedule is the only mode that can mark work as due solely because
+time passed. `one_shot`, `on_demand` and `event_driven` keep the last factual
+ingestion state without becoming stale on a clock. A schedule never grants
+access or fetches a live system without an authorized connector or exported RAW.
 The legacy frontmatter remains visible in the source registry so existing
 consumers can migrate without losing their previous freshness signal.
+
+## Registration is not ingestion
+
+A source page can exist in the wiki before its content has been ingested. In
+that narrow case, the honest state is **registered, not yet ingested**: there is
+no `last_ingested_at`, successful sync receipt or closed ingestion event yet.
+Once any of that evidence exists, the source must not remain `never_synced` or
+`sync.last_status: never`; migration and snapshot compilation derive the
+factual successful or partial state instead of presenting contradictory
+metadata. The interface uses the same wording so “exists in the catalog” is
+never confused with “content was integrated into the wiki.”
+
+## Operating sources in the cockpit
+
+Open a source with `?dock=source&src=<source-id>`. The source workspace has four
+tabs and does not mix source operations with the world's navigation controls:
+
+| Tab | Operational purpose |
+| --- | --- |
+| Records | Select an exact recipe record and inspect its deterministic metadata, processing state, privacy and target pages. |
+| Update | Refresh the whole source scope and distinguish new records, content changes, metadata enrichment and an unchanged collection. |
+| Configure | Edit source type and lifecycle plus governed record fields, review a content-bound preview, then explicitly confirm it. |
+| History | Read immutable source-operation receipts produced by successful interface writes. |
+
+Source-level configuration accepts only `source_kind`, `schedule_mode` and
+`schedule_cadence_days`. Record-level configuration accepts only `label`,
+`selected`, `privacy`, `cadence_days`, `processing_state`, `skip_reason` and
+`target_pages`; it never
+accepts credentials, arbitrary YAML, commands or paths. The preview token binds
+the current config hash to the proposed result hash, so a changed recipe makes
+confirmation fail closed.
+
+### Registry categories and sizing
+
+Registry categories are an operational view over the sources, not replacements
+for semantic input channels or contexts. When a repository has no saved
+organization, the operator derives portable defaults from `platform` and
+`source_kind`: local folders, remote folders, cloud/accounts, web/feeds and
+repositories. The interface can create and rename categories, reorder them,
+move sources by drag and drop or by an accessible selector, and remove an empty
+category.
+
+Saving writes the complete, ordered assignment to
+`wiki.source-groups.yaml`. As with recipe changes, the browser first requests a
+content-bound preview and then applies the exact token; the write produces a
+receipt under `data/derived/wiki/source-operations/`. A newly registered source
+is placed deterministically without overwriting custom labels or existing
+assignments. Category collapse and the draggable registry width are personal UI
+preferences kept in the browser, while the categories themselves are
+versioned and portable with the wiki.
+
+The update planner derives the maximum useful deterministic inventory from the
+entire source before contextual work. Selecting a record does not narrow an
+update to one file. The planner chooses one of four routes:
+
+1. `deterministic_connector`: `refresh.argv` runs a repository-owned Python
+   adapter under `scripts/`. It queries the declared collection read-only and
+   emits `wiki_source_inventory.v1` JSON with stable `external_id`, label and
+   deterministic metadata. The core owns validation, comparison, selection,
+   recipe patching and receipts; provider-specific access remains in the
+adapter. Metadata added to an already known record is reported as
+`enriched`, not as a content change, and does not reopen ingestion.
+2. `script`: a repository script under `scripts/` receives a hashed RAW file or
+   folder under `data/raw/`. Folders are inventoried recursively and
+   deterministically before execution; the operator does not invoke a shell.
+3. `agent_connector`: the declared `mcp_hint` is delegated through the selected
+   Codex or Claude adapter only when that CLI is usable and exposes the named
+   connector.
+4. `manual_export`: the recipe explains what a human must export when neither a
+   deterministic script nor connector is declared.
+
+An available agent is not the same thing as an available connector. The
+interface probes connector names without returning raw CLI configuration and
+blocks delegation when the declared connector is missing. Successful
+configuration, deterministic inventory or script operations write a redacted receipt under
+`data/derived/wiki/source-operations/`; connector execution continues through
+the existing governed job runner and human review gate.
+
+## Visual identity in the source registry
+
+The registry resolves every source icon in three explicit layers: a
+source-declared local brand, a bundled brand for a known platform, then a
+semantic Lucide icon based on `source_kind`. The first two layers use real
+vendored assets; the final layer keeps unknown sources understandable without
+inventing a logo.
+
+Known platform identities currently cover Google Drive, Google Cloud, Gmail,
+Google Chat, GitHub, WhatsApp, Zoom and Google Calendar. A consumer wiki adds
+an organization-specific identity on its `page_type: source` page:
+
+```yaml
+visual_identity:
+  key: organization-name
+  label: "Organization name"
+  asset_path: /source-icons/organization-name.webp
+  background: light
+```
+
+The asset lives below `apps/wiki-cockpit/public/source-icons/`. Only local
+image paths in that directory are projected; remote URLs, traversal paths and
+unsupported extensions are rejected. The consumer must also record provenance
+and the applicable license or brand-use terms.
 
 ## Suggested Cadences
 
@@ -61,7 +166,26 @@ consumers can migrate without losing their previous freshness signal.
 | Email inbox searches | `recurring` or `event_driven` | 7-30 days | Incremental search window or new topic. |
 | Chat exports | `event_driven` | 21-30 days | New official export or known decision thread. |
 | Public reference pages | `on_demand` | 30-90 days | Public-facing update, claim validation, or publication. |
-| Historical immutable artifacts | `archival` | 180+ days | Only when a conflicting source appears. |
+| Historical immutable artifacts | `one_shot` in the recipe (`archival` remains a legacy frontmatter value) | none | Only when a conflicting source appears. |
+
+## Source type and lifecycle
+
+Choose both fields explicitly:
+
+| `source_kind` | Update scope |
+| --- | --- |
+| `item` | One immutable or individually addressed file/document. |
+| `collection` | A folder, export bundle or set of records; refresh inventories the whole collection. |
+| `account` | An authenticated account whose declared query/scope may yield multiple records. |
+| `endpoint` | A URL, API endpoint or feed. |
+| `repository` | A Git repository or repository-backed memory set. |
+
+| `schedule.mode` | Time-based stale behavior |
+| --- | --- |
+| `one_shot` | Never stale by time after capture; use for immutable artifacts. |
+| `on_demand` | Never stale by time; refresh only when an operator needs readback. |
+| `event_driven` | Never stale by time; refresh when the declared external event occurs. |
+| `recurring` | Uses `schedule.cadence_days > 0` and may become due when the cadence is exceeded. |
 
 ## Meetings
 

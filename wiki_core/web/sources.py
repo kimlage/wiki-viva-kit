@@ -14,7 +14,9 @@ builder, and a public action fn — no side effects in the builder.
 from __future__ import annotations
 
 import datetime as dt
+import re
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any
 
 from wiki_core.config import WikiConfig
@@ -22,8 +24,11 @@ from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.paths import WikiPaths
 from wiki_core.source_recipe import extract_recipe_mapping, parse_recipe, validate_recipe
 from wiki_core.source_state import read_state, stream_cursor
+from wiki_core.web.source_groups import build_source_groups_payload
 
 SOURCE_ENTITIES_SCHEMA_VERSION = "wiki_web_source_entities.v1"
+SOURCE_ICON_PREFIX = "/source-icons/"
+SOURCE_ICON_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"}
 
 _SYNC_STATES = {"ok", "partial", "failed", "running", "queued", "never"}
 
@@ -48,6 +53,35 @@ def _int_or_zero(value: Any) -> int:
         return max(int(str(value).strip()), 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _visual_identity(values: dict[str, Any]) -> dict[str, str] | None:
+    """Project a portable, local-only source brand declaration."""
+    raw = values.get("visual_identity")
+    if not isinstance(raw, dict):
+        return None
+    key = str(raw.get("key") or "").strip().lower()
+    label = str(raw.get("label") or "").strip()
+    asset_path = str(raw.get("asset_path") or "").strip()
+    background = str(raw.get("background") or "transparent").strip().lower()
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", key):
+        return None
+    if not label or len(label) > 80 or any(ord(char) < 32 for char in label):
+        return None
+    if not asset_path.startswith(SOURCE_ICON_PREFIX) or "\\" in asset_path:
+        return None
+    relative = asset_path.removeprefix("/")
+    parsed = PurePosixPath(relative)
+    if parsed.as_posix() != relative or ".." in parsed.parts or parsed.suffix.lower() not in SOURCE_ICON_EXTENSIONS:
+        return None
+    if background not in {"transparent", "light", "dark"}:
+        return None
+    return {
+        "key": key,
+        "label": label,
+        "asset_path": asset_path,
+        "background": background,
+    }
 
 
 def _cadence_for(pipelines: list[dict[str, Any]]) -> int:
@@ -145,28 +179,47 @@ def _source_record(
     if last_status == "never" and events_index:
         derived = events_index.get(source_id)
         if derived and derived["date"]:
-            last_status = "ok"
+            last_status = (
+                "partial"
+                if str(values.get("ingestion_state") or "") == "partial"
+                else "ok"
+            )
             last_run_at = last_run_at or derived["date"]
             last_event_ref = last_event_ref or derived["event"]
             sync_derived = True
+    # Assisted migration sometimes seeded sync=never even though the source
+    # already carried a versioned ingestion timestamp. That authored history is
+    # evidence of a completed ingestion and must outrank the empty seed.
+    authored_ingested_at = str(values.get("last_ingested_at") or "").strip()
+    evidenced_status = (
+        "partial" if str(values.get("ingestion_state") or "") == "partial" else "ok"
+    )
+    if last_status == "never" and authored_ingested_at:
+        last_status = evidenced_status
+        last_run_at = authored_ingested_at
+        sync_derived = True
 
     state = read_state(paths.source_state, source_id)
+    versioned_streams = sync.get("streams") if isinstance(sync.get("streams"), dict) else {}
     pipelines = recipe_json.get("pipelines") or []
     cadence = _cadence_for(pipelines)
-    selected_recipe_streams = [
+    schedule = recipe_json.get("schedule") or None
+    schedule_mode = str(schedule.get("mode") or "") if isinstance(schedule, dict) else ""
+    time_based_freshness = schedule_mode == "recurring"
+    # A shared recipe may govern multiple source pages. A stream scoped with
+    # filters.source_ref belongs only to that source; unscoped streams remain
+    # visible for backwards compatibility.
+    source_streams = [
         stream for stream in recipe_json.get("streams") or []
-        if stream.get("selected", True)
+        if not str((stream.get("filters") or {}).get("source_ref") or "")
+        or str((stream.get("filters") or {}).get("source_ref")) == source_id
     ]
-    versioned_single_stream_age = None
-    if len(selected_recipe_streams) == 1 and last_status == "ok":
-        versioned_single_stream_age = _iso_days_ago(
-            last_run_at or str(values.get("last_ingested_at") or ""), today
-        )
+    selected_stream_count = sum(1 for stream in source_streams if stream.get("selected", True))
 
     streams_out: list[dict[str, Any]] = []
     pending = 0
     newest_age: int | None = None
-    for stream in recipe_json.get("streams") or []:
+    for stream in source_streams:
         # A per-stream cadence_days > 0 overrides the pipeline cadence.
         stream_cadence = _int_or_zero(stream.get("cadence_days")) or cadence
         if not stream.get("selected", True):
@@ -178,15 +231,34 @@ def _source_record(
                 "breached": False,
             })
             continue
-        cursor = stream_cursor(state, str(stream.get("id") or ""))
+        stream_id = str(stream.get("id") or "")
+        cursor = stream_cursor(state, stream_id)
         # Freshness comes from `updated_at` (a real ISO date). The `cursor` token
         # is an opaque sha/id, NOT a date — never parse it as one.
         age = _iso_days_ago(str(cursor.get("updated_at") or ""), today)
         freshness_basis = "stream_cursor"
-        if age is None and versioned_single_stream_age is not None:
-            age = versioned_single_stream_age
-            freshness_basis = "versioned_source_sync"
-        breached = bool(stream_cadence and (age is None or age > stream_cadence))
+        if age is None:
+            receipt = versioned_streams.get(stream_id)
+            if isinstance(receipt, dict) and str(receipt.get("last_status") or "never") == "ok":
+                age = _iso_days_ago(
+                    str(receipt.get("last_run_at") or receipt.get("updated_at") or ""),
+                    today,
+                )
+                freshness_basis = "versioned_stream_receipt"
+        if age is None and selected_stream_count == 1 and last_status == "ok":
+            age = _iso_days_ago(last_run_at or str(values.get("last_ingested_at") or ""), today)
+            if age is not None:
+                # Keep the public v1 read-model label stable while adopting the
+                # newer per-stream receipt semantics additively.
+                freshness_basis = "versioned_source_sync"
+        # Only recurring sources age into an overdue state. A one-shot source is
+        # complete after capture; on-demand and event-driven sources wait for a
+        # trigger and must never become stale merely because time passed.
+        processing_state = str((stream.get("filters") or {}).get("processing_state") or "").lower()
+        workflow_pending = processing_state in {"discovered", "changed", "pending", "queued"}
+        breached = workflow_pending or bool(time_based_freshness and stream_cadence and (age is None or age > stream_cadence))
+        if workflow_pending:
+            freshness_basis = "processing_state"
         if breached:
             pending += 1
         if age is not None and (newest_age is None or age < newest_age):
@@ -195,7 +267,7 @@ def _source_record(
             {
                 **stream,
                 "cursor_age_days": age,
-                "freshness_basis": freshness_basis,
+                "freshness_basis": freshness_basis if workflow_pending or time_based_freshness else f"schedule_{schedule_mode or 'unconfigured'}",
                 "cadence_days": stream_cadence,
                 "breached": breached,
             }
@@ -203,13 +275,26 @@ def _source_record(
 
     # next_due_days: from the schedule cadence (if recurring) vs the freshest
     # cursor; None when no schedule or nothing has synced yet.
-    schedule = recipe_json.get("schedule") or None
     next_due_days: int | None = None
-    if isinstance(schedule, dict) and _int_or_zero(schedule.get("cadence_days")) > 0 and newest_age is not None:
+    if schedule_mode == "recurring" and isinstance(schedule, dict) and _int_or_zero(schedule.get("cadence_days")) > 0 and newest_age is not None:
         next_due_days = _int_or_zero(schedule.get("cadence_days")) - newest_age
 
     selected_total = sum(1 for s in streams_out if s.get("selected", True))
     fresh = sum(1 for s in streams_out if s.get("selected", True) and not s.get("breached"))
+
+    refresh_argv = ((recipe_json.get("refresh") or {}).get("argv") or []) if recipe_json else []
+    ingest = (recipe_json.get("ingest") or {}) if recipe_json else {}
+    ingest_argv = ingest.get("argv") or []
+    mcp_hint = str(ingest.get("mcp_hint") or "")
+    update_mode = (
+        "deterministic_connector"
+        if refresh_argv
+        else "script"
+        if ingest_argv
+        else "agent_connector"
+        if mcp_hint
+        else "manual_export"
+    )
 
     return {
         "source_id": source_id,
@@ -218,6 +303,8 @@ def _source_record(
         "context": str(values.get("context") or ""),
         "platform": str(values.get("platform") or recipe_json.get("platform") or ""),
         "locator": str(values.get("source_locator") or recipe_json.get("locator") or ""),
+        "source_kind": str(recipe_json.get("source_kind") or ""),
+        **({"visual_identity": identity} if (identity := _visual_identity(values)) else {}),
         "owner": str(values.get("owner") or ""),
         "stewards": [s for s in stewards if isinstance(s, dict)],
         "config_ref": config_ref,
@@ -235,6 +322,14 @@ def _source_record(
         "recipe_ok": bool(recipe_json) and not recipe_errors,
         "recipe_errors": recipe_errors,
         "how_to_export": recipe_json.get("how_to_export") or "",
+        # Safe operational summary for the cockpit. Commands remain available
+        # only through the governed preview; this projection exposes no secret.
+        "update_route": {
+            "mode": update_mode,
+            "mcp_hint": mcp_hint,
+            "runnable": update_mode in {"script", "deterministic_connector"},
+            "requires_agent": update_mode == "agent_connector",
+        },
         "pipelines": pipelines,
         "streams": streams_out,
         "pending_streams": pending,
@@ -267,9 +362,11 @@ def build_sources_payload(
             if record is not None:
                 records.append(record)
     records.sort(key=lambda r: (-r["pending_streams"], r["source_id"]))
+    grouping = build_source_groups_payload(root, config, records)
     return {
         "schema_version": SOURCE_ENTITIES_SCHEMA_VERSION,
         "sources": records,
+        "source_groups": grouping,
         "summary": {
             "total": len(records),
             "with_recipe": sum(1 for r in records if r["recipe_ok"]),

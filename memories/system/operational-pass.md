@@ -3,7 +3,7 @@ page_id: operational-pass-wiki-viva-kit
 page_type: dashboard
 context: system
 visibility: private_self
-updated_at: 2026-08-26
+updated_at: 2026-08-27
 stale_after_days: 1
 sources_policy: memorias_fontes_acoes_contextos
 gate: github_pr
@@ -14,7 +14,7 @@ moc_parent: memories/index.md
 
 # Operational pass - sources, actions and contexts
 
-Updated at: 2026-08-26.
+Updated at: 2026-08-27.
 
 Deterministic compilation for contexts: all. Use this page to compress next steps into actions, problems, claims, decisions and target pages; it does not replace human reading of live sources.
 
@@ -36,11 +36,11 @@ Read this first: a compact daily state of items that still need review, decision
 
 ### Latest updates
 
+- **system:** [Operational pass - sources, actions and contexts](operational-pass.md) (2026-08-27)
+- **system:** [Memory log](log.md) (2026-08-27)
+- **system:** [Impact acknowledgements](ingestion/impact-acks.md) (2026-08-27)
+- **system:** [Canonical source registry](source-registry.md) (2026-08-27)
 - **system:** [Wiki Viva Kit](wiki-viva-kit.md) (2026-08-26)
-- **system:** [Wiki methodology maintenance](processes/wiki-methodology-maintenance.md) (2026-08-26)
-- **system:** [Wiki coverage by context](wiki-coverage.md) (2026-08-26)
-- **system:** [System perception - MOC](perception/index.md) (2026-08-26)
-- **system:** [Source config - Living wiki methodology](../sources/config/wiki-viva-methodology-v5.md) (2026-08-26)
 
 
 ## Context summary

@@ -30,6 +30,11 @@ title: "Slack — Finanças"
 context: system
 platform: slack
 source_locator: "T024/finance"
+visual_identity:
+  key: finance-team
+  label: "Finance team"
+  asset_path: /source-icons/finance-team.webp
+  background: light
 owner: person-kim
 config_ref: memories/sources/config/slack-fin.md
 updated_at: 2026-07-01
@@ -59,6 +64,7 @@ recipe:
   schema_version: wiki_source_recipe.v1
   platform: slack
   locator: "T024/finance"
+  source_kind: collection
   pipelines:
     - { kind: content, cadence_days: 7 }
   streams:
@@ -68,6 +74,7 @@ recipe:
     - id: "#custos"
       selected: true
   how_to_export: "Slack export."
+  schedule: {mode: recurring, cadence_days: 7}
 ```
 """,
     )
@@ -87,13 +94,92 @@ def test_payload_rolls_up_identity_recipe_and_freshness(tmp_path: Path) -> None:
     source = payload["sources"][0]
     assert source["platform"] == "slack" and source["owner"] == "person-kim"
     assert source["locator"] == "T024/finance"
+    assert source["visual_identity"] == {
+        "key": "finance-team",
+        "label": "Finance team",
+        "asset_path": "/source-icons/finance-team.webp",
+        "background": "light",
+    }
     assert source["recipe_ok"] is True
+    assert source["update_route"] == {
+        "mode": "manual_export",
+        "mcp_hint": "",
+        "runnable": False,
+        "requires_agent": False,
+    }
     streams = {s["id"]: s for s in source["streams"]}
     assert streams["#financeiro"]["breached"] is False
     assert streams["#custos"]["breached"] is True
     assert source["pending_streams"] == 1
     # The machine sync block is surfaced verbatim.
     assert source["sync"]["last_status"] == "partial"
+
+
+def test_visual_identity_rejects_remote_or_traversing_assets(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    source_path = tmp_path / "memories/sources/slack-fin.md"
+    text = source_path.read_text(encoding="utf-8").replace(
+        "  asset_path: /source-icons/finance-team.webp",
+        "  asset_path: https://example.test/finance-team.webp",
+    )
+    _write(source_path, text)
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    assert "visual_identity" not in source
+
+    text = source_path.read_text(encoding="utf-8").replace(
+        "  asset_path: https://example.test/finance-team.webp",
+        "  asset_path: /source-icons/../private.webp",
+    )
+    _write(source_path, text)
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    assert "visual_identity" not in source
+
+
+def test_versioned_per_stream_receipts_survive_a_clean_clone(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    source_path = tmp_path / "memories/sources/slack-fin.md"
+    text = source_path.read_text(encoding="utf-8").replace(
+        "  streams_total: 2\n",
+        "  streams_total: 2\n"
+        "  streams:\n"
+        "    '#financeiro':\n"
+        "      last_run_at: 2026-07-01T10:00:00Z\n"
+        "      last_status: ok\n"
+        "    '#custos':\n"
+        "      last_run_at: 2026-06-20T10:00:00Z\n"
+        "      last_status: ok\n",
+    )
+    _write(source_path, text)
+
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    streams = {stream["id"]: stream for stream in source["streams"]}
+    assert streams["#financeiro"]["cursor_age_days"] == 2
+    assert streams["#financeiro"]["freshness_basis"] == "versioned_stream_receipt"
+    assert streams["#custos"]["cursor_age_days"] == 13
+    assert source["pending_streams"] == 1
+
+
+def test_shared_recipe_exposes_only_stream_for_current_source(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    config_path = tmp_path / "memories/sources/config/slack-fin.md"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        .replace(
+            '    - id: "#financeiro"\n      selected: true\n',
+            '    - id: "#financeiro"\n      selected: true\n'
+            '      filters: { source_ref: source-slack-fin }\n',
+        )
+        .replace(
+            '    - id: "#custos"\n      selected: true\n',
+            '    - id: "#custos"\n      selected: true\n'
+            '      filters: { source_ref: source-other }\n',
+        ),
+        encoding="utf-8",
+    )
+
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    assert [stream["id"] for stream in source["streams"]] == ["#financeiro"]
+    assert source["sync"]["streams_total"] == 1
 
 
 def test_compose_brief_targets_only_stale_streams(tmp_path: Path) -> None:
@@ -191,3 +277,20 @@ def test_single_stream_clean_clone_uses_versioned_successful_sync(tmp_path: Path
     assert streams["#financeiro"]["freshness_basis"] == "versioned_source_sync"
     assert streams["#financeiro"]["breached"] is False
     assert payload["sources"][0]["pending_streams"] == 0
+
+
+def test_event_driven_discovered_record_is_pending_without_becoming_time_stale(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    config_path = tmp_path / "memories/sources/config/slack-fin.md"
+    text = config_path.read_text(encoding="utf-8")
+    text = text.replace("schedule: {mode: recurring, cadence_days: 7}", "schedule: {mode: event_driven, cadence_days: 0}")
+    text = text.replace(
+        '    - id: "#financeiro"\n      selected: true\n',
+        '    - id: "#financeiro"\n      selected: true\n      filters: {processing_state: discovered}\n',
+    )
+    config_path.write_text(text, encoding="utf-8")
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    streams = {stream["id"]: stream for stream in source["streams"]}
+    assert streams["#financeiro"]["breached"] is True
+    assert streams["#financeiro"]["freshness_basis"] == "processing_state"
+    assert source["pending_streams"] == 1

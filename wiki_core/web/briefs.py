@@ -37,6 +37,7 @@ BRIEF_SCHEMA_VERSION = "wiki_web_brief.v1"
 
 _MISSION_KINDS = {"refresh", "verify", "evidence", "ingest", "state", "create", None}
 _MATERIALIZE = {"refs", "full"}
+_AGENTS = {"codex", "claude"}
 _THEME_RE = re.compile(r"[^a-z0-9]+")
 
 # Brief/job ids come off the URL and become FILENAMES under data/derived/**.
@@ -153,6 +154,9 @@ def normalize_spec(spec: dict[str, Any]) -> dict[str, Any]:
     materialize = spec.get("materialize")
     if materialize not in _MATERIALIZE:
         materialize = "refs"
+    agent = str(spec.get("agent") or "codex").strip().lower()
+    if agent not in _AGENTS:
+        agent = "codex"
     fallback_theme = mission_kind or "update"
     return {
         "mission_kind": mission_kind,
@@ -169,6 +173,7 @@ def normalize_spec(spec: dict[str, Any]) -> dict[str, Any]:
         "intent": str(spec.get("intent") or "").strip(),
         "theme": sanitize_theme(spec.get("theme") or "", fallback=fallback_theme),
         "materialize": materialize,
+        "agent": agent,
     }
 
 

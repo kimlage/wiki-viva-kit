@@ -108,6 +108,7 @@ Governs the source: [Living wiki methodology](../wiki-viva-methodology-v5.md).
 recipe:
   schema_version: wiki_source_recipe.v1
   platform: repo
+  source_kind: repository
   locator: memories/sources/wiki-viva-methodology-v5.md
   pipelines:
     - { kind: metadata, cadence_days: 30 }

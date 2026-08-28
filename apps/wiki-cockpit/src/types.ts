@@ -412,9 +412,39 @@ export type SourceStream = {
   target_pages: string[];
   skip_reason: string;
   cursor_age_days: number | null;
+  freshness_basis?: "stream_cursor" | "versioned_stream_receipt" | "source_receipt" | "versioned_source_sync" | "not_selected";
   cadence_days: number;
   breached: boolean;
   filters?: Record<string, unknown>;
+};
+
+export type SourceEventClosure = {
+  consolidated_into: string[];
+  reviewed_no_change: boolean;
+  no_change: string[];
+  gate_state: string;
+};
+
+export type SourceLifecycleProjection = {
+  derived_from_legacy?: boolean;
+  state: string;
+  freshness_state: string;
+  last_attempt_state: string;
+  pipeline_stage: string;
+  pipeline_stage_timestamps: Record<string, string>;
+  adoption_state: string;
+  last_sync_success_at: string;
+  last_ingested_at: string;
+  last_attempt_at: string;
+  emitted_page_ids: string[];
+  emitted_action_ids: string[];
+  proposal_ids: string[];
+  raw_artifact_count: number;
+  secret_safe_log_refs: string[];
+  reviewed_no_change_receipt: string;
+  accepted_ref: string;
+  blocked_reason: string;
+  authoring_error_codes: string[];
 };
 
 export type SourceEntity = {
@@ -424,6 +454,16 @@ export type SourceEntity = {
   context: string;
   platform: string;
   locator: string;
+  source_kind?: "item" | "collection" | "account" | "endpoint" | "repository" | "";
+  // Optional source-owned brand identity. The backend only projects local
+  // /source-icons assets; older snapshots omit this field and keep the
+  // platform-aware semantic fallback.
+  visual_identity?: {
+    key: string;
+    label: string;
+    asset_path: string;
+    background: "transparent" | "light" | "dark";
+  };
   owner: string;
   stewards: { ref?: string; kind?: string; via?: string }[];
   config_ref: string;
@@ -435,10 +475,18 @@ export type SourceEntity = {
     derived_from_event?: boolean;
     streams_fresh: number;
     streams_total: number;
+    event_closure?: SourceEventClosure;
   };
+  lifecycle?: SourceLifecycleProjection;
   recipe_ok: boolean;
   recipe_errors: string[];
   how_to_export: string;
+  update_route?: {
+    mode: "script" | "deterministic_connector" | "agent_connector" | "manual_export";
+    mcp_hint: string;
+    runnable: boolean;
+    requires_agent: boolean;
+  };
   pipelines: { kind: string; cadence_days: number }[];
   streams: SourceStream[];
   pending_streams: number;
@@ -449,11 +497,91 @@ export type SourceEntity = {
   next_due_days?: number | null;
 };
 
+export type SourceGroupIcon = "folder" | "folder-remote" | "cloud" | "web" | "repository" | "inbox";
+export type SourceGroup = {
+  id: string;
+  label: string;
+  icon: SourceGroupIcon;
+  source_ids: string[];
+};
+export type SourceGroupsPayload = {
+  schema_version: string;
+  config_path: string;
+  configured: boolean;
+  groups: SourceGroup[];
+};
+export type SourceGroupsOperationResult = {
+  ok: boolean;
+  error?: string;
+  preview_token?: string;
+  operation_id?: string;
+  receipt_path?: string;
+  changed_files?: string[];
+  groups?: SourceGroup[];
+};
+
 export type SourceEntitiesPayload = {
   schema_version: string;
   sources: SourceEntity[];
+  source_groups?: SourceGroupsPayload;
   summary?: { total: number; with_recipe: number; pending: number };
   error?: string;
+};
+
+export type SourceOperationChange = { field: string; before: unknown; after: unknown };
+export type SourceInventoryRecord = {
+  external_id: string;
+  label: string;
+  filters: Record<string, unknown>;
+  status: "new" | "changed" | "enriched" | "unchanged";
+  stream_id?: string;
+  before?: unknown;
+};
+export type SourceInventoryDiff = {
+  counts: { new: number; changed: number; enriched: number; unchanged: number };
+  records: SourceInventoryRecord[];
+  fingerprint: string;
+};
+export type SourceOperationPreview = {
+  ok: boolean;
+  error?: string;
+  schema_version?: string;
+  source_id?: string;
+  stream_id?: string;
+  preview_token?: string;
+  config_ref?: string;
+  changes?: SourceOperationChange[];
+  updates?: Record<string, unknown>;
+  raw_inventory?: Record<string, unknown>;
+  discovery?: SourceInventoryDiff | null;
+  execution?: {
+    mode: "script" | "deterministic_connector" | "agent_connector" | "manual_export";
+    argv: string[];
+    mcp_hint: string;
+    how_to_export: string;
+    runnable?: boolean;
+    requires_agent?: boolean;
+  };
+  steps?: { id: string; label: string; status: string }[];
+};
+export type SourceOperationReceipt = {
+  ok?: boolean;
+  error?: string;
+  operation_id: string;
+  recorded_at: string;
+  source_id: string;
+  stream_id: string;
+  status: string;
+  changes: SourceOperationChange[];
+  receipt_path?: string;
+  changed_files?: string[];
+  source?: SourceEntity;
+  stdout?: string;
+  stderr?: string;
+  returncode?: number | null;
+  discovery?: SourceInventoryDiff;
+  selected_external_ids?: string[];
+  summary?: { new: number; changed: number; enriched: number; unchanged: number; applied: number };
 };
 
 // --- Declarative template registry (Pillar B) ---
@@ -543,6 +671,7 @@ export type CodexCapability = {
   version: string | null;
   usable: boolean;
   reason: string;
+  connectors?: string[];
   // The local operator process predates the code on disk (its /api/health lacks
   // the codex capability). This is rung 0 of the diagnostics ladder: restart it.
   operator_outdated?: boolean;
@@ -567,11 +696,18 @@ export type OperatorHealth = {
   server_version?: string;
   schema_capabilities?: string[];
   codex?: CodexCapability;
+  claude?: CodexCapability;
+};
+
+export type AgentCapabilities = {
+  codex: CodexCapability;
+  claude: CodexCapability;
 };
 
 // A work-brief spec: what the operator points the composer at. Mirrors
 // wiki_core.web.briefs.normalize_spec.
 export type BriefSpec = {
+  agent?: string;
   mission_kind?: string | null;
   grounding: {
     page_ids?: string[];
@@ -600,6 +736,7 @@ export type CodexJobRecord = {
   ok?: boolean;
   error?: string;
   reason?: string;
+  agent?: "codex" | "claude";
   job_id: string;
   brief_id: string;
   brief_sha: string;

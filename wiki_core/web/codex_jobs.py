@@ -33,6 +33,7 @@ from typing import Any
 from wiki_core.config import WikiConfig
 from wiki_core.paths import WikiPaths
 from wiki_core.web.briefs import BriefStore, hash_targets, require_safe_id
+from wiki_core.web.agent_adapters import AGENT_IDS, build_claude_argv
 from wiki_core.web.commands import SECRET_VALUE_RE
 from wiki_core.web.git_workflows import run_git_workflow
 
@@ -86,6 +87,7 @@ class JobRunner:
         config: WikiConfig,
         *,
         codex_cmd: list[str] | None = None,
+        claude_cmd: list[str] | None = None,
         timeout_seconds: int = _DEFAULT_JOB_TIMEOUT,
         autostart: bool = True,
     ) -> None:
@@ -95,6 +97,9 @@ class JobRunner:
         binary = str(codex_cfg.get("binary") or "codex")
         # codex_cmd lets tests point at a shim; production uses [binary].
         self.codex_cmd = list(codex_cmd) if codex_cmd else [binary]
+        claude_cfg = getattr(config, "claude", {}) or {}
+        claude_binary = str(claude_cfg.get("binary") or "claude")
+        self.claude_cmd = list(claude_cmd) if claude_cmd else [claude_binary]
         self.timeout_seconds = timeout_seconds
         self.dir = WikiPaths(root, config).derived_root / "codex-jobs"
         self.briefs = BriefStore(root, config)
@@ -246,10 +251,13 @@ class JobRunner:
     # -- submit ------------------------------------------------------------- #
     def submit(
         self, *, brief_id: str, brief_sha: str, dry_run: bool = True, force: bool = False,
-        parent_job_id: str | None = None,
+        parent_job_id: str | None = None, agent: str = "codex",
     ) -> dict[str, Any]:
         """Validate + enqueue. Returns the queued record, or an ``ok:False``
         rejection (sha mismatch / stale targets / unknown brief / codex unusable)."""
+        agent = str(agent or "codex").lower()
+        if agent not in AGENT_IDS:
+            return {"ok": False, "error": "unknown agent adapter", "agent": agent}
         brief = self.briefs.get(brief_id)
         if brief is None:
             return {"ok": False, "error": "unknown brief", "brief_id": brief_id}
@@ -295,8 +303,10 @@ class JobRunner:
             "mission_kind": brief.get("spec", {}).get("mission_kind"),
             "intent": brief.get("spec", {}).get("intent", ""),
             "theme": brief.get("spec", {}).get("theme", "update"),
+            "agent": agent,
             "steps": [{"id": sid, "label": label, "status": "pending"} for sid, label in _STEP_TEMPLATE],
             "codex": {"final_message_path": None, "session_started": False},
+            "agent_run": {"adapter": agent, "final_message_path": None},
             "branch": None,
             "branch_mode": None,
             "draft_pr_url": None,
@@ -408,6 +418,7 @@ class JobRunner:
         # THIS runner executes, the runner owns git. Without this preamble a
         # dutiful agent creates the branch itself and the runner then commits on
         # the wrong checkout (observed with codex-cli on a real job).
+        agent = str(record.get("agent") or "codex")
         self._set_step(record, "codex", "running")
         final_path = job_dir / "final.md"
         brief_path = job_dir / "brief.md"
@@ -424,7 +435,10 @@ class JobRunner:
         brief_path.write_text(stdin_text, encoding="utf-8")
         # codex_cmd is [binary] in prod, or [python3, shim] in tests; either way
         # the exec flags follow the command prefix.
-        argv = [*self.codex_cmd, *build_codex_argv(self.codex_cmd[0], self.root, final_path)[1:]]
+        if agent == "claude":
+            argv = [*self.claude_cmd, *build_claude_argv(self.claude_cmd[0], self.root)[1:]]
+        else:
+            argv = [*self.codex_cmd, *build_codex_argv(self.codex_cmd[0], self.root, final_path)[1:]]
         rc, cancelled = self._run_codex(job_id, argv, stdin_text, job_dir / "log.jsonl")
         if cancelled:
             unwind()
@@ -433,9 +447,10 @@ class JobRunner:
         if rc != 0:
             self._set_step(record, "codex", "failed")
             unwind()
-            return self._set_status(record, "failed", reason=f"codex exited {rc}")
+            return self._set_status(record, "failed", reason=f"{agent} exited {rc}")
         if final_path.is_file():
             record["codex"]["final_message_path"] = str(final_path.relative_to(self.root)) if final_path.is_relative_to(self.root) else str(final_path)
+            record["agent_run"]["final_message_path"] = record["codex"]["final_message_path"]
         self._set_step(self._write(record), "codex", "complete")
 
         # Re-anchor: despite the preamble, an agent may still move the checkout.
