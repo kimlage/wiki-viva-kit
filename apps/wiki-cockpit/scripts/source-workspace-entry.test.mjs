@@ -3,7 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const appSource = fs.readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
-const publicReadme = fs.readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
+const cockpitReadme = fs.readFileSync(new URL("../README.md", import.meta.url), "utf8");
 const workspaceSource = fs.readFileSync(
   new URL("../src/components/SourceWorkspace.tsx", import.meta.url),
   "utf8"
@@ -25,14 +25,14 @@ test("the source workspace remains a lazy standalone application surface", () =>
   );
 });
 
-test("the public README links to the canonical standalone source workspace", () => {
+test("the managed cockpit README links to the canonical standalone source workspace", () => {
   assert.match(
-    publicReadme,
+    cockpitReadme,
     /`\/w\?view=sources&dock=source`/,
     "operator documentation must include dock=source so the 2D workspace opens instead of the 3D source perspective"
   );
   assert.match(
-    publicReadme,
+    cockpitReadme,
     /`\/demo\/w\?view=sources&dock=source`/,
     "demo documentation must link to /demo/w with dock=source"
   );
