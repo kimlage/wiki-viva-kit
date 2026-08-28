@@ -4,6 +4,13 @@ Local-first web cockpit for Wiki Viva. The 3D scene is the primary navigation
 surface: one continuous knowledge world where drill level is camera altitude
 bound to the URL and reading happens inside the world.
 
+## Source-management workspace
+
+The source manager is a standalone 2D application surface. Open
+`/w?view=sources&dock=source` in an operator-backed consumer wiki, or
+`/demo/w?view=sources&dock=source` in the synthetic public demo. A plain
+`view=sources` is the 3D source perspective and is not the management workspace.
+
 ## The navigable world
 
 The canonical share grammar is one real center plus registered query state:
