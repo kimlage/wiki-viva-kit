@@ -1,0 +1,4 @@
+# Synthetic credential-shaped fixtures that prove the retired v8 upgrade runner
+# rejects secrets before persisting evidence. These are not usable credentials.
+7e72664fb6871d906addbddb6ed5b2e7f1fec33c:tests/test_wiki_upgrade_cli.py:generic-api-key:403
+7e72664fb6871d906addbddb6ed5b2e7f1fec33c:tests/test_wiki_upgrade_cli.py:generic-api-key:476
