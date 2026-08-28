@@ -8,7 +8,7 @@ The wiki is one navigable world rather than a set of dashboard islands. Pages
 remain canonical Markdown; registered views project the same world as spatial
 quadrants, timelines, graph relations, source provenance and operational work.
 
-Current public baseline: [Wiki Viva v8.1.1](docs/references/releases/wiki-viva-v8.1.1.md).
+Current public baseline: [Wiki Viva v8.1.2](docs/references/releases/wiki-viva-v8.1.2.md).
 
 ```mermaid
 flowchart LR
@@ -58,8 +58,8 @@ and the [Wiki Viva skill](.skills/wiki-viva/SKILL.md).
 
 ## Operating data sources
 
-Open `?view=sources` in an operator-backed consumer wiki, or
-`/demo?view=sources` in the public synthetic demo. Sources have a dedicated 2D
+Open `/w?view=sources&dock=source` in an operator-backed consumer wiki, or
+`/demo/w?view=sources&dock=source` in the public synthetic demo. Sources have a dedicated 2D
 workspace; it is not a modal over the 3D world and does not mix source work with
 the wiki's other perspectives.
 

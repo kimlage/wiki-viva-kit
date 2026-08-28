@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const appSource = fs.readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const publicReadme = fs.readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
 const workspaceSource = fs.readFileSync(
   new URL("../src/components/SourceWorkspace.tsx", import.meta.url),
   "utf8"
@@ -21,5 +22,18 @@ test("the source workspace remains a lazy standalone application surface", () =>
     appSource,
     /const SourceWorkspace = lazy\(\(\) => import\(["']\.\/components\/SourceWorkspace["']\)/,
     "SourceWorkspace must stay lazy so the 2D manager does not preload the 3D runtime"
+  );
+});
+
+test("the public README links to the canonical standalone source workspace", () => {
+  assert.match(
+    publicReadme,
+    /`\/w\?view=sources&dock=source`/,
+    "operator documentation must include dock=source so the 2D workspace opens instead of the 3D source perspective"
+  );
+  assert.match(
+    publicReadme,
+    /`\/demo\/w\?view=sources&dock=source`/,
+    "demo documentation must link to /demo/w with dock=source"
   );
 });
