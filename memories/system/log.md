@@ -14,6 +14,18 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-08-28] System | Wiki Viva v6.10.1 portable consumer sync
+
+- Added the missing public `wiki_sync_from_kit.py` implementation, its
+  synthetic regression suite and the stable portable sync manifest required by
+  the v6.10 upgrade procedure.
+- The B0/C1/C2/C3 flow is fail-closed for dirty consumers by default, copies
+  only tracked regular files selected by the public manifest, removes only
+  files previously managed by `kit.lock` and records portable hashes without
+  host paths.
+- Marked `v6.10.0` as superseded for consumer migration; downstream adoption
+  must pin `v6.10.1` or later.
+
 ## [2026-08-28] System | Wiki Viva v6.10.0 source operations release
 
 - Versioned the source operations workspace as Wiki Viva `v6.10.0`, including
