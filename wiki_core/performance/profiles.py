@@ -49,4 +49,3 @@ def profile_for(name: str) -> FixtureProfile:
         return PROFILES[name]
     except KeyError as exc:
         raise PerformanceContractError(f"unknown performance profile: {name}") from exc
-
