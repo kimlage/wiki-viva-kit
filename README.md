@@ -8,7 +8,7 @@ The wiki is one navigable world rather than a set of dashboard islands. Pages
 remain canonical Markdown; registered views project the same world as spatial
 quadrants, timelines, graph relations, source provenance and operational work.
 
-Current public baseline: [Wiki Viva v8.1.0](docs/references/releases/wiki-viva-v8.1.md).
+Current public baseline: [Wiki Viva v8.1.1](docs/references/releases/wiki-viva-v8.1.1.md).
 
 ```mermaid
 flowchart LR
@@ -55,6 +55,44 @@ python3 scripts/wiki_web_snapshot.py --check-contract
 Edit `wiki.config.yaml` to define the repository id, owner label, root entity,
 memory root, contexts and privacy boundary. See [docs/README.md](docs/README.md)
 and the [Wiki Viva skill](.skills/wiki-viva/SKILL.md).
+
+## Operating data sources
+
+Open `?view=sources` in an operator-backed consumer wiki, or
+`/demo?view=sources` in the public synthetic demo. Sources have a dedicated 2D
+workspace; it is not a modal over the 3D world and does not mix source work with
+the wiki's other perspectives.
+
+The workspace provides:
+
+- a collapsible, draggable-width registry with editable categories, source
+  movement and representative platform or consumer-owned brand icons;
+- an initial overview of every source pending attention and one governed
+  **Update all pending** action;
+- record selection for inspection while updates continue to inventory the
+  entire declared folder, account, endpoint or repository;
+- separate **Records**, **Update**, **Configure** and **History** surfaces;
+- source and lifecycle configuration through content-bound previews, explicit
+  confirmation and immutable operation receipts;
+- authorization diagnostics, deterministic scripts and inventories, plus
+  monitored Codex and Claude delegation when the required connector is usable.
+
+Every source declares both its update scope (`item`, `collection`, `account`,
+`endpoint` or `repository`) and lifecycle (`one_shot`, `on_demand`,
+`event_driven` or `recurring`). Only recurring sources can become overdue merely
+because time passed. Updating a collection means checking its complete declared
+scope for new, changed, enriched, removed or inaccessible records; selecting a
+record never silently narrows that scope to one file.
+
+The operator never stores credentials in Git. It accepts only reviewed source
+fields, checks local authorization and connector capabilities, previews the
+exact deterministic change, and fails closed if the recipe changed before
+confirmation. Registration, deterministic collection, ingestion evidence and
+sync receipts remain distinct, so an existing ingested source is not falsely
+shown as “never synchronized”.
+
+Detailed operating and configuration contract:
+[source refresh and source workspace guide](docs/references/guides/source-refresh-cadence.md).
 
 ## Downstream upgrading
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from wiki_core.config import load_config
 from wiki_core.template_blocks import (
+    SURFACES,
     anchor_chain,
     build_block_stacks_payload,
     build_blocks_payload,
@@ -40,6 +41,13 @@ def test_kit_blocks_load_and_validate_clean() -> None:
     world = load_block_world(KIT_ROOT, today=TODAY)
     assert world.blocks  # the v2 registry has blocks
     assert validate_blocks(world) == []
+
+
+def test_admin_is_a_valid_consumer_interface_surface() -> None:
+    # Downstream wikis may expose the optional, separately authorized admin
+    # interface. Declaring its block must not make an otherwise valid consumer
+    # fail the portable template registry gate.
+    assert "admin" in SURFACES
 
 
 def test_stack_origin_and_nearest_ring_wins(tmp_path: Path) -> None:

@@ -480,9 +480,41 @@ def test_single_stream_clean_clone_uses_versioned_successful_sync(tmp_path: Path
     payload = build_sources_payload(tmp_path, config, today=TODAY)
     streams = {s["id"]: s for s in payload["sources"][0]["streams"]}
     assert streams["#financeiro"]["cursor_age_days"] == 2
-    assert streams["#financeiro"]["freshness_basis"] == "versioned_source_sync"
+    assert streams["#financeiro"]["freshness_basis"] == "source_receipt"
     assert streams["#financeiro"]["breached"] is False
     assert payload["sources"][0]["pending_streams"] == 0
+
+
+def test_legacy_lifecycle_placeholder_does_not_override_sync_evidence(
+    tmp_path: Path,
+) -> None:
+    config = _repo(tmp_path)
+    source_path = tmp_path / "memories/sources/slack-fin.md"
+    source_path.write_text(
+        source_path.read_text(encoding="utf-8")
+        .replace(
+            "updated_at: 2026-07-01\n",
+            "updated_at: 2026-07-01\n"
+            "last_ingested_at: 2026-07-01\n"
+            "ingestion_state: ingested\n"
+            "source_lifecycle:\n"
+            "  state: configured\n"
+            "  freshness_state: never_synced\n"
+            "  last_attempt_state: never\n"
+            "  pipeline_stage: configured\n"
+            "  adoption_state: pending\n"
+            "  last_sync_success_at: ''\n"
+            "  last_ingested_at: ''\n",
+        )
+        .replace("last_status: partial", "last_status: ok"),
+        encoding="utf-8",
+    )
+
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    assert source["lifecycle"]["derived_from_legacy"] is True
+    assert source["lifecycle"]["state"] == "ingested"
+    assert source["lifecycle"]["last_attempt_state"] == "ok"
+    assert source["lifecycle"]["pipeline_stage"] == "complete"
 
 
 def test_event_driven_discovered_record_is_pending_without_becoming_time_stale(tmp_path: Path) -> None:

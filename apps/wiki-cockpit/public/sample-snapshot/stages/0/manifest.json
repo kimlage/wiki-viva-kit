@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "2d8c7594083e550da8e73c6bba2995a7a36de7acdf1e5bfc2e7ba2c78445aa6c",
+  "bundle_hash": "7b820fbe53a9e95fe2aa1f919629ea46e997b1a003572ee3e569051c26135fee",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -78,8 +78,8 @@
       "sha256": "86b33717ff10ba9309de0c49b0a999fa8d82272823651483daf7f168d41f6828"
     },
     "blocks.json": {
-      "bytes": 9051,
-      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+      "bytes": 9059,
+      "sha256": "39bce837ab1f62a449caa620726bf545eb3b3b600d63adbb57d23c55dd42db72"
     },
     "commands.json": {
       "bytes": 1296,
@@ -186,9 +186,9 @@
   },
   "root_page_id": null,
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-2d8c7594083e550d",
+  "snapshot_id": "wiki-viva-demo-7b820fbe53a9e95f",
   "source_commit": null,
-  "source_sha": "uncommitted:2d8c7594083e550da8e73c6bba2995a7a36de7acdf1e5bfc2e7ba2c78445aa6c",
+  "source_sha": "uncommitted:7b820fbe53a9e95fe2aa1f919629ea46e997b1a003572ee3e569051c26135fee",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

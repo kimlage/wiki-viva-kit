@@ -28,6 +28,15 @@ def test_infer_platform_keeps_existing_and_maps_source_type() -> None:
     assert infer_platform({}) == ("manual", True)  # unknown → conservative fallback
 
 
+def test_infer_platform_prefers_specific_identity_over_coarse_legacy_type() -> None:
+    assert infer_platform(
+        {"source_type": "chat", "page_id": "source-whatsapp-a"}
+    ) == ("whatsapp", False)
+    assert infer_platform(
+        {"source_type": "reference", "title": "Google Photos archive"}
+    ) == ("google_photos", False)
+
+
 def test_infer_locator_uses_page_path_for_repo_and_todo_for_chat() -> None:
     assert infer_locator("memories/sources/x.md", {}, "repo") == ("memories/sources/x.md", False)
     assert infer_locator("memories/sources/x.md", {"source_locator": "kept"}, "repo") == ("kept", False)
@@ -103,10 +112,76 @@ def test_plan_adds_contract_fields_and_scaffolds_recipe(tmp_path: Path) -> None:
     assert src.add_frontmatter["sync"]["last_status"] == "never"
 
     cfg = by_rel["memories/sources/config/methodology.md"]
+    assert cfg.add_frontmatter["platform"] == "repo"
     assert cfg.append_recipe
     # The config inherits the entity's platform/locator, not a bare "manual" guess.
     mapping = extract_recipe_mapping(cfg.append_recipe)
     assert parse_recipe(mapping).platform == "repo"
+
+
+def test_operational_plan_activates_linked_source_stream(tmp_path: Path) -> None:
+    _seed_source_wiki(tmp_path)
+    changes = plan_source_migration(
+        tmp_path,
+        _config(),
+        today=dt.date(2026, 8, 26),
+        operational_recipes=True,
+    )
+    config_change = next(
+        change for change in changes if change.page_type == "source_config"
+    )
+    recipe = parse_recipe(extract_recipe_mapping(config_change.append_recipe))
+    assert recipe.streams[0].id == "methodology"
+    assert recipe.streams[0].selected is True
+    assert recipe.streams[0].filters == {"source_ref": "sources-methodology"}
+    assert validate_recipe(recipe) == []
+
+
+def test_operational_plan_preserves_versioned_lifecycle_evidence(tmp_path: Path) -> None:
+    _seed_source_wiki(tmp_path)
+    source = tmp_path / "memories/sources/methodology.md"
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "config_ref: memories/sources/config/methodology.md\n",
+            "config_ref: memories/sources/config/methodology.md\n"
+            "source_lifecycle:\n"
+            "  last_sync_success_at: 2026-08-21\n"
+            "  secret_safe_log_refs:\n"
+            "    - memories/system/events/2026-08-21-methodology.md\n",
+        ),
+        encoding="utf-8",
+    )
+    changes = plan_source_migration(
+        tmp_path,
+        _config(),
+        today=dt.date(2026, 8, 26),
+        operational_recipes=True,
+    )
+    source_change = next(change for change in changes if change.page_type == "source")
+    assert source_change.add_frontmatter["sync"] == {
+        "last_run_at": "2026-08-21",
+        "last_status": "ok",
+        "last_event_ref": "memories/system/events/2026-08-21-methodology.md",
+    }
+
+
+def test_existing_recipe_keeps_body_and_pins_config_platform(tmp_path: Path) -> None:
+    _seed_source_wiki(tmp_path)
+    config_path = tmp_path / "memories/sources/config/methodology.md"
+    original = config_path.read_text(encoding="utf-8") + "\n" + scaffold_recipe_block(
+        "repo", "memories/sources/methodology.md"
+    )
+    config_path.write_text(original, encoding="utf-8")
+
+    changes = plan_source_migration(tmp_path, _config(), today=dt.date(2026, 7, 3))
+    cfg = next(change for change in changes if change.page_type == "source_config")
+
+    assert cfg.add_frontmatter == {"platform": "repo"}
+    assert cfg.append_recipe == ""
+    apply_change(tmp_path, cfg)
+    migrated = config_path.read_text(encoding="utf-8")
+    assert migrated.count("```yaml") == original.count("```yaml")
+    assert extract_recipe_mapping(migrated) == extract_recipe_mapping(original)
 
 
 def test_apply_is_idempotent(tmp_path: Path) -> None:

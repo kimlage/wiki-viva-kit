@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "c8b0f5b95d3f5bd204de316bd26117fc283d12624b1d38009d49623c61f922ea",
+  "bundle_hash": "71933baefa65ab0e429c0d9e8a93cde093871b980738fdf6f06fcf657a787ea1",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -80,8 +80,8 @@
       "sha256": "dad99dfbd87d656e20d2abc3de3fb8c5d07b4fba1c90447c1736953f4f2f47ea"
     },
     "blocks.json": {
-      "bytes": 9051,
-      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+      "bytes": 9059,
+      "sha256": "39bce837ab1f62a449caa620726bf545eb3b3b600d63adbb57d23c55dd42db72"
     },
     "commands.json": {
       "bytes": 1296,
@@ -89,19 +89,19 @@
     },
     "content/holon-product-ops.744a6fbe.json": {
       "bytes": 1540,
-      "sha256": "e7f91686820b38ad43044d7afa46a7daae40fb0e2aea1de2564bb1ba9abd4a1d"
+      "sha256": "bf0545a585177780962ebdeae4c4dca85a1377989f7a52fb1431a6dd02386a26"
     },
     "content/library-ai-safety.bea650b2.json": {
       "bytes": 1691,
-      "sha256": "12ee220c2771a0963703752ab4c934013e593ce4ecd5e5078c6bee0ed47d2725"
+      "sha256": "7df6c06834cf763c7ae12672494e09a3a802c7a0c10ce8f55bc70ef07b4e99d9"
     },
     "content/project-atlas-launch.26b6f390.json": {
       "bytes": 1234,
-      "sha256": "8ab6cbed8592a1226eb2291a8b9cf8a53fa6003d70a472f7514d3bb14445a5f1"
+      "sha256": "7a9c87d35a0bd071f667f5f513ace7c2fb72595981e65ca6e89ebd813ba6160d"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1991,
-      "sha256": "2e1894463208b8a2c91d64877228da08c6effd5f7689a25916d2fe3818e706c2"
+      "sha256": "931883de60ac0d1afdd4ff516861bf9856dcf8fc7859eda9a4cfa76e9bfead08"
     },
     "decisions.json": {
       "bytes": 57,
@@ -204,9 +204,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-c8b0f5b95d3f5bd2",
+  "snapshot_id": "wiki-viva-demo-71933baefa65ab0e",
   "source_commit": null,
-  "source_sha": "uncommitted:7cb34cc1294b726c2bf6bf063c4524758ba625c01df66dd5ebd76668e7c88fc9",
+  "source_sha": "uncommitted:d2880ccac9ee954260e6655e9673577781f652788523e9807e2518d8b41907cf",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

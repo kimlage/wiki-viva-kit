@@ -57,6 +57,7 @@
         "adoption_state": "accepted",
         "authoring_error_codes": [],
         "blocked_reason": "",
+        "derived_from_legacy": false,
         "emitted_action_ids": [],
         "emitted_page_ids": [
           "dashboard-clearpath-activation"
@@ -125,6 +126,7 @@
         "adoption_state": "pending",
         "authoring_error_codes": [],
         "blocked_reason": "",
+        "derived_from_legacy": false,
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "stale",
