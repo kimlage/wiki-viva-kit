@@ -351,6 +351,7 @@ def _git_bytes(root: Path, *args: str) -> bytes | None:
             cwd=root,
             capture_output=True,
             check=False,
+            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
             timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired):
