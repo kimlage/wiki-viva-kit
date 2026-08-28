@@ -3523,10 +3523,19 @@ def test_reader_waits_with_bounded_backoff_before_first_pointer(
         except BaseException as exc:  # pragma: no cover - asserted below.
             failures.append(exc)
 
+    reader_waiting = threading.Event()
+    publish_finished = threading.Event()
+
+    def wait_for_publish(_delay: float) -> None:
+        reader_waiting.set()
+        assert publish_finished.wait(timeout=10)
+
+    monkeypatch.setattr(snapshot_module.time, "sleep", wait_for_publish)
     reader = threading.Thread(target=read_before_publish)
     reader.start()
-    time.sleep(0.01)
+    assert reader_waiting.wait(timeout=10)
     snapshot_module.promote_snapshot_revisioned(root, out_dir, artifacts)
+    publish_finished.set()
     reader.join(timeout=10)
     assert not reader.is_alive()
     assert not failures

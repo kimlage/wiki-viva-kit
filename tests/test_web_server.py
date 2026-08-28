@@ -102,7 +102,8 @@ class _Server:
             with urllib.request.urlopen(req) as resp:  # noqa: S310 - localhost test
                 return resp.status, json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:  # 4xx still carry a JSON envelope
-            return exc.code, json.loads(exc.read().decode("utf-8"))
+            with exc:
+                return exc.code, json.loads(exc.read().decode("utf-8"))
 
     def get_headers(
         self, path: str, headers: dict[str, str] | None = None
@@ -112,7 +113,8 @@ class _Server:
             with urllib.request.urlopen(req) as resp:  # noqa: S310 - localhost test
                 return resp.status, dict(resp.headers.items())
         except urllib.error.HTTPError as exc:
-            return exc.code, dict(exc.headers.items())
+            with exc:
+                return exc.code, dict(exc.headers.items())
 
     def options_headers(self, path: str, headers: dict[str, str]) -> tuple[int, dict[str, str]]:
         req = urllib.request.Request(self.url(path), headers=headers, method="OPTIONS")
@@ -120,7 +122,8 @@ class _Server:
             with urllib.request.urlopen(req) as resp:  # noqa: S310 - localhost test
                 return resp.status, dict(resp.headers.items())
         except urllib.error.HTTPError as exc:
-            return exc.code, dict(exc.headers.items())
+            with exc:
+                return exc.code, dict(exc.headers.items())
 
     def post(
         self,
@@ -168,11 +171,12 @@ class _Server:
                     dict(resp.headers.items()),
                 )
         except urllib.error.HTTPError as exc:  # 4xx still carry a JSON envelope
-            return (
-                exc.code,
-                json.loads(exc.read().decode("utf-8")),
-                dict(exc.headers.items()),
-            )
+            with exc:
+                return (
+                    exc.code,
+                    json.loads(exc.read().decode("utf-8")),
+                    dict(exc.headers.items()),
+                )
 
     def close(self) -> None:
         self.server.shutdown()
