@@ -3,16 +3,18 @@ page_id: system-ingestion-process
 page_type: operational_rule
 context: system
 visibility: private_self
-updated_at: 2026-06-10
+updated_at: 2026-08-28
 stale_after_days: 90
 sources_policy: contrato_wiki_operacional
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
+source_refs:
+  - sources-wiki-viva-methodology
 ---
 
 # Ingestion process
 
-Updated on: 2026-06-10
+Updated on: 2026-08-28
 
 This process turns a new source into a reviewable proposal, consolidated memory,
 or a decision not to ingest.

@@ -8,6 +8,8 @@ The wiki is one navigable world rather than a set of dashboard islands. Pages
 remain canonical Markdown; registered views project the same world as spatial
 quadrants, timelines, graph relations, source provenance and operational work.
 
+Current public baseline: [Wiki Viva v8.1.0](docs/references/releases/wiki-viva-v8.1.md).
+
 ```mermaid
 flowchart LR
     Sources["Sources + Markdown"] --> Snapshot["Atomic snapshot"]
@@ -33,6 +35,8 @@ and Personal Finance scenarios and requires no account, token or private data.
 - deterministic source manifests, extraction, chunking and local search;
 - secret detection everywhere and PII checks at public boundaries;
 - delegated LLM context packages with auditable consolidation;
+- a self-contained source operations workspace for grouping, authorizing,
+  inventorying, refreshing and monitoring real sources;
 - typed relations, temporal events and multiple timeline projections;
 - a responsive React/Three.js cockpit with equivalent information surfaces;
 - declarative experience packs with synthetic conformance fixtures;

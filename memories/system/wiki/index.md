@@ -11,11 +11,13 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-08-28
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
+source_refs:
+  - sources-wiki-viva-methodology
 purpose: "Meta-wiki: the living wiki itself documenting its operation and its process."
 moc_parent: memories/index.md
 related_pages:
@@ -26,7 +28,7 @@ related_pages:
 
 # Meta-wiki: how the living wiki works
 
-Last updated: 2026-06-25.
+Last updated: 2026-08-28.
 
 This is the **meta-wiki**: the living wiki itself used to document, in a
 complete and organized way, how the system **operates** and what its **process** is.

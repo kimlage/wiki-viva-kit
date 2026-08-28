@@ -14,6 +14,18 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-08-28] System | V8.1 source operations consolidated for downstream migration
+
+- Consolidated the v8 living-world runtime with the dedicated source operations
+  workspace while preserving the v8 operator security contract.
+- Added portable migration guidance for existing consumers, including additive
+  source-contract migration and generated source/cockpit read models.
+- Confirmed that v6-to-v8 replacement is a downgrade and must be rejected at B0;
+  downstream adoption now pins the v8.1 tag and exact kit SHA in `kit.lock`.
+- Corrected snapshot freshness to use the snapshot's declared `generated_at`
+  date so reproducible fixtures and deployed snapshots do not drift with the
+  host clock.
+
 ## [2026-08-27] System | Source operations workspace and lifecycle contract
 
 - Added a self-contained two-dimensional source workspace with persistent

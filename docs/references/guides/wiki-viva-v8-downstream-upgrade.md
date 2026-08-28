@@ -4,7 +4,7 @@ page_id: guide-wiki-viva-v8-downstream-upgrade
 page_type: reference_guide
 context: system
 visibility: public_candidate
-updated_at: 2026-07-15
+updated_at: 2026-08-28
 stale_after_days: 90
 sources_policy: release_runbook
 gate: github_pr
@@ -32,6 +32,10 @@ flowchart LR
 Checkout the desired tag or commit in a clean kit worktree. Review its release
 notes and **Upgrading** section. The source SHA recorded by `kit.lock` is the
 portable version pin.
+
+For the consolidated source-management release, use `v8.1.0` or newer. Do not
+sync a v6 tag into a consumer whose `kit.lock` already records the v8 runtime;
+that is a downgrade and its B0 removal plan must not be applied.
 
 ## 2. Run B0 without mutation
 
@@ -74,6 +78,29 @@ python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
 Apply refuses a dirty consumer unless `--allow-dirty` is deliberately supplied.
 Do not use that override merely for convenience; a focused PR should normally
 start clean.
+
+### Source-management C3 for existing consumers
+
+The kit can copy the source runtime, but it cannot infer a consumer's real
+folders, accounts, authorization pointers or update policy. Existing consumers
+should run the additive migration and rebuild their generated read models as
+explicit C3 commands:
+
+```sh
+python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
+  --kit /path/to/wiki-viva-kit \
+  --consumer /path/to/consumer \
+  --c3-command "python3 scripts/wiki_migrate_templates.py --apply" \
+  --c3-command "python3 scripts/wiki_source_registry.py --write" \
+  --c3-command "python3 scripts/wiki_operation_compile.py --write"
+```
+
+Review every inferred `source_kind`, lifecycle schedule, stream, locator and
+authorization pointer in the consumer PR. A recipe stores only a pointer to an
+authorized mechanism, never a token. Local organization icons belong under
+`apps/wiki-cockpit/public/source-icons/` with provenance recorded in
+`apps/wiki-cockpit/SOURCE_BRAND_NOTICES.md`; known platforms use the bundled
+portable identities.
 
 After success, `kit.lock` records:
 

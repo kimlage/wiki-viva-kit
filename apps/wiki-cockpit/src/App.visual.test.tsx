@@ -298,7 +298,6 @@ vi.mock("./data/snapshot", () => ({
   runGitWorkflow: vi.fn(),
   buildIngestionPlan: vi.fn(),
   runIngestionStep: vi.fn(),
-  composeSourceBrief: vi.fn(async () => ({ ok: false })),
   loadCodexCapability: vi.fn(async () => ({
     enabled: true,
     installed: false,
@@ -322,6 +321,8 @@ vi.mock("./data/snapshot", () => ({
   composeSourceBrief: vi.fn(),
   previewSourceOperation: vi.fn(),
   applySourceOperation: vi.fn(),
+  previewSourceGroups: vi.fn(),
+  applySourceGroups: vi.fn(),
   listSourceOperationReceipts: vi.fn(async () => []),
   previewSourceRefresh: vi.fn(),
   runSourceRefresh: vi.fn(),

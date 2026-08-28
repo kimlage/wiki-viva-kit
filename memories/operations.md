@@ -3,7 +3,7 @@ page_id: operations-wiki-viva-kit
 page_type: dashboard
 context: system
 visibility: private_self
-updated_at: 2026-07-16
+updated_at: 2026-08-28
 stale_after_days: 1
 sources_policy: memorias_logs_git_e_artefatos_derivados
 gate: github_pr
@@ -15,7 +15,7 @@ moc_parent: memories/index.md
 # Operations - wiki-viva-kit
 
 Owner: Wiki Owner.
-Updated at: 2026-07-16 23:01.
+Updated at: 2026-08-28 15:31.
 
 ## Current state
 
@@ -53,10 +53,10 @@ Honest signal: an ingested source only counts once its event is closed (consolid
 
 | Metric | Value |
 | --- | ---: |
-| Closed ingestion events | 1/1 |
+| Closed ingestion events | 2/2 |
 | Ingested sources with a closed event | 1/1 |
 | Ingested sources WITHOUT a closed event (0 = healthy) | 0 |
-| Candidate -> target compression | 0 -> 1 (0.0 per target) |
+| Candidate -> target compression | 5 -> 6 (0.83 per target) |
 
 - Detailed report: [scripts/wiki_ingestion_closure_report.py](../scripts/wiki_ingestion_closure_report.py).
 
@@ -68,11 +68,11 @@ Honest signal: an ingested source only counts once its event is closed (consolid
 
 ## Karma and vitality (gamification)
 
-Score events: 7 | total karma (with decay): 17.54.
+Score events: 1 | total karma (with decay): 3.0.
 
 | Dimension | Points |
 | --- | --- |
-| stewardship | 17.54 |
+| stewardship | 3.0 |
 
 ## Resume links
 

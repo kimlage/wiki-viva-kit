@@ -8,11 +8,13 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-08-28
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
+source_refs:
+  - sources-wiki-viva-methodology
 purpose: "Describes the complete path of a source in the living wiki: from manifest to PR, with pre-scan, LLM context package, consolidation and integration."
 moc_parent: memories/system/wiki/index.md
 related_pages:
@@ -21,7 +23,7 @@ related_pages:
 
 # End-to-end ingestion flow
 
-Updated on: 2026-06-25.
+Updated on: 2026-08-28.
 
 This page describes the path a source travels in the living wiki, from the moment
 it is captured until it becomes consolidated memory via Pull Request. The deterministic

@@ -8,11 +8,13 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-08-28
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
+source_refs:
+  - sources-wiki-viva-methodology
 purpose: "Overview of the system, its principles, and the map of the wiki_core modules and the scripts that expose them."
 moc_parent: memories/system/wiki/index.md
 related_pages:
@@ -24,7 +26,7 @@ related_pages:
 
 # Living wiki architecture
 
-Updated on: 2026-06-25.
+Updated on: 2026-08-28.
 
 This page is the overview of the **living wiki**: what the system is, the principles
 that sustain it, and the map of the modules. For the step-by-step ingestion, see

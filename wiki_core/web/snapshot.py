@@ -3081,7 +3081,11 @@ def build_snapshot(
     config = config or load_config(root)
     paths = WikiPaths(root, config)
     generated_at = generated_at or _utc_now()
-    reference_date = reference_date or _today()
+    if reference_date is None:
+        try:
+            reference_date = dt.date.fromisoformat(generated_at[:10])
+        except (TypeError, ValueError):
+            reference_date = _today()
     experience_pack_composition_payload = _experience_pack_composition_payload(root)
     pack_temporal_adapters = load_active_temporal_adapters(root)
     git_payload = build_git_state(root, config)

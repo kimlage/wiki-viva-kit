@@ -1177,6 +1177,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     getBrief,
     applySourceOperation,
     applySourceGroups,
+    listCodexJobs,
     listSourceOperationReceipts,
     loadAgentCapabilities,
     loadCodexCapability,
@@ -1190,7 +1191,9 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     runIngestionStep,
     saveBriefText,
     spawnCodexJob,
-    runSourceRefresh
+    runSourceRefresh,
+    streamCodexLog,
+    cancelCodexJob
   } = operator;
   const [realState, setRealState] = useState<LoadState>({ status: "loading" });
   const [demoState, setDemoState] = useState<LoadState>({ status: "loading" });

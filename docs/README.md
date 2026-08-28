@@ -25,6 +25,12 @@ storage.
 
 ## Release documentation
 
+- [Wiki Viva v8.1.0](references/releases/wiki-viva-v8.1.md): consolidated v8
+  runtime with the self-contained source operations workspace and portable
+  downstream migration.
+- [Wiki Viva v8 history](references/releases/wiki-viva-v8.md): historical v8
+  release investigation and retired certification evidence.
+
 Every release should have a tag, release notes and an **Upgrading** section that
 states:
 

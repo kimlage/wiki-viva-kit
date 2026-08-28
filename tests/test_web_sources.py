@@ -262,11 +262,13 @@ def test_one_malformed_recipe_does_not_erase_other_valid_sources(
     )
     _write(
         tmp_path / "memories/sources/config/broken.md",
-        "---\npage_id: source-config-broken\npage_type: source_config\n---\n\n"
-        "```yaml\nrecipe:\n  platform: slack\n  locator: broken\n"
-        "  pipelines:\n    - {kind: content, cadence_days: 7}\n"
-        "  streams:\n    - id: broken\n      filters: [not, a, mapping]\n"
-        "  ingest: not-a-mapping\n```\n",
+            "---\npage_id: source-config-broken\npage_type: source_config\n---\n\n"
+            "```yaml\nrecipe:\n  platform: slack\n  locator: broken\n"
+            "  source_kind: collection\n"
+            "  pipelines:\n    - {kind: content, cadence_days: 7}\n"
+            "  streams:\n    - id: broken\n      filters: [not, a, mapping]\n"
+            "  schedule: {mode: on_demand, cadence_days: 0}\n"
+            "  ingest: not-a-mapping\n```\n",
     )
 
     payload = build_sources_payload(tmp_path, config, today=TODAY)
