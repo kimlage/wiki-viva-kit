@@ -48,6 +48,11 @@ def _report_source_plan(changes: list, apply: bool) -> None:
             print(f"    {verb}: {key}: {value!r}")
         if change.append_recipe:
             print(f"    {verb}: recipe scaffold ({change.append_recipe.count(chr(10))} lines)")
+        if change.replace_recipe_with:
+            print(
+                f"    {'APPLIED' if apply else 'would promote'}: untouched TODO recipe "
+                f"to operational recipe ({change.replace_recipe_with.count(chr(10))} lines)"
+            )
         for note in change.notes:
             print(f"    note: {note}")
         print()

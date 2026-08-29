@@ -184,6 +184,77 @@ def test_existing_recipe_keeps_body_and_pins_config_platform(tmp_path: Path) -> 
     assert extract_recipe_mapping(migrated) == extract_recipe_mapping(original)
 
 
+def test_operational_plan_promotes_untouched_framework_scaffold(tmp_path: Path) -> None:
+    _seed_source_wiki(tmp_path)
+    config_path = tmp_path / "memories/sources/config/methodology.md"
+    scaffold = scaffold_recipe_block("repo", "memories/sources/methodology.md")
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8") + "\n" + scaffold,
+        encoding="utf-8",
+    )
+
+    changes = plan_source_migration(
+        tmp_path,
+        _config(),
+        today=dt.date(2026, 8, 28),
+        operational_recipes=True,
+    )
+    config_change = next(
+        change for change in changes if change.page_type == "source_config"
+    )
+
+    assert config_change.append_recipe == ""
+    assert config_change.replace_recipe_from == scaffold
+    assert config_change.replace_recipe_with
+    apply_change(tmp_path, config_change)
+
+    migrated = config_path.read_text(encoding="utf-8")
+    recipe = parse_recipe(extract_recipe_mapping(migrated))
+    assert "Assisted-migration scaffold" not in migrated
+    assert migrated.count("```yaml") == 1
+    assert recipe.streams[0].id == "methodology"
+    assert recipe.streams[0].selected is True
+    assert recipe.streams[0].filters == {"source_ref": "sources-methodology"}
+    assert validate_recipe(recipe) == []
+    assert not any(
+        change.page_type == "source_config"
+        for change in plan_source_migration(
+            tmp_path,
+            _config(),
+            today=dt.date(2026, 8, 28),
+            operational_recipes=True,
+        )
+    )
+
+
+def test_operational_plan_preserves_edited_or_user_authored_recipe(tmp_path: Path) -> None:
+    _seed_source_wiki(tmp_path)
+    config_path = tmp_path / "memories/sources/config/methodology.md"
+    edited = scaffold_recipe_block("repo", "memories/sources/methodology.md").replace(
+        "TODO: name the channel / folder / export", "Owner-reviewed stream"
+    )
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8") + "\n" + edited,
+        encoding="utf-8",
+    )
+
+    changes = plan_source_migration(
+        tmp_path,
+        _config(),
+        today=dt.date(2026, 8, 28),
+        operational_recipes=True,
+    )
+    config_change = next(
+        change for change in changes if change.page_type == "source_config"
+    )
+
+    assert config_change.add_frontmatter == {"platform": "repo"}
+    assert config_change.replace_recipe_from == ""
+    assert config_change.replace_recipe_with == ""
+    apply_change(tmp_path, config_change)
+    assert edited in config_path.read_text(encoding="utf-8")
+
+
 def test_apply_is_idempotent(tmp_path: Path) -> None:
     _seed_source_wiki(tmp_path)
     config = _config()
