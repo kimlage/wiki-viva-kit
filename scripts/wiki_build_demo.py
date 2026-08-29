@@ -680,7 +680,11 @@ def load_pack_showcase_manifests(
             fixture = str(row.get("fixture") or "")
             if pack_id in seen_packs:
                 raise ValueError(f"{scenario_id}: duplicate pack {pack_id}")
-            source = resolve_pack(KIT_ROOT, pack_id)
+            source = resolve_pack(
+                KIT_ROOT,
+                pack_id,
+                core_contract_root=DEMO_CONTRACTS_ROOT,
+            )
             if fixture not in source.manifest["fixtures"]:
                 raise ValueError(f"{scenario_id}: fixture is not declared by {pack_id}")
             fixture_path = source.path / fixture
@@ -854,7 +858,11 @@ def build_pack_showcase_pages(
 
     for pack in manifest["packs"]:
         pack_id = str(pack["id"])
-        source = resolve_pack(KIT_ROOT, pack_id)
+        source = resolve_pack(
+            KIT_ROOT,
+            pack_id,
+            core_contract_root=DEMO_CONTRACTS_ROOT,
+        )
         active_packages.update(source.manifest["capabilities"]["block_packages"])
         fixture_dir = source.path / str(pack["fixture"])
         fixture_manifest = yaml.safe_load(
@@ -2379,7 +2387,11 @@ def _install_showcase_pack_sources(
     packs_dir = target / "packs"
     packs_dir.mkdir(parents=True, exist_ok=True)
     for pack_id in sorted(set(pack_ids)):
-        source = resolve_pack(KIT_ROOT, pack_id)
+        source = resolve_pack(
+            KIT_ROOT,
+            pack_id,
+            core_contract_root=DEMO_CONTRACTS_ROOT,
+        )
         registry_row = (source_registry.get("packs") or {}).get(pack_id)
         if not isinstance(registry_row, dict):
             raise ValueError(f"pack showcase source is not registered: {pack_id}")

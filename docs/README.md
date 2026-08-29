@@ -15,8 +15,10 @@ retired release-certification machinery.
 
 ## Upgrade artifacts
 
-`references/upgrades/wiki-viva-v8/sync-manifest.yaml` is the active portable
-sync contract. `upgrade-package.yaml` is frozen historical evidence from the
+`references/upgrades/sync-manifest.yaml` is the canonical active portable sync
+contract. The nested `wiki-viva-v8/sync-manifest.yaml` remains a compatibility
+copy for explicit older commands; the CLI default always selects the canonical
+contract. `upgrade-package.yaml` is frozen historical evidence from the
 retired subject/lane/capsule design and must not be edited or used as a gate.
 
 Downstream repositories keep their own `kit.lock`; private migration output,
@@ -25,6 +27,7 @@ storage.
 
 ## Release documentation
 
+- [Wiki Viva v8.1.4](references/releases/wiki-viva-v8.1.4.md): portable downstream sync and registry-authority corrections
 - [Wiki Viva v8.1.3](references/releases/wiki-viva-v8.1.3.md): downstream-safe source-workspace documentation gate
 - [Wiki Viva v8.1.2](references/releases/wiki-viva-v8.1.2.md): canonical standalone source-workspace routes and regression coverage
 - [Wiki Viva v8.1.1](references/releases/wiki-viva-v8.1.1.md): source operations documentation and additive source-config migration fix

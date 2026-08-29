@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -51,11 +52,31 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 
 def _run(kit: Path, consumer: Path, manifest: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    env = {**os.environ, "PATH": f"{Path(sys.executable).parent}:{os.environ.get('PATH', '')}"}
     return subprocess.run(
         [sys.executable, str(SCRIPT), "--kit", str(kit), "--consumer", str(consumer), "--manifest", str(manifest), *args],
         text=True,
         capture_output=True,
+        env=env,
     )
+
+
+def _run_default(kit: Path, consumer: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    env = {**os.environ, "PATH": f"{Path(sys.executable).parent}:{os.environ.get('PATH', '')}"}
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), "--kit", str(kit), "--consumer", str(consumer), *args],
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+
+
+def _sync_module():
+    spec = importlib.util.spec_from_file_location("wiki_sync_from_kit", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_dry_run_is_read_only_and_machine_readable(tmp_path: Path) -> None:
@@ -148,3 +169,74 @@ def test_recursive_glob_prefix_syncs_kit_skills_without_local_skills(tmp_path: P
         kit / ".skills/wiki-viva/SKILL.md"
     ).read_bytes()
     assert not (consumer / ".skills/local-private").exists()
+
+
+def test_default_manifest_is_the_canonical_upgrade_contract(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    canonical = kit / "docs/references/upgrades/sync-manifest.yaml"
+    legacy = kit / "docs/references/upgrades/wiki-viva-v8/sync-manifest.yaml"
+    canonical.parent.mkdir(parents=True)
+    legacy.parent.mkdir(parents=True)
+    canonical.write_bytes(manifest.read_bytes())
+    legacy.write_text(
+        "schema_version: wiki_viva_sync_manifest.v1\n"
+        "portable:\n  allow: ['private/**']\n  block: []\n"
+        "c2_commands: []\n",
+        encoding="utf-8",
+    )
+    _git(kit, "add", ".")
+    _git(kit, "commit", "-qm", "canonical and stale legacy manifests")
+
+    default = _run_default(kit, consumer, "--dry-run", "--json")
+    explicit = _run(kit, consumer, canonical, "--dry-run", "--json")
+
+    assert default.returncode == explicit.returncode == 0
+    default_plan = json.loads(default.stdout)
+    explicit_plan = json.loads(explicit.stdout)
+    assert default_plan["manifest_sha256"] == explicit_plan["manifest_sha256"]
+    assert default_plan["portable_tree_sha256"] == explicit_plan["portable_tree_sha256"]
+    assert default_plan["c1"] == explicit_plan["c1"]
+
+
+def test_legacy_manifest_compatibility_copy_matches_canonical() -> None:
+    canonical = ROOT / "docs/references/upgrades/sync-manifest.yaml"
+    legacy = ROOT / "docs/references/upgrades/wiki-viva-v8/sync-manifest.yaml"
+
+    assert legacy.read_bytes() == canonical.read_bytes()
+
+
+def test_root_named_block_pattern_does_not_block_nested_fixture_contract() -> None:
+    sync = _sync_module()
+
+    assert sync._matches("wiki.config.yaml", "wiki.config.yaml")
+    assert not sync._matches(
+        "docs/references/fixtures/demo-wiki/wiki.config.yaml",
+        "wiki.config.yaml",
+    )
+
+
+def test_published_contract_applies_c2_and_second_b0_is_unchanged(tmp_path: Path) -> None:
+    consumer = _repo(tmp_path / "downstream")
+    (consumer / "README.md").write_text("synthetic downstream\n", encoding="utf-8")
+    _git(consumer, "add", "README.md")
+    _git(consumer, "commit", "-qm", "synthetic downstream")
+
+    first = _run_default(ROOT, consumer)
+    assert first.returncode == 0, first.stderr
+    for relative in (
+        "docs/references/fixtures/demo-wiki/wiki.config.yaml",
+        "docs/references/fixtures/demo-wiki/wiki.page-types.yaml",
+        "docs/references/fixtures/demo-wiki/wiki.templates.yaml",
+        "tests/test_build_demo.py",
+        "tests/test_web_snapshot.py",
+    ):
+        assert (consumer / relative).is_file(), relative
+    assert (consumer / "apps/wiki-cockpit/public/sample-snapshot/manifest.json").is_file()
+
+    second = _run_default(ROOT, consumer, "--dry-run", "--json")
+    assert second.returncode == 0, second.stderr
+    plan = json.loads(second.stdout)
+    assert plan["c1"]["add"] == []
+    assert plan["c1"]["change"] == []
+    assert plan["c1"]["remove_previously_managed"] == []
+    assert plan["c1"]["unchanged"] == plan["c1"]["managed_total"]

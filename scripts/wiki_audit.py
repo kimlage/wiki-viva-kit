@@ -916,6 +916,7 @@ def page_catalog(errors: list[str], config: WikiConfig) -> dict[str, tuple[str, 
 
 def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
     today = dt.date.today()
+    registry_declared = (ROOT / "wiki.page-types.yaml").is_file()
     pages = set(primary_pages(config))
     pages.update(rel for rel in markdown_files() if ontology_dir_for(rel, config))
     for rel in sorted(pages):
@@ -952,10 +953,18 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
             missing_relations = sorted(RELATION_KEYS - values.keys())
             if missing_relations:
                 errors.append(f"{rel}: missing relation keys: {', '.join(missing_relations)}")
-            page_type = str(values.get("page_type", ""))
-            allowed = ONTOLOGY_DIRNAME_TYPES[directory.rsplit("/", 1)[-1]]
-            if page_type not in allowed:
-                errors.append(f"{rel}: page_type `{page_type}` not allowed in {directory}")
+            # The v1 page-type registry is authoritative whenever present.
+            # audit_page_type_registry() validates its exact allowed_dirs. The
+            # legacy vocabulary remains only as compatibility for pre-registry
+            # repositories; applying both contracts rejects valid downstream
+            # extensions such as meeting/calendar or project/initiatives.
+            if not registry_declared:
+                page_type = str(values.get("page_type", ""))
+                allowed = ONTOLOGY_DIRNAME_TYPES[directory.rsplit("/", 1)[-1]]
+                if page_type not in allowed:
+                    errors.append(
+                        f"{rel}: page_type `{page_type}` not allowed in {directory}"
+                    )
 
 
 # Extension relaxed to [A-Za-z0-9]{1,8}: the old [a-z]{2,4} missed .jsonl,

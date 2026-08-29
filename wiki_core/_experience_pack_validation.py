@@ -781,7 +781,13 @@ def _validate_artifacts_and_migrations(
         raise PackError("upgrade_migration_directory_missing")
 
 
-def validate_manifest(root: Path, pack_path: Path, manifest: dict[str, Any]) -> None:
+def validate_manifest(
+    root: Path,
+    pack_path: Path,
+    manifest: dict[str, Any],
+    *,
+    core_contract_root: Path | None = None,
+) -> None:
     if set(manifest) != _KNOWN_MANIFEST_KEYS:
         raise PackError("manifest_unknown_or_missing_field")
     if manifest.get("schema_version") != PACK_SCHEMA_VERSION:
@@ -797,7 +803,10 @@ def validate_manifest(root: Path, pack_path: Path, manifest: dict[str, Any]) -> 
     if not version_satisfies(CORE_VERSION, manifest["compatible_core"]):
         raise PackError("incompatible_core")
     _validate_privacy(manifest)
-    _validate_capabilities(manifest, _core_block_packages(root))
+    _validate_capabilities(
+        manifest,
+        _core_block_packages(core_contract_root or root),
+    )
     _validate_slots(manifest)
     dependencies = manifest.get("dependencies")
     if not isinstance(dependencies, list):
@@ -930,6 +939,7 @@ def resolve_pack(
     *,
     version: str | None = None,
     registry_path: Path | None = None,
+    core_contract_root: Path | None = None,
 ) -> PackSource:
     if not _ID_RE.fullmatch(pack_id):
         raise PackError("invalid_pack_id")
@@ -955,7 +965,12 @@ def resolve_pack(
         raise PackError("registry_manifest_hash_mismatch", pack_id)
     if manifest.get("id") != pack_id or manifest.get("version") != selected:
         raise PackError("registry_manifest_identity_mismatch", pack_id)
-    validate_manifest(root, pack_path, manifest)
+    validate_manifest(
+        root,
+        pack_path,
+        manifest,
+        core_contract_root=core_contract_root,
+    )
     files = _pack_tree(pack_path)
     tree_sha = _sha256_json([file.__dict__ for file in files])
     if tree_sha != version_record["tree_sha256"]:
