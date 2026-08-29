@@ -1032,6 +1032,86 @@ def test_ontology_dir_vocabulary_accepts_en_and_pt_dirnames(audit):
     assert audit.ontology_dir_for("docs/people/x.md", en) is None
 
 
+@pytest.mark.parametrize(
+    ("memory_root", "calendar_dir", "initiatives_dir"),
+    [
+        ("memories", "calendar", "initiatives"),
+        ("memorias", "calendario", "iniciativas"),
+    ],
+)
+def test_page_type_registry_overrides_legacy_ontology_directory_vocabulary(
+    tmp_path,
+    audit,
+    monkeypatch,
+    memory_root,
+    calendar_dir,
+    initiatives_dir,
+):
+    paths = {**WikiConfig().paths, "memory_root": memory_root}
+    config = WikiConfig(
+        language="pt" if memory_root == "memorias" else "en",
+        paths=paths,
+        audit={"page_type_registry_check": True},
+    )
+    (tmp_path / "wiki.config.yaml").write_text(
+        f"repo_id: registry-authority\npaths:\n  memory_root: {memory_root}\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "wiki.page-types.yaml"
+    registry.write_text(
+        "schema_version: wiki_page_types.v1\n"
+        "page_types:\n"
+        "  meeting:\n"
+        "    template: none\n"
+        "    template_none_reason: synthetic registry authority test\n"
+        f"    allowed_dirs: [{memory_root}/{calendar_dir}]\n"
+        "    required_frontmatter: [page_id, page_type]\n"
+        "  project:\n"
+        "    template: none\n"
+        "    template_none_reason: synthetic registry authority test\n"
+        f"    allowed_dirs: [{memory_root}/{initiatives_dir}]\n"
+        "    required_frontmatter: [page_id, page_type]\n",
+        encoding="utf-8",
+    )
+
+    relations = "".join(f"{key}: []\n" for key in sorted(audit.RELATION_KEYS))
+    rels = [
+        f"{memory_root}/{calendar_dir}/weekly.md",
+        f"{memory_root}/{initiatives_dir}/migration.md",
+    ]
+    for rel, page_type in zip(rels, ("meeting", "project"), strict=True):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            "---\n"
+            f"page_id: {page_type}-registry-authority\n"
+            f"page_type: {page_type}\n"
+            "context: system\n"
+            "visibility: private_self\n"
+            "updated_at: 2026-08-28\n"
+            "stale_after_days: 3650\n"
+            "sources_policy: required\n"
+            "gate: github_pr\n"
+            "sensitive_data_policy: private_sensitive_allowed\n"
+            f"{relations}"
+            "---\n\n# Registry authority\n",
+            encoding="utf-8",
+        )
+
+    audit.parse_frontmatter.cache_clear()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "markdown_files", lambda: rels)
+    monkeypatch.setattr(audit, "primary_pages", lambda _config: ())
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    audit.audit_frontmatter(errors, warnings, config)
+    audit.audit_page_type_registry(errors, config)
+
+    assert errors == []
+    assert warnings == []
+
+
 def test_relation_prefixes_accept_en_and_pt_generated_ids(audit):
     # Superset: pt repos keep generating pt ids; en repos generate en ids.
     assert "person-" in audit.RELATION_PREFIXES["owner"]

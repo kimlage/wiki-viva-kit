@@ -8,7 +8,7 @@ The wiki is one navigable world rather than a set of dashboard islands. Pages
 remain canonical Markdown; registered views project the same world as spatial
 quadrants, timelines, graph relations, source provenance and operational work.
 
-Current public baseline: [Wiki Viva v8.1.3](docs/references/releases/wiki-viva-v8.1.3.md).
+Current public baseline: [Wiki Viva v8.1.4](docs/references/releases/wiki-viva-v8.1.4.md).
 
 ```mermaid
 flowchart LR
