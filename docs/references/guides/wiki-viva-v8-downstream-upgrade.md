@@ -83,8 +83,8 @@ start clean.
 
 The kit can copy the source runtime, but it cannot infer a consumer's real
 folders, accounts, authorization pointers or update policy. Existing consumers
-should run the additive migration and rebuild their generated read models as
-explicit C3 commands:
+should run the deterministic migration and rebuild their generated read models
+as explicit C3 commands:
 
 ```sh
 python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
@@ -92,6 +92,7 @@ python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
   --consumer /path/to/consumer \
   --c3-command "python3 scripts/wiki_migrate_templates.py --apply --operational-recipes" \
   --c3-command "python3 scripts/wiki_source_registry.py --write" \
+  --c3-command "python3 scripts/wiki_input_stage.py --write" \
   --c3-command "python3 scripts/wiki_operation_compile.py --write"
 ```
 
@@ -101,6 +102,14 @@ authorized mechanism, never a token. Local organization icons belong under
 `apps/wiki-cockpit/public/source-icons/` with provenance recorded in
 `apps/wiki-cockpit/SOURCE_BRAND_NOTICES.md`; known platforms use the bundled
 portable identities.
+
+From v8.1.5 onward, `--operational-recipes` promotes an earlier TODO recipe only
+when its complete block still exactly matches the framework-generated scaffold,
+including the assisted-migration marker. Any owner edit makes the recipe
+canonical and protects it from replacement. Rebuilding the input stage after
+source migration also converts generated warning paths into clickable relative
+links, so strict `require_markdown_links` consumers do not need to hand-edit a
+generated page.
 
 After success, `kit.lock` records:
 
