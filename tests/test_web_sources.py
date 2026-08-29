@@ -532,3 +532,78 @@ def test_event_driven_discovered_record_is_pending_without_becoming_time_stale(t
     assert streams["#financeiro"]["breached"] is True
     assert streams["#financeiro"]["freshness_basis"] == "processing_state"
     assert source["pending_streams"] == 1
+
+
+@pytest.mark.parametrize(
+    ("schedule", "expected_next_due"),
+    [
+        ("schedule: {mode: on_demand, cadence_days: 0}", None),
+        ("schedule: {mode: recurring, cadence_days: 1}", -1),
+    ],
+)
+def test_append_only_history_separates_discovery_cadence_from_record_processing(
+    tmp_path: Path,
+    schedule: str,
+    expected_next_due: int | None,
+) -> None:
+    config = _repo(tmp_path)
+    source_path = tmp_path / "memories/sources/slack-fin.md"
+    source_path.write_text(
+        source_path.read_text(encoding="utf-8").replace(
+            "last_status: partial", "last_status: ok"
+        ),
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "memories/sources/config/slack-fin.md"
+    _write(
+        config_path,
+        f'''---
+page_id: source-config-slack-fin
+page_type: source_config
+context: system
+---
+
+```yaml
+recipe:
+  schema_version: wiki_source_recipe.v1
+  platform: calendar
+  locator: calendar://series/team-daily
+  source_kind: collection
+  pipelines:
+    - {{kind: content, cadence_days: 1}}
+  streams:
+    - id: 2026-06-30-team-daily
+      label: 2026-06-30 - Team daily
+      selected: true
+      cadence_days: 0
+      filters:
+        source_ref: source-slack-fin
+        occurrence_state: occurred
+        processing_state: ingested
+    - id: 2026-07-03-team-daily
+      label: 2026-07-03 - Team daily
+      selected: true
+      cadence_days: 0
+      filters:
+        source_ref: source-slack-fin
+        occurrence_state: occurred
+        processing_state: discovered
+  {schedule}
+  ingest:
+    mcp_hint: synthetic-calendar
+```
+''',
+    )
+
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    streams = {stream["id"]: stream for stream in source["streams"]}
+
+    historical = streams["2026-06-30-team-daily"]
+    discovered = streams["2026-07-03-team-daily"]
+    assert historical["cursor_age_days"] is None
+    assert historical["freshness_basis"] == "processing_state"
+    assert historical["breached"] is False
+    assert discovered["freshness_basis"] == "processing_state"
+    assert discovered["breached"] is True
+    assert source["pending_streams"] == 1
+    assert source["next_due_days"] == expected_next_due

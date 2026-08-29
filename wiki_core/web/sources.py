@@ -273,8 +273,20 @@ def _source_record(
         # trigger and must never become stale merely because time passed.
         processing_state = str((stream.get("filters") or {}).get("processing_state") or "").lower()
         workflow_pending = processing_state in {"discovered", "changed", "pending", "queued"}
-        breached = workflow_pending or bool(time_based_freshness and stream_cadence and (age is None or age > stream_cadence))
-        if workflow_pending:
+        # A stream with an explicit processing state is an occurrence record,
+        # not the recurring provider/series itself.  Its workflow state is the
+        # authority for pending work: immutable history must not become overdue
+        # merely because the parent series is discovered on a cadence.  Streams
+        # without a processing state retain the legacy mutable-stream cadence.
+        workflow_complete = bool(processing_state) and not workflow_pending
+        cadence_breached = bool(
+            time_based_freshness
+            and not workflow_complete
+            and stream_cadence
+            and (age is None or age > stream_cadence)
+        )
+        breached = workflow_pending or cadence_breached
+        if processing_state:
             freshness_basis = "processing_state"
         if breached:
             pending += 1
@@ -290,11 +302,17 @@ def _source_record(
             }
         )
 
-    # next_due_days: from the schedule cadence (if recurring) vs the freshest
-    # cursor; None when no schedule or nothing has synced yet.
+    # next_due_days is provider/series discovery cadence.  Prefer the source's
+    # successful versioned receipt so immutable occurrence records do not own
+    # discovery freshness; fall back to the freshest stream cursor for legacy
+    # recipes that have not recorded a source-level receipt yet.
     next_due_days: int | None = None
-    if schedule_mode == "recurring" and isinstance(schedule, dict) and _int_or_zero(schedule.get("cadence_days")) > 0 and newest_age is not None:
-        next_due_days = _int_or_zero(schedule.get("cadence_days")) - newest_age
+    discovery_age = (
+        _iso_days_ago(last_run_at, today) if last_status == "ok" else None
+    )
+    discovery_age = discovery_age if discovery_age is not None else newest_age
+    if schedule_mode == "recurring" and isinstance(schedule, dict) and _int_or_zero(schedule.get("cadence_days")) > 0 and discovery_age is not None:
+        next_due_days = _int_or_zero(schedule.get("cadence_days")) - discovery_age
 
     selected_total = sum(1 for s in streams_out if s.get("selected", True))
     fresh = sum(1 for s in streams_out if s.get("selected", True) and not s.get("breached"))

@@ -54,6 +54,16 @@ access or fetches a live system without an authorized connector or exported RAW.
 The legacy frontmatter remains visible in the source registry so existing
 consumers can migrate without losing their previous freshness signal.
 
+For append-only collections, the source schedule governs discovery of the
+provider or series; it does not age every historical occurrence. A stream with
+an explicit `filters.processing_state` is treated as an occurrence record.
+Only `discovered`, `changed`, `pending` and `queued` are pending work. A record
+already marked `ingested` (or another non-pending terminal state) remains
+complete without a cursor, while newly discovered or changed records remain in
+the queue. Streams without `processing_state` retain cursor-based recurring
+freshness for backward-compatible mutable folders, channels and repository
+slices.
+
 ## Registration is not ingestion
 
 A source page can exist in the wiki before its content has been ingested. In

@@ -377,6 +377,28 @@ describe("SourceDock operational workspace", () => {
     expect(screen.queryByText("79d ago / One-time capture")).toBeNull();
   });
 
+  it.each([
+    ["on_demand", "capture complete / On demand"],
+    ["recurring", "capture complete / every 7d"]
+  ] as const)("keeps an ingested append-only record complete under %s discovery", (mode, expected) => {
+    const source = sourceFixture({
+      schedule: { mode, cadence_days: mode === "recurring" ? 7 : 0, cron_hint: "" }
+    });
+    source.streams[0] = {
+      ...source.streams[0],
+      cursor_age_days: null,
+      breached: false,
+      filters: {
+        occurrence_state: "occurred",
+        processing_state: "ingested"
+      }
+    };
+    render(<SourceDock bundle={bundleWith(source)} sourceId="source-gmail" onNotice={noop} onClose={noop} />);
+
+    expect(screen.getAllByText(expected).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/not yet ingested/i)).toBeNull();
+  });
+
   it("labels a lifecycle reconstructed from proven legacy ingestion evidence", () => {
     const source = sourceFixture();
     source.lifecycle = { ...source.lifecycle!, derived_from_legacy: true };

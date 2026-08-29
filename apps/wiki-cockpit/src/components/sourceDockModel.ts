@@ -83,6 +83,12 @@ export function streamFreshnessLabel(
   if (processingState === "discovered" || processingState === "changed" || processingState === "pending" || processingState === "queued") {
     return t(`source.streams.processing.${processingState}`);
   }
+  if (processingState) {
+    const lifecycle = scheduleMode === "recurring" && stream.cadence_days
+      ? t("source.streams.cadence", { n: stream.cadence_days })
+      : scheduleModeLabel(scheduleMode);
+    return `${t("source.streams.completed")} / ${lifecycle}`;
+  }
   if (scheduleMode === "one_shot") {
     return `${t("source.streams.completed")} / ${scheduleModeLabel(scheduleMode)}`;
   }
