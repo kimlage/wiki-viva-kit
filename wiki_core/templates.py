@@ -138,6 +138,13 @@ def instantiate_template(
         "page_type": resolved.page_type,
         "title": title,
         "context": context,
+        # Core templates historically used this placeholder without a matching
+        # renderer value.  Besides leaking template syntax into new pages,
+        # ``owner: {{owner_id}}`` is not valid YAML and makes every nested
+        # frontmatter object disappear when the canonical parser fails closed.
+        # The configured owner label is the only portable owner identity
+        # available at creation time; slugging it keeps the scalar YAML-safe.
+        "owner_id": slugify(config.owner_label),
         "updated_at": today.isoformat(),
         "stale_after_days": str(freshness_for(context, resolved.page_type, config)),
         "template_id": resolved.template_id,
