@@ -145,6 +145,52 @@ const PT_PAGE_TYPE_LABELS: Record<string, string> = {
   visual_group_root: "mundos independentes"
 };
 
+const ES_PAGE_TYPE_LABELS: Record<string, string> = {
+  root_index: "resumen inicial",
+  root_entity: "entidad raíz",
+  context_hub: "resumen del área",
+  ontology_index: "índice de ontología",
+  source_catalog: "biblioteca de fuentes",
+  relationship_map: "mapa de relaciones",
+  source: "fuente de evidencia",
+  evidence: "registro de evidencia",
+  source_config: "reglas de la fuente",
+  source_registry: "registro de fuentes",
+  input_channel: "canal de entrada",
+  input_stage: "página de entrada",
+  decision: "decisión",
+  claim: "afirmación",
+  action: "tarea",
+  process: "proceso",
+  operational_rule: "guía operativa",
+  dashboard: "panel",
+  system_log: "registro del sistema",
+  methodology_plan: "plan metodológico",
+  ingestion_event: "evento de ingesta",
+  journal_entry: "entrada de diario",
+  meeting: "reunión",
+  person: "persona",
+  role: "rol",
+  responsibility: "responsabilidad",
+  holon: "holón",
+  project: "proyecto",
+  artifact: "artefacto",
+  context_note: "nota de contexto",
+  perspective: "lente de lectura",
+  proposal: "borrador para revisión",
+  visual_group: "grupo",
+  visual_group_region: "grupo regional",
+  visual_group_source: "fuentes y evidencias",
+  visual_group_hub: "áreas y espacios de trabajo",
+  visual_group_decision: "decisiones y afirmaciones",
+  visual_group_action: "acciones y flujos de trabajo",
+  visual_group_rule: "reglas y gobernanza",
+  visual_group_event: "eventos de ingesta",
+  visual_group_person: "personas y responsabilidades",
+  visual_group_content: "herramientas de este mundo",
+  visual_group_root: "mundos independientes"
+};
+
 const DEFAULT_TRUST_COLORS: TrustColors = {
   fresh: "#5ee6a8",
   stale: "#ffb454",
@@ -201,7 +247,12 @@ export function registerContextPalette(contexts: string[]): void {
 
 export function pageTypeStyle(pageType: string): PageTypeStyle {
   const base = DEFAULT_PAGE_TYPES[pageType] || style("content", (pageType || "content").replaceAll("_", " "));
-  const localizedLabel = uiLanguage() === "pt" ? PT_PAGE_TYPE_LABELS[pageType] || base.label : base.label;
+  const language = uiLanguage();
+  const localizedLabel = language === "pt"
+    ? PT_PAGE_TYPE_LABELS[pageType] || base.label
+    : language === "es"
+      ? ES_PAGE_TYPE_LABELS[pageType] || base.label
+      : base.label;
   const override = pageTypeOverrides[pageType];
   if (!override) return { ...base, label: localizedLabel };
   return {

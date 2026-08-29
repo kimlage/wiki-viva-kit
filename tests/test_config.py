@@ -33,6 +33,11 @@ def test_inline_comment_is_stripped(tmp_path):
     assert cfg.language == "pt"
 
 
+def test_spanish_is_a_supported_project_language(tmp_path):
+    cfg = load_config(_write(tmp_path, "repo_id: r\nlanguage: es\n"))
+    assert cfg.language == "es"
+
+
 def test_hash_inside_quotes_is_preserved(tmp_path):
     cfg = load_config(_write(tmp_path, 'repo_id: r\nlanguage: en\nowner_label: "a # b"\n'))
     assert cfg.owner_label == "a # b"
@@ -106,7 +111,7 @@ def test_parse_contexts_rejects_empty_dict_artifact():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("bad", ["PT", "portugues!", "e", "x" * 9])
+@pytest.mark.parametrize("bad", ["PT", "fr", "portugues!", "e", "x" * 9])
 def test_language_invalid_raises(tmp_path, bad):
     with pytest.raises(ValueError):
         load_config(_write(tmp_path, f"repo_id: r\nlanguage: {bad}\n"))

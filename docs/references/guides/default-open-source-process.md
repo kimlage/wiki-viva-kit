@@ -140,7 +140,7 @@ The default open-source profile uses:
 
 | Setting | Default meaning |
 | --- | --- |
-| `language: en` | Generated artifacts are written in English. |
+| `language: en` | Generated artifacts use `en`, `es` or `pt`; English is the default. |
 | `root_entity.page` | Semantic top page for the wiki's subject. |
 | `root_entity.input_stage_page` | Generated staging page for channels and sources. |
 | `contexts: example` | The kit includes a small example context. |

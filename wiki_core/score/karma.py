@@ -503,11 +503,45 @@ class Badge:
 
 
 # DISPLAY-ONLY table per language (same pattern as the other generated-output
-# string tables: pt and en ALWAYS with the same keys). Keyed by badge_id; inner
+# string tables: en, es and pt ALWAYS with the same keys). Keyed by badge_id; inner
 # keys are "name" and "criterion". The PERSISTED/functional values — badge_id
 # (JSONL ledger, earned_badges), EVENT_TYPES, DIMENSIONS — never change here:
 # this table only drives how generated output is rendered per config language.
 BADGE_DISPLAY: dict[str, dict[str, dict[str, str]]] = {
+    "es": {
+        "guardiao_de_contexto": {
+            "name": "Guardián de Contexto",
+            "criterion": "mantiene actualizadas las páginas de un contexto (>=3 recompilaciones)",
+        },
+        "tecelao_de_links": {
+            "name": "Tejedor de Enlaces",
+            "criterion": "crea conexiones útiles entre páginas (>=5 enlaces)",
+        },
+        "curador_de_fontes": {
+            "name": "Curador de Fuentes",
+            "criterion": "añade fuentes buenas y trazables (>=5 fuentes válidas)",
+        },
+        "guardiao_de_privacidade": {
+            "name": "Guardián de Privacidad",
+            "criterion": "identifica y corrige riesgos de visibilidad (>=1 riesgo detectado)",
+        },
+        "alquimista_de_insights": {
+            "name": "Alquimista de Insights",
+            "criterion": "transforma información dispersa en un insight aprobado (>=3 insights)",
+        },
+        "cartografo_integral": {
+            "name": "Cartógrafo Integral",
+            "criterion": "completa mapas e infografías con calidad (>=2 mapas)",
+        },
+        "revisor_vivo": {
+            "name": "Revisor Vivo",
+            "criterion": "resuelve aprobaciones y corrige diferencias con consistencia (>=5 stewardship)",
+        },
+        "jardineiro_da_wiki": {
+            "name": "Jardinero de la Wiki",
+            "criterion": "cuida páginas huérfanas o desactualizadas (>=3 eventos raros)",
+        },
+    },
     "pt": {
         "guardiao_de_contexto": {
             "name": "Guardiao de Contexto",
@@ -655,8 +689,9 @@ LEVELS: tuple[tuple[str, float], ...] = (
 )
 
 # DISPLAY-ONLY level names per language, keyed by LEVEL INDEX (same order and
-# length as LEVELS; pt and en always with the same keys/positions).
+# length as LEVELS; en, es and pt always with the same keys/positions).
 LEVEL_DISPLAY: dict[str, tuple[str, ...]] = {
+    "es": ("Explorador", "Cartógrafo", "Curador", "Steward", "Tejedor", "Guardián", "Catalizador"),
     "pt": ("Explorador", "Mapeador", "Curador", "Steward", "Tecelao", "Guardiao", "Catalisador"),
     "en": ("Explorer", "Mapper", "Curator", "Steward", "Weaver", "Guardian", "Catalyst"),
 }

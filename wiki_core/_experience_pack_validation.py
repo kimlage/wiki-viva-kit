@@ -864,7 +864,7 @@ def validate_manifest(
     locales = list(dict.fromkeys(raw_locales))
     if len(locales) != len(raw_locales):
         raise PackError("duplicate_locale")
-    if i18n.get("default_locale") not in locales or not {"en", "pt-BR"}.issubset(
+    if i18n.get("default_locale") not in locales or not {"en", "es", "pt-BR"}.issubset(
         locales
     ):
         raise PackError("required_pack_locales_missing")

@@ -258,7 +258,7 @@ def _rename_pack(root: Path, pack_id: str, *, exclusive_view: bool = False) -> P
         return suffix.replace("-", "_").replace(".", "_")
 
     copy_keys = sorted({presentation_key(identifier) for identifier in presentation_ids})
-    for locale in ("en", "pt-BR"):
+    for locale in ("en", "es", "pt-BR"):
         catalog_path = target / f"i18n/{locale}.yaml"
         catalog = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
         catalog["pack"] = pack_id
@@ -525,10 +525,10 @@ def test_empty_lock_publishes_exact_mandatory_pack_composition(
         },
         "presentation": {
             "default_locale": "en",
-            "locales": {"en": {}, "pt-BR": {}},
+            "locales": {"en": {}, "es": {}, "pt-BR": {}},
         },
-        "composition_sha256": (
-            "91278d9654bc92e5a7af1075c67297eb751beb6feef3bd06cee92210e5d667c4"
+            "composition_sha256": (
+                "f8ee5cde978dcfa048fe2990b7c68a5b328919e25cdf58257645ffffbd2e1229"
         ),
     }
     manifest = snapshot["manifest.json"]
@@ -548,7 +548,7 @@ def test_empty_lock_publishes_exact_mandatory_pack_composition(
 
     presentation = snapshot["experience_packs.json"]["presentation"]
     snapshot["experience_packs.json"]["composition_sha256"] = (
-        "91278d9654bc92e5a7af1075c67297eb751beb6feef3bd06cee92210e5d667c4"
+        "f8ee5cde978dcfa048fe2990b7c68a5b328919e25cdf58257645ffffbd2e1229"
     )
     presentation["locales"].pop("pt-BR")
     assert "experience pack presentation locales are not canonical" in (
@@ -704,7 +704,7 @@ def test_study_pack_is_registered_pinned_and_complete() -> None:
     ]
     assert len(source.manifest["fixtures"]) == 4
     assert len(source.manifest["capabilities"]["temporal_profiles"]) == 3
-    assert {"en", "pt-BR"} == set(source.manifest["i18n"]["locales"])
+    assert {"en", "es", "pt-BR"} == set(source.manifest["i18n"]["locales"])
 
 
 def test_inspect_and_preview_are_deterministic_and_synthetic() -> None:

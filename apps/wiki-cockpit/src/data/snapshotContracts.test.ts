@@ -216,6 +216,7 @@ describe("snapshot capability contract negotiation", () => {
         default_locale: "en",
         locales: {
           en: { "study-research": "Study and Research", "study-research.concept-graph": "Concept graph" },
+          es: { "study-research": "Estudio e investigación", "study-research.concept-graph": "Grafo de conceptos" },
           "pt-BR": { "study-research": "Estudos e pesquisa", "study-research.concept-graph": "Grafo de conceitos" }
         }
       },

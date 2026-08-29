@@ -23,15 +23,15 @@ export type Mission = {
   href?: string;
 };
 
-const DIMENSION_LABELS: Record<string, { en: string; pt: string }> = {
-  clareza: { en: "clarity", pt: "clareza" },
-  confiabilidade: { en: "reliability", pt: "confiabilidade" },
-  cuidado: { en: "care", pt: "cuidado" },
-  stewardship: { en: "stewardship", pt: "stewardship" },
-  conexao: { en: "connection", pt: "conexão" },
-  aprendizado: { en: "learning", pt: "aprendizado" },
-  acao: { en: "action", pt: "ação" },
-  inspiracao: { en: "inspiration", pt: "inspiração" }
+const DIMENSION_LABELS: Record<string, { en: string; es: string; pt: string }> = {
+  clareza: { en: "clarity", es: "claridad", pt: "clareza" },
+  confiabilidade: { en: "reliability", es: "confiabilidad", pt: "confiabilidade" },
+  cuidado: { en: "care", es: "cuidado", pt: "cuidado" },
+  stewardship: { en: "stewardship", es: "custodia", pt: "stewardship" },
+  conexao: { en: "connection", es: "conexión", pt: "conexão" },
+  aprendizado: { en: "learning", es: "aprendizaje", pt: "aprendizado" },
+  acao: { en: "action", es: "acción", pt: "ação" },
+  inspiracao: { en: "inspiration", es: "inspiración", pt: "inspiração" }
 };
 
 function overdueDays(page: PageRecord, generatedAt: string): number {
@@ -365,9 +365,9 @@ export function MissionsPanel({
                 <span
                   className="pill pill-info"
                   key={badge.id}
-                  title={(language === "pt" ? badge.criterion_pt : badge.criterion_en) || badge.id}
+                  title={(language === "pt" ? badge.criterion_pt : language === "es" ? badge.criterion_es : badge.criterion_en) || badge.id}
                 >
-                  🏅 {language === "pt" ? badge.pt : badge.en}
+                  🏅 {language === "pt" ? badge.pt : language === "es" ? badge.es : badge.en}
                 </span>
               ))
             ) : (

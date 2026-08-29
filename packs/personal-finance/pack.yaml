@@ -139,5 +139,5 @@ slots:
       contribution: personal-finance.month-comparison
       mode: append
 i18n:
-  locales: [en, pt-BR]
+  locales: [en, es, pt-BR]
   default_locale: en

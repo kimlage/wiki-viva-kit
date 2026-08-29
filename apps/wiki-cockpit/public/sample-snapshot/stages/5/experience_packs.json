@@ -1,12 +1,13 @@
 {
   "block_packages": [],
-  "composition_sha256": "91278d9654bc92e5a7af1075c67297eb751beb6feef3bd06cee92210e5d667c4",
+  "composition_sha256": "f8ee5cde978dcfa048fe2990b7c68a5b328919e25cdf58257645ffffbd2e1229",
   "core_version": "8.0.0",
   "packs": [],
   "presentation": {
     "default_locale": "en",
     "locales": {
       "en": {},
+      "es": {},
       "pt-BR": {}
     }
   },

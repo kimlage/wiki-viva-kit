@@ -14,7 +14,7 @@ import yaml
 
 _BOOL_TRUE = {"true", "yes", "on", "1"}
 _BOOL_FALSE = {"false", "no", "off", "0"}
-_LANGUAGE_RE = re.compile(r"[a-z]{2,8}")
+SUPPORTED_LANGUAGES = frozenset({"en", "es", "pt"})
 _CONTEXT_SLUG_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
 DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION = "v3"
 
@@ -85,7 +85,7 @@ def _parse_contexts(raw_value: Any) -> tuple[str, ...]:
 class WikiConfig:
     repo_id: str = "wiki-repo"
     owner_label: str = "Owner"
-    # Project language (e.g. "en", "pt"). Drives the GENERATED output (cockpit,
+    # Project language ("en", "es" or "pt"). Drives the GENERATED output (cockpit,
     # proposals) — the code reads per-language string tables. Default: "en".
     language: str = "en"
     default_visibility: str = "private_self"
@@ -249,10 +249,10 @@ def load_config(root: Path) -> WikiConfig:
     raw = _load_yaml_mapping(path)
 
     language = str(raw.get("language", "en")).strip().strip("\"'")
-    if not _LANGUAGE_RE.fullmatch(language):
+    if language not in SUPPORTED_LANGUAGES:
         raise ValueError(
             f"config: invalid language: {language!r} "
-            f"(expected lowercase code of 2-8 letters, e.g. pt, en)"
+            f"(supported: en, es, pt)"
         )
 
     contexts = _parse_contexts(raw.get("contexts", ""))

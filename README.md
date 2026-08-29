@@ -8,7 +8,7 @@ The wiki is one navigable world rather than a set of dashboard islands. Pages
 remain canonical Markdown; registered views project the same world as spatial
 quadrants, timelines, graph relations, source provenance and operational work.
 
-Current public baseline: [Wiki Viva v8.1.5](docs/references/releases/wiki-viva-v8.1.5.md).
+Current public baseline: [Wiki Viva v8.2.0](docs/references/releases/wiki-viva-v8.2.0.md).
 
 ```mermaid
 flowchart LR
@@ -55,6 +55,11 @@ python3 scripts/wiki_web_snapshot.py --check-contract
 Edit `wiki.config.yaml` to define the repository id, owner label, root entity,
 memory root, contexts and privacy boundary. See [docs/README.md](docs/README.md)
 and the [Wiki Viva skill](.skills/wiki-viva/SKILL.md).
+
+Code, comments and official documentation stay in English. Generated pages,
+experience-pack presentation and the cockpit are selectable with
+`language: en`, `language: es` or `language: pt`, so downstream projects can
+localize output without forking the core.
 
 ## Operating data sources
 

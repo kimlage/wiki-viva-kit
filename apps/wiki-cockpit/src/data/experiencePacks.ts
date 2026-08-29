@@ -23,7 +23,8 @@ export function experiencePackLabel(
   identifier: string,
   packId?: string
 ): string {
-  const locale = uiLanguage() === "pt" ? "pt-BR" : "en";
+  const language = uiLanguage();
+  const locale = language === "pt" ? "pt-BR" : language;
   const presentation = composition?.presentation;
   return presentation?.locales[locale]?.[identifier]
     ?? presentation?.locales[presentation.default_locale]?.[identifier]

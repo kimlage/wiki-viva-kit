@@ -3,7 +3,7 @@
     "gamification",
     "quadrant_lenses"
   ],
-  "composition_sha256": "8e7cc1f9f7d2cf9324b80162e7cbeed602e3c510f9a4ccc6f1d32ca1227f65e6",
+  "composition_sha256": "113de06d1e960ac7ad69813efe1a9e25a505e8f8b38e9694fe008b4a87a897b2",
   "core_version": "8.0.0",
   "packs": [
     {
@@ -43,6 +43,36 @@
         "personal_finance_obligation": "Obligation",
         "personal_finance_reconciliation": "Reconciliation",
         "personal_finance_transaction": "Transaction"
+      },
+      "es": {
+        "personal-finance": "Finanzas personales",
+        "personal-finance.cashflow": "Flujo de caja",
+        "personal-finance.category-variance": "Variaci\u00f3n por categor\u00eda",
+        "personal-finance.classify": "Clasificar transacci\u00f3n",
+        "personal-finance.classify-transaction": "Clasificar transacci\u00f3n",
+        "personal-finance.due-horizon": "Horizonte de vencimientos",
+        "personal-finance.financial-calendar": "Calendario financiero",
+        "personal-finance.forecast": "Proyectar flujo de caja",
+        "personal-finance.forecast-cashflow": "Proyectar flujo de caja",
+        "personal-finance.import": "Importar transacciones",
+        "personal-finance.import-transactions": "Importar transacciones",
+        "personal-finance.month-comparison": "Comparaci\u00f3n mensual",
+        "personal-finance.monthly-close": "Cerrar mes",
+        "personal-finance.monthly-closed": "Mes cerrado",
+        "personal-finance.monthly-closing-tape": "L\u00ednea de cierres mensuales",
+        "personal-finance.monthly-period": "Per\u00edodo mensual",
+        "personal-finance.obligation-due": "Obligaci\u00f3n por vencer",
+        "personal-finance.reconcile": "Conciliar cuenta",
+        "personal-finance.reconcile-account": "Conciliar cuenta",
+        "personal-finance.reconciliation": "Conciliaci\u00f3n",
+        "personal-finance.reconciliation-recorded": "Conciliaci\u00f3n registrada",
+        "personal-finance.transaction-occurred": "Transacci\u00f3n realizada",
+        "personal_finance_account": "Cuenta",
+        "personal_finance_category": "Categor\u00eda",
+        "personal_finance_monthly_closing": "Cierre mensual",
+        "personal_finance_obligation": "Obligaci\u00f3n",
+        "personal_finance_reconciliation": "Conciliaci\u00f3n",
+        "personal_finance_transaction": "Transacci\u00f3n"
       },
       "pt-BR": {
         "personal-finance": "Finan\u00e7as pessoais",

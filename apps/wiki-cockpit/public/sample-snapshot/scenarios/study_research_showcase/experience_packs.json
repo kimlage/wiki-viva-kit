@@ -3,7 +3,7 @@
     "gamification",
     "quadrant_lenses"
   ],
-  "composition_sha256": "25789fe2e4d132a405e46ffa31760b2ad4946a5f1990ff0bdd94510f785893b9",
+  "composition_sha256": "82bb44a79ca96e3a5ccff472eb82315d1bcc863092fbbd0816024b32f7b3b440",
   "core_version": "8.0.0",
   "packs": [
     {
@@ -43,6 +43,36 @@
         "study_research_question": "Research question",
         "study_research_source": "Study source",
         "study_research_synthesis": "Synthesis"
+      },
+      "es": {
+        "study-research": "Estudio e investigaci\u00f3n",
+        "study-research.annotate": "Anotar fuente",
+        "study-research.capture": "Capturar fuente",
+        "study-research.capture-source": "Capturar fuente",
+        "study-research.claim-evolution": "Evoluci\u00f3n de la afirmaci\u00f3n",
+        "study-research.claim-recorded": "Afirmaci\u00f3n registrada",
+        "study-research.claim-superseded": "Afirmaci\u00f3n reemplazada",
+        "study-research.claim-verified": "Afirmaci\u00f3n verificada",
+        "study-research.concept-graph": "Grafo de conceptos",
+        "study-research.connect": "Conectar conocimiento",
+        "study-research.evidence-matrix": "Matriz de evidencia",
+        "study-research.learning-captured": "Aprendizaje capturado",
+        "study-research.learning-history": "Historial de aprendizaje",
+        "study-research.learning-reviewed": "Aprendizaje revisado",
+        "study-research.reading-queue": "Cola de lectura",
+        "study-research.review": "Revisar evidencia",
+        "study-research.review-evidence": "Revisar evidencia",
+        "study-research.spaced-review": "Repaso espaciado",
+        "study-research.spaced-review-due": "Repaso espaciado pendiente",
+        "study-research.synthesize": "Sintetizar tema",
+        "study-research.synthesize-topic": "Sintetizar tema",
+        "study_research_citation": "Cita",
+        "study_research_claim": "Afirmaci\u00f3n",
+        "study_research_concept": "Concepto",
+        "study_research_note": "Nota de investigaci\u00f3n",
+        "study_research_question": "Pregunta de investigaci\u00f3n",
+        "study_research_source": "Fuente de estudio",
+        "study_research_synthesis": "S\u00edntesis"
       },
       "pt-BR": {
         "study-research": "Estudos e Pesquisa",

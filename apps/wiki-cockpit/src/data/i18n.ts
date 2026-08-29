@@ -1,10 +1,12 @@
+import { ES } from "./i18n.es";
+
 // UI strings registry. The base system ships in English; the whole cockpit
-// flips to Portuguese when the wiki's configured language starts with "pt"
+// selects English, Spanish or Portuguese from the wiki's configured language
 // (wiki.config.yaml -> manifest.repo.language) — content language stays free.
 // Implementations can override individual strings via wiki-cockpit.config.json
 // (`strings: { key: "..." }`), same pattern as the presentation registry.
 
-export type UiLanguage = "en" | "pt";
+export type UiLanguage = "en" | "es" | "pt";
 
 type Dict = Record<string, string>;
 
@@ -3205,6 +3207,24 @@ export const GLOSSARY: Record<UiLanguage, Record<string, { title: string; body: 
       body: "A 0–100 collective health index per area: fresh pages and recent sources pull it up; pending and orphan pages pull it down. It measures the wiki, never ranks people."
     }
   },
+  es: {
+    packet: {
+      title: "Paquete de decisión",
+      body: "Un conjunto de páginas que quiere revisar juntas antes de tomar una decisión. Vive en la URL (?packet=), por lo que compartir el enlace comparte la selección. Nunca modifica la wiki por sí solo."
+    },
+    freshness: {
+      title: "Vigencia",
+      body: "Cada página declara durante cuánto tiempo sigue siendo confiable (stale_after_days). Dentro de ese plazo el nodo permanece vivo. Cuando vence, el nodo envejece: vuelva a verificar la información y actualice la fecha. Sin fecha se muestra como 'sin datos'."
+    },
+    evidence: {
+      title: "Evidencia",
+      body: "Las páginas citan sus fuentes (source_refs). Una afirmación sin fuente es solo una opinión; las secciones de Evidencia y el recorrido (tecla n) muestran exactamente en qué se apoya cada página."
+    },
+    vitality: {
+      title: "Vitalidad del contexto",
+      body: "Índice colectivo de salud de 0 a 100 por área: las páginas vigentes y las fuentes recientes lo elevan; las páginas pendientes y huérfanas lo reducen. Mide la wiki, nunca clasifica a las personas."
+    }
+  },
   pt: {
     packet: {
       title: "Pacote de decisão",
@@ -3225,15 +3245,16 @@ export const GLOSSARY: Record<UiLanguage, Record<string, { title: string; body: 
   }
 };
 
-// Test-only: expose the raw key sets so a parity guard can assert EN and PT
-// stay in lockstep (a missing PT key silently ships English otherwise).
-export const __dictKeysForTest = { en: Object.keys(EN), pt: Object.keys(PT) };
+// Test-only: expose the raw key sets so the three bundled catalogs stay in
+// lockstep instead of silently leaking English into a localized cockpit.
+export const __dictKeysForTest = { en: Object.keys(EN), es: Object.keys(ES), pt: Object.keys(PT) };
 
 let language: UiLanguage = "en";
 let overrides: Dict = {};
 
 export function configureLanguage(lang: string | null | undefined, stringOverrides?: Dict | null): void {
-  language = String(lang || "en").toLowerCase().startsWith("pt") ? "pt" : "en";
+  const normalized = String(lang || "en").toLowerCase();
+  language = normalized.startsWith("pt") ? "pt" : normalized.startsWith("es") ? "es" : "en";
   overrides = stringOverrides || {};
 }
 
@@ -3242,7 +3263,7 @@ export function uiLanguage(): UiLanguage {
 }
 
 export function t(key: string, params?: Record<string, string | number>): string {
-  const table = language === "pt" ? PT : EN;
+  const table = language === "pt" ? PT : language === "es" ? ES : EN;
   let text = overrides[key] ?? table[key] ?? EN[key] ?? key;
   if (params) {
     for (const [name, value] of Object.entries(params)) {

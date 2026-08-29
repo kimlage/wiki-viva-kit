@@ -15,6 +15,21 @@ REFERENCES_ROOT = ROOT / CONFIG.paths["references_root"]
 MEMORY_ROOT = ROOT / CONFIG.paths["memory_root"]
 
 
+def test_spanish_quadrant_contract_is_complete_and_keeps_aqal_boundaries() -> None:
+    contract = quadrant_contract("es")
+
+    assert contract["model"] == "Cuatro cuadrantes de Wilber/AQAL"
+    assert contract["quadrants"]["q3"]["label"] == "Q3 - Cultura y relaciones"
+    assert contract["quadrants"]["q3"]["aqal_position"] == (
+        "Nosotros / interior colectivo / inferior izquierdo"
+    )
+    assert "holón raíz" in contract["boundary_rule"]
+    assert any(
+        item.startswith("Q3 = cualquier persona")
+        for item in contract["anti_patterns"]
+    )
+
+
 def test_context_deep_read_prompt_preserves_aqal_boundaries() -> None:
     prompt = (ROOT / "wiki_core/llm/prompts/context_deep_read.v3.md").read_text(
         encoding="utf-8"

@@ -56,6 +56,10 @@ def _is_portuguese(config: WikiConfig) -> bool:
     return str(getattr(config, "language", "en")).lower().startswith("pt")
 
 
+def _is_spanish(config: WikiConfig) -> bool:
+    return str(getattr(config, "language", "en")).lower().startswith("es")
+
+
 def _quadrant_semantics(config: WikiConfig) -> dict[str, dict[str, str]]:
     return quadrant_semantics(getattr(config, "language", "en"))
 
@@ -501,6 +505,41 @@ def _labels(config: WikiConfig) -> dict[str, str]:
             "no_warnings": "Nenhum.",
             "validation": "Validacao",
             "not_configured": "nao_configurado",
+        }
+    if _is_spanish(config):
+        return {
+            "title": "Etapa de entrada",
+            "updated_on": "Actualizado el",
+            "generated_note": "Esta página se genera mediante [wiki_input_stage.py](../../scripts/wiki_input_stage.py). No la edite manualmente.",
+            "root_entity": "Entidad raíz",
+            "field": "Campo",
+            "value": "Valor",
+            "entity_type": "Tipo de entidad",
+            "required_perspectives": "Perspectivas obligatorias",
+            "optional_perspectives": "Perspectivas opcionales",
+            "input_channels": "Canales de entrada",
+            "quadrant_semantics": "Semántica de los cuadrantes",
+            "semantic_key": "Clave semántica",
+            "aqal_position": "Posición AQAL",
+            "operational_test": "Prueba operativa",
+            "boundary_rule": "Regla de frontera",
+            "channel": "Canal",
+            "type": "Tipo",
+            "status": "Estado",
+            "quadrants": "Cuadrantes",
+            "sources": "Fuentes",
+            "source": "Fuente",
+            "input_status": "Estado de entrada",
+            "config": "Configuración",
+            "target_pages": "Páginas objetivo",
+            "ready_inputs": "Entradas listas",
+            "next_action": "Próxima acción",
+            "ready_action": "Ejecute o actualice la ingesta cuando el material actual esté preparado.",
+            "warnings": "Advertencias",
+            "none": "_(ninguno)_",
+            "no_warnings": "Ninguna.",
+            "validation": "Validación",
+            "not_configured": "no_configurado",
         }
     return {
         "title": "Input stage",

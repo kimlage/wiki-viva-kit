@@ -235,7 +235,7 @@ coupling as an extension API. Do not advertise downstream installation until
 - State/effect tests prove semantic invariants and stale/duplicate work safety.
 - Architecture, snapshot, bundle and demo-drift gates pass.
 - Desktop, mobile and forced-fallback browser evidence is clean and reproducible.
-- EN/PT labels and accessibility/reduced-motion behavior are covered.
+- EN/ES/PT labels and accessibility/reduced-motion behavior are covered.
 - Public/private boundary and downstream rollback are documented.
 - Guides/release notes describe the extension without requiring readers to
   reverse-engineer implementation internals.

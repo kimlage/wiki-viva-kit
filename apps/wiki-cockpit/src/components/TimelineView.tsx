@@ -71,7 +71,8 @@ function readableKind(kind: string, experiencePacks?: ExperiencePackComposition)
 
 function temporalLabel(value: string | null | undefined, precision?: string): string {
   if (!value) return t("timeline.time.missing");
-  const locale = uiLanguage() === "pt" ? "pt-BR" : "en-US";
+  const language = uiLanguage();
+  const locale = language === "pt" ? "pt-BR" : language === "es" ? "es-ES" : "en-US";
   if (/^\d{4}$/.test(value)) return `${value} · ${t("timeline.precision.year")}`;
   if (/^\d{4}-\d{2}$/.test(value)) {
     const [year, month] = value.split("-").map(Number);
