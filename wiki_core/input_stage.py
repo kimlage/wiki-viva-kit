@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import posixpath
+import re
 from pathlib import Path
 from typing import Any
 
@@ -559,6 +560,27 @@ def _links(values: list[str] | tuple[str, ...] | None, config: WikiConfig) -> st
     return ", ".join(_link(value, value, config) for value in (values or []))
 
 
+_WARNING_PATH_RE = re.compile(r"^(?P<path>.+?\.md)(?P<detail>:\s.*)$")
+
+
+def _warning_label(warning: Any, config: WikiConfig) -> str:
+    """Render a generated diagnostic without leaking a bare repo-local path.
+
+    The catalog keeps its stable string warning contract for JSON consumers,
+    while the Markdown projection links the leading page path emitted by the
+    compiler. This keeps generated pages compatible with
+    ``audit.require_markdown_links``.
+    """
+    text = str(warning)
+    match = _WARNING_PATH_RE.match(text)
+    if not match:
+        return text
+    path = match.group("path")
+    if "://" in path or path.startswith("/"):
+        return text
+    return f"{_link(path, path, config)}{match.group('detail')}"
+
+
 def _source_config_label(source: dict[str, Any], config: WikiConfig) -> str:
     source_config = source.get("source_config")
     if not isinstance(source_config, dict):
@@ -699,7 +721,7 @@ def render_input_stage_markdown(catalog: dict[str, Any], config: WikiConfig) -> 
     warnings = catalog.get("warnings") or []
     if warnings:
         for warning in warnings:
-            lines.append(f"- {warning}")
+            lines.append(f"- {_warning_label(warning, config)}")
     else:
         lines.append(f"- {labels['no_warnings']}")
 

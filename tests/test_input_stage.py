@@ -397,6 +397,51 @@ def test_render_input_stage_markdown_is_stable_and_links(tmp_path: Path) -> None
     assert "perspective-identity-intent" in md
 
 
+def test_render_input_stage_links_repo_paths_in_generated_warnings(tmp_path: Path) -> None:
+    cfg = _fixture_repo(tmp_path)
+    (tmp_path / "memories/sources/config/team-handbook.md").unlink()
+    (tmp_path / "memories/input-channels/team-docs.md").unlink()
+    _write(
+        tmp_path / "memories/input-channels/orphan-channel.md",
+        """---
+page_id: input-channel-orphan
+page_type: input_channel
+title: "Orphan channel"
+context: example
+visibility: private_self
+updated_at: 2026-06-25
+stale_after_days: 30
+channel_type: document
+input_status: configured
+moc_parent: memories/example/index.md
+source_refs:
+  - source-not-found
+---
+
+# Orphan channel
+""",
+    )
+
+    catalog = compile_input_stage(tmp_path, cfg, generated_at="2026-06-25")
+    md = render_input_stage_markdown(catalog, cfg)
+
+    assert (
+        "- [memories/sources/team-handbook.md](../sources/team-handbook.md): "
+        "no source_config linked" in md
+    )
+    assert (
+        "- [memories/sources/team-handbook.md](../sources/team-handbook.md): "
+        "no input_channel linked" in md
+    )
+    assert (
+        "- [memories/input-channels/orphan-channel.md]"
+        "(../input-channels/orphan-channel.md): source_refs not found: source-not-found"
+        in md
+    )
+    assert "- memories/sources/team-handbook.md:" not in md
+    assert "- memories/input-channels/orphan-channel.md:" not in md
+
+
 def test_render_input_stage_markdown_uses_localized_layout_and_language(tmp_path: Path) -> None:
     cfg = _fixture_repo(tmp_path)
     cfg = WikiConfig(
