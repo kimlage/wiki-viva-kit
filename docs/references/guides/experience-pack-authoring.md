@@ -68,7 +68,7 @@ insufficient.
 ## Required pack surface
 
 Each published pack declares page types, templates, block adapters, views,
-commands, operations, temporal profiles, EN and PT-BR copy, a hashed asset
+commands, operations, temporal profiles, EN, ES and PT-BR copy, a hashed asset
 manifest, public synthetic fixtures, lifecycle migrations and conformance
 contracts. At minimum, fixtures cover minimal, normal, dense and intentional
 failure behavior.

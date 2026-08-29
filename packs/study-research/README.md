@@ -2,7 +2,7 @@
 
 This declarative pack proves the full experience-pack contract with synthetic,
 low-privacy study material. It contributes typed knowledge objects, templates,
-registered view and operation slots, three temporal profiles, EN and PT-BR copy,
+registered view and operation slots, three temporal profiles, EN, ES and PT-BR copy,
 four public fixtures and a versioned empty asset manifest ready for separately
 approved, licensed and hashed assets.
 

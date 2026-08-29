@@ -69,8 +69,8 @@
         "default_locale": {"const": "en"},
         "locales": {
           "type": "object",
-          "required": ["en", "pt-BR"],
-          "minProperties": 2,
+          "required": ["en", "es", "pt-BR"],
+          "minProperties": 3,
           "propertyNames": {"pattern": "^[a-z]{2}(?:-[A-Z]{2})?$"},
           "additionalProperties": {
             "type": "object",

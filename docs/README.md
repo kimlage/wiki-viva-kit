@@ -27,6 +27,7 @@ storage.
 
 ## Release documentation
 
+- [Wiki Viva v8.2.0](references/releases/wiki-viva-v8.2.0.md): selectable English, Spanish and Portuguese output across the core, cockpit and experience packs
 - [Wiki Viva v8.1.5](references/releases/wiki-viva-v8.1.5.md): strict generated-warning links and safe TODO-recipe promotion
 - [Wiki Viva v8.1.4](references/releases/wiki-viva-v8.1.4.md): portable downstream sync and registry-authority corrections
 - [Wiki Viva v8.1.3](references/releases/wiki-viva-v8.1.3.md): downstream-safe source-workspace documentation gate

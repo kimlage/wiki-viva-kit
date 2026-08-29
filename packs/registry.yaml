@@ -13,4 +13,4 @@ packs:
       0.1.0:
         path: study-research
         manifest_sha256: 495a65e42e64070059ab2a52704c381af00485f2f11ca410c38447880f14629e
-        tree_sha256: 74a95980c84b08fdbb2f52c1f5d451eb058b3872bcf23b7bb9f1e28dc526d93b
+        tree_sha256: 90ad94285cd02e86dbc9d8e0d824347a6ec56379a89e8b44c978a53ffb084758
