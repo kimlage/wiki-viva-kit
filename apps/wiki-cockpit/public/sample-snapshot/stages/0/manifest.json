@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "7b820fbe53a9e95fe2aa1f919629ea46e997b1a003572ee3e569051c26135fee",
+  "bundle_hash": "666d3349fe0d4fb870888d38562180bc1d46baa9c695b7e313192caaca21d2a9",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -94,8 +94,8 @@
       "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
     },
     "experience_packs.json": {
-      "bytes": 334,
-      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+      "bytes": 342,
+      "sha256": "cc95cfc572125b2e9bd47380b885593f46fda1ace401c6ce98cb6685c5c2bbdf"
     },
     "freshness.json": {
       "bytes": 119,
@@ -138,8 +138,8 @@
       "sha256": "fe58861bc0797438ffc95c549b7ef7ec3783ba22624e2598c7125ecfe46c831b"
     },
     "score.json": {
-      "bytes": 305,
-      "sha256": "31bcdbf9c91bc9ad7d8819c42ed061f8b131304985370b3102eaff443b247725"
+      "bytes": 323,
+      "sha256": "cff2138efda791018ac606989ed85d60854f8da2724d53072a5c8960caaef2a1"
     },
     "snapshot_warnings.json": {
       "bytes": 60,
@@ -186,9 +186,9 @@
   },
   "root_page_id": null,
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-7b820fbe53a9e95f",
+  "snapshot_id": "wiki-viva-demo-666d3349fe0d4fb8",
   "source_commit": null,
-  "source_sha": "uncommitted:7b820fbe53a9e95fe2aa1f919629ea46e997b1a003572ee3e569051c26135fee",
+  "source_sha": "uncommitted:666d3349fe0d4fb870888d38562180bc1d46baa9c695b7e313192caaca21d2a9",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

@@ -80,11 +80,12 @@ REQUIRED_SUPPORT_FILES: dict[str, str] = {
 # were the sections that used to be missing from the matrix.
 # Minimum mentions required in the coverage matrix, per language (config.language).
 COVERAGE_REQUIRED_MENTIONS_BY_LANG = {
+    "es": ("visibilidad", "agentes", "perceptiva", "karma"),
     "pt": ("visibilidade", "agentes", "perceptiva", "karma"),
     "en": ("visibility", "agents", "perceptive", "karma"),
 }
-# Accepted markers for the quadrants section (pt or en).
-QUADRANTS_HEADERS = ("## Quadrantes", "## Quadrants")
+# Accepted markers for the quadrants section (es, pt or en).
+QUADRANTS_HEADERS = ("## Cuadrantes", "## Quadrantes", "## Quadrants")
 
 
 def split_frontmatter(text: str) -> tuple[str | None, str]:

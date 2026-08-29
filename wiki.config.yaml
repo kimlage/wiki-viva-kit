@@ -1,6 +1,6 @@
 repo_id: wiki-viva-kit
 owner_label: "Wiki Owner"
-# Project language: drives generated output (cockpit, proposals).
+# Project language: en, es or pt. Drives generated output (cockpit, proposals).
 language: en
 default_visibility: private_self
 # Memory contexts of this repo (each must have `memories/<ctx>/index.md`).

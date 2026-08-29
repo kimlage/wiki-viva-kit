@@ -231,13 +231,13 @@ PROMOTION_REQUIRED_FIELDS = (
     "revert_plan",
 )
 # Placeholder phrases from the ingestion generator (multi-word to avoid matching
-# substrings of real prose). Includes pt and en to support both languages.
+# substrings of real prose). Includes es, pt and en to support every language.
 QUADRANT_PLACEHOLDERS = (
     "a preencher", "explicitar se ausente", "preencher apos leitura",
     "to fill in", "state if absent", "fill in after",
 )
 # Accepted markers for the quadrants section (pt or en).
-QUADRANTS_HEADERS = ("## Quadrantes", "## Quadrants")
+QUADRANTS_HEADERS = ("## Cuadrantes", "## Quadrantes", "## Quadrants")
 # Caches deliberately unversioned (gitignored): links/evidence_refs pointing to
 # them reference a local cache or the original on Drive and are not required in
 # the repo (otherwise the auditor would fail on a clean clone/CI).
@@ -1843,12 +1843,12 @@ def audit_ingestion_events(errors: list[str], config: WikiConfig) -> None:
     if not event_dir.exists():
         errors.append(f"{paths.rel(event_dir)}: missing normalized event directory")
         return
-    # The four quadrants, each accepted in pt OR en (supports both languages).
+    # The four quadrants, each accepted in es, pt or en.
     quadrant_concepts = [
         ("Interior individual",),
         ("Exterior individual",),
-        ("Interior coletivo", "Interior collective"),
-        ("Exterior coletivo", "Exterior collective"),
+        ("Interior colectivo", "Interior coletivo", "Interior collective"),
+        ("Exterior colectivo", "Exterior coletivo", "Exterior collective"),
     ]
     for path in sorted(event_dir.glob("*.md")):
         rel = path.relative_to(ROOT).as_posix()

@@ -65,29 +65,83 @@ ACTION_ID_RE = re.compile(r"`([^`]+)`|\b((?:acao|action)-[A-Za-z0-9_.:-]+)\b")
 CHECKED_SECTION_KEYS = ("h_decisions", "h_actions", "h_queue")
 
 # VOLATILE parts of the cockpit (depend on date, git state or karma/score). They
-# stay out of the stable view used by --check. Includes the markers in both pt AND en
+# stay out of the stable view used by --check. Includes the markers in every language
 # so that --check works regardless of `language` in the config.
 VOLATILE_FRONTMATTER_KEYS = ("updated_at", "generated_from_commit", "generated_from_branch")
 VOLATILE_SECTIONS = (
-    "Vitalidade dos contextos", "Context vitality",
-    "Karma e vitalidade", "Karma and vitality",
+    "Vitalidad del contexto", "Vitalidade dos contextos", "Context vitality",
+    "Karma y vitalidad", "Karma e vitalidade", "Karma and vitality",
 )
 VOLATILE_BODY_PREFIXES = (
-    "Atualizado em:", "Updated at:",
-    "- Compilado de:", "- Compiled from:",
-    "- Estado no momento da compilacao", "- Compile-time state",
-    "- Branch de proposta", "- Proposal branch",
-    "- Estado aprovado", "- Approved state",
+    "Actualizado el:", "Atualizado em:", "Updated at:",
+    "- Compilado desde:", "- Compilado de:", "- Compiled from:",
+    "- Estado al compilar", "- Estado no momento da compilacao", "- Compile-time state",
+    "- Rama de propuesta", "- Branch de proposta", "- Proposal branch",
+    "- Estado aprobado", "- Estado aprovado", "- Approved state",
     "- Branch `",
-    "- Contextos stale para revisar:", "- Stale contexts to review:",
+    "- Contextos desactualizados que requieren revisión:", "- Contextos stale para revisar:", "- Stale contexts to review:",
     # Depends on the gitignored derived cache (llm-cache/extraction-events):
     # present locally, absent on a clean clone — volatile by construction.
-    "- Fontes aguardando consolidacao:", "- Sources awaiting consolidation:",
+    "- Fuentes pendientes de consolidación:", "- Fontes aguardando consolidacao:", "- Sources awaiting consolidation:",
 )
 
 # Cockpit string table per language (drives the GENERATED output via config.language).
 # Keys with {placeholders} are formatted in build_page.
 COCKPIT_STRINGS: dict[str, dict[str, str]] = {
+    "es": {
+        "purpose": "Panel de resumen operativo diario de la wiki.",
+        "title": "Operaciones - {repo}",
+        "owner": "Responsable: {owner}.",
+        "updated": "Actualizado el: {now}.",
+        "h_state": "## Estado actual",
+        "git_state_hint": "- Estado actual de Git: verifique en vivo con `git status --short --branch` y el PR antes de actuar; el commit y la rama no se fijan en el panel porque quedan obsoletos después de una fusión.",
+        "generated_by": "- Generado por [scripts/wiki_operation_compile.py](../scripts/wiki_operation_compile.py); el contenido determinista del panel se verifica en CI mediante `--check`.",
+        "biggest_risk": "- Mayor riesgo: consolidar memoria canónica sin un PR o una fuente vinculada.",
+        "h_decisions": "## Decisiones pendientes",
+        "th_decisions": "| Decisión | Contexto | Fuente |",
+        "empty_decisions": "| No hay decisiones pendientes registradas. | - | - |",
+        "h_actions": "## Acciones del responsable ({owner})",
+        "th_actions": "| Acción | Contexto | Estado | Fuente |",
+        "empty_actions": "| No hay acciones abiertas del responsable registradas. | - | - | - |",
+        "h_queue": "## Cola de acciones pendientes",
+        "queue_listed": "Identificadores enumerados en [{pending_path}]({pending_path}):",
+        "empty_queue": "No hay acciones pendientes registradas.",
+        "consolidation_pending": "- Fuentes pendientes de consolidación: {count} — consulte [scripts/wiki_consolidate.py]({script}).",
+        "h_alerts": "## Alertas",
+        "alert_stale": "- La página de operaciones queda desactualizada después de 1 día.",
+        "alert_quadrants": "- Los eventos de ingestión relevantes deben declarar los cuatro cuadrantes o una ausencia explícita.",
+        "alert_pii": "- Los datos personales (PII: nombres, importes, identificadores fiscales, contrapartes) son bienvenidos en la wiki privada; redacte solo antes de exportar o publicar.",
+        "alert_secrets": "- Los secretos de acceso (tokens, contraseñas, claves, cookies) nunca deben guardarse.",
+        "alert_stale_contexts": "- Contextos desactualizados que requieren revisión: {contexts}.",
+        "h_closure": "## Cierre de ingestión",
+        "closure_intro": "Señal honesta: una fuente solo cuenta como ingerida cuando su evento se cierra (consolidado en la memoria canónica). 0 fuentes sin evento cerrado = saludable.",
+        "th_closure": "| Métrica | Valor |",
+        "closure_events_closed": "| Eventos de ingestión cerrados | {closed}/{total} |",
+        "closure_sources_closed": "| Fuentes ingeridas con evento cerrado | {closed}/{total} |",
+        "closure_sources_gap": "| Fuentes ingeridas SIN evento cerrado (0 = saludable) | {gap} |",
+        "closure_compression": "| Candidato -> compresión de destino | {candidates} -> {targets} ({ratio} por destino) |",
+        "closure_report_link": "- Informe detallado: [scripts/wiki_ingestion_closure_report.py]({script}).",
+        "closure_empty": "Todavía no hay eventos de ingestión registrados.",
+        "closure_unavailable": "(informe de cierre no disponible: {error})",
+        "h_vitality": "## Vitalidad del contexto",
+        "th_vitality": "| Contexto | Actualizado | Ventana (días) | Vitalidad | Hub |",
+        "empty_vitality": "| No hay hubs de contexto registrados. | - | - | - | - |",
+        "h_karma": "## Karma y vitalidad (gamificación)",
+        "karma_summary": "Eventos de puntuación: {n} | karma total (con decaimiento): {total}.",
+        "th_karma": "| Dimensión | Puntos |",
+        "empty_karma": "No hay eventos de puntuación registrados (score-events.jsonl vacío o ausente).",
+        "h_links": "## Enlaces para retomar",
+        "link_wiki": "Wiki",
+        "link_log": "Registro",
+        "link_coverage": "Cobertura",
+        "link_coverage_meth": "Cobertura metodológica",
+        "link_operational_pass": "Pasada operativa",
+        "vit_fresh": "vigente",
+        "vit_stale": "desactualizado",
+        "vit_undetermined": "indeterminado",
+        "no_state": "sin estado",
+        "no_date": "sin fecha",
+    },
     "pt": {
         "purpose": "cockpit de retomada operacional diaria da wiki",
         "title": "Operacao - {repo}",

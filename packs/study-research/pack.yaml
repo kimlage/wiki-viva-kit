@@ -121,5 +121,5 @@ slots:
       contribution: study-research.claim-evolution
       mode: append
 i18n:
-  locales: [en, pt-BR]
+  locales: [en, es, pt-BR]
   default_locale: en

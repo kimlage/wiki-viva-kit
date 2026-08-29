@@ -5,12 +5,12 @@ packs:
     versions:
       0.1.0:
         path: personal-finance
-        manifest_sha256: d357c182e0c702f6e880f01da2b9811e0158ca66f1cea512a7d2d31ff8624162
-        tree_sha256: 491281ba1327572b4b922bc75dba014dd82023a2758d9e7613327f254479d26d
+        manifest_sha256: 68b981d6a577c0c13ac1063805fe150ab802578245629f05c4197cfca231200c
+        tree_sha256: 4402fa6cc5f3777fbb881a456a05b9aa1ec005932cab06e1bc07637a0e7e5922
   study-research:
     default_version: 0.1.0
     versions:
       0.1.0:
         path: study-research
-        manifest_sha256: 3737eea5d2e43f0601c862a9ee08147724d7e5f311d95e6284aef98bd021eeb7
-        tree_sha256: d125b25a3205bda98307daa149e2c5e10e3e943cfe4e64326faba1f9724bfe31
+        manifest_sha256: 495a65e42e64070059ab2a52704c381af00485f2f11ca410c38447880f14629e
+        tree_sha256: 74a95980c84b08fdbb2f52c1f5d451eb058b3872bcf23b7bb9f1e28dc526d93b

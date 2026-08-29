@@ -56,6 +56,11 @@ Edit `wiki.config.yaml` to define the repository id, owner label, root entity,
 memory root, contexts and privacy boundary. See [docs/README.md](docs/README.md)
 and the [Wiki Viva skill](.skills/wiki-viva/SKILL.md).
 
+Code, comments and official documentation stay in English. Generated pages,
+experience-pack presentation and the cockpit are selectable with
+`language: en`, `language: es` or `language: pt`, so downstream projects can
+localize output without forking the core.
+
 ## Operating data sources
 
 Open `/w?view=sources&dock=source` in an operator-backed consumer wiki, or

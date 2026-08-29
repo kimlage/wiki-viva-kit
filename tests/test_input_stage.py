@@ -467,3 +467,25 @@ def test_render_input_stage_markdown_uses_localized_layout_and_language(tmp_path
     assert "Regra de fronteira: Aplicar o quadrante ao holon raiz" in md
     assert "Apply the quadrant to the root holon" not in md
     assert "Atualizado em: 2026-06-25." in md
+
+
+def test_render_input_stage_markdown_supports_spanish(tmp_path: Path) -> None:
+    cfg = _fixture_repo(tmp_path)
+    cfg = WikiConfig(
+        language="es",
+        contexts=cfg.contexts,
+        default_context=cfg.default_context,
+        paths=cfg.paths,
+        root_entity=cfg.root_entity,
+    )
+    catalog = compile_input_stage(tmp_path, cfg, generated_at="2026-06-25")
+
+    md = render_input_stage_markdown(catalog, cfg)
+
+    assert 'title: "Etapa de entrada"' in md
+    assert "## Entidad raíz" in md
+    assert "## Semántica de los cuadrantes" in md
+    assert "## Canales de entrada" in md
+    assert "Regla de frontera:" in md
+    assert "holón raíz" in md
+    assert "Actualizado el: 2026-06-25." in md

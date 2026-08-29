@@ -54,14 +54,18 @@ def _group_for_source(source: dict[str, Any]) -> str:
 
 
 def _default_groups(sources: list[dict[str, Any]], language: str) -> list[dict[str, Any]]:
-    pt = language == "pt"
+    labels = {
+        "en": ("Local folders", "Remote folders", "Cloud and accounts", "Web and feeds", "Repositories", "Uncategorized"),
+        "es": ("Carpetas locales", "Carpetas remotas", "Nube y cuentas", "Web y canales", "Repositorios", "Sin categoría"),
+        "pt": ("Pastas locais", "Pastas remotas", "Cloud e contas", "Web e feeds", "Repositórios", "Sem categoria"),
+    }.get(language, ("Local folders", "Remote folders", "Cloud and accounts", "Web and feeds", "Repositories", "Uncategorized"))
     definitions = [
-        ("local", "Pastas locais" if pt else "Local folders", "folder"),
-        ("remote-folders", "Pastas remotas" if pt else "Remote folders", "folder-remote"),
-        ("cloud", "Cloud e contas" if pt else "Cloud and accounts", "cloud"),
-        ("web", "Web e feeds" if pt else "Web and feeds", "web"),
-        ("repositories", "Repositórios" if pt else "Repositories", "repository"),
-        ("uncategorized", "Sem categoria" if pt else "Uncategorized", "inbox"),
+        ("local", labels[0], "folder"),
+        ("remote-folders", labels[1], "folder-remote"),
+        ("cloud", labels[2], "cloud"),
+        ("web", labels[3], "web"),
+        ("repositories", labels[4], "repository"),
+        ("uncategorized", labels[5], "inbox"),
     ]
     buckets = {group_id: [] for group_id, _, _ in definitions}
     for source in sources:
@@ -172,7 +176,7 @@ def build_source_groups_payload(
         if target is None:
             target = by_id.get("uncategorized")
         if target is None:
-            label = "Sem categoria" if config.language == "pt" else "Uncategorized"
+            label = {"pt": "Sem categoria", "es": "Sin categoría"}.get(config.language, "Uncategorized")
             target = {"id": "uncategorized", "label": label, "icon": "inbox", "source_ids": []}
             projected.append(target)
             by_id[target["id"]] = target

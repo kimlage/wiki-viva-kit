@@ -9,8 +9,8 @@ licensed under the same terms (see [LICENSE](LICENSE)).
 1. **English is the official language** for code, comments, messages and docs.
    Generated output (cockpit, proposals) is rendered per `language` in
    [wiki.config.yaml](wiki.config.yaml) via per-language string tables — when
-   you add a generated string, add it to **both** `pt` and `en` tables (a parity
-   test enforces matching keys).
+   you add a generated string, add it to the `en`, `es` and `pt` tables (a
+   parity test enforces matching keys and placeholders across all three).
 2. **Determinism first** — the toolkit never calls a language model. Deep
    reading is delegated to the agent that runs the repo. Don't add LLM clients.
 3. **Honesty gates must stay green** — before opening a PR, run:

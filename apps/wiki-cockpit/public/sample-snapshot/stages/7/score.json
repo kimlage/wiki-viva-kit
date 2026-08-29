@@ -15,6 +15,7 @@
   "level": "Explorador",
   "level_labels": {
     "en": "Explorer",
+    "es": "Explorador",
     "pt": "Explorador"
   },
   "schema_version": "wiki_web_score.v1",

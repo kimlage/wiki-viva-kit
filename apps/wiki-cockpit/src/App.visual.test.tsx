@@ -222,9 +222,9 @@ const bundle: SnapshotBundle = {
     event_count: 3,
     total: 12.5,
     level: "jardineiro",
-    level_labels: { en: "Gardener", pt: "Jardineiro" },
+    level_labels: { en: "Gardener", es: "Jardinero", pt: "Jardineiro" },
     by_dimension: { confiabilidade: 6.5, stewardship: 6 },
-    badges: [{ id: "first_source", en: "First source", pt: "Primeira fonte" }],
+    badges: [{ id: "first_source", en: "First source", es: "Primera fuente", pt: "Primeira fonte" }],
     vitality: {}
   },
   sourceEntities: { schema_version: "wiki_web_source_entities.v1", sources: [] },

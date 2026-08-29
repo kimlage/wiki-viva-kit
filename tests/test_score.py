@@ -305,18 +305,18 @@ def test_level_display_en_and_pt():
     assert level_display("not-a-level", "en") == "not-a-level"
 
 
-def test_badge_display_table_key_parity_pt_en():
-    assert set(BADGE_DISPLAY) == {"pt", "en"}
-    # same badge_ids in pt and en, and full coverage of the BADGES catalog.
-    assert set(BADGE_DISPLAY["pt"]) == set(BADGE_DISPLAY["en"]) == set(BADGES)
+def test_badge_display_table_key_parity():
+    assert set(BADGE_DISPLAY) == {"en", "es", "pt"}
+    # Same badge_ids in every language and full coverage of the BADGES catalog.
+    assert set(BADGE_DISPLAY["pt"]) == set(BADGE_DISPLAY["es"]) == set(BADGE_DISPLAY["en"]) == set(BADGES)
     for badge_id in BADGES:
-        assert set(BADGE_DISPLAY["pt"][badge_id]) == set(BADGE_DISPLAY["en"][badge_id]) == {"name", "criterion"}
+        assert set(BADGE_DISPLAY["pt"][badge_id]) == set(BADGE_DISPLAY["es"][badge_id]) == set(BADGE_DISPLAY["en"][badge_id]) == {"name", "criterion"}
 
 
-def test_level_display_table_key_parity_pt_en():
-    assert set(LEVEL_DISPLAY) == {"pt", "en"}
-    # keyed by level index: same length/order as LEVELS in both languages.
-    assert len(LEVEL_DISPLAY["pt"]) == len(LEVEL_DISPLAY["en"]) == len(LEVELS)
+def test_level_display_table_key_parity():
+    assert set(LEVEL_DISPLAY) == {"en", "es", "pt"}
+    # Keyed by level index: same length/order as LEVELS in every language.
+    assert len(LEVEL_DISPLAY["pt"]) == len(LEVEL_DISPLAY["es"]) == len(LEVEL_DISPLAY["en"]) == len(LEVELS)
     # pt display matches the persisted level ids (LEVELS is the source of truth).
     assert LEVEL_DISPLAY["pt"] == tuple(level_id for level_id, _ in LEVELS)
 

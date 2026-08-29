@@ -125,6 +125,21 @@ def _gather_pages(paths: WikiPaths, theme: str, limit: int = 10) -> list[str]:
 # Generated-OUTPUT strings per language (the insight proposal page is rendered
 # in the configured language, like the cockpit and the ingestion proposal).
 INSIGHT_STRINGS: dict[str, dict[str, str]] = {
+    "es": {
+        "title": "# Insight (propuesta) - {theme}",
+        "banner": "> PROPUESTA generada por el trabajo de insight a partir de evidencia existente. No es verdad canónica hasta que el agente la sintetice y una persona la apruebe mediante un PR.",
+        "h_reading": "## Lectura",
+        "fill_reading": "- Debe completarlo el agente (una frase con la idea).",
+        "h_evidence": "## Evidencia reunida",
+        "row_events": "- Eventos de puntuación en el contexto `{context}`: {n}.",
+        "row_chunks": "- Chunks relevantes para el tema: {n}.",
+        "chunk_bullet": "- `{chunk_id}` (fuente `{source_id}`)",
+        "row_pages": "- Páginas de memoria que mencionan el tema: {n}.",
+        "h_uncertainty": "## Incertidumbre",
+        "fill_uncertainty": "- Debe completarlo el agente (qué sigue siendo desconocido).",
+        "h_action": "## Acción posible",
+        "fill_action": "- Debe completarlo el agente (acción posible, si corresponde).",
+    },
     "pt": {
         "title": "# Insight (proposta) - {theme}",
         "banner": (

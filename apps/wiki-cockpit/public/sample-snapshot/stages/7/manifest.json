@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "d79fe5bd733b0b86b465952db5cc87a3bfe39a11c887d76d95fe9bf6a53713ba",
+  "bundle_hash": "12989d90715b128855c3b9212e75d06d5aab29731220a6798f1c1961799727d1",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -104,75 +104,75 @@
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1494,
-      "sha256": "684f4ce6c2f2d02a51832b085f456b9e3edd380bdecb87678596b2fc271c3fd6"
+      "sha256": "a6cb1b5b85cad9e109f940f5a7e35cdd1e25de9aafb7cf76724f2503e510a34d"
     },
     "content/block-library-lens.3bdc7ff7.json": {
       "bytes": 1780,
-      "sha256": "c5caa53f231ee6df99ca51b702583a28791d14007feba9aca1e390f493134dba"
+      "sha256": "ff8ae375a554f8135c123797bca7009b10f72a8265da998acbe401a0b437e971"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 1462,
-      "sha256": "31028cf70938475ef40cdd7184add6490f56c53aad7077a630f39c6c0e807418"
+      "sha256": "1f2ef3509007cbbe962010920c43b129f2465c0b5004304bd0c5bfdeb44d3308"
     },
     "content/event-ingest-banco-2026-05.60d41f0b.json": {
       "bytes": 1968,
-      "sha256": "b305cfa4df0a4e405c1fc92af27030102027a2a50eaa1fffdffb297255488cfe"
+      "sha256": "2f0d02c99638f56cb4ea418204af95137a6cb77b22b83204ed47901595c34dae"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1979,
-      "sha256": "260d3d86d7f55601fb4465face8e817cf5bda3b47281bd8d793ccd0b9513f95d"
+      "sha256": "06302768fd54e782353ca9bb40278c8a152d44c5d390398be864d559a3cd2ade"
     },
     "content/hub-sistema.ee25ae91.json": {
       "bytes": 3760,
-      "sha256": "70a5b89569cd48e691b723a9b37c28660b85c536a6e15015567b50e022505b0e"
+      "sha256": "038474c00d97b21b798af0f37fc05b14d6de621e15165c29fb4d7ef9719975b4"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "e4403401beaa4ecc9571caeed0e3e3dd985e06b7bc263d5c0a38711233541bb7"
+      "sha256": "ddfab7139f69673a03fb23c1548460463c18e8ead43bb6f44306a3671b8c54bd"
     },
     "content/perspective-artifacts-evidence.25d8ec03.json": {
       "bytes": 1198,
-      "sha256": "ba5dbce067fa3f7a4ccffdd9e55a01a97873f093305148a8f17318e5676947c3"
+      "sha256": "f7c60352b1b5121cf55e6e52505aad03b845c1a9f1f6ad7d5e06365a81c72c61"
     },
     "content/perspective-financial.d470a7bf.json": {
       "bytes": 1143,
-      "sha256": "2e0ba90645de29c67225cd9b6356ed9eaf8e7d6787ee4b9ad0feed3b92c409b0"
+      "sha256": "8ac51417f072fe650c62e543596fa3f157be87900f0f40065a276d8755e9ab0c"
     },
     "content/perspective-identity-intent.7d6d78eb.json": {
       "bytes": 1204,
-      "sha256": "5bfba110426d4e7b889f518213b1552f76ba0d62cd6beab99a2d4989cd6a1301"
+      "sha256": "6c8b310b02eda9faf318615b366d957fe4a3912d4e42f48b4d16648b7bb24710"
     },
     "content/perspective-privacy-publication.de1b090b.json": {
       "bytes": 1205,
-      "sha256": "b7c8c3dc089f93448eb24b8850dc0651dc79d3a11975adee3333ce2f335d721b"
+      "sha256": "40a232db92d33b85af87087e08d3001b2ee14fcad63b81645b02b76a070d0110"
     },
     "content/perspective-roles-relationships.f613f6bb.json": {
       "bytes": 1231,
-      "sha256": "1d08d191e5f5496ce0a5670d065145b19ccc31a89676797dbac75a1a70abf2ed"
+      "sha256": "dead0bcb0b56b3febd644942fa8a5949f358f1a6b1a0c35c99b0bb59b0d5bd83"
     },
     "content/perspective-systems-processes.f5548ffe.json": {
       "bytes": 1231,
-      "sha256": "97925a663dc6c18343704118082d4d30274bfbf8eaf8a4f79ef9d6877228f13b"
+      "sha256": "c198ad3917d41386ce8217f6f07b9efc2f4a2f7bf0da9295289477fac8a84fdd"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2473,
-      "sha256": "2f72554ea179e800bb69cdcf6e6c06447f7ee43b66379608f69688bd2dd6c8f2"
+      "sha256": "73804993e01bba9e3dc1c29333c0b64fb58be411e73a8a31a090ec4a8661b60d"
     },
     "content/skill-agent-classify-quadrants.963805cf.json": {
       "bytes": 1200,
-      "sha256": "942100a3c3a754c38625967cad30a7f7cb3b0ea765acfad74e4f79641414f092"
+      "sha256": "d3b796dce973759d9f67d6c0ff8c6e09a1df83922794b923c8538ebd25b264ea"
     },
     "content/skill-agent-deep-read.7630764e.json": {
       "bytes": 1118,
-      "sha256": "04424499a7b12469f653e6ca5ac820d3296fdefe17a68b7d0af52c8611db5b27"
+      "sha256": "14f2818a28ab8cf064b0a711d421180aadaaecd6b8e7246119f5edff2aa08408"
     },
     "content/skill-human-review-privacy.f31a7680.json": {
       "bytes": 1207,
-      "sha256": "fa893ff12071c89a53fd3ac8a7114a90acb2d406b65694e2c1f62173d18adfbd"
+      "sha256": "8a0358c516035dcecd43b5d4e46a19a9ad1976dffd730c5e2ad41f13967358ae"
     },
     "content/source-banco-export.21d8fe1f.json": {
       "bytes": 2978,
-      "sha256": "5310f60f94c5fcce9b0f6b1b8c8b7325aa033e7208f654f73209ac0bae4f5f4f"
+      "sha256": "cfb77a5f0e00b2d873d55b5b1e2b034aed349c4a772c54ee9bf9a63ccd76f65a"
     },
     "decisions.json": {
       "bytes": 57,
@@ -183,8 +183,8 @@
       "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
     },
     "experience_packs.json": {
-      "bytes": 334,
-      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+      "bytes": 342,
+      "sha256": "cc95cfc572125b2e9bd47380b885593f46fda1ace401c6ce98cb6685c5c2bbdf"
     },
     "freshness.json": {
       "bytes": 492,
@@ -227,8 +227,8 @@
       "sha256": "5a080cccd596a8c3b31b0e6c689466c7437cd7dd0b826a0d83036a96d0f92ea4"
     },
     "score.json": {
-      "bytes": 1761,
-      "sha256": "98d40d7716458979f07c1fec7cb5eb7ccd2f68ae3d0d64c953b9db7a0a5901d2"
+      "bytes": 1779,
+      "sha256": "8bf54e7c8e91565437d3e1661d998f6b69971cd3ae3821dbadc9d161969a43f8"
     },
     "snapshot_warnings.json": {
       "bytes": 60,
@@ -275,9 +275,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-d79fe5bd733b0b86",
+  "snapshot_id": "wiki-viva-demo-12989d90715b1288",
   "source_commit": null,
-  "source_sha": "uncommitted:14e91bfd43d9f8bff2c4a060ecad8648708259fcd5211a9e260d541b769d1686",
+  "source_sha": "uncommitted:73d9e4c1d6298c6a335d9865f639392f7716309dda941bccb769b3100cc5c7c5",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

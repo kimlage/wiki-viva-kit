@@ -838,7 +838,15 @@ export type TemplatesPayload = {
   error?: string;
 };
 
-export type ScoreBadge = { id: string; en: string; pt: string; criterion_en?: string; criterion_pt?: string };
+export type ScoreBadge = {
+  id: string;
+  en: string;
+  es: string;
+  pt: string;
+  criterion_en?: string;
+  criterion_es?: string;
+  criterion_pt?: string;
+};
 
 export type ScoreVitality = {
   context: string;

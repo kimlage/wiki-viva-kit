@@ -156,7 +156,7 @@ def test_finance_vertical_declares_required_types_views_operations_and_time() ->
         "personal-finance.due-horizon",
         "personal-finance.month-comparison",
     }
-    assert set(manifest["i18n"]["locales"]) == {"en", "pt-BR"}
+    assert set(manifest["i18n"]["locales"]) == {"en", "es", "pt-BR"}
     assert manifest["capabilities"]["block_packages"] == ["quadrant_lenses", "gamification"]
 
 

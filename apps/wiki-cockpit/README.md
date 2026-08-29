@@ -105,11 +105,13 @@ rules and no person-vs-person ranking. The cockpit only displays it
 
 ## Language
 
-The base system ships in English. Set `language` in `wiki.config.yaml` (or
-`wiki-cockpit.config.json`) to a `pt*` value and the whole cockpit UI flips to
-Portuguese — content language stays free. Individual strings can be overridden
-via `strings: { "key": "..." }` in the runtime config, same pattern as the
-presentation registry.
+The base system defaults to English and ships complete `en`, `es` and `pt`
+catalogs. Set `language` in `wiki.config.yaml` (or
+`wiki-cockpit.config.json`) to English, Spanish or Portuguese and the whole
+cockpit UI follows it — content language stays free. Regional values such as
+`es-MX` and `pt-BR` are normalized by the UI. Individual strings can be
+overridden via `strings: { "key": "..." }` in the runtime config, using the
+same pattern as the presentation registry.
 
 ## Appearance and information density
 

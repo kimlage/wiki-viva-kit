@@ -2756,15 +2756,20 @@ def _score_payload(
                 "level": level_id,
                 "level_labels": {
                     "en": level_display(level_id, "en"),
+                    "es": level_display(level_id, "es"),
                     "pt": level_display(level_id, "pt"),
                 },
                 "badges": [
                     {
                         "id": badge_id,
                         "en": str(badge_display(badge_id, "en").get("name", badge_id)),
+                        "es": str(badge_display(badge_id, "es").get("name", badge_id)),
                         "pt": str(badge_display(badge_id, "pt").get("name", badge_id)),
                         "criterion_en": str(
                             badge_display(badge_id, "en").get("criterion", "")
+                        ),
+                        "criterion_es": str(
+                            badge_display(badge_id, "es").get("criterion", "")
                         ),
                         "criterion_pt": str(
                             badge_display(badge_id, "pt").get("criterion", "")
@@ -2998,7 +3003,7 @@ def _experience_pack_composition_errors(payload: Any) -> list[str]:
         errors.append("experience pack presentation contract mismatch")
     else:
         raw_locales = presentation["locales"]
-        if not {"en", "pt-BR"}.issubset(raw_locales) or list(raw_locales) != sorted(
+        if not {"en", "es", "pt-BR"}.issubset(raw_locales) or list(raw_locales) != sorted(
             raw_locales
         ):
             errors.append("experience pack presentation locales are not canonical")

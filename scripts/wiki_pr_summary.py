@@ -26,6 +26,21 @@ IGNORED_UNTRACKED_PREFIXES = ("docs/memories/", "docs/memorias/")
 # Category labels for the generated summary (user-facing text): one string
 # table per language, identical keys, selected by config.language.
 STRINGS: dict[str, dict[str, str]] = {
+    "es": {
+        "holons": "holones",
+        "people": "personas",
+        "governance": "gobernanza",
+        "projects": "proyectos",
+        "sources": "fuentes",
+        "epistemology_actions": "epistemologia-acciones",
+        "timelines": "lineas-de-tiempo",
+        "evidence": "evidencias",
+        "coverage": "cobertura",
+        "references": "referencias",
+        "scripts": "scripts",
+        "github": "github",
+        "other": "otros",
+    },
     "pt": {
         "holons": "holons",
         "people": "pessoas",

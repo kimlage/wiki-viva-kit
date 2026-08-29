@@ -32,6 +32,12 @@ const composition: ExperiencePackComposition = {
         "example-pack.history": "History",
         "example-pack.reference-map": "Reference Map"
       },
+      es: {
+        "example-pack": "Paquete de ejemplo",
+        "example-pack.capture": "Capturar",
+        "example-pack.history": "Historial",
+        "example-pack.reference-map": "Mapa de referencias"
+      },
       "pt-BR": {
         "example-pack": "Pack de Exemplo",
         "example-pack.capture": "Capturar",
@@ -92,6 +98,8 @@ describe("experience pack presentation", () => {
     expect(experiencePackLabel(composition, "example-pack.reference-map", "example-pack")).toBe("Reference Map");
     configureLanguage("pt-BR");
     expect(experiencePackLabel(composition, "example-pack.reference-map", "example-pack")).toBe("Mapa de Referências");
+    configureLanguage("es");
+    expect(experiencePackLabel(composition, "example-pack.reference-map", "example-pack")).toBe("Mapa de referencias");
     expect(experiencePackLabel(composition, "example_pack_unknown", "example-pack")).toBe("Unknown");
   });
 });

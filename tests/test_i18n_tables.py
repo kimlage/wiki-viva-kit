@@ -1,6 +1,6 @@
 """Parity tests for the per-language string tables that drive GENERATED output.
 
-Contract: every table maps language -> {key: template}; "pt" and "en" must carry
+Contract: every table maps language -> {key: template}; "en", "es" and "pt" must carry
 exactly the same keys, and each key's template must use exactly the same
 {placeholders} in both languages (a divergence makes .format() crash — or
 silently drop data — for one language only).
@@ -32,6 +32,7 @@ if str(ROOT) not in sys.path:
 import wiki_core.score.karma as karma_module
 from wiki_core.consolidate import CONSOLIDATE_STRINGS
 from wiki_core.insight.job import INSIGHT_STRINGS, _proposal_markdown
+from wiki_core.operational_pass import _strings as operational_pass_strings
 
 PLACEHOLDER_RE = re.compile(r"\{[a-z_]+\}")
 
@@ -48,18 +49,25 @@ def _load_script(name: str):
 
 OPERATION_COMPILE = _load_script("wiki_operation_compile")
 NEW_INGEST = _load_script("wiki_new_ingest")
+PR_SUMMARY = _load_script("wiki_pr_summary")
+SOURCE_REGISTRY = _load_script("wiki_source_registry")
 
 TABLES: dict[str, dict[str, object]] = {
     "COCKPIT_STRINGS": OPERATION_COMPILE.COCKPIT_STRINGS,
     "PROPOSAL_STRINGS": NEW_INGEST.PROPOSAL_STRINGS,
     "INSIGHT_STRINGS": INSIGHT_STRINGS,
     "CONSOLIDATE_STRINGS": CONSOLIDATE_STRINGS,
+    "PR_SUMMARY_STRINGS": PR_SUMMARY.STRINGS,
+    "SOURCE_REGISTRY_STRINGS": SOURCE_REGISTRY.STRINGS,
+    "OPERATIONAL_PASS_STRINGS": {
+        language: operational_pass_strings(language) for language in ("en", "es", "pt")
+    },
 }
 # Karma display tables: registered only if present in the tree (they may not
-# exist on older checkouts; when they do, they obey the same pt/en contract).
+# exist on older checkouts; when they do, they obey the same en/es/pt contract).
 for _karma_table in ("BADGE_DISPLAY", "LEVEL_DISPLAY"):
     _table = getattr(karma_module, _karma_table, None)
-    if isinstance(_table, dict) and "pt" in _table and "en" in _table:
+    if isinstance(_table, dict) and all(language in _table for language in ("en", "es", "pt")):
         TABLES[f"karma.{_karma_table}"] = _table
 
 
@@ -80,29 +88,30 @@ def _flatten(value: object, prefix: str = "") -> dict[str, str]:
 
 
 @pytest.mark.parametrize("table_name", sorted(TABLES))
-def test_pt_and_en_have_identical_keys(table_name: str) -> None:
+def test_languages_have_identical_keys(table_name: str) -> None:
     table = TABLES[table_name]
-    assert "pt" in table and "en" in table, f"{table_name}: missing pt/en language"
-    pt_keys = _flatten(table["pt"]).keys()
-    en_keys = _flatten(table["en"]).keys()
-    assert pt_keys == en_keys, (
-        f"{table_name}: key drift between pt and en: "
-        f"pt-only={sorted(pt_keys - en_keys)}, en-only={sorted(en_keys - pt_keys)}"
-    )
+    expected = _flatten(table["en"]).keys()
+    for language in ("es", "pt"):
+        actual = _flatten(table[language]).keys()
+        assert actual == expected, (
+            f"{table_name}: key drift between en and {language}: "
+            f"{language}-only={sorted(actual - expected)}, en-only={sorted(expected - actual)}"
+        )
 
 
 @pytest.mark.parametrize("table_name", sorted(TABLES))
-def test_pt_and_en_have_identical_placeholders_per_key(table_name: str) -> None:
+def test_languages_have_identical_placeholders_per_key(table_name: str) -> None:
     table = TABLES[table_name]
-    flat_pt = _flatten(table["pt"])
     flat_en = _flatten(table["en"])
-    for key in flat_pt.keys() & flat_en.keys():
-        pt_placeholders = set(PLACEHOLDER_RE.findall(flat_pt[key]))
-        en_placeholders = set(PLACEHOLDER_RE.findall(flat_en[key]))
-        assert pt_placeholders == en_placeholders, (
-            f"{table_name}[{key!r}]: placeholder drift: "
-            f"pt={sorted(pt_placeholders)} en={sorted(en_placeholders)}"
-        )
+    for language in ("es", "pt"):
+        localized = _flatten(table[language])
+        for key in localized.keys() & flat_en.keys():
+            actual = set(PLACEHOLDER_RE.findall(localized[key]))
+            expected = set(PLACEHOLDER_RE.findall(flat_en[key]))
+            assert actual == expected, (
+                f"{table_name}[{key!r}]: placeholder drift: "
+                f"{language}={sorted(actual)} en={sorted(expected)}"
+            )
 
 
 def test_insight_chunk_bullet_comes_from_language_table() -> None:
@@ -112,10 +121,12 @@ def test_insight_chunk_bullet_comes_from_language_table() -> None:
     date = dt.date(2026, 6, 9)
     pt = _proposal_markdown("theme", "system", date, [], chunks, [], language="pt")
     en = _proposal_markdown("theme", "system", date, [], chunks, [], language="en")
+    es = _proposal_markdown("theme", "system", date, [], chunks, [], language="es")
     assert "  - `chunk-1` (fonte `source-1`)" in pt
     assert "(source `source-1`)" not in pt
     assert "  - `chunk-1` (source `source-1`)" in en
     assert "(fonte `source-1`)" not in en
+    assert "- `chunk-1` (fuente `source-1`)" in es
 
 
 def test_new_ingest_source_name_fallback_is_one_functional_constant(

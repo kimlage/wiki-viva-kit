@@ -40,6 +40,30 @@ PACKET_SCHEMA_VERSION = "wiki_integration_packet.v2"
 
 # Output strings per language (generated event; drives config.language).
 CONSOLIDATE_STRINGS: dict[str, dict[str, str]] = {
+    "es": {
+        "event_title": "# Evento - {name}",
+        "h_source": "## Fuente",
+        "row_source_page": "- Fuente canónica: [{label}]({href}).",
+        "row_source_id": "- source_id: `{source_id}`.",
+        "row_generated": "- Evento generado a partir de la lectura profunda registrada (llm-cache) por [scripts/wiki_consolidate.py]({script}); revisar e INTEGRAR antes de consolidar.",
+        "h_quadrants": "## Cuadrantes",
+        "th_quadrants": "| Cuadrante | Contenido extraído | Ausencia/límite |",
+        "q_ii": "Interior individual",
+        "q_ei": "Exterior individual",
+        "q_ic": "Interior colectivo",
+        "q_ec": "Exterior colectivo",
+        "h_claims": "## Afirmaciones candidatas",
+        "h_decisions": "## Decisiones candidatas",
+        "h_actions": "## Acciones candidatas",
+        "h_risks": "## Riesgos",
+        "h_conflicts": "## Conflictos y ambigüedades",
+        "conflicts_note": "Incertidumbres de la lectura profunda; complételas con los conflictos del paquete de integración y registre la resolución.",
+        "h_relationships": "## Relaciones extraídas",
+        "th_relationships": "| De | A | Relación |",
+        "h_integration": "## Integración",
+        "integration_note": "Complete `consolidated_into:` en el frontmatter con las páginas ACTUALIZADAS por esta ingestión (cada destino que no sea `source` debe referenciar la fuente en `source_refs:`; las páginas de identidad de la fuente se vinculan mediante el evento/ciclo de vida y nunca deben autorreferenciarse). Incluya al menos un destino que no sea `source`: catalogar la fuente NO es ingerirla.",
+        "empty": "- (ninguno)",
+    },
     "pt": {
         "event_title": "# Evento - {name}",
         "h_source": "## Fonte",
@@ -313,7 +337,7 @@ def build_event_markdown(
     fm: list[str] = [
         "---",
         f"event_id: evt-{name}",
-        f"page_id: evento-{name}" if config.language == "pt" else f"page_id: event-{name}",
+        f"page_id: evento-{name}" if config.language in {"es", "pt"} else f"page_id: event-{name}",
         "page_type: ingestion_event",
         f"context: {context}",
         "visibility: private_self",

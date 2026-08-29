@@ -34,6 +34,29 @@ from wiki_core.source_recipe import extract_recipe_mapping
 SOURCE_PAGE_TYPES = {"source"}
 # Strings per language for the generated page (driven by config.language).
 STRINGS = {
+    "es": {
+        "title": "Registro de fuentes canónicas",
+        "purpose": "Índice de fuentes canónicas: enlace, tipo, estado de ingestión, última actualización y próxima revisión sugerida.",
+        "updated": "Actualizado el: {date}.",
+        "intro": (
+            "Cada fuente canónica es una página (el nodo jerárquico que conserva el registro de "
+            "ingestión de la fuente). Esta página se genera mediante "
+            "[scripts/wiki_source_registry.py]({script}); no la edite manualmente. El tipo y la política "
+            "provienen de la receta cuando está disponible; solo las fuentes recurrentes vencen con el tiempo."
+        ),
+        "th": "| Fuente | Tipo | Estado | Última actualización | Próxima revisión | Estado temporal | Política | Configuración |",
+        "config_label": "configuración",
+        "empty": "_Todavía no hay fuentes canónicas registradas._",
+        "state_default": "—",
+        "status_due": "vencida",
+        "status_soon": "próxima",
+        "status_ok": "al día",
+        "status_not_time_based": "sin vencimiento temporal",
+        "back": "Volver al índice en [{index}]({index_link}).",
+        "projection_reason": (
+            "El registro de fuentes generado es un índice observable de evidencias de las fuentes canónicas."
+        ),
+    },
     "pt": {
         "title": "Registro de fontes canonicas",
         "purpose": (

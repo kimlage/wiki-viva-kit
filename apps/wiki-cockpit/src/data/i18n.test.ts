@@ -22,6 +22,15 @@ describe("i18n", () => {
     expect(t("mission.approve.help")).toContain("human reviews");
   });
 
+  it("localizes the whole UI to Spanish when the wiki language is es*", () => {
+    configureLanguage("es-MX");
+    expect(uiLanguage()).toBe("es");
+    expect(t("world.galaxy")).toBe("galaxia");
+    expect(t("mission.approve.label")).toBe("Aprobar un cambio");
+    expect(t("visualControl.json.invalid")).toBe("JSON no válido");
+    expect(glossary("freshness")?.title).toBe("Vigencia");
+  });
+
   it("explains the sustained-performance fallback in both languages", () => {
     configureLanguage("en");
     expect(t("scene.fallback.performance.title")).toBe("Performance-safe map");
@@ -73,12 +82,17 @@ describe("i18n", () => {
     expect(glossary("nope")).toBeNull();
   });
 
-  it("keeps EN and PT dictionaries in full parity (no silent English leaks)", () => {
+  it("keeps EN, ES and PT dictionaries in full parity (no silent language leaks)", () => {
     const en = new Set(__dictKeysForTest.en);
+    const es = new Set(__dictKeysForTest.es);
     const pt = new Set(__dictKeysForTest.pt);
+    const missingInEs = [...en].filter((key) => !es.has(key));
     const missingInPt = [...en].filter((key) => !pt.has(key));
+    const missingInEnFromEs = [...es].filter((key) => !en.has(key));
     const missingInEn = [...pt].filter((key) => !en.has(key));
+    expect(missingInEs, `keys missing in ES: ${missingInEs.join(", ")}`).toEqual([]);
     expect(missingInPt, `keys missing in PT: ${missingInPt.join(", ")}`).toEqual([]);
+    expect(missingInEnFromEs, `ES-only keys: ${missingInEnFromEs.join(", ")}`).toEqual([]);
     expect(missingInEn, `keys missing in EN: ${missingInEn.join(", ")}`).toEqual([]);
   });
 

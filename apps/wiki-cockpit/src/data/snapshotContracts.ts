@@ -648,9 +648,10 @@ export function experiencePackContractErrors(
     const localeIds = Object.keys(locales);
     if (
       !localeIds.includes("en") ||
+      !localeIds.includes("es") ||
       !localeIds.includes("pt-BR") ||
       JSON.stringify(localeIds) !== JSON.stringify([...localeIds].sort())
-    ) errors.push("experience pack presentation locales must include canonical en and pt-BR");
+    ) errors.push("experience pack presentation locales must include canonical en, es and pt-BR");
     for (const [locale, labels] of Object.entries(locales)) {
       if (!localePattern.test(locale) || !record(labels)) {
         errors.push(`experience pack presentation locale ${locale} is invalid`);

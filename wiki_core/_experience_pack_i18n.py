@@ -32,7 +32,7 @@ from wiki_core._experience_pack_validation import _pack_tree
 
 PACK_I18N_SCHEMA_VERSION = "wiki_experience_pack_i18n.v1"
 PACK_PRESENTATION_DEFAULT_LOCALE = "en"
-PACK_PRESENTATION_REQUIRED_LOCALES = frozenset({"en", "pt-BR"})
+PACK_PRESENTATION_REQUIRED_LOCALES = frozenset({"en", "es", "pt-BR"})
 _COPY_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,95}$")
 _LOCALE_RE = re.compile(r"^[a-z]{2}(?:-[A-Z]{2})?$")
 
