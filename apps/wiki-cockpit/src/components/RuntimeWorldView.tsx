@@ -3,7 +3,7 @@ import type { WorldRoute } from "../router";
 import type { OperatorCommandCard, BriefSpec, SnapshotBundle } from "../types";
 import type { RuntimeConfig } from "../data/runtimeConfig";
 import type { PageEntityIndex } from "../world/contracts";
-import type { NavigationPort, OperatorPort } from "../application/ports";
+import type { AdminPort, NavigationPort, OperatorPort } from "../application/ports";
 import { WorldRuntime } from "../world/WorldRuntime";
 import { createDefaultKernel } from "../world/registries/RegistryKernel";
 import { hydrateWorldRoute } from "../world/state/routeHydration";
@@ -22,6 +22,7 @@ export function RuntimeWorldView(props: {
   navigation: NavigationPort;
   loadPageContent: OperatorPort["loadPageContent"];
   loadTemporalGraph: OperatorPort["loadTemporalGraph"];
+  lockAdminSession: AdminPort["lockAdminSession"];
   onSnapshotMismatch?: () => void;
 }) {
   const { bundle, route } = props;

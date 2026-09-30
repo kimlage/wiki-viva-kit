@@ -18,6 +18,15 @@ SUPPORTED_LANGUAGES = frozenset({"en", "es", "pt"})
 _CONTEXT_SLUG_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
 DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION = "v3"
 
+# Admin surface vocabulary (god-mode plan §17.4): closed sets, parsed strictly.
+_ADMIN_ADAPTERS = frozenset({"startup_code"})
+_ADMIN_ROLES = frozenset(
+    {"observer", "operator", "maintainer", "publisher", "admin", "rescue_admin"}
+)
+# Fail closed on secrets: these key names must never appear anywhere in the
+# config file (plan §17.1 — no admin_password/admin_token/github_token).
+_FORBIDDEN_SECRET_KEYS = frozenset({"admin_password", "admin_token", "github_token"})
+
 
 def _load_yaml_mapping(path: Path) -> dict[str, Any]:
     """Load the config file as a mapping via ``yaml.safe_load``.
@@ -79,6 +88,174 @@ def _parse_contexts(raw_value: Any) -> tuple[str, ...]:
                 f"(expected lowercase slug [a-z0-9-], e.g. finance)"
             )
     return contexts
+
+
+def _reject_secret_keys(value: Any, *, path: str) -> None:
+    """Refuse to load a config that carries credential-shaped keys anywhere."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_name = str(key)
+            if key_name.strip().lower() in _FORBIDDEN_SECRET_KEYS:
+                raise ValueError(
+                    f"config: forbidden secret key {key_name!r} under {path!r} — "
+                    f"secrets never belong in wiki.config.yaml"
+                )
+            _reject_secret_keys(item, path=f"{path}.{key_name}")
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _reject_secret_keys(item, path=f"{path}[{index}]")
+
+
+def _as_bounded_int(value: Any, *, field_name: str, low: int, high: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        try:
+            value = int(str(value).strip())
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"config: invalid integer field {field_name!r}: {value!r}"
+            ) from None
+    if not low <= value <= high:
+        raise ValueError(
+            f"config: {field_name!r} must be between {low} and {high}, got {value}"
+        )
+    return value
+
+
+def _validated_admin(raw_value: Any) -> dict[str, Any]:
+    """Strict `admin:` parsing (god-mode plan §17.4).
+
+    Booleans go through _as_bool, TTLs are positive and bounded, the adapter
+    and default role come from closed sets, break-glass defaults OFF and the
+    audit retention is bounded. Unknown keys FAIL LOUD: a typo in this block
+    must never silently weaken (or pretend to strengthen) the admin surface.
+    """
+    defaults = WikiConfig().admin
+    if raw_value in (None, {}, ""):
+        return {k: (dict(v) if isinstance(v, dict) else v) for k, v in defaults.items()}
+    if not isinstance(raw_value, dict):
+        raise ValueError(f"config: invalid 'admin' section: {raw_value!r} (expected a mapping)")
+
+    known = set(defaults)
+    unknown = sorted(set(map(str, raw_value)) - known)
+    if unknown:
+        raise ValueError(
+            f"config: unknown admin key(s) {unknown} (known: {sorted(known)})"
+        )
+
+    admin = {k: (dict(v) if isinstance(v, dict) else v) for k, v in defaults.items()}
+    for key in ("enabled", "allow_break_glass", "require_plan_sha"):
+        if key in raw_value:
+            admin[key] = _as_bool(raw_value[key], field_name=f"admin.{key}")
+    if "local_unlock" in raw_value:
+        adapter = str(raw_value["local_unlock"]).strip().strip("\"'")
+        if adapter not in _ADMIN_ADAPTERS:
+            raise ValueError(
+                f"config: unknown admin.local_unlock adapter {adapter!r} "
+                f"(use {sorted(_ADMIN_ADAPTERS)})"
+            )
+        admin["local_unlock"] = adapter
+    if "default_role" in raw_value:
+        role = str(raw_value["default_role"]).strip().strip("\"'")
+        if role not in _ADMIN_ROLES:
+            raise ValueError(
+                f"config: unknown admin.default_role {role!r} (use {sorted(_ADMIN_ROLES)})"
+            )
+        admin["default_role"] = role
+    if "session_ttl_minutes" in raw_value:
+        admin["session_ttl_minutes"] = _as_bounded_int(
+            raw_value["session_ttl_minutes"],
+            field_name="admin.session_ttl_minutes",
+            low=1,
+            high=1440,
+        )
+    if "idle_lock_minutes" in raw_value:
+        admin["idle_lock_minutes"] = _as_bounded_int(
+            raw_value["idle_lock_minutes"],
+            field_name="admin.idle_lock_minutes",
+            low=1,
+            high=1440,
+        )
+
+    for section, validators in (
+        (
+            "audit",
+            {
+                "enabled": "bool",
+                "hash_chain": "bool",
+                "retain_events": ("int", 1, 1_000_000),
+            },
+        ),
+        (
+            "vision_lab",
+            {
+                "enabled": "bool",
+                "allow_recipe_promotion": "bool",
+                "discovery_threshold": "unit_float",
+            },
+        ),
+    ):
+        raw_section = raw_value.get(section)
+        if raw_section in (None, {}, ""):
+            continue
+        if not isinstance(raw_section, dict):
+            raise ValueError(
+                f"config: invalid 'admin.{section}' section: {raw_section!r} (expected a mapping)"
+            )
+        unknown_nested = sorted(set(map(str, raw_section)) - set(validators))
+        if unknown_nested:
+            raise ValueError(
+                f"config: unknown admin.{section} key(s) {unknown_nested} "
+                f"(known: {sorted(validators)})"
+            )
+        for key, kind in validators.items():
+            if key not in raw_section:
+                continue
+            field_name = f"admin.{section}.{key}"
+            if kind == "bool":
+                admin[section][key] = _as_bool(raw_section[key], field_name=field_name)
+            elif kind == "unit_float":
+                try:
+                    number = float(str(raw_section[key]).strip())
+                except (TypeError, ValueError):
+                    raise ValueError(
+                        f"config: invalid number field {field_name!r}: {raw_section[key]!r}"
+                    ) from None
+                if not 0.0 <= number <= 1.0:
+                    raise ValueError(
+                        f"config: {field_name!r} must be between 0 and 1, got {number}"
+                    )
+                admin[section][key] = number
+            else:
+                _kind, low, high = kind
+                admin[section][key] = _as_bounded_int(
+                    raw_section[key], field_name=field_name, low=low, high=high
+                )
+    return admin
+
+
+def _validated_features(raw_value: Any) -> dict[str, bool]:
+    """Strict `features:` parsing (god-mode plan §17.4).
+
+    Presentation flags only — a feature flag can never grant capability, role
+    or session. Every value must be an unambiguous boolean and every key must
+    be known, so a typo cannot silently ship a half-enabled feature.
+    """
+    defaults = dict(WikiConfig().features)
+    if raw_value in (None, {}, ""):
+        return defaults
+    if not isinstance(raw_value, dict):
+        raise ValueError(
+            f"config: invalid 'features' section: {raw_value!r} (expected a mapping)"
+        )
+    unknown = sorted(set(map(str, raw_value)) - set(defaults))
+    if unknown:
+        raise ValueError(
+            f"config: unknown feature flag(s) {unknown} (known: {sorted(defaults)})"
+        )
+    features = defaults
+    for key, value in raw_value.items():
+        features[str(key)] = _as_bool(value, field_name=f"features.{key}")
+    return features
 
 
 @dataclass(frozen=True)
@@ -216,9 +393,49 @@ class WikiConfig:
     # wiki.config.yaml (then the cockpit never advertises a Codex launch, even if
     # the binary is present). `binary` overrides the CLI name/path.
     codex: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "binary": "codex"})
-    # Optional Claude Code adapter. It shares the governed job runner; this
-    # block selects capability and binary, never credentials.
+    # Optional Claude Code adapter.  It shares the governed job runner; this
+    # block only chooses capability and binary, never credentials.
     claude: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "binary": "claude"})
+    # Admin control surface (god-mode plan §17.1). No secret ever lives here:
+    # the local unlock is an ephemeral startup code printed by the process,
+    # never a configured password/token. Parsed STRICTLY (see _validated_admin).
+    admin: dict[str, Any] = field(
+        default_factory=lambda: {
+            "enabled": True,
+            "local_unlock": "startup_code",
+            "session_ttl_minutes": 15,
+            "idle_lock_minutes": 5,
+            "allow_break_glass": False,
+            "require_plan_sha": True,
+            "default_role": "admin",
+            "audit": {"enabled": True, "hash_chain": True, "retain_events": 10_000},
+            "vision_lab": {
+                "enabled": True,
+                "discovery_threshold": 0.65,
+                "allow_recipe_promotion": True,
+            },
+        }
+    )
+    # Presentation feature flags (god-mode plan §17.2): how things LOOK only.
+    # The companion stays off until its dedicated behavior ships (§15.8).
+    features: dict[str, bool] = field(
+        default_factory=lambda: {"takezo_easter_egg": True, "takezo_companion": False}
+    )
+
+    @property
+    def admin_enabled(self) -> bool:
+        value = self.admin.get("enabled", True)
+        if isinstance(value, bool):
+            return value
+        return _as_bool(value, field_name="admin.enabled")
+
+    @property
+    def admin_break_glass_allowed(self) -> bool:
+        # Break-glass is OFF unless the owner explicitly turned it on (§17.4).
+        value = self.admin.get("allow_break_glass", False)
+        if isinstance(value, bool):
+            return value
+        return _as_bool(value, field_name="admin.allow_break_glass")
 
     @property
     def karma_enabled(self) -> bool:
@@ -247,6 +464,7 @@ def load_config(root: Path) -> WikiConfig:
     if not path.exists():
         return WikiConfig()
     raw = _load_yaml_mapping(path)
+    _reject_secret_keys(raw, path="wiki.config.yaml")
 
     language = str(raw.get("language", "en")).strip().strip("\"'")
     if language not in SUPPORTED_LANGUAGES:
@@ -289,6 +507,8 @@ def load_config(root: Path) -> WikiConfig:
         karma={**WikiConfig().karma, **dict(raw.get("karma", {}))},
         codex={**WikiConfig().codex, **dict(raw.get("codex", {}))},
         claude={**WikiConfig().claude, **dict(raw.get("claude", {}))},
+        admin=_validated_admin(raw.get("admin")),
+        features=_validated_features(raw.get("features")),
     )
 
 

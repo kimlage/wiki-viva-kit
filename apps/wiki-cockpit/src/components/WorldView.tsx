@@ -8,6 +8,10 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { ADMIN_COMMAND_REGISTRY, GOD_MODE_COMMAND_ID } from "../commands/adminCommands";
+import { setAdminCommandIntent } from "../application/adminCommandIntent";
+import { adminSessionActive } from "../application/adminSession";
+import type { CommandInvocation } from "../commands/types";
 import { t } from "../data/i18n";
 import { experiencePackView } from "../data/experiencePacks";
 import { contextLabel, pageTypeLabel, pageTypeStyle, perspectiveLabel, worldGroupDescription, worldGroupLabel } from "../data/presentation";
@@ -22,7 +26,7 @@ import { searchPages } from "../scene/search";
 import { canonicalWorldUrl, hydrateWorldRoute } from "../world/state/routeHydration";
 import type { OverlayId, RuntimeEvent } from "../world/contracts";
 import type { WorldPatch, WorldRoute } from "../router";
-import type { NavigationPort, OperatorPort } from "../application/ports";
+import type { AdminPort, NavigationPort, OperatorPort } from "../application/ports";
 import { anchorRecord, anchorSupportsQuadrants, focusAnchorId } from "../data/blocks";
 import { composeInstruments, rootAnchor } from "../data/surfaces";
 import { regionPayloadByKey } from "../data/visualPrimitives";
@@ -30,6 +34,8 @@ import type { RuntimeConfig } from "../data/runtimeConfig";
 import type { OperatorCommandCard, BriefSpec, PageRecord, RegionGroupPayload, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
 import { CreateDock } from "./CreateDock";
+import { TakezoRitualFallback, takezoRuntimeKind } from "./TakezoRitualFallback";
+import type { TakezoRuntimeKind } from "../renderers/scene/parts/TakezoWizard";
 import { deriveMissions, missionBriefSpec, MissionsPanel } from "./MissionsPanel";
 import type { RelationGroupKey } from "./PageReader";
 import { sceneFallbackPreferred } from "../renderers/scene/parts/materials";
@@ -461,6 +467,7 @@ export function WorldView({
   navigation,
   loadPageContent,
   loadTemporalGraph,
+  lockAdminSession,
   onSnapshotMismatch,
   worldRuntime,
   worldState
@@ -477,11 +484,13 @@ export function WorldView({
   navigation: NavigationPort;
   loadPageContent: OperatorPort["loadPageContent"];
   loadTemporalGraph: OperatorPort["loadTemporalGraph"];
+  lockAdminSession: AdminPort["lockAdminSession"];
   onSnapshotMismatch?: () => void;
   worldRuntime: import("../world/WorldRuntime").WorldRuntime;
   worldState: import("../world/contracts").WorldState;
 }) {
   const pages = bundle.pages.pages;
+  const takezoEasterEggEnabled = runtime.features?.takezoEasterEgg !== false;
   const packSurfaceActive = Boolean(route.query.packView);
   const activePackView = experiencePackView(bundle.experiencePacks, route.query.packView);
   const temporalViewActive = worldState.view === "timeline" && !packSurfaceActive;
@@ -1400,6 +1409,56 @@ export function WorldView({
     navigateWorld({ tray: missionsOpen ? null : "missions" });
   };
 
+  const [takezoRitual, setTakezoRitual] = useState<TakezoRuntimeKind | null>(null);
+  const closeTakezoRitual = useCallback(() => {
+    setTakezoRitual(null);
+    searchRef.current?.focus();
+  }, []);
+  const openAdminDock = () => {
+    navigateWorld({
+      dock: "admin",
+      q: null,
+      searchType: null,
+      searchContext: null,
+      searchScope: null,
+      searchLimit: null
+    });
+  };
+  const takezoUnlock = () => {
+    setTakezoRitual(null);
+    openAdminDock();
+  };
+  const onCommandInvocation = (input: CommandInvocation) => {
+    if (input.kind === "easter_egg") {
+      if (!takezoEasterEggEnabled) return;
+      setTakezoRitual(takezoRuntimeKind(route.demo, runtime.mode || bundle.manifest.mode));
+      return;
+    }
+    if (input.kind === "invalid_command") {
+      onNotice?.(t(input.messageKey));
+      return;
+    }
+    if (input.commandId === GOD_MODE_COMMAND_ID && input.args.subcommand === "off") {
+      if (adminSessionActive()) {
+        void lockAdminSession().then(() => onNotice?.(t("command.godMode.lockedNow")));
+      } else {
+        onNotice?.(t("command.godMode.alreadyLocked"));
+      }
+      return;
+    }
+    if (input.commandId === GOD_MODE_COMMAND_ID) {
+      openAdminDock();
+      return;
+    }
+    const definition = ADMIN_COMMAND_REGISTRY.byId.get(input.commandId);
+    if (definition?.busCommandId) {
+      setAdminCommandIntent(definition.busCommandId);
+      openAdminDock();
+      return;
+    }
+    onNotice?.(t(adminSessionActive() ? "command.admin.notWiredYet" : "command.admin.locked"));
+  };
+
   const refreshAction =
     bundle.actions.actions.find((action) => action.id === "refresh-cockpit-check") ||
     bundle.actions.actions.find((action) => action.id === "graph-check");
@@ -1656,6 +1715,12 @@ export function WorldView({
       // The Brief Studio is a text-editing modal with its own close affordance
       // — Esc must not mutate the layers UNDER it.
       if (document.querySelector(".briefStudio")) return;
+      if (takezoRitual) {
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        closeTakezoRitual();
+        return;
+      }
       if (visualPanelOpen) {
         event.stopImmediatePropagation();
         event.stopPropagation();
@@ -1706,7 +1771,7 @@ export function WorldView({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [trayOpen, missionsOpen, visualPanelOpen, worldNavigatorOpen]);
+  }, [closeTakezoRitual, takezoRitual, trayOpen, missionsOpen, visualPanelOpen, worldNavigatorOpen]);
 
   // An EMPTY world has exactly one interface: the founding rite. A dock in the
   // URL there (deep link, stale history) would open a surface over nothing.
@@ -2079,6 +2144,15 @@ export function WorldView({
         founding={foundingFallbackActive ? null : founding}
         seed={fallbackActive ? null : seed}
         guide={fallbackActive ? null : guide}
+        takezo={
+          takezoRitual && !fallbackActive
+            ? {
+                runtime: takezoRitual,
+                onUnlock: takezoRitual === "local" ? takezoUnlock : undefined,
+                onClose: closeTakezoRitual
+              }
+            : null
+        }
         onMarkerResolve={
           !route.demo && onComposeBrief
             ? (pageId) => {
@@ -2548,6 +2622,8 @@ export function WorldView({
             }}
             onSearchKeyDown={onSearchKeyDown}
             onNavigateWorld={navigateWorld}
+            easterEggEnabled={takezoEasterEggEnabled}
+            onCommand={onCommandInvocation}
             onToggleTray={toggleTray}
             onToggleMissions={toggleMissions}
             onOpenTour={openTour}
@@ -2617,6 +2693,13 @@ export function WorldView({
         <FoundingFallback demo={route.demo} skipHref={route.demo ? skipHref : undefined} onFound={foundWorld} />
       )}
       {fallbackActive && guide && !founding && <GuideFallback guide={guide} />}
+      {takezoRitual && fallbackActive && (
+        <TakezoRitualFallback
+          runtime={takezoRitual}
+          onUnlock={takezoRitual === "local" ? takezoUnlock : undefined}
+          onClose={closeTakezoRitual}
+        />
+      )}
       <CoachMarks
         open={tourOpen}
         returnFocusTo={tourOpenerRef.current}

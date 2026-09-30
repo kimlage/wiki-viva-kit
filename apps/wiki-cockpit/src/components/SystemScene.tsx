@@ -27,6 +27,8 @@ import { computeWorldLayout } from "../scene/perspectives";
 import type { ClusterStar, PerspectiveId, WorldGroup, WorldLayout, WorldRequest } from "../scene/perspectives";
 import { FoundingRite, GuideBeacon, SeedFlow, WorldPlate } from "../renderers/scene/spatial";
 import type { FoundingSpec, GuideSpec, SeedSpec } from "../renderers/scene/spatial";
+import { TakezoRitual } from "../renderers/scene/parts/TakezoWizard";
+import type { TakezoSpeechHandlers } from "../renderers/scene/parts/TakezoWizard";
 import { CameraDirector } from "../renderers/scene/parts/camera";
 import { FallbackPlanView, SceneFallback } from "../renderers/scene/parts/fallback";
 import { AggregateStateRim, DensityPressureField, DensityReliefField, DrillContextTethers, DrillOriginEcho, DrillWaypoints, FocusContextField, GateRing, HiddenDepthHalo, InspectionBeams, ParentDrillGate, ParentDrillPath, ProposalStems, QuadrantPlanes, RelationLanes, TravelWake, travelWakeLevel, WorldGuides } from "../renderers/scene/parts/guides";
@@ -1248,6 +1250,7 @@ export function SystemScene({
   founding = null,
   seed = null,
   guide = null,
+  takezo = null,
   onMarkerResolve,
   onMarkerDismiss,
   onNavigate,
@@ -1290,6 +1293,7 @@ export function SystemScene({
   founding?: FoundingSpec | null;
   seed?: SceneSeed | null;
   guide?: SceneGuide | null;
+  takezo?: TakezoSpeechHandlers | null;
   onMarkerResolve?: (pageId: string) => void;
   onMarkerDismiss?: (pageId: string) => void;
   onNavigate?: (patch: ScenePatch) => void;
@@ -1317,6 +1321,7 @@ export function SystemScene({
   const profile = useSceneProfile(sourceNodeCount);
   const visualTuning = sceneVisualTuning(visualTuningInput);
   const visualMotion = motion && visualTuning.motion > 0.01;
+
   const performanceTelemetry = useMemo(() => new RuntimePerformanceTelemetry(), []);
   const performanceOutputRef = useRef<HTMLOutputElement>(null);
   const sceneShellRef = useRef<HTMLDivElement>(null);
@@ -2170,6 +2175,13 @@ export function SystemScene({
     return [0, 2.5, 0.2];
   }, [guide?.anchorId, layout, nodeIndex]);
 
+  const takezoAnchor = useMemo<[number, number, number]>(() => {
+    const root = layout.nodes.find((node) => node.isRoot);
+    if (!root) return [0, 0, 1.8];
+    return [root.position[0] + 2.2, root.position[1], root.position[2] + 1.5];
+  }, [layout]);
+  const takezoReduced = !visualMotion || profile.quality === "compact";
+
 
   return (
     <div
@@ -2191,6 +2203,7 @@ export function SystemScene({
       data-scene-performance-profile={profile.label}
       data-scene-fallback-reason={fallbackReason ?? ""}
       data-scene-suspended={suspended ? "true" : "false"}
+      data-takezo-ritual={takezo ? "true" : "false"}
       data-visual-density={visualTuning.density.toFixed(2)}
       data-visual-spacing={visualTuning.spacing.toFixed(2)}
       data-visual-glow={visualTuning.glow.toFixed(2)}
@@ -2321,6 +2334,12 @@ export function SystemScene({
               {founding && <FoundingRite {...founding} />}
               {seed && <SeedFlow {...seed} portal={sceneShellRef} rOuter={layout.rOuter} />}
               {guide && <GuideBeacon {...guide} anchor={guideAnchor} />}
+              {takezo && (
+                <TakezoRitual
+                  spec={{ ...takezo, reduced: takezoReduced, motionSpeed: visualTuning.motion }}
+                  anchor={takezoAnchor}
+                />
+              )}
             </Canvas>
             <div
               key={`scene-transition-${sceneTransition.sequence}`}

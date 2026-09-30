@@ -1,14 +1,18 @@
 import {
-  applySourceOperation,
-  applySourceGroups,
   buildIngestionPlan,
   cancelCodexJob,
   composeBrief,
   composeSourceBrief,
+  previewSourceOperation,
+  applySourceOperation,
+  previewSourceGroups,
+  applySourceGroups,
+  listSourceOperationReceipts,
+  previewSourceRefresh,
+  runSourceRefresh,
   discardBrief,
   getBrief,
   intakeCopy,
-  listSourceOperationReceipts,
   listBriefs,
   listCodexJobs,
   loadCodexCapability,
@@ -17,19 +21,25 @@ import {
   loadPageContent,
   loadSnapshotBundle,
   loadTemporalGraphForBundle,
-  previewSourceOperation,
-  previewSourceGroups,
-  previewSourceRefresh,
   returnCodexJob,
   runOperatorCommand,
   runGate,
   runGitWorkflow,
   runIngestionStep,
-  runSourceRefresh,
   saveBriefText,
   spawnCodexJob,
   streamCodexLog
 } from "../data/snapshot";
+import {
+  executeAdminPlan,
+  fetchAdminCommandCatalog,
+  loadAdminAccess,
+  lockAdminSession,
+  planAdminCommand,
+  renewAdminSession,
+  requestAdminChallenge,
+  unlockAdminSession
+} from "../data/admin";
 import {
   buildUrl,
   getRouteUrlSnapshot,
@@ -41,7 +51,21 @@ import {
   subscribeRouteUrl,
   worldFromRoute
 } from "../router";
-import type { ApplicationPorts, NavigationPort, OperatorPort } from "../application/ports";
+import type { AdminPort, ApplicationPorts, NavigationPort, OperatorPort } from "../application/ports";
+
+// Concrete admin transport, injected from this composition root only — the
+// session token itself never passes through here (it lives in the in-memory
+// store behind data/admin.ts).
+const admin: AdminPort = {
+  loadAdminAccess,
+  requestAdminChallenge,
+  unlockAdminSession,
+  renewAdminSession,
+  lockAdminSession,
+  fetchAdminCommandCatalog,
+  planAdminCommand,
+  executeAdminPlan
+};
 
 const operator: OperatorPort = {
   loadSnapshotBundle,
@@ -108,4 +132,4 @@ const navigation: NavigationPort = {
   }
 };
 
-export const browserApplication: ApplicationPorts = { navigation, operator };
+export const browserApplication: ApplicationPorts = { navigation, operator, admin };

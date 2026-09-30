@@ -1250,3 +1250,17 @@ Append-only record of changes in the [memories/](../index.md) layer.
   coverage required mentions are language-keyed, and the quadrants section/names
   accept Portuguese or English ([wiki_audit.py](../../scripts/wiki_audit.py),
   [wiki_check_methodology_coverage.py](../../scripts/wiki_check_methodology_coverage.py)).
+
+## [2026-09-30] system | Sealed demo admin journeys and portable source icons
+
+- Aligned the shared presentation and process-bound administrative implementation
+  with synthetic tests. Ritual phrases, dock state and URLs grant no authority;
+  the demo sends no administrative API requests.
+- Preserved all 102 prior public browser cells and the two downstream cells,
+  and recorded four real demo journeys. An active collection test verifies the
+  complete inventory without reviving retired release certification.
+- Consumer-only source icons can be declared separately while retaining the
+  same integrity, provenance, license and budget checks. No consumer brand,
+  icon or personal information is included in the public kit.
+- The [adoption guide](../../docs/references/guides/sealed-demo-admin-journeys.md)
+  describes the source pin and explicit consumer migration through B0/C1/C2/C3.

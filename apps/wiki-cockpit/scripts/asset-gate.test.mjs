@@ -103,7 +103,11 @@ test("accepts the repository manifest and records every external asset explicitl
   const result = evaluateAssetManifest({ appRoot: canonicalAppRoot });
   assert.equal(result.ok, true, JSON.stringify(result.errors, null, 2));
   assert.equal(result.summary.schema_version, ASSET_MANIFEST_SCHEMA);
-  assert.equal(result.summary.external_asset_count, 8);
+  const sharedManifest = JSON.parse(fs.readFileSync(path.join(canonicalAppRoot, "assets/manifest.v1.json"), "utf8"));
+  assert.equal(sharedManifest.external_assets.declared_count, 8);
+  const overlayPath = path.join(canonicalAppRoot, "assets/consumer-assets.v1.json");
+  const extra = fs.existsSync(overlayPath) ? JSON.parse(fs.readFileSync(overlayPath, "utf8")).assets.filter((asset) => asset.origin === "third_party").length : 0;
+  assert.equal(result.summary.external_asset_count, 8 + extra);
   assert.equal(result.summary.icon_dependency, "lucide-react");
 });
 
@@ -129,6 +133,85 @@ test("accepts a truly empty asset inventory as an explicit valid state", (t) => 
     icon_dependency_version: LUCIDE_VERSION,
     icon_dependency_license: "ISC"
   });
+});
+
+function sourceIconOverlay(f) {
+  const content = Buffer.from("synthetic-source-icon");
+  const notice = "LicenseRef-Brand-Asset\n\nBrand asset use notice: synthetic fixture only.\n";
+  const icon = path.join(f.appRoot, "public/source-icons/example.png");
+  fs.mkdirSync(path.dirname(icon), { recursive: true });
+  fs.writeFileSync(icon, content);
+  fs.writeFileSync(path.join(f.appRoot, "assets/CONSUMER_BRAND_NOTICES.md"), notice);
+  f.manifest.policy.allowed_spdx.push("LicenseRef-Brand-Asset");
+  const overlay = {
+    schema_version: "wiki_cockpit_consumer_assets.v1",
+    assets: [{
+      id: "consumer-source-example",
+      path: "public/source-icons/example.png",
+      kind: "image",
+      origin: "third_party",
+      license: { spdx: "LicenseRef-Brand-Asset", file: "assets/CONSUMER_BRAND_NOTICES.md", sha256: digest(Buffer.from(notice)) },
+      integrity: { algorithm: "sha256", value: digest(content), bytes: content.length },
+      budget: { max_bytes: 1024 },
+      provenance: { source: "vendored", upstream_url: "https://example.test/source.png", attribution: "Synthetic fixture brand" }
+    }]
+  };
+  const overlayPath = path.join(f.appRoot, "assets/consumer-assets.v1.json");
+  const write = () => fs.writeFileSync(overlayPath, JSON.stringify(overlay));
+  write();
+  return { overlay, overlayPath, write };
+}
+
+test("consumer source icons add exact inventory without changing the shared manifest", (t) => {
+  const f = fixture(t);
+  const { overlay } = sourceIconOverlay(f);
+  const before = JSON.stringify(f.manifest);
+  const result = f.evaluate();
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.equal(result.summary.external_asset_count, 1);
+  assert.equal(result.summary.asset_count, 2);
+  assert.equal(JSON.stringify(f.manifest), before);
+  assert.equal(overlay.assets.length, 1);
+  assert.deepEqual(f.manifest.external_assets, { state: "none", declared_count: 0 });
+});
+
+test("consumer asset declarations cannot override policy or shared inventory", async (t) => {
+  for (const [name, mutate, code] of [
+    ["policy", (x) => { x.overlay.policy = { budgets: { max_asset_count: 999 } }; }, "consumer_assets_shape"],
+    ["scope", (x) => { x.overlay.assets[0].path = "public/test.png"; }, "consumer_asset_scope"],
+    ["traversal", (x) => { x.overlay.assets[0].path = "public/source-icons/../test.png"; }, "consumer_asset_scope"],
+    ["duplicate id", (x) => { x.overlay.assets[0].id = "test-image"; }, "asset_id"],
+    ["hash drift", (x) => { x.overlay.assets[0].integrity.value = "0".repeat(64); }, "asset_hash"],
+    ["item budget", (x) => { x.overlay.assets[0].budget.max_bytes = 1; }, "asset_item_budget"],
+    ["global budget", (x, f) => { f.manifest.policy.budgets.max_asset_count = 1; }, "asset_count_budget"],
+    ["license drift", (x) => { x.overlay.assets[0].license.sha256 = "0".repeat(64); }, "asset_license_hash"]
+  ]) {
+    await t.test(name, (t) => {
+      const f = fixture(t);
+      const x = sourceIconOverlay(f);
+      mutate(x, f);
+      x.write();
+      const result = f.evaluate();
+      assert.equal(result.ok, false);
+      assert.ok(codes(result).includes(code), JSON.stringify(result.errors));
+    });
+  }
+});
+
+test("consumer declaration aliases fail closed", async (t) => {
+  for (const kind of ["symlink", "hardlink", "dangling symlink"]) {
+    await t.test(kind, (t) => {
+      const f = fixture(t);
+      const x = sourceIconOverlay(f);
+      const copy = path.join(f.appRoot, "assets/overlay-copy.json");
+      fs.renameSync(x.overlayPath, copy);
+      if (kind === "hardlink") fs.linkSync(copy, x.overlayPath);
+      else fs.symlinkSync(kind === "symlink" ? copy : path.join(f.appRoot, "missing.json"), x.overlayPath);
+      const result = f.evaluate();
+      assert.equal(result.ok, false);
+      assert.ok(codes(result).includes("consumer_assets_file"));
+    });
+  }
 });
 
 test("rejects remote, protocol-relative and inline data asset references", async (t) => {

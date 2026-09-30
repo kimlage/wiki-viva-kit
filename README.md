@@ -42,6 +42,10 @@ and Personal Finance scenarios and requires no account, token or private data.
 - declarative experience packs with synthetic conformance fixtures;
 - per-PR gates, operational compilation and Git-native review history.
 
+The [sealed demo admin journeys](docs/references/guides/sealed-demo-admin-journeys.md)
+cover the ritual, honest unavailable admin surface and equivalent 2D paths.
+They also describe adoption and preservation of consumer-owned source icons.
+
 ## Quickstart
 
 ```sh

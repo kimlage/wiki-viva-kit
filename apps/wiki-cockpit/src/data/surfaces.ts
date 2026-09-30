@@ -30,6 +30,8 @@ export type Instruments = {
   createArrangement: string;
   createCatalog: string[];
   intakeForms: string[];
+  // Private downstream extension: visibility only, never authorization.
+  adminSurfaceEnabled: boolean;
 };
 
 const BARE: Instruments = {
@@ -45,7 +47,8 @@ const BARE: Instruments = {
   hasQuadrants: false,
   createArrangement: "by_family",
   createCatalog: [],
-  intakeForms: []
+  intakeForms: [],
+  adminSurfaceEnabled: false
 };
 
 export function rootAnchor(bundle: SnapshotBundle): { id: string; record: AnchorRecord } | null {
@@ -81,6 +84,7 @@ export function composeInstruments(bundle: SnapshotBundle): Instruments {
   if (!perspectives.includes(defaultPerspective)) defaultPerspective = perspectives[0];
 
   const createEnabled = stackIds.has("wiki.block.ui_create.v1");
+  const adminSurfaceEnabled = stackIds.has("wiki.block.ui_admin.v1");
   const intakeForms = ui?.intake?.forms ?? [];
   const hasSources = pages.some((page) => String(page.page_type).startsWith("source"));
 
@@ -91,6 +95,7 @@ export function composeInstruments(bundle: SnapshotBundle): Instruments {
   if (root) destinations.push("blocks");
   if (hasSources || intakeForms.includes("source_sync")) destinations.push("source");
   destinations.push("gates"); // verification is law-tier, like approve
+  if (adminSurfaceEnabled) destinations.push("admin");
 
   return {
     worldEmpty: false,
@@ -105,6 +110,7 @@ export function composeInstruments(bundle: SnapshotBundle): Instruments {
     hasQuadrants,
     createArrangement: ui?.create?.arrangement ?? (hasQuadrants ? "by_quadrant" : "by_family"),
     createCatalog: ui?.create?.catalog ?? [],
-    intakeForms
+    intakeForms,
+    adminSurfaceEnabled
   };
 }

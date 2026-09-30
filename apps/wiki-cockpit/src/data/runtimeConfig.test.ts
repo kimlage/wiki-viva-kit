@@ -19,6 +19,7 @@ describe("runtime config boundary", () => {
       language: "",
       strings: {},
       presentation: { page_types: {}, contexts: {}, trust_colors: {} },
+      features: { takezoEasterEgg: true, takezoCompanion: false },
       codexEnabled: true
     });
   });
@@ -28,5 +29,18 @@ describe("runtime config boundary", () => {
       apiBase: "",
       snapshotBase: "/sample"
     });
+  });
+
+  it("defaults the takezo presentation flags to egg on, companion off (plan §17.2)", () => {
+    expect(normalizeRuntimeConfig({}).features).toEqual({
+      takezoEasterEgg: true,
+      takezoCompanion: false
+    });
+  });
+
+  it("honors explicit takezo flag overrides without a rebuild", () => {
+    expect(
+      normalizeRuntimeConfig({ features: { takezo_easter_egg: false, takezo_companion: true } }).features
+    ).toEqual({ takezoEasterEgg: false, takezoCompanion: true });
   });
 });

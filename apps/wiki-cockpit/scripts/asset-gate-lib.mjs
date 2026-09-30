@@ -11,6 +11,7 @@ const APPROVED_LICENSES = new Set([
   "CC-BY-4.0",
   "CC0-1.0",
   "ISC",
+  "LicenseRef-Brand-Asset",
   "MIT",
   "OFL-1.1"
 ]);
@@ -20,6 +21,7 @@ const LICENSE_MARKERS = Object.freeze({
   "CC-BY-4.0": ["Creative Commons Attribution 4.0"],
   "CC0-1.0": ["CC0 1.0 Universal"],
   ISC: ["ISC License", "Permission to use, copy, modify"],
+  "LicenseRef-Brand-Asset": ["LicenseRef-Brand-Asset", "Brand asset use notice"],
   MIT: ["MIT License", "Permission is hereby granted"],
   "OFL-1.1": ["SIL OPEN FONT LICENSE", "Version 1.1"]
 });
@@ -381,12 +383,43 @@ export function evaluateAssetManifest({ appRoot, manifestPath, schemaPath } = {}
     }
   }
 
-  const assets = Array.isArray(manifest.assets) ? manifest.assets : [];
+  const baseAssets = Array.isArray(manifest.assets) ? manifest.assets : [];
   if (!Array.isArray(manifest.assets)) push(errors, "assets_shape", "assets must be an array; [] is valid");
+  // Consumer-owned source icons must survive a verbatim C1 sync. Their
+  // declarations add inventory only: they cannot override policy, ceilings,
+  // shared paths, licenses or dependency identity. All checks below apply to
+  // the combined inventory, including duplicates, provenance and byte hashes.
+  const overlayPath = path.join(resolvedAppRoot, "assets/consumer-assets.v1.json");
+  let consumerAssets = [];
+  let overlayStat;
+  try {
+    overlayStat = fs.lstatSync(overlayPath);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  if (overlayStat) {
+    if (!overlayStat.isFile() || overlayStat.isSymbolicLink() || overlayStat.nlink !== 1 || fs.lstatSync(path.dirname(overlayPath)).isSymbolicLink() || !isWithin(appRootReal, fs.realpathSync(overlayPath))) {
+      push(errors, "consumer_assets_file", "consumer assets must be a regular, unaliased in-app file");
+    } else {
+      const overlay = readJson(overlayPath, errors, "consumer_assets");
+      if (!exactKeys(overlay, ["schema_version", "assets"]) || overlay.schema_version !== "wiki_cockpit_consumer_assets.v1" || !Array.isArray(overlay.assets)) {
+        push(errors, "consumer_assets_shape", "consumer assets must declare only schema_version and assets");
+      } else {
+        consumerAssets = overlay.assets;
+        for (const asset of consumerAssets) {
+          if (!isSafeRelative(asset?.path) || !asset.path.startsWith("public/source-icons/")) {
+            push(errors, "consumer_asset_scope", "consumer assets may add only local source icons");
+          }
+        }
+      }
+    }
+  }
+  const assets = [...baseAssets, ...consumerAssets];
   const ids = new Set();
   const paths = new Set();
   let totalBytes = 0;
   let thirdPartyCount = 0;
+  let baseThirdPartyCount = 0;
 
   for (const [index, asset] of assets.entries()) {
     const label = `assets[${index}]`;
@@ -405,7 +438,10 @@ export function evaluateAssetManifest({ appRoot, manifestPath, schemaPath } = {}
     const extension = assetExtension(asset.path);
     if (!extension || !KIND_EXTENSIONS[asset.kind]?.has(extension)) push(errors, "asset_kind", `${label}.kind does not match its file extension`);
     if (!["first_party", "third_party"].includes(asset.origin)) push(errors, "asset_origin", `${label}.origin is invalid`);
-    if (asset.origin === "third_party") thirdPartyCount += 1;
+    if (asset.origin === "third_party") {
+      thirdPartyCount += 1;
+      if (index < baseAssets.length) baseThirdPartyCount += 1;
+    }
 
     if (!exactKeys(asset.license, ["spdx", "file", "sha256"]) || !allowedSpdx.includes(asset.license?.spdx) || !/^[a-f0-9]{64}$/.test(asset.license?.sha256 || "")) {
       push(errors, "asset_license", `${label} needs an allowlisted SPDX license and exact license shape`);
@@ -475,8 +511,8 @@ export function evaluateAssetManifest({ appRoot, manifestPath, schemaPath } = {}
 
   if (Number.isInteger(budgets?.max_asset_count) && assets.length > budgets.max_asset_count) push(errors, "asset_count_budget", `asset count ${assets.length} exceeds ${budgets.max_asset_count}`);
   if (Number.isInteger(budgets?.max_total_bytes) && totalBytes > budgets.max_total_bytes) push(errors, "asset_total_budget", `asset bytes ${totalBytes} exceeds ${budgets.max_total_bytes}`);
-  if (external?.declared_count !== thirdPartyCount || external?.state !== (thirdPartyCount === 0 ? "none" : "present")) {
-    push(errors, "external_state_mismatch", `external state/count must equal the ${thirdPartyCount} third-party manifest asset(s)`);
+  if (external?.declared_count !== baseThirdPartyCount || external?.state !== (baseThirdPartyCount === 0 ? "none" : "present")) {
+    push(errors, "external_state_mismatch", `external state/count must equal the ${baseThirdPartyCount} third-party base-manifest asset(s)`);
   }
 
   const inventory = new Set();
