@@ -26,6 +26,18 @@ from wiki_core.action_transition import (
 )
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
+from wiki_core.web.admin import (
+    ADMIN_SESSION_HEADER,
+    AdminPlanStore,
+    AdminSessionManager,
+    admin_capabilities_payload,
+    admin_command_spec,
+    admin_commands_payload,
+    admin_health_summary,
+    append_admin_audit_event,
+    build_admin_plan,
+    execute_admin_plan,
+)
 from wiki_core.web.briefs import BriefStore, compose_and_save, compose_return_brief
 from wiki_core.web.codex_jobs import JobRunner
 from wiki_core.web.codex_probe import probe_codex_for
@@ -227,6 +239,16 @@ class CockpitServer(ThreadingHTTPServer):
         self._attempt_receipts: OrderedDict[str, dict[str, Any]] = OrderedDict()
         # One serialized Codex job stream per operator process.
         self.jobs = JobRunner(root, config, on_change=self.invalidate_snapshot_cache)
+        # Local admin sessions (god-mode plan §13, PR3). Constructing the
+        # manager prints the single-use unlock code to this process's stdout;
+        # the in-memory store dies with the process, so a restart revokes
+        # every session structurally.
+        self.admin_sessions = AdminSessionManager(config)
+        # Materialized admin plans (god-mode plan §11, PR4). In-memory and
+        # process-bound like the sessions: a restart drops every reviewed
+        # plan, so nothing can execute against a reality the operator no
+        # longer inhabits.
+        self.admin_plans = AdminPlanStore()
 
     def claim_attempt(self, key: str, path: str, payload_sha256: str) -> tuple[str, dict[str, Any] | None]:
         """Claim a mutating request or return its prior deterministic receipt.
@@ -845,7 +867,8 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Vary", "Origin")
         self.send_header(
             "Access-Control-Allow-Headers",
-            f"content-type, {OPERATOR_NONCE_HEADER.lower()}, {ATTEMPT_KEY_HEADER.lower()}",
+            f"content-type, {OPERATOR_NONCE_HEADER.lower()}, {ATTEMPT_KEY_HEADER.lower()}, "
+            f"{ADMIN_SESSION_HEADER.lower()}",
         )
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 
@@ -976,6 +999,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     },
                     "server_version": WEB_SERVER_VERSION,
                     "schema_capabilities": list(SCHEMA_CAPABILITIES),
+                    # Non-sensitive admin handshake (god-mode plan §12.6): no
+                    # token, code, role detail or policy — discovery only.
+                    "admin": admin_health_summary(self.server.config),
                     "operator_security": {
                         "version": WEB_OPERATOR_SECURITY_VERSION,
                         "nonce_header": OPERATOR_NONCE_HEADER,
@@ -988,6 +1014,54 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     },
                     "codex": probe_codex_for(self.server.config),
                     "claude": probe_claude_for(self.server.config),
+                }
+            )
+            return
+        if path == "/api/admin/capabilities":
+            # Read-only discovery (plan §12.1). Requesting it never authorizes
+            # anything: grants appear only when the request carries a session
+            # header that the in-memory store validates (touch-free — polling
+            # never keeps an idle session alive). Anything else is locked (or
+            # unavailable when the config disables admin).
+            session_token = (self.headers.get(ADMIN_SESSION_HEADER) or "").strip()
+            session = self.server.admin_sessions.session_for_capabilities(session_token)
+            self._send_json(
+                admin_capabilities_payload(self.server.config, session=session)
+            )
+            return
+        if path == "/api/admin/commands":
+            # Command-bus catalog (plan §12.2). Like capability discovery, the
+            # session token rides touch-free: browsing the catalog never keeps
+            # an idle session alive and never grants anything.
+            session_token = (self.headers.get(ADMIN_SESSION_HEADER) or "").strip()
+            session = self.server.admin_sessions.session_for_capabilities(session_token)
+            self._send_json(
+                admin_commands_payload(self.server.config, session=session)
+            )
+            return
+        if path.startswith("/api/admin/plans/"):
+            # A materialized plan is session-scoped review material: only the
+            # session that planned it may read it back.
+            plan_id = path[len("/api/admin/plans/") :].strip("/")
+            session_token = (self.headers.get(ADMIN_SESSION_HEADER) or "").strip()
+            session = self.server.admin_sessions.session_for_capabilities(session_token)
+            if session is None:
+                self._send_json(
+                    {"ok": False, "error_code": "admin_session_invalid"},
+                    status=HTTPStatus.FORBIDDEN,
+                )
+                return
+            record = self.server.admin_plans.peek(plan_id)
+            if record is None or record["session_id"] != str(session.get("session_id") or ""):
+                self._send_error("unknown plan", status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(
+                {
+                    "ok": True,
+                    "plan_id": record["plan_id"],
+                    "plan_sha": record["plan_sha"],
+                    "status": record["status"],
+                    "plan": record["content"],
                 }
             )
             return
@@ -1257,6 +1331,25 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             self._send_json(replay_payload, status=HTTPStatus(int(receipt["status"])))
             return
         self._attempt_key = attempt_key
+        if parsed.path.startswith("/api/admin/session/"):
+            # Admin session endpoints (god-mode plan §12.1, §13) run BEHIND
+            # the full operator-security contract above (loopback host,
+            # origin allowlist, nonce, attempt key, bounded JSON body) — the
+            # session header composes with that flow, it never replaces it
+            # (threat 13). They mutate only the in-memory session store,
+            # never the wiki working tree, so they intentionally skip the
+            # mutation gate and snapshot-cache invalidation: renewing a
+            # session must not force a multi-minute world rebuild.
+            self._handle_admin_session_post(parsed.path, payload)
+            return
+        if parsed.path in {"/api/admin/commands/plan", "/api/admin/commands/execute"}:
+            # Command bus (plan §11, §12.2): same operator-security v2 contract
+            # as every mutation, session header composed on top. Planning is a
+            # pure read (it materializes a description); execution takes the
+            # mutation gate only when the reviewed plan actually writes — the
+            # handler owns that decision per plan.
+            self._handle_admin_command_post(parsed.path, payload)
+            return
         self.server.begin_mutation()
         self._mutation_owned = True
         if parsed.path == "/api/snapshot/write":
@@ -1552,6 +1645,251 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         context = None if payload.get("context") is None else str(payload.get("context"))
         result = triage_source(self.server.root, self.server.config, source, context=context)
         self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+
+    @staticmethod
+    def _admin_session_status(result: dict[str, Any]) -> HTTPStatus:
+        if result.get("ok"):
+            return HTTPStatus.OK
+        if result.get("error_code") == "admin_rate_limited":
+            return HTTPStatus.TOO_MANY_REQUESTS
+        return HTTPStatus.FORBIDDEN
+
+    def _audit_session_event(
+        self, command_id: str, result: dict[str, Any], summary: str
+    ) -> None:
+        """Record one session lifecycle event (plan §18).
+
+        Only whitelisted description fields are handed to the audit writer:
+        the unlock code and session token can never reach it from here, and
+        the writer redacts defensively on top (§18.3).
+        """
+
+        session = result.get("session")
+        session = session if isinstance(session, dict) else {}
+        append_admin_audit_event(
+            self.server.root,
+            self.server.config,
+            {
+                "actor": {"id": "local-owner", "adapter": "local_startup_code"},
+                "session_id": session.get("session_id") or result.get("session_id"),
+                "command_id": command_id,
+                "capabilities_checked": ["session.manage"],
+                "risk_level": "read",
+                "result": "success" if result.get("ok") else "failure",
+                "output_summary": summary,
+            },
+        )
+
+    def _handle_admin_session_post(self, path: str, payload: dict[str, Any]) -> None:
+        manager = self.server.admin_sessions
+        action = path[len("/api/admin/session/") :].strip("/")
+        if action == "challenge":
+            # Challenges are inert nonces; issuing one is not an auditable
+            # authorization event and carries no secret.
+            result = manager.issue_challenge()
+            self._send_json(result, status=self._admin_session_status(result))
+            return
+        if action == "unlock":
+            result = manager.unlock(
+                code=str(payload.get("code") or ""),
+                challenge=str(payload.get("challenge") or ""),
+            )
+            self._audit_session_event(
+                "session.unlock",
+                result,
+                "session unlocked; startup code consumed"
+                if result.get("ok")
+                else f"unlock rejected ({result.get('error_code')})",
+            )
+            self._send_json(result, status=self._admin_session_status(result))
+            return
+        if action in {"renew", "lock"}:
+            token = (self.headers.get(ADMIN_SESSION_HEADER) or "").strip()
+            if action == "renew":
+                result = manager.renew(token)
+                summary = (
+                    "session renewed; token rotated"
+                    if result.get("ok")
+                    else f"renew rejected ({result.get('error_code')})"
+                )
+            else:
+                result = manager.lock(token)
+                summary = (
+                    "session locked by operator"
+                    if result.get("ok")
+                    else f"lock rejected ({result.get('error_code')})"
+                )
+            self._audit_session_event(f"session.{action}", result, summary)
+            self._send_json(result, status=self._admin_session_status(result))
+            return
+        self._send_error("not found", status=HTTPStatus.NOT_FOUND)
+
+    # Typed refusal -> HTTP status for the command bus. Anything conflicting
+    # with reviewed state (stale, tampered sha, consumed plan, busy checkout)
+    # is a 409: the cure is a replan, not a retry of the same bytes.
+    _ADMIN_COMMAND_STATUS = {
+        "admin_unknown_command": HTTPStatus.BAD_REQUEST,
+        "admin_invalid_params": HTTPStatus.BAD_REQUEST,
+        "admin_confirmation_required": HTTPStatus.BAD_REQUEST,
+        "admin_confirmation_mismatch": HTTPStatus.BAD_REQUEST,
+        "admin_capability_denied": HTTPStatus.FORBIDDEN,
+        "admin_session_invalid": HTTPStatus.FORBIDDEN,
+        "admin_session_expired": HTTPStatus.FORBIDDEN,
+        "admin_disabled": HTTPStatus.FORBIDDEN,
+        "admin_rate_limited": HTTPStatus.TOO_MANY_REQUESTS,
+        "admin_plan_not_found": HTTPStatus.NOT_FOUND,
+        "admin_plan_sha_mismatch": HTTPStatus.CONFLICT,
+        "admin_plan_stale": HTTPStatus.CONFLICT,
+        "admin_plan_already_executed": HTTPStatus.CONFLICT,
+        "admin_checkout_busy": HTTPStatus.CONFLICT,
+        "admin_command_failed": HTTPStatus.BAD_REQUEST,
+    }
+
+    def _admin_command_status(self, result: dict[str, Any]) -> HTTPStatus:
+        if result.get("ok"):
+            return HTTPStatus.OK
+        code = str(result.get("error_code") or "")
+        return self._ADMIN_COMMAND_STATUS.get(code, HTTPStatus.BAD_REQUEST)
+
+    def _audit_command_event(
+        self,
+        command_id: str,
+        result: dict[str, Any],
+        *,
+        stage: str,
+        plan_id: str | None,
+        plan_sha: str | None,
+        capabilities: list[str],
+        risk_level: str,
+        session_id: str | None,
+    ) -> None:
+        """One audit event per bus interaction, linked to its plan (§11.4).
+
+        Whitelisted fields only — outputs were already redacted by the plan
+        engine, and the audit writer redacts defensively on top (§18.3).
+        """
+
+        summary = (
+            f"{stage} ok"
+            if result.get("ok")
+            else f"{stage} refused ({result.get('error_code') or 'failure'})"
+        )
+        undo = result.get("undo")
+        append_admin_audit_event(
+            self.server.root,
+            self.server.config,
+            {
+                "actor": {"id": "local-owner", "adapter": "local_startup_code"},
+                "session_id": session_id,
+                "command_id": command_id,
+                "capabilities_checked": capabilities,
+                "risk_level": risk_level,
+                "plan_id": plan_id,
+                "plan_sha": plan_sha,
+                "result": "success" if result.get("ok") else "failure",
+                "affected_paths": list(result.get("affected_paths") or ()),
+                "branch": result.get("branch"),
+                "output_summary": summary,
+                "undo": undo if isinstance(undo, dict) else None,
+            },
+        )
+
+    def _handle_admin_command_post(self, path: str, payload: dict[str, Any]) -> None:
+        manager = self.server.admin_sessions
+        token = (self.headers.get(ADMIN_SESSION_HEADER) or "").strip()
+        # Using the bus IS session activity: validation touches the idle timer.
+        session = manager.validate(token, touch=True)
+        if not session.get("ok"):
+            self._send_json(session, status=self._admin_command_status(session))
+            return
+        session_id = str(session.get("session_id") or "")
+        if path == "/api/admin/commands/plan":
+            command_id = str(payload.get("command_id") or "")
+            spec = admin_command_spec(command_id)
+            if spec is None:
+                result: dict[str, Any] = {
+                    "ok": False,
+                    "error_code": "admin_unknown_command",
+                }
+                self._send_json(result, status=self._admin_command_status(result))
+                return
+            params = payload.get("params")
+            result = build_admin_plan(
+                self.server.root,
+                self.server.config,
+                spec,
+                params=params if isinstance(params, dict) else {},
+                session=session,
+                dry_run=bool(payload.get("dry_run", False)),
+            )
+            if result.get("ok"):
+                self.server.admin_plans.put(
+                    str(result["plan_id"]),
+                    str(result["plan_sha"]),
+                    dict(result["plan"]),
+                    session_id,
+                )
+            self._audit_command_event(
+                command_id,
+                result,
+                stage="plan",
+                plan_id=result.get("plan_id"),
+                plan_sha=result.get("plan_sha"),
+                capabilities=list(spec.capability),
+                risk_level=spec.risk_level,
+                session_id=session_id,
+            )
+            self._send_json(result, status=self._admin_command_status(result))
+            return
+        plan_id = str(payload.get("plan_id") or "")
+        plan_sha = str(payload.get("plan_sha") or "")
+        confirmation_raw = payload.get("confirmation")
+        confirmation = None if confirmation_raw is None else str(confirmation_raw)
+        record = self.server.admin_plans.peek(plan_id)
+        will_write = False
+        command_id = ""
+        capabilities: list[str] = []
+        risk_level = "read"
+        if record is not None:
+            content = record.get("content") or {}
+            effects = content.get("effects") or {}
+            will_write = bool(
+                effects.get("files_write") or effects.get("snapshot_invalidated")
+            )
+            command_id = str(content.get("command_id") or "")
+            capabilities = [str(c) for c in content.get("capability") or ()]
+            risk_level = str(content.get("risk_level") or "read")
+        if will_write:
+            # Only a plan that really writes takes the mutation gate (and the
+            # snapshot-cache invalidation at the response commit boundary).
+            self.server.begin_mutation()
+            self._mutation_owned = True
+        result = execute_admin_plan(
+            self.server.root,
+            self.server.config,
+            self.server.admin_plans,
+            admin_command_spec,
+            plan_id=plan_id,
+            plan_sha=plan_sha,
+            confirmation=confirmation,
+            session=session,
+        )
+        if self._mutation_owned and not result.get("ok"):
+            # A refused execution mutated nothing; releasing here avoids an
+            # unnecessary multi-minute snapshot rebuild on the next read.
+            self.server.end_mutation()
+            self._mutation_owned = False
+        self._audit_command_event(
+            command_id or str(result.get("command_id") or ""),
+            result,
+            stage="execute",
+            plan_id=plan_id or None,
+            plan_sha=plan_sha or None,
+            capabilities=capabilities,
+            risk_level=risk_level,
+            session_id=session_id,
+        )
+        self._send_json(result, status=self._admin_command_status(result))
 
     def _handle_briefs_post(self, path: str, payload: dict[str, Any]) -> None:
         store = BriefStore(self.server.root, self.server.config)

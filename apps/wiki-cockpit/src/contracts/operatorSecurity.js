@@ -3,7 +3,7 @@
 // Diagnostics are deliberately value-free: a malformed local process cannot
 // make a credential-shaped authored value appear in UI or release evidence.
 
-export const REQUIRED_OPERATOR_SERVER_VERSION = "wiki_web_server.v6";
+export const REQUIRED_OPERATOR_SERVER_VERSION = "wiki_web_server.v8";
 export const REQUIRED_OPERATOR_SECURITY_VERSION = "wiki_operator_security.v2";
 export const REQUIRED_OPERATOR_NONCE_HEADER = "X-Wiki-Operator-Nonce";
 export const REQUIRED_OPERATOR_ATTEMPT_HEADER = "X-Wiki-Attempt-Key";
@@ -11,7 +11,21 @@ export const REQUIRED_OPERATOR_MAX_BODY_BYTES = 1_048_576;
 export const REQUIRED_OPERATOR_CAPABILITIES = Object.freeze([
   "operator_security_v2",
   "cors_default_deny_v1",
-  "action_state_transitions_v1"
+  "action_state_transitions_v1",
+  // v7 (god-mode plan §12.7): read-only admin discovery. An operator without
+  // it is an old process; the cockpit reports "outdated — restart" honestly
+  // instead of rendering an Admin Dock that would 404 underneath.
+  "admin_capabilities_v1",
+  // God-mode plan §13 (PR3): local admin sessions — challenge/unlock/renew/
+  // lock endpoints plus the X-Wiki-Admin-Session header composing with the
+  // nonce + attempt-key contract. A process without it predates sessions;
+  // the unlock dialog must say "restart", never POST into a 404.
+  "admin_session_v1",
+  // God-mode plan §11/§12.2 (PR4): the plan->review->execute command bus
+  // (GET /api/admin/commands, POST /api/admin/commands/{plan,execute}). An
+  // operator without it predates materialized plans; the cockpit reports
+  // "outdated — restart" instead of planning into a 404.
+  "admin_commands_v1"
 ]);
 
 function record(value) {

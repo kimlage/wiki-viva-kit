@@ -7,6 +7,11 @@ import { loadSnapshotBundle } from "./data/snapshot";
 import { browserApplication } from "./infrastructure/browserApplication";
 import type { SnapshotBundle } from "./types";
 
+// The private downstream loads Admin/Takezo as additional lazy boundaries.
+// Keep this integration file tolerant of parallel-suite module contention;
+// individual DOM waits below remain bounded.
+vi.setConfig({ testTimeout: 15_000 });
+
 const mockSnapshotState = vi.hoisted(() => ({
   runtimeMode: "local_operator",
   source: "/api/snapshot"
@@ -388,7 +393,7 @@ describe("visual route contract", () => {
   it("renders the world shell with HUD, perspectives and 2D routes", async () => {
     await renderRoute("/w/radar");
     expect(
-      await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
+      await screen.findByLabelText("3D knowledge world", {}, { timeout: 6_000 })
     ).toBeTruthy();
     expect(await screen.findByText("Galaxy")).toBeTruthy();
     expect(screen.getByRole("group", { name: "Perspectives (keys 1–5)" })).toBeTruthy();
@@ -465,7 +470,7 @@ describe("visual route contract", () => {
 
   it("does not stack the guided tour over an existing primary surface", async () => {
     await renderRoute("/w?view=radar&page=root&reader=1&tour=1");
-    expect(await screen.findByLabelText("Reader: Root")).toBeTruthy();
+    expect(await screen.findByLabelText("Reader: Root", {}, { timeout: 6_000 })).toBeTruthy();
     expect(screen.queryByRole("dialog", { name: "Welcome to the knowledge world" })).toBeNull();
 
     fireEvent.keyDown(window, { key: "?" });

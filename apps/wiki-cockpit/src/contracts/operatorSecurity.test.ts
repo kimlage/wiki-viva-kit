@@ -8,7 +8,7 @@ import {
 function validHealth() {
   return {
     ok: true,
-    server_version: "wiki_web_server.v6",
+    server_version: "wiki_web_server.v8",
     schema_capabilities: [...REQUIRED_OPERATOR_CAPABILITIES, "codex"],
     operator_security: {
       version: "wiki_operator_security.v2",
@@ -42,10 +42,48 @@ describe("shared operator security contract", () => {
 
   it.each([
     ["old server", { server_version: "wiki_web_server.v4" }, "server version"],
+    // §22.2 old-operator detection: a v6 process (pre-admin) is outdated.
+    ["pre-admin v6 server", { server_version: "wiki_web_server.v6" }, "server version"],
     [
       "missing action transition",
       { schema_capabilities: ["operator_security_v2", "cors_default_deny_v1"] },
       "action_state_transitions_v1"
+    ],
+    [
+      "missing admin discovery",
+      {
+        schema_capabilities: [
+          "operator_security_v2",
+          "cors_default_deny_v1",
+          "action_state_transitions_v1"
+        ]
+      },
+      "admin_capabilities_v1"
+    ],
+    [
+      "missing admin session support",
+      {
+        schema_capabilities: [
+          "operator_security_v2",
+          "cors_default_deny_v1",
+          "action_state_transitions_v1",
+          "admin_capabilities_v1"
+        ]
+      },
+      "admin_session_v1"
+    ],
+    [
+      "missing admin command bus",
+      {
+        schema_capabilities: [
+          "operator_security_v2",
+          "cors_default_deny_v1",
+          "action_state_transitions_v1",
+          "admin_capabilities_v1",
+          "admin_session_v1"
+        ]
+      },
+      "admin_commands_v1"
     ],
     [
       "malformed capability list",

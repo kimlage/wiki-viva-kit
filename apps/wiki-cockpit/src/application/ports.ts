@@ -1,22 +1,32 @@
+import type {
+  AdminAccess,
+  AdminCatalogResult,
+  AdminChallengeResult,
+  AdminExecuteResult,
+  AdminLockResult,
+  AdminPlan,
+  AdminPlanResult,
+  AdminSessionResult
+} from "../data/admin";
 import type { RuntimeConfig } from "../data/runtimeConfig";
 import type { Route, WorldPatch, WorldRoute } from "../router";
 import type {
   OperatorCommandRunResult,
   BriefRecord,
   BriefSpec,
-  AgentCapabilities,
   CodexCapability,
+  AgentCapabilities,
   CodexJobRecord,
   GateRunResult,
   IngestionPlan,
   IngestionStepResult,
   PageContent,
   SnapshotBundle,
+  WorkflowRunResult,
   SourceOperationPreview,
   SourceOperationReceipt,
   SourceGroup,
-  SourceGroupsOperationResult,
-  WorkflowRunResult
+  SourceGroupsOperationResult
 } from "../types";
 
 export type SnapshotLoadOptions = { demo?: boolean; stage?: number | null; demoScenario?: string | null; signal?: AbortSignal };
@@ -85,23 +95,12 @@ export interface OperatorPort {
   ): Promise<WorkflowRunResult>;
   composeSourceBrief(sourceId: string): Promise<SourceBriefResult>;
   previewSourceOperation(sourceId: string, streamId: string, updates: Record<string, unknown>): Promise<SourceOperationPreview>;
-  applySourceOperation(
-    sourceId: string,
-    streamId: string,
-    updates: Record<string, unknown>,
-    previewToken: string
-  ): Promise<SourceOperationReceipt>;
+  applySourceOperation(sourceId: string, streamId: string, updates: Record<string, unknown>, previewToken: string): Promise<SourceOperationReceipt>;
   previewSourceGroups(groups: SourceGroup[]): Promise<SourceGroupsOperationResult>;
   applySourceGroups(groups: SourceGroup[], previewToken: string): Promise<SourceGroupsOperationResult>;
   listSourceOperationReceipts(sourceId: string, options?: OperatorReadOptions): Promise<SourceOperationReceipt[]>;
   previewSourceRefresh(sourceId: string, streamId: string, rawPath?: string): Promise<SourceOperationPreview>;
-  runSourceRefresh(
-    sourceId: string,
-    streamId: string,
-    rawPath: string,
-    previewToken: string,
-    selectedExternalIds?: string[]
-  ): Promise<SourceOperationReceipt>;
+  runSourceRefresh(sourceId: string, streamId: string, rawPath: string, previewToken: string, selectedExternalIds?: string[]): Promise<SourceOperationReceipt>;
   buildIngestionPlan(source: string, context?: string): Promise<IngestionPlan>;
   runIngestionStep(source: string, context: string, stepId: string, dryRun?: boolean): Promise<IngestionStepResult>;
 }
@@ -128,7 +127,28 @@ export interface NavigationPort {
   dispatch(intent: NavigationIntent): void;
 }
 
+// The god-mode admin surface (plan §12–§14) reaches the operator through the
+// SAME composition-root injection as every other transport capability: UI
+// surfaces receive this port (or a narrower member) as a prop and never import
+// the admin client module. The port grants nothing — every call still answers
+// with the server's own session/capability verdict.
+export interface AdminPort {
+  loadAdminAccess(options?: OperatorReadOptions): Promise<AdminAccess>;
+  requestAdminChallenge(): Promise<AdminChallengeResult>;
+  unlockAdminSession(challenge: string, code: string): Promise<AdminSessionResult>;
+  renewAdminSession(): Promise<AdminSessionResult>;
+  lockAdminSession(): Promise<AdminLockResult>;
+  fetchAdminCommandCatalog(): Promise<AdminCatalogResult>;
+  planAdminCommand(
+    commandId: string,
+    params?: Record<string, string>,
+    options?: { dryRun?: boolean }
+  ): Promise<AdminPlanResult>;
+  executeAdminPlan(plan: AdminPlan, confirmation: string | null): Promise<AdminExecuteResult>;
+}
+
 export type ApplicationPorts = {
   navigation: NavigationPort;
   operator: OperatorPort;
+  admin: AdminPort;
 };

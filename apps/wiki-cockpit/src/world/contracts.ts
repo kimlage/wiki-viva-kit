@@ -1,4 +1,6 @@
-export const DOCK_IDS = ["approve", "intake", "gates", "codex", "work", "source", "create", "blocks"] as const;
+// The private downstream keeps the server-authorized Admin surface registered
+// as a dock. Its presence in the route vocabulary never grants authorization.
+export const DOCK_IDS = ["approve", "intake", "gates", "codex", "work", "source", "create", "blocks", "admin"] as const;
 export type DockId = "" | (typeof DOCK_IDS)[number];
 
 export const NATIVE_VIEWS = ["quadrants", "radar", "sources", "work", "timeline"] as const;

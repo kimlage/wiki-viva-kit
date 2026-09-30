@@ -17,7 +17,7 @@ export type OperatorSecurityEvidence = Omit<OperatorSecurityContract, "nonce"> &
   nonce_present: true;
 };
 
-export const REQUIRED_OPERATOR_SERVER_VERSION: "wiki_web_server.v6";
+export const REQUIRED_OPERATOR_SERVER_VERSION: "wiki_web_server.v8";
 export const REQUIRED_OPERATOR_SECURITY_VERSION: "wiki_operator_security.v2";
 export const REQUIRED_OPERATOR_NONCE_HEADER: "X-Wiki-Operator-Nonce";
 export const REQUIRED_OPERATOR_ATTEMPT_HEADER: "X-Wiki-Attempt-Key";
@@ -25,7 +25,10 @@ export const REQUIRED_OPERATOR_MAX_BODY_BYTES: 1048576;
 export const REQUIRED_OPERATOR_CAPABILITIES: readonly [
   "operator_security_v2",
   "cors_default_deny_v1",
-  "action_state_transitions_v1"
+  "action_state_transitions_v1",
+  "admin_capabilities_v1",
+  "admin_session_v1",
+  "admin_commands_v1"
 ];
 
 export function validateOperatorHandshake(health: unknown): OperatorHandshakeValidation;

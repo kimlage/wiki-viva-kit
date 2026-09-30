@@ -118,7 +118,8 @@ async function send(
   body: string,
   key: string,
   security: OperatorSecurity,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  extraHeaders?: Record<string, string>
 ): Promise<Response> {
   if (new TextEncoder().encode(body).byteLength > security.max_body_bytes) {
     throw new Error(`operator request exceeds the advertised ${security.max_body_bytes} byte limit`);
@@ -128,6 +129,7 @@ async function send(
     headers: {
       accept: "application/json",
       "content-type": "application/json",
+      ...(extraHeaders || {}),
       [security.nonce_header]: security.nonce,
       [security.attempt_header]: key
     },
@@ -142,7 +144,7 @@ async function send(
 export async function operatorPost(
   path: string,
   payload: unknown,
-  options: { signal?: AbortSignal } = {}
+  options: { signal?: AbortSignal; headers?: Record<string, string> } = {}
 ): Promise<Response> {
   // The UI disables every write affordance under /demo, but this boundary is
   // the final fail-closed guarantee: a missed handler, synthetic click or new
@@ -155,7 +157,7 @@ export async function operatorPost(
   let security = await securityForMutation(false, options.signal);
   assertOperatorRoute();
   assertSignal(options.signal);
-  let response = await send(path, body, key, security.security, options.signal);
+  let response = await send(path, body, key, security.security, options.signal, options.headers);
   if (response.status !== 403) return response;
   securityCache = null;
   // Do not even re-handshake after the first attempt if navigation crossed the
@@ -165,7 +167,7 @@ export async function operatorPost(
   security = await securityForMutation(true, options.signal);
   assertOperatorRoute();
   assertSignal(options.signal);
-  response = await send(path, body, key, security.security, options.signal);
+  response = await send(path, body, key, security.security, options.signal, options.headers);
   return response;
 }
 

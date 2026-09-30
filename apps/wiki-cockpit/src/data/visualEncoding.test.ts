@@ -147,7 +147,7 @@ describe("VisualEncodingResolver v1", () => {
     expect(encoding.ring).toBe("dashed");
     try {
       configureLanguage("pt-BR");
-      expect(localizedEncodingText(encoding)).toBe("Nunca sincronizada · 1");
+      expect(localizedEncodingText(encoding)).toBe("Cadastrada, ainda não ingerida · 1");
     } finally {
       configureLanguage("en");
     }

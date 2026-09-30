@@ -5,13 +5,14 @@
   "public_required": {
     "config_file": "playwright.config.ts",
     "test_dir": "e2e",
-    "expected_tests": 102,
+    "expected_tests": 106,
     "required_specs": [
       "e2e/appearance-accessibility.spec.ts",
       "e2e/demo-scenarios.spec.ts",
       "e2e/desktop-matrix.spec.ts",
       "e2e/fallback-parity.spec.ts",
       "e2e/firefox-smoke.spec.ts",
+      "e2e/god-mode.spec.ts",
       "e2e/keyboard-genesis-journey.spec.ts",
       "e2e/keyboard-genesis.spec.ts",
       "e2e/locale-renderer-evidence.spec.ts",
@@ -195,6 +196,30 @@
         "file": "e2e/desktop-matrix.spec.ts",
         "project": "chromium-desktop",
         "title": "desktop-matrix.spec.ts › Chromium desktop keeps every curated Create card inside the world safe area"
+      },
+      {
+        "id": "chromium-desktop::e2e/god-mode.spec.ts::god-mode.spec.ts › demo god_mode: opens the Admin Dock honestly unavailable without any admin request",
+        "file": "e2e/god-mode.spec.ts",
+        "project": "chromium-desktop",
+        "title": "god-mode.spec.ts › demo god_mode: opens the Admin Dock honestly unavailable without any admin request"
+      },
+      {
+        "id": "chromium-desktop::e2e/god-mode.spec.ts::god-mode.spec.ts › demo ritual: abrachaindabra opens the sealed 3D plate, near-misses stay search, Escape closes",
+        "file": "e2e/god-mode.spec.ts",
+        "project": "chromium-desktop",
+        "title": "god-mode.spec.ts › demo ritual: abrachaindabra opens the sealed 3D plate, near-misses stay search, Escape closes"
+      },
+      {
+        "id": "chromium-desktop::e2e/god-mode.spec.ts::god-mode.spec.ts › forced fallback (visual test mode) supports the same ritual and god_mode operations",
+        "file": "e2e/god-mode.spec.ts",
+        "project": "chromium-desktop",
+        "title": "god-mode.spec.ts › forced fallback (visual test mode) supports the same ritual and god_mode operations"
+      },
+      {
+        "id": "chromium-desktop::e2e/god-mode.spec.ts::god-mode.spec.ts › reduced motion › ritual degrades to the 2D twin with identical copy and flow",
+        "file": "e2e/god-mode.spec.ts",
+        "project": "chromium-desktop",
+        "title": "god-mode.spec.ts › reduced motion › ritual degrades to the 2D twin with identical copy and flow"
       },
       {
         "id": "chromium-desktop::e2e/keyboard-genesis-journey.spec.ts::keyboard-genesis-journey.spec.ts › Genesis 0→8 is operable by native Tab and Shift+Tab without focus traps or operator traffic",
