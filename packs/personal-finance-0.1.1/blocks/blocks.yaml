@@ -1,0 +1,12 @@
+schema_version: wiki_experience_pack_blocks.v1
+pack: personal-finance
+core_packages: [quadrant_lenses, gamification]
+blocks:
+  personal-finance.cashflow-period:
+    kind: interpretation
+    purpose: Aggregate verified inflows and outflows by period without hiding unclassified records.
+    core_adapter: wiki.block.perspective_bundle.v1
+  personal-finance.category-variance:
+    kind: interpretation
+    purpose: Compare category totals across periods while preserving source and classification state.
+    core_adapter: wiki.block.perspective_bundle.v1

@@ -1,0 +1,27 @@
+schema_version: wiki_experience_pack_fixture.v1
+id: finance-public-export-blocked
+story: Block publication when private financial fields have not been converted to a synthetic derivative.
+expected_state: public_export_blocked
+public_synthetic: true
+failure_code: private_financial_fields_require_redaction
+compiler:
+  schema_version: wiki_experience_pack_fixture_compiler.v1
+  mode: failure
+  seed: 8204
+  reference_date: "2026-07-09"
+  base_fixture: fixtures/normal
+  type_counts: {}
+  mutations:
+    - operation: set_field
+      page_id: finance-transaction-housing
+      field: visibility
+      value: private
+  checks:
+    - kind: public_boundary
+      code: private_financial_fields_require_redaction
+  expected_diagnostic_codes: [private_financial_fields_require_redaction]
+sensitivity_markers: [owner_label_present, institution_label_present, raw_description_present]
+assertions:
+  - private_fields_are_not_emitted
+  - public_export_fails_closed
+  - synthetic_derivative_is_required

@@ -7,6 +7,10 @@ packs:
         path: personal-finance
         manifest_sha256: 68b981d6a577c0c13ac1063805fe150ab802578245629f05c4197cfca231200c
         tree_sha256: 4402fa6cc5f3777fbb881a456a05b9aa1ec005932cab06e1bc07637a0e7e5922
+      0.1.1:
+        path: personal-finance-0.1.1
+        manifest_sha256: 18cab84ee6dad1d854ae7f663339c06e7f91802f3e811a4b8871ca1a207b09fb
+        tree_sha256: 5b205ef9822c88f3e571720a546a3a4bffea724c26e71dedf2f54d444a20565c
   study-research:
     default_version: 0.1.0
     versions:

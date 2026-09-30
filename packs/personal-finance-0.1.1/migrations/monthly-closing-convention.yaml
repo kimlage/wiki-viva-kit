@@ -1,0 +1,22 @@
+schema_version: wiki_experience_pack_data_migration.v1
+id: personal-finance.monthly-closing-convention
+pack: personal-finance
+from:
+  page_type: monthly_closing
+  accepted_aliases: [monthly-closing, fechamento_mensal]
+to:
+  page_type: personal_finance_monthly_closing
+strategy: additive_copy
+data_policy: preserve_user_content
+write_policy: proposal_branch_only
+field_map:
+  month: period
+  sources: source_refs
+  reconciliations: reconciliation_refs
+  state: close_state
+  completed_at: closed_at
+preserve_unknown_fields: true
+delete_source_pages: false
+overwrite_existing_fields: false
+human_review_required: true
+rollback: remove_generated_proposal_only

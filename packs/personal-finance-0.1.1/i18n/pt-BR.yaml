@@ -1,0 +1,31 @@
+schema_version: wiki_experience_pack_i18n.v1
+locale: pt-BR
+pack: personal-finance
+copy:
+  title: Finanças pessoais
+  account: Conta
+  transaction: Transação
+  obligation: Obrigação
+  category: Categoria
+  reconciliation: Reconciliação
+  monthly_closing: Fechamento mensal
+  import: Importar transações
+  classify: Classificar transação
+  reconcile: Reconciliar conta
+  monthly_close: Fechar mês
+  forecast: Projetar fluxo de caixa
+  import_transactions: Importar transações
+  classify_transaction: Classificar transação
+  reconcile_account: Reconciliar conta
+  forecast_cashflow: Projetar fluxo de caixa
+  cashflow: Fluxo de caixa
+  category_variance: Variação por categoria
+  monthly_closing_tape: Linha de fechamentos mensais
+  financial_calendar: Calendário financeiro
+  due_horizon: Horizonte de vencimentos
+  month_comparison: Comparação mensal
+  transaction_occurred: Transação realizada
+  obligation_due: Obrigação a vencer
+  reconciliation_recorded: Reconciliação registrada
+  monthly_period: Período mensal
+  monthly_closed: Mês fechado

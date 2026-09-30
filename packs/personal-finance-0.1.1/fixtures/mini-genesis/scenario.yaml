@@ -1,0 +1,15 @@
+schema_version: wiki_experience_pack_fixture.v1
+id: finance-mini-genesis
+story: Found an empty private finance context and choose the first synthetic source path.
+expected_state: genesis_ready
+public_synthetic: true
+genesis_steps:
+  - create-private-finance-context
+  - choose-local-synthetic-source
+  - preview-import
+  - request-human-review
+assertions:
+  - no_account_is_invented
+  - no_transaction_is_invented
+  - first_operation_is_dry_run
+  - privacy_boundary_is_visible

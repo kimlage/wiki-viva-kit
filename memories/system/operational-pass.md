@@ -38,9 +38,9 @@ Read this first: a compact daily state of items that still need review, decision
 
 - **system:** [Operations - wiki-viva-kit](../operations.md) (2026-09-30)
 - **system:** [Input stage](input-stage.md) (2026-09-30)
+- **system:** [Command reference](wiki/command-reference.md) (2026-09-30)
 - **system:** [Canonical source registry](source-registry.md) (2026-09-30)
 - **system:** [Meta-wiki: how the living wiki works](wiki/index.md) (2026-08-28)
-- **system:** [Living wiki architecture](wiki/architecture.md) (2026-08-28)
 
 
 ## Context summary
