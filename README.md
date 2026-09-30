@@ -1,5 +1,9 @@
 # Wiki Viva Kit
 
+Existing Personal Finance EN/PT-BR installations can explicitly adopt
+[version 0.1.1](docs/references/guides/personal-finance-locale-upgrade.md)
+through a content-preserving C3 upgrade to the current EN/ES/PT-BR contract.
+
 A Markdown/Git-first living operational wiki with a deterministic core,
 privacy-aware honesty gates, a dense visual cockpit and deep reading delegated
 to the AI agent operating the repository. No LLM client is embedded.

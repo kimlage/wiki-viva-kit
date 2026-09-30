@@ -1,0 +1,34 @@
+schema_version: wiki_experience_pack_fixture.v1
+id: finance-dense-year
+story: Exercise a synthetic year of accounts, transactions, obligations, reconciliations and closings.
+expected_state: dense_ready
+public_synthetic: true
+generated_counts:
+  accounts: 6
+  transactions: 720
+  obligations: 36
+  categories: 24
+  reconciliations: 72
+  monthly_closings: 12
+compiler:
+  schema_version: wiki_experience_pack_fixture_compiler.v1
+  mode: dense
+  seed: 8101
+  reference_date: "2026-07-09"
+  base_fixture: null
+  type_counts:
+    personal_finance_account: 6
+    personal_finance_transaction: 720
+    personal_finance_obligation: 36
+    personal_finance_category: 24
+    personal_finance_reconciliation: 72
+    personal_finance_monthly_closing: 12
+  mutations: []
+  checks: []
+  expected_diagnostic_codes: []
+assertions:
+  - cashflow_reports_full_transaction_count
+  - category_variance_preserves_unclassified_count
+  - reconciliation_view_preserves_all_accounts
+  - monthly_closing_tape_has_twelve_periods
+  - temporal_profiles_report_full_ranges

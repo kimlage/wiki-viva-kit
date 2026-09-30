@@ -1,0 +1,92 @@
+schema_version: wiki_experience_pack_temporal_profiles.v2
+pack: personal-finance
+profiles:
+  personal-finance.financial-calendar:
+    slot: timeline.calendar
+    event_times: [occurred_at, due_at, closed_at]
+    lanes: [transactions, obligations, closings]
+    precision_policy: preserve_unknown
+    horizon: month
+  personal-finance.due-horizon:
+    slot: timeline.horizon
+    event_times: [due_at, completed_at]
+    lanes: [overdue, due_soon, scheduled, completed]
+    precision_policy: preserve_unknown
+    horizon: rolling-90-days
+  personal-finance.month-comparison:
+    slot: timeline.comparison
+    event_times: [period_start, period_end, closed_at]
+    lanes: [income, expense, reconciliation, close]
+    precision_policy: preserve_unknown
+    comparison: adjacent-periods
+adapters:
+  personal-finance.transaction-occurred:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: personal_finance_transaction
+    event_kind: personal-finance.transaction-occurred
+    lane: page
+    time: {occurred_at: occurred_at}
+    required_times: [occurred_at]
+    state:
+      before: {}
+      after: {direction: direction, classification_state: classification_state}
+    provenance:
+      source_refs: {policy: required, fields: [source_ref, source_refs]}
+      evidence_refs: {policy: optional, fields: [evidence_refs]}
+    confidence: confirmed
+  personal-finance.obligation-due:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: personal_finance_obligation
+    event_kind: personal-finance.obligation-due
+    lane: page
+    time: {due_at: due_at}
+    required_times: [due_at]
+    state:
+      before: {}
+      after: {status: status, recurrence: recurrence}
+    provenance:
+      source_refs: {policy: optional, fields: [source_refs]}
+      evidence_refs: {policy: optional, fields: [evidence_refs]}
+    confidence: confirmed
+  personal-finance.reconciliation-period:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: personal_finance_reconciliation
+    event_kind: personal-finance.reconciliation-recorded
+    lane: page
+    time: {occurred_at: period}
+    required_times: [occurred_at]
+    state:
+      before: {}
+      after: {reconciliation_state: reconciliation_state}
+    provenance:
+      source_refs: {policy: required, fields: [source_refs]}
+      evidence_refs: {policy: optional, fields: [evidence_refs]}
+    confidence: confirmed
+  personal-finance.monthly-period:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: personal_finance_monthly_closing
+    event_kind: personal-finance.monthly-period
+    lane: page
+    time: {occurred_at: period}
+    required_times: [occurred_at]
+    state:
+      before: {}
+      after: {close_state: close_state}
+    provenance:
+      source_refs: {policy: required, fields: [source_refs]}
+      evidence_refs: {policy: optional, fields: [evidence_refs]}
+    confidence: confirmed
+  personal-finance.monthly-closed:
+    schema_version: wiki_experience_pack_temporal_adapter.v1
+    page_type: personal_finance_monthly_closing
+    event_kind: personal-finance.monthly-closed
+    lane: page
+    time: {recorded_at: closed_at}
+    required_times: [recorded_at]
+    state:
+      before: {}
+      after: {close_state: close_state}
+    provenance:
+      source_refs: {policy: required, fields: [source_refs]}
+      evidence_refs: {policy: optional, fields: [evidence_refs]}
+    confidence: confirmed

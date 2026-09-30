@@ -1,0 +1,33 @@
+schema_version: wiki_experience_pack_page_types.v1
+pack: personal-finance
+page_types:
+  personal_finance_account:
+    title: Account
+    visibility: private
+    template: templates/account.md
+    fields: [account_kind, currency, institution_label, opening_balance, status]
+  personal_finance_transaction:
+    title: Transaction
+    visibility: private
+    template: templates/transaction.md
+    fields: [account_ref, occurred_at, amount, direction, description, category_ref, classification_state, source_ref]
+  personal_finance_obligation:
+    title: Obligation
+    visibility: private
+    template: templates/obligation.md
+    fields: [amount, due_at, recurrence, category_ref, status]
+  personal_finance_category:
+    title: Category
+    visibility: private
+    template: templates/category.md
+    fields: [category_kind, parent_category_ref, budget_policy]
+  personal_finance_reconciliation:
+    title: Reconciliation
+    visibility: private
+    template: templates/reconciliation.md
+    fields: [account_ref, period, source_balance, ledger_balance, difference, reconciliation_state]
+  personal_finance_monthly_closing:
+    title: Monthly closing
+    visibility: private
+    template: templates/monthly-closing.md
+    fields: [period, source_refs, reconciliation_refs, close_state, closed_at, review_ref]

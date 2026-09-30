@@ -1,0 +1,21 @@
+schema_version: wiki_experience_pack_fixture.v1
+id: finance-normal-month
+story: Import, classify and reconcile a complete synthetic month before a reviewed close.
+expected_state: close_ready
+public_synthetic: true
+pages:
+  - finance-account-main
+  - finance-category-income
+  - finance-category-housing
+  - finance-transaction-income
+  - finance-transaction-housing
+  - finance-obligation-rent
+  - finance-reconciliation-july
+  - finance-closing-july
+assertions:
+  - import_preview_has_two_transactions
+  - every_transaction_has_source_evidence
+  - reconciliation_difference_is_zero
+  - monthly_close_requires_human_git_gate
+  - financial_calendar_has_occurrence_and_close_dates
+  - due_horizon_has_real_obligation_date

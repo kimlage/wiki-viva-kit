@@ -1,0 +1,43 @@
+schema_version: wiki_experience_pack_commands.v1
+pack: personal-finance
+commands:
+  personal-finance.import:
+    slot: command.import
+    inputs: [source_ref, account_ref, import_period]
+    outputs: [personal_finance_transaction]
+    permissions: [personal-finance.read-financial-sources, personal-finance.propose-financial-changes]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required
+  personal-finance.classify:
+    slot: command.classify
+    inputs: [transaction_ref, category_ref, evidence_refs]
+    outputs: [personal_finance_transaction]
+    permissions: [personal-finance.read-financial-sources, personal-finance.propose-financial-changes]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required
+  personal-finance.reconcile:
+    slot: command.reconcile
+    inputs: [account_ref, period, source_balance]
+    outputs: [personal_finance_reconciliation]
+    permissions: [personal-finance.read-financial-sources, personal-finance.propose-financial-changes]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required
+  personal-finance.monthly-close:
+    slot: command.monthly-close
+    inputs: [period, source_refs, reconciliation_refs]
+    outputs: [personal_finance_monthly_closing]
+    permissions: [personal-finance.read-financial-sources, personal-finance.propose-financial-changes, personal-finance.review-public-boundary]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required
+  personal-finance.forecast:
+    slot: command.forecast
+    inputs: [account_refs, obligation_refs, horizon]
+    outputs: [personal_finance_obligation]
+    permissions: [personal-finance.read-financial-sources, personal-finance.propose-financial-changes]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required

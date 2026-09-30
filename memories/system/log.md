@@ -1264,3 +1264,9 @@ Append-only record of changes in the [memories/](../index.md) layer.
   icon or personal information is included in the public kit.
 - The [adoption guide](../../docs/references/guides/sealed-demo-admin-journeys.md)
   describes the source pin and explicit consumer migration through B0/C1/C2/C3.
+
+## [2026-09-30] system | Explicit Personal Finance 0.1.1 compatibility adoption
+
+- The published pack contract requires EN/ES/PT-BR. Added an explicitly selected 0.1.1 source and content-preserving 0.1.0 upgrade; 0.1.0 source/default and capabilities remain intact.
+- [Upgrading](../../docs/references/guides/personal-finance-locale-upgrade.md) uses normal bounded lifecycle mutation. The [repeat-safe C3 helper](../../scripts/wiki_pack_adopt.py) checks existing source/installed pins and receipts before reporting unchanged.
+- [Synthetic tests](../../tests/test_personal_finance_upgrade.py) prove legacy locale failure, preserved authored pages/templates/config, repeatable zero-write plans, receipt closure and refusal of immutable-bundle drift. All fixture bytes originate in the public kit.

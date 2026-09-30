@@ -6,7 +6,7 @@ tags: [wiki/meta, status/active]
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-16
+updated_at: 2026-09-30
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -55,6 +55,7 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) | Compile the daily cockpit |
 | [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py) | Compile sources/actions/contexts |
 | [wiki_pack.py](../../../scripts/wiki_pack.py) | Validate/operate experience packs |
+| [wiki_pack_adopt.py](../../../scripts/wiki_pack_adopt.py) | Explicit repeat-safe C3 adoption of an installed pack version |
 | [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) | Check graph reachability and impact |
 | [wiki_performance.py](../../../scripts/wiki_performance.py) | Plan, run and verify fail-closed performance evidence |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarize a PR |
@@ -84,6 +85,12 @@ python3 scripts/wiki_audit.py --check
 explicit C3 and writes portable `kit.lock`. The consumer PR is the review and
 rollback boundary. The retired lane/capsule/receipt runner is not part of the
 catalog.
+
+`wiki_pack_adopt.py` selects an explicit published version of an already
+installed pack. It delegates changes to the bounded declarative upgrade and
+validates the bundle and receipts before an unchanged replay; it never installs
+a missing pack or transforms user-authored content. See the
+[Personal Finance upgrade guide](../../../docs/references/guides/personal-finance-locale-upgrade.md).
 
 `wiki_performance.py` uses only deterministic public-synthetic fixtures. The
 `standard`, `stress` and `soak` profiles remain inert unless the exact plan SHA
