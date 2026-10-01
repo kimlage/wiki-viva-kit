@@ -9,6 +9,7 @@ portable:
     - scripts/_git_subject.py
     - scripts/README.md
     - tests/test_build_demo.py
+    - tests/test_source_registry_policy.py
     - tests/test_web_snapshot.py
     - apps/wiki-cockpit/**
     - .skills/wiki-*/**

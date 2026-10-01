@@ -140,8 +140,25 @@ page_types:
     template: docs/references/templates/wiki/ingestion-event.md
     allowed_dirs:
       - memories/system/ingestion/events
-    required_frontmatter: *common_required
-    field_types: *common_field_types
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - event_id
+      - moc_parent
+    required_frontmatter_any_of:
+      - [source_id, source_refs]
+    field_types:
+      <<: *common_field_types
+      event_id: string
+      source_id: string
+      source_ref: string
+      source_refs: list
+      moc_parent: string
+      consolidated_into: list
     required_sections:
       - Source
       - Quadrants
