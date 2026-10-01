@@ -194,12 +194,20 @@ def _refresh_fields(
 
 
 def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str, str]]:
-    """One row per canonical source page anywhere below the sources dir."""
+    """Direct sources plus nested sources allowed by the consumer policy.
+
+    With no declared policy the existing recursive convention is preserved.
+    A declared policy is authoritative and never widens its nested selection.
+    """
     sources_dir = paths.sources_dir
     as_of_date = _parse_date(as_of) or dt.date.today()
     strings = _strings(load_config(ROOT).language)
+    policy = _nested_source_allowlist(ROOT)
+    seen_nested: set[str] = set()
     rows: list[dict[str, str]] = []
     if not sources_dir.is_dir():
+        if policy:
+            raise ValueError("source_registry.nested_sources contains missing or non-source paths: " + ", ".join(sorted(policy)))
         return rows
     for md in sorted(sources_dir.rglob("*.md")):
         if md.name in {"index.md", "README.md"}:
@@ -208,6 +216,14 @@ def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str
         page_type = str(fm.get("page_type", ""))
         if page_type not in SOURCE_PAGE_TYPES:
             continue
+        rel = paths.rel(md)
+        if md.parent != sources_dir and policy is not None:
+            if rel not in policy:
+                continue
+            seen_nested.add(rel)
+        page_id = str(fm.get("page_id") or "").strip()
+        if not page_id:
+            raise ValueError(f"canonical source is missing page_id: {rel}")
         title = str(fm.get("title") or fm.get("page_id") or md.stem)
         # Per-source config sidecar (item 9): only link it if it actually exists,
         # so the registry's links always resolve on a clean clone.
@@ -217,6 +233,7 @@ def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str
         refresh = _refresh_fields(fm, as_of_date, strings, contract.get("schedule") if isinstance(contract.get("schedule"), dict) else None)
         rows.append(
             {
+                "page_id": page_id,
                 "title": title,
                 "rel": paths.rel(md),
                 "type": str(contract.get("source_kind") or fm.get("source_type") or page_type),
@@ -231,8 +248,32 @@ def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str
                 **refresh,
             }
         )
+    missing = sorted((policy or set()) - seen_nested)
+    if missing:
+        raise ValueError("source_registry.nested_sources contains missing or non-source paths: " + ", ".join(missing))
+    ids = [row["page_id"] for row in rows]
+    if len(ids) != len(set(ids)):
+        raise ValueError("canonical source registry contains duplicate page_id values")
     rows.sort(key=lambda r: (r["title"].lower(), r["rel"]))
     return rows
+
+
+def _nested_source_allowlist(root: Path) -> set[str] | None:
+    config_path = root / "wiki.config.yaml"
+    if not config_path.exists():
+        return None
+    loaded = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(loaded, dict):
+        raise ValueError("wiki.config.yaml must contain a mapping")
+    if "source_registry" not in loaded:
+        return None
+    policy = loaded["source_registry"]
+    if not isinstance(policy, dict):
+        raise ValueError("source_registry must be a mapping")
+    nested = policy.get("nested_sources") or []
+    if not isinstance(nested, list) or any(not isinstance(item, str) or not item.strip() for item in nested):
+        raise ValueError("source_registry.nested_sources must be a list of non-empty paths")
+    return {Path(item).as_posix() for item in nested}
 
 
 def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
@@ -265,6 +306,7 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
         "  quadrant: q2",
         "  sub_lens: evidencias",
         f'  reason: "{s["projection_reason"]}"',
+        *yaml.safe_dump({"collection": {"member_types": [], "contexts": [], "members": [row["page_id"] for row in rows]}}, sort_keys=False, allow_unicode=True).rstrip().splitlines(),
         "---",
         "",
         f"# {s['title']}",

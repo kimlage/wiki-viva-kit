@@ -14,6 +14,11 @@ parent_projection:
   quadrant: q2
   sub_lens: evidencias
   reason: "The generated source registry is an observable evidence index of canonical sources."
+collection:
+  member_types: []
+  contexts: []
+  members:
+  - sources-wiki-viva-methodology
 ---
 
 # Canonical source registry

@@ -15,6 +15,26 @@ SAMPLE = KIT_ROOT / "apps/wiki-cockpit/public/sample-snapshot"
 DENSE_SAMPLE = SAMPLE / "scenarios/dense_stress"
 
 
+def _demo_event_schema():
+    # A downstream root owns its page types. The shared demo is authored
+    # against its own synthetic fixture contract, which ships verbatim.
+    return yaml.safe_load(
+        (KIT_ROOT / "docs/references/fixtures/demo-wiki/wiki.page-types.yaml").read_text(encoding="utf-8")
+    )["page_types"]["ingestion_event"]
+
+
+def test_demo_schema_is_owned_by_fixture_not_consumer(tmp_path, monkeypatch):
+    import sys
+
+    fixture = tmp_path / "docs/references/fixtures/demo-wiki"
+    fixture.mkdir(parents=True)
+    expected = {"required_frontmatter": ["event_id"], "field_types": {"event_id": "string"}}
+    (fixture / "wiki.page-types.yaml").write_text(yaml.safe_dump({"page_types": {"ingestion_event": expected}}))
+    (tmp_path / "wiki.page-types.yaml").write_text(yaml.safe_dump({"page_types": {"ingestion_event": {"required_frontmatter": ["consumer_field"]}}}))
+    monkeypatch.setattr(sys.modules[__name__], "KIT_ROOT", tmp_path)
+    assert _demo_event_schema() == expected
+
+
 def _demo_module():
     spec = importlib.util.spec_from_file_location(
         "wiki_build_demo", KIT_ROOT / "scripts/wiki_build_demo.py"
@@ -569,9 +589,7 @@ def test_committed_stage_snapshots_are_consistent() -> None:
 def test_committed_demo_ingestion_events_are_semantically_identical_across_surfaces() -> (
     None
 ):
-    event_schema = yaml.safe_load(
-        (KIT_ROOT / "wiki.page-types.yaml").read_text(encoding="utf-8")
-    )["page_types"]["ingestion_event"]
+    event_schema = _demo_event_schema()
     assert "event_id" in event_schema["required_frontmatter"]
     assert "source_id" not in event_schema["required_frontmatter"]
     assert event_schema["required_frontmatter_any_of"] == [
