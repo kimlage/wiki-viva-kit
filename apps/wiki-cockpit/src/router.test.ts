@@ -38,7 +38,13 @@ const BASE_QUERY: WorldQuery = {
   timeMode: "",
   timeLanes: [],
   compareRevision: "",
-  packView: ""
+  packView: "",
+  projection: "",
+  mapMode: "",
+  mapFocus: "",
+  mapExpanded: [],
+  mapColor: "",
+  mapEdge: ""
 };
 
 const world = (
