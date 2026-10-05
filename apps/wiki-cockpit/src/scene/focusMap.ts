@@ -206,10 +206,16 @@ function routeEdges(records: KeyedEdge[], nodes: FocusMapNode[]): RoutedEdge[] {
       };
       const start = boundary(source, control);
       const end = boundary(target, control);
+      // Reserve a conservative text width at 12px, including the label stroke.
+      const narrowHorizontalGap = laneCount === 1 && source.y === target.y
+        && Math.abs(end.x - start.x) < edge.type.length * 8 + 10;
+      const labelY = narrowHorizontalGap
+        ? Math.min(source.y - source.height / 2, target.y - target.height / 2) - 12
+        : (start.y + 2 * control.y + end.y) / 4;
       output.push({ key, edge, laneIndex, laneCount, directed,
         path: `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`,
         labelX: round((start.x + 2 * control.x + end.x) / 4),
-        labelY: round((start.y + 2 * control.y + end.y) / 4), extent: [start, control, end] });
+        labelY: round(labelY), extent: [start, control, end] });
     });
   }
   return output.sort((left, right) => compare(left.key, right.key));

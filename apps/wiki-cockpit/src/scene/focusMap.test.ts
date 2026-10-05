@@ -101,6 +101,25 @@ describe("focused read-only 2D graph", () => {
     expect(skippedBridge.ignoredExpansionIds).toEqual(["root-alex-rivera"]);
   });
 
+  it("keeps the expanded Marina/Alex label above both cards without moving its hit path", () => {
+    const model = buildFocusMap(walkingGraph, {
+      selectedId: "source-banco-export",
+      expandedIds: ["hub-financeiro", "root-alex-rivera"]
+    });
+    const relation = model.edges.find(({ edge: item }) => item.type === "moc_parent"
+      && item.source === "person-marina-costa" && item.target === "root-alex-rivera")!;
+    const endpoints = model.nodes.filter((item) => [relation.edge.source, relation.edge.target].includes(item.id));
+    expect(endpoints).toHaveLength(2);
+    endpoints.forEach((item) => {
+      // Allow the descender and 5px label stroke to clear the card as well.
+      expect(relation.labelY + 6).toBeLessThan(item.y - item.height / 2);
+    });
+    const points = coordinates(relation);
+    expect(points.filter((_, index) => index % 2 === 1)).toEqual(endpoints.map((item) => item.y).concat(endpoints[0].y));
+    expect(endpointOnBoundary(points.slice(0, 2), model.nodes.find((item) => item.id === relation.edge.source)!)).toBe(true);
+    expect(endpointOnBoundary(points.slice(-2), model.nodes.find((item) => item.id === relation.edge.target)!)).toBe(true);
+  });
+
   it("leaves the frozen snapshot and options untouched, including nested provenance", () => {
     const graph = freeze(structuredClone(walkingGraph));
     const options = freeze({ selectedId: "source-banco-export", expandedIds: ["hub-financeiro"], maxNodes: 4 });
