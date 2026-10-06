@@ -67,5 +67,5 @@ public examples must be synthetic; access secrets are blocked everywhere.
 ## Per-PR gate
 
 Run the commands in [AGENTS.md](../AGENTS.md), inspect the conceptual diff and
-use a human-reviewed PR. Shared-core defects are reproduced here with synthetic
+use an independently reviewed PR under that policy. Shared-core defects are reproduced here with synthetic
 fixtures before downstream adoption.

@@ -130,7 +130,7 @@ The command is idempotent, copies only Git-tracked kit-owned paths, regenerates
 declared derived artifacts and writes `kit.lock`. It never copies consumer
 memory or configuration and never invents C3 domain changes. The PR itself is
 the reversible boundary. Run the kit's normal CI, the consumer's own gates and
-obtain human approval before promotion.
+follow the consumer's own PR review policy before promotion.
 
 Full instructions: [downstream upgrade runbook](docs/references/guides/wiki-viva-v8-downstream-upgrade.md).
 
@@ -142,7 +142,7 @@ A kit release consists of:
 2. release notes describing product and contract changes;
 3. an **Upgrading** section with required consumer migrations;
 4. green normal CI: audit, pytest, Vitest, TypeScript and production build;
-5. a human-reviewed PR.
+5. a PR independently reviewed under [AGENTS.md](AGENTS.md).
 
 No capsule, receipt or exact-matrix rite is required.
 

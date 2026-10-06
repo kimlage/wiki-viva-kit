@@ -75,7 +75,7 @@ new targets must use the exact canonical vocabulary.
 Deleting an existing action is not a lifecycle transition and is rejected by
 the audit because it would discard the history. Cancel it with a
 `cancellation_receipt` and retain the page. A pure file move/rename that keeps
-the same `page_id` is a structural operation under the normal human PR gate;
+the same `page_id` is a structural operation under the repository's normal PR review policy;
 the auditor follows that identity and still validates any lifecycle change.
 
 | From | Allowed next states |

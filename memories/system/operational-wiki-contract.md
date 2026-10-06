@@ -3,7 +3,7 @@ page_id: system-operational-wiki-contract
 page_type: operational_rule
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-10-06
 stale_after_days: 180
 sources_policy: contrato_do_metodo
 gate: github_pr
@@ -12,9 +12,9 @@ sensitive_data_policy: private_sensitive_allowed
 
 # Operational wiki contract
 
-Updated at: 2026-06-09.
+Updated at: 2026-10-06.
 
-The canonical wiki is [memories/](../index.md); the GitHub PR is the human gate. This contract
+The canonical wiki is [memories/](../index.md); the GitHub PR is the review gate. This contract
 defines what enters memory, how it enters, and how it is approved.
 
 ## Principles
@@ -46,6 +46,6 @@ defines what enters memory, how it enters, and how it is approved.
 
 - Each relevant batch enters through a `wiki/*` branch. The PR must show sources, changed
   pages, privacy risks, validations and pending items.
-- The local gates (audit, coverage, cockpit, tests) must pass before the
-  merge. See [git-approvals.md](git-approvals.md) and
+- Independent review under [AGENTS.md](../../AGENTS.md), all applicable local
+  gates (audit, coverage, cockpit, tests) and normal CI must pass before merge. See [git-approvals.md](git-approvals.md) and
   [ingestion-process.md](ingestion-process.md).

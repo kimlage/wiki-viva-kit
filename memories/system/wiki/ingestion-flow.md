@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-28
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -76,7 +76,7 @@ gate column says what can stop the source from advancing:
 | Deep read | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--record-result` | Per-chunk result in the cache | `validate_result` rejects empty quadrants |
 | Event | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--emit-event` (template as manual fallback) | Quadrants event with `consolidated_into: []` | empty/placeholder quadrant fails the audit |
 | Integration | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--packet`, then the agent integrates | Targets updated, conflicts resolved/recorded, `consolidated_into` closed | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` fails a read source without integration (CI) |
-| Consolidation + PR | [wiki_audit.py](../../../scripts/wiki_audit.py), then a PR | Updated memory | human approval on `main` |
+| Consolidation + PR | [wiki_audit.py](../../../scripts/wiki_audit.py), then a PR | Updated memory | repository PR review before `main` |
 
 Invariant points of the design:
 
@@ -89,7 +89,7 @@ Invariant points of the design:
 - The pre-triage separates two types of finding: an access secret BLOCKS at the origin;
   PII (personal data) merely INFORMS, because this repo is private and personal data is
   welcome in a private page.
-- Nothing becomes memory until it passes through the gate by PR with human approval.
+- Nothing becomes memory until it passes through the gate by PR under the repository's review policy.
 
 ## Step 0 - Root entity and input stage
 
@@ -259,7 +259,7 @@ the ingestion log, and the source registry is regenerated.
 Local paths become clickable Markdown links, related pages
 and the [system log](../log.md) are updated, the auditing is run
 ([wiki_audit.py](../../../scripts/wiki_audit.py)) and the diff is reviewed in a PR. The
-merge only occurs after human approval - the gate-by-PR mechanics are in
+merge only occurs after approval under the repository's PR review policy - the gate-by-PR mechanics are in
 [git approvals](../git-approvals.md) and [gates and auditing](gates-and-audit.md).
 
 Every ingestion ends in one of these states: memory updated, reference

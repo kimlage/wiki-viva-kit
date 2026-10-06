@@ -11,4 +11,4 @@ description: Separate private operational memory from public derivatives, allowi
 - Access secrets (tokens, passwords, keys, cookies) are never kept, in any page -- private or public.
 - Public candidates must be rewritten as derivatives and reviewed separately.
 - Do not publish without redaction: private feedback, personal documents, ledgers or secure links (they carry PII). Never publish access secrets at all.
-- Every public candidate needs a redaction checklist, source freshness check and human gate.
+- Every public candidate needs a redaction checklist, source freshness check and independent PR review under the repository's [AGENTS.md](../../AGENTS.md). Privacy and secret failures remain fail-closed.
