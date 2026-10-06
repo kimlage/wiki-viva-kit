@@ -3,7 +3,7 @@ page_id: operational-pass-wiki-viva-kit
 page_type: dashboard
 context: system
 visibility: private_self
-updated_at: 2026-09-30
+updated_at: 2026-10-06
 stale_after_days: 1
 sources_policy: memorias_fontes_acoes_contextos
 gate: github_pr
@@ -14,7 +14,7 @@ moc_parent: memories/index.md
 
 # Operational pass - sources, actions and contexts
 
-Updated at: 2026-09-30.
+Updated at: 2026-10-06.
 
 Deterministic compilation for contexts: all. Use this page to compress next steps into actions, problems, claims, decisions and target pages; it does not replace human reading of live sources.
 
@@ -36,11 +36,11 @@ Read this first: a compact daily state of items that still need review, decision
 
 ### Latest updates
 
-- **system:** [Operations - wiki-viva-kit](../operations.md) (2026-09-30)
-- **system:** [Input stage](input-stage.md) (2026-09-30)
-- **system:** [Command reference](wiki/command-reference.md) (2026-09-30)
-- **system:** [Canonical source registry](source-registry.md) (2026-09-30)
-- **system:** [Meta-wiki: how the living wiki works](wiki/index.md) (2026-08-28)
+- **system:** [Wiki Viva Kit](wiki-viva-kit.md) (2026-10-06)
+- **system:** [Wiki methodology maintenance](processes/wiki-methodology-maintenance.md) (2026-10-06)
+- **system:** [Perceptive layer and Information -> Insight cycle](wiki/perceptual-layer-insight.md) (2026-10-06)
+- **system:** [Operational wiki contract](operational-wiki-contract.md) (2026-10-06)
+- **system:** [Meta-wiki: how the living wiki works](wiki/index.md) (2026-10-06)
 
 
 ## Context summary
@@ -48,7 +48,7 @@ Read this first: a compact daily state of items that still need review, decision
 | Context | Hub | Vitality | Sources | Sources needing attention | Actions | Actions needing attention | Claims / decisions | Next steps |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | example | [Example context - hub](../example/index.md) | stale | 0 | 0 | 0 | 0 | 0 / 0 | - |
-| system | [Memory - root MOC](../index.md) | stale | 1 | 0 | 0 | 0 | 0 / 0 | - |
+| system | [Memory - root MOC](../index.md) | fresh | 1 | 0 | 0 | 0 | 0 / 0 | - |
 
 ## Consolidation output matrix
 

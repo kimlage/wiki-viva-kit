@@ -35,4 +35,4 @@ Before deploying, the implementation must decide:
 - where credentials are stored outside the repo;
 - whether the service is internal-only or publicly reachable;
 - how PR review proves that writes still go through proposal branches and the
-  GitHub Pull Request human gate.
+  GitHub Pull Request review policy.

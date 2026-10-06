@@ -14,7 +14,7 @@ flowchart LR
     CI --> D["Gate transition"]
     D --> E["Recompile cockpit"]
     E --> F["Run gates"]
-    F --> G["Open PR (human gate)"]
+    F --> G["Open PR (review gate)"]
 ```
 
 ## 1. Compile the input stage
@@ -154,7 +154,8 @@ python3 -m pytest tests/ -q
 python3 scripts/wiki_pr_summary.py                           # paste into the PR
 ```
 
-Canonical memory changes go on a `wiki/<theme>` branch; the PR is the human gate.
+Canonical memory changes go on a `wiki/<theme>` branch; the PR review follows
+[AGENTS.md](../../../AGENTS.md). Consumers retain their own review policy.
 Gate semantics and privacy: [gates-and-privacy.md](gates-and-privacy.md).
 
 ## Optional layers

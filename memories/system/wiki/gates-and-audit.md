@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -195,4 +195,4 @@ stateDiagram-v2
     archived --> [*]
 ```
 
- `can_transition` validates each passage against the transition graph; `write_state` applies the change in the frontmatter and records an auditable history in `gate_history` ({from, to, reason}), refusing invalid transitions (e.g.: `rejected` -> `approved`, or any exit from `archived`). When several proposals compete for the same page/context, `rebase_pending` keeps the most recent one and marks the rest as `superseded` — a system action, also audited in the history. It is this coherence that `audit_ingestion_proposals_gate_state` guarantees by requiring a valid `gate_state` in every proposal. The human approval flow over this machine is in [git approvals](../git-approvals.md).
+ `can_transition` validates each passage against the transition graph; `write_state` applies the change in the frontmatter and records an auditable history in `gate_history` ({from, to, reason}), refusing invalid transitions (e.g.: `rejected` -> `approved`, or any exit from `archived`). When several proposals compete for the same page/context, `rebase_pending` keeps the most recent one and marks the rest as `superseded` — a system action, also audited in the history. It is this coherence that `audit_ingestion_proposals_gate_state` guarantees by requiring a valid `gate_state` in every proposal. The PR review flow over this machine is in [git approvals](../git-approvals.md).

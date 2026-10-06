@@ -3,7 +3,7 @@ page_id: system-git-approvals
 page_type: operational_rule
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: contrato_wiki_operacional
 gate: github_pr
@@ -12,9 +12,11 @@ sensitive_data_policy: private_sensitive_allowed
 
 # Approvals via Git and PR
 
-Updated on: 2026-06-08
+Updated on: 2026-10-06
 
-The GitHub PR is the human approval flow of the simple operational wiki.
+The GitHub PR is the review and promotion boundary of the operational wiki.
+This kit follows the independent review policy in [AGENTS.md](../../AGENTS.md);
+consumers retain their own policy.
 
 ## Branches
 
@@ -37,7 +39,7 @@ as `superseded`.
 | `created` | proposal created with source and context | `compiling` |
 | `compiling` | agent creating manifests, events, quadrants, and diff | `ready_for_review` |
 | `ready_for_review` | local validations ready for PR | `needs_human_gate` |
-| `needs_human_gate` | awaiting human review | `approved`, `rejected`, or `superseded` |
+| `needs_human_gate` | awaiting PR review (legacy state name) | `approved`, `rejected`, or `superseded` |
 | `approved` | approved in the PR | `published` |
 | `published` | consolidated into `main` | `archived` when obsolete |
 | `superseded` | replaced by a more recent proposal | `archived` |
@@ -47,9 +49,10 @@ as `superseded`.
 
 ## Default gate
 
-- `gate_id`: `github_pr_human_review`.
-- `approver_policy`: the repo owner or person explicitly responsible for the context.
-- `quorum`: one human approver.
+- `gate_id`: `github_pr_human_review` (legacy identifier retained for compatibility).
+- `approver_policy`: a reviewer independent of the change's author, selected under
+  the repository's review policy; another agent may review this kit.
+- `quorum`: one independent reviewer for this kit.
 - `sla_hours`: 72 hours by default, adjustable by operational urgency.
 - `superseded_policy`: a newer proposal for the same page/context must
   mark the previous one as `superseded` before merge.
@@ -81,5 +84,8 @@ only after the local audit and review of the diff.
 
 ## Merge
 
-`main` represents the approved wiki. Merge should only happen after human review
-of the complete package: sources, synthesis, risks, validations, and pending items.
+`main` represents the approved wiki. Merge requires independent review of the
+complete package: sources, synthesis, risks, validations and pending items.
+Record the reviewer, exact head SHA and resolved findings; all applicable gates
+and CI must pass on that head. A later head change requires renewed review.
+The author cannot self-approve, and agent review is never recorded as human review.

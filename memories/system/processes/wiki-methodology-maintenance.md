@@ -10,7 +10,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-10-06
 stale_after_days: 45
 sources_policy: process_contract
 gate: github_pr
@@ -47,7 +47,7 @@ flowchart LR
     code["Toolkit code/templates"]
     docs["Meta-wiki documentation"]
     gates["Local gates"]
-    pr["Human PR gate"]
+    pr["Independent PR review gate"]
     proposal --> code --> docs --> gates --> pr
 ```
 
@@ -71,7 +71,7 @@ flowchart LR
 | Role | Responsibility |
 | --- | --- |
 | Repo agent | Implements deterministic core and updates docs. |
-| Wiki owner | Reviews conceptual diff and approves merge. |
+| Wiki owner | Sets the repository review policy and delegates independent conceptual review. |
 
 ## Related
 

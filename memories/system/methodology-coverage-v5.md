@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-10-06
 stale_after_days: 30
 sources_policy: metodologia_e_implementacao
 gate: github_pr
@@ -46,7 +46,7 @@ This matrix tracks what the kit implements of the
 | Operation page (cockpit) | implemented | [memories/operations.md](../operations.md), [scripts/wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) |
 | Gamification with karma | implemented | [wiki_core/score/](../../wiki_core/score/README.md); 8-dimension karma, append-only |
 | Perceptive layer | implemented | [memories/system/perception/](perception/index.md) (real journal + map); coverage requires use |
-| Information -> Insight cycle | implemented | [scripts/wiki_insight_job.py](../../scripts/wiki_insight_job.py) (proposal for the human gate) |
+| Information -> Insight cycle | implemented | [scripts/wiki_insight_job.py](../../scripts/wiki_insight_job.py) (proposal for the PR review gate) |
 | Audit + coverage in CI | implemented | [scripts/wiki_audit.py](../../scripts/wiki_audit.py), [scripts/wiki_check_methodology_coverage.py](../../scripts/wiki_check_methodology_coverage.py) |
 
 ## Overall status

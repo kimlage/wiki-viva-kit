@@ -21,7 +21,7 @@ stale_after_days: 90
 sources_policy: contrato_wiki_operacional
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-purpose: describe the human approval policy and proposal cycle
+purpose: describe the repository PR review policy and proposal cycle
 owner: {{owner_id}}
 moc_parent: memories/system/git-approvals.md
 related_pages: []
@@ -33,8 +33,9 @@ backlinks_expected: []
 
 ## Policy
 
-- Human gate: GitHub PR.
-- Quorum: one human approver responsible for the context.
+- Review gate: GitHub PR under the repository's [AGENTS.md](../../../../AGENTS.md).
+- Quorum: follow the repository policy; this kit requires one reviewer independent
+  of the author, who may be another agent or a human.
 - Default SLA: 72 hours, except for operational urgency.
 
 ## State machine
@@ -68,7 +69,7 @@ stateDiagram-v2
 | created | proposal created | compiling |
 | compiling | agent consolidating sources and diff | ready_for_review |
 | ready_for_review | diff ready for local review | needs_human_gate |
-| needs_human_gate | awaiting review by the human reviewer | approved or rejected |
+| needs_human_gate | awaiting PR review under repository policy (legacy state name) | approved or rejected |
 | approved | approved for merge | published |
 | published | consolidated into `main` | archived when obsolete |
 | superseded | replaced by a newer proposal | archived |

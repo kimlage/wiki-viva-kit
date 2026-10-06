@@ -43,13 +43,13 @@ attachment_policy: "Link attachments and derived files via Markdown; do not embe
 > [obsidian-conventions.md](obsidian-conventions.md).
 
 ```mermaid
-%% Fill in: trace this proposal from the consulted source to the human gate.
+%% Fill in: trace this proposal from the consulted source to the PR review gate.
 flowchart LR
     src["Consulted source"]
     classify["Classification"]
     event["Normalized event"]
     synth["Proposed synthesis"]
-    gate["Human gate (pull request)"]
+    gate["Review gate (pull request)"]
     src --> classify --> event --> synth --> gate
 ```
 
