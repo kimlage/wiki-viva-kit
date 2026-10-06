@@ -6,7 +6,7 @@ tags: [wiki/meta, status/active]
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-09-30
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -66,6 +66,7 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 | [wiki_semantic_inventory.py](../../../scripts/wiki_semantic_inventory.py) | Verify authored semantics/read models |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Compile the source registry |
 | [wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py) | Dry-run/apply B0/C1/C2/C3 kit adoption |
+| [wiki_vercel_preview.py](../../../scripts/wiki_vercel_preview.py) | Prepare a synthetic-only Vercel function preview without deploying |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Run the localhost operator API |
 | [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generate/check atomic cockpit snapshot |

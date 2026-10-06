@@ -14,6 +14,16 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-10-06] System | Synthetic Vercel preview command
+
+- Added `wiki_vercel_preview.py` to the [command reference](wiki/command-reference.md).
+  It packages only the committed public demo for a read-only Vercel function,
+  with immutable outputs, pinned integrity and explicit JSON route errors.
+- The [deployment guide](../../docs/references/templates/deploy/web-cockpit/README.md)
+  documents the separate provider-authentication check and consumer-owned C3
+  catalog update. The command does not export consumer memory, configure access
+  or deploy; existing static and local-operator defaults remain unchanged.
+
 ## [2026-10-06] System | Independent PR review policy
 
 - The kit requires a reviewer independent of the author, who may be another

@@ -32,6 +32,15 @@ copy consumer memory/configuration or private evidence.
 The old lane/capsule/attestation runner and migration receipts are retired and
 removed. Frozen `upgrade-package.yaml` is historical documentation only.
 
+## Synthetic hosting preview
+
+[wiki_vercel_preview.py](wiki_vercel_preview.py) prepares an opt-in, read-only
+Vercel function bundle from the committed public demo. It accepts no consumer
+memory or private-data override and never deploys or changes authentication.
+Build the cockpit first, then run `--demo --out tmp/vercel-preview` with a new
+directory. See the [deployment template guide](../docs/references/templates/deploy/web-cockpit/README.md)
+for the routing contract and separate provider-protection checks.
+
 ## Privacy
 
 Private consumer PII is valid. Use `wiki_audit.py --public-export --check` at
