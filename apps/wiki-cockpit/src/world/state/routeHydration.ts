@@ -1,4 +1,4 @@
-import type { WorldRoute } from "../../router";
+import { appendFocusMapQuery, type WorldRoute } from "../../router";
 import { createDefaultKernel, type RegistryKernel } from "../registries/RegistryKernel";
 import { LENS_IDS, OVERLAY_IDS, type FamilyGroupId, type LensId, type OverlayId, type PageEntityIndex, type RouteWarning, type ViewId, type WorldState } from "../contracts";
 
@@ -135,5 +135,6 @@ export function canonicalWorldUrl(
   if (carry?.timeLanes.length) params.set("time_lanes", carry.timeLanes.join(","));
   if (carry?.compareRevision) params.set("compare", carry.compareRevision);
   if (carry?.packView) params.set("pack_view", carry.packView);
+  if (carry) appendFocusMapQuery(params, carry);
   return `${demo ? "/demo" : ""}/w?${params.toString()}`;
 }

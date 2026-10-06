@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useMemo, useSyncExternalStore } from "react";
 import type { WorldRoute } from "../router";
 import type { OperatorCommandCard, BriefSpec, SnapshotBundle } from "../types";
 import type { RuntimeConfig } from "../data/runtimeConfig";
@@ -8,10 +8,12 @@ import { WorldRuntime } from "../world/WorldRuntime";
 import { createDefaultKernel } from "../world/registries/RegistryKernel";
 import { hydrateWorldRoute } from "../world/state/routeHydration";
 import { installVisualPrimitiveRegistry } from "../data/visualPrimitives";
-import { WorldView } from "./WorldView";
+import { FocusMapView } from "./FocusMapView";
 import "../styles.css";
 
-export function RuntimeWorldView(props: {
+const WorldView = lazy(() => import("./WorldView").then((module) => ({ default: module.WorldView })));
+
+type RuntimeWorldViewProps = {
   bundle: SnapshotBundle;
   runtime: RuntimeConfig;
   route: WorldRoute;
@@ -24,7 +26,18 @@ export function RuntimeWorldView(props: {
   loadTemporalGraph: OperatorPort["loadTemporalGraph"];
   lockAdminSession: AdminPort["lockAdminSession"];
   onSnapshotMismatch?: () => void;
-}) {
+};
+
+export function RuntimeWorldView(props: RuntimeWorldViewProps) {
+  if (props.route.query.projection === "2d") {
+    return <FocusMapView bundle={props.bundle} runtime={props.runtime} route={props.route}
+      navigation={props.navigation} loadPageContent={props.loadPageContent}
+      onSnapshotMismatch={props.onSnapshotMismatch} />;
+  }
+  return <RuntimeSpatialWorldView {...props} />;
+}
+
+function RuntimeSpatialWorldView(props: RuntimeWorldViewProps) {
   const { bundle, route } = props;
   const pages = useMemo<PageEntityIndex>(
     () => new Map(bundle.pages.pages.map((page) => [page.id, { id: page.id, pageType: page.page_type, title: page.title }])),
@@ -64,5 +77,5 @@ export function RuntimeWorldView(props: {
     () => worldRuntime.getState()
   );
 
-  return <WorldView {...props} worldRuntime={worldRuntime} worldState={worldState} />;
+  return <Suspense fallback={<p role="status">Abrindo cockpit…</p>}><WorldView {...props} worldRuntime={worldRuntime} worldState={worldState} /></Suspense>;
 }

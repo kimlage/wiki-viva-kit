@@ -77,6 +77,14 @@ export type WorldQuery = {
   // in `view`; this namespaced overlay can therefore round-trip without
   // weakening the closed core ViewId registry.
   packView: string;
+  // Opt-in 2D map presentation. Focus and expansion belong to this projection,
+  // independently of the semantic world center and selected reader page.
+  projection: "" | "2d";
+  mapMode: "" | "graph" | "list";
+  mapFocus: string;
+  mapExpanded: string[];
+  mapColor: "" | "topic" | "category" | "state";
+  mapEdge: string;
 };
 
 // Compatibility re-export. The canonical surface vocabulary belongs to the
@@ -151,7 +159,13 @@ const EMPTY_QUERY: WorldQuery = {
   timeMode: "",
   timeLanes: [],
   compareRevision: "",
-  packView: ""
+  packView: "",
+  projection: "",
+  mapMode: "",
+  mapFocus: "",
+  mapExpanded: [],
+  mapColor: "",
+  mapEdge: ""
 };
 
 function isPerspective(value: string): value is PerspectiveId {
@@ -164,6 +178,44 @@ function asRuntimeMode(value: string | null): RuntimeMode | "" {
 
 function asTemporalMode(value: string | null): WorldQuery["timeMode"] {
   return value === "event" || value === "occurred" || value === "recorded" ? value : "";
+}
+
+function asProjection(value: string | null): WorldQuery["projection"] {
+  return value === "2d" ? value : "";
+}
+
+function asMapMode(value: string | null): WorldQuery["mapMode"] {
+  return value === "graph" || value === "list" ? value : "";
+}
+
+function asMapColor(value: string | null): WorldQuery["mapColor"] {
+  return value === "topic" || value === "category" || value === "state" ? value : "";
+}
+
+function mapExpanded(values: readonly string[]): string[] {
+  const expanded: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    // Map IDs are opaque: punctuation, spaces and commas are valid. Repeated
+    // map_expand parameters avoid imposing a delimiter on those identifiers.
+    if (!value.trim() || seen.has(value)) continue;
+    seen.add(value);
+    expanded.push(value);
+    if (expanded.length === 64) break;
+  }
+  return expanded;
+}
+
+export function appendFocusMapQuery(params: URLSearchParams, query: WorldQuery): void {
+  const projection = asProjection(query.projection);
+  const mode = asMapMode(query.mapMode);
+  const color = asMapColor(query.mapColor);
+  if (projection) params.set("projection", projection);
+  if (mode) params.set("map_view", mode);
+  if (query.mapFocus) params.set("map_focus", query.mapFocus);
+  for (const id of mapExpanded(query.mapExpanded)) params.append("map_expand", id);
+  if (color) params.set("map_color", color);
+  if (query.mapEdge) params.set("map_edge", query.mapEdge);
 }
 
 function temporalDate(value: string | null): string {
@@ -262,7 +314,13 @@ function parseQuery(search: string): WorldQuery {
     timeMode: asTemporalMode(params.get("time_mode")),
     timeLanes: temporalLanes(params.get("time_lanes")),
     compareRevision: safeTemporalToken(params.get("compare"), 160),
-    packView: safeTemporalToken(params.get("pack_view"), 180)
+    packView: safeTemporalToken(params.get("pack_view"), 180),
+    projection: asProjection(params.get("projection")),
+    mapMode: asMapMode(params.get("map_view")),
+    mapFocus: params.get("map_focus") || "",
+    mapExpanded: mapExpanded(params.getAll("map_expand")),
+    mapColor: asMapColor(params.get("map_color")),
+    mapEdge: params.get("map_edge") || ""
   };
   // The surface singleton holds at parse time too. A hand-crafted URL has no
   // event ordering, so it uses one documented precedence: dock > reader >
@@ -423,6 +481,7 @@ export function buildUrl(route: Route): string {
   if (route.query.timeLanes.length > 0) params.set("time_lanes", route.query.timeLanes.join(","));
   if (route.query.compareRevision) params.set("compare", route.query.compareRevision);
   if (route.query.packView) params.set("pack_view", route.query.packView);
+  appendFocusMapQuery(params, route.query);
   return `${prefix}/w?${params.toString()}`;
 }
 
@@ -465,6 +524,12 @@ export type WorldPatch = {
   timeLanes?: string[];
   compareRevision?: string | null;
   packView?: string | null;
+  projection?: WorldQuery["projection"] | null;
+  mapMode?: WorldQuery["mapMode"] | null;
+  mapFocus?: string | null;
+  mapExpanded?: string[] | null;
+  mapColor?: WorldQuery["mapColor"] | null;
+  mapEdge?: string | null;
 };
 
 export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
@@ -475,7 +540,7 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
   // every later patch. Otherwise a second selection can update `pageId` while
   // the older `query.page` keeps winning in buildUrl(), reopening the previous
   // reader (and retreat can never actually release that stale selection).
-  const queryOwned = Boolean(route.query.view);
+  const queryOwned = Boolean(route.query.view || route.query.projection === "2d");
   const canonicalPagePatch = patch.page !== undefined
     ? patch.page
     : queryOwned && patch.pageId !== undefined
@@ -542,7 +607,13 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
       timeMode: patch.timeMode === null ? "" : patch.timeMode ?? route.query.timeMode,
       timeLanes: patch.timeLanes ?? route.query.timeLanes,
       compareRevision: patch.compareRevision === null ? "" : patch.compareRevision ?? route.query.compareRevision,
-      packView: patch.packView === null ? "" : patch.packView ?? route.query.packView
+      packView: patch.packView === null ? "" : patch.packView ?? route.query.packView,
+      projection: asProjection(patch.projection === undefined ? route.query.projection : patch.projection),
+      mapMode: asMapMode(patch.mapMode === undefined ? route.query.mapMode : patch.mapMode),
+      mapFocus: patch.mapFocus === null ? "" : patch.mapFocus ?? route.query.mapFocus,
+      mapExpanded: mapExpanded(patch.mapExpanded === null ? [] : patch.mapExpanded ?? route.query.mapExpanded),
+      mapColor: asMapColor(patch.mapColor === undefined ? route.query.mapColor : patch.mapColor),
+      mapEdge: patch.mapEdge === null ? "" : patch.mapEdge ?? route.query.mapEdge
     }
   };
   // A center is a new subject, not a filter on the old one. Normalize every
@@ -576,7 +647,8 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
     next.group = undefined;
     next.query.worldGroup = "";
   }
-  if (!next.pageId) {
+  // Canonical readers use ?page= without requiring a positional context.
+  if (!next.pageId && !(queryOwned && next.query.page)) {
     next.query.reader = false;
     next.query.diff = false; // the Diff tab needs a locked page
   }
@@ -636,7 +708,7 @@ export function worldFromRoute(route: Route): WorldRoute {
     demo: route.demo,
     perspective: DEFAULT_PERSPECTIVE,
     perspectiveExplicit: false,
-    query: { ...query, packet: [...query.packet], ack: [...query.ack] }
+    query: { ...query, packet: [...query.packet], ack: [...query.ack], mapExpanded: [...query.mapExpanded] }
   };
 }
 

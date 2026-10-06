@@ -1,0 +1,153 @@
+.focusMap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--wiki-text);
+  background: var(--wiki-surface);
+  overflow: auto;
+}
+.focusMap button, .focusMap input, .focusMap select {
+  font: inherit;
+  color: var(--wiki-text);
+  border: 1px solid var(--wiki-border);
+  background: var(--wiki-surface-raised);
+  border-radius: 7px;
+}
+.focusMap button { cursor: pointer; padding: 8px 11px; }
+.focusMap button:disabled { cursor: default; opacity: .5; }
+.focusMap :is(button, a, input, select, summary, [tabindex]):focus-visible { outline: 3px solid var(--wiki-focus); outline-offset: 3px; }
+.focusMap button:hover:not(:disabled), .focusMap button[aria-pressed="true"], .focusMap button[aria-current="page"] { background: color-mix(in srgb, var(--wiki-text) 8%, var(--wiki-surface-raised)); border-color: var(--wiki-text-muted); }
+.focusMap h1, .focusMap h2, .focusMap h3, .focusMap h4, .focusMap p { margin: 0; }
+.focusMapHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 19px 24px; border-bottom: 1px solid var(--wiki-border); }
+.focusMapHeader h1 { font-size: 23px; letter-spacing: -.5px; margin-top: 3px; }
+.focusMapEyebrow { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--wiki-text-muted); }
+.focusMapHeaderActions { display: flex; align-items: center; gap: 14px; font-size: 12px; }
+.focusMapReadOnly { border: 1px solid var(--wiki-border); border-radius: 20px; padding: 5px 10px; }
+.focusMapBody { display: grid; grid-template-columns: 216px minmax(0, 1fr) 370px; flex: 1; min-height: 0; }
+.focusMapSearch { padding: 20px 14px; border-right: 1px solid var(--wiki-border); overflow: auto; }
+.focusMapSearch label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+.focusMapSearch kbd { color: var(--wiki-text-muted); }
+.focusMapSearch input { width: 100%; min-height: 42px; padding: 9px 10px; margin: 9px 0; font-size: 12px; }
+.focusMapSmall { font-size: 11px; line-height: 1.5; color: var(--wiki-text-muted); }
+.focusMapSearchResults, .focusMapItemList, .focusMapRelations ul { list-style: none; padding: 0; margin: 12px 0; }
+.focusMapSearchResults li + li { margin-top: 5px; }
+.focusMapSearchResults button { display: flex; flex-direction: column; text-align: left; gap: 6px; width: 100%; padding: 11px; background: transparent; border-color: transparent; }
+.focusMapSearchResults strong { font-size: 12px; line-height: 1.45; }
+.focusMapSearchResults span { font-size: 10px; color: var(--wiki-text-muted); }
+.focusMapSnapshot { font-size: 10px; line-height: 1.5; color: var(--wiki-text-muted); overflow-wrap: anywhere; border-top: 1px solid var(--wiki-border); padding-top: 15px; }
+.focusMapSnapshot code { display: block; }
+.focusMapExplorer { padding: 18px 20px 24px; min-width: 0; overflow: auto; }
+.focusMapToolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.focusMapViewSwitch { display: flex; gap: 4px; }
+.focusMapToolbar label { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--wiki-text-muted); }
+.focusMapToolbar select { padding: 7px; font-size: 12px; }
+.focusMapFocusHeading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.focusMapFocusHeading h2 { font-size: 20px; line-height: 1.3; margin-top: 4px; }
+.focusMapFocusHeading button { font-size: 11px; }
+.focusMapCounts { font-size: 11px; line-height: 1.6; color: var(--wiki-text-muted); margin-top: 8px !important; }
+.focusMapLegend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 11px; margin: 16px 0 8px; padding: 10px 0; border-block: 1px solid var(--wiki-border); }
+.focusMapLegend strong { margin-right: 3px; }
+.focusMapLegend span { display: flex; align-items: center; gap: 5px; }
+.focusMapLegend i, .focusMapItemList i { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.focusMapLegend small { color: var(--wiki-text-muted); }
+.focusMapCanvasTools { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 10px; color: var(--wiki-text-muted); padding: 8px 0; }
+.focusMapCanvasTools div { display: flex; gap: 4px; }
+.focusMapCanvasTools button { min-width: 32px; padding: 5px 8px; font-size: 11px; }
+.focusMapCanvas { width: 100%; overflow: auto; max-height: 540px; border: 1px solid var(--wiki-border); border-radius: 10px; background: var(--wiki-surface-raised); }
+.focusMapCanvas svg { height: auto; display: block; }
+.focusMapCanvas marker path { fill: var(--wiki-text-muted); }
+.focusMapEdgeLine { stroke: var(--wiki-text-muted); stroke-width: 1.6; fill: none; opacity: .6; }
+.focusMapEdgeHit { stroke: transparent; stroke-width: 18; fill: none; cursor: pointer; pointer-events: stroke; }
+.focusMapEdge.selected .focusMapEdgeLine, .focusMapEdge:focus-within .focusMapEdgeLine { stroke: var(--wiki-text); stroke-width: 3; opacity: 1; }
+.focusMapEdgeLabel { fill: var(--wiki-text-muted); font-size: 12px; paint-order: stroke; stroke: var(--wiki-surface-raised); stroke-width: 5px; stroke-linejoin: round; text-anchor: middle; pointer-events: none; }
+.focusMap button.focusMapNode { width: 100%; height: 100%; padding: 5px 10px; text-align: left; display: flex; flex-direction: column; justify-content: center; gap: 3px; border: 1.5px solid var(--focus-map-data-color); border-left: 6px solid var(--focus-map-data-color); background: var(--wiki-surface); border-radius: 9px; overflow: hidden; }
+.focusMapNode[data-ring="dashed"] { border-style: dashed !important; }
+.focusMapNode[data-ring="double"] { border-width: 3px !important; border-style: double !important; }
+.focusMap button.focusMapNode.selected { box-shadow: inset 0 0 0 2px var(--wiki-text); }
+.focusMap button.focusMapNode.focal { background: color-mix(in srgb, var(--focus-map-data-color) 10%, var(--wiki-surface)); }
+.focusMapNode strong { font-size: 14.5px; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.focusMapNode span { font-size: 9.5px; line-height: 1.2; color: var(--wiki-text-muted); }
+.focusMapNode .focusMapNodeMeta { font-size: 8px; letter-spacing: .03em; text-transform: uppercase; }
+.focusMapSelection { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 14px 0; font-size: 12px; }
+.focusMapSelection > div:first-child { display: flex; flex-direction: column; gap: 5px; }
+.focusMapSelection span { color: var(--wiki-text-muted); }
+.focusMapSelectionActions { display: flex; flex-wrap: wrap; gap: 6px; }
+.focusMapSelectionActions button { font-size: 11px; }
+.focusMapEdgeDetails { border: 1px solid var(--wiki-border); border-radius: 9px; padding: 15px; margin-bottom: 16px; background: var(--wiki-surface-raised); font-size: 12px; }
+.focusMapSectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.focusMapSectionHeading h3 { font-size: 14px; }
+.focusMapEdgeEndpoints { display: flex; align-items: center; gap: 8px; margin: 13px 0 !important; }
+.focusMapEdgeEndpoints button { font-size: 12px; text-align: left; }
+.focusMapEdgeDetails dl { display: grid; grid-template-columns: 115px minmax(0, 1fr); gap: 7px; }
+.focusMapEdgeDetails dl > div { display: contents; }
+.focusMapEdgeDetails dt { color: var(--wiki-text-muted); }
+.focusMapEdgeDetails dd { margin: 0; overflow-wrap: anywhere; }
+.focusMapEdgeDetails h4 { margin-top: 15px; }
+.focusMapEdgeDetails a { display: inline-block; margin: 8px 0; color: var(--wiki-text); text-decoration: underline; }
+.focusMapRelations { border-top: 1px solid var(--wiki-border); padding-top: 13px; font-size: 12px; }
+.focusMapRelations summary { cursor: pointer; font-weight: 700; padding: 5px 0 12px; }
+.focusMapRelations li + li { margin-top: 5px; }
+.focusMapRelations button { display: flex; gap: 8px; align-items: center; text-align: left; width: 100%; font-size: 11px; }
+.focusMapRelations code { font-size: 10px; min-width: 105px; }
+.focusMapItemList li + li { margin-top: 8px; }
+.focusMapItemList button { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 14px; }
+.focusMapItemList button > div { flex: 1; }
+.focusMapItemList strong { font-size: 14px; display: block; }
+.focusMapItemList span { font-size: 11px; color: var(--wiki-text-muted); display: block; margin-top: 5px; }
+.focusMapItemList p { font-size: 12px; margin-top: 9px; line-height: 1.5; }
+.focusMapReader { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--wiki-border); overflow: hidden; }
+.focusMapReaderLabel { padding: 14px 17px; border-bottom: 1px solid var(--wiki-border); display: flex; flex-direction: column; gap: 6px; }
+.focusMapReaderLabel span { font-size: 11px; font-weight: 700; }
+.focusMapReaderLabel code { font-size: 10px; color: var(--wiki-text-muted); overflow-wrap: anywhere; }
+.focusMapReaderReturn { padding: 9px 17px; border-top: 1px solid var(--wiki-border); }
+.focusMapReaderReturn button { width: 100%; font-size: 12px; min-height: 36px; }
+.focusMapReader .pageReader:not(.expanded) { position: relative; inset: auto; width: 100%; flex: 1; min-height: 0; border: 0; box-shadow: none; background: var(--wiki-surface); backdrop-filter: none; animation: none; }
+.focusMapReader .pageReader .readerHead, .focusMapReader .pageReader .readerScroll, .focusMapReader .pageReader .readerActionBar { animation: none; }
+.focusMapReader .pageReader .readerIdentityBand, .focusMapReader .pageReader .readerStatusLine .pill { border-color: var(--wiki-border) !important; color: var(--wiki-text); background: var(--wiki-surface-raised); }
+.focusMapReader .pageReader .readerIdentityChips .pill, .focusMapReader .pageReader .readerPositionChip { color: var(--wiki-text); background: var(--wiki-surface-raised); border-color: var(--wiki-border); }
+.focusMapReader .pageReader h2 { font-size: 22px; line-height: 1.25; }
+.focusMapReader .readerClose { padding: 0; width: 32px; height: 32px; }
+.focusMapReader .pageReader:not(.expanded) .readerHead { padding: 18px 17px; }
+.focusMapReader .pageReader .readerBody { color: var(--wiki-text); font-size: 13px; }
+.focusMapReader .pageReader .readerScroll { padding: 14px 17px; }
+.focusMapReader .pageReader.expanded { position: fixed; background: var(--wiki-surface); border-color: var(--wiki-border); }
+.focusMapReaderEmpty { border-left: 1px solid var(--wiki-border); padding: 30px 24px; }
+.focusMapReaderEmpty h2 { margin: 9px 0 15px; font-size: 21px; }
+.focusMapReaderEmpty p { font-size: 13px; line-height: 1.7; color: var(--wiki-text-muted); margin-bottom: 16px; }
+.focusMapNotice { padding: 12px; border: 1px solid var(--wiki-border); margin-top: 12px !important; }
+.focusMapSrOnly { position: absolute; top: 0; left: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 1250px) {
+  .focusMapBody { grid-template-columns: 210px minmax(0, 1fr); overflow: auto; }
+  .focusMapReader, .focusMapReaderEmpty { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--wiki-border); min-height: 460px; }
+  .focusMapReader .pageReader:not(.expanded) { min-height: 500px; max-height: 70dvh; }
+  .focusMapSearch, .focusMapExplorer { overflow: visible; }
+}
+@media (max-width: 760px) {
+  .focusMapHeader { padding: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .focusMapHeader h1 { font-size: 21px; }
+  .focusMapHeaderActions { justify-content: space-between; width: 100%; font-size: 11px; }
+  .focusMapBody { display: flex; flex-direction: column; overflow: visible; }
+  .focusMapSearch { border-right: 0; border-bottom: 1px solid var(--wiki-border); padding: 15px 16px; }
+  .focusMapSearchResults { max-height: 170px; overflow: auto; }
+  .focusMapSearchResults button { min-height: 58px; }
+  .focusMapSnapshot { display: none; }
+  .focusMapExplorer { padding: 18px 16px; }
+  .focusMapToolbar { align-items: flex-start; margin-bottom: 18px; }
+  .focusMapToolbar button, .focusMapToolbar select, .focusMapSelectionActions button { min-height: 44px; }
+  .focusMapFocusHeading { align-items: flex-start; }
+  .focusMapFocusHeading h2 { font-size: 19px; }
+  .focusMapCanvas { max-height: 380px; }
+  .focusMapCanvasTools { align-items: flex-start; }
+  .focusMapSelection { align-items: flex-start; }
+  .focusMapRelations button { min-height: 48px; align-items: flex-start; flex-direction: column; }
+  .focusMapEdgeDetails dl { grid-template-columns: 95px minmax(0, 1fr); }
+  .focusMapEdgeEndpoints { flex-wrap: wrap; }
+  .focusMapReader .pageReader.expanded { inset: 8px; transform: none; width: auto; }
+  .focusMapReader .readerClose { width: 44px; height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .focusMap *, .focusMap *::before, .focusMap *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

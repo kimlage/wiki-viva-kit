@@ -493,6 +493,7 @@ export function PageReader({
   demo,
   snapshotSource,
   loadPageContent,
+  embedded = false,
   devMode,
   trail,
   packetIds,
@@ -512,6 +513,8 @@ export function PageReader({
   demo: boolean;
   snapshotSource?: string;
   loadPageContent: OperatorPort["loadPageContent"];
+  /** An inline reader shares keyboard focus with its surrounding navigation. */
+  embedded?: boolean;
   devMode?: boolean;
   trail: PageRecord[];
   packetIds: string[];
@@ -548,6 +551,7 @@ export function PageReader({
   }, [pageId]);
 
   useEffect(() => {
+    if (embedded) return undefined;
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     return () => {
       const restoreFocus = () => {
@@ -561,7 +565,7 @@ export function PageReader({
       if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(restoreFocus);
       else window.setTimeout(restoreFocus, 0);
     };
-  }, []);
+  }, [embedded]);
 
   useEffect(() => {
     let active = true;
@@ -605,18 +609,21 @@ export function PageReader({
   useEffect(() => {
     const dock = dockRef.current;
     if (!dock) return undefined;
-    dock.focus();
+    const modal = !embedded || expanded;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (modal) dock.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && modal) {
         event.stopPropagation();
         onCloseRef.current();
         return;
       }
       if ((event.key === "f" || event.key === "F") && !(event.target as HTMLElement)?.closest?.("input, textarea")) {
+        event.preventDefault();
         setExpanded((value) => !value);
         return;
       }
-      if (event.key !== "Tab") return;
+      if (event.key !== "Tab" || !modal) return;
       const focusables = [...dock.querySelectorAll<HTMLElement>(
         "a[href], button, details summary, input, [tabindex]:not([tabindex='-1'])"
       )].filter((element) => {
@@ -638,8 +645,15 @@ export function PageReader({
       }
     };
     dock.addEventListener("keydown", onKey);
-    return () => dock.removeEventListener("keydown", onKey);
-  }, [pageId]);
+    return () => {
+      dock.removeEventListener("keydown", onKey);
+      if (embedded && modal) {
+        const restore = () => { if (opener?.isConnected) opener.focus(); };
+        if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(restore);
+        else restore();
+      }
+    };
+  }, [pageId, embedded, expanded]);
 
   const groups = useMemo(() => (page ? relationGroups(bundle, page, content) : null), [bundle, content, page]);
   const projection = useMemo(
@@ -726,8 +740,8 @@ export function PageReader({
         className={expanded ? "pageReader expanded" : "pageReader"}
         aria-label={t("reader.aria", { title: page.title })}
         aria-labelledby="page-reader-title"
-        role="dialog"
-        aria-modal="true"
+        role={embedded && !expanded ? "complementary" : "dialog"}
+        aria-modal={embedded && !expanded ? undefined : true}
         ref={dockRef}
         tabIndex={-1}
       >

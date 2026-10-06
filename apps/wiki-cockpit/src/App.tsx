@@ -1781,8 +1781,9 @@ export function App({ ports }: { ports: ApplicationPorts }) {
 
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
-  const sourceWorkspaceOpen = route.kind === "world" && route.query.dock === "source";
-  const requestedDock = worldRoute && ["codex", "approve", "gates", "intake", "work", "blocks", "admin"].includes(worldRoute.query.dock || "")
+  const isFocusMap = worldRoute?.query.projection === "2d";
+  const sourceWorkspaceOpen = !isFocusMap && route.kind === "world" && route.query.dock === "source";
+  const requestedDock = !isFocusMap && worldRoute && ["codex", "approve", "gates", "intake", "work", "blocks", "admin"].includes(worldRoute.query.dock || "")
     ? worldRoute.query.dock
     : null;
   const dockPresence = useSurfacePresence(Boolean(requestedDock));
@@ -1919,7 +1920,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
           fallback / degraded mode, which has no in-world command bar. */}
       {!isWorld && <Nav active={active} demo={route.demo} dockHref={dockHref} />}
       <div className="mainColumn">
-        <header className="topBar">
+        {!isFocusMap && <header className="topBar">
           <div>
             <strong>Wiki Viva Cockpit</strong>
             {loadState.status === "ready" && (
@@ -1958,15 +1959,15 @@ export function App({ ports }: { ports: ApplicationPorts }) {
               )}
             <AppearanceControl />
           </div>
-        </header>
-        {route.demo && (
+        </header>}
+        {route.demo && !isFocusMap && (
           <div className="demoBanner" role="note">
             <Sparkles size={15} />
             <span>{t(worldRoute?.query.genesis ? "demo.bannerGenesis" : "demo.banner")}</span>
           </div>
         )}
         {content}
-        {activeBrief && !route.demo && (
+        {activeBrief && !route.demo && !isFocusMap && (
           <BriefStudio
             brief={activeBrief}
             capability={codexCapability}
@@ -1981,7 +1982,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onClose={() => setActiveBrief(null)}
           />
         )}
-        {dockPresence.mounted && (
+        {dockPresence.mounted && !isFocusMap && (
         <div
           className={dockPresence.phase === "closing" ? "appDockPresence closing" : "appDockPresence"}
           aria-hidden={dockPresence.phase === "closing" ? true : undefined}
@@ -2097,7 +2098,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
         )}
         </div>
         )}
-        {commandResult && (
+        {commandResult && !isFocusMap && (
           <div className={isWorld ? "worldOutputDock" : undefined}>
             {isWorld && (
               <button className="readerClose outputDockClose" onClick={() => setCommandResult(null)} title="Fechar resultado" type="button">
@@ -2107,12 +2108,12 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             <CommandOutput result={commandResult} />
           </div>
         )}
-        <AdminStatusStrip
+        {!isFocusMap && <AdminStatusStrip
           lockAdminSession={admin.lockAdminSession}
           renewAdminSession={admin.renewAdminSession}
           onNotice={notify}
           onOpenDock={() => navigate(hrefForWorldPatch(navWorld, { dock: "admin" }))}
-        />
+        />}
         {busyAction && (
           <div className="actionToast running" role="status">
             <span className="toastSpinner" aria-hidden />

@@ -11,7 +11,7 @@ test("standalone component styles consume the shared semantic theme contract", (
   const files = fs.readdirSync(COMPONENT_ROOT)
     .filter((name) => name.endsWith(".css"))
     .sort();
-  assert.deepEqual(files, ["pack-workbench.css", "timeline.css"]);
+  assert.deepEqual(files, ["focus-map.css", "pack-workbench.css", "timeline.css"]);
 
   for (const name of files) {
     const source = fs.readFileSync(path.join(COMPONENT_ROOT, name), "utf8");
