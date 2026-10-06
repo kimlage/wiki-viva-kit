@@ -139,7 +139,7 @@ interface probes connector names without returning raw CLI configuration and
 blocks delegation when the declared connector is missing. Successful
 configuration, deterministic inventory or script operations write a redacted receipt under
 `data/derived/wiki/source-operations/`; connector execution continues through
-the existing governed job runner and human review gate.
+the existing governed job runner and repository PR review policy.
 
 ## Visual identity in the source registry
 

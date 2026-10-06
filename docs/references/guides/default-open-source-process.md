@@ -4,7 +4,7 @@ page_id: guide-default-open-source-process
 page_type: reference_guide
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: process_reference
 gate: github_pr
@@ -15,7 +15,7 @@ sensitive_data_policy: private_sensitive_allowed
 
 This guide is the complete default process for operating Wiki Viva Kit as an
 open-source Markdown/Git living wiki. It describes the default entities, the
-ingestion lifecycle, the human gate, the deterministic gates, and the boundaries
+ingestion lifecycle, the PR review gate, the deterministic gates, and the boundaries
 between public reusable toolkit behavior and downstream private wiki content.
 
 It is intentionally a reference guide, not a status page. Live method pages,
@@ -29,7 +29,9 @@ Wiki Viva Kit is a repository pattern:
 
 - Markdown pages are the canonical memory.
 - Git history is the audit trail.
-- Pull Requests are the human gate.
+- Pull Requests are the review boundary under [AGENTS.md](../../../AGENTS.md).
+  This kit requires independent conceptual review and passing gates/CI;
+  consumers retain their own review and promotion policies.
 - Python performs deterministic compilation, checking, indexing and reporting.
 - The agent performs the semantic deep read and integration work.
 - Derived artifacts are reproducible cache, not canonical truth.
@@ -51,12 +53,12 @@ flowchart LR
     Integrate --> Compile["Recompile cockpit"]
     Compile --> Gates["Run deterministic gates"]
     Gates --> PR["Open PR"]
-    PR --> Review["Human review"]
+    PR --> Review["Independent PR review"]
     Review --> Main["Merge to main"]
 ```
 
 The invariant is simple: `main` is approved memory. A `wiki/<topic>` branch is a
-proposal until a human approves and merges it.
+proposal until repository review requirements pass and it is merged.
 
 ## Default repository shape
 
@@ -97,8 +99,8 @@ drafts and approved memory.
 | --- | --- | --- | --- |
 | Raw source | A downloaded PDF, export, email, spreadsheet or URL capture | No | Operator before ingestion |
 | Derived cache | Manifest, chunks, FTS index, LLM request, LLM result cache, integration packet | No | Deterministic gates |
-| Proposal | Ingestion proposal, normalized event, branch diff | Not yet | CI plus human PR review |
-| Approved memory | Merged pages on `main` | Yes | Human gate |
+| Proposal | Ingestion proposal, normalized event, branch diff | Not yet | CI plus repository PR review |
+| Approved memory | Merged pages on `main` | Yes | Repository PR review |
 
 The most important rule follows from this table: an extracted source, a cached
 LLM result or a green local command is not approved memory. It becomes memory
@@ -146,7 +148,7 @@ The default open-source profile uses:
 | `contexts: example` | The kit includes a small example context. |
 | `default_visibility: private_self` | Downstream memories default to private. |
 | `private_sensitive_allowed: true` | PII is permitted on private pages. |
-| `approval.gate: github_pr` | The human gate is the Pull Request. |
+| `approval.gate: github_pr` | The review boundary is the Pull Request. |
 | `approval.branch_prefix: wiki/` | Proposal branches use the tool-neutral prefix. |
 | `llm.required_context_pass: true` | A context request with chunks must have recorded results. |
 | `audit.forbid_access_secrets: true` | Access secrets are blocked everywhere. |
@@ -379,7 +381,7 @@ or a documented non-ingestion outcome.
 ## Ingestion lifecycle
 
 The ingestion lifecycle has deterministic steps, one delegated semantic step,
-and one human gate.
+and one PR review gate.
 
 ```mermaid
 sequenceDiagram
@@ -387,7 +389,7 @@ sequenceDiagram
     participant Toolkit
     participant Agent
     participant Repo
-    participant Human
+    participant Reviewer
     Operator->>Toolkit: wiki_input_stage.py --check
     Operator->>Toolkit: wiki_ingest.py --source ... --context ...
     Toolkit->>Toolkit: manifest, extract, chunk, index, pre-scan, input context
@@ -396,8 +398,8 @@ sequenceDiagram
     Agent->>Toolkit: wiki_consolidate.py --emit-event --packet
     Agent->>Repo: integrate target pages on wiki branch
     Repo->>Repo: audit, consolidate, quality, cockpit, tests
-    Agent->>Human: open PR with summary
-    Human->>Repo: review and merge
+    Agent->>Reviewer: open PR with summary
+    Reviewer->>Repo: review; merge after approval and green gates
 ```
 
 ### 1. Compile the root/input stage
@@ -583,7 +585,8 @@ Generate a mechanical summary with:
 python3 scripts/wiki_pr_summary.py
 ```
 
-The human reviewer approves or requests changes. Only the merge to `main`
+The independent reviewer approves or requests changes under repository policy.
+Record the reviewed head SHA and renew review after a head change. Only the merge to `main`
 promotes the proposal to approved wiki memory.
 
 ## Deterministic gates
@@ -697,7 +700,7 @@ The default daily loop is:
 6. Recompile generated input/registry/operational pages.
 7. Run gates.
 8. Open or update the PR.
-9. Human reviews.
+9. An independent reviewer reviews under the repository policy.
 10. Merge to `main`.
 
 The detailed daily loop belongs in the consumer's configured method pages.
@@ -749,7 +752,7 @@ A process change is done when:
 - Memory-layer changes, if any, have an append-only log entry.
 - Generated cockpit/operational surfaces are recompiled when memory changed.
 - The local gates pass or any failure is explicitly explained.
-- A human can review the PR and understand the conceptual diff.
+- An independent reviewer can read the PR and understand the conceptual diff.
 
 A source ingestion is done when:
 

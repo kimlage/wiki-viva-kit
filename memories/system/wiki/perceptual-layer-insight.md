@@ -8,12 +8,12 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-purpose: "Document the perceptive layer (journal, map, infographic) and the insight job that emits proposals for the human gate without writing canonical memory."
+purpose: "Document the perceptive layer (journal, map, infographic) and the insight job that emits proposals for the PR review gate without writing canonical memory."
 moc_parent: memories/system/wiki/index.md
 related_pages:
   - memories/system/wiki/index.md
@@ -160,7 +160,7 @@ itself) is delegated to the agent that runs the repo; the promotion to memory pa
 It is the same architecture as the LLM pass of the ingestion, documented in
 [ingestion-process.md](../ingestion-process.md): the Python code is
 deterministic and honest about its limits; the interpretive intelligence lives
-in the agent, behind a human gate.
+in the agent, behind the repository's PR review gate.
 
 ### What the job gathers
 
@@ -199,7 +199,7 @@ git):
 The fields the proposal must contain are fixed in `INSIGHT_PROPOSAL_FIELDS`:
 title, reading (the read in one sentence), evidence (list of chunk/page/event),
 uncertainty, possible_action and status_epistemologico — this last one always
-`candidato` until the human gate.
+`candidato` until the PR review gate.
 
 The `--dry-run` flag computes everything in memory without writing anything, useful for inspecting
 how much evidence exists about a theme before opening a proposal.
@@ -221,7 +221,7 @@ power:
    truth, does not call a model, does not touch canonical memory.
 2. **The agent** that runs the repo reads the package, synthesizes the insight in the fields of the
    proposal and declares uncertainty. It interprets, but does not publish.
-3. **The human** reviews the proposal and promotes it (or not) to memory via PR, under the
+3. **The independent reviewer** reviews the proposal before promotion to memory via PR, under the
    auditing described in [gates-and-audit.md](gates-and-audit.md) and the flow
    of [git-approvals.md](../git-approvals.md).
 

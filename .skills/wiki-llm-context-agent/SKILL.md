@@ -87,7 +87,7 @@ ingesting = integrating.
 ## Rules
 
 - Never write canonical memory directly; the result is event/proposal material for
-  human review via PR.
+  PR review under the repository's [AGENTS.md](../../AGENTS.md).
 - Fill in the four quadrants or declare explicit absence (the validator
   fails an empty quadrant).
 - Every claim declares `status_epistemologico` and references the `chunk_id`.

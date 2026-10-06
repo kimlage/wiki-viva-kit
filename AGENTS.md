@@ -7,7 +7,7 @@ agent operating the repository.
 ## Working contract
 
 - `main` is approved truth. Work in `wiki/<theme>` (or another focused branch),
-  run the project gates, review the conceptual diff and use a human-reviewed PR.
+  run the project gates and use an independently reviewed PR with passing CI.
 - Public-kit corrections are proved here with public synthetic fixtures before
   downstream use. Never copy private personal, financial or client data into
   this repository.
@@ -17,6 +17,21 @@ agent operating the repository.
 - Source ingestion enters through [scripts/wiki_ingest.py](scripts/wiki_ingest.py).
   The agent writes the delegated LLM result through
   [.skills/wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md).
+
+## PR review policy
+
+- Before merging this kit, a reviewer independent of the change's author must
+  approve the conceptual diff, privacy and validation evidence. The reviewer
+  may be another agent or a human; the author cannot self-approve.
+- Record the reviewer, exact reviewed head SHA, findings and their resolution
+  in the PR or a referenced review artifact. All applicable project gates and
+  normal CI must pass on that head. A later head change requires renewed review.
+- Human review is not an additional kit requirement. Describe agent review as
+  agent review, never as human review. Publication still requires operator
+  authorization; privacy and secret failures remain non-waivable.
+- Consumers retain their own PR review and promotion policies. Historical
+  references and legacy identifiers such as `needs_human_gate` do not override
+  this policy; stored states, transition checks and history remain unchanged.
 
 ## Upgrades and releases
 
@@ -43,7 +58,7 @@ python3 /path/to/wiki-viva-kit/scripts/wiki_sync_from_kit.py \
 - `kit.lock` records source SHA, manifest/tree digests and managed files without
   host paths or private evidence.
 - Reversibility is the PR. Promotion requires the kit's normal CI, the
-  consumer's own gates and the human PR gate.
+  consumer's own gates and its own PR review policy.
 
 A kit release is a tag, release notes and an **Upgrading** section describing
 consumer migrations. No capsule or certification ceremony is required.

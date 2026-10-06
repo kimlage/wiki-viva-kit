@@ -8,12 +8,12 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-purpose: "The human gate by PR: main = approved, wiki/<theme> branches = proposals, with checklist, split and status across two dimensions."
+purpose: "The review gate by PR: main = approved, wiki/<theme> branches = proposals, with checklist, split and status across two dimensions."
 moc_parent: memories/system/wiki/index.md
 related_pages:
   - memories/system/wiki/index.md
@@ -23,20 +23,21 @@ related_pages:
 
 # Governance and PR flow
 
-Last updated: 2026-06-09.
+Last updated: 2026-10-06.
 
 The living wiki has no server, nor an approval queue of its own: the **gate** is the
 Git pull request. The underlying rule is simple and has a strong consequence:
 
-- `main` **is the approved wiki**. Everything in `main` has been reviewed by a
-  human and can be cited as operational truth.
+- `main` **is the approved wiki**. Promotion follows the repository's PR review
+  policy and applicable gates; agent review must not be described as human review.
 - `wiki/<theme>` branches **are proposals**. A branch is a living draft until
   the PR is reviewed and merged; before that, nothing in it counts as approved.
 
 The deterministic code (CI/audit) guarantees what is mechanical — links, secrets,
 tests, cockpit freshness. It does **not** guarantee that the idea is correct. That part
-belongs to the human reviewer. This page describes where the machine stops and the
-person begins.
+belongs to a reviewer independent of the author. This kit permits another agent
+or a human to review under [AGENTS.md](../../../AGENTS.md). Consumers retain their
+own policy.
 
 Method references for this page: the gate rule in
 [git-approvals.md](../git-approvals.md), the contract in
@@ -47,7 +48,7 @@ in [methodology-coverage-v5.md](../methodology-coverage-v5.md).
 ## main approved, wiki/<theme> branch proposed
 
 The flow of a proposal is linear and has named states (created, compiling,
-ready for review, awaiting the human gate, approved/published, or
+ready for review, awaiting PR review, approved/published, or
 superseded/rejected/archived). The complete state machine lives in
 [git-approvals.md](../git-approvals.md); what matters here is the life cycle
 seen by governance:
@@ -55,27 +56,28 @@ seen by governance:
 1. A branch is created from `main` with the tool-neutral prefix.
 2. The author (human or agent) compiles manifests, events, pages and the diff.
 3. The local validations run (audit, coverage, cockpit freshness).
-4. The PR is opened; a human reviews the **content**, not just the file list.
-5. Only then does the merge into `main` occur.
+4. The PR is opened; an independent reviewer reads the **content**, not just the file list.
+   Record the reviewer, exact head SHA and findings; renew review after a head change.
+5. Merge into `main` occurs only after approval and passing gates/CI on that head.
 
 The exchange between the agent that prepares the proposal, the repository that runs
-the deterministic checks, and the human who owns the conceptual call:
+the deterministic checks, and the independent reviewer who owns the conceptual call:
 
 ```mermaid
 sequenceDiagram
     participant Agent
     participant Repo as Repository (branch + CI)
-    participant Human
+    participant Reviewer
     Agent->>Repo: Open branch and push the proposal
     Repo->>Repo: Run audit, coverage, cockpit checks
     Repo-->>Agent: Report mechanical pass or fail
-    Agent->>Human: Open the PR with sources, diff and risks
-    Human->>Human: Review the conceptual diff and privacy
+    Agent->>Reviewer: Open the PR with sources, diff and risks
+    Reviewer->>Reviewer: Review the conceptual diff and privacy
     alt Approved
-        Human->>Repo: Merge into main
+        Reviewer->>Repo: Approve; merge after green gates
         Repo-->>Agent: Proposal becomes approved truth
     else Changes requested
-        Human-->>Agent: Request fixes; branch stays a proposal
+        Reviewer-->>Agent: Request fixes; branch stays a proposal
     end
 ```
 
@@ -99,10 +101,11 @@ not a value hardcoded in the code. Recommended patterns:
 The motivation is portability: the methodology should run the same way in the personal repo and in the
 open-source version, without tying the history to whoever operated it.
 
-## Human review: what the CI does not see
+## Independent review: what the CI does not see
 
-The model separates **two roles**. The CI validates the mechanical; the human validates the
-conceptual. Even when an agent opens the PR, a human needs to mark, in the
+The model separates **two roles**. The CI validates the mechanical; an independent
+reviewer validates the conceptual. The author cannot self-approve. The reviewer
+marks, in the
 [pull_request_template.md](../../../.github/pull_request_template.md), four items
 that no script can judge:
 
@@ -158,7 +161,7 @@ The honesty rule: **"done" requires both dimensions**. Without evidence of
 real use, the most that can be claimed is `core_status: implemented` with
 `operational_status: pilot`. Code written and tested, but that no one has used in a
 real flow, is not "ready" — it is a pilot. This convention feeds directly into the
-"Honest status" item of the human review checklist.
+"Honest status" item of the independent review checklist.
 
 ## Validation in a clean clone
 
@@ -183,7 +186,7 @@ Practical consequences:
 Open as a **draft** whenever there is risk: privacy, sensitive-data
 classification, change of a living source, scope doubt or broad
 consolidation. Make it **ready for review** only after the local audit passes and the
-conceptual diff has been reread. The merge into `main` only happens after the human review of the
+conceptual diff has been reread. The merge into `main` only happens after the independent review of the
 complete package — sources, synthesis, risks, validations and pending items — because, once
 again, `main` is the approved wiki and everything in it becomes operational truth.
 

@@ -51,10 +51,17 @@
 - [ ] [scripts/wiki_audit.py](../scripts/wiki_audit.py) `--check` validated clickable local links.
 - [ ] Existing scripts remain valid if they were touched.
 
-## Human review
+## Independent review
 
 > The CI validates links, secrets, and tests; it does NOT validate whether the idea is correct. The
-> items below belong to the human reviewer (even when an agent opened the PR).
+> items below belong to a reviewer independent of the author, under [AGENTS.md](../AGENTS.md).
+> Another agent may review this kit. Agent review must not be reported as human review.
+
+- Reviewer and review artifact:
+- Exact reviewed head SHA:
+- Findings and resolution:
+- [ ] The independent reviewer approved this head; all applicable gates and CI passed on it.
+- [ ] Any head change after review received renewed independent review.
 
 - [ ] **I read the conceptual diff** (what changes in behavior), not just the list of files.
 - [ ] **Privacy checked**: PII only on a private page (ok); no access secret; public export redacted.

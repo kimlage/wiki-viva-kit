@@ -75,7 +75,7 @@ python3 scripts/wiki_sync_from_kit.py \
 - `kit.lock` is portable and contains no host path, private route or evidence.
 - Re-run B0: a stable consumer should show no C1 delta.
 - Run the consumer's audit, pytest, Vitest/TypeScript/build and local operator.
-- Use the PR for review, rollback and human promotion.
+- Use the PR for review, rollback and promotion under the consumer's own review policy.
 
 Privacy/secret failures remain fail-closed. Personal data is valid in a private
 wiki but not in a public export; access secrets are blocked everywhere.
@@ -83,7 +83,8 @@ wiki but not in a public export; access secrets are blocked everywhere.
 ## Release the kit
 
 A release is a tag plus release notes and an **Upgrading** section. Run the
-normal project CI and use a human-reviewed PR. Never push or publish when the
+normal project CI and use an independently reviewed PR under [AGENTS.md](../../AGENTS.md).
+Never push or publish when the
 operator has not authorized publication.
 
 ## Core gates

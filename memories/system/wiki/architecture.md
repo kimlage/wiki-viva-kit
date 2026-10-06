@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-28
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -38,7 +38,7 @@ that sustain it, and the map of the modules. For the step-by-step ingestion, see
 
 The living wiki is a Markdown/Git kit for operating a **living operational** wiki: a
 body of pages that ingests external sources (PDFs, spreadsheets, emails, CSVs, URLs),
-compiles those sources into consolidated knowledge, passes through a human gate via
+compiles those sources into consolidated knowledge, passes through a review gate via
 Pull Request, and maintains health indicators (freshness, coverage, karma) over
 time. The kit has two complementary halves:
 
@@ -77,7 +77,7 @@ flowchart LR
     end
     Agent(["Agent: deep read"])
     Proposal["Ingestion proposal"]
-    Gate{"PR gate (human review)"}
+    Gate{"PR gate (repository review policy)"}
     Memory[("Consolidated memory")]
 
     Root --> InputStage
@@ -157,9 +157,9 @@ and the gate is the GitHub PR described in [pr-governance.md](pr-governance.md).
   See [karma-gamification.md](karma-gamification.md).
 - **Perceptive layer.** Beyond the factual consolidated body, the system has an
   Information -> Insight cycle: journal/relations map and a job that gathers signals already
-  existing and opens an insight PROPOSAL (status `candidato`, i.e. candidate) for the human gate.
+  existing and opens an insight PROPOSAL (status `candidato`, i.e. candidate) for the PR review gate.
   See [perceptual-layer-insight.md](perceptual-layer-insight.md).
-- **Human gate by PR.** `main` is the approved wiki; `wiki/*` branches are living
+- **Review gate by PR.** `main` is the approved wiki; `wiki/*` branches are living
   proposals; each PR shows sources, changed pages, privacy risks, validations
   and pending items. See [pr-governance.md](pr-governance.md) and
   [git-approvals.md](../git-approvals.md).

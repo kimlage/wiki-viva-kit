@@ -4,7 +4,7 @@ page_id: guide-wiki-viva-v8-downstream-upgrade
 page_type: reference_guide
 context: system
 visibility: public_candidate
-updated_at: 2026-08-28
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: release_runbook
 gate: github_pr
@@ -24,7 +24,7 @@ flowchart LR
     C1 --> C2["C2 regenerate"]
     C2 --> C3["C3 consumer migration"]
     C3 --> Gates["Consumer gates"]
-    Gates --> Human["Human review + merge"]
+    Gates --> Review["Consumer PR review + merge"]
 ```
 
 ## 1. Pin the kit source
@@ -140,8 +140,9 @@ ignored. Privacy and access-secret failures are always fail-closed.
 ## 6. Promote
 
 Inspect `kit.lock`, the conceptual diff, generated artifacts and consumer-owned
-C3 changes. Merge only through the human PR gate after consumer CI and visual
-readback are green. Publish the local or deployed test URL separately; never
+C3 changes. Merge only through the consumer's own PR review policy after
+consumer CI and visual readback are green. The kit's review policy does not
+replace consumer-owned approval requirements. Publish the local or deployed test URL separately; never
 embed private routes in public kit evidence.
 
 ## Historical package

@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-06
+updated_at: 2026-10-06
 stale_after_days: 30
 moc_parent: memories/system/wiki-viva-kit.md
 sources_policy: memoria_consolidada
@@ -66,7 +66,7 @@ mindmap
 ## Memory policy
 
 - `main` is the approved wiki. `wiki/*` branches are live proposals; the PR is the
-  human gate.
+  PR review gate.
 - On private pages, memory may record personal data (PII) when useful; access
   secrets never go anywhere.
 - Every local reference to a file inside the repo must be a clickable Markdown link.

@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-08-27
+updated_at: 2026-10-06
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,20 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-10-06] System | Independent PR review policy
+
+- The kit requires a reviewer independent of the author, who may be another
+  agent or a human, plus all applicable gates and CI on the reviewed head.
+  Review records identify the reviewer, SHA, findings and resolution; a head
+  change requires renewed review. Agent review is not human review.
+- Aligned [Git approvals](git-approvals.md),
+  [PR governance](wiki/pr-governance.md), the
+  [operational contract](operational-wiki-contract.md) and portable operating
+  references with [AGENTS.md](../../AGENTS.md).
+- Consumers retain their own review policy. Privacy, secret detection, proposal
+  transitions, legacy identifiers and historical evidence remain intact.
+  This policy does not configure hosting, access controls or credentials.
 
 ## [2026-08-28] System | V8.1 source operations consolidated for downstream migration
 

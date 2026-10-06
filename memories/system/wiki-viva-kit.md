@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-11
+updated_at: 2026-10-06
 stale_after_days: 30
 sources_policy: root_entity_contract
 gate: github_pr
@@ -126,7 +126,7 @@ flowchart TD
 
 | Person or group | Role | Responsibility | Source |
 | --- | --- | --- | --- |
-| Wiki owner | Maintainer/reviewer | Reviews conceptual changes before `main` becomes approved memory. | [git-approvals.md](git-approvals.md) |
+| Wiki owner | Maintainer/reviewer | Sets the review policy; independent reviewers assess conceptual changes before `main` becomes approved memory. | [git-approvals.md](git-approvals.md) |
 | Repo agent | Operator | Runs deterministic gates, prepares proposals and records delegated deep reads. | [AGENTS.md](../../AGENTS.md) |
 
 ## Artifacts and Observable Outputs

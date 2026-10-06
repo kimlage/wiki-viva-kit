@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-08-28
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -80,7 +80,7 @@ flowchart TD
 | [privacy.md](privacy.md) | Two axes: PII free in private; secrets blocked always. |
 | [karma-gamification.md](karma-gamification.md) | 8-dimension karma as a by-product, without a leaderboard. |
 | [perceptual-layer-insight.md](perceptual-layer-insight.md) | Journal/map and the Information -> Insight cycle. |
-| [pr-governance.md](pr-governance.md) | Human gate by PR, review, split and status across two dimensions. |
+| [pr-governance.md](pr-governance.md) | Review gate by PR, review, split and status across two dimensions. |
 | [operation-costs.md](operation-costs.md) | Where the cost goes (agent session, human) and levers: Batches, model by profile, budget. |
 | [command-reference.md](command-reference.md) | Reference of all the `wiki_*` CLIs, including [wiki_quality_report.py](../../../scripts/wiki_quality_report.py). |
 

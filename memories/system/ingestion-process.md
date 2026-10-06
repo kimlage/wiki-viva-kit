@@ -3,7 +3,7 @@ page_id: system-ingestion-process
 page_type: operational_rule
 context: system
 visibility: private_self
-updated_at: 2026-08-28
+updated_at: 2026-10-06
 stale_after_days: 90
 sources_policy: contrato_wiki_operacional
 gate: github_pr
@@ -38,7 +38,7 @@ steps below are the breakdown of that flow, useful when running it step by step.
 
 To close the **Information -> Insight** cycle, [scripts/wiki_insight_job.py](../../scripts/wiki_insight_job.py)
 gathers events+chunks+pages by theme and emits a PROPOSAL of an insight (candidate)
-for a human gate — without writing canonical memory.
+for a PR review gate — without writing canonical memory.
 
 The orchestrated path, end to end:
 
@@ -67,7 +67,7 @@ The deterministic stages, the command that runs each, and what gates it:
 | Pre-scan + context package | [wiki_ingest.py](../../scripts/wiki_ingest.py) | secret blocks (exit 2); emits the `-request.json` |
 | Deep read | [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) | `required_context_pass` requires a recorded result |
 | Consolidate + integrate | [wiki_consolidate.py](../../scripts/wiki_consolidate.py) | new event needs `consolidated_into`; `--check` fails a read source without integration (CI) |
-| Consolidation + audit | [wiki_audit.py](../../scripts/wiki_audit.py) | contract/links/secrets; human approval on the PR |
+| Consolidation + audit | [wiki_audit.py](../../scripts/wiki_audit.py) | contract/links/secrets; repository review policy on the PR |
 
 ## Flow
 
@@ -104,7 +104,7 @@ The deterministic stages, the command that runs each, and what gates it:
    original source.
 13. Update related pages and [memories/system/log.md](log.md).
 14. Run the audit and review the diff in a PR.
-15. Merge only after human approval.
+15. Merge only after repository PR review requirements and gates pass.
 
 ## Private extraction criteria
 

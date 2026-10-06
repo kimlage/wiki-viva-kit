@@ -29,7 +29,7 @@ Use this generic skill in repos that adopted the portable wiki kit.
 - Do not persist access secrets.
 - Private useful operational context may be extracted in private repos when the repo policy allows it.
 - Every local file, directory, script, template or page reference in Markdown should be a real Markdown link.
-- Canonical memory changes go through a branch and human PR gate.
+- Canonical memory changes go through a branch and the PR review policy in [AGENTS.md](../../AGENTS.md).
 - Keep navigation hierarchical: root MOC -> context/domain hub -> entity/subdomain hub -> relation/evidence pages -> execution/event pages.
 - Use the configured root entity as the semantic top page; the root MOC remains
   the technical map of content.
