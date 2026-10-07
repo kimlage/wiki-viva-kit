@@ -4,6 +4,14 @@ Local-first web cockpit for Wiki Viva. The 3D scene is the primary navigation
 surface: one continuous knowledge world where drill level is camera altitude
 bound to the URL and reading happens inside the world.
 
+An optional **Connected knowledge · 2D** surface starts with a connected
+overview, then keeps selection and canonical reading while switching between
+Connections, Areas, Sources and Work. Open `/w?projection=2d` or the synthetic
+`/demo/w?projection=2d&tour=0`. See the
+[navigation and upgrading guide](../../docs/references/guides/connected-knowledge-map.md)
+for recorded direction/provenance, progressive focus, bounded drawing,
+keyboard controls and reduced motion.
+
 ## Source-management workspace
 
 The source manager is a standalone 2D application surface. Open

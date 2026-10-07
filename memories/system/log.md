@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-10-06
+updated_at: 2026-10-07
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,40 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-10-07] System | Connected-map interaction and interruption fixes
+
+- Added pointer/focus exploration of drawn neighbors and exact connection
+  endpoints, human previews with summary/provenance actions, relation colors
+  and distinct stroke patterns aligned with their legend. Exploration preserves
+  the URL and canonical body; click/touch pins original records and Escape or a
+  background click clears them without recentering. Dragging preserves the pin.
+- Kept edge hit bands and parallel spacing useful at zoom-out scales. Visible
+  curve centers take precedence over transparent bands; keyboard and incident
+  lists remain available when dense/compact geometry obstructs pointer access.
+- A paused, reduced-motion or hidden-document fit finishes its pending camera
+  destination; manual pan/zoom cancels an obsolete destination. Preview actions
+  transfer focus before they disappear, retaining keyboard Escape behavior.
+- Added synthetic camera and real browser interaction regressions. The
+  [guide](../../docs/references/guides/connected-knowledge-map.md) documents actual
+  controls and limits. This follow-up changes no graph record, snapshot schema,
+  source lifecycle or downstream migration contract; a new head requires renewed
+  independent review and normal CI before promotion.
+
+## [2026-10-07] System | Connected knowledge navigation
+
+- Added the optional [connected map](../../docs/references/guides/connected-knowledge-map.md)
+  to the [cockpit](../../apps/wiki-cockpit/README.md): one recorded graph,
+  connected overview, progressive neighborhood focus and four geometry
+  perspectives with persistent selection and canonical reading.
+- Human connection labels lead to full original records and provenance.
+  Direction is never inferred; sources remain declared references, not
+  fabricated statement-level evidence. Snapshot integrity and the existing
+  read-only boundary remain authoritative.
+- Finite layout/camera transitions, bounded drawing and reduced-motion support
+  are documented alongside synthetic model and isolated-browser checks.
+  Adoption follows the normal B0/C1/C2 consumer PR; this frontend increment
+  requires no snapshot-schema migration or map-specific C3 operation.
 
 ## [2026-10-06] System | Synthetic Vercel preview command
 

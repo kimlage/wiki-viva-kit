@@ -46,6 +46,18 @@ afterEach(() => {
 });
 
 describe("opt-in 2D map route state", () => {
+  it("preserves connected perspectives, scope and consumer relation keys through all URL writers", () => {
+    const route=worldAt("/demo/w?view=quadrants&center=root&page=source-mail&reader=1&projection=2d&map_scope=all&map_perspective=evidence&map_relation=consumer%3Aref%2F%2B&demo_scenario=walking_skeleton");
+    const state=hydrateWorldRoute({route,pages,rootId:"root"});
+    for(const url of [buildUrl(route),canonicalWorldUrl(state,true,route.query),buildUrl(patchWorld(route,{mapPerspective:"work"}))]) {
+      const restored=worldAt(url);
+      expect(restored.query).toMatchObject({mapScope:"all",mapRelation:"consumer:ref/+",center:"root",page:"source-mail",reader:true,demoScenario:"walking_skeleton"});
+      expect(restored.query.mapPerspective).toBe(url.includes("map_perspective=work")?"work":"evidence");
+    }
+    expect(worldAt("/w?projection=2d&map_perspective=database&map_scope=delete").query).toMatchObject({mapPerspective:"",mapScope:""});
+    expect(worldAt(`/w?map_relation=${"x".repeat(121)}`).query.mapRelation).toBe("");
+    expect(patchWorld(route,{mapPerspective:null,mapScope:null,mapRelation:null}).query).toMatchObject({mapPerspective:"",mapScope:"",mapRelation:""});
+  });
   it("preserves a canonical deep-linked reader without an explicit view during controls and original-cockpit return", () => {
     const route = worldAt("/demo/w?projection=2d&page=source-mail&reader=1&demo_scenario=walking_skeleton");
     for (const patch of [{ mapColor: "category" }, { q: "review" }, { projection: null, mapFocus: null, mapExpanded: [] }] satisfies WorldPatch[]) {

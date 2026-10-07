@@ -44,7 +44,10 @@ const BASE_QUERY: WorldQuery = {
   mapFocus: "",
   mapExpanded: [],
   mapColor: "",
-  mapEdge: ""
+  mapEdge: "",
+  mapPerspective: "",
+  mapScope: "",
+  mapRelation: ""
 };
 
 const world = (
