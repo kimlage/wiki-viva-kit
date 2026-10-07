@@ -1935,6 +1935,10 @@ export function App({ ports }: { ports: ApplicationPorts }) {
               cockpit worktree always is) is NOT "pending approval"; an always-on
               git label was noise. Nothing to approve → no pill. */}
           <div className="topBarActions">
+            {worldRoute && loadState.status === "ready" && <button type="button" data-testid="open-connected-map"
+              onClick={() => navigate(hrefForWorldPatch(worldRoute, {projection:"2d",mapScope:"all",mapPerspective:"network",dock:null,tray:null,packView:null}))}>
+              <GitBranch size={15} /> {t("map.title")} · 2D
+            </button>}
             {realRevalidationFailure && !route.demo && (
               <StatusPill tone="warn">
                 <span title={t("snapshot.revalidationFailed", {

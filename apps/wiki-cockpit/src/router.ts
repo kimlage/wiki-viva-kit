@@ -85,6 +85,9 @@ export type WorldQuery = {
   mapExpanded: string[];
   mapColor: "" | "topic" | "category" | "state";
   mapEdge: string;
+  mapPerspective: "" | "network" | "areas" | "evidence" | "work";
+  mapScope: "" | "all" | "focus";
+  mapRelation: string;
 };
 
 // Compatibility re-export. The canonical surface vocabulary belongs to the
@@ -165,7 +168,10 @@ const EMPTY_QUERY: WorldQuery = {
   mapFocus: "",
   mapExpanded: [],
   mapColor: "",
-  mapEdge: ""
+  mapEdge: "",
+  mapPerspective: "",
+  mapScope: "",
+  mapRelation: ""
 };
 
 function isPerspective(value: string): value is PerspectiveId {
@@ -192,6 +198,19 @@ function asMapColor(value: string | null): WorldQuery["mapColor"] {
   return value === "topic" || value === "category" || value === "state" ? value : "";
 }
 
+function asMapPerspective(value: string | null): WorldQuery["mapPerspective"] {
+  return value === "network" || value === "areas" || value === "evidence" || value === "work" ? value : "";
+}
+
+function asMapScope(value: string | null): WorldQuery["mapScope"] {
+  return value === "all" || value === "focus" ? value : "";
+}
+
+function asMapRelation(value: string | null): string {
+  // A consumer's relation vocabulary is data, not a new core enum.
+  return value && value.length <= 120 ? value : "";
+}
+
 function mapExpanded(values: readonly string[]): string[] {
   const expanded: string[] = [];
   const seen = new Set<string>();
@@ -216,6 +235,9 @@ export function appendFocusMapQuery(params: URLSearchParams, query: WorldQuery):
   for (const id of mapExpanded(query.mapExpanded)) params.append("map_expand", id);
   if (color) params.set("map_color", color);
   if (query.mapEdge) params.set("map_edge", query.mapEdge);
+  if (asMapPerspective(query.mapPerspective)) params.set("map_perspective", query.mapPerspective);
+  if (asMapScope(query.mapScope)) params.set("map_scope", query.mapScope);
+  if (asMapRelation(query.mapRelation)) params.set("map_relation", query.mapRelation);
 }
 
 function temporalDate(value: string | null): string {
@@ -320,7 +342,10 @@ function parseQuery(search: string): WorldQuery {
     mapFocus: params.get("map_focus") || "",
     mapExpanded: mapExpanded(params.getAll("map_expand")),
     mapColor: asMapColor(params.get("map_color")),
-    mapEdge: params.get("map_edge") || ""
+    mapEdge: params.get("map_edge") || "",
+    mapPerspective: asMapPerspective(params.get("map_perspective")),
+    mapScope: asMapScope(params.get("map_scope")),
+    mapRelation: asMapRelation(params.get("map_relation"))
   };
   // The surface singleton holds at parse time too. A hand-crafted URL has no
   // event ordering, so it uses one documented precedence: dock > reader >
@@ -530,6 +555,9 @@ export type WorldPatch = {
   mapExpanded?: string[] | null;
   mapColor?: WorldQuery["mapColor"] | null;
   mapEdge?: string | null;
+  mapPerspective?: WorldQuery["mapPerspective"] | null;
+  mapScope?: WorldQuery["mapScope"] | null;
+  mapRelation?: string | null;
 };
 
 export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
@@ -613,7 +641,10 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
       mapFocus: patch.mapFocus === null ? "" : patch.mapFocus ?? route.query.mapFocus,
       mapExpanded: mapExpanded(patch.mapExpanded === null ? [] : patch.mapExpanded ?? route.query.mapExpanded),
       mapColor: asMapColor(patch.mapColor === undefined ? route.query.mapColor : patch.mapColor),
-      mapEdge: patch.mapEdge === null ? "" : patch.mapEdge ?? route.query.mapEdge
+      mapEdge: patch.mapEdge === null ? "" : patch.mapEdge ?? route.query.mapEdge,
+      mapPerspective: asMapPerspective(patch.mapPerspective === undefined ? route.query.mapPerspective : patch.mapPerspective),
+      mapScope: asMapScope(patch.mapScope === undefined ? route.query.mapScope : patch.mapScope),
+      mapRelation: asMapRelation(patch.mapRelation === undefined ? route.query.mapRelation : patch.mapRelation)
     }
   };
   // A center is a new subject, not a filter on the old one. Normalize every

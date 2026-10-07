@@ -126,9 +126,9 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
-type KeyedEdge = { key: string; edge: GraphEdge };
+export type KeyedEdge = { key: string; edge: GraphEdge };
 
-function keyEdges(edges: readonly GraphEdge[]): KeyedEdge[] {
+export function keyEdges(edges: readonly GraphEdge[]): KeyedEdge[] {
   const records = edges.map((edge) => {
     const signature = canonicalJson(edge);
     const hasId = typeof edge.id === "string" && edge.id.length > 0;

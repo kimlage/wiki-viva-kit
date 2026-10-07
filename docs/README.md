@@ -14,6 +14,10 @@ retired release-certification machinery.
   packages for use cases such as study, finance and team work.
 - [Command reference](../memories/system/wiki/command-reference.md): deterministic
   CLI catalog.
+- [Connected knowledge map](references/guides/connected-knowledge-map.md):
+  optional integrated 2D overview, perspectives, sources and canonical reading.
+- [Visual diagnosis and implementation](references/reports/connected-map-2026-10-07.md):
+  before/after synthetic evidence, preserved contracts, acceptance and cost.
 
 ## Upgrade artifacts
 

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Isolated prototype QA against the already-running production preview.
-// Deliberately does not change the cockpit's release matrix or start a server.
+// Integrated-map journeys against an already-running synthetic preview.
+// Normal project CI remains unchanged; no historical release ceremony.
 export default defineConfig({
   testDir: "./e2e-prototypes",
   testMatch: /focus-map\.spec\.ts/,
@@ -19,7 +19,7 @@ export default defineConfig({
     ["json", { outputFile: "../../output/playwright/focus-2d-results.json" }]
   ],
   use: {
-    baseURL: "http://127.0.0.1:4285",
+    baseURL: process.env.WIKI_MAP_QA_BASE_URL || "http://127.0.0.1:4297",
     headless: true,
     colorScheme: "light",
     locale: "pt-BR",

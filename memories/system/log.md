@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-10-06
+updated_at: 2026-10-07
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,21 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-10-07] System | Connected knowledge navigation
+
+- Added the optional [connected map](../../docs/references/guides/connected-knowledge-map.md)
+  to the [cockpit](../../apps/wiki-cockpit/README.md): one recorded graph,
+  connected overview, progressive neighborhood focus and four geometry
+  perspectives with persistent selection and canonical reading.
+- Human connection labels lead to full original records and provenance.
+  Direction is never inferred; sources remain declared references, not
+  fabricated statement-level evidence. Snapshot integrity and the existing
+  read-only boundary remain authoritative.
+- Finite layout/camera transitions, bounded drawing and reduced-motion support
+  are documented alongside synthetic model and isolated-browser checks.
+  Adoption follows the normal B0/C1/C2 consumer PR; this frontend increment
+  requires no snapshot-schema migration or map-specific C3 operation.
 
 ## [2026-10-06] System | Synthetic Vercel preview command
 
