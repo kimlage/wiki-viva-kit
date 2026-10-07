@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Database, Focus, GitBranch, Globe2, La
 import type { NavigationPort, OperatorPort } from "../application/ports";
 import type { RuntimeConfig } from "../data/runtimeConfig";
 import { contextLabel, pageTypeLabel } from "../data/presentation";
-import { MAP_RELATION_TYPES } from "../data/mapRelations";
+import { MAP_RELATION_TYPES, mapRelationStyle } from "../data/mapRelations";
 import { t } from "../data/i18n";
 import { localizedEncodingText, visualEncodingResolver } from "../data/visualEncoding";
 import type { WorldPatch, WorldRoute } from "../router";
@@ -87,6 +87,7 @@ export function FocusMapView({bundle,runtime,route,navigation,loadPageContent,on
     patch({mapEdge:key});
   };
   const closeEdge = () => {patch({mapEdge:null});restoreFocus(edgeOpener.current);};
+  const clearHighlight = () => patch({mapEdge:null,page:null,pageId:null,reader:false});
   const focusCurrent = () => {if(selectedPage)patch({mapFocus:selectedPage.id,mapScope:"focus",mapExpanded:[],mapEdge:null});};
   const overview = () => patch({mapScope:"all",mapExpanded:[]});
   useEffect(() => {
@@ -106,9 +107,9 @@ export function FocusMapView({bundle,runtime,route,navigation,loadPageContent,on
       if(event.key==="/"&&!editing){event.preventDefault();setSearchOpen(true);searchRef.current?.focus();}
       else if(event.key==="Escape"&&!editing&&surfaceRef.current?.contains(event.target as Node)) {
         if(searchOpen){event.preventDefault();setSearchOpen(false);searchRef.current?.focus();}
-        else if(route.query.mapEdge){event.preventDefault();closeEdge();}
+        else if(route.query.mapEdge){event.preventDefault();clearHighlight();surfaceRef.current?.querySelector<HTMLElement>(".focusMapCanvas")?.focus({preventScroll:true});}
         else if(route.query.reader){event.preventDefault();closeReader();}
-        else if(selectedPage){event.preventDefault();patch({page:null,pageId:null});restoreFocus(readerOpener.current);}
+        else if(selectedPage){event.preventDefault();clearHighlight();surfaceRef.current?.querySelector<HTMLElement>(".focusMapCanvas")?.focus({preventScroll:true});}
       }
     };
     document.addEventListener("keydown",onKey);return()=>document.removeEventListener("keydown",onKey);
@@ -177,9 +178,9 @@ export function FocusMapView({bundle,runtime,route,navigation,loadPageContent,on
           {colorMode==="state"&&<label>{t("map.metric")}<select aria-label={t("map.metric")} value={overlay} onChange={event=>patch({overlay:event.target.value})}>{OVERLAYS.map(id=><option key={id} value={id}>{t(`world.overlay.${id}`)}</option>)}</select></label>}
           <div className="focusMapLegend" aria-label={t("map.legend")}>{legend.map(item=><span key={item.key}><i style={{backgroundColor:item.color}} aria-hidden="true"/>{item.label}<small>{item.count}</small></span>)}</div>
         </div>
-        {mode==="graph" ? <ConnectedMapCanvas model={model} perspective={perspective} focusId={focusId} selectedId={selectedPage?.id||null} selectedEdge={route.query.mapEdge} relation={route.query.mapRelation} motion={motion} encodingFor={encodingFor} relationLabel={relationLabel} onSelect={id=>openPage(id)} onEdge={openEdge}/> :
+        {mode==="graph" ? <ConnectedMapCanvas model={model} perspective={perspective} focusId={focusId} selectedId={selectedPage?.id||null} selectedEdge={route.query.mapEdge} relation={route.query.mapRelation} motion={motion} encodingFor={encodingFor} relationLabel={relationLabel} onSelect={id=>openPage(id)} onEdge={openEdge} onClear={clearHighlight}/> :
           <ul className="focusMapItemList" aria-label={t("map.searchIndex")}>{model.nodes.map(item=>{const encoding=encodingFor(item.node);return <li key={item.id}><button type="button" onClick={()=>openPage(item.id)} aria-current={selectedPage?.id===item.id?"page":undefined}><i style={{backgroundColor:encoding.color}} aria-hidden="true"/><span><strong>{item.node.title}</strong><small>{pageTypeLabel(item.node.page_type)} · {contextLabel(item.node.context)} · {encoding.symbol} {encoding.label}</small></span><ArrowRight size={16}/></button></li>;})}</ul>}
-        <div className="focusMapRelationLegend" role="group" aria-label={t("map.relationsLegend")}><button type="button" aria-pressed={!route.query.mapRelation} onClick={()=>patch({mapRelation:null})}>{t("map.allRelations")}</button>{edgeTypes.map(([type,count])=><button type="button" key={type} aria-pressed={route.query.mapRelation===type} onClick={()=>patch({mapRelation:route.query.mapRelation===type?null:type})}><i data-navigation={type==="moc_parent"?"true":"false"} aria-hidden="true"/>{relationLabel(type)}<small>{count}</small></button>)}</div>
+        <div className="focusMapRelationLegend" role="group" aria-label={t("map.relationsLegend")}><button type="button" aria-pressed={!route.query.mapRelation} onClick={()=>patch({mapRelation:null})}>{t("map.allRelations")}</button>{edgeTypes.map(([type,count])=>{const style=mapRelationStyle(type);return <button type="button" key={type} data-relation-type={type} aria-pressed={route.query.mapRelation===type} onClick={()=>patch({mapRelation:route.query.mapRelation===type?null:type})}><svg className="focusMapRelationSwatch" width="34" height="12" aria-hidden="true"><path d="M 1 6 H 33" stroke={style.color} strokeDasharray={style.dash}/></svg>{relationLabel(type)}<small>{count}</small></button>;})}</div>
         <div className="focusMapStatusBar"><span>{t("map.legendHint")}</span><label><input type="checkbox" checked={motion} onChange={event=>setMotion(event.target.checked)}/>{t("map.motion")}</label></div>
         {(model.counts.hiddenCandidateNodes>0||model.counts.outsideFocusNodes>0||model.counts.unresolvedEdges>0||model.counts.omittedEdges>0)&&<p className="focusMapLimits">
           {model.counts.outsideFocusNodes>0&&<span>{t("map.outside",{n:model.counts.outsideFocusNodes})}.</span>} {model.counts.hiddenCandidateNodes>0&&<span>{t("map.budget",{n:model.counts.hiddenCandidateNodes})}.</span>} {model.counts.unresolvedEdges>0&&<span>{t("map.unresolved",{n:model.counts.unresolvedEdges})}.</span>} {model.counts.omittedEdges>0&&<span>{t("map.omittedEdges",{n:model.counts.omittedEdges})}.</span>}

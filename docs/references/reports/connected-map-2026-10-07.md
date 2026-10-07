@@ -68,6 +68,7 @@ Before, using only the public synthetic fixture:
 | Canonical lazy PageReader | Summary → sources → reading in the same inspector | Existing body integrity/revision checks |
 | Typed navigation port and URL state | Additive perspective, scope and relation-emphasis query fields | Existing route normalization and history |
 | Semantic themes and state encodings | Shared appearance and declared legends | No invented data color meanings |
+| Original node adjacency and exact edge IDs | Hover/focus previews, pinned selection and direct provenance action | Exploration never changes the URL or reads another body |
 
 The implementation does not add capture, source refresh, incremental
 validation, work approval or resumption state. Those operations retain their
@@ -84,6 +85,10 @@ After, on the same public fixture:
 ![A selected recorded connection and its origin](assets/connected-map-2026-10-07/provenance.png)
 
 ![Progressive focus on mobile](assets/connected-map-2026-10-07/mobile-focus.png)
+
+![Page preview and drawn neighbors](assets/connected-map-2026-10-07/hover-page.png)
+
+![Connection preview with human endpoints and provenance action](assets/connected-map-2026-10-07/hover-connection.png)
 
 ## Acceptance and review corrections
 
@@ -120,6 +125,31 @@ short screens, and unreadable/colliding group labels. Normal architecture
 and theme checks also required typed-port link construction and the shared
 shadow token; their baselines were not relaxed.
 
+The interaction follow-up corrects two later review findings: the connection
+hit width used to shrink with zoom, and disabling motion during a camera fit
+could strand it at an intermediate position. The hit band now stays 18 screen
+pixels; an interrupted pending fit reaches its destination, while subsequent
+manual pan/zoom cancels the obsolete destination. Enlarging the hit band exposed
+overlap between compact parallel curves, so their lane spacing now remains in
+screen pixels and visible curve centers take precedence over transparent bands.
+Nodes can still cover curves at very low zoom; keyboard and recorded incident
+lists remain available. This is not a claim of a free pointer region for every
+edge in a dense drawing.
+
+Hover or keyboard focus highlights the drawn neighborhood or an edge's exact
+two endpoints, with human previews and a provenance action. It preserves the
+route, perspective, selected reader and canonical body. Click/touch pins the
+original record across perspectives; Escape or a background click clears the
+pin, while a drag pans. Shared colors and distinct stroke patterns agree with
+the legend; direction still comes only from the original record. Independent
+review also caught focus being lost when the preview action disappeared. The
+action now transfers focus to a persistent map surface before changing panels,
+so Escape works after a real click or Tab/Enter without artificial focus repair.
+Short canvases place the preview outside the drawing's clipped area, above the
+embedded reader while retaining its expanded-dialog layer. A brief pointer
+corridor preserves the originating record during transit into the card, even
+when another curve is crossed; deliberate exploration can still change it.
+
 ## Cost and honest limits
 
 Drawing budgets are 180 overview pages, 64 focused pages and 900 edges.
@@ -127,7 +157,8 @@ The index retains all original records; omitted/unresolved counts and
 incrementally revealed incident lists make the boundary visible. Selected
 pages/edge endpoints are pinned in large overviews.
 
-A local Node 22.22.3 measurement on an Apple M3 Max discarded five warm-ups
+A local measurement of the initial `bba216f` implementation, using Node 22.22.3
+on an Apple M3 Max, discarded five warm-ups
 and measured 20 model runs per synthetic profile. It excludes compilation,
 download, integrity validation and browser rendering:
 
@@ -139,7 +170,9 @@ download, integrity validation and browser rendering:
 | Parallel records: 2 / 1,000 | 2 / 900 | 3.23 / 3.95 | 3.92 / 4.43 |
 
 These are model measurements, not a production latency, retrieval-quality
-or FPS claim. The pre-existing 3D layout worker remains 53.11 kB. The normal
+or FPS claim, and they do not measure the interaction follow-up's renderer. The
+default model geometry remains unchanged. The pre-existing 3D layout worker
+remains 53.11 kB. The normal
 production bundle gate stays below its unchanged 300 KiB initial-JS budget.
 Perspective transitions are finite, not a continuously running simulation.
 

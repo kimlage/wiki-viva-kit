@@ -45,13 +45,27 @@ It does not write pages, refresh sources, approve work or invoke the operator.
 
 The color legend explains area, category or the selected existing state
 metric. Connection chips emphasize a type without deleting other records.
-Hierarchy edges remain dashed. Pointer hover highlights the recorded
-neighborhood. Drag to pan, use the wheel or zoom controls, and choose **Fit
-map** to recover the overview. Camera coordinates remain ephemeral.
+Relation colors and stroke patterns match the connection legend; arrows
+appear only for recorded direction. Hover or keyboard focus previews a page
+and its drawn neighbors, or a connection and its two endpoints, while dimming
+the rest. The human preview's action opens the summary or exact provenance;
+hover alone keeps the selection, reader, focus and URL. A brief pointer corridor
+keeps the same record while moving into its preview, even across another band.
+A short canvas places the preview at the viewport's
+bottom so it does not block the page that opened it. Click or touch pins the
+selection across perspectives.
+Click an empty part of the drawing or press Escape in the map to clear it while
+preserving the map focus. Dragging the background pans without clearing the pin.
+Use the wheel or zoom controls, and choose **Fit map** to recover the overview.
+Camera coordinates and previews remain ephemeral.
 
 Keyboard access uses `/` for search, Arrow Down for the first result, Enter to
-select, and arrow keys to move among map nodes. `+`/`−` zoom and Home fits.
-Escape closes search, connection inspection or reading one layer at a time.
+select, and arrow keys to move among map nodes. `E` reaches a node's first drawn
+connection; arrow keys move among connections and Enter or Space pins one.
+Tab enters the preview controls and Shift+Tab returns to its trigger. There is
+one tab entry for nodes and one for connections, rather than one per record.
+`+`/`−` zoom and Home fits. Escape in the map clears its highlight and selection;
+search and the canonical reader retain their own Escape behavior.
 The embedded reader keeps its existing `F` expansion and dialog focus behavior.
 The list offers the same drawn pages without requiring spatial selection.
 
@@ -71,6 +85,16 @@ paused. `prefers-reduced-motion` and a hidden document disable movement.
 These signals indicate recorded orientation, not live data processing or
 traffic. Labels are placed without overlap where they fit; full titles stay
 available through accessible node names, search and the inspector.
+
+Pausing movement, enabling reduced motion or hiding the document during a fit
+finishes its pending camera destination. A later manual pan or zoom cancels that
+destination, so pausing cannot restore an obsolete fit. Connection hit bands
+remain 18 screen pixels; parallel curves between distinct pages retain their
+spacing when zooming out,
+and the visible center of a curve takes precedence over another hit band.
+At very low zoom, nodes or overlapping curves can still cover a connection.
+Zoom in or use keyboard navigation and the inspector's recorded connection list.
+The drawing does not promise a separate pointer region for every dense record.
 
 ## Route compatibility
 
@@ -115,7 +139,9 @@ Rollback uses its normal revert PR; original 3D routes remain available.
 - [Map interface](../../../apps/wiki-cockpit/src/components/FocusMapView.tsx)
   uses the existing navigation and canonical-content ports.
 - [Canvas](../../../apps/wiki-cockpit/src/components/ConnectedMapCanvas.tsx)
-  implements finite movement, keyboard nodes and pan/zoom.
+  implements finite movement, pointer/focus previews, keyboard nodes/connections
+  and pan/zoom. Its [camera regressions](../../../apps/wiki-cockpit/src/components/ConnectedMapCanvas.test.tsx)
+  cover pause, reduced motion, visibility and manual interruption.
 - [Model tests](../../../apps/wiki-cockpit/src/scene/integratedMap.test.ts)
   prove record parity, deterministic order, real adjacency, missing endpoints,
   dense parallel/self edges and bounded synthetic 10,000-page input.

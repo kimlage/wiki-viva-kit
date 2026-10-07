@@ -105,15 +105,19 @@ async function edgeIds(page: Page) {
   return page.locator(".focusMapEdgeHit").evaluateAll(edges => edges.map(edge => edge.getAttribute("data-edge-id")).sort());
 }
 async function layoutRecords(page: Page) {
-  return page.getByTestId("focus-svg").evaluate(svg => ({
-    // Marker radius changes when a resized legend changes camera scale.
-    // Compare semantic centers/control points, not screen-sized hit boxes.
-    nodes: [...svg.querySelectorAll("foreignObject")].map(node => [
-      (Number(node.getAttribute("x"))+Number(node.getAttribute("width"))/2).toFixed(3),
-      (Number(node.getAttribute("y"))+Number(node.getAttribute("height"))/2).toFixed(3),
-      node.querySelector("button")!.getAttribute("data-testid")]),
-    edges: [...svg.querySelectorAll(".focusMapEdgeHit")].map(edge => [edge.getAttribute("data-edge-id"), edge.getAttribute("d")?.match(/Q (-?[\d.]+) (-?[\d.]+)/)?.slice(1)])
-  }));
+  return page.getByTestId("focus-svg").evaluate((svg,records) => {
+    const centers=new Map([...svg.querySelectorAll("foreignObject")].map(node=>[node.querySelector("button")!.getAttribute("data-testid")!.slice("focus-node-".length),{x:Number(node.getAttribute("x"))+Number(node.getAttribute("width"))/2,y:Number(node.getAttribute("y"))+Number(node.getAttribute("height"))/2}]));
+    const scale=Math.hypot(svg.querySelector<SVGGElement>(":scope > g")!.getScreenCTM()!.a,svg.querySelector<SVGGElement>(":scope > g")!.getScreenCTM()!.b);
+    return {
+      nodes:[...centers].map(([id,point])=>[point.x.toFixed(3),point.y.toFixed(3),`focus-node-${id}`]),
+      // Resizing a legend changes fit scale. Compare fixed page centers and
+      // the lane's screen-space offset, as implemented for screen-sized hits.
+      edges:[...svg.querySelectorAll(".focusMapEdgeHit")].map(edge=>{
+        const id=edge.getAttribute("data-edge-id"),record=records.find(record=>record.id===id)!,source=centers.get(record.source)!,target=centers.get(record.target)!,control=edge.getAttribute("d")!.match(/Q (-?[\d.]+) (-?[\d.]+)/)!.slice(1).map(Number);
+        return [id,[(control[0]-(source.x+target.x)/2)*Math.min(1,scale),(control[1]-(source.y+target.y)/2)*Math.min(1,scale)].map(value=>Number(value.toFixed(2))||0)];
+      })
+    };
+  },graph.edges);
 }
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
@@ -126,18 +130,191 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
   const bytes = await page.screenshot({ path: `${OUTPUT_DIR}/${filename}`, animations: "disabled", fullPage: false });
   await testInfo.attach(filename, { body: bytes, contentType: "image/png" });
 }
-async function clickCurve(page: Page, edgeId: string) {
+async function curvePoint(page: Page, edgeId: string) {
   const edge = page.locator(`.focusMapEdgeHit[data-edge-id="${edgeId}"]`);
   const point = await edge.evaluate((element: SVGPathElement) => {
     for (const fraction of [.5, .4, .6, .3, .7, .2, .8, .1, .9]) {
       const point = element.getPointAtLength(element.getTotalLength() * fraction).matrixTransform(element.getScreenCTM()!);
-      if (document.elementFromPoint(point.x, point.y) === element) return { x: point.x, y: point.y };
+      const hit=document.elementFromPoint(point.x, point.y);
+      if (hit === element || hit?.getAttribute("data-edge-owner")===element.getAttribute("data-edge-key")) return { x: point.x, y: point.y };
     }
     return null;
   });
   expect(point, `${edgeId} must expose a real pointer hit on its curve`).not.toBeNull();
-  await page.mouse.click(point!.x, point!.y);
+  return point!;
 }
+async function clickCurve(page: Page, edgeId: string) {
+  const point=await curvePoint(page,edgeId);
+  await page.mouse.click(point.x,point.y);
+}
+
+async function backgroundPoint(page:Page) {
+  return page.getByTestId("focus-svg").evaluate(svg=>{
+    const box=svg.getBoundingClientRect();
+    for(const [dx,dy] of [[8,8],[box.width-8,8],[8,box.height-60],[box.width-8,box.height-60]]) {
+      const x=box.x+dx,y=box.y+dy,hit=document.elementFromPoint(x,y);
+      if(hit===svg)return {x,y};
+    }
+    throw new Error("No clear background point available");
+  });
+}
+
+test("@shared explores neighbors and actionable human previews without navigating, then pins an exact edge across perspectives",async({page},testInfo)=>{
+  await openSource(page);
+  const before=page.url(),body=await page.locator(".readerBody").innerText(),ids=new Set(await visibleNodeIds(page));
+  const shownEdges=new Set(await edgeIds(page)),hoverId="claim-custos-sobem";
+  const neighbors=new Set([hoverId]);
+  graph.edges.filter(edge=>shownEdges.has(edge.id!)).forEach(edge=>{if(edge.source===hoverId)neighbors.add(edge.target);if(edge.target===hoverId)neighbors.add(edge.source);});
+  await page.getByTestId(`focus-node-${hoverId}`).hover();
+  await expect(page.getByTestId("map-canvas")).toHaveAttribute("data-active-id",hoverId);
+  expect(await page.locator(".focusMapNodeGroup.highlighted").evaluateAll(nodes=>nodes.map(node=>node.getAttribute("data-node-id")).sort())).toEqual([...neighbors].sort());
+  for(const id of ids)await expect(page.getByTestId(`focus-node-${id}`).locator("../..")).toHaveClass(neighbors.has(id)?/highlighted/:/muted/);
+  await expect(page.getByTestId("map-tooltip")).toContainText(byId.get(hoverId)!.title);
+  expect(page.url()).toBe(before);expect(await page.locator(".readerBody").innerText()).toBe(body);
+  await page.mouse.move(2,2);await expect(page.getByTestId("map-tooltip")).toHaveCount(0);
+  // The old selected source is deliberately not one of this edge's endpoints.
+  const record=graph.edges.find(edge=>shownEdges.has(edge.id!)&&edge.type==="impact"&&edge.source!==SOURCE_ID&&edge.target!==SOURCE_ID&&edge.target==="artifact-relatorio-recon")!;
+  const point=await curvePoint(page,record.id!);await page.mouse.move(point.x,point.y);
+  await expect(page.getByTestId("map-tooltip")).toContainText(t(`map.rel.${record.type}`));
+  await expect(page.getByTestId("map-tooltip")).toContainText(byId.get(record.source)!.title);
+  await expect(page.getByTestId("map-tooltip")).toContainText(byId.get(record.target)!.title);
+  expect(await page.locator(".focusMapNodeGroup.highlighted").evaluateAll(nodes=>nodes.map(node=>node.getAttribute("data-node-id")).sort())).toEqual([record.source,record.target].sort());
+  await expect(page.getByTestId(`focus-node-${SOURCE_ID}`).locator("../..")).toHaveClass(/muted/);
+  expect(page.url()).toBe(before);expect(await page.locator(".readerBody").innerText()).toBe(body);
+  // A real move from the curve into its action cancels the delayed exit.
+  const action=page.getByTestId("map-tooltip-inspect"),box=await action.boundingBox();
+  await page.mouse.move(box!.x+box!.width/2,box!.y+box!.height/2,{steps:8});
+  await page.waitForTimeout(650);await expect(action).toBeVisible();
+  await expect(page.getByTestId("map-canvas")).toHaveAttribute("data-active-id",`id:${encodeURIComponent(record.id!)}`);
+  await expect(page.getByTestId("map-tooltip")).toContainText(byId.get(record.source)!.title);
+  await expect(page.getByTestId("map-tooltip")).toContainText(byId.get(record.target)!.title);
+  await capture(page,testInfo,"hover-connection");await action.click();
+  const key=`id:${encodeURIComponent(record.id!)}`;
+  await expect.poll(()=>params(page).get("map_edge")).toBe(key);
+  await expect(page.getByTestId("map-canvas")).toBeFocused();
+  // The action was removed: Escape must work without artificially moving focus.
+  await page.keyboard.press("Escape");await expect.poll(()=>params(page).get("map_edge")).toBeNull();
+  expect(params(page).get("page")).toBeNull();
+  await clickCurve(page,record.id!);await expect.poll(()=>params(page).get("map_edge")).toBe(key);
+  await page.mouse.move(2,2);await expect(page.getByTestId("map-canvas")).toHaveAttribute("data-active-id",key);
+  await page.getByTestId("focus-edge-details").locator(".focusMapOriginalRecord summary").click();
+  expect(JSON.parse(await page.getByTestId("map-original-record").innerText())).toEqual(record);
+  const other=graph.edges.find(edge=>shownEdges.has(edge.id!)&&edge.type==="source_ref"&&edge.source==="claim-custos-sobem")!;
+  const otherPoint=await curvePoint(page,other.id!);await page.mouse.move(otherPoint.x,otherPoint.y);
+  await expect(page.getByTestId("map-canvas")).toHaveAttribute("data-active-id",`id:${encodeURIComponent(other.id!)}`);
+  await expect(page.locator(`.focusMapEdgeHit[data-edge-id="${record.id}"]`).locator("..")).toHaveClass(/muted/);
+  expect(params(page).get("map_edge")).toBe(key);
+  await page.mouse.move(2,2);await expect(page.getByTestId("map-tooltip")).toHaveCount(0);
+  await expect(page.getByTestId("map-canvas")).toHaveAttribute("data-active-id",key);
+  for(const perspective of ["areas","evidence","work","network"]) {
+    await page.getByTestId(`map-perspective-${perspective}`).click();await settled(page);
+    expect(params(page).get("map_edge")).toBe(key);expect(params(page).get("map_focus")).toBe(SOURCE_ID);
+    expect(await page.locator(".focusMapNodeGroup.highlighted").evaluateAll(nodes=>nodes.map(node=>node.getAttribute("data-node-id")).sort())).toEqual([record.source,record.target].sort());
+  }
+  const background=await backgroundPoint(page);
+  await page.mouse.move(background.x,background.y);await page.mouse.down();await page.mouse.move(background.x+20,background.y+20,{steps:4});await page.mouse.up();
+  expect(params(page).get("map_edge")).toBe(key); // A pan is not a clear action.
+  const blank=await backgroundPoint(page);await page.mouse.click(blank.x,blank.y);
+  await expect.poll(()=>params(page).get("map_edge")).toBeNull();
+  expect(params(page).get("page")).toBeNull();expect(params(page).get("map_focus")).toBe(SOURCE_ID);
+  await expect(page.getByTestId("map-canvas")).toHaveAttribute("data-active-kind","");
+});
+
+test("@shared reaches connections and their preview action by keyboard, pins with Enter and clears with Escape",async({page})=>{
+  await openSource(page);const before=page.url();
+  await page.getByTestId(`focus-node-${SOURCE_ID}`).focus();await page.keyboard.press("e");
+  const focusedKey=await page.evaluate(()=>document.activeElement?.getAttribute("data-edge-key"));expect(focusedKey).toBeTruthy();
+  await expect(page.locator('.focusMapEdgeHit[tabindex="0"]')).toHaveCount(1);
+  await expect(page.getByTestId("map-tooltip")).toHaveAttribute("role","dialog");
+  expect(page.url()).toBe(before);
+  await page.keyboard.press("Tab");await expect(page.getByTestId("map-tooltip").getByRole("button",{name:t("map.clearHighlight")})).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  expect(await page.evaluate(()=>document.activeElement?.getAttribute("data-edge-key"))).toBe(focusedKey);
+  await page.keyboard.press("ArrowRight");
+  const nextKey=await page.evaluate(()=>document.activeElement?.getAttribute("data-edge-key"));expect(nextKey).not.toBe(focusedKey);
+  expect(page.url()).toBe(before);
+  await page.keyboard.press("Enter");await expect.poll(()=>params(page).get("map_edge")).toBe(nextKey);
+  await page.keyboard.press("Escape");
+  await expect.poll(()=>params(page).get("map_edge")).toBeNull();expect(params(page).get("page")).toBeNull();
+  await expect(page.getByTestId("map-tooltip")).toHaveCount(0);await expect(page.getByTestId("map-canvas")).toBeFocused();
+  expect(params(page).get("map_focus")).toBe(SOURCE_ID);
+  await page.getByTestId(`focus-node-${SOURCE_ID}`).focus();await page.keyboard.press("e");
+  const actionKey=await page.evaluate(()=>document.activeElement?.getAttribute("data-edge-key"));
+  await page.keyboard.press("Tab");await page.keyboard.press("Tab");
+  await expect(page.getByTestId("map-tooltip-inspect")).toBeFocused();
+  await page.keyboard.press("Enter");await expect.poll(()=>params(page).get("map_edge")).toBe(actionKey);
+  await expect(page.getByTestId("map-canvas")).toBeFocused();
+  await page.keyboard.press("Escape");await expect.poll(()=>params(page).get("map_edge")).toBeNull();
+  await expect(page.getByTestId("map-canvas")).toBeFocused();
+});
+
+test("@shared keeps relation colors and strokes consistent with the legend and recorded direction",async({page})=>{
+  await openSource(page);
+  const rows=await page.locator(".focusMapEdge").evaluateAll(edges=>edges.map(edge=>{const line=edge.querySelector(".focusMapEdgeLine")!,css=getComputedStyle(line);return {type:edge.getAttribute("data-relation-type"),id:edge.querySelector(".focusMapEdgeHit")!.getAttribute("data-edge-id"),color:css.stroke,dash:css.strokeDasharray,arrow:line.hasAttribute("marker-end")};}));
+  for(const row of rows) {
+    const swatch=page.locator(`.focusMapRelationLegend [data-relation-type="${row.type}"] path`);
+    expect(await swatch.evaluate(path=>({color:getComputedStyle(path).stroke,dash:getComputedStyle(path).strokeDasharray}))).toEqual({color:row.color,dash:row.dash});
+    expect(row.arrow).toBe(graph.edges.find(edge=>edge.id===row.id)!.direction==="directed");
+  }
+  const distinct=new Map(rows.map(row=>[row.type,`${row.color}/${row.dash}`]));
+  expect(new Set(distinct.values()).size).toBe(distinct.size);
+});
+
+test("@desktop @mobile preserves a real screen-sized edge hit band at overview and zoom-out scales",async({page},testInfo)=>{
+  await openSource(page);await page.getByLabel(t("map.motion"),{exact:true}).uncheck();
+  const measurements=[];
+  for(let level=0;level<4;level++) {
+    if(level)await page.getByRole("button",{name:t("map.zoomOut"),exact:true}).click();
+    const band=await page.getByTestId("focus-svg").evaluate(svg=>{
+      const box=svg.getBoundingClientRect();
+      for(const edge of svg.querySelectorAll<SVGPathElement>(".focusMapEdgeHit"))for(const fraction of [.5,.4,.6,.3,.7,.2,.8]) {
+        const length=edge.getTotalLength(),matrix=edge.getScreenCTM()!,point=edge.getPointAtLength(length*fraction).matrixTransform(matrix),a=edge.getPointAtLength(length*fraction-1).matrixTransform(matrix),b=edge.getPointAtLength(length*fraction+1).matrixTransform(matrix),distance=Math.hypot(b.x-a.x,b.y-a.y),nx=-(b.y-a.y)/distance,ny=(b.x-a.x)/distance;
+        if(point.x<box.x+12||point.x>box.right-12||point.y<box.y+12||point.y>box.bottom-60)continue;
+        if([-8,0,8].every(offset=>{const hit=document.elementFromPoint(point.x+nx*offset,point.y+ny*offset);return hit===edge||hit?.getAttribute("data-edge-owner")===edge.dataset.edgeKey;}))return {id:edge.dataset.edgeId,offsets:[-8,0,8]};
+      }
+      return null;
+    });
+    const declared=await page.locator(".focusMapEdgeHit").evaluateAll(edges=>edges.map(edge=>({width:getComputedStyle(edge).strokeWidth,effect:getComputedStyle(edge).vectorEffect})));
+    expect(declared.every(edge=>edge.width==="18px"&&edge.effect==="non-scaling-stroke")).toBe(true);
+    if(!band) {
+      // At the last compact mobile zoom the fixed-size nodes cover the curves.
+      // Record this obstruction explicitly; no pointer reachability is claimed.
+      expect(level).toBe(3);expect(page.viewportSize()!.width).toBe(390);
+    }
+    measurements.push({scale:await page.getByTestId("map-canvas").getAttribute("data-camera-scale"),band,obstructed:!band});
+  }
+  expect(measurements.filter(row=>row.band).length).toBeGreaterThanOrEqual(3);
+  await testInfo.attach("real-edge-hit-band.json",{body:Buffer.from(JSON.stringify(measurements)),contentType:"application/json"});
+});
+
+test("@desktop snaps an interrupted camera to its pending destination through real controls and reduced motion",async({page})=>{
+  await openSource(page);await page.clock.install();await page.clock.pauseAt(new Date(Date.now()+1000));
+  const group=page.getByTestId("focus-svg").locator(":scope > g"),fitted=await group.getAttribute("transform");
+  for(const reason of ["pause","reduced"] as const) {
+    await page.getByRole("button",{name:t("map.zoomOut"),exact:true}).evaluate((button:HTMLButtonElement)=>button.click());
+    await page.getByRole("button",{name:t("map.fit"),exact:true}).evaluate((button:HTMLButtonElement)=>button.click());
+    await page.clock.runFor(80);expect(await group.getAttribute("transform")).not.toBe(fitted);
+    await expect(page.getByTestId("map-canvas")).toHaveAttribute("data-camera-motion","moving");
+    if(reason==="pause")await page.getByLabel(t("map.motion"),{exact:true}).evaluate((input:HTMLInputElement)=>input.click());
+    else await page.emulateMedia({reducedMotion:"reduce"});
+    await page.clock.runFor(16);await expect(group).toHaveAttribute("transform",fitted!);
+    await expect(page.getByTestId("map-canvas")).toHaveAttribute("data-camera-motion","settled");
+    if(reason==="pause")await page.getByLabel(t("map.motion"),{exact:true}).evaluate((input:HTMLInputElement)=>input.click());
+    else await page.emulateMedia({reducedMotion:"no-preference"});
+    await page.clock.runFor(16);
+  }
+});
+
+test("@mobile pins an exact connection by touch and clears it by a background tap",async({page})=>{
+  await openSource(page);const record=graph.edges.find(edge=>edge.source===SOURCE_ID&&edge.type==="source_emission")!;
+  const point=await curvePoint(page,record.id!);await page.touchscreen.tap(point.x,point.y);
+  await expect.poll(()=>params(page).get("map_edge")).toBe(`id:${encodeURIComponent(record.id!)}`);
+  await expect(page.getByTestId("focus-edge-details").locator("h2")).toHaveText(t(`map.rel.${record.type}`));
+  await page.getByTestId("map-perspective-evidence").tap();await settled(page);
+  expect(params(page).get("map_edge")).toBe(`id:${encodeURIComponent(record.id!)}`);
+  const blank=await backgroundPoint(page);await page.touchscreen.tap(blank.x,blank.y);
+  await expect.poll(()=>params(page).get("map_edge")).toBeNull();expect(params(page).get("page")).toBeNull();
+});
 
 test("@shared preserves canonical revision, selection and context through perspectives, reload and Back/Forward", async ({ page }) => {
   const responsePromise = page.waitForResponse(response => new URL(response.url()).pathname === SOURCE_URL);

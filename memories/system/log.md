@@ -14,6 +14,25 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-10-07] System | Connected-map interaction and interruption fixes
+
+- Added pointer/focus exploration of drawn neighbors and exact connection
+  endpoints, human previews with summary/provenance actions, relation colors
+  and distinct stroke patterns aligned with their legend. Exploration preserves
+  the URL and canonical body; click/touch pins original records and Escape or a
+  background click clears them without recentering. Dragging preserves the pin.
+- Kept edge hit bands and parallel spacing useful at zoom-out scales. Visible
+  curve centers take precedence over transparent bands; keyboard and incident
+  lists remain available when dense/compact geometry obstructs pointer access.
+- A paused, reduced-motion or hidden-document fit finishes its pending camera
+  destination; manual pan/zoom cancels an obsolete destination. Preview actions
+  transfer focus before they disappear, retaining keyboard Escape behavior.
+- Added synthetic camera and real browser interaction regressions. The
+  [guide](../../docs/references/guides/connected-knowledge-map.md) documents actual
+  controls and limits. This follow-up changes no graph record, snapshot schema,
+  source lifecycle or downstream migration contract; a new head requires renewed
+  independent review and normal CI before promotion.
+
 ## [2026-10-07] System | Connected knowledge navigation
 
 - Added the optional [connected map](../../docs/references/guides/connected-knowledge-map.md)

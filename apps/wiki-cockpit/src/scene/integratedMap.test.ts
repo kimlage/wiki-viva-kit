@@ -96,6 +96,15 @@ describe("connected revision projection",()=>{
       expect(startX).toBeLessThan(endX);expect(endX-controlX).toBeGreaterThan(0);
     }
   });
+  it("keeps a parallel lane's midpoint separated in screen pixels at zoom-out scales",()=>{
+    const record=edge("a","b","ab"),source={x:0,y:0},target={x:400,y:0};
+    const initial=integratedEdgeGeometry(record,1,source,target).y;
+    for(const scale of [.73,.22,.08]) {
+      const shape=integratedEdgeGeometry(record,1,source,target,27,1/scale);
+      expect(shape.y*scale).toBeCloseTo(initial,8);
+      expect(Math.abs(shape.y*scale)).toBeGreaterThan(18);
+    }
+  });
   it("returns finite empty-state bounds and an aspect-aware fit",()=>{
     const empty=buildIntegratedMap(indexIntegratedGraph({nodes:[],edges:[]}),{...options,focusId:null});
     expect(empty.nodes).toEqual([]);expect(empty.counts.totalNodes).toBe(0);

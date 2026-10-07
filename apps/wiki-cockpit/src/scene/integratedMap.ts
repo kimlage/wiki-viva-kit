@@ -218,7 +218,7 @@ export function buildIntegratedMap(index: IntegratedGraph, options: {
 }
 
 /** Separate curves for parallel, reciprocal and self relations. */
-export function integratedEdgeGeometry(edge: GraphEdge, lane: number, source: MapPoint, target: MapPoint, radius=27) {
+export function integratedEdgeGeometry(edge: GraphEdge, lane: number, source: MapPoint, target: MapPoint, radius=27, laneScale=1) {
   if (edge.source===edge.target) {
     const side=lane<0?1:-1;
     const rise=65+Math.abs(lane)*32/(1+Math.abs(lane)*.2);
@@ -233,7 +233,9 @@ export function integratedEdgeGeometry(edge: GraphEdge, lane: number, source: Ma
   const sign=compare(edge.source,edge.target)<0?1:-1;
   // Monotonic bounded lanes keep dense relations distinct without sending
   // curves thousands of units off the map. Every record remains inspectable.
-  const offset=lane*54*sign/(1+Math.abs(lane)*.18);
+  // The renderer can preserve lane spacing in screen pixels when zooming out.
+  // Default model geometry and deterministic layout bounds remain unchanged.
+  const offset=lane*54*sign/(1+Math.abs(lane)*.18)*laneScale;
   const control={x:(source.x+target.x)/2-dy/distance*offset,y:(source.y+target.y)/2+dx/distance*offset};
   const start={x:source.x+dx/distance*inset,y:source.y+dy/distance*inset};
   const end={x:target.x-dx/distance*inset,y:target.y-dy/distance*inset};
