@@ -6,11 +6,48 @@ Events record communication; they neither admit execution nor grant access.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import Any
 
 EVENT_ID = re.compile(r"^[a-zA-Z0-9_-]{8,80}$")
 KINDS = {"direction", "question", "confirmation_request", "answer", "comment"}
 QUESTIONS = {"question", "confirmation_request"}
+
+
+def validate_history(events: Any) -> None:
+    """Validate stored records before any read or append; never repair history."""
+    if not isinstance(events, list) or len(events) > 500:
+        raise ValueError("invalid_action_dialogue")
+    seen: dict[str, dict[str, Any]] = {}
+    answered: set[str] = set()
+    fields = {"event_id", "kind", "text", "coordinator", "actor", "reply_to", "at", "before_sha256"}
+    for e in events:
+        if not isinstance(e, dict) or set(e) != fields or any(not isinstance(e[k], str) for k in fields):
+            raise ValueError("invalid_action_dialogue")
+        if (not EVENT_ID.fullmatch(e["event_id"]) or e["event_id"] in seen
+            or e["kind"] not in KINDS or not e["text"].strip() or len(e["text"]) > 2000
+            or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", e["coordinator"])
+            or e["actor"] not in {"operator", "coordinator:" + e["coordinator"]}
+            or not re.fullmatch(r"[0-9a-f]{64}", e["before_sha256"])):
+            raise ValueError("invalid_action_dialogue")
+        try:
+            instant = datetime.fromisoformat(e["at"].replace("Z", "+00:00"))
+            if instant.tzinfo is None:
+                raise ValueError
+        except ValueError:
+            raise ValueError("invalid_action_dialogue") from None
+        if e["kind"] == "direction" and e["actor"] != "operator":
+            raise ValueError("invalid_action_dialogue")
+        if e["kind"] == "answer":
+            question = seen.get(e["reply_to"])
+            if (not question or question["kind"] not in QUESTIONS
+                or question["coordinator"] != e["coordinator"]
+                or question["actor"] == e["actor"] or e["reply_to"] in answered):
+                raise ValueError("invalid_action_dialogue")
+            answered.add(e["reply_to"])
+        elif e["reply_to"]:
+            raise ValueError("invalid_action_dialogue")
+        seen[e["event_id"]] = e
 
 
 def append_event(history: Any, event: Any, *, actor: str, at: str,
@@ -19,8 +56,10 @@ def append_event(history: Any, event: Any, *, actor: str, at: str,
     from wiki_core.action_transition import ActionTransitionError, _assert_no_secrets
     if history is None:
         history = []
-    if not isinstance(history, list) or any(not isinstance(e, dict) for e in history):
-        raise ActionTransitionError("invalid_action_dialogue")
+    try:
+        validate_history(history)
+    except ValueError:
+        raise ActionTransitionError("invalid_action_dialogue") from None
     if len(history) >= 500:
         raise ActionTransitionError("action_dialogue_capacity")
     if not isinstance(event, dict) or set(event) - {"event_id", "kind", "text", "reply_to", "coordinator"}:
@@ -57,6 +96,7 @@ def append_event(history: Any, event: Any, *, actor: str, at: str,
 
 
 def dialogue_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
+    validate_history(events)
     answered = {e.get("reply_to") for e in events if e.get("kind") == "answer"}
     pending = [e["event_id"] for e in events if e.get("kind") in QUESTIONS and e.get("event_id") not in answered]
     return {"pending_question_ids": pending, "runtime_connected": False,

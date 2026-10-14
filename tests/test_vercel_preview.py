@@ -78,7 +78,7 @@ def committed_demo() -> dict[str, bytes]:
 
 
 @pytest.fixture
-def preview_repo(tmp_path: Path, committed_demo: dict[str, bytes]) -> Path:
+def preview_repo(tmp_path: Path, committed_demo: dict[str, bytes], monkeypatch) -> Path:
     root = tmp_path / "repo"
     root.mkdir()
     for name, payload in committed_demo.items():
@@ -90,6 +90,14 @@ def preview_repo(tmp_path: Path, committed_demo: dict[str, bytes]) -> Path:
     _write(root / DIST_REL / "favicon.svg", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><path d="M0 0h1v1H0z"/></svg>\n')
     _write(root / DIST_REL / "assets/app.js", 'document.getElementById("root").textContent = "Synthetic Preview";\n')
     _write(root / DIST_REL / "assets/app.css", "body { font-family: sans-serif; }\n")
+    _git(root, "add", "--", RUNTIME_REL.as_posix(), DIST_REL.as_posix())
+    _git(root, "commit", "--quiet", "-m", "Synthetic committed build result")
+    # Avoid dependency downloads in unit tests. This build double returns only
+    # committed bytes; separate tests exercise the real isolated builder.
+    def committed_build(repo, head):
+        names = _git(repo, "ls-tree", "-rz", "--name-only", head, "--", DIST_REL.as_posix()).split(b"\0")
+        return {"/" + Path(n.decode()).relative_to(DIST_REL).as_posix(): _git(repo, "show", f"{head}:{n.decode()}") for n in names if n}
+    monkeypatch.setattr("wiki_core.web.vercel_preview._build_frontend", committed_build)
     # Synthetic sentinels demonstrate that preview packaging neither loads nor
     # changes the consumer's config or existing deployment defaults.
     _write(root / "wiki.config.yaml", "repo_id: synthetic-test\ndefault_visibility: private_self\n")
@@ -446,6 +454,8 @@ def test_preview_preserves_equivalent_committed_json_bytes_without_imposing_form
 def test_preview_accepts_direct_vite_chunk_names_with_tilde(preview_repo: Path) -> None:
     root = preview_repo
     _write(root / DIST_REL / "assets/part~Q.js", "export const syntheticChunk = true;\n")
+    _git(root, "add", "--", DIST_REL.as_posix())
+    _git(root, "commit", "--quiet", "-m", "Reviewed synthetic chunk")
     out = root / "tmp/preview"
     write_vercel_preview(root, out)
     bundle, release = _release(out)
@@ -573,3 +583,9 @@ def test_cli_exposes_no_private_export_or_existing_output_override(preview_repo:
         cli.main()
     assert rejected.value.code == 2
     assert _tree_state(root) == before
+
+@pytest.mark.parametrize('target', [RUNTIME_REL, DIST_REL / 'assets/app.js', DIST_REL / 'index.html', DIST_REL / 'assets/extra.js'])
+def test_preview_refuses_unreviewed_packaged_bytes(preview_repo, target):
+    root = preview_repo
+    _write(root / target, 'UNREVIEWED_SYNTHETIC_SENTINEL')
+    _assert_refused_without_mutation(root, root / 'tmp/rejected')

@@ -37,6 +37,16 @@ python3 scripts/wiki_vercel_preview.py --demo --out tmp/vercel-preview
 The output is `tmp/vercel-preview/.vercel/output`; its separate
 `preview-receipt.json` records the Git source, snapshot revision and byte hashes
 without account identities or host paths. Use a new output directory each time.
+Before packaging, the generator rebuilds the committed cockpit in a disposable
+directory using `npm ci --ignore-scripts` and the release build launcher. This
+requires Node, npm and access to the lockfile dependency registry. It uses an
+empty temporary home and npm configuration, without local environment overrides
+or the consumer dependency tree. The local frontend must match this isolated
+build byte-for-byte; the runtime must match the regular Git HEAD blob. A stale
+or modified local build is rejected before creating output. Rebuild locally
+after committing reviewed changes; no bypass or private-data override exists.
+The receipt identifies this build verification and the exact runtime hash.
+
 The generator refuses dirty fixtures, invalid snapshot/reader contracts,
 symlinks, external outputs and existing directories. It does not read consumer
 memories, export private snapshots, create projects, configure ACLs or deploy.

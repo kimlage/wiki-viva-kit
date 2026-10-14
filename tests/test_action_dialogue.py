@@ -130,3 +130,11 @@ def test_v3_receipt_then_v4_dialogue_is_writable_and_auditable(tmp_path, monkeyp
     # This fixture uses numeric stale_after_days; the flat shape parser expects text.
     fm["stale_after_days"] = str(fm["stale_after_days"])
     assert validate_shape(tmp_path, str(path.relative_to(tmp_path)), fm, path.read_text(), shape) == []
+
+@pytest.mark.parametrize('history', [False, {}, ['broken'], [{'kind': 'question'}]])
+def test_invalid_stored_dialogue_is_rejected_by_shape_and_append(tmp_path, history):
+    from wiki_core.page_types import validate_shape
+    from wiki_core.action_dialogue import append_event
+    assert any('invalid_action_dialogue' in e for e in validate_shape(tmp_path, 'synthetic.md', {'page_type': 'action', 'action_dialogue': history}, '', {}))
+    with pytest.raises(ActionTransitionError, match='invalid_action_dialogue'):
+        append_event(history, event(), actor='operator', at='2026-10-14T00:00:00Z', before_sha256='a'*64, terminal=False)

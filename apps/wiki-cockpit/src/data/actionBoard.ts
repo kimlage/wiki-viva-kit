@@ -37,3 +37,25 @@ export type DialogueInput = {
   text: string; coordinator: string; reply_to?: string;
 };
 export type DialogueEvent = DialogueInput & { actor: string; at: string; before_sha256: string };
+
+// Page frontmatter also comes from static snapshots; TypeScript casts cannot
+// validate it. Keep malformed records out of render and reply controls.
+export function isDialogueHistory(value: unknown): value is DialogueEvent[] {
+  if (!Array.isArray(value) || value.length > 500) return false;
+  const ids = new Set<string>();
+  return value.every(event => {
+    if (!event || typeof event !== "object" || Array.isArray(event)) return false;
+    for (const key of ["event_id", "kind", "text", "coordinator", "actor", "at", "before_sha256"]) {
+      if (typeof event[key] !== "string") return false;
+    }
+    if (!/^[a-zA-Z0-9_-]{8,80}$/.test(event.event_id) || ids.has(event.event_id)
+      || !["direction", "question", "confirmation_request", "answer", "comment"].includes(event.kind)
+      || !event.text.trim() || event.text.length > 2000
+      || !/^[a-z][a-z0-9_-]{0,63}$/.test(event.coordinator)
+      || !["operator", `coordinator:${event.coordinator}`].includes(event.actor)
+      || !/^[0-9a-f]{64}$/.test(event.before_sha256)
+      || (event.reply_to !== undefined && typeof event.reply_to !== "string")) return false;
+    ids.add(event.event_id);
+    return true;
+  });
+}

@@ -112,3 +112,13 @@ def test_access_requirements_are_context_not_verified_credentials(tmp_path):
     packet = context_packet(tmp_path, config, snapshot, 'research', 'task')
     assert packet['access_requirements'][0]['expected_identity'] == 'research@example.test'
     assert not packet['access_verified']
+
+@pytest.mark.parametrize('dialogue', [['broken'], [{'kind': 'question'}], {}, False, 0])
+def test_malformed_dialogue_has_controlled_error(tmp_path, dialogue):
+    _, snapshot, _ = fixture(tmp_path)
+    path = tmp_path / 'memories/task.md'
+    raw = path.read_text().replace('source_refs: [source]', 'action_dialogue: ' + yaml.safe_dump(dialogue, default_flow_style=True).strip().removesuffix('...').strip() + '\nsource_refs: [source]')
+    path.write_text(raw)
+    next(p for p in snapshot['pages.json']['pages'] if p['id'] == 'task')['content_sha256'] = hashlib.sha256(raw.encode()).hexdigest()
+    with pytest.raises(CoordinationError, match='invalid_action_dialogue'):
+        coordination_index(tmp_path, snapshot)
