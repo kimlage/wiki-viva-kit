@@ -1,5 +1,4 @@
 import type { PageRecord } from "../types";
-import { operatorPost } from "../world/clients/operatorClient";
 
 export const ACTION_STATES = ["open", "in_progress", "waiting_human", "blocked", "done", "cancelled"] as const;
 export type ActionState = typeof ACTION_STATES[number];
@@ -26,10 +25,3 @@ export type ActionEdit = {
   next_action?: string; blocker_reason?: string; completion_receipt?: string;
   cancellation_receipt?: string; priority?: string;
 };
-export async function saveAction(edit: ActionEdit): Promise<void> {
-  const response = await operatorPost("/actions/transition", edit);
-  if (!response.ok) {
-    const result = await response.json();
-    throw new Error(String(result.error_code || result.error || `HTTP ${response.status}`));
-  }
-}

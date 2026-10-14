@@ -1649,3 +1649,23 @@ def test_priority_edit_http_invalidates_board_and_rejects_stale_write(server: _S
     status, result = server.post("/api/actions/transition", {**payload, "priority": "urgent"})
     assert status == 409, result
     assert parse_frontmatter(page.read_text())[0]["priority"] == "high"
+
+
+def test_frontend_accepts_only_its_exact_origin_and_still_requires_nonce(server: _Server, tmp_path: Path) -> None:
+    server.server.frontend_dir = tmp_path
+    page = _server_action(server.server.root)
+    payload = {"page_ref": str(page.relative_to(server.server.root)), "expected_sha256": hashlib.sha256(page.read_bytes()).hexdigest(), "next_state": "open", "priority": "high"}
+    assert server.post('/api/actions/transition', payload, origin=server.url(''))[0] == 200
+    assert server.post('/api/actions/transition', payload, origin=server.url(''), nonce='wrong')[0] == 403
+    for origin in ['null', 'https://attacker.example', 'http://127.0.0.1:1234', server.url('')+'/path']:
+        assert server.post('/api/actions/transition', payload, origin=origin)[0] == 403
+    assert server.post('/api/actions/transition', payload, origin='http://127.0.0.1:1234', headers={'Host':'127.0.0.1:1234'})[0] == 403
+    server.server.frontend_dir = None
+    assert server.post('/api/actions/transition', payload, origin=server.url(''))[0] == 403
+
+
+@pytest.mark.parametrize("path", ["/review", "/sources", "/health", "/pages/synthetic", "/w/focus/synthetic", "/demo/world", "/demo/genesis", "/demo/pages/synthetic"])
+def test_hosted_cockpit_deep_links(server: _Server, tmp_path: Path, path: str) -> None:
+    _write(tmp_path / "index.html", "<html>synthetic</html>")
+    server.server.frontend_dir = tmp_path
+    assert server.get_headers(path)[0] == 200

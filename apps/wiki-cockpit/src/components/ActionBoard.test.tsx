@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+// @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ActionBoard } from './ActionBoard';
@@ -6,7 +6,7 @@ import type { SnapshotLoadResult } from '../application/ports';
 import { boardPages } from '../data/actionBoard';
 import type { PageRecord } from '../types';
 afterEach(cleanup);
-const action = (id: string, state = 'open', priority = 'normal') => ({id, title:id, path:`memories/${id}.md`, context:'system', page_type:'action', content_sha256:'a'.repeat(64), work:{state, priority, next_action:'Read evidence', owner_ref:'coordinator'}} as PageRecord);
+const action = (id: string, state = 'open', priority = 'normal') => ({id, title:id, path:`memories/${id}.md`, context:'system', page_type:'action', content_sha256:'a'.repeat(64), work:{state, priority, next_action:'Read evidence', owner_ref:'coordinator'}} as unknown as PageRecord);
 function setup(mode='local_operator', demo=false, save=vi.fn().mockResolvedValue(undefined)) {
   const pages=[action('Synthetic task'),action('Archived task','done'),{...action('Context page'),page_type:'context'}];
   const loaded={source:'/api/snapshot',runtime:{mode},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test',generated_at:'2026-01-01'},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;
@@ -52,4 +52,14 @@ describe('canonical action board',()=>{
     fireEvent.click(await screen.findByRole('button',{name:'Save to wiki'}));
     expect((await screen.findByRole('status')).textContent).toContain('The page changed');
   });
+});
+
+it('renders inert evidence and follows encoded canonical page links',async()=>{
+  const {operator}=setup();
+  operator.loadPageContent.mockResolvedValue({ok:true,body:'<style>body{display:none}</style><svg><image href="https://example.org/track" /></svg>\n\n[Related](<docs/ação pendente.md>)',source_refs:[],resolved_links:[{href:'docs/ação pendente.md',kind:'page',page_id:'Context page'}]});
+  fireEvent.click(await screen.findByRole('button',{name:/Synthetic task/}));
+  const link=await screen.findByRole('link',{name:'Related'});
+  expect(document.querySelector('.boardMarkdown style, .boardMarkdown svg, .boardMarkdown image')).toBeNull();
+  fireEvent.click(link);
+  await waitFor(()=>expect(operator.loadPageContent).toHaveBeenLastCalledWith('Context page',expect.anything()));
 });

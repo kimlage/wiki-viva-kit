@@ -934,6 +934,17 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         origin = (self.headers.get("Origin") or "").strip()
         if not origin or origin in self.server.cors_origins:
             return True
+        # Built UI and API share this exact loopback origin. This does not
+        # permit other local apps/ports or file:null origins to invoke writes.
+        host = (self.headers.get("Host") or "").strip()
+        parsed = urlparse(origin)
+        try:
+            bound_port = (parsed.port or 80) == self.server.server_address[1]
+        except ValueError:
+            bound_port = False
+        if (self.server.frontend_dir is not None and self._host_is_loopback()
+                and origin == f"http://{host}" and bound_port):
+            return True
         self._send_error("operator origin is not allowlisted", status=HTTPStatus.FORBIDDEN)
         return False
 
@@ -987,7 +998,12 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"api_base": "/api", "snapshot_base": "/api/snapshot",
                              "mode": "local_operator", "language": self.server.config.language})
             return True
-        if path in {"/", "/board", "/board/", "/w", "/demo", "/demo/w", "/demo/board", "/demo/board/"}:
+        route = path.removeprefix("/demo") if path == "/demo" or path.startswith("/demo/") else path
+        spa_roots = ("/w", "/review", "/sources", "/health", "/pages")
+        is_spa = (route in {"", "/", "/board", "/board/"}
+                  or any(route == base or route.startswith(base + "/") for base in spa_roots)
+                  or (path.startswith("/demo/") and route.split("/")[1] in {"world", "genesis"}))
+        if is_spa:
             relative = "index.html"
         elif path.startswith(("/assets/", "/sample-snapshot/")) or path == "/favicon.svg":
             relative = path.lstrip("/")
@@ -1045,6 +1061,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                         "max_body_bytes": MAX_REQUEST_BODY_BYTES,
                         "mutations": "post_only",
                         "browser_origin_default": "deny",
+                        "hosted_ui_same_origin": self.server.frontend_dir is not None,
                         "cors_opt_in": "exact_loopback_allowlist",
                     },
                     "codex": probe_codex_for(self.server.config),

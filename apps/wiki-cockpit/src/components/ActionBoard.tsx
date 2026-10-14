@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
-import { marked } from "marked";
+import { Marked } from "marked";
 import type { OperatorPort } from "../application/ports";
 import type { PageContent, PageRecord } from "../types";
 import type { SnapshotLoadResult } from "../application/ports";
 import { ACTION_STATES, ACTION_TRANSITIONS, actionState, boardPages } from "../data/actionBoard";
 import type { ActionEdit, ActionState } from "../data/actionBoard";
 import "./action-board.css";
+
+// Evidence is Markdown, never a container for raw HTML or remote resources.
+const boardMarkdown = new Marked({ renderer: { html: () => "" } });
 
 const COPY = {
   en: { title: "Work, in context", subtitle: "One action. Its page, sources and next step.", all: "All contexts", search: "Search actions", terminal: "Show completed and cancelled", refresh: "Refresh", states: ["Ready to plan", "In progress", "Waiting for someone", "Blocked", "Done", "Cancelled"], unknown: "State to review", next: "Next step", blocker: "What is blocking this?", owner: "Responsible", priority: "Priority", priorities: ["Low", "Normal", "High", "Urgent"], save: "Save to wiki", close: "Close", page: "Page and evidence", empty: "No actions in this view", failure: "Could not load the wiki. No sample data was substituted.", readOnly: "Read-only view", proposal: "Changes are saved in this workspace and remain subject to wiki review.", activity: "Executor activity: not connected", receipt: "Result evidence", cancel: "Cancellation reason", state: "Action state", missing: "Not recorded", sources: "Sources", saved: "Saved to the canonical page", conflict: "The page changed. Refresh before saving again.", loading: "Loading wiki…", map: "Explore wiki", total: "actions", snapshot: "Wiki read", open: "Open original page", unavailable: "Page unavailable. Refresh the board.", pending: "A save is in progress.", invalid: "This state cannot be edited here." },
@@ -80,9 +83,13 @@ export function ActionBoard({ operator, save, demo = false }: { operator: BoardO
       {page && <aside className="boardDetail" aria-label={copy.page}><div className="boardDetailTop"><span>{page.context}</span><button disabled={saving} onClick={() => select("")}>{copy.close}</button></div><h2>{page.title}</h2><p className="boardActivity">{copy.activity}</p>{notice && <p role="status" className="boardNotice">{notice}</p>}
       {content === null ? <p>{copy.loading}</p> : !content.ok ? <p role="alert">{copy.unavailable}</p> : <>
         <ActionForm key={`${page.id}:${page.content_sha256}`} page={page} writable={Boolean(writable && page.content_sha256)} saving={saving} copy={copy} submit={submit} />
-        <section className="boardEvidence"><h3>{copy.sources}</h3>{content.source_refs?.map(s => <p key={s.ref}>{s.resolved ? <button onClick={() => select(s.page_id)}>{s.title}</button> : s.ref}</p>)}<h3>{copy.page}</h3><article className="boardMarkdown" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(content.body || "", { async: false }), { FORBID_TAGS: ["img", "iframe", "form"], FORBID_ATTR: ["style"] }) }} onClick={event => {
+        <section className="boardEvidence"><h3>{copy.sources}</h3>{content.source_refs?.map(s => <p key={s.ref}>{s.resolved ? <button onClick={() => select(s.page_id)}>{s.title}</button> : s.ref}</p>)}<h3>{copy.page}</h3><article className="boardMarkdown" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(boardMarkdown.parse(content.body || "", { async: false }), { ALLOWED_TAGS: ["p", "br", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "a", "strong", "em", "del", "blockquote", "ul", "ol", "li", "pre", "code", "table", "thead", "tbody", "tr", "th", "td", "details", "summary"], ALLOWED_ATTR: ["href", "title", "colspan", "rowspan"] }) }} onClick={event => {
           const anchor = (event.target as HTMLElement).closest("a"); if (!anchor) return;
-          const link = content.resolved_links?.find(l => l.href === anchor.getAttribute("href"));
+          const href = anchor.getAttribute("href") || "";
+          const link = content.resolved_links?.find(l => {
+            if (l.href === href) return true;
+            try { return encodeURI(l.href) === href || l.href === decodeURIComponent(href); } catch { return false; }
+          });
           if (link?.kind === "page") { event.preventDefault(); select(link.page_id); }
           else if (anchor.getAttribute("href")?.startsWith("#")) { event.preventDefault(); }
           else { event.preventDefault(); if (link?.kind === "external" && /^https?:\/\//.test(link.href)) window.open(link.href, "_blank", "noopener,noreferrer"); }
