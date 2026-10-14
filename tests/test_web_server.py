@@ -1669,3 +1669,56 @@ def test_hosted_cockpit_deep_links(server: _Server, tmp_path: Path, path: str) -
     _write(tmp_path / "index.html", "<html>synthetic</html>")
     server.server.frontend_dir = tmp_path
     assert server.get_headers(path)[0] == 200
+
+
+def test_coordination_reads_canonical_identity_without_dispatch(server: _Server):
+    root = server.server.root
+    _server_action(root)
+    _write(root / 'wiki.coordination.yaml', '''schema_version: wiki_coordination.v1
+common_context: [AGENTS.md, root]
+profiles:
+  research:
+    label: Research
+    scope: Synthetic research coordination only.
+    context_pages: [root]
+    action_ids: [action-server-synthetic]
+''')
+    code, index = server.get('/api/coordination')
+    assert code == 200 and index['configured']
+    assert index['actions'][0]['coordinator'] == 'research'
+    code, packet = server.get('/api/coordination/profiles/research?action_id=action-server-synthetic')
+    assert code == 200 and packet['profile'] == 'research'
+    assert not packet['execution_ready'] and not packet['runtime_connected']
+    code, _ = server.get('/api/coordination/profiles/unknown')
+    assert code == 409
+    code, headers = server.get_headers('/api/coordination', headers={'Origin': 'https://untrusted.example'})
+    assert code == 200 and 'Access-Control-Allow-Origin' not in headers
+
+
+def test_dialogue_http_bound_route_actor_cas_and_readback(server: _Server):
+    root = server.server.root
+    page = _server_action(root)
+    _write(root / 'wiki.coordination.yaml', '''schema_version: wiki_coordination.v1
+profiles:
+  research:
+    label: Research
+    scope: Synthetic
+    action_ids: [action-server-synthetic]
+''')
+    payload = {'page_ref': str(page.relative_to(root)), 'expected_sha256': hashlib.sha256(page.read_bytes()).hexdigest(), 'next_state': 'open', 'next_action': 'Review the signed source',
+        'dialogue_event': {'event_id': 'direction-0001', 'kind': 'direction', 'text': 'Review the signed source', 'coordinator': 'other'}}
+    assert server.post('/api/actions/transition', payload)[0] == 409
+    payload['dialogue_event']['coordinator'] = 'research'
+    code, result = server.post('/api/actions/transition', payload)
+    assert code == 200, result
+    fm, _ = parse_frontmatter(page.read_text())
+    assert fm['action_dialogue'][0]['actor'] == 'operator'
+    assert fm['next_action'] == 'Review the signed source'
+    code, index = server.get('/api/coordination')
+    assert code == 200 and len(index['actions'][0]['dialogue']['events']) == 1
+    assert not index['actions'][0]['dialogue']['execution_ready']
+    assert server.post('/api/actions/transition', payload)[0] == 409
+    payload['expected_sha256'] = hashlib.sha256(page.read_bytes()).hexdigest()
+    payload['dialogue_event'].update(event_id='question-0002', kind='question', actor='coordinator:research')
+    code, result = server.post('/api/actions/transition', payload)
+    assert code == 400 and result['error_code'] == 'invalid_dialogue_event'

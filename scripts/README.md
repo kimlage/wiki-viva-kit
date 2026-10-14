@@ -49,3 +49,5 @@ public boundaries. Access secrets are blocked everywhere.
 [wiki_hermes_board.py](wiki_hermes_board.py) installs the optional Hermes Desktop
 view of the [native action board](../docs/references/guides/native-action-board.md).
 The local operator can serve a built cockpit with `--frontend` on its own origin.
+
+[wiki_coordination.py](wiki_coordination.py) reads configured coordinator routes and composes revision-bound context packets without dispatching agents. See [context coordinators](../docs/references/guides/context-coordinators.md).

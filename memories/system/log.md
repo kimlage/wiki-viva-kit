@@ -14,6 +14,12 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-10-14] System | Explicit context coordinators
+
+- Added [context coordinator routes and packets](../../docs/references/guides/context-coordinators.md) over canonical action identities, with shared bootstrap, scoped pages, revision hashes and unmapped-action reporting.
+- Added atomic next-step directions and append-only questions/linked answers on action pages, with v4 receipts compatible with prior history. Account requirements are explicit and unverified until the executing service confirms them.
+- The native board displays and filters coordinators while preserving domain owners. Runtime admission and execution remain disconnected and cannot be inferred from packet generation.
+
 ## [2026-10-14] System | Native action board
 
 - Added the [native action board](../../docs/references/guides/native-action-board.md)

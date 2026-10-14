@@ -71,3 +71,13 @@
 .boardDetail{padding:16px}
 .boardHeader p{font-size:13px}
 }
+
+.boardDialogue { border-top: 1px solid var(--border, #475569); margin-top: 20px; padding-top: 12px; }
+.boardDialogue ol { padding: 0; list-style: none; }
+.boardDialogue li { margin: 12px 0; padding: 12px; border: 1px solid #64748b55; border-radius: 8px; }
+.boardDialogue li p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.boardDialogue small { display: block; opacity: .75; }
+.boardDialogue label { display: grid; gap: 6px; margin-bottom: 10px; }
+.boardDialogue textarea { min-height: 90px; width: 100%; }
+.boardDialogue fieldset { border: 0; padding: 0; min-width: 0; }
+.boardDialogue blockquote { margin: 8px 0; padding-left: 10px; border-left: 3px solid #7dd3fc; }
