@@ -760,7 +760,7 @@ export function installLinkInterceptor(): () => void {
     if (!anchor) return;
     const href = anchor.getAttribute("href") || "";
     if (!href.startsWith("/") || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
-    if (href.startsWith("/api/")) return;
+    if (href.startsWith("/api/") || /^\/(demo\/)?board(?:[/?#]|$)/.test(href)) return;
     event.preventDefault();
     navigate(href);
   };

@@ -45,3 +45,7 @@ for the routing contract and separate provider-protection checks.
 
 Private consumer PII is valid. Use `wiki_audit.py --public-export --check` at
 public boundaries. Access secrets are blocked everywhere.
+
+[wiki_hermes_board.py](wiki_hermes_board.py) installs the optional Hermes Desktop
+view of the [native action board](../docs/references/guides/native-action-board.md).
+The local operator can serve a built cockpit with `--frontend` on its own origin.

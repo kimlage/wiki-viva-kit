@@ -180,6 +180,7 @@ function Nav({
   // demo prefix through patchWorld), so no legacy-redirect flash.
   const prefix = demo ? "/demo" : "";
   const items = [
+    { href: `${prefix}/board`, id: "board", label: "Kanban", icon: <ListChecks size={17} /> },
     { href: `${prefix}/w?view=radar`, id: "world", label: t("nav.home"), icon: <Activity size={17} /> },
     { href: dockHref("approve"), id: "review", label: t("nav.approve"), icon: <GitPullRequest size={17} /> },
     { href: dockHref("intake"), id: "sources", label: t("nav.add"), icon: <Inbox size={17} /> },

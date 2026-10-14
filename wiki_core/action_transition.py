@@ -57,7 +57,8 @@ from wiki_core.detectors import scan_text
 from wiki_core.frontmatter import FRONTMATTER_RE
 
 
-ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v2"
+ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v3"
+_V2_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v2"
 _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v1"
 _RECEIPT_ID_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -71,7 +72,7 @@ _SUPPORT_FIELDS_V1 = (
     "completion_receipt",
     "cancellation_receipt",
 )
-_SUPPORT_FIELDS = (
+_SUPPORT_FIELDS_V2 = (
     "next_action",
     "blocked_by",
     "blocker_reason",
@@ -79,7 +80,8 @@ _SUPPORT_FIELDS = (
     "completion_receipt",
     "cancellation_receipt",
 )
-_V2_ONLY_SUPPORT_FIELDS = frozenset(set(_SUPPORT_FIELDS) - set(_SUPPORT_FIELDS_V1))
+_SUPPORT_FIELDS = (*_SUPPORT_FIELDS_V2, "priority")
+_V2_ONLY_SUPPORT_FIELDS = frozenset(set(_SUPPORT_FIELDS_V2) - set(_SUPPORT_FIELDS_V1))
 _IMMUTABLE_RECEIPT_FIELDS = frozenset({"completion_receipt", "cancellation_receipt"})
 _IMMUTABLE_TERMINAL_FIELDS = frozenset(
     {"completed_at", "completion_receipt", "cancellation_receipt"}
@@ -388,6 +390,8 @@ def _governed_support_value(frontmatter: Mapping[str, Any], field: str) -> Any:
 def _support_fields_for_version(schema_version: str) -> tuple[str, ...]:
     if schema_version == _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION:
         return _SUPPORT_FIELDS_V1
+    if schema_version == _V2_ACTION_TRANSITION_RECEIPT_VERSION:
+        return _SUPPORT_FIELDS_V2
     return _SUPPORT_FIELDS
 
 
@@ -509,6 +513,7 @@ def _history_last_instant(history: list[dict[str, Any]]) -> datetime | None:
         schema_version = str(entry.get("schema_version") or "")
         if schema_version not in {
             _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION,
+            _V2_ACTION_TRANSITION_RECEIPT_VERSION,
             ACTION_TRANSITION_RECEIPT_VERSION,
         }:
             raise ActionTransitionError("invalid_action_state_history")
@@ -518,7 +523,7 @@ def _history_last_instant(history: list[dict[str, Any]]) -> datetime | None:
         if previous is not None and (
             current < previous
             or (
-                schema_version == ACTION_TRANSITION_RECEIPT_VERSION
+                schema_version != _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION
                 and current == previous
             )
         ):
@@ -603,6 +608,7 @@ def _transition_action_page_locked(
     blocker_reason: str | None = None,
     completion_receipt: str | None = None,
     cancellation_receipt: str | None = None,
+    priority: str | None = None,
     expected_sha256: str | None = None,
     recorded_at: str | None = None,
 ) -> ActionTransitionReceipt:
@@ -671,6 +677,10 @@ def _transition_action_page_locked(
                 field=field,
                 limit=_MAX_SUPPORT_FIELD_CHARS,
             )
+    if priority is not None:
+        if not isinstance(priority, str) or priority not in {"low", "normal", "high", "urgent"}:
+            raise ActionTransitionError("invalid_priority")
+        supplied["priority"] = priority
     if blocked_by is not None:
         supplied["blocked_by"] = _safe_blocked_by(blocked_by)
     for field, required_state in (
@@ -886,6 +896,7 @@ def transition_action_page(
     blocker_reason: str | None = None,
     completion_receipt: str | None = None,
     cancellation_receipt: str | None = None,
+    priority: str | None = None,
     expected_sha256: str | None = None,
     recorded_at: str | None = None,
 ) -> ActionTransitionReceipt:
@@ -906,6 +917,7 @@ def transition_action_page(
                 blocker_reason=blocker_reason,
                 completion_receipt=completion_receipt,
                 cancellation_receipt=cancellation_receipt,
+                priority=priority,
                 expected_sha256=expected_sha256,
                 recorded_at=recorded_at,
             )
@@ -930,6 +942,7 @@ def _receipt_entry_error(
     schema_version = str(entry.get("schema_version") or "")
     if schema_version not in {
         _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION,
+        _V2_ACTION_TRANSITION_RECEIPT_VERSION,
         ACTION_TRANSITION_RECEIPT_VERSION,
     }:
         return "receipt schema is missing or unsupported"
@@ -967,7 +980,7 @@ def _receipt_entry_error(
     if expected_prior_at is not None and (
         parsed_at < expected_prior_at
         or (
-            schema_version == ACTION_TRANSITION_RECEIPT_VERSION
+            schema_version != _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION
             and parsed_at == expected_prior_at
         )
     ):
@@ -1242,10 +1255,11 @@ def action_transition_diagnostics(
             ),
         )
     last_schema_version = str(additions[-1].get("schema_version") or "")
-    if last_schema_version == _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION and any(
+    unsupported_fields = set(_SUPPORT_FIELDS) - set(_support_fields_for_version(last_schema_version))
+    if any(
         _governed_support_value(previous, field)
         != _governed_support_value(current, field)
-        for field in _V2_ONLY_SUPPORT_FIELDS
+        for field in unsupported_fields
     ):
         return (
             ActionTransitionDiagnostic(

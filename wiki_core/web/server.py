@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import mimetypes
 import hashlib
 import ipaddress
 from concurrent.futures import ThreadPoolExecutor
@@ -222,6 +223,8 @@ class CockpitServer(ThreadingHTTPServer):
         # only take effect after an intentional restart.
         self.cors_origins = _allowed_cors_origins()
         super().__init__(server_address, CockpitRequestHandler)
+        self.frontend_dir: Path | None = None
+        self.frame_origins: tuple[str, ...] = ()
         self.root = root
         self.config = config
         self.snapshot_dir = WikiPaths(root, config).derived_root / "web-snapshot"
@@ -931,6 +934,17 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         origin = (self.headers.get("Origin") or "").strip()
         if not origin or origin in self.server.cors_origins:
             return True
+        # Built UI and API share this exact loopback origin. This does not
+        # permit other local apps/ports or file:null origins to invoke writes.
+        host = (self.headers.get("Host") or "").strip()
+        parsed = urlparse(origin)
+        try:
+            bound_port = (parsed.port or 80) == self.server.server_address[1]
+        except ValueError:
+            bound_port = False
+        if (self.server.frontend_dir is not None and self._host_is_loopback()
+                and origin == f"http://{host}" and bound_port):
+            return True
         self._send_error("operator origin is not allowlisted", status=HTTPStatus.FORBIDDEN)
         return False
 
@@ -975,11 +989,48 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 status=HTTPStatus.SERVICE_UNAVAILABLE,
             )
 
+    def _serve_frontend(self, path: str) -> bool:
+        """Serve only built public UI assets; never resolve repository paths."""
+        frontend = self.server.frontend_dir
+        if frontend is None or path.startswith("/api/"):
+            return False
+        if path == "/wiki-cockpit.config.json":
+            self._send_json({"api_base": "/api", "snapshot_base": "/api/snapshot",
+                             "mode": "local_operator", "language": self.server.config.language})
+            return True
+        route = path.removeprefix("/demo") if path == "/demo" or path.startswith("/demo/") else path
+        spa_roots = ("/w", "/review", "/sources", "/health", "/pages")
+        is_spa = (route in {"", "/", "/board", "/board/"}
+                  or any(route == base or route.startswith(base + "/") for base in spa_roots)
+                  or (path.startswith("/demo/") and route.split("/")[1] in {"world", "genesis"}))
+        if is_spa:
+            relative = "index.html"
+        elif path.startswith(("/assets/", "/sample-snapshot/")) or path == "/favicon.svg":
+            relative = path.lstrip("/")
+        else:
+            return False
+        target = (frontend / relative).resolve()
+        if not target.is_relative_to(frontend) or not target.is_file():
+            self._send_error("UI asset not found", status=HTTPStatus.NOT_FOUND)
+            return True
+        body = target.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", mimetypes.guess_type(target.name)[0] or "application/octet-stream")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Security-Policy", "frame-ancestors 'self' " + " ".join(self.server.frame_origins))
+        self.end_headers()
+        self.wfile.write(body)
+        return True
+
     def _do_GET(self) -> None:
         if not self._guard_host():
             return
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
+        if self._serve_frontend(path):
+            return
         if path == "/api/health":
             self._send_json(
                 {
@@ -1010,6 +1061,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                         "max_body_bytes": MAX_REQUEST_BODY_BYTES,
                         "mutations": "post_only",
                         "browser_origin_default": "deny",
+                        "hosted_ui_same_origin": self.server.frontend_dir is not None,
                         "cors_opt_in": "exact_loopback_allowlist",
                     },
                     "codex": probe_codex_for(self.server.config),
@@ -1450,6 +1502,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                         if payload.get("cancellation_receipt") is not None
                         else None
                     ),
+                    priority=payload.get("priority"),
                     expected_sha256=expected_sha256,
                 )
             except ActionTransitionError as exc:
@@ -1472,6 +1525,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     status = HTTPStatus.BAD_REQUEST
                 self._send_json(exc.to_dict(), status=status)
                 return
+            self.server.invalidate_snapshot_cache()
             self._send_json(receipt.to_dict())
             return
         if parsed.path == "/api/intake/copy":
@@ -1975,13 +2029,20 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         self._send_error("not found", status=HTTPStatus.NOT_FOUND)
 
 
-def serve(root: Path, *, host: str = "127.0.0.1", port: int = 8765) -> None:
+def serve(root: Path, *, host: str = "127.0.0.1", port: int = 8765, frontend: Path | None = None, frame_origins: tuple[str, ...] = ()) -> None:
     if host not in LOOPBACK_HOSTS:
         raise ValueError(
             "the local operator may bind only to 127.0.0.1, localhost or ::1"
         )
+    if frontend is not None:
+        frontend = frontend.resolve()
+        if not (frontend / "index.html").is_file():
+            raise ValueError("frontend must contain a built index.html")
+    checked_origins = tuple("file:" if origin == "file:" else _validated_cors_origin(origin) for origin in frame_origins)
     config = load_config(root)
     server = CockpitServer((host, port), root, config)
+    server.frontend_dir = frontend
+    server.frame_origins = checked_origins
     print(f"wiki web server listening on http://{host}:{port}")
     server.serve_forever()
 
@@ -1991,13 +2052,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--root", default=str(Path.cwd()))
+    parser.add_argument("--frontend", type=Path, help="Built cockpit dist directory, served on the operator origin")
+    parser.add_argument("--frame-origin", action="append", default=[], help="Explicit loopback embedding origin, or file: for native desktop hosts")
     args = parser.parse_args(argv)
     if args.host not in LOOPBACK_HOSTS:
         parser.error(
             "--host must be 127.0.0.1, localhost or ::1; "
             "the operator has no remote-bind authentication"
         )
-    serve(Path(args.root).resolve(), host=args.host, port=args.port)
+    serve(Path(args.root).resolve(), host=args.host, port=args.port, frontend=args.frontend, frame_origins=tuple(args.frame_origin))
     return 0
 
 

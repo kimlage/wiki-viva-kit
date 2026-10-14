@@ -1137,3 +1137,41 @@ def test_terminal_legacy_canonicalization_binds_completed_at_to_receipt_clock(
     assert [item.code for item in diagnostics] == [
         "action_terminal_timestamp_mismatch"
     ]
+
+
+def test_priority_update_is_canonical_and_stale_revision_is_rejected(tmp_path):
+    path = _write_action(tmp_path)
+    before = path.read_text()
+    sha = hashlib.sha256(before.encode()).hexdigest()
+    receipt = transition_action_page(tmp_path, path, "open", priority="urgent", expected_sha256=sha, recorded_at=FIXED_AT)
+    after = path.read_text()
+    assert receipt.changed
+    assert "priority: urgent" in after
+    assert action_transition_diagnostics(before, after) == ()
+    with pytest.raises(ActionTransitionError, match="stale_action_revision"):
+        transition_action_page(tmp_path, path, "open", priority="low", expected_sha256=sha)
+    assert path.read_text() == after
+    tampered = after.replace("priority: urgent", "priority: low")
+    assert action_transition_diagnostics(before, tampered)
+
+
+@pytest.mark.parametrize("value", ["highest", 1, True, {}, ""])
+def test_priority_rejects_invalid_values_without_writing(tmp_path, value):
+    path = _write_action(tmp_path)
+    before = path.read_bytes()
+    with pytest.raises(ActionTransitionError, match="invalid_priority"):
+        transition_action_page(tmp_path, path, "open", priority=value, recorded_at=FIXED_AT)
+    assert path.read_bytes() == before
+
+
+def test_v2_receipt_can_be_followed_by_v3_priority_update(tmp_path, monkeypatch):
+    path = _write_action(tmp_path)
+    before = path.read_text()
+    with monkeypatch.context() as patch:
+        patch.setattr(transition_module, "ACTION_TRANSITION_RECEIPT_VERSION", "wiki_action_transition_receipt.v2")
+        patch.setattr(transition_module, "_SUPPORT_FIELDS", transition_module._SUPPORT_FIELDS_V2)
+        transition_action_page(tmp_path, path, "in_progress", recorded_at=FIXED_AT)
+    v2 = path.read_text()
+    assert action_transition_diagnostics(before, v2) == ()
+    transition_action_page(tmp_path, path, "in_progress", priority="high", recorded_at="2026-07-11T14:31:00Z")
+    assert action_transition_diagnostics(v2, path.read_text()) == ()
