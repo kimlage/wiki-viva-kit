@@ -29,3 +29,10 @@ it("does not offer self answers, terminal writes, or replies to answered questio
   expect(screen.queryByRole("button",{name:"Reply"})).toBeNull();
   expect(screen.queryByLabelText("Message")).toBeNull();
 });
+it.each([{}, [null], ["broken"], [{kind:"question",text:{bad:"object"}}], [{...question,event_id:undefined}], false, 0])("keeps malformed dialogue inert without crashing the card: %j", (events)=>{
+  const send=vi.fn();
+  render(<ActionDialogue events={events as unknown as DialogueEvent[]} coordinator="research" language="en" writable busy={false} send={send}/>);
+  expect(screen.getByRole("alert").textContent).toContain("Invalid conversation history");
+  expect(screen.queryByRole("button",{name:"Record on card"})).toBeNull();
+  expect(send).not.toHaveBeenCalled();
+});

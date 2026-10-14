@@ -110,3 +110,13 @@ it('blocks edits while the coordinator map is pending or unavailable',async()=>{
   expect(next.closest('fieldset')?.disabled).toBe(true);
   expect(save).not.toHaveBeenCalled();
 });
+
+it('keeps read-only evidence visible when the selected card has malformed dialogue',async()=>{
+  const {operator,save}=setup('static',true);
+  operator.loadPageContent.mockResolvedValue({ok:true,body:'# Synthetic evidence',source_refs:[],resolved_links:[],frontmatter:{action_dialogue:[null]}} as never);
+  fireEvent.click(await screen.findByRole('button',{name:/Synthetic task/}));
+  expect(await screen.findByText('Synthetic evidence')).toBeTruthy();
+  expect((await screen.findByRole('alert')).textContent).toContain('Invalid conversation history');
+  expect(screen.queryByRole('button',{name:'Record on card'})).toBeNull();
+  expect(save).not.toHaveBeenCalled();
+});
