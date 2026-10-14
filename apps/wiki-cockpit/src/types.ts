@@ -178,6 +178,7 @@ export type DiffFile = {
 };
 
 export type PageRecord = {
+  content_sha256?: string;
   id: string;
   path: string;
   title: string;

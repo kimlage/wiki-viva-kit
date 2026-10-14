@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-10-06
+updated_at: 2026-10-14
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,14 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-10-14] System | Native action board
+
+- Added the [native action board](../../docs/references/guides/native-action-board.md)
+  over canonical action pages, with context filters, source reading, guarded
+  state/priority edits and receipt v3 compatibility with v1/v2 history.
+- Added same-origin loopback UI hosting and an optional Hermes Desktop view of
+  the same board. No task import, executor activation or private fixture.
 
 ## [2026-10-06] System | Synthetic Vercel preview command
 

@@ -1616,3 +1616,36 @@ def test_dynamic_reader_rejects_mixed_revision_then_refreshes(server: _Server) -
     assert status == 200
     assert content_b["snapshot_id"] == snapshot_b_id
     assert "Revision B body." in content_b["body"]
+
+
+def test_native_board_static_boundary_and_config(server: _Server, tmp_path: Path) -> None:
+    dist = tmp_path / "frontend"
+    _write(dist / "index.html", "<html>synthetic board</html>")
+    _write(dist / "assets/app.js", "export {}")
+    _write(tmp_path / "private.txt", "never serve")
+    server.server.frontend_dir = dist
+    server.server.frame_origins = ("file:",)
+    status, headers = server.get_headers("/board")
+    assert status == 200
+    assert headers["Content-Security-Policy"] == "frame-ancestors 'self' file:"
+    status, config = server.get("/wiki-cockpit.config.json")
+    assert status == 200
+    assert config["mode"] == "local_operator"
+    assert server.get_headers("/assets/app.js")[0] == 200
+    assert server.get_headers("/assets/../../private.txt")[0] == 404
+    assert server.get_headers("/memories/index.md")[0] == 404
+    assert server.get("/api/health")[0] == 200
+
+
+def test_priority_edit_http_invalidates_board_and_rejects_stale_write(server: _Server) -> None:
+    page = _server_action(server.server.root)
+    before = page.read_bytes()
+    server.get("/api/snapshot")
+    payload = {"page_ref": str(page.relative_to(server.server.root)), "expected_sha256": hashlib.sha256(before).hexdigest(), "next_state": "open", "priority": "high"}
+    status, result = server.post("/api/actions/transition", payload)
+    assert status == 200, result
+    assert server.server._snapshot_cache is None
+    assert parse_frontmatter(page.read_text())[0]["priority"] == "high"
+    status, result = server.post("/api/actions/transition", {**payload, "priority": "urgent"})
+    assert status == 409, result
+    assert parse_frontmatter(page.read_text())[0]["priority"] == "high"

@@ -47,6 +47,7 @@ _PACK_RESERVED_FIELDS = {
 _ACTION_RECEIPT_SCHEMAS = {
     "wiki_action_transition_receipt.v1",
     "wiki_action_transition_receipt.v2",
+    "wiki_action_transition_receipt.v3",
 }
 _ACTION_SUPPORT_FIELDS_V1 = {
     "next_action",
@@ -554,7 +555,7 @@ def _action_history_shape_errors(
         allowed_support = (
             _ACTION_SUPPORT_FIELDS_V1
             if schema_version == "wiki_action_transition_receipt.v1"
-            else _ACTION_SUPPORT_FIELDS_V2
+            else (_ACTION_SUPPORT_FIELDS_V2 | {"priority"} if schema_version == "wiki_action_transition_receipt.v3" else _ACTION_SUPPORT_FIELDS_V2)
         )
         if (
             not isinstance(support_fields, list)
@@ -575,7 +576,7 @@ def _action_history_shape_errors(
         elif prior_at is not None and (
             parsed_at < prior_at
             or (
-                schema_version == "wiki_action_transition_receipt.v2"
+                schema_version in {"wiki_action_transition_receipt.v2", "wiki_action_transition_receipt.v3"}
                 and parsed_at == prior_at
             )
         ):
