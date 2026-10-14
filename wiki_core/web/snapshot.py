@@ -49,7 +49,7 @@ from wiki_core.experience_packs import (
 )
 from wiki_core.events import resolve_ingestion_event_identity
 from wiki_core.freshness import freshness_state, is_stale_exempt
-from wiki_core.frontmatter import list_values, parse_frontmatter
+from wiki_core.frontmatter import frontmatter_parsing_cache, list_values, parse_frontmatter
 from wiki_core.graph import build_page_graph
 from wiki_core.output_safety import (
     OUTPUT_OWNER_FILENAME,
@@ -3075,6 +3075,7 @@ def _experience_pack_composition_errors(payload: Any) -> list[str]:
     return errors
 
 
+@frontmatter_parsing_cache()
 def build_snapshot(
     root: Path,
     config: WikiConfig | None = None,
