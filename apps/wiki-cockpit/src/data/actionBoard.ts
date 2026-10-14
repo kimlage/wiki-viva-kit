@@ -23,5 +23,17 @@ export function boardPages(pages: PageRecord[], context: string, query: string, 
 export type ActionEdit = {
   page_ref: string; expected_sha256: string; next_state: ActionState;
   next_action?: string; blocker_reason?: string; completion_receipt?: string;
-  cancellation_receipt?: string; priority?: string;
+  cancellation_receipt?: string; priority?: string; dialogue_event?: DialogueInput;
 };
+
+export type CoordinationIndex = {
+  schema_version: string; configured: boolean; snapshot_id: string;
+  profiles: { id: string; label: string; scope: string; action_ids: string[]; access_requirements?: {service: string; expected_identity: string; method: string; source_ref: string}[] }[];
+  actions: { action_id: string; coordinator: string | null; content_sha256: string; dialogue?: {pending_question_ids: string[]} }[];
+};
+
+export type DialogueInput = {
+  event_id: string; kind: "direction" | "question" | "confirmation_request" | "answer" | "comment";
+  text: string; coordinator: string; reply_to?: string;
+};
+export type DialogueEvent = DialogueInput & { actor: string; at: string; before_sha256: string };

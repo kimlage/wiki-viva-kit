@@ -26,6 +26,7 @@ from wiki_core.action_transition import (
     transition_action_page,
 )
 from wiki_core.config import WikiConfig, load_config
+from wiki_core.coordination import CoordinationError, coordination_index, context_packet
 from wiki_core.paths import WikiPaths
 from wiki_core.web.admin import (
     ADMIN_SESSION_HEADER,
@@ -1190,6 +1191,19 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/snapshot":
             self._send_json(self.server.snapshot_payloads())
             return
+        if path == "/api/coordination" or path.startswith("/api/coordination/profiles/"):
+            try:
+                snapshot = self.server.snapshot_payloads()
+                if path == "/api/coordination":
+                    payload = coordination_index(self.server.root, snapshot)
+                else:
+                    profile = path[len("/api/coordination/profiles/"):]
+                    action_id = (parse_qs(parsed.query).get("action_id") or [None])[0]
+                    payload = context_packet(self.server.root, self.server.config, snapshot, profile, action_id)
+                self._send_json(payload)
+            except (CoordinationError, OSError) as exc:
+                self._send_error(str(exc), status=HTTPStatus.CONFLICT)
+            return
         if path == "/api/snapshot/boot":
             # One coherent transport for the cockpit's initial world. Temporal
             # history remains lazy because it can be hundreds of kilobytes and
@@ -1467,6 +1481,14 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     status=HTTPStatus.BAD_REQUEST,
                 )
                 return
+            dialogue_event = payload.get("dialogue_event")
+            if dialogue_event is not None:
+                try:
+                    from wiki_core.coordination import validate_dialogue_route
+                    validate_dialogue_route(self.server.root, page_ref, dialogue_event)
+                except CoordinationError as exc:
+                    self._send_error(str(exc), status=HTTPStatus.CONFLICT)
+                    return
             try:
                 receipt = transition_action_page(
                     self.server.root,
@@ -1503,6 +1525,8 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                         else None
                     ),
                     priority=payload.get("priority"),
+                    dialogue_event=dialogue_event,
+                    dialogue_actor="operator",
                     expected_sha256=expected_sha256,
                 )
             except ActionTransitionError as exc:

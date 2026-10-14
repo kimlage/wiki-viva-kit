@@ -57,7 +57,8 @@ from wiki_core.detectors import scan_text
 from wiki_core.frontmatter import FRONTMATTER_RE
 
 
-ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v3"
+ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v4"
+_V3_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v3"
 _V2_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v2"
 _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v1"
 _RECEIPT_ID_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -80,7 +81,8 @@ _SUPPORT_FIELDS_V2 = (
     "completion_receipt",
     "cancellation_receipt",
 )
-_SUPPORT_FIELDS = (*_SUPPORT_FIELDS_V2, "priority")
+_SUPPORT_FIELDS_V3 = (*_SUPPORT_FIELDS_V2, "priority")
+_SUPPORT_FIELDS = (*_SUPPORT_FIELDS_V3, "action_dialogue")
 _V2_ONLY_SUPPORT_FIELDS = frozenset(set(_SUPPORT_FIELDS_V2) - set(_SUPPORT_FIELDS_V1))
 _IMMUTABLE_RECEIPT_FIELDS = frozenset({"completion_receipt", "cancellation_receipt"})
 _IMMUTABLE_TERMINAL_FIELDS = frozenset(
@@ -379,6 +381,8 @@ def _last_receipt_id(history: list[dict[str, Any]]) -> str:
 
 def _governed_support_value(frontmatter: Mapping[str, Any], field: str) -> Any:
     value = frontmatter.get(field)
+    if field == "action_dialogue":
+        return [] if value is None else value
     if field == "blocked_by":
         if value in (None, ""):
             return []
@@ -392,6 +396,8 @@ def _support_fields_for_version(schema_version: str) -> tuple[str, ...]:
         return _SUPPORT_FIELDS_V1
     if schema_version == _V2_ACTION_TRANSITION_RECEIPT_VERSION:
         return _SUPPORT_FIELDS_V2
+    if schema_version == _V3_ACTION_TRANSITION_RECEIPT_VERSION:
+        return _SUPPORT_FIELDS_V3
     return _SUPPORT_FIELDS
 
 
@@ -514,6 +520,7 @@ def _history_last_instant(history: list[dict[str, Any]]) -> datetime | None:
         if schema_version not in {
             _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION,
             _V2_ACTION_TRANSITION_RECEIPT_VERSION,
+            _V3_ACTION_TRANSITION_RECEIPT_VERSION,
             ACTION_TRANSITION_RECEIPT_VERSION,
         }:
             raise ActionTransitionError("invalid_action_state_history")
@@ -609,6 +616,8 @@ def _transition_action_page_locked(
     completion_receipt: str | None = None,
     cancellation_receipt: str | None = None,
     priority: str | None = None,
+    dialogue_event: dict[str, Any] | None = None,
+    dialogue_actor: str = "operator",
     expected_sha256: str | None = None,
     recorded_at: str | None = None,
 ) -> ActionTransitionReceipt:
@@ -703,6 +712,14 @@ def _transition_action_page_locked(
         )
     )
     at, parsed_at = _transition_instant(recorded_at)
+
+    if dialogue_event is not None:
+        from wiki_core.action_dialogue import append_event
+        supplied["action_dialogue"] = append_event(frontmatter.get("action_dialogue"), dialogue_event,
+            actor=dialogue_actor, at=at, before_sha256=before_sha256,
+            terminal=current in {"done", "cancelled"} or target in {"done", "cancelled"})
+        if dialogue_event.get("kind") == "direction" and supplied.get("next_action") != dialogue_event["text"].strip():
+            raise ActionTransitionError("direction_next_action_mismatch")
 
     updated = dict(frontmatter)
     for field, value in supplied.items():
@@ -897,6 +914,8 @@ def transition_action_page(
     completion_receipt: str | None = None,
     cancellation_receipt: str | None = None,
     priority: str | None = None,
+    dialogue_event: dict[str, Any] | None = None,
+    dialogue_actor: str = "operator",
     expected_sha256: str | None = None,
     recorded_at: str | None = None,
 ) -> ActionTransitionReceipt:
@@ -918,6 +937,8 @@ def transition_action_page(
                 completion_receipt=completion_receipt,
                 cancellation_receipt=cancellation_receipt,
                 priority=priority,
+                dialogue_event=dialogue_event,
+                dialogue_actor=dialogue_actor,
                 expected_sha256=expected_sha256,
                 recorded_at=recorded_at,
             )
@@ -943,6 +964,7 @@ def _receipt_entry_error(
     if schema_version not in {
         _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION,
         _V2_ACTION_TRANSITION_RECEIPT_VERSION,
+        _V3_ACTION_TRANSITION_RECEIPT_VERSION,
         ACTION_TRANSITION_RECEIPT_VERSION,
     }:
         return "receipt schema is missing or unsupported"
@@ -1079,6 +1101,12 @@ def action_transition_diagnostics(
                 "a changed action must author one exact canonical action_state",
             ),
         )
+
+    old_dialogue = previous.get("action_dialogue") or []
+    new_dialogue = current.get("action_dialogue") or []
+    if (not isinstance(old_dialogue, list) or not isinstance(new_dialogue, list)
+        or new_dialogue[:len(old_dialogue)] != old_dialogue):
+        return (ActionTransitionDiagnostic("action_dialogue_rewritten", "action dialogue is append-only"),)
 
     previous_history_raw = previous.get(_HISTORY_FIELD)
     current_history_raw = current.get(_HISTORY_FIELD)

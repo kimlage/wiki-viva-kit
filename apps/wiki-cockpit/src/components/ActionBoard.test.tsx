@@ -63,3 +63,50 @@ it('renders inert evidence and follows encoded canonical page links',async()=>{
   fireEvent.click(link);
   await waitFor(()=>expect(operator.loadPageContent).toHaveBeenLastCalledWith('Context page',expect.anything()));
 });
+
+it('shows the primary coordinator while preserving owner and disconnected executor', async()=>{
+  const pages=[action('Synthetic task')];
+  const loaded={source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test'},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'Evidence',source_refs:[],resolved_links:[]})};
+  const loadCoordination=vi.fn().mockResolvedValue({schema_version:'wiki_coordination.v1',configured:true,snapshot_id:'test',profiles:[{id:'research',label:'Research',scope:'Synthetic',action_ids:['Synthetic task']}],actions:[{action_id:'Synthetic task',coordinator:'research',content_sha256:'a'.repeat(64)}]});
+  render(<ActionBoard operator={operator} save={vi.fn()} loadCoordination={loadCoordination}/>);
+  await screen.findByLabelText('Coordinator');
+  fireEvent.change(screen.getByLabelText('Coordinator'),{target:{value:'research'}});
+  fireEvent.click(screen.getByRole('button',{name:/Synthetic task/}));
+  await screen.findByText('Evidence');
+  expect(screen.getByText('Executor activity: not connected')).toBeTruthy();
+  expect(screen.getAllByText(/Coordinator:/).length).toBeGreaterThan(0);
+});
+
+it('records changed next steps as one direction with the same CAS save',async()=>{
+  const pages=[action('Synthetic task')];
+  const loaded={source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test'},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'Evidence',frontmatter:{},source_refs:[],resolved_links:[]})};
+  const loadCoordination=vi.fn().mockResolvedValue({configured:true,snapshot_id:'test',profiles:[{id:'research',label:'Research',action_ids:['Synthetic task']}],actions:[{action_id:'Synthetic task',coordinator:'research',content_sha256:'a'.repeat(64)}]});
+  const save=vi.fn().mockResolvedValue(undefined);
+  render(<ActionBoard operator={operator} save={save} loadCoordination={loadCoordination}/>);
+  await screen.findByLabelText('Coordinator');
+  fireEvent.click(screen.getByRole('button',{name:/Synthetic task/}));
+  fireEvent.change(await screen.findByLabelText('Next step'),{target:{value:'Review signed source'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save to wiki'}));
+  await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
+  expect(save.mock.calls[0][0]).toMatchObject({next_action:'Review signed source',dialogue_event:{kind:'direction',text:'Review signed source',coordinator:'research'}});
+});
+
+it('blocks edits while the coordinator map is pending or unavailable',async()=>{
+  const pages=[action('Synthetic task')];
+  const loaded={source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test'},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'Evidence',frontmatter:{},source_refs:[],resolved_links:[]})};
+  let rejectMap: (reason: Error)=>void = ()=>{};
+  const loadCoordination=()=>new Promise<never>((_resolve,reject)=>{ rejectMap=reject; });
+  const save=vi.fn();
+  render(<ActionBoard operator={operator} save={save} loadCoordination={loadCoordination}/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Synthetic task/}));
+  const next=await screen.findByLabelText('Next step');
+  expect(next.closest('fieldset')?.disabled).toBe(true);
+  expect(screen.queryByRole('button',{name:'Save to wiki'})).toBeNull();
+  rejectMap(new Error('unavailable'));
+  await screen.findByText('Coordinator mapping unavailable; refresh before coordinating.');
+  expect(next.closest('fieldset')?.disabled).toBe(true);
+  expect(save).not.toHaveBeenCalled();
+});
