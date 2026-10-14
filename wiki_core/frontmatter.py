@@ -50,6 +50,11 @@ non-stripping helper for the shape validator (documented at that call site).
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from copy import deepcopy
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +62,7 @@ import yaml
 
 __all__ = [
     "FRONTMATTER_RE",
+    "frontmatter_parsing_cache",
     "list_values",
     "parse_frontmatter",
     "parse_frontmatter_flat",
@@ -68,6 +74,56 @@ __all__ = [
 # compilation reads canonical bytes to hash them, so Windows-authored CRLF must
 # parse without normalizing those bytes first.
 FRONTMATTER_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n)?", re.DOTALL)
+
+# Only cache pure YAML parsing during one compilation. File reads and Markdown
+# bodies remain current, and no parsed mutable value is shared with a caller.
+_MAX_PARSE_CACHE_BYTES = 8 * 1024 * 1024
+_MAX_PARSE_CACHE_BLOCK_BYTES = 64 * 1024
+_MAX_PARSE_CACHE_ENTRIES = 2048
+
+
+@dataclass
+class _ParseCache:
+    values: dict[str, dict[str, Any]] = field(default_factory=dict)
+    bytes: int = 0
+
+
+_parse_cache: ContextVar[_ParseCache | None] = ContextVar("frontmatter_parse_cache", default=None)
+
+
+@contextmanager
+def frontmatter_parsing_cache() -> Iterator[None]:
+    """Reuse identical YAML blocks only within this call's execution context.
+
+    Keys are current block contents, never file paths or stat timestamps.
+    Nested scopes share the same bounded cache. Leaving the outer scope,
+    including on failure, discards it; separate threads have separate caches.
+    """
+    if _parse_cache.get() is not None:
+        yield
+        return
+    token = _parse_cache.set(_ParseCache())
+    try:
+        yield
+    finally:
+        _parse_cache.reset(token)
+
+
+def _parse_yaml_block(block: str) -> Any:
+    cache = _parse_cache.get()
+    if cache is not None and block in cache.values:
+        return deepcopy(cache.values[block])
+    data = yaml.safe_load(block)
+    if cache is not None and isinstance(data, dict):
+        size = len(block.encode("utf-8"))
+        if (
+            size <= _MAX_PARSE_CACHE_BLOCK_BYTES
+            and cache.bytes + size <= _MAX_PARSE_CACHE_BYTES
+            and len(cache.values) < _MAX_PARSE_CACHE_ENTRIES
+        ):
+            cache.values[block] = deepcopy(data)
+            cache.bytes += size
+    return data
 
 
 def _read_text(source: str | Path) -> str:
@@ -127,7 +183,7 @@ def parse_frontmatter(source: str | Path) -> tuple[dict[str, Any], str]:
     if not match:
         return {}, text
     try:
-        data = yaml.safe_load(match.group(1))
+        data = _parse_yaml_block(match.group(1))
     except yaml.YAMLError:
         return {}, text[match.end():]
     values = data if isinstance(data, dict) else {}

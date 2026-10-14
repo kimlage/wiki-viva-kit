@@ -1308,3 +1308,11 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - The published pack contract requires EN/ES/PT-BR. Added an explicitly selected 0.1.1 source and content-preserving 0.1.0 upgrade; 0.1.0 source/default and capabilities remain intact.
 - [Upgrading](../../docs/references/guides/personal-finance-locale-upgrade.md) uses normal bounded lifecycle mutation. The [repeat-safe C3 helper](../../scripts/wiki_pack_adopt.py) checks existing source/installed pins and receipts before reporting unchanged.
 - [Synthetic tests](../../tests/test_personal_finance_upgrade.py) prove legacy locale failure, preserved authored pages/templates/config, repeatable zero-write plans, receipt closure and refusal of immutable-bundle drift. All fixture bytes originate in the public kit.
+
+
+## [2026-10-14] system | Reuse YAML parsing within snapshot compilation
+
+- The [snapshot compiler](../../wiki_core/web/snapshot.py) reuses identical parsed frontmatter only during one compilation, while preserving current file/body reads, source revision checks and independent mutable mappings.
+- Bounded context-local reuse is discarded on return or failure. No persistent cache, TTL change, runtime dispatch, action transition or access grant was introduced.
+- [Parser regression tests](../../tests/test_frontmatter_compilation_cache.py) cover freshness, mutation isolation, thread/scoped cleanup, size limits and safe loader semantics. [Snapshot parity](../../tests/test_snapshot_frontmatter_cache.py) verifies identical complete payloads with reuse enabled and disabled.
+- The [upgrade note](../../docs/references/guides/snapshot-parsing-reuse.md) records an isolated public fixture measurement and normal downstream adoption; it does not claim a consumer deployment.
