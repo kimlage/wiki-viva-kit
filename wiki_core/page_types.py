@@ -652,6 +652,11 @@ def validate_shape(
             if error:
                 errors.append(f"{rel}: {error}")
     if str(values.get("page_type") or "") == "action":
+        from wiki_core.action_dialogue import validate_history
+        try:
+            validate_history(values.get("action_dialogue", []))
+        except ValueError:
+            errors.append(f"{rel}: invalid_action_dialogue")
         action_state = resolve_action_state(values).state
         errors.extend(_action_history_shape_errors(rel, values, action_state))
         next_action = str(values.get("next_action") or "").strip()

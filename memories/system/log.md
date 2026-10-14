@@ -1316,3 +1316,10 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - Bounded context-local reuse is discarded on return or failure. No persistent cache, TTL change, runtime dispatch, action transition or access grant was introduced.
 - [Parser regression tests](../../tests/test_frontmatter_compilation_cache.py) cover freshness, mutation isolation, thread/scoped cleanup, size limits and safe loader semantics. [Snapshot parity](../../tests/test_snapshot_frontmatter_cache.py) verifies identical complete payloads with reuse enabled and disabled.
 - The [upgrade note](../../docs/references/guides/snapshot-parsing-reuse.md) records an isolated public fixture measurement and normal downstream adoption; it does not claim a consumer deployment.
+
+
+## [2026-10-14] system | Preview provenance and malformed action dialogue
+
+- The [preview adapter](../../wiki_core/web/vercel_preview.py) verifies runtime bytes against Git HEAD and frontend bytes against an isolated committed-source build before emitting a deployable package. Local dependency trees, environment and npm configuration are excluded; the receipt records the verification. [Upgrade instructions](../../docs/references/templates/deploy/web-cockpit/README.md) describe the dependency download and byte comparison.
+- The [dialogue validator](../../wiki_core/action_dialogue.py) validates stored event shape and references for page audits, reads and appends. Malformed records yield a controlled coordination error without changing history or granting execution.
+- [Preview regressions](../../tests/test_vercel_preview.py), [isolated-build checks](../../tests/test_preview_isolated_build.py) and [HTTP regressions](../../tests/test_web_server.py) use public synthetic inputs. These corrections do not install or activate consumer runtimes.

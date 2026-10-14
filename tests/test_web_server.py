@@ -1722,3 +1722,21 @@ profiles:
     payload['dialogue_event'].update(event_id='question-0002', kind='question', actor='coordinator:research')
     code, result = server.post('/api/actions/transition', payload)
     assert code == 400 and result['error_code'] == 'invalid_dialogue_event'
+
+@pytest.mark.parametrize('dialogue', ['[broken]', '[{kind: question}]'])
+def test_malformed_card_returns_controlled_coordination_error(server: _Server, dialogue):
+    root = server.server.root
+    page = _server_action(root)
+    page.write_text(page.read_text().replace('page_type: action', 'page_type: action\naction_dialogue: ' + dialogue))
+    _write(root / 'wiki.coordination.yaml', '''schema_version: wiki_coordination.v1
+profiles:
+  research:
+    label: Research
+    scope: Synthetic
+    action_ids: [action-server-synthetic]
+''')
+    before = page.read_bytes()
+    code, result = server.get('/api/coordination')
+    assert code == 409
+    assert 'invalid_action_dialogue' in str(result)
+    assert page.read_bytes() == before

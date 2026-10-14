@@ -7,6 +7,9 @@ There is deliberately no private-data override or account/deployment action.
 from __future__ import annotations
 
 import hashlib
+import io
+import os
+import tarfile
 import json
 import re
 import shutil
@@ -152,6 +155,68 @@ def _frontend(dist: Path) -> dict[str, bytes]:
     return payloads
 
 
+def _build_frontend(root: Path, head: str) -> dict[str, bytes]:
+    """Build only committed cockpit inputs in a disposable, credential-free home.
+
+    Never use the consumer's node_modules, dist, environment or npm config.
+    The existing release launcher also strips Vite/environment overrides.
+    """
+    npm = shutil.which("npm")
+    node = shutil.which("node")
+    if not npm or not node:
+        raise ValueError("preview verification requires Node and npm")
+    archive = _git(root, "archive", "--format=tar", head, "apps/wiki-cockpit")
+    with tempfile.TemporaryDirectory(prefix="wiki-preview-build-") as directory:
+        stage = Path(directory).resolve()
+        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+            for member in tar:
+                relative = Path(member.name)
+                if relative == Path("apps") and member.isdir():
+                    continue
+                if (relative.is_absolute() or ".." in relative.parts
+                    or relative.parts[:2] != ("apps", "wiki-cockpit")
+                    or not (member.isdir() or member.isfile())):
+                    raise ValueError("invalid committed frontend build input")
+                # Generated outputs and local configuration are never build inputs.
+                if any(part in {"node_modules", "dist", ".npmrc"} or part.startswith(".env") for part in relative.parts):
+                    raise ValueError("local configuration in committed frontend build inputs")
+                target = stage / relative
+                if member.isdir():
+                    target.mkdir(parents=True, exist_ok=True)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with tar.extractfile(member) as source:
+                        target.write_bytes(source.read())
+                    target.chmod(0o755 if member.mode & 0o111 else 0o644)
+        home = stage / "home"
+        home.mkdir()
+        user_config, global_config = home / "user-npmrc", home / "global-npmrc"
+        user_config.write_text("")
+        global_config.write_text("")
+        env = {"PATH": os.pathsep.join(dict.fromkeys([str(Path(node).parent), str(Path(npm).parent), "/usr/bin", "/bin"])),
+               "HOME": str(home), "LANG": "C", "LC_ALL": "C", "TZ": "UTC",
+               "NPM_CONFIG_USERCONFIG": str(user_config), "NPM_CONFIG_GLOBALCONFIG": str(global_config),
+               "NPM_CONFIG_CACHE": str(stage / "npm-cache")}
+        app = stage / "apps/wiki-cockpit"
+        try:
+            for args in (("ci", "--ignore-scripts", "--no-audit", "--no-fund"), ("run", "build")):
+                subprocess.run([npm, *args], cwd=app, env=env, check=True,
+                               capture_output=True, timeout=300)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ValueError("isolated committed frontend build failed") from exc
+        return _frontend(app / "dist")
+
+
+def _verified_runtime(root: Path, head: str) -> bytes:
+    entry = _git(root, "ls-tree", head, "--", RUNTIME_PATH.as_posix())
+    if not entry.startswith(b"100644 blob "):
+        raise ValueError("preview runtime must be a regular committed file")
+    committed = _git(root, "show", f"{head}:{RUNTIME_PATH.as_posix()}")
+    if _read_regular(root / RUNTIME_PATH) != committed:
+        raise ValueError("preview runtime differs from Git HEAD")
+    return committed
+
+
 def write_vercel_preview(root: Path, out_dir: Path, *, frontend_dist: Path | None = None) -> dict[str, Any]:
     """Create a new immutable, synthetic-only prebuilt output without deploying."""
 
@@ -167,7 +232,11 @@ def write_vercel_preview(root: Path, out_dir: Path, *, frontend_dist: Path | Non
     try:
         head, fixture, reader = _fixture(root)
         payloads = _frontend(Path(frontend_dist) if frontend_dist is not None else root / "apps/wiki-cockpit/dist")
-        runtime = _read_regular(root / RUNTIME_PATH)
+        runtime = _verified_runtime(root, head)
+        verified = _build_frontend(root, head)
+        if payloads != verified:
+            raise ValueError("frontend differs from isolated Git HEAD build")
+        payloads = verified
     except OSError as exc:
         raise ValueError("could not read preview inputs") from exc
     manifest = json.loads(fixture["manifest.json"])
@@ -188,6 +257,7 @@ def write_vercel_preview(root: Path, out_dir: Path, *, frontend_dist: Path | Non
     release = _json_bytes({
         "schema_version": "wiki_vercel_preview.v1", "source_head": head,
         "snapshot_id": snapshot_id, "synthetic_fixture": "walking_skeleton",
+        "frontend_provenance": "isolated_git_head_build", "runtime_sha256": _sha(runtime),
         "files": catalog, "reader": reader,
         "downloads": {"synthetic-note": {"uri": "/files/synthetic-note.txt", "filename": "synthetic-note.txt"}},
         "default_route": DEFAULT_ROUTE,
@@ -197,7 +267,8 @@ def write_vercel_preview(root: Path, out_dir: Path, *, frontend_dist: Path | Non
         "schema_version": "wiki_vercel_preview_receipt.v1", "source_head": head,
         "source_tree": _git(root, "rev-parse", f"{head}^{{tree}}").decode().strip(),
         "snapshot_id": snapshot_id, "synthetic_fixture": "walking_skeleton",
-        "manifest_sha256": release_sha, "runtime_sha256": _sha(runtime),
+        "frontend_provenance": "isolated_git_head_build", "runtime_sha256": _sha(runtime),
+        "manifest_sha256": release_sha,
         "payload_count": len(payloads), "files": catalog,
         "protection": "Vercel Authentication for all deployments must be verified before deployment; not configured by this tool",
     }

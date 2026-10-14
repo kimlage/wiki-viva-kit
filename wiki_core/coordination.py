@@ -143,11 +143,15 @@ def coordination_index(root: Path, snapshot: dict[str, Any]) -> dict[str, Any]:
         fm, _ = parse_frontmatter(raw.decode("utf-8"))
         if fm.get("page_id") != p["id"] or fm.get("page_type") != "action":
             raise CoordinationError("canonical action identity mismatch")
+        try:
+            dialogue = dialogue_summary(fm.get("action_dialogue", []))
+        except ValueError:
+            raise CoordinationError("invalid_action_dialogue: " + p["id"]) from None
         result["actions"].append({"action_id": p["id"], "path": p["path"],
             "content_sha256": p.get("content_sha256"), "coordinator": mapped.get(p["id"]),
             "state": work.get("state"), "owner_ref": work.get("owner_ref"),
             "executor_label": fm.get("executor_label"), "execution_ready": False,
-            "dialogue": dialogue_summary(fm.get("action_dialogue") or [])})
+            "dialogue": dialogue})
         if p["id"] not in mapped:
             result["unmapped_action_ids"].append(p["id"])
     return result
