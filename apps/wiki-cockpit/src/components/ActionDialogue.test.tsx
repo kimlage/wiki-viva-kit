@@ -3,7 +3,17 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ActionDialogue } from "./ActionDialogue";
 import type { DialogueEvent } from "../data/actionBoard";
+import relationshipCases from "../data/fixtures/action-dialogue-relationships.json";
 afterEach(cleanup);
+it.each(relationshipCases.filter(item => !item.valid))("keeps invalid reply relationships inert: $name", ({events}) => {
+  const send = vi.fn();
+  render(<ActionDialogue events={events} coordinator="research" language="en" writable busy={false} send={send}/>);
+  expect(screen.getByRole("alert").textContent).toContain("Invalid conversation history");
+  expect(screen.queryByRole("button", {name:"Reply"})).toBeNull();
+  expect(screen.queryByLabelText("Message")).toBeNull();
+  expect(screen.queryByText("Answer recorded")).toBeNull();
+  expect(send).not.toHaveBeenCalled();
+});
 const question: DialogueEvent = { event_id:"question-0001", kind:"confirmation_request", text:"Which source?", coordinator:"research", actor:"coordinator:research", at:"2026-10-14", before_sha256:"a".repeat(64) };
 it("links the answer to its exact question and does not claim execution", async()=>{
   const send=vi.fn().mockResolvedValue(true);

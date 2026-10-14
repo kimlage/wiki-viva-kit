@@ -1,0 +1,455 @@
+[
+  {
+    "name": "empty",
+    "valid": true,
+    "events": []
+  },
+  {
+    "name": "pending question",
+    "valid": true,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "operator answers coordinator",
+    "valid": true,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "confirmation answer",
+    "valid": true,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "confirmation_request",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "coordinator answers operator",
+    "valid": true,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "different pending coordinators",
+    "valid": true,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "question-0002",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "planning",
+        "actor": "coordinator:planning",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "operator direction",
+    "valid": true,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "direction",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "self answer coordinator",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "self answer operator",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "nonexistent question",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "missing-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "answer before question",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "answer references comment",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "comment",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "answer references direction",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "direction",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "cross coordinator answer",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "planning",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "second answer",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0002",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "duplicate event id",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "question-0001",
+        "kind": "answer",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "comment with reply",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "answer-0001",
+        "kind": "comment",
+        "text": "Use source A.",
+        "coordinator": "research",
+        "actor": "operator",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "question with reply",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "event_id": "question-0002",
+        "kind": "question",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "question-0001",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  {
+    "name": "coordinator direction",
+    "valid": false,
+    "events": [
+      {
+        "event_id": "question-0001",
+        "kind": "direction",
+        "text": "Which public synthetic source?",
+        "coordinator": "research",
+        "actor": "coordinator:research",
+        "reply_to": "",
+        "at": "2026-10-14T12:00:00+00:00",
+        "before_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  }
+]
