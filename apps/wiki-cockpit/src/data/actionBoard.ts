@@ -42,20 +42,32 @@ export type DialogueEvent = DialogueInput & { actor: string; at: string; before_
 // validate it. Keep malformed records out of render and reply controls.
 export function isDialogueHistory(value: unknown): value is DialogueEvent[] {
   if (!Array.isArray(value) || value.length > 500) return false;
-  const ids = new Set<string>();
+  const seen = new Map<string, DialogueEvent>();
+  const answered = new Set<string>();
   return value.every(event => {
     if (!event || typeof event !== "object" || Array.isArray(event)) return false;
     for (const key of ["event_id", "kind", "text", "coordinator", "actor", "at", "before_sha256"]) {
       if (typeof event[key] !== "string") return false;
     }
-    if (!/^[a-zA-Z0-9_-]{8,80}$/.test(event.event_id) || ids.has(event.event_id)
+    if (!/^[a-zA-Z0-9_-]{8,80}$/.test(event.event_id) || seen.has(event.event_id)
       || !["direction", "question", "confirmation_request", "answer", "comment"].includes(event.kind)
       || !event.text.trim() || event.text.length > 2000
       || !/^[a-z][a-z0-9_-]{0,63}$/.test(event.coordinator)
       || !["operator", `coordinator:${event.coordinator}`].includes(event.actor)
       || !/^[0-9a-f]{64}$/.test(event.before_sha256)
       || (event.reply_to !== undefined && typeof event.reply_to !== "string")) return false;
-    ids.add(event.event_id);
+    // Mirror validate_history's relationship checks before rendering a reply
+    // as resolved. Only an earlier question in this coordinator's history can
+    // receive one answer, and it must come from the other actor.
+    if (event.kind === "direction" && event.actor !== "operator") return false;
+    if (event.kind === "answer") {
+      const question = seen.get(event.reply_to);
+      if (!question || !["question", "confirmation_request"].includes(question.kind)
+        || question.coordinator !== event.coordinator || question.actor === event.actor
+        || answered.has(event.reply_to)) return false;
+      answered.add(event.reply_to);
+    } else if (event.reply_to) return false;
+    seen.set(event.event_id, event);
     return true;
   });
 }
