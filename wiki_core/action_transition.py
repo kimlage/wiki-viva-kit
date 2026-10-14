@@ -520,6 +520,7 @@ def _history_last_instant(history: list[dict[str, Any]]) -> datetime | None:
         if schema_version not in {
             _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION,
             _V2_ACTION_TRANSITION_RECEIPT_VERSION,
+            _V3_ACTION_TRANSITION_RECEIPT_VERSION,
             ACTION_TRANSITION_RECEIPT_VERSION,
         }:
             raise ActionTransitionError("invalid_action_state_history")

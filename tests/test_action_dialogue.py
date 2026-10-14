@@ -108,3 +108,25 @@ def test_dialogue_rewrite_detected(tmp_path):
     before = path.read_text()
     after = before.replace("Which source confirms the date?", "Different history")
     assert action_transition_diagnostics(before, after)[0].code == "action_dialogue_rewritten"
+
+
+def test_v3_receipt_then_v4_dialogue_is_writable_and_auditable(tmp_path, monkeypatch):
+    import wiki_core.action_transition as module
+    from wiki_core.page_types import load_page_type_registry, validate_shape
+    from pathlib import Path
+    path = _write_action(tmp_path, extra={"source_refs": ["source-synthetic"]})
+    original = path.read_text()
+    with monkeypatch.context() as patch:
+        patch.setattr(module, "ACTION_TRANSITION_RECEIPT_VERSION", "wiki_action_transition_receipt.v3")
+        patch.setattr(module, "_SUPPORT_FIELDS", module._SUPPORT_FIELDS_V3)
+        transition_action_page(tmp_path, path, "open", priority="high")
+    v3 = path.read_text()
+    assert parse_frontmatter(v3)[0]["action_state_history"][-1]["schema_version"].endswith(".v3")
+    write(tmp_path, path, event(), "coordinator:research")
+    assert action_transition_diagnostics(original, path.read_text()) == ()
+    assert action_transition_diagnostics(v3, path.read_text()) == ()
+    fm, _ = parse_frontmatter(path.read_text())
+    shape = load_page_type_registry(Path(__file__).resolve().parents[1]).page_types["action"]
+    # This fixture uses numeric stale_after_days; the flat shape parser expects text.
+    fm["stale_after_days"] = str(fm["stale_after_days"])
+    assert validate_shape(tmp_path, str(path.relative_to(tmp_path)), fm, path.read_text(), shape) == []

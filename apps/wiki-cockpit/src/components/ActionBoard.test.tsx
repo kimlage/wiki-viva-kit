@@ -92,3 +92,21 @@ it('records changed next steps as one direction with the same CAS save',async()=
   await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
   expect(save.mock.calls[0][0]).toMatchObject({next_action:'Review signed source',dialogue_event:{kind:'direction',text:'Review signed source',coordinator:'research'}});
 });
+
+it('blocks edits while the coordinator map is pending or unavailable',async()=>{
+  const pages=[action('Synthetic task')];
+  const loaded={source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test'},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'Evidence',frontmatter:{},source_refs:[],resolved_links:[]})};
+  let rejectMap: (reason: Error)=>void = ()=>{};
+  const loadCoordination=()=>new Promise<never>((_resolve,reject)=>{ rejectMap=reject; });
+  const save=vi.fn();
+  render(<ActionBoard operator={operator} save={save} loadCoordination={loadCoordination}/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Synthetic task/}));
+  const next=await screen.findByLabelText('Next step');
+  expect(next.closest('fieldset')?.disabled).toBe(true);
+  expect(screen.queryByRole('button',{name:'Save to wiki'})).toBeNull();
+  rejectMap(new Error('unavailable'));
+  await screen.findByText('Coordinator mapping unavailable; refresh before coordinating.');
+  expect(next.closest('fieldset')?.disabled).toBe(true);
+  expect(save).not.toHaveBeenCalled();
+});

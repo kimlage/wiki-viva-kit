@@ -50,7 +50,7 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
   useEffect(() => { void reload(); return () => { requestId.current++; }; }, [reload]);
   const pages = loaded?.bundle.pages.pages || [];
   const page = pages.find(p => p.id === selected);
-  const writable = !demo && !loading && !error && loaded?.runtime.mode === "local_operator";
+  const writable = !demo && !loading && !error && loaded?.runtime.mode === "local_operator" && (!loadCoordination || coordination?.snapshot_id === loaded.bundle.manifest.snapshot_id);
   useEffect(() => {
     setContent(null);
     if (!page || !loaded) return;
