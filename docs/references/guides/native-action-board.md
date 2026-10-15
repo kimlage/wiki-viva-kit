@@ -61,6 +61,24 @@ by this Desktop installer.
 
 SDK: <https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk/>
 
+## Reading completed work
+
+The card distinguishes its recorded state from the current executor connection
+and general automation. The latter two are **not verified in this interface**:
+no live heartbeat is available. Neither a terminal action nor static coordinator
+flags establish live execution. The complete original receipt remains expandable.
+
+Related `artifact` pages that link back to the action appear with their canonical
+title and short summary. They open in the existing confined page reader, with a
+return-to-card button. This is a relation, not proof that the executor produced
+or approved that artifact. Local paths and hashes in messages stay inert text;
+there is no arbitrary file endpoint. A consumer may version a readable artifact
+copy with provenance, assisted execution and retained failures stated explicitly.
+
+Conversation display resolves known page IDs to human titles, while expandable
+original records preserve literal questions, answers, identities and hashes.
+Reply submission and revision checks continue to use the original protocol.
+
 ## Upgrading
 
 Sync kit-owned files with `wiki_sync_from_kit.py` (B0 dry run, C1 copy, C2 demo
@@ -69,3 +87,7 @@ pages and receipt v1/v2 history remain readable. New edits produce receipt v3,
 which includes priority in the audited support fields. Consumers that validate
 receipt versions outside the kit must accept v3 before enabling writes. Build
 the synced cockpit and run the consumer's normal gates before promotion.
+
+This presentation update requires no action or dialogue migration. Optional result
+pages use the existing artifact contract and backlinks; no runtime activation or
+additional file access is granted. Rebuild the frontend after syncing.
