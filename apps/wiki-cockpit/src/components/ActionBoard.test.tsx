@@ -64,7 +64,7 @@ it('renders inert evidence and follows encoded canonical page links',async()=>{
   await waitFor(()=>expect(operator.loadPageContent).toHaveBeenLastCalledWith('Context page',expect.anything()));
 });
 
-it('shows the primary coordinator while preserving owner and disconnected executor', async()=>{
+it('shows the primary coordinator while preserving owner and leaving live connectivity unverified', async()=>{
   const pages=[action('Synthetic task')];
   const loaded={source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test'},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;
   const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'Evidence',source_refs:[],resolved_links:[]})};
@@ -74,7 +74,7 @@ it('shows the primary coordinator while preserving owner and disconnected execut
   fireEvent.change(screen.getByLabelText('Coordinator'),{target:{value:'research'}});
   fireEvent.click(screen.getByRole('button',{name:/Synthetic task/}));
   await screen.findByText('Evidence');
-  expect(screen.getByText('Executor activity: not connected')).toBeTruthy();
+  expect(screen.getAllByText('Not verified in this interface')).toHaveLength(2);
   expect(screen.getAllByText(/Coordinator:/).length).toBeGreaterThan(0);
 });
 
@@ -118,5 +118,29 @@ it('keeps read-only evidence visible when the selected card has malformed dialog
   expect(await screen.findByText('Synthetic evidence')).toBeTruthy();
   expect((await screen.findByRole('alert')).textContent).toContain('Invalid conversation history');
   expect(screen.queryByRole('button',{name:'Record on card'})).toBeNull();
+  expect(save).not.toHaveBeenCalled();
+});
+
+it('reads a related canonical artifact and returns without writing or inferring live execution',async()=>{
+  const task={...action('task','done'),title:'Review the project',work:{state:'done',priority:'normal',completion_receipt:'Assisted completion; original failure retained. /private/result.md SHA-256: abc'}};
+  const artifact={...action('result'),title:'Project summary',page_type:'artifact',summary:'Assisted result with retained failure.'};
+  const loaded={source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test'},pages:{pages:[task,artifact]},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockImplementation(async(id:string)=>id==='task'?{ok:true,body:'Action evidence',backlinks:[{page_id:'result',page_type:'artifact'},{page_id:'file:///private/secret',page_type:'artifact'}]}:{ok:true,body:'Assisted result. Original failure retained. General automation not validated.'})};
+  const save=vi.fn();
+  const loadCoordination=vi.fn().mockResolvedValue({configured:true,snapshot_id:'test',executor_connected:true,executor_enabled:true,profiles:[],actions:[]});
+  render(<ActionBoard operator={operator} save={save} loadCoordination={loadCoordination}/>);
+  fireEvent.click(await screen.findByLabelText('Show completed and cancelled'));
+  fireEvent.click(screen.getByRole('button',{name:/Review the project/}));
+  fireEvent.click(await screen.findByRole('button',{name:'Read: Project summary'}));
+  expect(await screen.findByText('Assisted result. Original failure retained. General automation not validated.')).toBeTruthy();
+  expect(screen.queryByLabelText('Result and evidence')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Back to card'}));
+  await screen.findByText('Action evidence');
+  expect(screen.getAllByText('Not verified in this interface')).toHaveLength(2);
+  expect(screen.getByText('Original completion record').parentElement?.textContent).toContain('Assisted completion; original failure retained.');
+  expect(screen.queryByLabelText('Result evidence')).toBeNull();
+  expect(screen.queryByRole('button',{name:'Save to wiki'})).toBeNull();
+  expect(document.querySelector('a[href^="file:"],a[href^="/private"]')).toBeNull();
+  expect(operator.loadPageContent.mock.calls.map(c=>c[0])).toEqual(['task','result','task']);
   expect(save).not.toHaveBeenCalled();
 });

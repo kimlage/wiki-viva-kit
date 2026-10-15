@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-10-14
+updated_at: 2026-10-15
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,15 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-10-15] System | Readable action outcomes
+
+- Separate recorded action state from unverified current executor connection and
+  general automation in the [native board](../../docs/references/guides/native-action-board.md).
+- Open related artifact pages through the existing reader, display human page
+  titles, and preserve original dialogue and completion receipts in details.
+- Public synthetic checks cover terminal read-only navigation, retained provenance,
+  inert local paths and unchanged literal events. No runtime or authority change.
 
 ## [2026-10-14] System | Explicit context coordinators
 
