@@ -225,6 +225,58 @@ def parse_frontmatter_flat(source: str | Path) -> dict[str, Any]:
     return values
 
 
+def _multiline_scalar_continuations(lines: list[str]) -> set[int]:
+    """Locate scalar content, without changing the flat parser's string values.
+
+    Most headers use only single-line scalars/lists. Compose only when a line
+    could continue a scalar, and trust spans only after valid YAML composition.
+    In particular, prose containing ``visibility: ...`` is data, not metadata.
+    """
+    def may_continue(raw: str) -> bool:
+        value = raw.partition(":")[2].lstrip()
+        if value and value[0] in "\"'":
+            quote, index = value[0], 1
+            while index < len(value):
+                if quote == '"' and value[index] == "\\":
+                    index += 2
+                elif value[index] == quote:
+                    if quote == "'" and index + 1 < len(value) and value[index + 1] == quote:
+                        index += 2
+                    else:
+                        return False
+                else:
+                    index += 1
+            return True
+        tokens = value.split(" #", 1)[0].split()
+        if tokens and re.fullmatch(r"[|>][1-9+-]*", tokens[-1]):
+            return True
+        stripped = raw.strip()
+        return bool(stripped and not stripped.startswith(("#", "- ")) and ":" not in raw)
+
+    if not any(may_continue(line) for line in lines):
+        return set()
+    try:
+        root = yaml.compose("\n".join(lines), Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        return set()  # Preserve structural errors; never repair malformed YAML.
+    continuations: set[int] = set()
+    seen: set[int] = set()
+    pending = [root] if root is not None else []
+    while pending:
+        node = pending.pop()
+        if id(node) in seen:
+            continue  # YAML aliases can share nodes or form a cycle.
+        seen.add(id(node))
+        if isinstance(node, yaml.ScalarNode):
+            end = node.end_mark.line + bool(node.end_mark.column)
+            continuations.update(range(node.start_mark.line + 1, end))
+        elif isinstance(node, yaml.MappingNode):
+            pending.extend(part for pair in node.value for part in pair)
+        elif isinstance(node, yaml.SequenceNode):
+            pending.extend(node.value)
+    return continuations
+
+
 def parse_frontmatter_flat_with_errors(
     source: str | Path, *, required_keys: frozenset[str] | set[str] | tuple[str, ...] = ()
 ) -> tuple[dict[str, Any], list[str]]:
@@ -248,7 +300,11 @@ def parse_frontmatter_flat_with_errors(
     values: dict[str, Any] = {}
     errors: list[str] = []
     current_key: str | None = None
-    for raw in lines[1:end]:
+    header = lines[1:end]
+    continuations = _multiline_scalar_continuations(header)
+    for index, raw in enumerate(header):
+        if index in continuations:
+            continue
         stripped = raw.strip()
         if not stripped or stripped.startswith("#"):
             continue

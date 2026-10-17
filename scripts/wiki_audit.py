@@ -1687,6 +1687,8 @@ def audit_page_type_registry(errors: list[str], config: WikiConfig) -> None:
         structured_fields = [*object_fields]
         if "action_state_history" in (shape.get("field_types") or {}):
             structured_fields.append("action_state_history")
+        if page_type == "action":
+            structured_fields.append("action_dialogue")
         if structured_fields:
             structured_values = parse_yaml_frontmatter(path)
             for field in structured_fields:
