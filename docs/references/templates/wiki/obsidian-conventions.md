@@ -76,7 +76,9 @@ attachment_policy: "Attachments go in data/raw, data/derived, or docs/references
 - [memories/operations.md](../../../../memories/operations.md) is the MOC for daily
   operational resumption.
 - Each context must point to its parent MOC in `moc_parent` and list sibling or
-  dependent pages in `related_pages`.
+  associated pages in `related_pages`. This field is for discovery and context;
+  factual dependencies must also use an explicit source, evidence or dependency
+  relation. Association alone does not establish factual support.
 - The `## Related` section must repeat these links in Markdown for humans,
   PR review, and auditing.
 

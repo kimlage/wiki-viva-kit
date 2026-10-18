@@ -7,6 +7,7 @@
 # Without poppler, PDF extraction emits a `pdftotext_unavailable` warning and
 # returns empty text (never raw bytes), instead of polluting the index.
 
+markdown-it-py>=2.2,<5  # CommonMark block context for freshness navigation
 PyYAML>=6.0          # wiki.config.yaml and frontmatter parsing
 openpyxl>=3.1        # .xlsx/.xlsm spreadsheet extraction
 python-docx>=1.1     # .docx document extraction

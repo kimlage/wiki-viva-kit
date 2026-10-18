@@ -34,6 +34,11 @@ evidence_refs: []
 
 # Holon - example
 
+`related_holons` associates contexts for discovery and relational views. It does
+not make every fact in one context depend on every fact in another. Declare
+factual support separately with `source_refs` or evidence relations; factual
+body citations retain their own meaning even between associated contexts.
+
 > Illustrate by default: a holon holds people, projects, and sub-contexts. Sketch
 > those relations with a Mermaid flowchart. See the representation conventions in
 > [obsidian-conventions.md](obsidian-conventions.md).

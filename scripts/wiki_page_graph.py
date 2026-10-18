@@ -10,6 +10,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import Callable, TypeVar
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -54,14 +55,11 @@ class GitChanges:
     untracked_paths: frozenset[str]
 
 
-def run_git(args: list[str]) -> str:
+def run_git(args: list[str], *, root: Path | None = None) -> str:
     try:
         result = subprocess.run(
             ["git", *args],
-            cwd=ROOT,
-            text=True,
-            encoding="utf-8",
-            errors="surrogateescape",
+            cwd=root or ROOT,
             capture_output=True,
             check=False,
             timeout=30,
@@ -76,9 +74,9 @@ def run_git(args: list[str]) -> str:
         raise GitCommandError(
             args,
             returncode=result.returncode,
-            detail=result.stderr,
+            detail=result.stderr.decode("utf-8", errors="surrogateescape"),
         )
-    return result.stdout
+    return result.stdout.decode("utf-8", errors="surrogateescape")
 
 
 def resolve_base(base: str) -> str | None:
@@ -106,13 +104,13 @@ def base_is_ancestor(base_sha: str) -> bool:
     return True
 
 
-def _git_paths(args: list[str]) -> set[str]:
+def _git_paths(args: list[str], *, root: Path | None = None) -> set[str]:
     """Read a NUL-delimited Git path list without corrupting unusual names."""
 
-    return {path for path in run_git(args).split("\0") if path}
+    return {path for path in run_git(args, **({"root": root} if root else {})).split("\0") if path}
 
 
-def collect_git_changes(base_sha: str) -> GitChanges:
+def collect_git_changes(base_sha: str, *, root: Path | None = None) -> GitChanges:
     """Collect committed, staged, unstaged, untracked and deleted paths."""
 
     committed_args = ["diff", "--name-only", "-z", f"{base_sha}..HEAD", "--"]
@@ -131,14 +129,15 @@ def collect_git_changes(base_sha: str) -> GitChanges:
         ["diff", "--name-only", "--diff-filter=D", "-z", "--"],
         ["diff", "--cached", "--name-only", "--diff-filter=D", "-z", "--"],
     )
-    untracked = _git_paths(untracked_args)
+    kwargs = {"root": root} if root else {}
+    untracked = _git_paths(untracked_args, **kwargs)
     paths = (
-        _git_paths(committed_args)
-        | _git_paths(unstaged_args)
-        | _git_paths(staged_args)
+        _git_paths(committed_args, **kwargs)
+        | _git_paths(unstaged_args, **kwargs)
+        | _git_paths(staged_args, **kwargs)
         | untracked
     )
-    deleted = set().union(*(_git_paths(command) for command in deleted_commands))
+    deleted = set().union(*(_git_paths(command, **kwargs) for command in deleted_commands))
     return GitChanges(
         paths=frozenset(paths),
         deleted_paths=frozenset(deleted),
@@ -164,17 +163,19 @@ def _safe_materialized_path(root: Path, rel: str) -> Path:
     return root.joinpath(*pure.parts)
 
 
-def build_page_graph_at_commit(base_sha: str) -> PageGraph:
+Projection = TypeVar("Projection")
+
+
+def project_memory_at_commit(
+    base_sha: str, projection: Callable[[Path, WikiConfig], Projection], *, root: Path | None = None
+) -> Projection:
     """Materialize the configured Markdown memory at one immutable commit."""
 
-    config_text = run_git(["show", f"{base_sha}:wiki.config.yaml"])
+    kwargs = {"root": root} if root else {}
+    config_text = run_git(["show", f"{base_sha}:wiki.config.yaml"], **kwargs)
     with tempfile.TemporaryDirectory(prefix="wiki-page-graph-base-") as temp_dir:
         base_root = Path(temp_dir)
-        (base_root / "wiki.config.yaml").write_text(
-            config_text,
-            encoding="utf-8",
-            errors="surrogateescape",
-        )
+        (base_root / "wiki.config.yaml").write_bytes(config_text.encode("utf-8", errors="surrogateescape"))
         base_config = load_config(base_root)
         memory_root = str(base_config.paths["memory_root"]).rstrip("/")
         _safe_materialized_path(base_root, memory_root)
@@ -187,17 +188,17 @@ def build_page_graph_at_commit(base_sha: str) -> PageGraph:
                 base_sha,
                 "--",
                 memory_root,
-            ]
+            ], **kwargs
         )
         for rel in sorted(path for path in tree_paths if path.lower().endswith(".md")):
             target = _safe_materialized_path(base_root, rel)
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(
-                run_git(["show", f"{base_sha}:{rel}"]),
-                encoding="utf-8",
-                errors="surrogateescape",
-            )
-        return build_page_graph(base_root, base_config)
+            target.write_bytes(run_git(["show", f"{base_sha}:{rel}"], **kwargs).encode("utf-8", errors="surrogateescape"))
+        return projection(base_root, base_config)
+
+
+def build_page_graph_at_commit(base_sha: str) -> PageGraph:
+    return project_memory_at_commit(base_sha, build_page_graph)
 
 
 def graph_path(config: WikiConfig) -> Path:
