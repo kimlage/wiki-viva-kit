@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from wiki_core.document_records import digest, edge_digest, node_id, project_records, sections
+from wiki_core.document_records import digest, edge_digest, node_id, project_records, sections, structured_digest
 from wiki_core.freshness_impact import authored_graph, evaluate_impact, repository_report
 from wiki_core.config import load_config
 from test_freshness_impact import page, git, commit, repo  # shared synthetic Git fixture
@@ -302,3 +302,92 @@ def test_explicit_blank_separator_is_hash_bound_not_ignored(repo):
     record["leading_blank_lines"] = 1
     record["current_sha256"] = digest("\n" + sections(current["documents"]["memories/log.md"])[1]["New record"][2])
     assert evaluate(current, base, {"memories/log.md"}, contract)["seeds"] == [node_id("memories/log.md", "entry-0")]
+
+
+def evidence_fixture(repo):
+    event = dict(event_id="local-result", job_id="synthetic-job", actor="operator",
+                 at="2026-10-01T12:00:00Z", text="Historical local result, assisted.")
+    page(repo, "card", stale=True, action_dialogue=[event])
+    p = page(repo, "log", body="# Log\n\n## Old\nOld observation.\n\n")
+    base = graph(repo)
+    p.write_text(p.read_text() + "## New record\n\nThe [card](card.md) identifies this historical result.\n")
+    current = graph(repo)
+    contract = declaration(base, current)
+    contract["artifacts"] = [dict(origin="current", id="result-event", document="memories/card.md",
+        field="action_dialogue", match_key="event_id", match_value="local-result", sha256=structured_digest(event))]
+    raw = next(e for e in current["edges"] if e["source"] == "memories/log.md")
+    binding = dict(origin="current", edge_sha256=edge_digest(raw), consumer_record="entry-0",
+        role="provenance", target_document_sha256=digest(current["documents"]["memories/card.md"]),
+        evidence=["result-event"], rationale="Exact event proves job association and assistance, not current operation.")
+    contract["bindings"] = [binding]
+    return base, current, contract
+
+
+def test_provenance_retains_verified_event_as_real_historical_dependency(repo):
+    base, current, contract = evidence_fixture(repo)
+    result = evaluate(current, base, {"memories/log.md"}, contract)
+    assert result["ok"]
+    historical = [r for r in result["included"] if r["state"] == "historical_evidence"]
+    assert len(historical) == 1
+    assert "memories/card.md" in {r["path"] for r in result["unrelated_debt"]}
+    assert any(e.get("authored_role") == "provenance" for e in result["nonpropagating_relations"])
+
+
+@pytest.mark.parametrize("fault", ["event-hash", "event-id", "missing-evidence", "no-evidence", "target-hash", "role"])
+def test_missing_provenance_proof_fails_closed(repo, fault):
+    base, current, contract = evidence_fixture(repo)
+    if fault == "event-hash": contract["artifacts"][0]["sha256"] = "0" * 64
+    elif fault == "event-id": contract["artifacts"][0]["match_value"] = "missing"
+    elif fault == "missing-evidence": contract["bindings"][0]["evidence"] = ["missing"]
+    elif fault == "no-evidence": contract["bindings"][0]["evidence"] = []
+    elif fault == "target-hash": contract["bindings"][0]["target_document_sha256"] = "0" * 64
+    else: contract["bindings"][0]["role"] = "ignore"
+    with pytest.raises(ValueError): evaluate(current, base, {"memories/log.md"}, contract)
+
+
+def test_evidence_does_not_replace_other_factual_dependencies(repo):
+    base, current, contract = evidence_fixture(repo)
+    # A separate factual edge to the same stale card still blocks.
+    current["edges"].append(dict(source="memories/log.md", target="memories/card.md",
+        type="source_ref", basis="frontmatter", path="memories/log.md", field="source_refs", direction="directed"))
+    assert not evaluate(current, base, {"memories/log.md"}, contract)["ok"]
+
+
+def test_authored_page_cannot_self_declare_verified_immutable_evidence(repo):
+    page(repo, "item", stale=True, immutable_evidence=True)
+    current = graph(repo)
+    assert not evaluate_impact(current, current, {"memories/item.md"}, today=TODAY)["ok"]
+
+
+@pytest.mark.parametrize("role", ["navigation", "change_target"])
+def test_exact_occurrence_role_does_not_narrow_same_target_sibling(repo, role):
+    base, current, contract = setup_increment(repo, consumer=True)
+    # A second factual citation on another line cannot inherit the role.
+    raw = next(e for e in current["edges"] if e["source"] == "memories/consumer.md")
+    current["edges"].append({**raw, "body_offset": 999, "body_line": 99})
+    contract["bindings"].append(dict(origin="current", edge_sha256=edge_digest(raw), role=role,
+        target_document_sha256=digest(current["documents"]["memories/log.md"]),
+        rationale="This precise occurrence identifies a destination; the other is factual."))
+    assert not evaluate(current, base, {"memories/log.md"}, contract)["ok"]
+
+
+def test_file_evidence_requires_exact_bytes_and_keeps_old_dependencies(repo):
+    base, current, contract = setup_increment(repo)
+    data = b'{"result":"historical synthetic output"}\n'
+    contract["artifacts"] = [dict(origin="current", id="output", path="evidence/output.json", sha256=digest(data.decode()))]
+    contract["documents"][0]["records"][0]["current_evidence"] = ["output"]
+    with pytest.raises(ValueError, match="missing or changed"):
+        project_records(current, base, {"memories/log.md"}, contract)
+    with pytest.raises(ValueError, match="missing or changed"):
+        project_records(current, base, {"memories/log.md"}, contract, artifact_inputs={("current", "output"): b"changed"})
+    projected, historical, changed, _ = project_records(current, base, {"memories/log.md"}, contract,
+        artifact_inputs={("current", "output"): data})
+    result = evaluate_impact(projected, historical, changed, today=TODAY)
+    assert result["ok"]
+    assert any(r["state"] == "historical_evidence" for r in result["included"])
+
+
+def test_artifact_path_cannot_escape_repository(repo):
+    from wiki_core.document_records import artifact_paths
+    for path in ("../outside.json", "/tmp/outside.json", "folder/../outside.json"):
+        with pytest.raises(ValueError): artifact_paths(repo, {"artifacts": [dict(origin="current", id="output", path=path)]})

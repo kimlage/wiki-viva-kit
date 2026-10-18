@@ -144,6 +144,45 @@ the report and checked for concurrent modification along with the full input
 snapshot. A mismatch or incomplete binding fails closed. Updating the snapshot
 requires renewed semantic review; hashes alone do not approve a declaration.
 
+### Occurrence roles and immutable evidence
+
+A binding defaults to `role: consumption`. Three other reviewed roles are
+available for the exact occurrence and consumer: `navigation` identifies a
+place to visit, `change_target` identifies the object of a recorded change, and
+`provenance` identifies origin while retaining separately verified evidence.
+These require `target_document_sha256` for the complete referenced document in
+that origin. They do not apply to other occurrences, siblings, or the other
+snapshot. A role is a substantive authored assertion, never a shortcut justified
+by the desired gate result. A real premise must remain a dependency.
+
+`provenance` requires nonempty `evidence` IDs. These become real prerequisites of
+the consumer, replacing whole-page factual consumption at that occurrence only.
+The optional `artifacts` array declares each ID separately for `origin: base`
+or `current`, with one of these two verifiable sources:
+
+- `path` and `sha256`: a repository-relative immutable capture. The reader checks
+  exact bytes, includes the file in its complete input hashes and concurrency
+  check, and performs no network access or source refresh.
+- `document`, `field`, `match_key`, `match_value` and `sha256`: one unique mapping
+  in a top-level frontmatter list, such as a result event. Its digest uses
+  `structured_digest` (canonical JSON); its parent document is bound by the
+  complete snapshot hash. Missing, ambiguous, or changed events fail closed.
+
+Records can also declare `base_evidence` and `current_evidence` ID lists for
+direct prerequisites. An artifact is reported as `historical_evidence`, not as
+a newly fresh page. This state is assigned only by the verifier, never accepted
+from authored frontmatter. It proves the captured bytes/event at the declared
+cut; it does not prove the event's every claim, current sales, account access,
+authorization, successful callbacks, or current execution. Content review must
+keep these distinctions and any other necessary source dependencies.
+
+A result file without a job/action identifier does not prove which execution
+produced it. Include the corresponding event or delivery receipt as a separate
+prerequisite. Preserve source dates and existing page freshness; a hash check is
+not an update of a living financial, operational or corporate source. Captures
+and their declarations stay within the consumer's privacy boundary and normal
+review, secrets and publication gates.
+
 ## Conservative boundary
 
 Outside explicit navigation items, Markdown citations cannot distinguish live

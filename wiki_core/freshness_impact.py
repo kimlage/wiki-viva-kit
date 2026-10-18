@@ -25,7 +25,7 @@ from wiki_core.semantic_inventory import (
 
 # These are relation semantics, never exemptions for whole pages or contexts.
 STRUCTURAL = frozenset({"moc_parent", "collection_member", "ownership", "participation"})
-ASSOCIATION = frozenset({"related_page", "related_holon", "navigation_link"})
+ASSOCIATION = frozenset({"related_page", "related_holon", "navigation_link", "record_context_reference"})
 REFERENCE = frozenset({"source_ref", "markdown_link", "untyped_reference"})
 NAVIGATION_HEADINGS = frozenset({"related", "relacionados", "navigation", "navegação"})
 
@@ -250,6 +250,8 @@ def evaluate_impact(
 
     def verdict(path: str) -> str:
         values = nodes[path]
+        if path in current.get("verified_evidence_nodes", []):
+            return "historical_evidence"
         return freshness_state(values.get("updated_at"), values.get("stale_after_days"),
                                today, stale_exempt=is_stale_exempt(values.get("stale_exempt")))
 
@@ -278,6 +280,12 @@ def input_hashes(root: Path, config: WikiConfig) -> dict[str, str]:
         if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
             raise ValueError("freshness record contract must be a local non-symlink file")
         files.append(path)
+        from wiki_core.document_records import artifact_paths
+        try:
+            contract = json.loads(path.read_text(encoding="utf-8"))
+            files.extend(artifact_paths(root, contract).values())
+        except (KeyError, TypeError, AttributeError) as exc:
+            raise ValueError(f"malformed document record artifacts: {exc}") from exc
     return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in files}
 
@@ -304,10 +312,11 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     changed = set(changes.paths)
     records = None
     if config.audit.get("freshness_records"):
-        from wiki_core.document_records import project_records
+        from wiki_core.document_records import artifact_paths, project_records
         contract = json.loads((root / str(config.audit["freshness_records"])).read_text(encoding="utf-8"))
         try:
-            current, base, changed, records = project_records(current, base, changed, contract)
+            artifacts = {key: path.read_bytes() for key, path in artifact_paths(root, contract).items()}
+            current, base, changed, records = project_records(current, base, changed, contract, artifact_inputs=artifacts)
         except (KeyError, TypeError, AttributeError) as exc:
             raise ValueError(f"malformed document record declaration: {exc}") from exc
     result = evaluate_impact(current, base, changed, today=today or dt.date.today())

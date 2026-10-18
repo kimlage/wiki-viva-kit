@@ -12,6 +12,8 @@ import hashlib
 import json
 import re
 
+import yaml
+
 from markdown_it import MarkdownIt
 
 from wiki_core.frontmatter import FRONTMATTER_RE
@@ -65,7 +67,69 @@ def reference_definitions(text: str) -> dict:
             for label, value in env.get("references", {}).items()}
 
 
-def project_records(current: dict, base: dict, changed: set[str], contract: dict):
+def structured_digest(value) -> str:
+    return digest(json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str))
+
+
+def artifact_paths(root, contract):
+    """Only local immutable captures; no network or implicit source refresh."""
+    from pathlib import Path
+    result = {}
+    for item in contract.get("artifacts", []):
+        if "path" not in item:
+            continue
+        rel = Path(item["path"])
+        if rel.is_absolute() or rel.as_posix() != item["path"] or ".." in rel.parts:
+            raise ValueError("record artifact requires a normalized repository-relative path")
+        path = root / rel
+        if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+            raise ValueError("record artifact must be a local non-symlink file")
+        result[(item["origin"], item["id"])] = path
+    return result
+
+
+def evidence_nodes(graphs, contract, artifact_inputs):
+    """Verify bytes or a uniquely identified structured event in a frozen page.
+
+    These nodes prove historical content, not current account/financial state.
+    Structured events retain the source document's full snapshot identity.
+    """
+    evidence = {}
+    for item in contract.get("artifacts", []):
+        origin, aid = item["origin"], item["id"]
+        key = (origin, aid)
+        if origin not in graphs or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", aid) or key in evidence:
+            raise ValueError("invalid/duplicate evidence identity")
+        if ("path" in item) == ("document" in item):
+            raise ValueError("evidence requires exactly one file or structured document selector")
+        if "path" in item:
+            data = artifact_inputs.get(key)
+            if data is None or hashlib.sha256(data).hexdigest() != item["sha256"]:
+                raise ValueError("immutable evidence bytes missing or changed")
+            source = dict(path=item["path"], sha256=item["sha256"])
+        else:
+            document = item["document"]
+            text = graphs[origin]["documents"].get(document)
+            fm = FRONTMATTER_RE.match(text or "")
+            values = yaml.safe_load(fm.group(1)) if fm else {}
+            entries = values.get(item["field"]) if isinstance(values, dict) else None
+            matches = [v for v in entries if isinstance(v, dict)
+                       and v.get(item["match_key"]) == item["match_value"]] if isinstance(entries, list) else []
+            if len(matches) != 1 or structured_digest(matches[0]) != item["sha256"]:
+                raise ValueError("structured evidence selector/hash missing or ambiguous")
+            source = dict(document=document, document_sha256=digest(text),
+                          field=item["field"], match_key=item["match_key"],
+                          match_value=item["match_value"], sha256=item["sha256"])
+        nid = f"evidence::{aid}:{item['sha256']}"
+        if nid in graphs[origin]["nodes"]:
+            raise ValueError("evidence node collision")
+        graphs[origin]["nodes"][nid] = dict(immutable_evidence=True, evidence_source=source)
+        graphs[origin].setdefault("verified_evidence_nodes", []).append(nid)
+        evidence[key] = nid
+    return evidence
+
+
+def project_records(current: dict, base: dict, changed: set[str], contract: dict, *, artifact_inputs=None):
     """Validate and project an explicit document_record.v1 declaration.
 
     A declaration binds BOTH full input snapshots. It is not a path filter:
@@ -84,6 +148,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
     if not isinstance(declarations, list) or not declarations:
         raise ValueError("document record contract requires documents")
     graphs = {"base": copy.deepcopy(base), "current": copy.deepcopy(current)}
+    artifacts = evidence_nodes(graphs, contract, artifact_inputs or {})
     partitions = {"base": {}, "current": {}}
     declared = set()
     changes = set(changed)
@@ -170,6 +235,12 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                     graph["edges"].append(dict(source=node_id(path, record["id"]),
                         target=node_id(path, context), type="source_ref", direction="directed",
                         basis="document_record.v1", path=path, field="context_records"))
+                for aid in record.get(f"{origin}_evidence", []):
+                    if (origin, aid) not in artifacts:
+                        raise ValueError(f"{path}: missing record evidence")
+                    graph["edges"].append(dict(source=node_id(path, record["id"]),
+                        target=artifacts[(origin, aid)], type="source_ref", direction="directed",
+                        basis="document_record.v1", path=path, field="record_evidence"))
         old, new = (partitions[o][path] for o in ("base", "current"))
         fully_covered = (old["remainder"] == new["remainder"]
                          and reference_definitions(base["documents"][path])
@@ -238,14 +309,35 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                 key = (origin, edge_digest(raw), consumer)
                 binding = bindings.get(key)
                 if binding:
-                    if variant["type"] not in REFERENCE or variant["target"] not in partitions[origin]:
-                        raise ValueError("consumption binding requires a reference to a declared document")
+                    if variant["type"] not in REFERENCE:
+                        raise ValueError("binding requires an authored reference")
                     target = variant["target"]
-                    rid = binding.get("target_record")
-                    part = partitions[origin][target]["parts"].get(rid)
-                    if not part or part["content_sha256"] != binding.get("consumed_sha256"):
-                        raise ValueError("consumption target record/hash mismatch")
-                    variant["target"] = node_id(target, rid)
+                    role = binding.get("role", "consumption")
+                    if role == "consumption":
+                        if target not in partitions[origin]:
+                            raise ValueError("consumption target requires declared records")
+                        rid = binding.get("target_record")
+                        part = partitions[origin][target]["parts"].get(rid)
+                        if not part or part["content_sha256"] != binding.get("consumed_sha256"):
+                            raise ValueError("consumption target record/hash mismatch")
+                        variant["target"] = node_id(target, rid)
+                    elif role in {"navigation", "change_target", "provenance"}:
+                        target_text = graphs[origin]["documents"].get(target)
+                        if target_text is None or digest(target_text) != binding.get("target_document_sha256"):
+                            raise ValueError("occurrence role target snapshot mismatch")
+                        required = binding.get("evidence", [])
+                        if role == "provenance" and not required:
+                            raise ValueError("provenance requires verified replacement evidence")
+                        for aid in required:
+                            if (origin, aid) not in artifacts:
+                                raise ValueError("occurrence evidence missing")
+                            projected.append(dict(source=variant["source"], target=artifacts[(origin, aid)],
+                                type="source_ref", direction="directed", basis="document_record.v1",
+                                path=path, field="occurrence_evidence"))
+                        variant["type"] = "record_context_reference"
+                        variant["authored_role"] = role
+                    else:
+                        raise ValueError("unknown occurrence role")
                     variant["consumption_binding"] = dict(binding)
                     used.add(key)
                 if variant["type"] in STRUCTURAL | ASSOCIATION:
