@@ -83,7 +83,7 @@ def test_two_phase_transitive_closure_does_not_fan_out_to_sibling(repo):
     assert len(next(r for r in result["included"] if r["path"].endswith("third.md"))["chain"]) == 2
 
 
-@pytest.mark.parametrize("field,kind", [("moc_parent", "project"), ("owner_ref", "action"), ("collection_refs", "project")])
+@pytest.mark.parametrize("field,kind", [("moc_parent", "project"), ("owner_ref", "action"), ("owner", "project"), ("collection_refs", "project")])
 def test_structural_edges_alone_do_not_propagate(repo, field, kind):
     page(repo, "index", stale=True)
     target = page(repo, "item", **{field: ["index"]})

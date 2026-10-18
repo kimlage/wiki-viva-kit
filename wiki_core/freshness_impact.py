@@ -63,6 +63,11 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
                                             {pid: p.path for pid, p in by_id.items()}):
                 if target not in by_path:
                     continue
+                if field == "owner":
+                    edges.append(dict(source=target, target=page.path, type="ownership",
+                                      direction="directed", basis="frontmatter", path=page.path,
+                                      field=field))
+                    continue
                 # Untyped reachability metadata is not silently discarded.
                 edges.append(dict(source=page.path, target=target, type="untyped_reference",
                                   direction="directed", basis="frontmatter", path=page.path,
