@@ -45,6 +45,45 @@ def audit():
     return _load_wiki_audit()
 
 
+@pytest.mark.parametrize("case", ["ordinary", "multiline", "wrong_actor", "duplicate", "wrong_type"])
+def test_shape_audit_keeps_typed_action_dialogue(tmp_path, monkeypatch, audit, case):
+    from types import SimpleNamespace
+    import yaml
+    from wiki_core.action_dialogue import validate_history
+
+    event = dict(event_id="synthetic_result_001", kind="comment", text="One ordinary result; still open.",
+                 coordinator="example", actor="operator", reply_to="", at="2026-10-17T12:00:00Z",
+                 before_sha256="0" * 64)
+    validate_history([event])
+    events = [event]
+    if case == "multiline":
+        event["text"] = "Example result.\n\n```sh\nprintf example\n```\n\nStill open."
+    elif case == "wrong_actor":
+        event["actor"] = "coordinator:someone_else"
+    elif case == "duplicate":
+        events.append(dict(event))
+    elif case == "wrong_type":
+        events = "not a dialogue list"
+    page = tmp_path / "memories/actions/example.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("---\n" + yaml.safe_dump(dict(
+        page_id="action-example", page_type="action", action_state="open", next_action="Read approved evidence",
+        blocked_by=[], blocker_reason="", action_state_history=[], action_dialogue=events,
+    )) + "---\n\n# Example\n")
+    registry = SimpleNamespace(schema_version=audit.PAGE_TYPES_SCHEMA_VERSION,
+                              page_types={"action": {"field_types": {"action_state_history": "list"}}})
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "markdown_files", lambda: ["memories/actions/example.md"])
+    monkeypatch.setattr(audit, "load_page_type_registry", lambda root: registry)
+    monkeypatch.setattr(audit, "template_coverage_error", lambda *args: None)
+    errors = []
+    audit.audit_page_type_registry(errors, WikiConfig(audit={**WikiConfig().audit, "page_type_registry_check": True}))
+    if case in {"ordinary", "multiline"}:
+        assert errors == []
+    else:
+        assert errors == ["memories/actions/example.md: invalid_action_dialogue"]
+
+
 # ---------------------------------------------------------------------------
 # ABSOLUTE_USER_PATH_RE
 # ---------------------------------------------------------------------------

@@ -185,6 +185,74 @@ def test_flat_with_errors_reports_required_keys():
     assert "missing keys: page_type" in errors
 
 
+def test_flat_parser_accepts_valid_multiline_dialogue_text():
+    block = yaml.safe_dump(
+        {
+            "visibility": "public_candidate",
+            "stale_after_days": 7,
+            "action_dialogue": [{"text": "Example result.\n\n```sh\nprintf example\n```\n\nStill open."}],
+        },
+        sort_keys=False,
+    )
+    structured, _ = parse_frontmatter(_doc(block))
+    assert structured["action_dialogue"][0]["text"].endswith("Still open.")
+    values, errors = parse_frontmatter_flat_with_errors(_doc(block))
+    assert errors == []
+    assert values["visibility"] == "public_candidate"
+    assert values["stale_after_days"] == "7"
+
+
+@pytest.mark.parametrize("scalar", [
+    "summary: 'First\n  visibility: private_self\n  It''s still prose.'",
+    'summary: "First\\\n  visibility: private_self\\\n  still prose."',
+    "summary: |-\n  visibility: private_self\n  ```sh\n  example\n  ```",
+    "summary: >+\n  visibility: private_self\n  prose",
+    "summary: &description |2-\n  visibility: private_self\n  prose",
+])
+def test_multiline_scalar_cannot_overwrite_root_metadata(scalar):
+    raw = _doc("visibility: public_candidate\nstale_after_days: 7\n" + scalar + "\nowner: example")
+    structured, _ = parse_frontmatter(raw)
+    assert structured["visibility"] == "public_candidate"
+    values, errors = parse_frontmatter_flat_with_errors(raw)
+    assert errors == []
+    assert values["visibility"] == "public_candidate"
+    assert values["stale_after_days"] == "7"
+    assert values["owner"] == "example"
+
+
+def test_multiline_scalar_scan_keeps_malformed_yaml_errors():
+    raw = _doc("summary: 'unfinished\nnot a metadata line")
+    _values, errors = parse_frontmatter_flat_with_errors(raw)
+    assert any("invalid frontmatter line" in error for error in errors)
+
+
+def test_multiline_scalar_scan_handles_recursive_aliases():
+    raw = _doc("summary: |\n  ordinary prose\nloop: &loop\n  self: *loop\nvisibility: public_candidate")
+    values, errors = parse_frontmatter_flat_with_errors(raw)
+    assert errors == []
+    assert values["visibility"] == "public_candidate"
+
+
+@pytest.mark.parametrize("scalar", [
+    "summary: &description 'First\n  visibility: private_self\n  tail: ordinary'",
+    'summary: !!str "First\n  visibility: private_self\n  tail: ordinary"',
+    "summary:\n- 'First\n  visibility: private_self\n  tail: ordinary'",
+    "summary: ['First\n  visibility: private_self\n  tail: ordinary']",
+    "summary: First\n  visibility:private_self\n  tail:ordinary",
+])
+@pytest.mark.parametrize("python_loader", [False, True])
+def test_scalar_boundaries_do_not_depend_on_prefix_guessing(scalar, python_loader, monkeypatch):
+    if python_loader:
+        monkeypatch.delattr(yaml, "CSafeLoader", raising=False)
+    raw = _doc("visibility: public_candidate\n" + scalar + "\nowner: example")
+    structured, _ = parse_frontmatter(raw)
+    assert structured["visibility"] == "public_candidate"
+    values, errors = parse_frontmatter_flat_with_errors(raw)
+    assert errors == []
+    assert values["visibility"] == "public_candidate"
+    assert values["owner"] == "example"
+
+
 def test_flat_with_errors_structural_messages():
     _v1, e1 = parse_frontmatter_flat_with_errors("no block\n")
     assert "missing frontmatter block" in e1

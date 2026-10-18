@@ -225,6 +225,34 @@ def parse_frontmatter_flat(source: str | Path) -> dict[str, Any]:
     return values
 
 
+def _multiline_scalar_continuations(lines: list[str]) -> set[int]:
+    """Locate scalar content, without changing the flat parser's string values.
+
+    YAML owns scalar boundaries, including anchors, tags, flow and plain folds.
+    Compose nodes only: no constructors, typed flat values or source mutation.
+    """
+    try:
+        root = yaml.compose("\n".join(lines), Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
+    except yaml.YAMLError:
+        return set()  # Preserve structural errors; never repair malformed YAML.
+    continuations: set[int] = set()
+    seen: set[int] = set()
+    pending = [root] if root is not None else []
+    while pending:
+        node = pending.pop()
+        if id(node) in seen:
+            continue  # YAML aliases can share nodes or form a cycle.
+        seen.add(id(node))
+        if isinstance(node, yaml.ScalarNode):
+            end = node.end_mark.line + bool(node.end_mark.column)
+            continuations.update(range(node.start_mark.line + 1, end))
+        elif isinstance(node, yaml.MappingNode):
+            pending.extend(part for pair in node.value for part in pair)
+        elif isinstance(node, yaml.SequenceNode):
+            pending.extend(node.value)
+    return continuations
+
+
 def parse_frontmatter_flat_with_errors(
     source: str | Path, *, required_keys: frozenset[str] | set[str] | tuple[str, ...] = ()
 ) -> tuple[dict[str, Any], list[str]]:
@@ -248,7 +276,11 @@ def parse_frontmatter_flat_with_errors(
     values: dict[str, Any] = {}
     errors: list[str] = []
     current_key: str | None = None
-    for raw in lines[1:end]:
+    header = lines[1:end]
+    continuations = _multiline_scalar_continuations(header)
+    for index, raw in enumerate(header):
+        if index in continuations:
+            continue
         stripped = raw.strip()
         if not stripped or stripped.startswith("#"):
             continue
