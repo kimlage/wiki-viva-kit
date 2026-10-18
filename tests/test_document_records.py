@@ -391,3 +391,23 @@ def test_artifact_path_cannot_escape_repository(repo):
     from wiki_core.document_records import artifact_paths
     for path in ("../outside.json", "/tmp/outside.json", "folder/../outside.json"):
         with pytest.raises(ValueError): artifact_paths(repo, {"artifacts": [dict(origin="current", id="output", path=path)]})
+
+
+def test_factual_dependency_authored_on_other_page_is_inherited(repo):
+    base, current, contract = setup_increment(repo)
+    for g in (base, current):
+        g["edges"].append(dict(source="memories/old-source.md", target="memories/log.md",
+            type="impact", direction="directed", basis="frontmatter",
+            path="memories/old-source.md", field="consolidated_into"))
+    result = evaluate(current, base, {"memories/log.md"}, contract)
+    assert not result["ok"]
+    assert "memories/old-source.md" in {r["path"] for r in result["blockers"]}
+    # Qualifying only the new assertion must not narrow the historical remainder.
+    raw = current["edges"][-1]
+    contract["bindings"].append(dict(origin="current", edge_sha256=edge_digest(raw),
+        consumer_record="entry-0", role="change_target",
+        prerequisite_document_sha256=digest(current["documents"]["memories/old-source.md"]),
+        rationale="This event names the old document as its historical write destination; it did not supply this later record."))
+    projected, _, _, _ = project_records(current, base, {"memories/log.md"}, contract)
+    assert any(e["type"] == "impact" and e["target"] == node_id("memories/log.md", "remainder") for e in projected["edges"])
+    assert evaluate(current, base, {"memories/log.md"}, contract)["ok"]

@@ -150,8 +150,11 @@ A binding defaults to `role: consumption`. Three other reviewed roles are
 available for the exact occurrence and consumer: `navigation` identifies a
 place to visit, `change_target` identifies the object of a recorded change, and
 `provenance` identifies origin while retaining separately verified evidence.
-These require `target_document_sha256` for the complete referenced document in
-that origin. They do not apply to other occurrences, siblings, or the other
+These require `prerequisite_document_sha256` for the complete prerequisite
+document in that origin (`target_document_sha256` remains an alias for reference
+relations). Direction is normalized: references depend on their target, while
+forward factual relations depend on their source. Factual metadata authored on
+another page is inherited by every record of its dependent, too. They do not apply to other occurrences, siblings, or the other
 snapshot. A role is a substantive authored assertion, never a shortcut justified
 by the desired gate result. A real premise must remain a dependency.
 

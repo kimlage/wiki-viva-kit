@@ -303,15 +303,28 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                         variants = [{**edge, endpoint: node_id(path, rid),
                                      "inherited_document_context": True}
                                     for rid in partition["parts"]]
+            inherited_variants = []
             for variant in variants:
                 dependent = "source" if variant["type"] in REFERENCE else "target"
+                consumer_parts = partitions[origin].get(variant[dependent])
+                if consumer_parts and variant["type"] not in STRUCTURAL | ASSOCIATION:
+                    # Factual context can be authored on the prerequisite's
+                    # page (e.g. an event's consolidated_into), not only here.
+                    inherited_variants.extend({**variant,
+                        dependent: node_id(variant[dependent], rid),
+                        "inherited_document_context": True} for rid in consumer_parts["parts"])
+                else:
+                    inherited_variants.append(variant)
+            for variant in inherited_variants:
+                dependent = "source" if variant["type"] in REFERENCE else "target"
+                prerequisite = "target" if variant["type"] in REFERENCE else "source"
                 consumer = graph["nodes"].get(variant[dependent], {}).get("document_record_id", "document")
                 key = (origin, edge_digest(raw), consumer)
                 binding = bindings.get(key)
                 if binding:
-                    if variant["type"] not in REFERENCE:
-                        raise ValueError("binding requires an authored reference")
-                    target = variant["target"]
+                    if variant["type"] in STRUCTURAL | ASSOCIATION:
+                        raise ValueError("binding requires an authored factual relation")
+                    target = variant[prerequisite]
                     role = binding.get("role", "consumption")
                     if role == "consumption":
                         if target not in partitions[origin]:
@@ -320,10 +333,10 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                         part = partitions[origin][target]["parts"].get(rid)
                         if not part or part["content_sha256"] != binding.get("consumed_sha256"):
                             raise ValueError("consumption target record/hash mismatch")
-                        variant["target"] = node_id(target, rid)
+                        variant[prerequisite] = node_id(target, rid)
                     elif role in {"navigation", "change_target", "provenance"}:
                         target_text = graphs[origin]["documents"].get(target)
-                        if target_text is None or digest(target_text) != binding.get("target_document_sha256"):
+                        if target_text is None or digest(target_text) != binding.get("prerequisite_document_sha256", binding.get("target_document_sha256")):
                             raise ValueError("occurrence role target snapshot mismatch")
                         required = binding.get("evidence", [])
                         if role == "provenance" and not required:
@@ -331,7 +344,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                         for aid in required:
                             if (origin, aid) not in artifacts:
                                 raise ValueError("occurrence evidence missing")
-                            projected.append(dict(source=variant["source"], target=artifacts[(origin, aid)],
+                            projected.append(dict(source=variant[dependent], target=artifacts[(origin, aid)],
                                 type="source_ref", direction="directed", basis="document_record.v1",
                                 path=path, field="occurrence_evidence"))
                         variant["type"] = "record_context_reference"
