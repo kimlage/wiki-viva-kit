@@ -233,6 +233,10 @@ export type PageContent = {
   schema_version?: string;
   snapshot_id?: string;
   expected_snapshot_id?: string;
+  // Client-only failure metadata. Successful content stays byte-equivalent
+  // to the server payload used by snapshot integrity verification.
+  read_status?: number;
+  read_error_type?: "Error" | "TypeError" | "SyntaxError" | "AbortError" | "SnapshotLoadError";
   page?: PageBrief & {
     summary: string;
     summary_truncated: boolean;

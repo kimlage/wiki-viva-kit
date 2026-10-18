@@ -263,7 +263,7 @@ describe("snapshot loading", () => {
         snapshotId: "fixture-1",
         integrity: { [path]: { sha256: "0".repeat(64), bytes: canonical.length } }
       })
-    ).resolves.toMatchObject({ ok: false, error: expect.stringMatching(/failed integrity/i) });
+    ).resolves.toMatchObject({ ok: false, error_code: "content_integrity_mismatch", error: expect.stringMatching(/failed integrity/i) });
   });
 
   it("binds live page content reads to the rendered snapshot revision", async () => {
@@ -303,11 +303,37 @@ describe("snapshot loading", () => {
       snapshot_id: "fixture-B/1",
       expected_snapshot_id: "fixture-A/1"
     });
+    contentPayload = { ok: true, snapshot_id: "fixture-B/1", body: "Wrong revision evidence" };
+    const wrongRevision = await loadPageContent("page-one", { snapshotId: "fixture-A/1" });
+    expect(wrongRevision).toMatchObject({ok:false,error_code:"snapshot_revision_mismatch",expected_snapshot_id:"fixture-A/1",snapshot_id:"fixture-B/1",read_status:200});
+    expect(wrongRevision).not.toHaveProperty("body");
     expect(calls).toEqual([
       "/wiki-cockpit.config.json",
       "/api/pages/page-one/content?snapshot_id=fixture-A%2F1",
+      "/api/pages/page-one/content?snapshot_id=fixture-A%2F1",
       "/api/pages/page-one/content?snapshot_id=fixture-A%2F1"
     ]);
+  });
+
+  it("retains a read failure category without issuing a transport retry",async()=>{
+    const fetchMock=vi.fn(async(input:RequestInfo|URL)=>{
+      if(String(input)==="/wiki-cockpit.config.json") return jsonResponse({api_base:"/api",mode:"local_operator"});
+      throw new TypeError("synthetic transport failure");
+    });
+    vi.stubGlobal("fetch",fetchMock);
+    const {loadPageContent}=await import("./snapshot");
+    const failure=await loadPageContent("page-one",{snapshotId:"fixture-A/1"});
+    expect(failure).toMatchObject({ok:false,error_code:"content_read_failed",read_error_type:"TypeError"});
+    expect(failure.read_status).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("distinguishes invalid JSON after HTTP success from a request that never produced a response",async()=>{
+    vi.stubGlobal("fetch",vi.fn(async(input:RequestInfo|URL)=>String(input)==="/wiki-cockpit.config.json"
+      ?jsonResponse({api_base:"/api",mode:"local_operator"})
+      :new Response("not JSON",{status:200,headers:{"content-type":"application/json"}})));
+    const {loadPageContent}=await import("./snapshot");
+    await expect(loadPageContent("page-one",{snapshotId:"fixture-A/1"})).resolves.toMatchObject({ok:false,error_code:"content_read_failed",read_status:200,read_error_type:"SyntaxError"});
   });
 
   it("loads and integrity-checks temporal history only when Chronoscope asks for it", async () => {
