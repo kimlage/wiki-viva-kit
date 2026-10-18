@@ -118,7 +118,9 @@ generated claim of independence. The JSON `document_record.v1` contract contains
   applied after inheritance: narrowing one record never narrows its siblings.
 
 The selector uses CommonMark blocks. Nested/fenced headings and duplicate titles
-are not selectors. A section includes subsections and ends at the next top-level
+are not selectors. Repeated H2 titles still delimit sections: their references
+stay in the unselected remainder, rather than becoming common introduction
+premises for a different record. A section includes subsections and ends at the next top-level
 H1/H2. Removing all selected sections must reproduce the exact remaining bytes
 in both versions before the evaluator can replace a whole-page seed with changed
 record seeds. Mixed body/metadata edits, reordering, moving a record relative to
