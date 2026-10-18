@@ -47,11 +47,21 @@ and the [Git graph inventory](../../scripts/wiki_page_graph.py).
 
 Source references and citations point from the dependent to its prerequisite;
 blockers and supporting evidence point toward the dependent. Explicit
-associations and untyped reference fields are conservatively included. Hierarchy,
+untyped reference fields are conservatively included. Explicit `related_pages`
+associations express context and discovery, not factual dependency. Hierarchy,
 ownership, participation and collection edges alone do not transmit factual
 freshness. Markdown citations between the same pages still transmit freshness:
 matching structural endpoints do not establish that a citation is navigation.
 No whole page type or domain is exempted.
+
+An occurrence is navigation only when it repeats a locally declared structural
+or association target in a link-only, top-level list item immediately under a
+`Related`, `Relacionados`, `Navigation` or `Navegação` heading. The complete item,
+including multiline continuations, must contain only links and punctuation.
+Prose, tables, nested lists, fenced blocks and subsections such as `Sources`
+remain conservative citations. Classification precedes deduplication: another
+factual citation to the same target still participates. Every occurrence records
+its body-relative line, section and classification reason.
 
 Both historical and current relations participate. Removing or retargeting a
 link cannot conceal its old dependency. Deleted pages are reported as removed;
@@ -71,9 +81,13 @@ concurrent changes fail closed. Other audit errors are never filtered by scope.
 
 ## Conservative boundary
 
-Untyped Markdown citations cannot distinguish live evidence from historical
-mentions or navigation. They remain conservative dependencies. A log with many historical citations may therefore have a wide
-closure; the report exposes it. Do not delete citations or add exemptions just
+Outside explicit navigation items, Markdown citations cannot distinguish live
+evidence from historical mentions. They remain conservative dependencies. A log
+with many historical citations or a factual catalogue table may therefore have
+a wide closure: freshness and dependencies currently belong to the whole page,
+not individual assertions or table rows. Inclusion through such a page does not
+prove factual impact on every included domain. The report exposes the chain and
+occurrence responsible. Do not delete citations or add exemptions just
 to obtain a passing gate. A narrower historical-reference contract would need
 its own semantic design and review.
 

@@ -243,3 +243,65 @@ def test_audit_writes_evidence_and_keeps_registry_global_checks(repo, monkeypatc
     audit.audit_freshness_budget(errors, warnings, load_config(repo), base_ref=base, report_path=out)
     assert "evidence unavailable" in errors[0]  # cannot clobber any existing file
     assert {"secrets", "pii", "relations", "page_type_registry"} <= set(audit.CHECK_NAMES)
+
+
+def test_catalogue_associations_do_not_couple_independent_contexts(repo):
+    page(repo, "catalogue", related_pages=["books", "tax"],
+         body="## Related\n- [Books](books.md)\n- [Tax](tax.md)\n")
+    page(repo, "books", related_pages=["catalogue"],
+         body="## Related\n- [Catalogue](catalogue.md)\n")
+    page(repo, "tax", stale=True, related_pages=["catalogue"])
+    base = commit(repo)
+    with (repo / "memories/books.md").open("a") as stream:
+        stream.write("\nChanged direction.\n")
+    result = report(repo, base)
+    assert result["ok"]
+    assert paths(result["included"]) == {"memories/books.md"}
+    assert paths(result["unrelated_debt"]) == {"memories/tax.md"}
+    excluded = result["nonpropagating_relations"]
+    assert any(e["type"] == "navigation_link" and e["body_line"] == 2 for e in excluded)
+
+
+def test_factual_dependency_through_same_catalogue_still_blocks(repo):
+    page(repo, "catalogue", source_refs=["tax"], related_pages=["books", "tax"],
+         body="## Related\n- [Books](books.md)\n- [Tax](tax.md)\n")
+    path = page(repo, "books", source_refs=["catalogue"])
+    page(repo, "tax", stale=True)
+    base = commit(repo)
+    path.write_text(path.read_text() + "Changed conclusion.")
+    assert paths(report(repo, base)["blockers"]) == {"memories/tax.md"}
+
+
+@pytest.mark.parametrize("body", [
+    "## Related\n- [Parent](parent.md)\n\n## Evidence\nBased on [parent](parent.md).\n",
+    "## Related\n- [Parent](parent.md)\n  establishes the baseline.\n",
+    "## Related\n### Sources\n- [Parent](parent.md)\n",
+    "## Related\n- [Parent](parent.md)\n  - [Parent](parent.md)\n",
+    "```md\n## Related\n```\n- [Parent](parent.md)\n",
+])
+def test_navigation_does_not_hide_factual_or_uncertain_occurrences(repo, body):
+    page(repo, "parent", stale=True)
+    path = page(repo, "item", related_pages=["parent"], body=body)
+    base = commit(repo)
+    path.write_text(path.read_text() + "\nChanged.\n")
+    result = report(repo, base)
+    assert paths(result["blockers"]) == {"memories/parent.md"}
+    assert result["blockers"][0]["chain"][0]["type"] == "markdown_link"
+
+
+def test_navigation_requires_local_typed_declaration(repo):
+    page(repo, "parent", stale=True)
+    path = page(repo, "item", body="## Related\n- [Parent](parent.md)\n")
+    base = commit(repo)
+    path.write_text(path.read_text() + "\nChanged.\n")
+    assert paths(report(repo, base)["blockers"]) == {"memories/parent.md"}
+
+
+def test_moving_factual_link_to_navigation_preserves_base_dependency(repo):
+    page(repo, "parent", stale=True)
+    page(repo, "item", related_pages=["parent"], body="Based on [parent](parent.md).")
+    base = commit(repo)
+    page(repo, "item", related_pages=["parent"], body="## Related\n- [Parent](parent.md)\n")
+    result = report(repo, base)
+    assert paths(result["blockers"]) == {"memories/parent.md"}
+    assert result["blockers"][0]["chain"][0]["origin"] == "base"

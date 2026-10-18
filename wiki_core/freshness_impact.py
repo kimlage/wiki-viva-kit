@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import re
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
@@ -16,14 +17,70 @@ from typing import Any
 from wiki_core.config import WikiConfig
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
-from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, _markdown_body_links
+from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, MARKDOWN_LINK_RE, _path_from_link
 from wiki_core.semantic_inventory import (
     RELATION_DIRECTIONS, _authored_pages, _expected_relations, _page_indexes,
 )
 
 # These are relation semantics, never exemptions for whole pages or contexts.
 STRUCTURAL = frozenset({"moc_parent", "collection_member", "ownership", "participation"})
-REFERENCE = frozenset({"source_ref", "related_page", "markdown_link", "untyped_reference"})
+ASSOCIATION = frozenset({"related_page", "navigation_link"})
+REFERENCE = frozenset({"source_ref", "markdown_link", "untyped_reference"})
+NAVIGATION_HEADINGS = frozenset({"related", "relacionados", "navigation", "navegação"})
+
+
+def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[str]):
+    """Classify occurrences, never endpoint pairs or whole index pages.
+
+    Only a link-only top-level list item directly under an explicit navigation
+    heading can repeat a local structural/association declaration. All prose,
+    tables, nested items and uncertain syntax stay conservative. Inspect the
+    complete item before classification so continuation text cannot be hidden.
+    """
+    lines = body.splitlines(keepends=True)
+    heading = ""
+    fence = None
+    index = 0
+    while index < len(lines):
+        start = index
+        line = lines[index]
+        marker = re.match(r"^\s*(`{3,}|~{3,})", line)
+        if marker:
+            token = marker.group(1)
+            if fence is None:
+                fence = token
+            elif token[0] == fence[0] and len(token) >= len(fence):
+                fence = None
+            heading = ""  # uncertain block boundaries remain conservative
+        section = re.match(r"^#{1,6}\s+(.+?)\s*#*\s*$", line)
+        if section and fence is None:
+            heading = section.group(1).strip().casefold()
+        item = re.match(r"^[-+*]\s+", line)
+        index += 1
+        if item:
+            # Blank lines belong to the item until another block starts.
+            while index < len(lines) and (not lines[index].strip()
+                                          or lines[index].startswith((" ", "\t"))):
+                index += 1
+        block = "".join(lines[start:index])
+        rest = block[item.end():] if item else block
+        rest = MARKDOWN_LINK_RE.sub("", rest)
+        link_only = (bool(item) and fence is None
+                     and not re.sub(r"[\s,;.·|/()—–-]", "", rest)
+                     and not any(re.match(r"\s+[-+*]\s+", part)
+                                 for part in lines[start + 1:index]))
+        for match in MARKDOWN_LINK_RE.finditer(block):
+            target = _path_from_link(root, path, match.group(1))
+            if not target:
+                continue
+            navigation = (heading in NAVIGATION_HEADINGS and link_only
+                          and target in navigation_targets)
+            yield dict(source=path, target=target,
+                       type="navigation_link" if navigation else "markdown_link",
+                       direction="directed", basis="markdown_body", path=path, field="body",
+                       body_line=start + 1 + block[:match.start()].count("\n"),
+                       section=heading,
+                       classification="local_typed_navigation_item" if navigation else "conservative_citation")
 
 
 def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
@@ -72,13 +129,17 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
                 edges.append(dict(source=page.path, target=target, type="untyped_reference",
                                   direction="directed", basis="frontmatter", path=page.path,
                                   field=field))
-        for target in _markdown_body_links(root, page.path, body):
-            if target not in by_path:
+        navigation_targets = {
+            e["target"] if e["source"] == page.path else e["source"]
+            for e in edges if e["path"] == page.path
+            and e["type"] in STRUCTURAL | {"related_page"}
+            and page.path in {e["source"], e["target"]}
+        }
+        for occurrence in _body_occurrences(root, page.path, body, navigation_targets):
+            if occurrence["target"] not in by_path:
                 # Non-memory documents are checked by the global link auditor.
                 continue
-            edges.append(dict(source=page.path, target=target, type="markdown_link",
-                              direction="directed", basis="markdown_body", path=page.path,
-                              field="body"))
+            edges.append(occurrence)
     return {"nodes": {p.path: p.values for p in pages}, "edges": edges,
             "errors": sorted(set(errors))}
 
@@ -98,6 +159,9 @@ def evaluate_impact(
             kind = edge["type"]
             if kind in STRUCTURAL:
                 nonpropagating.append({**edge, "reason": "structural_relation"})
+                continue
+            if kind in ASSOCIATION:
+                nonpropagating.append({**edge, "reason": "association_or_explicit_navigation"})
                 continue
             # Normalize factual dependency as prerequisite -> dependent.
             a, b = edge["source"], edge["target"]
