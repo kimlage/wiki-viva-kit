@@ -39,8 +39,8 @@ it('stops after one read recovery and exposes only sanitized revision diagnostic
   expect(alert.textContent).toContain('The wiki changed while opening');
   expect(alert.getAttribute('data-read-error-code')).toBe('snapshot_revision_mismatch');
   expect(alert.getAttribute('data-read-http-status')).toBe('409');
-  expect(alert.getAttribute('data-expected-snapshot-id')).toBe('revision-b');
-  expect(alert.getAttribute('data-current-snapshot-id')).toBe('revision-c');
+  expect(alert.hasAttribute('data-expected-snapshot-id')).toBe(false);
+  expect(alert.hasAttribute('data-current-snapshot-id')).toBe(false);
   expect(screen.getByLabelText('Page and evidence').getAttribute('data-read-snapshot-id')).toBe('revision-b');
   expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(2);
   expect(operator.loadPageContent).toHaveBeenCalledTimes(2);
@@ -245,4 +245,27 @@ it('reads a related canonical artifact and returns without writing or inferring 
   expect(document.querySelector('a[href^="file:"],a[href^="/private"]')).toBeNull();
   expect(operator.loadPageContent.mock.calls.map(c=>c[0])).toEqual(['task','result','task']);
   expect(save).not.toHaveBeenCalled();
+});
+
+it('does not start an obsolete recovery while a manual refresh is already fetching the latest snapshot',async()=>{
+ let finishRead:(v:ReturnType<typeof staleRead>)=>void=()=>{}, finishRefresh:(v:SnapshotLoadResult)=>void=()=>{};
+ const operator={loadSnapshotBundle:vi.fn().mockResolvedValueOnce(readSnapshot('revision-a')).mockImplementationOnce(()=>new Promise(r=>{finishRefresh=r;})).mockRejectedValue(new Error('unnecessary request failed')),loadPageContent:vi.fn().mockImplementationOnce(()=>new Promise(r=>{finishRead=r;})).mockResolvedValue({ok:true,snapshot_id:'revision-b',body:'Current evidence',frontmatter:{}})};
+ const save=vi.fn();
+ render(<ActionBoard operator={operator} save={save}/>);
+ fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
+ await waitFor(()=>expect(operator.loadPageContent).toHaveBeenCalledTimes(1));
+ fireEvent.click(screen.getByRole('button',{name:'Refresh'}));
+ await waitFor(()=>expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(2));
+ await act(async()=>finishRead(staleRead('revision-a','revision-b')));
+ await act(async()=>finishRefresh(readSnapshot('revision-b')));
+ expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(2);
+ expect(await screen.findByText('Current evidence')).toBeTruthy();
+ expect(save).not.toHaveBeenCalled();
+});
+it('does not expose unvalidated response strings as snapshot diagnostics',async()=>{
+ const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(readSnapshot('revision-a')),loadPageContent:vi.fn().mockResolvedValue(staleRead('untrusted response detail','untrusted response detail'))};
+ render(<ActionBoard operator={operator} save={vi.fn()} demo/>);
+ fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
+ await screen.findByRole('alert');
+ expect(document.body.innerHTML).not.toContain('untrusted response detail');
 });

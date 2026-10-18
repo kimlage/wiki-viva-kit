@@ -62,9 +62,12 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
   const savingRef = useRef(false);
   const requestId = useRef(0);
   const contentRecoveryUsed = useRef(false);
+  const activeContentRead = useRef<AbortController | null>(null);
   const language = loaded?.bundle.manifest.repo.language || loaded?.runtime.language || "en";
   const copy = COPY[language.startsWith("pt") ? "pt" : language.startsWith("es") ? "es" : "en"];
   const reload = useCallback(async (recoveringRead = false) => {
+    activeContentRead.current?.abort();
+    activeContentRead.current = null;
     if (!recoveringRead) contentRecoveryUsed.current = false;
     const id = ++requestId.current;
     setLoading(true); setError(""); setContent(null);
@@ -83,6 +86,7 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
     setContent(null);
     if (!page || !loaded) return;
     const abort = new AbortController();
+    activeContentRead.current = abort;
     void operator.loadPageContent(page.id, { demo, snapshotSource: loaded.source, snapshotId: loaded.bundle.manifest.snapshot_id, integrity: loaded.bundle.manifest.integrity, signal: abort.signal })
       .then(value => {
         if (abort.signal.aborted) return;
@@ -97,7 +101,10 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
         setContent(value);
       })
       .catch(() => { if (!abort.signal.aborted) setContent({ ok: false, error_code: "content_read_failed" }); });
-    return () => abort.abort();
+    return () => {
+      abort.abort();
+      if (activeContentRead.current === abort) activeContentRead.current = null;
+    };
   }, [page, loaded, operator, demo, reload]);
   useEffect(() => {
     let active = true; setCoordination(null); setCoordinationError(false);
@@ -120,7 +127,10 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
   const columns = [...ACTION_STATES.filter(s => terminal || !["done", "cancelled"].includes(s)), "unknown"] as const;
   const titleFor = (state: string) => state === "unknown" ? copy.unknown : copy.states[ACTION_STATES.indexOf(state as ActionState)];
   const select = (id: string) => { if (!savingRef.current) {
-    if (id !== selected) { contentRecoveryUsed.current = false; setContent(null); }
+    if (id !== selected) {
+      activeContentRead.current?.abort(); activeContentRead.current = null;
+      contentRecoveryUsed.current = false; setContent(null);
+    }
     if (pages.find(p => p.id === id)?.page_type === "action" || !id) setReturnAction("");
     else if (page?.page_type === "action") setReturnAction(page.id);
     setSelected(id); setNotice("");
@@ -161,7 +171,7 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
     {error && <p role="alert">{copy.failure}</p>}
     {!loading && !error && <div className={page ? "boardLayout hasSelection" : "boardLayout"}><section className="boardColumns" aria-label="Kanban">{columns.filter(s => s !== "unknown" || rows.some(p => actionState(p) === "unknown")).map(state => <section className={`boardColumn board-${state}`} key={state} aria-label={titleFor(state)}><h2>{titleFor(state)} <span>{rows.filter(p => actionState(p) === state).length}</span></h2>{rows.filter(p => actionState(p) === state).map(p => <button className={`boardCard ${p.id === selected ? "selected" : ""}`} key={p.id} onClick={() => select(p.id)}><span className="boardCardContext">{p.context} <b data-priority={String(p.work?.priority)}>{copy.priorities[["low", "normal", "high", "urgent"].indexOf(String(p.work?.priority))] || String(p.work?.priority || "")}</b></span><h3>{p.title}</h3>{pendingQuestions(p) > 0 && <strong>{pendingQuestions(p)} {copy.questions}</strong>}<p>{String(p.work?.next_action || p.work?.blocker_reason || p.summary || copy.missing)}</p>{coordinatorFor(p) && <small>{copy.coordinator}: {coordinatorFor(p)?.label}</small>}<small>{copy.owner}: {pageTitle(String(p.work?.owner_ref || copy.missing), pages)}</small></button>)}</section>)}</section>
       {page && <aside className="boardDetail" aria-label={copy.page} data-page-id={page.id} data-read-snapshot-id={loaded?.bundle.manifest.snapshot_id} data-read-state={content === null ? "loading" : content.ok ? "ready" : "unavailable"}><div className="boardDetailTop"><span>{page.context}</span><button disabled={saving} onClick={() => select("")}>{copy.close}</button></div><h2>{page.title}</h2>{returnAction && pages.some(p => p.id === returnAction) && <button onClick={() => select(returnAction)}>{outcomeCopy(language).back}</button>}{coordinatorFor(page) && <p>{copy.coordinator}: <strong>{coordinatorFor(page)?.label}</strong></p>}{notice && <p role="status" className="boardNotice">{notice}</p>}
-      {content === null ? <p>{copy.loading}</p> : !content.ok ? <p role="alert" data-read-error-code={readErrorCode(content)} data-read-http-status={Number.isInteger(content.read_status) && content.read_status! >= 100 && content.read_status! <= 599 ? content.read_status : undefined} data-read-error-type={readErrorType(content)} data-expected-snapshot-id={content.error_code === "snapshot_revision_mismatch" ? content.expected_snapshot_id : undefined} data-current-snapshot-id={content.error_code === "snapshot_revision_mismatch" ? content.snapshot_id : undefined}>{readErrorMessage(content, language, copy.unavailable)}</p> : <>
+      {content === null ? <p>{copy.loading}</p> : !content.ok ? <p role="alert" data-read-error-code={readErrorCode(content)} data-read-http-status={Number.isInteger(content.read_status) && content.read_status! >= 100 && content.read_status! <= 599 ? content.read_status : undefined} data-read-error-type={readErrorType(content)}>{readErrorMessage(content, language, copy.unavailable)}</p> : <>
         {coordinatorFor(page) && <><p className="boardProvenance">{copy.directionHint}</p>{coordinatorFor(page)?.access_requirements?.map(a => <details key={a.service}><summary>{copy.access}: {a.expected_identity}</summary><p>{a.service}</p><p>{a.method}</p></details>)}</>}
         {page.page_type === "action" && <ActionOutcome page={page} content={content} pages={pages} language={language} stateLabel={titleFor(actionState(page))} open={select} />}
         <ActionForm key={`${page.id}:${page.content_sha256}`} page={page} writable={Boolean(writable && page.content_sha256)} saving={saving} copy={copy} submit={submit} />
