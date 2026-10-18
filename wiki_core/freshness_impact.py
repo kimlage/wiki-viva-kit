@@ -29,22 +29,27 @@ REFERENCE = frozenset({"source_ref", "related_page", "markdown_link", "untyped_r
 def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
     """Project the existing semantic-inventory model plus real Markdown body links."""
     pages = _authored_pages(root, config)
-    by_id, by_path, duplicates = _page_indexes(pages)
+    _unique_by_id, by_path, duplicates = _page_indexes(pages)
+    # Current duplicates block as integrity errors. Historical duplicates must
+    # still be readable when the proposed change repairs them. Resolve ambiguous
+    # IDs conservatively to every authored path instead of dropping their edges.
+    by_id = {p.page_id: p for p in reversed(pages)}
+    paths_by_id: dict[str, list[str]] = defaultdict(list)
+    for page in pages:
+        paths_by_id[page.page_id].append(page.path)
     # Source emission duplicates the source_ref dependency in the same direction;
     # the inventory's optional event expansion is unnecessary for this closure.
     relations, unresolved = _expected_relations(pages, by_id, by_path, {})
     edges = []
     errors = list(duplicates) + list(unresolved)
-    structural_pairs: set[frozenset[str]] = set()
     for source, target, kind, direction, basis, _pid, path, field in sorted(relations):
         if direction != RELATION_DIRECTIONS[kind]:
             errors.append(f"{path}: invalid relation direction in {field}")
             continue
-        a, b = by_id[source].path, by_id[target].path
-        if kind in STRUCTURAL:
-            structural_pairs.add(frozenset((a, b)))
-        edges.append(dict(source=a, target=b, type=kind, direction=direction,
-                          basis=basis, path=path, field=field))
+        for a in paths_by_id[source]:
+            for b in paths_by_id[target]:
+                edges.append(dict(source=a, target=b, type=kind, direction=direction,
+                                  basis=basis, path=path, field=field))
     for page in pages:
         file = root / page.path
         if file.is_symlink():
@@ -66,10 +71,9 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
             if target not in by_path:
                 # Non-memory documents are checked by the global link auditor.
                 continue
-            navigation = frozenset((page.path, target)) in structural_pairs
             edges.append(dict(source=page.path, target=target, type="markdown_link",
                               direction="directed", basis="markdown_body", path=page.path,
-                              field="body", structural_duplicate=navigation))
+                              field="body"))
     return {"nodes": {p.path: p.values for p in pages}, "edges": edges,
             "errors": sorted(set(errors))}
 
@@ -87,7 +91,7 @@ def evaluate_impact(
         for raw in graph["edges"]:
             edge = {**raw, "origin": origin}
             kind = edge["type"]
-            if kind in STRUCTURAL or edge.get("structural_duplicate"):
+            if kind in STRUCTURAL:
                 nonpropagating.append({**edge, "reason": "structural_relation"})
                 continue
             # Normalize factual dependency as prerequisite -> dependent.

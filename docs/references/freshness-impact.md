@@ -49,9 +49,9 @@ Source references and citations point from the dependent to its prerequisite;
 blockers and supporting evidence point toward the dependent. Explicit
 associations and untyped reference fields are conservatively included. Hierarchy,
 ownership, participation and collection edges alone do not transmit factual
-freshness. A Markdown link duplicating one of these structural relations is
-navigation; a separately declared evidence/source relation between the same
-pages still transmits freshness. No whole page type or domain is exempted.
+freshness. Markdown citations between the same pages still transmit freshness:
+matching structural endpoints do not establish that a citation is navigation.
+No whole page type or domain is exempted.
 
 Both historical and current relations participate. Removing or retargeting a
 link cannot conceal its old dependency. Deleted pages are reported as removed;
@@ -72,8 +72,7 @@ concurrent changes fail closed. Other audit errors are never filtered by scope.
 ## Conservative boundary
 
 Untyped Markdown citations cannot distinguish live evidence from historical
-mentions. They remain dependencies unless the same relationship is explicitly
-structural. A log with many historical citations may therefore have a wide
+mentions or navigation. They remain conservative dependencies. A log with many historical citations may therefore have a wide
 closure; the report exposes it. Do not delete citations or add exemptions just
 to obtain a passing gate. A narrower historical-reference contract would need
 its own semantic design and review.

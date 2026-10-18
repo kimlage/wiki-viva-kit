@@ -84,9 +84,9 @@ def test_two_phase_transitive_closure_does_not_fan_out_to_sibling(repo):
 
 
 @pytest.mark.parametrize("field,kind", [("moc_parent", "project"), ("owner_ref", "action"), ("collection_refs", "project")])
-def test_structural_edges_and_duplicate_navigation_do_not_propagate(repo, field, kind):
+def test_structural_edges_alone_do_not_propagate(repo, field, kind):
     page(repo, "index", stale=True)
-    target = page(repo, "item", **{field: ["index"]}, body="[Index](index.md)")
+    target = page(repo, "item", **{field: ["index"]})
     values = target.read_text().replace("page_type: project", f"page_type: {kind}")
     target.write_text(values)
     base = commit(repo)
@@ -103,6 +103,29 @@ def test_explicit_evidence_is_not_hidden_by_structural_navigation(repo):
     base = commit(repo)
     page(repo, "item", moc_parent="parent", source_refs=["parent"], body="Changed [Parent](parent.md)")
     assert paths(report(repo, base)["blockers"]) == {"memories/parent.md"}
+
+
+def test_factual_markdown_citation_to_parent_is_not_assumed_navigation(repo):
+    page(repo, "parent", stale=True)
+    path = page(repo, "item", moc_parent="parent", body="The baseline follows [parent](parent.md).")
+    base = commit(repo)
+    path.write_text(path.read_text() + "Updated conclusion.")
+    assert paths(report(repo, base)["blockers"]) == {"memories/parent.md"}
+
+
+def test_duplicate_ids_block_cleanly_and_base_duplicates_can_be_repaired(repo):
+    first = page(repo, "first", stale=True)
+    second = page(repo, "second")
+    second.write_text(second.read_text().replace("page_id: second", "page_id: first"))
+    page(repo, "item", source_refs=["first"])
+    base = commit(repo)
+    duplicate = report(repo, base)
+    assert duplicate["relation_errors"] and not duplicate["ok"]
+    second.write_text(second.read_text().replace("page_id: first", "page_id: second"))
+    repaired = report(repo, base)
+    assert not repaired["relation_errors"]
+    assert repaired["base_relation_diagnostics"]
+    assert "memories/first.md" in paths(repaired["blockers"])
 
 
 def test_removing_or_retargeting_link_does_not_shed_old_dependency(repo):
