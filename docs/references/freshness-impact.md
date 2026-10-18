@@ -88,17 +88,73 @@ base/current origin, excluded structural edges, unrelated debt, exact Git SHAs
 and hashes of all evaluated inputs. Missing Git/base, unreadable inputs and
 concurrent changes fail closed. Other audit errors are never filtered by scope.
 
+## Explicit documentary records
+
+Consumers may opt into `audit.freshness_records: path/to/records.json` through
+their own reviewed C3 migration. This is an authored semantic declaration for
+one exact base/candidate pair, not a permanent waiver or an automatically
+generated claim of independence. The JSON `document_record.v1` contract contains:
+
+- `base_documents_sha256` and `current_documents_sha256`: complete maps of every
+  authored page to its UTF-8 content SHA256, including unchanged pages.
+- `documents`: declarations with `path` and `records`. Each record has a stable
+  `id`, exact unique top-level H2 `heading`, `base_sha256` and `current_sha256`
+  for the complete section, including its heading and trailing whitespace.
+  `null` means absent in that snapshot, never an ambiguous selector.
+  Optional `leading_blank_lines` (0–2) includes explicitly hashed blank separator
+  lines before the heading; nonblank padding and overlapping selectors fail.
+- Each record explicitly declares `independent: true`, a substantive `rationale`,
+  `recorded_on` (ISO date), `epistemic_status` (`observation`, `proposal`,
+  `decision`, or `hypothesis`), and `context_records` (other required record IDs
+  in that document, or `remainder`; explicitly `[]` when none applies).
+- Optional `bindings` identify `origin` (`base` or `current`), `edge_sha256`,
+  `consumer_record`, `target_record`, `consumed_sha256` and a substantive
+  `rationale`. Omit `consumer_record` only for an unpartitioned consumer;
+  a partitioned consumer must name its record or `remainder`. The edge hash
+  is produced by `wiki_core.document_records.edge_digest` over the complete raw
+  occurrence, including its field, source, target and Markdown offset. A binding
+  applies only to that exact version and occurrence. It cannot silently narrow
+  a historical citation when only the current version is declared. Bindings are
+  applied after inheritance: narrowing one record never narrows its siblings.
+
+The selector uses CommonMark blocks. Nested/fenced headings and duplicate titles
+are not selectors. A section includes subsections and ends at the next top-level
+H1/H2. Removing all selected sections must reproduce the exact remaining bytes
+in both versions before the evaluator can replace a whole-page seed with changed
+record seeds. Mixed body/metadata edits, reordering, moving a record relative to
+unselected content, changing document-wide link definitions, and other changed pages stay
+conservative. Removed/retargeted record dependencies participate from the base.
+
+Preservation is a mechanical fact; independence is an authored assertion that
+requires content review. A new block that revokes, reinterprets or relies on a
+sibling must declare that context. Page-level factual metadata and introduction
+references outside H2 sections (including introductions after subsequent H1s)
+are always inherited. Record dates/statuses are descriptive: all
+records retain the page's freshness policy and date without renewal.
+
+An unqualified consumer of a document consumes every record and the remainder.
+It receives the new impact and keeps old prerequisites. A qualified consumer
+depends only on its declared record, whose own premises still participate.
+`remainder` means all bytes outside selected records, not an empty/ignored node.
+The evaluator does not infer narrow consumption from a link fragment alone.
+
+The contract lives outside the Markdown payload, avoiding circular content
+hashes. It must be a local repository-relative file; it is itself hash-bound in
+the report and checked for concurrent modification along with the full input
+snapshot. A mismatch or incomplete binding fails closed. Updating the snapshot
+requires renewed semantic review; hashes alone do not approve a declaration.
+
 ## Conservative boundary
 
 Outside explicit navigation items, Markdown citations cannot distinguish live
 evidence from historical mentions. They remain conservative dependencies. A log
 with many historical citations or a factual catalogue table may therefore have
-a wide closure: freshness and dependencies currently belong to the whole page,
-not individual assertions or table rows. Inclusion through such a page does not
+a wide closure unless reviewed record/consumption declarations are available.
+Inclusion through such a page does not
 prove factual impact on every included domain. The report exposes the chain and
 occurrence responsible. Do not delete citations or add exemptions just
-to obtain a passing gate. A narrower historical-reference contract would need
-its own semantic design and review.
+to obtain a passing gate. Record declarations preserve conservative treatment
+wherever authored semantic evidence is missing.
 
 The [synthetic tests](../../tests/test_freshness_impact.py) cover transitive
 dependencies, shared sources, structural navigation, removed links, renames,

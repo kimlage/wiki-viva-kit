@@ -1,0 +1,269 @@
+"""Reviewed, hash-bound documentary records for freshness projection.
+
+The declaration is authored semantic input, not a machine inference of
+independence. Unknown consumers keep the whole-document dependency. This
+module never edits a page, renews a date, or approves the declaration itself.
+"""
+from __future__ import annotations
+
+import copy
+import datetime as dt
+import hashlib
+import json
+import re
+
+from markdown_it import MarkdownIt
+
+from wiki_core.frontmatter import FRONTMATTER_RE
+
+
+def digest(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def edge_digest(edge: dict) -> str:
+    """Identity includes occurrence offset, direction, field and classification."""
+    return digest(json.dumps(edge, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
+
+
+def sections(text: str) -> tuple[str, dict[str, tuple[int, int, str]]]:
+    """Unique top-level H2 sections, body-relative lines, exact canonical bytes.
+
+    A lower-level heading is inside its H2; H1 ends it. Fenced/list headings
+    cannot select a record. CRLF bytes are preserved in content hashes.
+    """
+    fm = FRONTMATTER_RE.match(text)
+    body = text[fm.end():] if fm else text
+    lines = body.splitlines(keepends=True)
+    tokens = MarkdownIt("commonmark").parse(body)
+    headings = [(t.map[0], int(t.tag[1:]), tokens[i + 1].content)
+                for i, t in enumerate(tokens) if t.type == "heading_open" and t.level == 0]
+    result = {}
+    duplicates = set()
+    for i, (start, level, title) in enumerate(headings):
+        if level != 2:
+            continue
+        end = next((line for line, depth, _ in headings[i + 1:] if depth <= 2), len(lines))
+        if title in result:
+            duplicates.add(title)
+        result[title] = (start, end, "".join(lines[start:end]))
+    for title in duplicates:
+        del result[title]
+    return body, result
+
+
+def node_id(path: str, record: str) -> str:
+    return f"{path}::record:{record}"
+
+
+def reference_definitions(text: str) -> dict:
+    """Definitions have document-wide rendering scope, unlike H2 assertions."""
+    body, _ = sections(text)
+    env = {}
+    MarkdownIt("commonmark").parse(body, env)
+    return {label: (value["href"], value["title"])
+            for label, value in env.get("references", {}).items()}
+
+
+def project_records(current: dict, base: dict, changed: set[str], contract: dict):
+    """Validate and project an explicit document_record.v1 declaration.
+
+    A declaration binds BOTH full input snapshots. It is not a path filter:
+    changed paths are still derived by the caller from the complete diff.
+    Mixed deltas retain whole-page seeds. Records use page freshness unchanged.
+    """
+    from wiki_core.freshness_impact import ASSOCIATION, REFERENCE, STRUCTURAL
+
+    if contract.get("schema_version") != "document_record.v1":
+        raise ValueError("unsupported document record contract")
+    for origin, graph in (("base", base), ("current", current)):
+        actual = {p: digest(text) for p, text in graph["documents"].items()}
+        if contract.get(f"{origin}_documents_sha256") != actual:
+            raise ValueError(f"{origin}: document snapshot does not match record contract")
+    declarations = contract.get("documents")
+    if not isinstance(declarations, list) or not declarations:
+        raise ValueError("document record contract requires documents")
+    graphs = {"base": copy.deepcopy(base), "current": copy.deepcopy(current)}
+    partitions = {"base": {}, "current": {}}
+    declared = set()
+    changes = set(changed)
+    evidence = []
+    for declaration in declarations:
+        path = declaration["path"]
+        if path in declared or path not in current["nodes"] or path not in base["nodes"]:
+            raise ValueError("record pages must be unique and exist in both snapshots")
+        declared.add(path)
+        records = declaration.get("records")
+        if not isinstance(records, list) or not records:
+            raise ValueError(f"{path}: empty records")
+        ids = set()
+        selectors = set()
+        for record in records:
+            rid = record.get("id", "")
+            if (not re.fullmatch(r"[a-z0-9][a-z0-9-]*", rid) or rid in ids
+                    or rid in {"remainder", "preamble"} or record.get("heading") in selectors):
+                raise ValueError(f"{path}: invalid/duplicate record identity or heading")
+            ids.add(rid)
+            selectors.add(record.get("heading"))
+            if (record.get("independent") is not True or not record.get("rationale", "").strip()
+                    or record.get("epistemic_status") not in {"observation", "proposal", "decision", "hypothesis"}):
+                raise ValueError(f"{path}: record requires reviewed independence and epistemic status")
+            captured = dt.date.fromisoformat(record["recorded_on"])
+            if captured.isoformat() != record["recorded_on"]:
+                raise ValueError(f"{path}: noncanonical record date")
+            if not isinstance(record.get("context_records"), list):
+                raise ValueError(f"{path}: explicit context_records required (may be empty)")
+            if type(record.get("leading_blank_lines", 0)) is not int or not 0 <= record.get("leading_blank_lines", 0) <= 2:
+                raise ValueError(f"{path}: leading_blank_lines must be 0, 1 or 2")
+            if record.get("base_sha256") is None and record.get("current_sha256") is None:
+                raise ValueError(f"{path}: record absent in both snapshots")
+        for origin, graph in graphs.items():
+            text = graph["documents"][path]
+            body, available = sections(text)
+            lines = body.splitlines(keepends=True)
+            ranges = []
+            parts = {}
+            for record in records:
+                section = available.get(record["heading"])
+                expected = record.get(f"{origin}_sha256")
+                if expected is None:
+                    # Ambiguous headings must not masquerade as absent records.
+                    tokens = MarkdownIt("commonmark").parse(body)
+                    if any(t.type == "heading_open" and t.level == 0 and t.tag == "h2"
+                           and tokens[i + 1].content == record["heading"] for i, t in enumerate(tokens)):
+                        raise ValueError(f"{path}: declared absent record exists or is ambiguous")
+                    continue
+                if section is None:
+                    raise ValueError(f"{path}: {origin} record selector/hash mismatch")
+                start, end, content = section
+                padding = record.get("leading_blank_lines", 0)
+                if start < padding or any(line.strip() for line in lines[start - padding:start]):
+                    raise ValueError(f"{path}: record leading padding is not blank")
+                start -= padding
+                content = "".join(lines[start:end])
+                if digest(content) != expected:
+                    raise ValueError(f"{path}: {origin} record selector/hash mismatch")
+                if any(start < other_end and other_start < end for other_start, other_end, _ in ranges):
+                    raise ValueError(f"{path}: overlapping record selectors")
+                ranges.append((start, end, record["id"]))
+                parts[record["id"]] = dict(content_sha256=expected, start=start, end=end)
+            selected = {line for start, end, _ in ranges for line in range(start, end)}
+            remainder = text[:len(text) - len(body)] + "".join(
+                line for i, line in enumerate(lines) if i not in selected)
+            parts["remainder"] = dict(content_sha256=digest(remainder))
+            for start, _, rid in ranges:
+                parts[rid]["remainder_anchor"] = sum(len(line) for i, line in enumerate(lines[:start]) if i not in selected)
+            partitions[origin][path] = dict(parts=parts, ranges=ranges, remainder=remainder,
+                                           section_ranges=[(a, b) for a, b, _ in available.values()])
+            for rid, part in parts.items():
+                nid = node_id(path, rid)
+                if nid in graph["nodes"]:
+                    raise ValueError(f"{path}: record node collision")
+                graph["nodes"][nid] = {**graph["nodes"][path], "document_record_id": rid,
+                                       "document_path": path, "record_sha256": part["content_sha256"]}
+            for record in records:
+                if record["id"] not in parts:
+                    continue
+                for context in record["context_records"]:
+                    if context not in parts or context == record["id"]:
+                        raise ValueError(f"{path}: invalid record context")
+                    graph["edges"].append(dict(source=node_id(path, record["id"]),
+                        target=node_id(path, context), type="source_ref", direction="directed",
+                        basis="document_record.v1", path=path, field="context_records"))
+        old, new = (partitions[o][path] for o in ("base", "current"))
+        fully_covered = (old["remainder"] == new["remainder"]
+                         and reference_definitions(base["documents"][path])
+                         == reference_definitions(current["documents"][path]))
+        if path in changed and fully_covered:
+            changed_records = {rid for rid in ids
+                               if old["parts"].get(rid, {}).get("content_sha256")
+                               != new["parts"].get(rid, {}).get("content_sha256")}
+            # Position changes alone are not semantic changes, but don't hide
+            # reordering. Only additions/removals/edits with preserved remainder
+            # and preserved common-record ordering get precise seeds.
+            old_order = [rid for _, _, rid in sorted(old["ranges"]) if rid in new["parts"]]
+            new_order = [rid for _, _, rid in sorted(new["ranges"]) if rid in old["parts"]]
+            anchors_preserved = all(old["parts"][rid]["remainder_anchor"] == new["parts"][rid]["remainder_anchor"]
+                                    for rid in old_order)
+            if old_order == new_order and anchors_preserved:
+                changes.discard(path)
+                changes.update(node_id(path, rid) for rid in changed_records)
+            else:
+                fully_covered = False
+        if path in changes:
+            # Any uncovered delta seeds every part, including removed records.
+            changes.update(node_id(path, rid) for rid in old["parts"].keys() | new["parts"].keys())
+        evidence.append(dict(path=path, complete_delta_covered=fully_covered,
+                             record_ids=sorted(ids)))
+
+    # Exact, independently authored consumption bindings. There is no automatic
+    # retroactive application to base. The absence of a binding means WHOLE.
+    bindings = {}
+    for binding in contract.get("bindings", []):
+        key = (binding.get("origin"), binding.get("edge_sha256"), binding.get("consumer_record", "document"))
+        if key[0] not in graphs or key in bindings or not binding.get("rationale", "").strip():
+            raise ValueError("invalid/duplicate record consumption binding")
+        bindings[key] = binding
+    used = set()
+    for origin, graph in graphs.items():
+        projected = []
+        for raw in graph["edges"]:
+            edge = dict(raw)
+            path = raw["path"]
+            partition = partitions[origin].get(path)
+            variants = [edge]
+            if partition and edge["type"] not in STRUCTURAL | ASSOCIATION:
+                if raw["basis"] == "markdown_body":
+                    line = raw["body_line"] - 1
+                    rid = next((rid for start, end, rid in partition["ranges"]
+                                if start <= line < end), "remainder")
+                    edge["source"] = node_id(path, rid)
+                    # References in the document introduction are common
+                    # premises. H2 siblings require explicit authored context.
+                    inside_section = any(start <= line < end for start, end in partition["section_ranges"])
+                    if not inside_section:
+                        variants = [{**edge, "source": node_id(path, part),
+                                     "inherited_document_context": True}
+                                    for part in partition["parts"]]
+                else:
+                    # Page-level factual metadata applies to every record.
+                    endpoint = "source" if edge["type"] in REFERENCE else "target"
+                    if edge[endpoint] == path:
+                        variants = [{**edge, endpoint: node_id(path, rid),
+                                     "inherited_document_context": True}
+                                    for rid in partition["parts"]]
+            for variant in variants:
+                dependent = "source" if variant["type"] in REFERENCE else "target"
+                consumer = graph["nodes"].get(variant[dependent], {}).get("document_record_id", "document")
+                key = (origin, edge_digest(raw), consumer)
+                binding = bindings.get(key)
+                if binding:
+                    if variant["type"] not in REFERENCE or variant["target"] not in partitions[origin]:
+                        raise ValueError("consumption binding requires a reference to a declared document")
+                    target = variant["target"]
+                    rid = binding.get("target_record")
+                    part = partitions[origin][target]["parts"].get(rid)
+                    if not part or part["content_sha256"] != binding.get("consumed_sha256"):
+                        raise ValueError("consumption target record/hash mismatch")
+                    variant["target"] = node_id(target, rid)
+                    variant["consumption_binding"] = dict(binding)
+                    used.add(key)
+                if variant["type"] in STRUCTURAL | ASSOCIATION:
+                    projected.append(variant)
+                    continue
+                # A whole-document reference consumes ALL assertions. Expand
+                # at the consumer, so the document is not itself an accidental
+                # shared-prerequisite bridge between independent siblings.
+                prerequisite = "target" if variant["type"] in REFERENCE else "source"
+                whole = partitions[origin].get(variant[prerequisite])
+                if whole:
+                    projected.extend({**variant,
+                                      prerequisite: node_id(variant[prerequisite], rid),
+                                      "whole_document_consumption": True}
+                                     for rid in whole["parts"])
+                else:
+                    projected.append(variant)
+        graph["edges"] = projected
+    if set(bindings) != used:
+        raise ValueError("record contract has stale or unmatched consumption bindings")
+    return graphs["current"], graphs["base"], changes, evidence

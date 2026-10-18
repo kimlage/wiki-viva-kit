@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import json
 import re
 from collections import defaultdict, deque
 from pathlib import Path
@@ -39,7 +40,7 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
     """
     from markdown_it import MarkdownIt
 
-    tokens = MarkdownIt("commonmark").parse(body)
+    tokens = MarkdownIt("commonmark", {"store_labels": True}).parse(body)
     sections = []
     navigation_ranges = []
     section = ""
@@ -100,11 +101,32 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
         yield dict(source=path, target=target,
                    type="navigation_link" if navigation else "markdown_link",
                    direction="directed", basis="markdown_body", path=path, field="body",
-                   body_line=line + 1, section=section,
+                   body_line=line + 1, body_offset=match.start(), section=section,
                    body_relation_label=next((label for explicit, label in matched if explicit), None),
                    classification=("explicit_body_moc_navigation" if navigation and explicit_moc
                                    else "local_typed_navigation_item" if navigation
                                    else "conservative_citation"))
+
+    # Reference-style links are real dependencies too. Their destination is
+    # stored in a definition elsewhere, so the legacy inline regex misses them.
+    for token_index, token in enumerate(tokens):
+        if token.type != "inline" or token.map is None:
+            continue
+        for child_index, child in enumerate(token.children or []):
+            if child.type != "link_open" or "label" not in child.meta:
+                continue
+            target = _path_from_link(root, path, child.attrGet("href") or "")
+            if not target:
+                continue
+            # Conservative occurrence location is the entire inline block.
+            # Reference-definition edits are separately a whole-page delta.
+            yield dict(source=path, target=target, type="markdown_link",
+                       direction="directed", basis="markdown_body", path=path, field="body",
+                       body_line=token.map[0] + 1,
+                       body_offset=f"commonmark:{token_index}:{child_index}",
+                       section=next((title for start, title in reversed(sections)
+                                     if start <= token.map[0]), ""),
+                       classification="reference_style_citation")
 
 
 def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
@@ -172,7 +194,8 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
                 # Non-memory documents are checked by the global link auditor.
                 continue
             edges.append(occurrence)
-    return {"nodes": {p.path: p.values for p in pages}, "edges": edges,
+    return {"documents": {p.path: (root / p.path).read_bytes().decode("utf-8") for p in pages},
+            "nodes": {p.path: p.values for p in pages}, "edges": edges,
             "errors": sorted(set(errors))}
 
 
@@ -246,6 +269,15 @@ def evaluate_impact(
 def input_hashes(root: Path, config: WikiConfig) -> dict[str, str]:
     files = sorted((root / str(config.paths["memory_root"])).rglob("*.md"))
     files.append(root / "wiki.config.yaml")
+    record_path = config.audit.get("freshness_records")
+    if record_path:
+        relative = Path(str(record_path))
+        if relative.is_absolute() or relative.as_posix() != str(record_path) or ".." in relative.parts:
+            raise ValueError("freshness_records requires a normalized repository-relative path")
+        path = root / relative
+        if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+            raise ValueError("freshness record contract must be a local non-symlink file")
+        files.append(path)
     return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in files}
 
@@ -269,7 +301,19 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     changes = collect_git_changes(base_sha, root=root)
     current = authored_graph(root, config)
     base = project_memory_at_commit(base_sha, authored_graph, root=root)
-    result = evaluate_impact(current, base, set(changes.paths), today=today or dt.date.today())
+    changed = set(changes.paths)
+    records = None
+    if config.audit.get("freshness_records"):
+        from wiki_core.document_records import project_records
+        contract = json.loads((root / str(config.audit["freshness_records"])).read_text(encoding="utf-8"))
+        try:
+            current, base, changed, records = project_records(current, base, changed, contract)
+        except (KeyError, TypeError, AttributeError) as exc:
+            raise ValueError(f"malformed document record declaration: {exc}") from exc
+    result = evaluate_impact(current, base, changed, today=today or dt.date.today())
+    if records is not None:
+        result["document_records"] = records
+        result["record_contract_sha256"] = before[str(config.audit["freshness_records"])]
     if (before != input_hashes(root, config)
             or changes != collect_git_changes(base_sha, root=root)
             or head != run_git(["rev-parse", "--verify", "HEAD"], root=root).strip()):

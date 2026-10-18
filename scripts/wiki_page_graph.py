@@ -60,9 +60,6 @@ def run_git(args: list[str], *, root: Path | None = None) -> str:
         result = subprocess.run(
             ["git", *args],
             cwd=root or ROOT,
-            text=True,
-            encoding="utf-8",
-            errors="surrogateescape",
             capture_output=True,
             check=False,
             timeout=30,
@@ -77,9 +74,9 @@ def run_git(args: list[str], *, root: Path | None = None) -> str:
         raise GitCommandError(
             args,
             returncode=result.returncode,
-            detail=result.stderr,
+            detail=result.stderr.decode("utf-8", errors="surrogateescape"),
         )
-    return result.stdout
+    return result.stdout.decode("utf-8", errors="surrogateescape")
 
 
 def resolve_base(base: str) -> str | None:
@@ -178,11 +175,7 @@ def project_memory_at_commit(
     config_text = run_git(["show", f"{base_sha}:wiki.config.yaml"], **kwargs)
     with tempfile.TemporaryDirectory(prefix="wiki-page-graph-base-") as temp_dir:
         base_root = Path(temp_dir)
-        (base_root / "wiki.config.yaml").write_text(
-            config_text,
-            encoding="utf-8",
-            errors="surrogateescape",
-        )
+        (base_root / "wiki.config.yaml").write_bytes(config_text.encode("utf-8", errors="surrogateescape"))
         base_config = load_config(base_root)
         memory_root = str(base_config.paths["memory_root"]).rstrip("/")
         _safe_materialized_path(base_root, memory_root)
@@ -200,11 +193,7 @@ def project_memory_at_commit(
         for rel in sorted(path for path in tree_paths if path.lower().endswith(".md")):
             target = _safe_materialized_path(base_root, rel)
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(
-                run_git(["show", f"{base_sha}:{rel}"], **kwargs),
-                encoding="utf-8",
-                errors="surrogateescape",
-            )
+            target.write_bytes(run_git(["show", f"{base_sha}:{rel}"], **kwargs).encode("utf-8", errors="surrogateescape"))
         return projection(base_root, base_config)
 
 
