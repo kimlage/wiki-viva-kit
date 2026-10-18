@@ -281,6 +281,8 @@ def test_factual_dependency_through_same_catalogue_still_blocks(repo):
     "## Related\n- [Parent](parent.md)\nestablishes the factual baseline.\n",
     "## Related\nSources\n-------\n- [Parent](parent.md)\n",
     "## Related\n  ### Sources\n- [Parent](parent.md)\n",
+    "## Sources\n- Supporting evidence:\n  ## Related\n- [Parent](parent.md)\n",
+    "Sources and\nRelated\n-------\n- [Parent](parent.md)\n",
 ])
 def test_navigation_does_not_hide_factual_or_uncertain_occurrences(repo, body):
     page(repo, "parent", stale=True)
@@ -308,3 +310,35 @@ def test_moving_factual_link_to_navigation_preserves_base_dependency(repo):
     result = report(repo, base)
     assert paths(result["blockers"]) == {"memories/parent.md"}
     assert result["blockers"][0]["chain"][0]["origin"] == "base"
+
+
+def test_transaction_snapshot_preserves_wip_as_context_not_as_changed_seed(repo, tmp_path):
+    import shutil
+    from wiki_core.freshness_impact import input_hashes
+
+    page(repo, "unrelated", stale=True)
+    page(repo, "source", stale=True)
+    page(repo, "proposal", source_refs=["source"])
+    commit(repo)
+    for name in ("unrelated", "source"):
+        path = repo / f"memories/{name}.md"
+        path.write_text(path.read_text() + "Existing independent WIP.\n")
+    baseline_hashes = input_hashes(repo, load_config(repo))
+    baseline_graph = authored_graph(repo, load_config(repo))
+    candidate = tmp_path / "candidate"
+    candidate.mkdir()
+    for name in baseline_hashes:
+        destination = candidate / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(repo / name, destination)
+    path = candidate / "memories/proposal.md"
+    path.write_text(path.read_text() + "Only this proposal is submitted.\n")
+    candidate_hashes = input_hashes(candidate, load_config(candidate))
+    changed = {p for p in baseline_hashes.keys() | candidate_hashes.keys()
+               if baseline_hashes.get(p) != candidate_hashes.get(p)}
+    result = evaluate_impact(authored_graph(candidate, load_config(candidate)), baseline_graph,
+                             changed, today=TODAY)
+    assert result["seeds"] == ["memories/proposal.md"]
+    assert paths(result["blockers"]) == {"memories/source.md"}
+    assert paths(result["unrelated_debt"]) == {"memories/unrelated.md"}
+    assert input_hashes(repo, load_config(repo)) == baseline_hashes

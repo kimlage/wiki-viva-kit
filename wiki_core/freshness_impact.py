@@ -30,74 +30,68 @@ NAVIGATION_HEADINGS = frozenset({"related", "relacionados", "navigation", "naveg
 
 
 def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[str]):
-    """Classify occurrences, never endpoint pairs or whole index pages.
+    """Exclude only complete, positively parsed navigation list items.
 
-    Only a link-only top-level list item directly under an explicit navigation
-    heading can repeat a local structural/association declaration. All prose,
-    tables, nested items and uncertain syntax stay conservative. Inspect the
-    complete item before classification so continuation text cannot be hidden.
+    Keep the existing conservative link inventory (including uncertain syntax)
+    and use CommonMark block/inline structure solely to prove navigation. A
+    nested heading cannot change the enclosing section, and a factual occurrence
+    elsewhere in the same page is never suppressed by matching endpoints.
     """
-    lines = body.splitlines(keepends=True)
-    def heading_at(offset: int):
-        atx = re.match(r"^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$", lines[offset])
-        if atx:
-            return atx.group(1).strip().casefold()
-        if (lines[offset].strip() and offset + 1 < len(lines)
-                and re.fullmatch(r" {0,3}(?:=+|-+)\s*", lines[offset + 1])):
-            return lines[offset].strip().casefold()
-        return None
+    from markdown_it import MarkdownIt
 
-    heading = ""
-    fence = None
-    index = 0
-    while index < len(lines):
-        start = index
-        line = lines[index]
-        marker = re.match(r"^\s*(`{3,}|~{3,})", line)
-        if marker:
-            token = marker.group(1)
-            if fence is None:
-                fence = token
-            elif token[0] == fence[0] and len(token) >= len(fence):
-                fence = None
-            heading = ""  # uncertain block boundaries remain conservative
-        section = heading_at(index)
-        if section is not None and fence is None:
-            heading = section
-        item = re.match(r"^[-+*]\s+", line)
-        index += 1
-        if item:
-            # Include lazy (unindented) continuations too. A blank line ends
-            # the item unless the following block is indented into it.
-            while (index < len(lines) and heading_at(index) is None
-                   and not re.match(r"^[-+*]\s+|^\s*(`{3,}|~{3,})", lines[index])):
-                if not lines[index].strip():
-                    following = index + 1
-                    while following < len(lines) and not lines[following].strip():
-                        following += 1
-                    if (following == len(lines)
-                            or not lines[following].startswith((" ", "\t"))):
-                        break
-                index += 1
-        block = "".join(lines[start:index])
-        rest = block[item.end():] if item else block
-        rest = MARKDOWN_LINK_RE.sub("", rest)
-        link_only = (bool(item) and fence is None
-                     and not re.sub(r"[\s,;.·|/()—–-]", "", rest)
-                     and not any(re.match(r"\s+[-+*]\s+", part)
-                                 for part in lines[start + 1:index]))
-        for match in MARKDOWN_LINK_RE.finditer(block):
-            target = _path_from_link(root, path, match.group(1))
-            if not target:
+    tokens = MarkdownIt("commonmark").parse(body)
+    sections = []
+    navigation_ranges = []
+    section = ""
+    top_list = None
+    for index, token in enumerate(tokens):
+        if token.type == "heading_open" and token.level == 0:
+            section = tokens[index + 1].content.strip().casefold()
+            sections.append((token.map[0], section))
+        if token.level == 0 and token.type in {"bullet_list_open", "ordered_list_open"}:
+            top_list = token.type
+        if token.level == 0 and token.type in {"bullet_list_close", "ordered_list_close"}:
+            top_list = None
+        if not (token.type == "list_item_open" and token.level == 1
+                and top_list == "bullet_list_open" and section in NAVIGATION_HEADINGS):
+            continue
+        end = index + 1
+        while not (tokens[end].type == "list_item_close" and tokens[end].level == 1):
+            end += 1
+        item = tokens[index + 1:end]
+        if [part.type for part in item] != ["paragraph_open", "inline", "paragraph_close"]:
+            continue
+        depth = 0
+        links = 0
+        link_only = True
+        for child in item[1].children or []:
+            if child.type == "link_open":
+                depth += 1
+                links += 1
+            elif child.type == "link_close":
+                depth -= 1
+            elif depth:
+                continue  # Labels may contain formatting; they are still labels.
+            elif child.type in {"softbreak", "hardbreak"}:
                 continue
-            navigation = (heading in NAVIGATION_HEADINGS and link_only
-                          and target in navigation_targets)
-            yield dict(source=path, target=target,
-                       type="navigation_link" if navigation else "markdown_link",
-                       direction="directed", basis="markdown_body", path=path, field="body",
-                       body_line=start + 1 + block[:match.start()].count("\n"),
-                       section=heading,
-                       classification="local_typed_navigation_item" if navigation else "conservative_citation")
+            elif child.type != "text" or re.sub(r"[\s,;.·|/()—–-]", "", child.content):
+                link_only = False
+        if link_only and links and depth == 0:
+            navigation_ranges.append(tuple(token.map))
+
+    for match in MARKDOWN_LINK_RE.finditer(body):
+        target = _path_from_link(root, path, match.group(1))
+        if not target:
+            continue
+        line = body[:match.start()].count("\n")
+        section = next((title for start, title in reversed(sections) if start <= line), "")
+        navigation = (target in navigation_targets
+                      and any(start <= line < end for start, end in navigation_ranges))
+        yield dict(source=path, target=target,
+                   type="navigation_link" if navigation else "markdown_link",
+                   direction="directed", basis="markdown_body", path=path, field="body",
+                   body_line=line + 1, section=section,
+                   classification="local_typed_navigation_item" if navigation else "conservative_citation")
 
 
 def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
