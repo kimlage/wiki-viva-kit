@@ -233,6 +233,26 @@ def test_multiline_scalar_scan_handles_recursive_aliases():
     assert values["visibility"] == "public_candidate"
 
 
+@pytest.mark.parametrize("scalar", [
+    "summary: &description 'First\n  visibility: private_self\n  tail: ordinary'",
+    'summary: !!str "First\n  visibility: private_self\n  tail: ordinary"',
+    "summary:\n- 'First\n  visibility: private_self\n  tail: ordinary'",
+    "summary: ['First\n  visibility: private_self\n  tail: ordinary']",
+    "summary: First\n  visibility:private_self\n  tail:ordinary",
+])
+@pytest.mark.parametrize("python_loader", [False, True])
+def test_scalar_boundaries_do_not_depend_on_prefix_guessing(scalar, python_loader, monkeypatch):
+    if python_loader:
+        monkeypatch.delattr(yaml, "CSafeLoader", raising=False)
+    raw = _doc("visibility: public_candidate\n" + scalar + "\nowner: example")
+    structured, _ = parse_frontmatter(raw)
+    assert structured["visibility"] == "public_candidate"
+    values, errors = parse_frontmatter_flat_with_errors(raw)
+    assert errors == []
+    assert values["visibility"] == "public_candidate"
+    assert values["owner"] == "example"
+
+
 def test_flat_with_errors_structural_messages():
     _v1, e1 = parse_frontmatter_flat_with_errors("no block\n")
     assert "missing frontmatter block" in e1

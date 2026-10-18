@@ -228,35 +228,11 @@ def parse_frontmatter_flat(source: str | Path) -> dict[str, Any]:
 def _multiline_scalar_continuations(lines: list[str]) -> set[int]:
     """Locate scalar content, without changing the flat parser's string values.
 
-    Most headers use only single-line scalars/lists. Compose only when a line
-    could continue a scalar, and trust spans only after valid YAML composition.
-    In particular, prose containing ``visibility: ...`` is data, not metadata.
+    YAML owns scalar boundaries, including anchors, tags, flow and plain folds.
+    Compose nodes only: no constructors, typed flat values or source mutation.
     """
-    def may_continue(raw: str) -> bool:
-        value = raw.partition(":")[2].lstrip()
-        if value and value[0] in "\"'":
-            quote, index = value[0], 1
-            while index < len(value):
-                if quote == '"' and value[index] == "\\":
-                    index += 2
-                elif value[index] == quote:
-                    if quote == "'" and index + 1 < len(value) and value[index + 1] == quote:
-                        index += 2
-                    else:
-                        return False
-                else:
-                    index += 1
-            return True
-        tokens = value.split(" #", 1)[0].split()
-        if tokens and re.fullmatch(r"[|>][1-9+-]*", tokens[-1]):
-            return True
-        stripped = raw.strip()
-        return bool(stripped and not stripped.startswith(("#", "- ")) and ":" not in raw)
-
-    if not any(may_continue(line) for line in lines):
-        return set()
     try:
-        root = yaml.compose("\n".join(lines), Loader=yaml.SafeLoader)
+        root = yaml.compose("\n".join(lines), Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
     except yaml.YAMLError:
         return set()  # Preserve structural errors; never repair malformed YAML.
     continuations: set[int] = set()
