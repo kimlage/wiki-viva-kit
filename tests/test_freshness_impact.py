@@ -128,6 +128,21 @@ def test_duplicate_ids_block_cleanly_and_base_duplicates_can_be_repaired(repo):
     assert "memories/first.md" in paths(repaired["blockers"])
 
 
+def test_removed_untyped_reference_keeps_all_ambiguous_historical_targets(repo):
+    a = page(repo, "a")
+    z = page(repo, "z", stale=True)
+    for path in (a, z):
+        path.write_text(path.read_text().replace(f"page_id: {path.stem}", "page_id: same"))
+    page(repo, "item", claims=["same"])
+    base = commit(repo)
+    a.write_text(a.read_text().replace("page_id: same", "page_id: a"))
+    page(repo, "item")
+    result = report(repo, base)
+    assert not result["relation_errors"]
+    assert paths(result["blockers"]) == {"memories/z.md"}
+    assert result["blockers"][0]["chain"][0]["origin"] == "base"
+
+
 def test_removing_or_retargeting_link_does_not_shed_old_dependency(repo):
     page(repo, "old", stale=True)
     page(repo, "new")

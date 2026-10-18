@@ -15,8 +15,8 @@ from typing import Any
 
 from wiki_core.config import WikiConfig
 from wiki_core.freshness import freshness_state, is_stale_exempt
-from wiki_core.frontmatter import parse_frontmatter
-from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, _frontmatter_refs, _markdown_body_links
+from wiki_core.frontmatter import list_values, parse_frontmatter
+from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, _markdown_body_links
 from wiki_core.semantic_inventory import (
     RELATION_DIRECTIONS, _authored_pages, _expected_relations, _page_indexes,
 )
@@ -59,10 +59,10 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
         for field in FRONTMATTER_REF_FIELDS:
             if field in represented:
                 continue
-            for target in _frontmatter_refs({field: page.values.get(field)},
-                                            {pid: p.path for pid, p in by_id.items()}):
-                if target not in by_path:
-                    continue
+            targets = set()
+            for ref in list_values(page.values.get(field)):
+                targets.update([ref] if ref in by_path else paths_by_id.get(ref, []))
+            for target in sorted(targets):
                 if field == "owner":
                     edges.append(dict(source=target, target=page.path, type="ownership",
                                       direction="directed", basis="frontmatter", path=page.path,
