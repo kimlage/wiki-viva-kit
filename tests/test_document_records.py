@@ -75,6 +75,37 @@ def test_independent_addition_does_not_consume_old_siblings(repo):
     assert "memories/old-source.md" in {r["path"] for r in result["unrelated_debt"]}
 
 
+@pytest.mark.parametrize("common_intro", [False, True])
+def test_repeated_h2_siblings_keep_their_boundaries(repo, common_intro):
+    page(repo, "old-source", stale=True)
+    page(repo, "new-source")
+    intro = "Common [premise](old-source.md).\n\n" if common_intro else ""
+    p = page(repo, "log", body="# Log\n\n" + intro
+             + "## Repeated\n\nOld [evidence](old-source.md).\n\n"
+             + "## Repeated\n\nAnother [assertion](old-source.md).\n\n")
+    base = graph(repo)
+    p.write_text(p.read_text() + "## New record\n\nNew [evidence](new-source.md).\n")
+    current = graph(repo)
+    contract = declaration(base, current)
+    result = evaluate(current, base, {"memories/log.md"}, contract)
+    assert result["ok"] is not common_intro
+    assert "Repeated" not in sections(current["documents"]["memories/log.md"])[1]
+    if not common_intro:
+        assert "memories/old-source.md" in {r["path"] for r in result["unrelated_debt"]}
+
+
+def test_repeated_h2_remains_ambiguous_for_record_selection(repo):
+    page(repo, "old-source", stale=True)
+    p = page(repo, "log", body="# Log\n\n## Repeated\n\nFirst.\n\n")
+    base = graph(repo)
+    p.write_text(p.read_text() + "## Repeated\n\nSecond [assertion](old-source.md).\n"
+                 "\n## New record\n\nAdded.\n")
+    current = graph(repo)
+    contract = declaration(base, current, headings=("Repeated",))
+    with pytest.raises(ValueError, match="absent record exists or is ambiguous"):
+        evaluate(current, base, {"memories/log.md"}, contract)
+
+
 def test_whole_document_consumer_receives_addition_and_old_prerequisites(repo):
     base, current, contract = setup_increment(repo, consumer=True)
     result = evaluate(current, base, {"memories/log.md"}, contract)

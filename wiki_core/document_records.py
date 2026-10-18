@@ -28,8 +28,8 @@ def edge_digest(edge: dict) -> str:
     return digest(json.dumps(edge, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
 
 
-def sections(text: str) -> tuple[str, dict[str, tuple[int, int, str]]]:
-    """Unique top-level H2 sections, body-relative lines, exact canonical bytes.
+def section_spans(text: str) -> tuple[str, list[tuple[str, int, int, str]]]:
+    """All top-level H2 boundaries, including repeated titles.
 
     A lower-level heading is inside its H2; H1 ends it. Fenced/list headings
     cannot select a record. CRLF bytes are preserved in content hashes.
@@ -40,15 +40,24 @@ def sections(text: str) -> tuple[str, dict[str, tuple[int, int, str]]]:
     tokens = MarkdownIt("commonmark").parse(body)
     headings = [(t.map[0], int(t.tag[1:]), tokens[i + 1].content)
                 for i, t in enumerate(tokens) if t.type == "heading_open" and t.level == 0]
-    result = {}
-    duplicates = set()
+    spans = []
     for i, (start, level, title) in enumerate(headings):
         if level != 2:
             continue
         end = next((line for line, depth, _ in headings[i + 1:] if depth <= 2), len(lines))
+        spans.append((title, start, end, "".join(lines[start:end])))
+    return body, spans
+
+
+def sections(text: str) -> tuple[str, dict[str, tuple[int, int, str]]]:
+    """Only unique H2 titles can select a record; repeated sections still exist."""
+    body, spans = section_spans(text)
+    result = {}
+    duplicates = set()
+    for title, start, end, content in spans:
         if title in result:
             duplicates.add(title)
-        result[title] = (start, end, "".join(lines[start:end]))
+        result[title] = (start, end, content)
     for title in duplicates:
         del result[title]
     return body, result
@@ -219,7 +228,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
             for start, _, rid in ranges:
                 parts[rid]["remainder_anchor"] = sum(len(line) for i, line in enumerate(lines[:start]) if i not in selected)
             partitions[origin][path] = dict(parts=parts, ranges=ranges, remainder=remainder,
-                                           section_ranges=[(a, b) for a, b, _ in available.values()])
+                                           section_ranges=[(a, b) for _, a, b, _ in section_spans(text)[1]])
             for rid, part in parts.items():
                 nid = node_id(path, rid)
                 if nid in graph["nodes"]:
