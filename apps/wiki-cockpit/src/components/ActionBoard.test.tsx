@@ -1,12 +1,114 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ActionBoard } from './ActionBoard';
 import type { SnapshotLoadResult } from '../application/ports';
 import { boardPages } from '../data/actionBoard';
 import type { PageRecord } from '../types';
 afterEach(cleanup);
 const action = (id: string, state = 'open', priority = 'normal') => ({id, title:id, path:`memories/${id}.md`, context:'system', page_type:'action', content_sha256:'a'.repeat(64), work:{state, priority, next_action:'Read evidence', owner_ref:'coordinator'}} as unknown as PageRecord);
+
+it('recovers one stale content read from a fresh snapshot without writing',async()=>{
+  const revision=(id:string,hash:string)=>({source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:id},pages:{pages:[{...action('Async task'),content_sha256:hash.repeat(64)}]},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult);
+  const operator={
+    loadSnapshotBundle:vi.fn().mockResolvedValueOnce(revision('revision-a','a')).mockResolvedValue(revision('revision-b','b')),
+    loadPageContent:vi.fn().mockResolvedValueOnce({ok:false,error:'page changed since snapshot; refresh required',error_code:'snapshot_revision_mismatch',snapshot_id:'revision-b',expected_snapshot_id:'revision-a'})
+      .mockResolvedValue({ok:true,snapshot_id:'revision-b',body:'# Current evidence',frontmatter:{},source_refs:[],resolved_links:[]})
+  };
+  const save=vi.fn();
+  render(<ActionBoard operator={operator} save={save}/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
+  expect(await screen.findByText('Current evidence')).toBeTruthy();
+  expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(2);
+  expect(operator.loadPageContent.mock.calls.map(call=>call[1].snapshotId)).toEqual(['revision-a','revision-b']);
+  expect(save).not.toHaveBeenCalled();
+});
+
+const readSnapshot=(id:string,pages=[action('Async task')])=>({source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:id},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult);
+const staleRead=(expected:string,current:string)=>({ok:false,error:'page changed since snapshot; refresh required',error_code:'snapshot_revision_mismatch',expected_snapshot_id:expected,snapshot_id:current,read_status:409});
+
+it('stops after one read recovery and exposes only sanitized revision diagnostics',async()=>{
+  const operator={
+    loadSnapshotBundle:vi.fn().mockResolvedValueOnce(readSnapshot('revision-a')).mockResolvedValue(readSnapshot('revision-b')),
+    loadPageContent:vi.fn().mockResolvedValueOnce(staleRead('revision-a','revision-b')).mockResolvedValue(staleRead('revision-b','revision-c'))
+  };
+  const save=vi.fn();
+  render(<ActionBoard operator={operator} save={save}/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
+  const alert=await screen.findByRole('alert');
+  expect(alert.textContent).toContain('The wiki changed while opening');
+  expect(alert.getAttribute('data-read-error-code')).toBe('snapshot_revision_mismatch');
+  expect(alert.getAttribute('data-read-http-status')).toBe('409');
+  expect(alert.getAttribute('data-expected-snapshot-id')).toBe('revision-b');
+  expect(alert.getAttribute('data-current-snapshot-id')).toBe('revision-c');
+  expect(screen.getByLabelText('Page and evidence').getAttribute('data-read-snapshot-id')).toBe('revision-b');
+  expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(2);
+  expect(operator.loadPageContent).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole('button',{name:'Save to wiki'})).toBeNull();
+  expect(save).not.toHaveBeenCalled();
+});
+
+it.each(['forbidden_route','content_integrity_mismatch','untrusted_code'])('does not retry or reveal response details for %s',async(errorCode)=>{
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(readSnapshot('revision-a')),loadPageContent:vi.fn().mockResolvedValue({ok:false,error_code:errorCode,error:'untrusted response detail',read_status:'untrusted response detail',read_error_type:'untrusted response detail'})};
+  const save=vi.fn();
+  render(<ActionBoard operator={operator} save={save}/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
+  const alert=await screen.findByRole('alert');
+  expect(alert.getAttribute('data-read-error-code')).toBe(errorCode==='untrusted_code'?'content_unavailable':errorCode);
+  expect(document.body.textContent).not.toContain('untrusted response detail');
+  expect(document.body.innerHTML).not.toContain('untrusted response detail');
+  expect(document.body.innerHTML).not.toContain('untrusted_code');
+  expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(1);
+  expect(operator.loadPageContent).toHaveBeenCalledTimes(1);
+  expect(save).not.toHaveBeenCalled();
+});
+
+it('does not refresh a demo into the local operator after a revision error',async()=>{
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(readSnapshot('revision-a')),loadPageContent:vi.fn().mockResolvedValue(staleRead('revision-a','revision-b'))};
+  render(<ActionBoard operator={operator} save={vi.fn()} demo/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
+  await screen.findByRole('alert');
+  expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(1);
+  expect(operator.loadSnapshotBundle).toHaveBeenCalledWith({demo:true});
+});
+
+it('ignores a late revision conflict from a page the user already left',async()=>{
+  let finishOldRead:(value:ReturnType<typeof staleRead>)=>void=()=>{};
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(readSnapshot('revision-a',[action('First task'),action('Second task')])),loadPageContent:vi.fn().mockImplementation(async(id:string)=>id==='First task'?await new Promise(resolve=>{finishOldRead=resolve;}):{ok:true,snapshot_id:'revision-a',body:'Second evidence',frontmatter:{}})};
+  const save=vi.fn();
+  render(<ActionBoard operator={operator} save={save}/>);
+  fireEvent.click(await screen.findByRole('button',{name:/First task/}));
+  await waitFor(()=>expect(operator.loadPageContent).toHaveBeenCalledTimes(1));
+  const oldSignal=operator.loadPageContent.mock.calls[0][1].signal as AbortSignal;
+  fireEvent.click(screen.getByRole('button',{name:/Second task/}));
+  await screen.findByText('Second evidence');
+  expect(oldSignal.aborted).toBe(true);
+  await act(async()=>finishOldRead(staleRead('revision-a','revision-b')));
+  expect(screen.getByText('Second evidence')).toBeTruthy();
+  expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(1);
+  expect(save).not.toHaveBeenCalled();
+});
+
+it('requires the refreshed coordinator map before a recovered card can save with its new hash',async()=>{
+  const task={...action('Async task'),content_sha256:'b'.repeat(64)};
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValueOnce(readSnapshot('revision-a')).mockImplementation(async()=>readSnapshot('revision-b',[task])),loadPageContent:vi.fn().mockResolvedValueOnce(staleRead('revision-a','revision-b')).mockResolvedValue({ok:true,snapshot_id:'revision-b',body:'Current evidence',frontmatter:{}})};
+  const map=(id:string,hash:string)=>({schema_version:'wiki_coordination.v1',configured:true,snapshot_id:id,profiles:[{id:'research',label:'Research',scope:'Synthetic',action_ids:['Async task']}],actions:[{action_id:'Async task',coordinator:'research',content_sha256:hash.repeat(64)}]});
+  let finishMap:(value:ReturnType<typeof map>)=>void=()=>{};
+  const loadCoordination=vi.fn().mockResolvedValueOnce(map('revision-a','a')).mockImplementation(()=>new Promise(resolve=>{finishMap=resolve;}));
+  const save=vi.fn().mockResolvedValue(undefined);
+  render(<ActionBoard operator={operator} save={save} loadCoordination={loadCoordination}/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
+  await screen.findByText('Current evidence');
+  expect(screen.getByLabelText('Next step').closest('fieldset')?.disabled).toBe(true);
+  expect(screen.queryByRole('button',{name:'Save to wiki'})).toBeNull();
+  expect(save).not.toHaveBeenCalled();
+  await act(async()=>finishMap(map('revision-b','b')));
+  await waitFor(()=>expect(screen.getByLabelText('Next step').closest('fieldset')?.disabled).toBe(false));
+  fireEvent.change(screen.getByLabelText('Priority'),{target:{value:'high'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save to wiki'}));
+  await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
+  expect(save.mock.calls[0][0].expected_sha256).toBe('b'.repeat(64));
+});
 function setup(mode='local_operator', demo=false, save=vi.fn().mockResolvedValue(undefined)) {
   const pages=[action('Synthetic task'),action('Archived task','done'),{...action('Context page'),page_type:'context'}];
   const loaded={source:'/api/snapshot',runtime:{mode},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test',generated_at:'2026-01-01'},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;

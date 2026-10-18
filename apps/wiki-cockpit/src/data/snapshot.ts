@@ -537,6 +537,7 @@ export async function loadPageContent(
   } = {}
 ): Promise<PageContent> {
   const attempts: (() => Promise<PageContent>)[] = [];
+  let lastResponseStatus: number | undefined;
   if (options.demo) {
     attempts.push(() => fetchJson<PageContent>(`${options.snapshotSource || SAMPLE_BASE}/content/${sidecarName(pageId)}`, options.signal));
   } else {
@@ -548,13 +549,17 @@ export async function loadPageContent(
         headers: { accept: "application/json" },
         signal: options.signal
       });
+      lastResponseStatus = response.status || undefined;
       const payload = (await response.json()) as PageContent;
       if (!response.ok && !payload.error) throw new Error(`content failed: ${response.status}`);
       return payload;
     });
     const base = options.snapshotSource;
     if (base && !base.endsWith("/api/snapshot")) {
-      attempts.push(() => fetchJson<PageContent>(`${base}/content/${sidecarName(pageId)}`, options.signal, true));
+      attempts.push(() => {
+        lastResponseStatus = undefined;
+        return fetchJson<PageContent>(`${base}/content/${sidecarName(pageId)}`, options.signal, true);
+      });
     }
   }
   let lastError: unknown = null;
@@ -564,21 +569,29 @@ export async function loadPageContent(
       const payload = await attempt();
       if (payload && payload.ok) {
         if (options.snapshotId && payload.snapshot_id && payload.snapshot_id !== options.snapshotId) {
-          throw new Error(`Content revision mismatch (${payload.snapshot_id} != ${options.snapshotId})`);
+          return {
+            ok: false,
+            error: `Content revision mismatch (${payload.snapshot_id} != ${options.snapshotId})`,
+            error_code: "snapshot_revision_mismatch",
+            page_id: pageId,
+            snapshot_id: payload.snapshot_id,
+            expected_snapshot_id: options.snapshotId,
+            read_status: lastResponseStatus
+          };
         }
         const sidecarPath = `content/${sidecarName(pageId)}`;
         const expected = options.integrity?.[sidecarPath]?.sha256;
         if (options.demo && options.integrity && !expected) {
-          throw new Error(`Content sidecar is absent from snapshot integrity: ${sidecarPath}`);
+          throw new SnapshotLoadError("integrity", `Content sidecar is absent from snapshot integrity: ${sidecarPath}`);
         }
         if (expected && (await sha256(payload)) !== expected) {
-          throw new Error(`Content sidecar failed integrity: ${sidecarPath}`);
+          throw new SnapshotLoadError("integrity", `Content sidecar failed integrity: ${sidecarPath}`);
         }
         return payload;
       }
       if (payload && payload.error) {
-        if (payload.error_code === "snapshot_revision_mismatch") return payload;
-        lastFailure = payload;
+        if (payload.error_code === "snapshot_revision_mismatch") return { ...payload, read_status: lastResponseStatus, read_error_type: undefined };
+        lastFailure = { ...payload, read_status: lastResponseStatus, read_error_type: undefined };
         lastError = new Error(payload.error);
       }
     } catch (error) {
@@ -588,7 +601,12 @@ export async function loadPageContent(
   if (lastFailure) return lastFailure;
   return {
     ok: false,
-    error: lastError instanceof Error ? lastError.message : "conteúdo indisponível neste modo"
+    error: lastError instanceof Error ? lastError.message : "conteúdo indisponível neste modo",
+    error_code: lastError instanceof SnapshotLoadError && lastError.code === "integrity"
+      ? "content_integrity_mismatch" : "content_read_failed",
+    read_status: lastResponseStatus,
+    read_error_type: (["Error", "TypeError", "SyntaxError", "AbortError", "SnapshotLoadError"] as const)
+      .find(name => lastError instanceof Error && lastError.name === name)
   };
 }
 
