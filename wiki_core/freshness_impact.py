@@ -24,7 +24,7 @@ from wiki_core.semantic_inventory import (
 
 # These are relation semantics, never exemptions for whole pages or contexts.
 STRUCTURAL = frozenset({"moc_parent", "collection_member", "ownership", "participation"})
-ASSOCIATION = frozenset({"related_page", "navigation_link"})
+ASSOCIATION = frozenset({"related_page", "related_holon", "navigation_link"})
 REFERENCE = frozenset({"source_ref", "markdown_link", "untyped_reference"})
 NAVIGATION_HEADINGS = frozenset({"related", "relacionados", "navigation", "navegação"})
 
@@ -64,7 +64,14 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
         depth = 0
         links = 0
         link_only = True
-        for child in item[1].children or []:
+        children = item[1].children or []
+        # Existing MOC conventions also declare structural navigation in the
+        # body. This is an exact relation label, not arbitrary text before ':';
+        # Evidence/Source/Responsibility labels do not receive this treatment.
+        explicit_moc = (bool(children) and children[0].type == "text"
+                        and children[0].content.strip().casefold()
+                        in {"moc:", "parent moc:", "moc pai:"})
+        for child in children[1:] if explicit_moc else children:
             if child.type == "link_open":
                 depth += 1
                 links += 1
@@ -77,7 +84,8 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
             elif child.type != "text" or re.sub(r"[\s,;.·|/()—–-]", "", child.content):
                 link_only = False
         if link_only and links and depth == 0:
-            navigation_ranges.append(tuple(token.map))
+            navigation_ranges.append((*token.map, explicit_moc,
+                                      children[0].content.strip() if explicit_moc else None))
 
     for match in MARKDOWN_LINK_RE.finditer(body):
         target = _path_from_link(root, path, match.group(1))
@@ -85,13 +93,18 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
             continue
         line = body[:match.start()].count("\n")
         section = next((title for start, title in reversed(sections) if start <= line), "")
-        navigation = (target in navigation_targets
-                      and any(start <= line < end for start, end in navigation_ranges))
+        matched = [(explicit, label) for start, end, explicit, label in navigation_ranges
+                   if start <= line < end]
+        explicit_moc = any(explicit for explicit, _label in matched)
+        navigation = bool(matched) and (explicit_moc or target in navigation_targets)
         yield dict(source=path, target=target,
                    type="navigation_link" if navigation else "markdown_link",
                    direction="directed", basis="markdown_body", path=path, field="body",
                    body_line=line + 1, section=section,
-                   classification="local_typed_navigation_item" if navigation else "conservative_citation")
+                   body_relation_label=next((label for explicit, label in matched if explicit), None),
+                   classification=("explicit_body_moc_navigation" if navigation and explicit_moc
+                                   else "local_typed_navigation_item" if navigation
+                                   else "conservative_citation"))
 
 
 def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
@@ -131,6 +144,14 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
             for ref in list_values(page.values.get(field)):
                 targets.update([ref] if ref in by_path else paths_by_id.get(ref, []))
             for target in sorted(targets):
+                if field == "related_holons":
+                    # The authored template-block contract uses this field for
+                    # contextual reach (relations/culture), separately from
+                    # source_refs/evidence. It does not assert factual support.
+                    edges.append(dict(source=page.path, target=target, type="related_holon",
+                                      direction="directed", basis="frontmatter", path=page.path,
+                                      field=field))
+                    continue
                 if field == "owner":
                     edges.append(dict(source=target, target=page.path, type="ownership",
                                       direction="directed", basis="frontmatter", path=page.path,
@@ -143,7 +164,7 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
         navigation_targets = {
             e["target"] if e["source"] == page.path else e["source"]
             for e in edges if e["path"] == page.path
-            and e["type"] in STRUCTURAL | {"related_page"}
+            and e["type"] in STRUCTURAL | {"related_page", "related_holon"}
             and page.path in {e["source"], e["target"]}
         }
         for occurrence in _body_occurrences(root, page.path, body, navigation_targets):

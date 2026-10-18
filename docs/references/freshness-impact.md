@@ -48,7 +48,9 @@ and the [Git graph inventory](../../scripts/wiki_page_graph.py).
 Source references and citations point from the dependent to its prerequisite;
 blockers and supporting evidence point toward the dependent. Explicit
 untyped reference fields are conservatively included. Explicit `related_pages`
-associations express context and discovery, not factual dependency. Hierarchy,
+and `related_holons` associations express context and discovery, not factual
+dependency. The latter uses the existing template-block relations/culture and
+contextual reach contract, distinct from `source_refs`. Hierarchy,
 ownership, participation and collection edges alone do not transmit factual
 freshness. Markdown citations between the same pages still transmit freshness:
 matching structural endpoints do not establish that a citation is navigation.
@@ -62,6 +64,13 @@ Prose, tables, nested lists, fenced blocks and subsections such as `Sources`
 remain conservative citations. Classification precedes deduplication: another
 factual citation to the same target still participates. Every occurrence records
 its body-relative line, section and classification reason.
+
+The existing MOC template convention also permits a local structural declaration
+in the body: an exact `MOC:`, `Parent MOC:` or `MOC pai:` prefix in that same
+top-level navigation-list format. After the prefix, only links and punctuation
+are allowed. This occurrence records its literal relation label and does not
+create or modify the canonical `moc_parent`. Arbitrary footer labels such as
+Evidence, Source or Responsibility are not treated as navigation.
 
 Both historical and current relations participate. Removing or retargeting a
 link cannot conceal its old dependency. Deleted pages are reported as removed;

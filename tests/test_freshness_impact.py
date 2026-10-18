@@ -342,3 +342,87 @@ def test_transaction_snapshot_preserves_wip_as_context_not_as_changed_seed(repo,
     assert paths(result["blockers"]) == {"memories/source.md"}
     assert paths(result["unrelated_debt"]) == {"memories/unrelated.md"}
     assert input_hashes(repo, load_config(repo)) == baseline_hashes
+
+
+def test_holon_context_association_is_not_factual_dependency(repo):
+    page(repo, "context", stale=True)
+    path = page(repo, "item", related_holons=["context"],
+                body="## Related\n- [Context](context.md)\n")
+    base = commit(repo)
+    path.write_text(path.read_text() + "\nUpdated direction.\n")
+    result = report(repo, base)
+    assert result["ok"]
+    assert paths(result["included"]) == {"memories/item.md"}
+    assert paths(result["unrelated_debt"]) == {"memories/context.md"}
+    assert any(e["type"] == "related_holon" and e["field"] == "related_holons"
+               for e in result["nonpropagating_relations"])
+
+
+@pytest.mark.parametrize("fields,body", [
+    ({"source_refs": ["context"]}, "## Related\n- [Context](context.md)\n"),
+    ({"evidence_refs": ["context"]}, "## Related\n- [Context](context.md)\n"),
+    ({}, "According to [context](context.md), the requirement applies.\n"),
+])
+def test_holon_association_never_suppresses_factual_support(repo, fields, body):
+    page(repo, "source", stale=True)
+    page(repo, "context", source_refs=["source"])
+    path = page(repo, "item", related_holons=["context"], body=body, **fields)
+    base = commit(repo)
+    path.write_text(path.read_text() + "\nUpdated conclusion.\n")
+    result = report(repo, base)
+    assert paths(result["blockers"]) == {"memories/source.md"}
+    assert any(r["type"] == "related_holon" for r in result["nonpropagating_relations"])
+
+
+@pytest.mark.parametrize("label", ["MOC", "Parent MOC", "MOC pai"])
+def test_explicit_body_moc_declaration_is_structural_without_frontmatter_duplicate(repo, label):
+    page(repo, "catalogue", stale=True)
+    path = page(repo, "item", body=f"## Related\n- {label}: [Catalogue](catalogue.md)\n")
+    base = commit(repo)
+    path.write_text(path.read_text() + "\nChanged.\n")
+    result = report(repo, base)
+    assert result["ok"]
+    assert paths(result["included"]) == {"memories/item.md"}
+    assert any(e.get("classification") == "explicit_body_moc_navigation"
+               for e in result["nonpropagating_relations"])
+
+
+@pytest.mark.parametrize("body", [
+    "## Related\n- Evidence: [Catalogue](catalogue.md)\n",
+    "## Related\n- MOC: [Catalogue](catalogue.md) establishes the baseline.\n",
+    "## Related\n- MOC: [Catalogue](catalogue.md)\n  establishes the baseline.\n",
+    "## Related\n- MOC: [Catalogue](catalogue.md)\nestablishes the baseline.\n",
+    "## Sources\n- MOC: [Catalogue](catalogue.md)\n",
+    "## Related\n- MOC: [Catalogue](catalogue.md)\n\n## Evidence\nBased on [catalogue](catalogue.md).\n",
+])
+def test_body_labels_never_hide_evidence_or_factual_continuations(repo, body):
+    page(repo, "catalogue", stale=True)
+    path = page(repo, "item", body=body)
+    base = commit(repo)
+    path.write_text(path.read_text() + "\nChanged.\n")
+    assert paths(report(repo, base)["blockers"]) == {"memories/catalogue.md"}
+
+
+@pytest.mark.parametrize("body", [
+    "## Related\n- MOC evidence: [Catalogue](catalogue.md)\n",
+    "## Related\n- Responsibility: [Catalogue](catalogue.md)\n",
+    "## Related\n- Evidence:\n  - MOC: [Catalogue](catalogue.md)\n",
+    "## Related\n- MOC: [Catalogue](catalogue.md)\n  - [Catalogue](catalogue.md)\n",
+])
+def test_nearby_labels_and_nested_moc_items_are_conservative(repo, body):
+    page(repo, "catalogue", stale=True)
+    path = page(repo, "item", body=body)
+    base = commit(repo)
+    path.write_text(path.read_text() + "\nChanged.\n")
+    assert paths(report(repo, base)["blockers"]) == {"memories/catalogue.md"}
+
+
+def test_moving_citation_to_moc_declaration_preserves_historical_dependency(repo):
+    page(repo, "catalogue", stale=True)
+    page(repo, "item", body="Based on [catalogue](catalogue.md).")
+    base = commit(repo)
+    page(repo, "item", body="## Related\n- MOC: [Catalogue](catalogue.md)\n")
+    result = report(repo, base)
+    assert paths(result["blockers"]) == {"memories/catalogue.md"}
+    assert result["blockers"][0]["chain"][0]["origin"] == "base"
+    assert any(e.get("body_relation_label") == "MOC:" for e in result["nonpropagating_relations"])
