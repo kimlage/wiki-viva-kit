@@ -278,6 +278,9 @@ def test_factual_dependency_through_same_catalogue_still_blocks(repo):
     "## Related\n### Sources\n- [Parent](parent.md)\n",
     "## Related\n- [Parent](parent.md)\n  - [Parent](parent.md)\n",
     "```md\n## Related\n```\n- [Parent](parent.md)\n",
+    "## Related\n- [Parent](parent.md)\nestablishes the factual baseline.\n",
+    "## Related\nSources\n-------\n- [Parent](parent.md)\n",
+    "## Related\n  ### Sources\n- [Parent](parent.md)\n",
 ])
 def test_navigation_does_not_hide_factual_or_uncertain_occurrences(repo, body):
     page(repo, "parent", stale=True)

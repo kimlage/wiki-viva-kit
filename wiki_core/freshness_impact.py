@@ -38,6 +38,15 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
     complete item before classification so continuation text cannot be hidden.
     """
     lines = body.splitlines(keepends=True)
+    def heading_at(offset: int):
+        atx = re.match(r"^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$", lines[offset])
+        if atx:
+            return atx.group(1).strip().casefold()
+        if (lines[offset].strip() and offset + 1 < len(lines)
+                and re.fullmatch(r" {0,3}(?:=+|-+)\s*", lines[offset + 1])):
+            return lines[offset].strip().casefold()
+        return None
+
     heading = ""
     fence = None
     index = 0
@@ -52,15 +61,23 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
             elif token[0] == fence[0] and len(token) >= len(fence):
                 fence = None
             heading = ""  # uncertain block boundaries remain conservative
-        section = re.match(r"^#{1,6}\s+(.+?)\s*#*\s*$", line)
-        if section and fence is None:
-            heading = section.group(1).strip().casefold()
+        section = heading_at(index)
+        if section is not None and fence is None:
+            heading = section
         item = re.match(r"^[-+*]\s+", line)
         index += 1
         if item:
-            # Blank lines belong to the item until another block starts.
-            while index < len(lines) and (not lines[index].strip()
-                                          or lines[index].startswith((" ", "\t"))):
+            # Include lazy (unindented) continuations too. A blank line ends
+            # the item unless the following block is indented into it.
+            while (index < len(lines) and heading_at(index) is None
+                   and not re.match(r"^[-+*]\s+|^\s*(`{3,}|~{3,})", lines[index])):
+                if not lines[index].strip():
+                    following = index + 1
+                    while following < len(lines) and not lines[following].strip():
+                        following += 1
+                    if (following == len(lines)
+                            or not lines[following].startswith((" ", "\t"))):
+                        break
                 index += 1
         block = "".join(lines[start:index])
         rest = block[item.end():] if item else block
