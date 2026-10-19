@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
+import json
+import subprocess
+import sys
 from pathlib import Path
+
+import pytest
+import yaml
 
 from wiki_core.config import WikiConfig
 from wiki_core.input_stage import compile_input_stage, input_context_for_source, render_input_stage_markdown
@@ -489,3 +496,199 @@ def test_render_input_stage_markdown_supports_spanish(tmp_path: Path) -> None:
     assert "Regla de frontera:" in md
     assert "holón raíz" in md
     assert "Actualizado el: 2026-06-25." in md
+
+
+def _published_stage(tmp_path, cfg, *, legacy=False):
+    from wiki_core.input_stage import write_input_stage
+    from wiki_core.paths import WikiPaths
+
+    catalog = write_input_stage(tmp_path, cfg, generated_at="2026-06-25")
+    paths = WikiPaths(tmp_path, cfg)
+    if legacy:
+        paths.input_stage_page.write_text(
+            render_input_stage_markdown(catalog, cfg, _annotate_targets=False), encoding="utf-8")
+    return paths
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_incremental_write_preserves_publication_identity_and_repairs_cache(tmp_path, legacy):
+    from wiki_core.input_stage import write_input_stage
+
+    cfg = _fixture_repo(tmp_path)
+    paths = _published_stage(tmp_path, cfg, legacy=legacy)
+    before = paths.input_stage_page.read_bytes()
+    stat = paths.input_stage_page.stat()
+    paths.input_stage_catalog.unlink()
+    # A missing cache is newly generated today; it cannot date the older MD.
+    catalog = write_input_stage(tmp_path, cfg, generated_at="2026-06-26", if_changed=True)
+    assert catalog["generated_at"] == "2026-06-26"
+    assert paths.input_stage_page.read_bytes() == before
+    assert (paths.input_stage_page.stat().st_ino, paths.input_stage_page.stat().st_mtime_ns) == (stat.st_ino, stat.st_mtime_ns)
+    cache = paths.input_stage_catalog.read_bytes()
+    cache_stat = paths.input_stage_catalog.stat()
+    # Both artifacts now remain literally unchanged, at their separate dates.
+    write_input_stage(tmp_path, cfg, generated_at="2026-06-27", if_changed=True)
+    assert paths.input_stage_page.read_bytes() == before
+    assert paths.input_stage_catalog.read_bytes() == cache
+    assert (paths.input_stage_catalog.stat().st_ino, paths.input_stage_catalog.stat().st_mtime_ns) == (cache_stat.st_ino, cache_stat.st_mtime_ns)
+    assert paths.input_stage_page.stat().st_mtime_ns == stat.st_mtime_ns
+    # Default behavior still deliberately regenerates both outputs.
+    catalog = write_input_stage(tmp_path, cfg, generated_at="2026-06-28")
+    assert catalog["generated_at"] == "2026-06-28"
+    assert paths.input_stage_page.read_bytes() != before
+    assert b"updated_at: 2026-06-28" in paths.input_stage_page.read_bytes()
+
+
+@pytest.mark.parametrize("change", ["date", "policy", "prose", "retarget", "source_marker", "mixed", "crlf", "missing"])
+def test_incremental_write_never_normalizes_unsupported_publication(tmp_path, change):
+    from wiki_core.input_stage import matching_input_stage_catalog, write_input_stage
+
+    cfg = _fixture_repo(tmp_path)
+    config_path = tmp_path / "memories/sources/config/team-handbook.md"
+    config_path.write_text(config_path.read_text().replace(
+        "target_pages:\n  - memories/example/index.md",
+        "target_pages:\n  - memories/example/index.md\n  - memories/example/second.md"))
+    paths = _published_stage(tmp_path, cfg)
+    text = paths.input_stage_page.read_text()
+    if change == "date":
+        text = text.replace("updated_at: 2026-06-25", "updated_at: 20260625")
+    elif change == "policy":
+        text = text.replace("stale_after_days: 1", "stale_after_days: 90")
+    elif change == "prose":
+        text += "\nAdditional processing instruction.\n"
+    elif change == "retarget":
+        text = text.replace("[Team docs](../input-channels/team-docs.md)", "[Team docs](../different.md)")
+    elif change == "source_marker":
+        text = text.replace("[Team handbook](../sources/team-handbook.md)",
+                            "[Team handbook](../sources/team-handbook.md)<!-- wiki-link-role.v9 navigation -->")
+    elif change == "mixed":
+        start = text.index("<!-- wiki-link-role.v1")
+        end = text.index(" -->", start) + len(" -->")
+        text = text[:start] + text[end:]
+    elif change == "crlf":
+        text = text.replace("\n", "\r\n")
+    if change == "missing":
+        paths.input_stage_page.unlink()
+    else:
+        paths.input_stage_page.write_bytes(text.encode())
+    current = compile_input_stage(tmp_path, cfg, generated_at="2026-06-26")
+    assert matching_input_stage_catalog(current, cfg, paths.input_stage_page.read_bytes()
+                                        if paths.input_stage_page.exists() else b"") is None
+    write_input_stage(tmp_path, cfg, generated_at="2026-06-26", if_changed=True)
+    assert paths.input_stage_page.read_bytes() == render_input_stage_markdown(current, cfg).encode()
+
+
+@pytest.mark.parametrize("change", ["status", "target", "language"])
+def test_incremental_write_generates_new_publication_for_visible_input_change(tmp_path, change):
+    from dataclasses import replace
+    from wiki_core.input_stage import write_input_stage
+
+    cfg = _fixture_repo(tmp_path)
+    paths = _published_stage(tmp_path, cfg, legacy=True)
+    if change == "status":
+        source = tmp_path / "memories/sources/team-handbook.md"
+        source.write_text(source.read_text().replace("ingestion_state: unread", "ingestion_state: staged"))
+    elif change == "target":
+        config_path = tmp_path / "memories/sources/config/team-handbook.md"
+        config_path.write_text(config_path.read_text().replace(
+            "target_pages:\n  - memories/example/index.md",
+            "target_pages:\n  - memories/example/index.md\n  - memories/example/new.md"))
+    else:
+        cfg = replace(cfg, language="es")
+    write_input_stage(tmp_path, cfg, generated_at="2026-06-26", if_changed=True)
+    assert b"updated_at: 2026-06-26" in paths.input_stage_page.read_bytes()
+    assert "wiki-link-role.v1 change_target" in paths.input_stage_page.read_text()
+
+
+def test_hidden_model_change_updates_json_at_its_real_date_not_markdown_date(tmp_path):
+    from wiki_core.input_stage import matching_input_stage_cache, write_input_stage
+
+    cfg = _fixture_repo(tmp_path)
+    paths = _published_stage(tmp_path, cfg)
+    before = paths.input_stage_page.read_bytes()
+    source = tmp_path / "memories/sources/team-handbook.md"
+    source.write_text(source.read_text().replace("visibility: private_self", "visibility: public")
+                      .replace("source_type: reference", "source_type: reference\nrefresh_cadence_days: 7"))
+    current = compile_input_stage(tmp_path, cfg, generated_at="2026-06-26")
+    assert matching_input_stage_cache(current, paths.input_stage_catalog.read_bytes()) is None
+    catalog = write_input_stage(tmp_path, cfg, generated_at="2026-06-26", if_changed=True)
+    assert paths.input_stage_page.read_bytes() == before
+    assert catalog["generated_at"] == "2026-06-26"
+    assert catalog["sources"][0]["privacy_boundary"] == "public"
+    assert catalog["sources"][0]["refresh_cadence_days"] == "7"
+
+
+def test_cli_checks_independent_output_dates_and_reports_actual_execution(tmp_path, monkeypatch, capsys):
+    from scripts import wiki_input_stage as cli
+
+    cfg = _fixture_repo(tmp_path)
+    paths = _published_stage(tmp_path, cfg, legacy=True)
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+    monkeypatch.setattr(cli, "load_config", lambda root: cfg)
+    def run(*args):
+        monkeypatch.setattr(sys, "argv", ["wiki_input_stage.py", *args])
+        return cli.main()
+    with pytest.raises(SystemExit) as invalid:
+        run("--if-changed")
+    assert invalid.value.code == 2
+    capsys.readouterr()
+    paths.input_stage_catalog.write_text('{"generated_at":"2099-01-01","sources":[]}')
+    assert run("--check") == 1  # Contradictory model cannot date or validate MD.
+    capsys.readouterr()
+    assert run("--write", "--if-changed") == 0
+    status = json.loads(capsys.readouterr().out.splitlines()[-1])
+    assert status["md_changed"] is False and status["catalog_changed"] is True
+    assert status["md_publication_date"] == "2026-06-25"
+    assert status["catalog_generation_date"] == dt.date.today().isoformat()
+    assert dt.datetime.fromisoformat(status["executed_at"]).tzinfo is not None
+    assert run("--check") == 0  # Different valid generation dates are supported.
+    paths.input_stage_catalog.unlink()
+    assert run("--check") == 0  # Existing policy: ignored cache is optional.
+
+
+def test_incremental_publication_keeps_whole_time_hash_consumers_and_real_source_seeds(tmp_path):
+    from wiki_core.config import load_config
+    from wiki_core.freshness_impact import repository_report
+    from wiki_core.input_stage import write_input_stage
+
+    cfg = _fixture_repo(tmp_path)
+    (tmp_path / "wiki.config.yaml").write_text(yaml.safe_dump(dict(
+        contexts=["example"], default_context="example", root_entity=cfg.root_entity)))
+    (tmp_path / ".gitignore").write_text("data/derived/\n")
+    _write(tmp_path / "memories/index.md", "---\npage_id: synthetic-index\npage_type: moc\n"
+           "updated_at: 2026-10-19\nstale_after_days: 30\n---\n# Synthetic index\n")
+    paths = _published_stage(tmp_path, cfg, legacy=True)
+    before = paths.input_stage_page.read_bytes()
+    for name, claim in (("whole", "Uses this whole artifact"),
+                        ("time", "Compilation published on2026-06-25"),
+                        ("identity", "Expected SHA256=" + hashlib.sha256(before).hexdigest())):
+        _write(tmp_path / f"memories/{name}.md", "---\npage_id: " + name +
+               "\npage_type: project\nupdated_at: 2026-01-01\nstale_after_days: 1\n---\n" +
+               claim + ": [input stage](system/input-stage.md).\n")
+    def git(*args):
+        return subprocess.check_output(["git", *args], cwd=tmp_path, text=True).strip()
+    git("init", "-q")
+    git("config", "user.name", "Synthetic Fixture")
+    git("config", "user.email", "fixture@example.invalid")
+    git("add", ".")
+    git("commit", "-qm", "synthetic original publication")
+    base = git("rev-parse", "HEAD")
+    def report():
+        return repository_report(tmp_path, load_config(tmp_path), base, today=dt.date(2026, 10, 19))
+    write_input_stage(tmp_path, cfg, generated_at="2026-10-19", if_changed=True)
+    assert paths.input_stage_page.read_bytes() == before
+    assert report()["ok"]  # Nothing was published; stale debt is still debt.
+    consumers = {f"memories/{name}.md" for name in ("whole", "time", "identity")}
+    write_input_stage(tmp_path, cfg, generated_at="2026-10-19")
+    assert consumers <= {r["path"] for r in report()["blockers"]}
+    paths.input_stage_page.write_bytes(before)
+    source = tmp_path / "memories/sources/team-handbook.md"
+    source.write_text(source.read_text().replace("visibility: private_self", "visibility: public")
+                      .replace("source_type: reference", "source_type: reference\nrefresh_cadence_days: 7"))
+    catalog = write_input_stage(tmp_path, cfg, generated_at="2026-10-19", if_changed=True)
+    result = report()
+    assert paths.input_stage_page.read_bytes() == before
+    assert "memories/sources/team-handbook.md" in result["seeds"]
+    assert catalog["sources"][0]["privacy_boundary"] == "public"
+    assert catalog["sources"][0]["refresh_cadence_days"] == "7"
+    assert consumers <= {r["path"] for r in result["blockers"]}

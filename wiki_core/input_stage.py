@@ -642,7 +642,9 @@ def _channel_label(channel: dict[str, Any] | None, config: WikiConfig) -> str:
     )
 
 
-def render_input_stage_markdown(catalog: dict[str, Any], config: WikiConfig) -> str:
+def render_input_stage_markdown(
+    catalog: dict[str, Any], config: WikiConfig, *, _annotate_targets: bool = True,
+) -> str:
     labels = _labels(config)
     root_entity = catalog.get("root_entity") if isinstance(catalog.get("root_entity"), dict) else None
     date_text = str(catalog.get("generated_at") or dt.date.today().isoformat())
@@ -737,7 +739,7 @@ def render_input_stage_markdown(catalog: dict[str, Any], config: WikiConfig) -> 
             + f" | {_channel_label(source.get('input_channel'), config)}"
             + f" | {_source_config_label(source, config)}"
             + f" | {_join(required)}"
-            + f" | {_links(source.get('target_pages') or [], config, role='change_target')} |"
+            + f" | {_links(source.get('target_pages') or [], config, role='change_target' if _annotate_targets else None)} |"
         )
     if not catalog.get("sources"):
         lines.append(f"| {labels['none']} |  |  |  |  |  |")
@@ -782,27 +784,95 @@ def render_input_stage_markdown(catalog: dict[str, Any], config: WikiConfig) -> 
     return "\n".join(lines)
 
 
-def write_input_stage(root: Path, config: WikiConfig, *, generated_at: dt.date | str | None = None) -> dict[str, Any]:
+def matching_input_stage_catalog(
+    catalog: dict[str, Any], config: WikiConfig, markdown: bytes,
+) -> dict[str, Any] | None:
+    """Match complete canonical modern or pre-role output, never clean input.
+
+    The Markdown's canonical date is authoritative, not the ignored JSON cache.
+    This proves only the Markdown output for current compiler inputs, not full
+    historical model equality, source freshness or narrower consumption.
+    """
+    try:
+        values, _ = parse_frontmatter(markdown.decode("utf-8"))
+        date_text = str(values.get("updated_at") or "")
+        if dt.date.fromisoformat(date_text).isoformat() != date_text:
+            return None
+    except (UnicodeError, ValueError):
+        return None
+    retained = {**catalog, "generated_at": date_text}
+    for annotated in (True, False):
+        expected = render_input_stage_markdown(retained, config, _annotate_targets=annotated)
+        if markdown == expected.encode("utf-8"):
+            return retained
+    return None
+
+
+def matching_input_stage_cache(catalog: dict[str, Any], data: bytes) -> dict[str, Any] | None:
+    """Verify the complete cache against current inputs at its own date.
+
+    Cache and Markdown are separate generated outputs. Equal Markdown does not
+    prove equality of model fields that the renderer does not publish.
+    """
+    try:
+        payload = json.loads(data)
+        date_text = payload.get("generated_at") if isinstance(payload, dict) else None
+        if not isinstance(date_text, str) or dt.date.fromisoformat(date_text).isoformat() != date_text:
+            return None
+    except (UnicodeError, ValueError):
+        return None
+    retained = {**catalog, "generated_at": date_text}
+    expected = (json.dumps(retained, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    return retained if data == expected else None
+
+
+def write_input_stage(
+    root: Path, config: WikiConfig, *, generated_at: dt.date | str | None = None,
+    if_changed: bool = False,
+) -> dict[str, Any]:
+    """Generate normally, or explicitly preserve a proven unchanged artifact.
+
+    In opt-in mode generated_at dates newly generated output only. An existing
+    exact supported output keeps its own date and bytes; a check is not a new
+    generation or source verification. The full JSON has its own generation
+    date: it is retained only if its entire current model also matches.
+    """
     paths = WikiPaths(root, config)
     catalog = compile_input_stage(root, config, generated_at=generated_at)
+    publication_date = catalog["generated_at"]
+    retained = (matching_input_stage_catalog(catalog, config, paths.input_stage_page.read_bytes())
+                if if_changed and paths.input_stage_page.exists() else None)
+    retained_cache = (matching_input_stage_cache(catalog, paths.input_stage_catalog.read_bytes())
+                      if if_changed and paths.input_stage_catalog.exists() else None)
+    if retained_cache is not None:
+        catalog = retained_cache
+    expected_json = (json.dumps(catalog, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
     paths.input_stage.mkdir(parents=True, exist_ok=True)
-    paths.input_stage_catalog.write_text(
-        json.dumps(catalog, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    paths.input_stage_page.parent.mkdir(parents=True, exist_ok=True)
-    paths.input_stage_page.write_text(render_input_stage_markdown(catalog, config), encoding="utf-8")
+    if (not if_changed or not paths.input_stage_catalog.exists()
+            or paths.input_stage_catalog.read_bytes() != expected_json):
+        paths.input_stage_catalog.write_bytes(expected_json)
+    if retained is None:
+        paths.input_stage_page.parent.mkdir(parents=True, exist_ok=True)
+        # A new Markdown output uses this execution's requested date, even if
+        # a complete unchanged JSON cache was retained at its earlier date.
+        markdown_catalog = {**catalog, "generated_at": publication_date}
+        paths.input_stage_page.write_text(render_input_stage_markdown(markdown_catalog, config), encoding="utf-8")
     return catalog
 
 
 def existing_generated_at(paths: WikiPaths) -> str | None:
+    if paths.input_stage_page.exists():
+        values, _body = parse_frontmatter(paths.input_stage_page)
+        date_text = str(values.get("updated_at") or "")
+        try:
+            return date_text if dt.date.fromisoformat(date_text).isoformat() == date_text else None
+        except ValueError:
+            return None
     if paths.input_stage_catalog.exists():
         try:
             data = json.loads(paths.input_stage_catalog.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return None
-        return str(data.get("generated_at") or "") or None
-    if paths.input_stage_page.exists():
-        values, _body = parse_frontmatter(paths.input_stage_page)
-        return str(values.get("updated_at") or "") or None
+        if isinstance(data, dict):
+            return str(data.get("generated_at") or "") or None
     return None
