@@ -19,6 +19,7 @@ from wiki_core.config import WikiConfig
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, MARKDOWN_LINK_RE, _path_from_link
+from wiki_core.markdown_link_roles import parse_role_markdown, project_link_role
 from wiki_core.semantic_inventory import (
     RELATION_DIRECTIONS, _authored_pages, _expected_relations, _page_indexes,
 )
@@ -38,9 +39,7 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
     nested heading cannot change the enclosing section, and a factual occurrence
     elsewhere in the same page is never suppressed by matching endpoints.
     """
-    from markdown_it import MarkdownIt
-
-    tokens = MarkdownIt("commonmark", {"store_labels": True}).parse(body)
+    tokens, authored_roles = parse_role_markdown(body)
     sections = []
     navigation_ranges = []
     section = ""
@@ -98,7 +97,7 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
                    if start <= line < end]
         explicit_moc = any(explicit for explicit, _label in matched)
         navigation = bool(matched) and (explicit_moc or target in navigation_targets)
-        yield dict(source=path, target=target,
+        edge = dict(source=path, target=target,
                    type="navigation_link" if navigation else "markdown_link",
                    direction="directed", basis="markdown_body", path=path, field="body",
                    body_line=line + 1, body_offset=match.start(), section=section,
@@ -106,6 +105,7 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
                    classification=("explicit_body_moc_navigation" if navigation and explicit_moc
                                    else "local_typed_navigation_item" if navigation
                                    else "conservative_citation"))
+        yield project_link_role(edge, authored_roles.get((match.start(), match.end())))
 
     # Reference-style links are real dependencies too. Their destination is
     # stored in a definition elsewhere, so the legacy inline regex misses them.
@@ -120,13 +120,14 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
                 continue
             # Conservative occurrence location is the entire inline block.
             # Reference-definition edits are separately a whole-page delta.
-            yield dict(source=path, target=target, type="markdown_link",
+            edge = dict(source=path, target=target, type="markdown_link",
                        direction="directed", basis="markdown_body", path=path, field="body",
                        body_line=token.map[0] + 1,
                        body_offset=f"commonmark:{token_index}:{child_index}",
                        section=next((title for start, title in reversed(sections)
                                      if start <= token.map[0]), ""),
                        classification="reference_style_citation")
+            yield project_link_role(edge, authored_roles.get(child.meta.get("_wiki_body_link_span")))
 
 
 def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:

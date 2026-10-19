@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -51,6 +52,85 @@ def report(root, base):
 
 def paths(rows):
     return {r["path"] for r in rows}
+
+
+def declared_link(label, target, role):
+    """Public authored declaration, not a claim about a particular consumer."""
+    literal = f"[{label}]({target})"
+    digest = hashlib.sha256(literal.encode()).hexdigest()
+    return literal + f"<!-- wiki-link-role.v1 {role} sha256:{digest} -->"
+
+
+def test_authored_navigation_table_does_not_connect_unrelated_fiscal_action(repo):
+    page(repo, "catalogue", body="Command reference.")
+    page(repo, "meta", body="| Destination | Purpose |\n| --- | --- |\n| "
+         + declared_link("Commands", "catalogue.md", "navigation") + " | Open reference |\n")
+    page(repo, "index", body="Use the wiki: " + declared_link("Open", "meta.md", "navigation"))
+    page(repo, "tax", body="## Related\n- Back to index: "
+         + declared_link("Index", "index.md", "navigation"))
+    action = page(repo, "tax-action", stale=True, evidence_refs=["tax"])
+    action.write_text(action.read_text().replace("page_type: project", "page_type: action", 1))
+    base = commit(repo)
+    with (repo / "memories/catalogue.md").open("a") as stream:
+        stream.write("\nDocument another command.\n")
+    result = report(repo, base)
+    assert result["ok"]
+    assert paths(result["included"]) == {"memories/catalogue.md"}
+    # The last edge is genuine evidence, and must still propagate a real change.
+    with (repo / "memories/tax.md").open("a") as stream:
+        stream.write("\nChanged fiscal evidence.\n")
+    assert "memories/tax-action.md" in paths(report(repo, base)["blockers"])
+
+
+def test_generated_target_column_is_not_consumption_of_target_content(repo):
+    from wiki_core.input_stage import render_input_stage_markdown
+
+    page(repo, "index")
+    page(repo, "catalogue", body="Command reference.")
+    page(repo, "meta", body="| Destination |\n| --- |\n| "
+         + declared_link("Commands", "catalogue.md", "navigation") + " |\n")
+    page(repo, "source", stale=True)
+    cfg = load_config(repo)
+    catalog = {"generated_at": "2026-01-01", "sources": [
+        {"title": "Synthetic source", "source_path": "memories/source.md",
+         "input_status": "integrated", "target_pages": ["memories/meta.md"],
+         "resolved_perspectives": {}}]}
+    stage = repo / str(cfg.root_entity.get("input_stage_page") or "memories/system/input-stage.md")
+    stage.parent.mkdir(parents=True, exist_ok=True)
+    stage.write_text(render_input_stage_markdown(catalog, cfg))
+    base = commit(repo)
+    with (repo / "memories/catalogue.md").open("a") as stream:
+        stream.write("\nDocument another command.\n")
+    result = report(repo, base)
+    assert result["ok"]
+    assert stage.relative_to(repo).as_posix() not in paths(result["included"])
+    assert any(e.get("authored_role") == "change_target"
+               and e["path"] == stage.relative_to(repo).as_posix()
+               for e in result["nonpropagating_relations"])
+    # Source/status cells still consume their source; only targets are qualified.
+    stage.write_text(stage.read_text() + "\nChanged processing guidance.\n")
+    assert "memories/source.md" in paths(report(repo, base)["blockers"])
+
+
+def test_authored_navigation_never_hides_second_factual_occurrence(repo):
+    page(repo, "catalogue")
+    page(repo, "consumer", stale=True,
+         body=declared_link("Open", "catalogue.md", "navigation")
+         + "\n\nThis conclusion depends on [the catalogue](catalogue.md).\n")
+    base = commit(repo)
+    with (repo / "memories/catalogue.md").open("a") as stream:
+        stream.write("\nChanged command contract.\n")
+    result = report(repo, base)
+    assert paths(result["blockers"]) == {"memories/consumer.md"}
+    assert any(e.get("authored_role") == "navigation" for e in result["nonpropagating_relations"])
+
+
+def test_current_only_role_never_relabels_historical_citation(repo):
+    page(repo, "catalogue", stale=True)
+    page(repo, "consumer", body="[Open](catalogue.md)")
+    base = commit(repo)
+    page(repo, "consumer", body=declared_link("Open", "catalogue.md", "navigation"))
+    assert "memories/catalogue.md" in paths(report(repo, base)["blockers"])
 
 
 def test_connected_stale_blocks_unrelated_debt_is_reported(repo):

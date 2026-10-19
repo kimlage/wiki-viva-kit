@@ -585,18 +585,22 @@ def _display_path(config: WikiConfig, path: str | None) -> str:
     return posixpath.relpath(path, _input_stage_dir(config))
 
 
-def _link(label: str, path: str | None, config: WikiConfig) -> str:
+def _link(label: str, path: str | None, config: WikiConfig, *, role: str | None = None) -> str:
     if not path:
         return ""
-    return f"[{label}]({_display_path(config, path)})"
+    literal = f"[{label}]({_display_path(config, path)})"
+    if role:
+        from wiki_core.markdown_link_roles import declare_link_role
+        return declare_link_role(literal, role)
+    return literal
 
 
 def _join(values: list[str] | tuple[str, ...] | None) -> str:
     return ", ".join(values or [])
 
 
-def _links(values: list[str] | tuple[str, ...] | None, config: WikiConfig) -> str:
-    return ", ".join(_link(value, value, config) for value in (values or []))
+def _links(values: list[str] | tuple[str, ...] | None, config: WikiConfig, *, role: str | None = None) -> str:
+    return ", ".join(_link(value, value, config, role=role) for value in (values or []))
 
 
 _WARNING_PATH_RE = re.compile(r"^(?P<path>.+?\.md)(?P<detail>:\s.*)$")
@@ -733,7 +737,7 @@ def render_input_stage_markdown(catalog: dict[str, Any], config: WikiConfig) -> 
             + f" | {_channel_label(source.get('input_channel'), config)}"
             + f" | {_source_config_label(source, config)}"
             + f" | {_join(required)}"
-            + f" | {_links(source.get('target_pages') or [], config)} |"
+            + f" | {_links(source.get('target_pages') or [], config, role='change_target')} |"
         )
     if not catalog.get("sources"):
         lines.append(f"| {labels['none']} |  |  |  |  |  |")
