@@ -547,7 +547,9 @@ def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
     except (ContributionError, ValueError, TypeError) as exc:
         raise ContributionError("pr_observation_unknown") from exc
     identity_fields = ("number", "headRefOid", "headRefName", "baseRefName", "headRepository", "headRepositoryOwner", "isCrossRepository")
-    if not isinstance(current, dict) or any(current.get(k) != pr.get(k) for k in identity_fields):
+    if not isinstance(current, dict):
+        raise ContributionError("pr_observation_unknown")
+    if any(current.get(k) != pr.get(k) for k in identity_fields):
         raise ContributionError("pr_identity_changed_during_reconciliation")
     result.update(pr=current)
     if current.get("state") == "MERGED":
