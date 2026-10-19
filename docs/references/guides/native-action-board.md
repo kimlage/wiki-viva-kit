@@ -79,15 +79,62 @@ Conversation display resolves known page IDs to human titles, while expandable
 original records preserve literal questions, answers, identities and hashes.
 Reply submission and revision checks continue to use the original protocol.
 
+## Creating and editing a task page
+
+In local operator mode, **New task** asks for title, text, context, responsible
+and next step. Contexts come from the repository configuration. Creation uses
+the registered action template and its configured output directory, through the
+same safe creation writer as `scripts/wiki_new.py`. It validates the final
+page and creates it without overwriting an existing destination. A repeated
+operator attempt returns its original result. A title collision is shown to the
+operator; it never silently produces a differently named task. If the response
+is lost, refresh and inspect the board before submitting a different title.
+
+Open a card to edit the page. **Move to column** selects the canonical action
+state in the same save. Blocking requires a reason, completion requires result
+evidence, and cancellation requires its reason. Completed and cancelled tasks
+retain the existing read-only rule. Assignment records responsibility only;
+it does not grant accounts, permissions or tools, select an executor profile,
+or start a bot.
+
+The operator uses the page's exact content SHA for optimistic concurrency.
+A stale save is rejected without overwriting the file. The draft remains in
+the form; copy it before refreshing and reconcile against the current page.
+The API accepts a small `page_edit` allowlist, never a frontmatter patch. Other
+frontmatter values, prior history and dialogue are preserved structurally;
+YAML comments and formatting can change during the existing serialization.
+Demo and static readers do not offer writes.
+
+## API and compatibility
+
+- `GET /api/actions/create`: configured creation contexts and default context.
+- `POST /api/actions/create`: title, context, next_action, body, owner_kind and
+  owner_ref. It returns the created page identity and file SHA.
+- `POST /api/actions/transition`: existing state/support/dialogue operation,
+  optionally with `page_edit` containing title, body, and a responsible pair
+  (`owner_kind`, `owner_ref`). Unassigned responsibility has an empty reference;
+  the canonical file omits that optional reference.
+
+Both writes use the existing loopback/origin, nonce, bounded JSON and attempt
+key protections. Edits use the same action lock, CAS, atomic replacement and
+append-only receipt chain. Existing writes and reviewed contributions keep
+receipt v4; effective page edits emit v5 with hashes of the edited projection.
+Audit accepts v1–v4 and verifies interleaved edits, dialogue and contributions
+without treating an operator edit as an independently reviewed contribution.
+The operator advertises `wiki_web_server.v9` and `action_page_authoring_v1`;
+the browser handshake detects an old running process before a mutation.
+
 ## Upgrading
 
-Sync kit-owned files with `wiki_sync_from_kit.py` (B0 dry run, C1 copy, C2 demo
-generation). There is no domain migration or action import. Existing action
-pages and receipt v1/v2 history remain readable. New edits produce receipt v3,
-which includes priority in the audited support fields. Consumers that validate
-receipt versions outside the kit must accept v3 before enabling writes. Build
-the synced cockpit and run the consumer's normal gates before promotion.
+Use the existing kit sync; do not copy private pages into the public kit or
+introduce another task store. From a clean consumer proposal branch, first run
+B0 (`wiki_sync_from_kit.py --dry-run`) against the approved kit commit. Review
+C1 managed code changes and C2 generated artifacts; run the consumer's explicit
+C3 migration only if its own policy requires one. This increment needs no
+rewriting of existing task pages and no automatic model or bot activation.
 
-This presentation update requires no action or dialogue migration. Optional result
-pages use the existing artifact contract and backlinks; no runtime activation or
-additional file access is granted. Rebuild the frontend after syncing.
+Apply the sync in that proposal, validate the consumer's own gates and review
+policy, and merge it normally. The serving owner then builds the frontend,
+updates the served checkout and restarts the existing operator. Read back its
+v9 capability and verify a synthetic create/edit/move flow on the same page.
+A public-kit merge does not establish personal-wiki adoption or served state.

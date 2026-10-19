@@ -331,3 +331,9 @@ def test_parse_frontmatter_parity_nested_lists(mapping):
     values, _body = parse_frontmatter(text)
     expected = yaml.safe_load(block) if block else None
     assert values == (expected if isinstance(expected, dict) else {})
+
+
+@pytest.mark.parametrize("title", ['Review "source": next step', "Owner's task: review", 'Quotes " and apostrophe\' : evidence'])
+def test_flat_title_reads_canonical_yaml_quoting_as_the_same_string(title: str):
+    text = "---\n" + yaml.safe_dump({"title": title}, allow_unicode=True) + "---\n# Page\n"
+    assert parse_frontmatter_flat(text)["title"] == title

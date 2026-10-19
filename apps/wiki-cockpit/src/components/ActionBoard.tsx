@@ -7,6 +7,8 @@ import type { SnapshotLoadResult } from "../application/ports";
 import { ACTION_STATES, ACTION_TRANSITIONS, actionState, boardPages } from "../data/actionBoard";
 import type { ActionEdit, ActionState, CoordinationIndex, ActionSaveResult } from "../data/actionBoard";
 import "./action-board.css";
+import { ActionCreateForm, ActionPageFields, pageEditorCopy } from "./ActionPageEditor";
+import type { ActionCreate, ActionCreated, ActionCreationOptions } from "../data/actionBoard";
 import { ActionDialogue } from "./ActionDialogue";
 import { ActionOutcome, outcomeCopy } from "./ActionOutcome";
 import { pageTitle } from "../data/boardPresentation";
@@ -62,7 +64,9 @@ const COPY = {
   es: { title: "Trabajo, con contexto", subtitle: "Una acción. Su página, fuentes y próximo paso.", all: "Todos los contextos", search: "Buscar acciones", terminal: "Mostrar finalizadas y canceladas", refresh: "Actualizar", states: ["Por hacer", "En curso", "Esperando a alguien", "Bloqueado", "Completado", "Cancelado"], unknown: "Estado por revisar", next: "Próximo paso", blocker: "¿Qué lo bloquea?", owner: "Responsable", priority: "Prioridad", priorities: ["Baja", "Normal", "Alta", "Urgente"], save: "Guardar en wiki", close: "Cerrar", page: "Página y evidencias", empty: "No hay acciones en esta vista", failure: "No se pudo leer la wiki. No se usaron datos de ejemplo.", readOnly: "Solo lectura", proposal: "Los cambios se guardan en este espacio y requieren revisión de la wiki.", receipt: "Evidencia del resultado", cancel: "Motivo de cancelación", state: "Estado de la acción", missing: "No registrado", sources: "Fuentes", saved: "Guardado en la página canónica", conflict: "La página cambió. Actualiza antes de guardar.", loading: "Leyendo wiki…", map: "Explorar wiki", total: "acciones", snapshot: "Lectura de wiki", open: "Abrir página original", unavailable: "Página no disponible. Actualiza el tablero.", coordinator: "Coordinador", allBots: "Todos los coordinadores", questions: "preguntas pendientes", access: "Cuenta requerida · verificación pendiente", directionHint: "Cambiar el próximo paso registra una dirección para el coordinador. La entrega y ejecución no se verifican en esta interfaz.", routeUnavailable: "Mapa de coordinadores no disponible; actualiza antes de coordinar.", pending: "Hay una escritura en curso.", invalid: "Este estado no se puede editar aquí." }
 };
 export type BoardOperator = Pick<OperatorPort, "loadSnapshotBundle" | "loadPageContent">;
-export function ActionBoard({ operator, save, loadCoordination, demo = false }: { loadCoordination?: () => Promise<CoordinationIndex>; operator: BoardOperator; save: (edit: ActionEdit) => Promise<ActionSaveResult | void>; demo?: boolean }) {
+export function ActionBoard({ operator, save, create, loadCreationOptions, loadCoordination, demo = false }: { create?: (input: ActionCreate) => Promise<ActionCreated>; loadCreationOptions?: () => Promise<ActionCreationOptions>; loadCoordination?: () => Promise<CoordinationIndex>; operator: BoardOperator; save: (edit: ActionEdit) => Promise<ActionSaveResult | void>; demo?: boolean }) {
+  const [creation, setCreation] = useState<ActionCreationOptions | null>(null);
+  const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState<SnapshotLoadResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -82,6 +86,7 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
   const contentRecoveryUsed = useRef(false);
   const activeContentRead = useRef<AbortController | null>(null);
   const language = loaded?.bundle.manifest.repo.language || loaded?.runtime.language || "en";
+  const editorCopy = pageEditorCopy(language);
   const copy = COPY[language.startsWith("pt") ? "pt" : language.startsWith("es") ? "es" : "en"];
   const reload = useCallback(async (recoveringRead = false) => {
     activeContentRead.current?.abort();
@@ -153,6 +158,23 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
     else if (page?.page_type === "action") setReturnAction(page.id);
     setSelected(id); setNotice("");
   } };
+  async function openCreation() {
+    if (!writable || savingRef.current || !loadCreationOptions) return;
+    setCreating(true); setNotice("");
+    try { setCreation(await loadCreationOptions()); }
+    catch { setNotice(editorCopy.unknown); }
+    finally { setCreating(false); }
+  }
+  async function createTask(input: ActionCreate) {
+    if (!writable || savingRef.current || !create) return;
+    savingRef.current = true; setSaving(true); setNotice("");
+    try {
+      const result = await create(input);
+      setSelected(result.page_id); setContext(""); setQuery(""); setCoordinator("");
+      setCreation(null); setNotice(editorCopy.saved); await reload();
+    } catch (err) { setNotice(err instanceof Error && /action_already_exists/.test(err.message) ? editorCopy.exists : editorCopy.unknown); }
+    finally { savingRef.current = false; setSaving(false); }
+  }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (savingRef.current || !writable || !page || !content?.ok || !page.content_sha256) return;
@@ -163,6 +185,17 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
     if (state === "blocked") edit.blocker_reason = String(values.get("blocker_reason") || "");
     if (state === "done") edit.completion_receipt = String(values.get("completion_receipt") || "");
     if (state === "cancelled") edit.cancellation_receipt = String(values.get("cancellation_receipt") || "");
+    const pageEdit: NonNullable<ActionEdit["page_edit"]> = {};
+    const title = String(values.get("page_title") || "");
+    const body = String(values.get("page_body") || "");
+    const ownerRef = String(values.get("owner_ref") || "");
+    const ownerKind = String(values.get("owner_kind") || "unassigned");
+    const originalRef = String(content.frontmatter?.owner_ref || page.work?.owner_ref || "");
+    const originalKind = String(content.frontmatter?.owner_kind || page.work?.owner_kind || (originalRef ? "other" : "unassigned"));
+    if (title !== page.title) pageEdit.title = title;
+    if (body !== (content.body || "")) pageEdit.body = body;
+    if (ownerRef !== originalRef || ownerKind !== originalKind) { pageEdit.owner_kind = ownerKind; pageEdit.owner_ref = ownerRef; }
+    if (Object.keys(pageEdit).length) edit.page_edit = pageEdit;
     const route = coordinatorFor(page);
     if (route && edit.next_action && edit.next_action.trim() !== String(page.work?.next_action || "").trim()) {
       edit.dialogue_event = { event_id: crypto.randomUUID(), kind: "direction", text: edit.next_action.trim(), coordinator: route.id };
@@ -183,17 +216,19 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
     finally { savingRef.current = false; setSaving(false); }
   }
   return <main className="actionBoard">
-    <header className="boardHeader"><div><span className="boardEyebrow">WIKI VIVA · KANBAN {demo ? "· DEMO" : ""}</span><h1>{copy.title}</h1><p>{copy.subtitle}</p></div><div className="boardHeaderActions"><a href={demo ? "/demo/w" : "/w"}>{copy.map}</a><button disabled={loading || saving} onClick={() => void reload()}>{copy.refresh}</button></div></header>
+    <header className="boardHeader"><div><span className="boardEyebrow">WIKI VIVA · KANBAN {demo ? "· DEMO" : ""}</span><h1>{copy.title}</h1><p>{copy.subtitle}</p></div><div className="boardHeaderActions">{create && loadCreationOptions && <button disabled={!writable || saving || creating} onClick={() => void openCreation()}>{editorCopy.create}</button>}<a href={demo ? "/demo/w" : "/w"}>{copy.map}</a><button disabled={loading || saving} onClick={() => void reload()}>{copy.refresh}</button></div></header>
     <section className="boardToolbar" aria-label="Filters"><label><span>{copy.all}</span><select value={context} onChange={e => setContext(e.target.value)}><option value="">{copy.all}</option>{[...new Set(pages.filter(p => p.page_type === "action").map(p => p.context))].sort().map(c => <option key={c}>{c}</option>)}</select></label>{coordination?.configured && <label><span>{copy.coordinator}</span><select value={coordinator} onChange={e => setCoordinator(e.target.value)}><option value="">{copy.allBots}</option>{coordination.profiles.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>}<label className="boardSearch"><span>{copy.search}</span><input value={query} onChange={e => setQuery(e.target.value)} type="search" /></label><label className="boardToggle"><input type="checkbox" checked={terminal} onChange={e => setTerminal(e.target.checked)} />{copy.terminal}</label><strong>{rows.length} {copy.total}</strong></section>
     <p className="boardProvenance" data-snapshot-id={loaded?.bundle.manifest.snapshot_id}>{loading ? copy.loading : error ? copy.failure : `${copy.snapshot}: ${loaded?.bundle.manifest.generated_at || "—"} · ${loaded?.bundle.git.current_branch || ""}`} {!writable && !loading && !error ? `· ${copy.readOnly}` : ""}</p>
     {coordinationError && <p role="status">{copy.routeUnavailable}</p>}
     {error && <p role="alert">{copy.failure}</p>}
+    {notice && (!page || creation) && <p role="status" className="boardNotice">{notice}</p>}
+    {creation && <ActionCreateForm options={creation} language={language} busy={saving || !writable} cancel={() => setCreation(null)} submit={input => void createTask(input)} />}
     {!loading && !error && <div className={page ? "boardLayout hasSelection" : "boardLayout"}><section className="boardColumns" aria-label="Kanban">{columns.filter(s => s !== "unknown" || rows.some(p => actionState(p) === "unknown")).map(state => <section className={`boardColumn board-${state}`} key={state} aria-label={titleFor(state)}><h2>{titleFor(state)} <span>{rows.filter(p => actionState(p) === state).length}</span></h2>{rows.filter(p => actionState(p) === state).map(p => <button className={`boardCard ${p.id === selected ? "selected" : ""}`} key={p.id} onClick={() => select(p.id)}><span className="boardCardContext">{p.context} <b data-priority={String(p.work?.priority)}>{copy.priorities[["low", "normal", "high", "urgent"].indexOf(String(p.work?.priority))] || String(p.work?.priority || "")}</b></span><h3>{p.title}</h3>{pendingQuestions(p) > 0 && <strong>{pendingQuestions(p)} {copy.questions}</strong>}<p>{String(p.work?.next_action || p.work?.blocker_reason || p.summary || copy.missing)}</p>{coordinatorFor(p) && <small>{copy.coordinator}: {coordinatorFor(p)?.label}</small>}<small>{copy.owner}: {pageTitle(String(p.work?.owner_ref || copy.missing), pages)}</small></button>)}</section>)}</section>
       {page && <aside className="boardDetail" aria-label={copy.page} data-page-id={page.id} data-read-snapshot-id={loaded?.bundle.manifest.snapshot_id} data-read-state={content === null ? "loading" : content.ok ? "ready" : "unavailable"}><div className="boardDetailTop"><span>{page.context}</span><button disabled={saving} onClick={() => select("")}>{copy.close}</button></div><h2>{page.title}</h2>{returnAction && pages.some(p => p.id === returnAction) && <button onClick={() => select(returnAction)}>{outcomeCopy(language).back}</button>}{coordinatorFor(page) && <p>{copy.coordinator}: <strong>{coordinatorFor(page)?.label}</strong></p>}{notice && <p role="status" className="boardNotice">{notice}</p>}
       {content === null ? <p>{copy.loading}</p> : !content.ok ? <p role="alert" data-read-error-code={readErrorCode(content)} data-read-http-status={Number.isInteger(content.read_status) && content.read_status! >= 100 && content.read_status! <= 599 ? content.read_status : undefined} data-read-error-type={readErrorType(content)}>{readErrorMessage(content, language, copy.unavailable)}</p> : <>
         {coordinatorFor(page) && <><p className="boardProvenance">{copy.directionHint}</p>{coordinatorFor(page)?.access_requirements?.map(a => <details key={a.service}><summary>{copy.access}: {a.expected_identity}</summary><p>{a.service}</p><p>{a.method}</p></details>)}</>}
         {page.page_type === "action" && <ActionOutcome page={page} content={content} pages={pages} language={language} stateLabel={titleFor(actionState(page))} open={select} />}
-        <ActionForm key={`${page.id}:${page.content_sha256}`} page={page} writable={Boolean(writable && page.content_sha256)} saving={saving} copy={copy} submit={submit} />
+        <ActionForm key={`${page.id}:${page.content_sha256}`} page={page} body={content.body || ""} frontmatter={content.frontmatter || {}} language={language} writable={Boolean(writable && page.content_sha256)} saving={saving} copy={copy} submit={submit} />
         {page.page_type === "action" && <ActionDialogue key={page.id} pages={pages} coordinatorLabel={coordinatorFor(page)?.label} events={content.frontmatter && "action_dialogue" in content.frontmatter ? content.frontmatter.action_dialogue : []} coordinator={coordinatorFor(page)?.id} language={language} writable={Boolean(writable && !["done", "cancelled", "unknown"].includes(actionState(page)))} busy={saving} send={sendDialogue} />}
         <section className="boardEvidence"><h3>{copy.sources}</h3>{content.source_refs?.map(s => <p key={s.ref}>{s.resolved ? <button onClick={() => select(s.page_id)}>{s.title}</button> : s.ref}</p>)}<h3>{copy.page}</h3><article className="boardMarkdown" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(boardMarkdown.parse(content.body || "", { async: false }), { ALLOWED_TAGS: ["p", "br", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "a", "strong", "em", "del", "blockquote", "ul", "ol", "li", "pre", "code", "table", "thead", "tbody", "tr", "th", "td", "details", "summary"], ALLOWED_ATTR: ["href", "title", "colspan", "rowspan"] }) }} onClick={event => {
           const anchor = (event.target as HTMLElement).closest("a"); if (!anchor) return;
@@ -211,14 +246,15 @@ export function ActionBoard({ operator, save, loadCoordination, demo = false }: 
     {!loading && !error && rows.length === 0 && <p className="boardEmpty">{copy.empty}</p>}
   </main>;
 }
-function ActionForm({ page, writable, saving, copy, submit }: { page: PageRecord; writable: boolean; saving: boolean; copy: typeof COPY.en; submit: (event: React.FormEvent<HTMLFormElement>) => void }) {
+function ActionForm({ page, body, frontmatter, language, writable, saving, copy, submit }: { page: PageRecord; body: string; frontmatter: Record<string, unknown>; language: string; writable: boolean; saving: boolean; copy: typeof COPY.en; submit: (event: React.FormEvent<HTMLFormElement>) => void }) {
   const current = actionState(page); const [state, setState] = useState(current);
   if (page.page_type !== "action") return null;
   if (current === "unknown") return <p>{copy.invalid}</p>;
   const terminal = ["done", "cancelled"].includes(current);
   if (terminal) return null;
   return <form onSubmit={submit} className="boardForm"><fieldset disabled={!writable || saving || terminal}>
-    <label>{copy.state}<select name="state" value={state} onChange={e => setState(e.target.value as ActionState)}>{[current, ...ACTION_TRANSITIONS[current]].map(s => <option key={s} value={s}>{copy.states[ACTION_STATES.indexOf(s)]}</option>)}</select></label>
+    <ActionPageFields title={page.title} body={body} ownerKind={String(frontmatter.owner_kind || page.work?.owner_kind || ((frontmatter.owner_ref || page.work?.owner_ref) ? "other" : "unassigned"))} ownerRef={String(frontmatter.owner_ref || page.work?.owner_ref || "")} language={language} />
+    <label>{copy.state} · {pageEditorCopy(language).move}<select name="state" aria-label={copy.state} value={state} onChange={e => setState(e.target.value as ActionState)}>{[current, ...ACTION_TRANSITIONS[current]].map(s => <option key={s} value={s}>{copy.states[ACTION_STATES.indexOf(s)]}</option>)}</select></label>
     <label>{copy.priority}<select name="priority" defaultValue={String(page.work?.priority || "normal")}>{!["low", "normal", "high", "urgent"].includes(String(page.work?.priority || "normal")) && <option value={String(page.work?.priority)} disabled>{String(page.work?.priority)}</option>}{["low", "normal", "high", "urgent"].map((p,i) => <option key={p} value={p}>{copy.priorities[i]}</option>)}</select></label>
     {!["done", "cancelled"].includes(state) && <label>{copy.next}<textarea name="next_action" defaultValue={String(page.work?.next_action || "")} maxLength={2000} required /></label>}
     {state === "blocked" && <label>{copy.blocker}<textarea name="blocker_reason" defaultValue={String(page.work?.blocker_reason || "")} required maxLength={2000} /></label>}

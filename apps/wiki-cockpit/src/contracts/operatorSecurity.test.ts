@@ -8,7 +8,7 @@ import {
 function validHealth() {
   return {
     ok: true,
-    server_version: "wiki_web_server.v8",
+    server_version: "wiki_web_server.v9",
     schema_capabilities: [...REQUIRED_OPERATOR_CAPABILITIES, "codex"],
     operator_security: {
       version: "wiki_operator_security.v2",
@@ -114,4 +114,12 @@ describe("shared operator security contract", () => {
     });
     expect(JSON.stringify(validation.errors)).not.toContain(secret);
   });
+});
+
+it("requires the page authoring operator before the new browser can mutate", () => {
+  const old = { ...validHealth(), server_version: "wiki_web_server.v8" };
+  expect(validateOperatorHandshake(old).ok).toBe(false);
+  const missing = validHealth();
+  missing.schema_capabilities = missing.schema_capabilities.filter(capability => capability !== "action_page_authoring_v1");
+  expect(validateOperatorHandshake(missing).ok).toBe(false);
 });

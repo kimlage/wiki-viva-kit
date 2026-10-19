@@ -1198,6 +1198,11 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/snapshot":
             self._send_json(self.server.snapshot_payloads())
             return
+        if path == "/api/actions/create":
+            self._send_json({"ok": True, "contexts": list(dict.fromkeys([
+                self.server.config.default_context, *self.server.config.contexts])),
+                "default_context": self.server.config.default_context})
+            return
         if path == "/api/coordination" or path.startswith("/api/coordination/profiles/"):
             try:
                 snapshot = self.server.snapshot_payloads()
@@ -1472,6 +1477,23 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             # A failing gate still RAN (200); only an unknown gate id is a 400.
             self._send_json(result, status=HTTPStatus.BAD_REQUEST if result.get("error") else HTTPStatus.OK)
             return
+        if parsed.path == "/api/actions/create":
+            from wiki_core.page_creation import create_action_page
+            allowed = {"title", "context", "next_action", "body", "owner_kind", "owner_ref"}
+            if not isinstance(payload, dict) or set(payload) - allowed:
+                self._send_json({"ok": False, "error_code": "invalid_action_creation"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                result = create_action_page(self.server.root, **payload)
+            except ActionTransitionError as exc:
+                self._send_json(exc.to_dict(), status=HTTPStatus.CONFLICT if exc.code == "action_already_exists" else HTTPStatus.BAD_REQUEST)
+                return
+            except (TypeError, ValueError, OSError):
+                self._send_json({"ok": False, "error_code": "action_creation_failed"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self.server.invalidate_snapshot_cache()
+            self._send_json(result, status=HTTPStatus.CREATED)
+            return
         if parsed.path == "/api/actions/transition":
             page_ref = str(payload.get("page_ref") or "").strip()
             next_state = str(payload.get("next_state") or "").strip()
@@ -1534,6 +1556,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     priority=payload.get("priority"),
                     dialogue_event=dialogue_event,
                     dialogue_actor="operator",
+                    page_edit=payload.get("page_edit"),
                     expected_sha256=expected_sha256,
                 )
             except ActionTransitionError as exc:

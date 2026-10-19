@@ -222,12 +222,13 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     status, body = server.get("/api/health")
     assert status == 200
     # The handshake lets the cockpit detect a stale operator (old process).
-    assert body["server_version"] == "wiki_web_server.v8"
+    assert body["server_version"] == "wiki_web_server.v9"
     assert "codex" in body["schema_capabilities"]
     assert "briefs" in body["schema_capabilities"]
     assert "operator_security_v2" in body["schema_capabilities"]
     assert "cors_default_deny_v1" in body["schema_capabilities"]
     assert "action_state_transitions_v1" in body["schema_capabilities"]
+    assert "action_page_authoring_v1" in body["schema_capabilities"]
     assert "filesystem_snapshot_publication_v1" in body["schema_capabilities"]
     assert "snapshot_external_freshness_v1" in body["schema_capabilities"]
     assert "admin_capabilities_v1" in body["schema_capabilities"]
@@ -320,7 +321,7 @@ def test_operator_restart_rotates_nonce_and_refuses_the_stale_process_nonce(
         assert second_status == 200
         new_nonce = second_health["operator_security"]["nonce"]
         assert new_nonce != old_nonce
-        assert second_health["server_version"] == "wiki_web_server.v8"
+        assert second_health["server_version"] == "wiki_web_server.v9"
         assert second_health["operator_security"]["version"] == (
             "wiki_operator_security.v2"
         )
@@ -1740,3 +1741,86 @@ profiles:
     assert code == 409
     assert 'invalid_action_dialogue' in str(result)
     assert page.read_bytes() == before
+
+
+def test_board_single_page_create_edit_move_and_stale_cas(tmp_path: Path) -> None:
+    """A real HTTP/file flow: no task DB, no runtime, no synthetic save stub."""
+    import shutil
+    from wiki_core.action_transition import action_transition_diagnostics, _render_document
+    from wiki_core.page_creation import _render_errors
+    from wiki_core.page_types import load_page_type_registry
+
+    config = _repo(tmp_path)
+    kit = Path(__file__).resolve().parents[1]
+    shutil.copy2(kit / "wiki.page-types.yaml", tmp_path / "wiki.page-types.yaml")
+    template = Path("docs/references/templates/wiki/action.md")
+    (tmp_path / template.parent).mkdir(parents=True)
+    shutil.copy2(kit / template, tmp_path / template)
+    server = _Server(tmp_path, config)
+    try:
+        status, options = server.get("/api/actions/create")
+        assert status == 200 and options["contexts"] == ["system"]
+        request = {"title": "Synthetic task: one page", "context": "system",
+                   "body": "# Synthetic task\n\nInspect local evidence.\n",
+                   "next_action": "Inspect local evidence", "owner_kind": "unassigned", "owner_ref": ""}
+        status, rejected = server.post("/api/actions/create", request, nonce="invalid")
+        assert status == 403 and not list(tmp_path.glob("memories/actions/*.md"))
+        key = "single-page-create-0001"
+        status, created = server.post("/api/actions/create", request, attempt_key=key)
+        assert status == 201, created
+        path = tmp_path / created["page_ref"]
+        assert created["page_id"] == "action-synthetic-task-one-page"
+        status, replayed = server.post("/api/actions/create", request, attempt_key=key)
+        assert status == 201 and replayed["replayed"] and replayed["page_ref"] == created["page_ref"]
+        status, collision = server.post("/api/actions/create", request)
+        assert status == 409 and collision["error_code"] == "action_already_exists"
+        assert list(tmp_path.glob("memories/actions/*.md")) == [path]
+        initial = path.read_text()
+        fm, body = parse_frontmatter(initial)
+        # Consumer-owned fields and WIP survive the same canonical writer.
+        fm.update(source_refs=["memories/index.md"], evidence_refs=["memories/index.md"],
+                  operational_task={"tools": ["local-read"], "status": "draft"},
+                  custom_nested={"retained": ["synthetic"]})
+        path.write_text(_render_document(fm, body))
+        base = path.read_text()
+        sha = hashlib.sha256(base.encode()).hexdigest()
+        edit = {"page_ref": created["page_ref"], "next_state": "in_progress", "expected_sha256": sha,
+                "page_edit": {"title": "Renamed task", "body": "# New text\n\nEvidence on this page.\n",
+                              "owner_kind": "agent", "owner_ref": "synthetic-coordinator"}}
+        status, receipt = server.post("/api/actions/transition", edit)
+        assert status == 200 and receipt["changed"], receipt
+        assert receipt["schema_version"] == "wiki_action_transition_receipt.v5"
+        edited = path.read_text()
+        after, after_body = parse_frontmatter(edited)
+        assert after["page_id"] == fm["page_id"] and path.name == "synthetic-task-one-page.md"
+        assert after["title"] == "Renamed task" and after_body == edit["page_edit"]["body"]
+        assert after["owner_ref"] == "synthetic-coordinator" and after["action_state"] == "in_progress"
+        for field in fm.keys() - {"title", "owner_kind", "owner_ref", "action_state", "action_state_history", "updated_at", "blocked_by"}:
+            assert after[field] == fm[field], field
+        assert action_transition_diagnostics(base, edited) == ()
+        registry = load_page_type_registry(tmp_path)
+        assert _render_errors(tmp_path, created["page_ref"], edited, registry.page_types["action"],
+                              page_type="action", title="Renamed task", context="system") == []
+        # Both file bytes and history remain unchanged on an out-of-date save.
+        status, stale = server.post("/api/actions/transition", {**edit, "page_edit": {"title": "Stale overwrite"}})
+        assert status == 409 and stale["error_code"] == "stale_action_revision"
+        assert path.read_text() == edited
+        status, moved = server.post("/api/actions/transition", {"page_ref": created["page_ref"],
+            "expected_sha256": receipt["after_sha256"], "next_state": "blocked", "blocker_reason": "Needs a decision"})
+        assert status == 200 and moved["next_state"] == "blocked"
+        final = path.read_text()
+        final_fm, final_body = parse_frontmatter(final)
+        assert final_fm["action_state_history"][:-1] == after["action_state_history"]
+        assert final_body == after_body and action_transition_diagnostics(base, final) == ()
+        # Refreshed read model and content expose this SAME file/page identity.
+        status, snapshot = server.get("/api/snapshot")
+        assert status == 200
+        pages = snapshot["pages.json"]["pages"]
+        task = next(p for p in pages if p["id"] == created["page_id"])
+        assert task["title"] == "Renamed task" and task["work"]["state"] == "blocked"
+        status, readback = server.get(f"/api/pages/{created['page_id']}/content?snapshot_id={snapshot['manifest.json']['snapshot_id']}")
+        assert status == 200 and readback["body"] == after_body
+        assert len(list(tmp_path.glob("memories/actions/*.md"))) == 1
+        assert not list(tmp_path.rglob("kanban.db"))
+    finally:
+        server.close()
