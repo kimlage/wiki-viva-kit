@@ -137,6 +137,12 @@ def run_git_workflow(
     dry_run: bool = True,
 ) -> dict[str, Any]:
     payload = payload or {}
+    # Contribution audits run in an isolated proposal without holding this
+    # process lock. Ref installation uses cross-process action locks; canonical
+    # promotion uses GitHub's exact-head CAS, never a raw file replacement.
+    from wiki_core.action_contribution import OPERATIONS, run_contribution
+    if operation in OPERATIONS:
+        return run_contribution(root, config, operation, payload, dry_run=dry_run)
     if operation not in _READ_ONLY_OPERATIONS and not dry_run:
         if not CHECKOUT_LOCK.acquire(timeout=5):
             return _error(

@@ -521,7 +521,7 @@ def _action_history_shape_errors(
             errors.append(f"{label} does not continue the prior receipt state")
         kind = str(entry.get("kind") or "")
         if previous == target:
-            if kind not in {"legacy_canonicalization", "contract_update"}:
+            if kind not in {"legacy_canonicalization", "contract_update", "body_integration"}:
                 errors.append(f"{label} has invalid state-preserving kind")
         elif kind != "transition":
             errors.append(f"{label} state change must use kind `transition`")
@@ -565,6 +565,14 @@ def _action_history_shape_errors(
             or any(str(field) not in allowed_support for field in support_fields)
         ):
             errors.append(f"{label} has invalid governed support fields")
+
+        if kind == "body_integration":
+            from wiki_core.action_transition import _receipt_entry_error
+            error = _receipt_entry_error(entry, expected_from=previous,
+                expected_page_id=page_id, expected_prior_receipt_id=prior_receipt_id,
+                expected_first_revision=None, expected_prior_at=prior_at)
+            if error:
+                errors.append(f"{label}: {error}")
 
         at = str(entry.get("at") or "")
         parsed_at: dt.datetime | None = None
