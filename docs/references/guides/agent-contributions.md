@@ -55,6 +55,17 @@ reviewer session must differ from the author session. These assertions come from
 adapter and are recorded as **independent agent/operator review**, never as a
 fabricated human approval, provider execution, permission grant or CI pass.
 
+Before integration, an independent reviewer must inspect the **generated
+proposal commit**, including canonical dialogue, receipt and log annotation.
+Supply a separate `head_review` with the same complete review fields plus
+`proposal_commit` equal to that full Git SHA. The material review from before
+preparation cannot satisfy this check. The head report stays external to the
+candidate to avoid a circular commit hash; its original report and hash are
+returned with the integration result. Missing/wrong head, self-review or
+blocking findings refuse the merge. This is independent agent/operator review,
+not human approval. The existing explicit human-review policy still applies
+when enabled. A ready draft or null GitHub review decision is never a substitute.
+
 ## CLI and Git workflow API
 
 ```sh
@@ -63,15 +74,25 @@ python3 scripts/wiki_contribution.py prepare --root /path/to/project \
 python3 scripts/wiki_contribution.py publish --root /path/to/project \
   --request /path/to/request.json --apply
 python3 scripts/wiki_contribution.py integrate --root /path/to/project \
-  --request /path/to/request.json --pr 123 --apply
+  --request /path/to/request.json --pr 123 \
+  --head-review /path/to/generated-head-review.json --apply
 python3 scripts/wiki_contribution.py reconcile --root /path/to/project \
   --request /path/to/request.json --pr 123 --apply
 ```
 
-Omitting `--apply` validates a dry run and performs no effect. The corresponding
+Omitting `--apply` validates operation-specific prerequisites and performs no
+effect or Git object/ref import. Preparation checks the required material
+review, approved base, source reconciliation and policy/log overlap; it does
+not run gates or create a proposal. Publication requires a validated retained
+candidate and origin. Integration checks the PR, applicable gates, sources and
+exact-head report before returning ready; pending gates remain explicit waits.
+Reconciliation may query remote identities but only validates objects already
+retained locally. Missing required objects are unknown, never a successful
+readiness result. A successful dry run does not promise future network success
+or replace the real gates. The corresponding
 `run_git_workflow` operations are `prepare_contribution`,
 `publish_contribution`, `integrate_contribution` and `reconcile_contribution`,
-with `request`, optional `review`, and `pr` in the payload. Existing operator
+with `request`, optional `review`, `head_review`, and `pr` in the payload. Existing operator
 HTTP authorization applies to this API; it is not an unauthenticated bot route.
 
 Preparation starts from the approved Git base, creates an isolated proposal,

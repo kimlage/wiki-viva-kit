@@ -17,16 +17,19 @@ def main() -> int:
     p.add_argument("--root", type=Path, default=ROOT)
     p.add_argument("--request", type=Path, required=True)
     p.add_argument("--review", type=Path)
+    p.add_argument("--head-review", type=Path, help="Independent report bound to the generated proposal_commit.")
     p.add_argument("--pr", type=int)
     p.add_argument("--apply", action="store_true", help="Execute; otherwise validate a dry run.")
     args = p.parse_args()
     try:
-        for file in (args.request, args.review):
+        for file in (args.request, args.review, args.head_review):
             if file and file.stat().st_size > 1_000_000:
                 p.error("input file exceeds limit")
         payload = {"request": json.loads(args.request.read_text()), "pr": args.pr}
         if args.review:
             payload["review"] = json.loads(args.review.read_text())
+        if args.head_review:
+            payload["head_review"] = json.loads(args.head_review.read_text())
         root = args.root.resolve()
         result = run_git_workflow(root, load_config(root), args.operation + "_contribution",
                                   payload, dry_run=not args.apply)

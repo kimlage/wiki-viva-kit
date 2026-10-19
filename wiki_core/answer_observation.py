@@ -218,7 +218,7 @@ def observe_canonical_answer(root: Path, page_ref: str, event_id: str,
                 or unblocked != (status == "resumed")):
                 return {**result, "error": "observer_ack_protocol_mismatch"}
             result.update(consumer_status=status, unblocked=unblocked)
-            if status == "refused" and response.get("ok") is False:
+            if status == "refused":
                 return {**result, "status": "refused", "error": "observer_did_not_accept"}
             if completed.returncode != 0 or response.get("ok") is not True:
                 return {**result, "error": "observer_outcome_unknown"}

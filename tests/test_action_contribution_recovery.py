@@ -4,7 +4,9 @@ import copy
 import subprocess
 import pytest
 import wiki_core.action_contribution as port
-from test_action_contribution import fixture, git, call, review
+from test_action_contribution import fixture, git, call, review, head_review
+from wiki_core.web.git_workflows import run_git_workflow
+from wiki_core.config import load_config
 
 
 def recovery(root, monkeypatch, *, state="OPEN"):
@@ -229,3 +231,93 @@ def test_unavailable_evidence_is_unknown_without_replaying_effect(tmp_path, monk
     assert result["status"]=="unknown" and not result["ok"],result
     assert retained(tmp_path)==before
     assert not git(tmp_path,"for-each-ref","refs/wiki/contribution-read/")
+
+
+def test_readback_after_disjoint_remote_advance_uses_real_two_parent_merge(tmp_path, monkeypatch):
+    _,req,out,remote,responses,_=recovery(tmp_path,monkeypatch,state="MERGED")
+    other=tmp_path.parent/(tmp_path.name+"-other")
+    subprocess.run(["git","clone","-b","main",str(remote),str(other)],check=True,capture_output=True)
+    git(other,"config","user.name","Synthetic peer");git(other,"config","user.email","peer@example.test")
+    (other/"disjoint.md").write_text("Independent canonical advance\\n")
+    git(other,"add",".");git(other,"commit","-m","Disjoint advance")
+    git(other,"merge","--no-ff","origin/"+out["branch"],"-m","Merge reviewed contribution")
+    merged=git(other,"rev-parse","HEAD")
+    assert len(git(other,"rev-list","--parents","-1",merged).split())==3
+    git(other,"push","origin","main")
+    responses["pr"]["mergeCommit"]={"oid":merged}
+    stale=git(tmp_path,"rev-parse","refs/remotes/origin/main")
+    result=call(tmp_path,"reconcile",req)
+    assert result["status"]=="waiting_worktree_adoption" and result["remote_merged"],result
+    assert result["source_commit"]==merged and result["canonical_matches_material"]
+    assert git(tmp_path,"rev-parse","refs/remotes/origin/main")==stale
+
+
+@pytest.mark.parametrize("bad",["missing","wrong_head","self_review","blocking"])
+def test_material_review_and_green_ci_cannot_replace_generated_head_review(tmp_path, monkeypatch, bad):
+    _,req,out,_,responses,commands=recovery(tmp_path,monkeypatch)
+    responses["pr"]["statusCheckRollup"]=[{"conclusion":"SUCCESS"}]
+    report=head_review(req,out["proposal_commit"])
+    if bad=="wrong_head":report["proposal_commit"]="0"*40
+    if bad=="self_review":report["reviewer_session_id"]=req["session_ref"]["session_id"]
+    if bad=="blocking":report["report"]["findings"]=[{"blocking":True}]
+    result=call(tmp_path,"integrate",req,pr=7,**({} if bad=="missing" else {"head_review":report}))
+    assert result["status"]=="refused",result
+    assert result["error"] in {"exact_generated_head_review_required","independent_reviewer_required","review_not_approved"}
+    assert not any(c[:3]==("gh","pr","merge") for c in commands)
+
+
+def test_dry_run_prepare_checks_review_and_sources_without_gates_or_ref_installation(tmp_path,monkeypatch):
+    _,req=fixture(tmp_path)
+    before=retained(tmp_path)
+    def fail(*args,**kwargs):pytest.fail("dry run invoked gates")
+    monkeypatch.setattr(port,"_gates",fail)
+    missing=run_git_workflow(tmp_path,load_config(tmp_path),"prepare_contribution",{"request":req},dry_run=True)
+    assert not missing["ok"] and missing["error"]=="exact_material_review_required"
+    valid=run_git_workflow(tmp_path,load_config(tmp_path),"prepare_contribution",{"request":req,"review":review(req)},dry_run=True)
+    assert valid["ok"] and valid["dry_run"] and valid["gates_not_run"]
+    assert valid["validation_status"]=="ready_to_prepare" and retained(tmp_path)==before
+
+
+@pytest.mark.parametrize("op",["publish","integrate"])
+def test_dry_run_requires_prepared_candidate(tmp_path,op):
+    _,req=fixture(tmp_path)
+    result=run_git_workflow(tmp_path,load_config(tmp_path),op+"_contribution",{"request":req},dry_run=True)
+    assert not result["ok"] and result["error"]=="prepare_required"
+
+
+def test_dry_run_integration_validates_exact_head_without_fetch_or_merge(tmp_path,monkeypatch):
+    _,req,out,_,responses,commands=recovery(tmp_path,monkeypatch)
+    responses["pr"]["statusCheckRollup"]=[{"conclusion":"SUCCESS"}]
+    before=retained(tmp_path)
+    result=run_git_workflow(tmp_path,load_config(tmp_path),"integrate_contribution",
+        {"request":req,"pr":7,"head_review":head_review(req,out["proposal_commit"])},dry_run=True)
+    assert result["ok"] and result["validation_status"]=="ready_to_integrate",result
+    assert result["head_review"]["proposal_commit"]==out["proposal_commit"]
+    assert not any(c[:2]==("git","fetch") for c in commands)
+    assert retained(tmp_path)==before
+
+
+def test_dry_run_recovery_observes_retained_evidence_without_fetch(tmp_path,monkeypatch):
+    _,req,_,_,_,commands=recovery(tmp_path,monkeypatch)
+    before=retained(tmp_path)
+    result=run_git_workflow(tmp_path,load_config(tmp_path),"reconcile_contribution",{"request":req},dry_run=True)
+    assert result["ok"] and result["dry_run"] and result["status"]=="waiting_pr",result
+    assert not any(c[:2]==("git","fetch") for c in commands)
+    assert retained(tmp_path)==before
+
+
+@pytest.mark.parametrize("stage",["list","first_pr","second_pr"])
+def test_malformed_github_json_is_unknown_remote_observation(tmp_path,monkeypatch,stage):
+    _,req,_,_,_,_=recovery(tmp_path,monkeypatch)
+    actual=port._gh
+    pr_reads=0
+    def malformed(root,*args):
+        nonlocal pr_reads
+        if args[1]=="view":pr_reads+=1
+        if ((stage=="list" and args[1]=="list") or
+            (stage=="first_pr" and pr_reads==1) or (stage=="second_pr" and pr_reads==2)):
+            raise ValueError("synthetic truncated JSON")
+        return actual(root,*args)
+    monkeypatch.setattr(port,"_gh",malformed)
+    result=call(tmp_path,"reconcile",req)
+    assert result["status"]=="unknown" and result["error"] in {"pr_discovery_unknown","pr_observation_unknown"},result

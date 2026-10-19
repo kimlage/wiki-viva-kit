@@ -134,6 +134,12 @@ def _review(request: dict[str, Any], material: str, review: Any) -> dict[str, An
     return review
 
 
+def _head_review(request: dict, material: str, commit: str, review: Any) -> dict:
+    if not isinstance(review, dict) or review.get("proposal_commit") != commit:
+        raise ContributionError("exact_generated_head_review_required")
+    return _review(request, material, review)
+
+
 def _entry(root: Path, commit: str, path: str, request: dict, material: str,
            *, approved: str | None = None) -> tuple[dict, str]:
     parent = _git(root, "rev-parse", commit + "^")
@@ -267,7 +273,8 @@ def _reconcile_source(known: str, current: str, proposed: str) -> str:
     return new_body
 
 
-def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None) -> dict:
+def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
+             *, dry_run: bool = False) -> dict:
     path, material, branch = _request(config, request)
     review = _review(request, material, review)
     existing = _candidate(root, branch)
@@ -310,6 +317,9 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None)
     policy = _blob(root, base, "wiki.config.yaml")
     if (root / "wiki.config.yaml").read_text() != policy:
         raise ContributionError("uncommitted_policy")
+    if dry_run:
+        return {"status": "ready_to_prepare", "material_sha256": material,
+                "branch": branch, "coverage": COVERAGE}
     # The proposal contains one body plus its required existing-log annotation. Disjoint
     # staged/unstaged/untracked files in the application's checkout stay there.
     with tempfile.TemporaryDirectory(prefix="wiki-contribution-") as temporary:
@@ -395,6 +405,15 @@ def _fetch_canonical(root: Path, branch: str) -> str:
     return _fetch_remote_ref(root, f"refs/heads/{branch}")
 
 
+def _canonical_observation(root: Path, branch: str, *, dry_run: bool = False) -> str:
+    if not dry_run:
+        return _fetch_canonical(root, branch)
+    oid = _remote_branch(root, branch)
+    if not oid or _candidate_ref(root, oid + "^{commit}") != oid:
+        raise ContributionError("canonical_object_not_retained_for_dry_run_unknown")
+    return oid
+
+
 def _fetch_remote_ref(root: Path, source_ref: str, expected: str | None = None) -> str:
     # FETCH_HEAD is shared by unrelated fetches in this repository. Give this
     # read its own ref so local proposal/object imports cannot change identity
@@ -439,7 +458,8 @@ def _merge_oid(pr: dict) -> str | None:
 
 
 def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
-               material: str, branch: str, number: Any, result: dict) -> dict:
+               material: str, branch: str, number: Any, result: dict,
+               *, dry_run: bool = False) -> dict:
     """Observe one frozen contribution; never restore a ref or repeat an effect."""
     if str(config.approval.get("gate") or "") != "github_pr":
         return {**result, "ok": True, "status": "waiting_policy_adapter"}
@@ -457,7 +477,7 @@ def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
         try:
             matches = _gh(root, "pr", "list", "--repo", repository, "--head", branch,
                           "--state", "all", "--limit", "100", "--json", "number,headRefOid")
-        except ContributionError as exc:
+        except (ContributionError, ValueError, TypeError) as exc:
             raise ContributionError("pr_discovery_unknown") from exc
         if not isinstance(matches, list):
             raise ContributionError("pr_discovery_unknown")
@@ -472,7 +492,7 @@ def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
                 raise ContributionError("pr_discovery_unknown")
     try:
         pr = _pr(root, number, repository) if number is not None else None
-    except ContributionError as exc:
+    except (ContributionError, ValueError, TypeError) as exc:
         raise ContributionError("pr_observation_unknown") from exc
     if pr is not None:
         if (not isinstance(pr, dict) or pr.get("number") != int(number)
@@ -497,14 +517,18 @@ def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
         return {**result, "status": "unknown", "error": "contribution_effect_not_observed"}
     expected = identities.pop()
     try:
-        if remote:
+        if dry_run:
+            commit = _candidate_ref(root, expected + "^{commit}")
+            if commit != expected:
+                raise ContributionError("proposal_object_not_retained_for_dry_run_unknown")
+        elif remote:
             commit = _fetch_remote_ref(root, f"refs/heads/{branch}", expected)
         elif local:
             commit = local
         else:
             commit = _fetch_remote_ref(root, f"refs/pull/{pr['number']}/head", expected)
-        canonical = _fetch_canonical(root, base)
-    except ContributionError as exc:
+        canonical = _canonical_observation(root, base, dry_run=dry_run)
+    except (ContributionError, ValueError, TypeError) as exc:
         if str(exc) == "discovered_ref_identity_changed":
             raise
         raise ContributionError("contribution_object_observation_unknown") from exc
@@ -518,7 +542,7 @@ def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
     # not be presented as a single atomic remote transaction.
     try:
         current = _pr(root, pr["number"], repository)
-    except ContributionError as exc:
+    except (ContributionError, ValueError, TypeError) as exc:
         raise ContributionError("pr_observation_unknown") from exc
     identity_fields = ("number", "headRefOid", "headRefName", "baseRefName", "headRepository", "headRepositoryOwner", "isCrossRepository")
     if not isinstance(current, dict) or any(current.get(k) != pr.get(k) for k in identity_fields):
@@ -526,7 +550,8 @@ def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
     result.update(pr=current)
     if current.get("state") == "MERGED":
         result.update(remote_merged=True, source_commit=_merge_oid(current))
-        return {**result, **_canonical_readback(root, config, current, path, commit, request, material), "ok": True}
+        return {**result, **_canonical_readback(root, config, current, path, commit, request, material,
+                                               dry_run=dry_run), "ok": True}
     if current.get("state") == "CLOSED":
         return {**result, "ok": True, "status": "closed_unmerged_pr", "pr_state": "CLOSED"}
     if current.get("state") == "OPEN":
@@ -535,14 +560,15 @@ def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
 
 
 def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
-                        candidate: str, request: dict, material: str) -> dict:
+                        candidate: str, request: dict, material: str,
+                        *, dry_run: bool = False) -> dict:
     merge = _merge_oid(pr)
     if not merge:
         raise ContributionError("merge_readback_unavailable")
     # A fetch reads canonical Git source; it does not switch or update the
     # application's worktree or imply that a reader/service adopted it.
     branch = str(config.approval.get("default_branch") or "main")
-    remote_head = _fetch_canonical(root, branch)
+    remote_head = _canonical_observation(root, branch, dry_run=dry_run)
     _git(root, "merge-base", "--is-ancestor", merge, remote_head)
     expected = _blob(root, candidate, path)
     _, merged_text = _entry(root, merge, path, request, material, approved=remote_head)
@@ -584,11 +610,17 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
         result.update(effect_key=request["effect_key"], task_ref=request["task_ref"],
                       material_sha256=material, branch=branch)
         if dry_run:
-            return {**result, "ok": True, "status": "dry_run", "dry_run": True}
+            result["dry_run"] = True
+        if operation not in OPERATIONS:
+            raise ContributionError("unknown_contribution_operation")
         if operation == "prepare_contribution":
-            return {**result, **_prepare(root, config, request, payload.get("review")), "ok": True}
+            prepared = _prepare(root, config, request, payload.get("review"), dry_run=dry_run)
+            return {**result, **prepared, "ok": True,
+                    **({"status": "dry_run", "validation_status": prepared["status"],
+                        "gates_not_run": True} if dry_run else {})}
         if operation == "reconcile_contribution":
-            return _reconcile(root, config, request, path, material, branch, payload.get("pr"), result)
+            return _reconcile(root, config, request, path, material, branch, payload.get("pr"), result,
+                              dry_run=dry_run)
         commit = _candidate(root, branch)
         if not commit:
             raise ContributionError("prepare_required")
@@ -596,6 +628,10 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
         if operation == "publish_contribution":
             if str(config.approval.get("gate") or "") != "github_pr":
                 return {**result, "ok": True, "status": "waiting_policy_adapter"}
+            repository = _repository(root)
+            if dry_run:
+                return {**result, "ok": True, "status": "dry_run", "validation_status": "ready_to_publish",
+                        "proposal_commit": commit, "repository": repository}
             _git(root, "push", "origin", f"refs/heads/{branch}:refs/heads/{branch}")
             prs = _gh(root, "pr", "list", "--repo", _repository(root), "--head", branch, "--state", "all", "--json", "number,headRefOid,url")
             if prs:
@@ -614,7 +650,8 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
             raise ContributionError("pr_identity_conflict")
         if pr.get("state") == "MERGED":
             result.update(remote_merged=True, source_commit=_merge_oid(pr))
-            return {**result, **_canonical_readback(root, config, pr, path, commit, request, material), "ok": True}
+            return {**result, **_canonical_readback(root, config, pr, path, commit, request, material,
+                                                   dry_run=dry_run), "ok": True}
         if operation != "integrate_contribution":
             raise ContributionError("unknown_contribution_operation")
         if str(config.approval.get("gate") or "") != "github_pr":
@@ -645,7 +682,7 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
         # Disjoint canonical commits are fine; changes to this action or to
         # policy require reconciliation rather than a stale promotion.
         base_branch = str(config.approval.get("default_branch") or "main")
-        canonical = _fetch_canonical(root, base_branch)
+        canonical = _canonical_observation(root, base_branch, dry_run=dry_run)
         parent = _git(root, "rev-parse", commit + "^")
         if _blob(root, canonical, "wiki.config.yaml") != _blob(root, commit, "wiki.config.yaml"):
             raise ContributionError("canonical_policy_changed: reconcile required")
@@ -660,6 +697,14 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
             raise ContributionError("policy_changed_since_prepare")
         if entry["contribution"]["review"]["material_sha256"] != material:
             raise ContributionError("exact_material_review_required")
+        head_review = _head_review(request, material, commit, payload.get("head_review"))
+        # The independent report covers the generated receipt/log commit, not
+        # just input material. Keep it external to avoid a circular commit hash.
+        if _candidate(root, branch) != commit:
+            raise ContributionError("proposal_head_changed_after_review")
+        result.update(head_review=head_review, head_review_sha256=digest(head_review), proposal_commit=commit)
+        if dry_run:
+            return {**result, "ok": True, "status": "dry_run", "validation_status": "ready_to_integrate"}
         # GitHub's match-head CAS guards the only canonical write. Reconcile
         # first on the next invocation after any transport failure/UNKNOWN.
         _run(root, "gh", "pr", "merge", str(pr["number"]), "--repo", _repository(root), "--merge", "--match-head-commit", commit)

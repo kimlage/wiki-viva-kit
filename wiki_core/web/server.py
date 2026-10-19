@@ -1564,6 +1564,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     response["answer_observation"] = observe_canonical_answer(
                         self.server.root, page_ref, dialogue_event["event_id"], receipt.to_dict(),
                         active_policy_sha256=self.server.answer_observer_policy_sha256)
+                    # The route knows the write committed even if a later
+                    # capture cannot prove current delivery/canonical scope.
+                    response["answer_observation"]["answer_committed"] = True
                 except Exception:
                     # This boundary is post-commit. An optional consumer must
                     # never replace the successful write receipt with HTTP500.

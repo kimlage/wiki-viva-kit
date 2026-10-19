@@ -52,12 +52,12 @@ mode=(root/'fixture_mode.txt').read_text()
 new=e['event']['event_id'] not in state['seen']
 if new:
  state['seen'].append(e['event']['event_id'])
- if mode!='held':state['blocked']=False
+ if mode not in {'held','refused'}:state['blocked']=False
 (root/'fixture_task.json').write_text(json.dumps(state))
 if mode=='timeout':time.sleep(2)
 if mode=='deep':
  print('['*12000+'0'+']'*12000);sys.exit(0)
-status='held' if mode=='held' else 'resumed' if new else 'observed'
+status='refused' if mode=='refused' else 'held' if mode=='held' else 'resumed' if new else 'observed'
 print(json.dumps({'ok':True,'status':status,'unblocked':status=='resumed','model_started':False,
  'event_id':e['event']['event_id'],'task_ref':e['task_ref'] if mode!='wrong' else {'repo_id':'wrong'}}))
 ''')
@@ -211,3 +211,25 @@ def test_post_commit_consumer_failure_preserves_http_receipt_and_replay(app, mon
     repeated_status, repeated = app.post("/api/actions/transition", request, attempt_key="post-commit-fixture")
     assert repeated_status == 200 and repeated["receipt_id"] == result["receipt_id"] and repeated["replayed"]
     assert len(_parse_document(p.read_text())[0]["action_dialogue"]) == 2
+
+
+def test_known_commit_survives_handled_post_commit_capture_failure(app, monkeypatch):
+    root,p,request,_=setup(app)
+    import wiki_core.answer_observation as module
+    def fail(*args,**kwargs):raise module.AnswerObservationError("coordinator_route_changed")
+    monkeypatch.setattr(module,"_capture",fail)
+    status,result=app.post("/api/actions/transition",request)
+    assert status==200 and result["changed"]
+    assert result["answer_observation"]["answer_committed"] is True
+    assert result["answer_observation"]["status"]=="refused"
+    assert hashlib.sha256(p.read_bytes()).hexdigest()==result["after_sha256"]
+
+
+def test_consumer_explicit_refusal_never_becomes_delivered_even_with_ok_true(app):
+    root,_,request,_=setup(app,mode="refused")
+    status,result=app.post("/api/actions/transition",request)
+    assert status==200 and result["answer_observation"]["answer_committed"]
+    assert result["answer_observation"]["status"]=="refused"
+    assert result["answer_observation"]["consumer_status"]=="refused"
+    assert result["answer_observation"]["unblocked"] is False
+    assert json.loads((root/"fixture_task.json").read_text())["blocked"]

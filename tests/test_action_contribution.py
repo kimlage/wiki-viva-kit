@@ -61,6 +61,10 @@ def review(request):
             "evidence_ref": "synthetic-review", "report": {"criteria": ["scope", "evidence"], "findings": []}, "decision": "approved"}
 
 
+def head_review(request, commit):
+    return {**review(request), "proposal_commit": commit}
+
+
 def call(root, op, request, **kwargs):
     return run_git_workflow(root, load_config(root), op + "_contribution", {"request": request, **kwargs}, dry_run=False)
 
@@ -278,7 +282,7 @@ def test_integration_uses_real_git_and_reconcile_does_not_repeat_effect(tmp_path
             return ""
         return real_run(root, *argv, **kwargs)
     monkeypatch.setattr(port, "_run", run)
-    result = call(tmp_path, "integrate", request, pr=1)
+    result = call(tmp_path, "integrate", request, pr=1, head_review=head_review(request, out["proposal_commit"]))
     assert result["remote_merged"] and result["status"] == "waiting_worktree_adoption", result
     assert len(effects) == 1
     assert call(tmp_path, "reconcile", request, pr=1)["remote_merged"]
