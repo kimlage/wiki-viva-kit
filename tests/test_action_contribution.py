@@ -61,8 +61,17 @@ def review(request):
             "evidence_ref": "synthetic-review", "report": {"criteria": ["scope", "evidence"], "findings": []}, "decision": "approved"}
 
 
+def head_review(request, commit):
+    return {**review(request), "proposal_commit": commit}
+
+
 def call(root, op, request, **kwargs):
     return run_git_workflow(root, load_config(root), op + "_contribution", {"request": request, **kwargs}, dry_run=False)
+
+
+def reconcile_pr_identity(pr, prepared):
+    pr.update(headRefName=prepared["branch"], isCrossRepository=False,
+              headRepository={"name": "wiki"}, headRepositoryOwner={"login": "synthetic"})
 
 
 def test_prepare_preserves_real_canonical_suffix_and_disjoint_wip(tmp_path):
@@ -170,6 +179,12 @@ def test_waits_for_real_ci_human_policy_and_unknown_is_read_only(tmp_path, monke
     transition_action_page(tmp_path, p, "open", next_action="Post-prepare event", expected_sha256=sha(before))
     assert call(tmp_path, "integrate", request, pr=1)["error"].startswith("source_changed_since_prepare")
     # A reconcile never invokes merge even after the effect outcome was unknown.
+    remote = tmp_path.parent / (tmp_path.name + "-remote.git")
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+    git(tmp_path, "remote", "add", "origin", str(remote))
+    git(tmp_path, "push", "origin", "main", out["branch"])
+    reconcile_pr_identity(pr, out)
+    monkeypatch.setattr(port, "_repository", lambda *_: "example.test/synthetic/wiki")
     assert call(tmp_path, "reconcile", request, pr=1)["status"] == "waiting_pr"
 
 
@@ -183,6 +198,8 @@ def test_remote_merge_is_not_checkout_or_served_adoption(tmp_path, monkeypatch):
     # Real Git objects/readback, simulated GitHub control plane; not live CI.
     pr = {"number": 1, "state": "MERGED", "headRefOid": out["proposal_commit"],
           "baseRefName": "main", "mergeCommit": {"oid": out["proposal_commit"]}}
+    reconcile_pr_identity(pr, out)
+    monkeypatch.setattr(port, "_repository", lambda *_: "example.test/synthetic/wiki")
     monkeypatch.setattr(port, "_pr", lambda *_: pr)
     first = call(tmp_path, "reconcile", request, pr=1)
     assert first["remote_merged"] and not first["canonical_body_adopted"]
@@ -252,6 +269,7 @@ def test_integration_uses_real_git_and_reconcile_does_not_repeat_effect(tmp_path
     git(tmp_path, "push", "origin", "main")
     pr = {"number": 1, "state": "OPEN", "headRefOid": out["proposal_commit"], "baseRefName": "main",
           "statusCheckRollup": [{"conclusion": "SUCCESS"}]}
+    reconcile_pr_identity(pr, out)
     monkeypatch.setattr(port, "_pr", lambda *_: pr)
     monkeypatch.setattr(port, "_repository", lambda *_: "example.test/synthetic/wiki")
     real_run = port._run
@@ -264,7 +282,7 @@ def test_integration_uses_real_git_and_reconcile_does_not_repeat_effect(tmp_path
             return ""
         return real_run(root, *argv, **kwargs)
     monkeypatch.setattr(port, "_run", run)
-    result = call(tmp_path, "integrate", request, pr=1)
+    result = call(tmp_path, "integrate", request, pr=1, head_review=head_review(request, out["proposal_commit"]))
     assert result["remote_merged"] and result["status"] == "waiting_worktree_adoption", result
     assert len(effects) == 1
     assert call(tmp_path, "reconcile", request, pr=1)["remote_merged"]

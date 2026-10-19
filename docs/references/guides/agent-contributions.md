@@ -55,6 +55,17 @@ reviewer session must differ from the author session. These assertions come from
 adapter and are recorded as **independent agent/operator review**, never as a
 fabricated human approval, provider execution, permission grant or CI pass.
 
+Before integration, an independent reviewer must inspect the **generated
+proposal commit**, including canonical dialogue, receipt and log annotation.
+Supply a separate `head_review` with the same complete review fields plus
+`proposal_commit` equal to that full Git SHA. The material review from before
+preparation cannot satisfy this check. The head report stays external to the
+candidate to avoid a circular commit hash; its original report and hash are
+returned with the integration result. Missing/wrong head, self-review or
+blocking findings refuse the merge. This is independent agent/operator review,
+not human approval. The existing explicit human-review policy still applies
+when enabled. A ready draft or null GitHub review decision is never a substitute.
+
 ## CLI and Git workflow API
 
 ```sh
@@ -63,15 +74,25 @@ python3 scripts/wiki_contribution.py prepare --root /path/to/project \
 python3 scripts/wiki_contribution.py publish --root /path/to/project \
   --request /path/to/request.json --apply
 python3 scripts/wiki_contribution.py integrate --root /path/to/project \
-  --request /path/to/request.json --pr 123 --apply
+  --request /path/to/request.json --pr 123 \
+  --head-review /path/to/generated-head-review.json --apply
 python3 scripts/wiki_contribution.py reconcile --root /path/to/project \
   --request /path/to/request.json --pr 123 --apply
 ```
 
-Omitting `--apply` validates a dry run and performs no effect. The corresponding
+Omitting `--apply` validates operation-specific prerequisites and performs no
+effect or Git object/ref import. Preparation checks the required material
+review, approved base, source reconciliation and policy/log overlap; it does
+not run gates or create a proposal. Publication requires a validated retained
+candidate and origin. Integration checks the PR, applicable gates, sources and
+exact-head report before returning ready; pending gates remain explicit waits.
+Reconciliation may query remote identities but only validates objects already
+retained locally. Missing required objects are unknown, never a successful
+readiness result. A successful dry run does not promise future network success
+or replace the real gates. The corresponding
 `run_git_workflow` operations are `prepare_contribution`,
 `publish_contribution`, `integrate_contribution` and `reconcile_contribution`,
-with `request`, optional `review`, and `pr` in the payload. Existing operator
+with `request`, optional `review`, `head_review`, and `pr` in the payload. Existing operator
 HTTP authorization applies to this API; it is not an unauthenticated bot route.
 
 Preparation starts from the approved Git base, creates an isolated proposal,
@@ -115,7 +136,38 @@ question or rerun a model. No exclusion of all history is used as a shortcut.
 
 After a timeout or `unknown`, call **reconcile only**. It queries the PR and
 reads actual Git objects and bytes; it never repeats the merge. A failed
-readback stays unknown/refused. Even a successful remote merge is not proof of
+readback stays unknown/refused. The PR number is optional during recovery:
+
+```sh
+python3 scripts/wiki_contribution.py reconcile --root /path/to/project \
+  --request /path/to/original-request.json --apply
+```
+
+The unchanged request/effect key locates its deterministic proposal branch.
+Discovery queries only that branch in the origin repository and at most 100
+matching PRs. Multiple results (including a full 100-result window) are
+ambiguous. Both supplied and discovered PRs must match the complete origin,
+head repository/owner, branch, target branch and exact commit identity. Every
+present local or remote proposal ref must agree. A deleted branch after merge
+can be read through the origin's exact PR head ref. Candidate bytes still pass
+the full material, body, log, history, independent-review and reference checks
+against freshly observed canonical ancestry. A second PR read detects changed
+identity. No title, branch name or stored material hash alone proves the effect.
+
+Recovery imports Git objects through unique temporary refs, then deletes only
+its own refs with CAS. It updates no permanent ref, FETCH_HEAD, tag, worktree or
+index; it never prepares, pushes, creates, reopens or merges. Valid retained
+proposals without a visible PR return `prepared_ref_no_pr_observed` or
+`published_ref_no_pr_observed`; an open PR returns `waiting_pr`, and an observed
+unmerged closure returns `closed_unmerged_pr`. None authorizes repetition.
+No retained ref/PR is `unknown` (`contribution_effect_not_observed`), not proof
+of absence. Query and fetch failures remain unknown; conflicting identities or
+bytes are refused. Coverage is the current configured proposal namespace: a
+changed proposal prefix may make older evidence undiscoverable. Do not broaden
+the scan or change the frozen request to force a match. No durable recovery
+ledger or additional task store is introduced.
+
+Even a successful remote merge is not proof of
 local application adoption: `remote_merged` and `source_commit` report Git
 facts, while `canonical_body_adopted` requires the selected checkout to contain
 the merged source and matching action and generated-log bytes. Otherwise the result is
