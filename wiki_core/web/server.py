@@ -228,6 +228,13 @@ class CockpitServer(ThreadingHTTPServer):
         self.frame_origins: tuple[str, ...] = ()
         self.root = root
         self.config = config
+        # Command activation is a startup trust decision. Card text and live
+        # policy edits cannot silently replace an enabled local observer.
+        try:
+            from wiki_core.coordination import POLICY_FILE, _read
+            self.answer_observer_policy_sha256 = hashlib.sha256(_read(root, POLICY_FILE)).hexdigest() if (root / POLICY_FILE).exists() else None
+        except (OSError, ValueError):
+            self.answer_observer_policy_sha256 = None
         self.snapshot_dir = WikiPaths(root, config).derived_root / "web-snapshot"
         self._snapshot_lock = threading.Lock()
         self._snapshot_cache: _SnapshotCacheEntry | None = None
@@ -1550,7 +1557,22 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 self._send_json(exc.to_dict(), status=status)
                 return
             self.server.invalidate_snapshot_cache()
-            self._send_json(receipt.to_dict())
+            response = receipt.to_dict()
+            if dialogue_event and dialogue_event.get("kind") == "answer" and receipt.changed:
+                try:
+                    from wiki_core.answer_observation import observe_canonical_answer
+                    response["answer_observation"] = observe_canonical_answer(
+                        self.server.root, page_ref, dialogue_event["event_id"], receipt.to_dict(),
+                        active_policy_sha256=self.server.answer_observer_policy_sha256)
+                except Exception:
+                    # This boundary is post-commit. An optional consumer must
+                    # never replace the successful write receipt with HTTP500.
+                    response["answer_observation"] = {
+                        "status": "unknown", "answer_committed": True,
+                        "event_id": dialogue_event["event_id"],
+                        "error": "observer_unavailable", "model_started_by_wiki": False,
+                        "authority_created": False}
+            self._send_json(response)
             return
         if parsed.path == "/api/intake/copy":
             result = intake_copy(

@@ -86,3 +86,73 @@ be implemented by the runtime that actually executes tools.
 ## Validation
 
 Synthetic tests cover primary-route uniqueness, wrong-profile rejection, terminal preservation, path boundaries, stale content, unmapped new actions and HTTP origin checks. No private consumer routes are distributed by the public kit.
+
+## Optional answer observation
+
+The shared board can notify an existing local executor after a human answer is
+committed. The consumer opts in per coordinator; absent configuration records
+the answer without notifying an executor:
+
+```yaml
+profiles:
+  research:
+    label: Research
+    scope: Review this project's sources within its existing authority.
+    action_ids: [action-review-source]
+    answer_observer:
+      argv: [project-agent, observe-canonical-answer]
+      timeout_seconds: 10
+```
+
+The command is selected by trusted consumer policy, never by card text or the
+HTTP payload. The kit appends `--event-file` and a private temporary JSON path,
+uses no shell, and calls it after the action writer releases its locks.
+Activation is an intentional server-startup decision: its policy hash is pinned
+at startup. A live edit cannot substitute another command; reactivation stays
+with the operator's normal reviewed application adoption. Removing the optional
+observer disables delivery without undoing the recorded answer. It
+captures only the selected canonical action and receipt chain, without
+rebuilding the global wiki snapshot. The timeout is bounded from 1 to 30 seconds;
+large-wiki context composition is not part of this callback.
+
+The envelope has `schema_version: wiki_canonical_answer_observation.v1`,
+`task_ref: {repo_id, action_id}`, `profile`, the complete **persisted canonical**
+`event`, `receipt`, and `source`. The event includes its real normalized text,
+actor, timestamp and before hash; it is not relabeled as the untouched HTTP
+payload. Immediate delivery carries the actual in-memory append receipt and
+`source: {kind: wiki_cockpit_action_transition, route: /api/actions/transition}`.
+No nonce, credential, invented principal or blanket authorization is forwarded.
+
+A consumer's JSON acknowledgement contains `ok`, `status`, matching `task_ref`
+and `event_id`, `unblocked`, and `model_started: false`. Status is `resumed`
+only after the consumer's existing unblock CAS succeeds; `observed` is an
+idempotent observation without a new transition; `held` keeps the task waiting
+under STOP or another current block; `refused` rejects invalid correlation or
+policy. Optional task/run references remain owned by that executor. The kit
+checks this acknowledgement binding. Delivery alone is not model execution,
+account verification, new authority or complete project integration. The board
+shows ready, held or unconfirmed delivery without calling those states running.
+
+The executor must verify the action, canonical operator answer, question
+`reply_to`, receipt lineage, profile, pinned scope and current authority before
+resuming the **same** task and run lineage. It deduplicates by event ID using its
+existing task/event state. The wiki creates no job, poller, scheduler or second
+task journal. Other agent applications can implement the same optional CLI
+contract; no Hermes or Dot dependency is introduced.
+
+A timeout or missing/invalid acknowledgement preserves the committed answer
+and reports delivery unknown. Do not repeat the answer POST or launch a new
+model. If the original observation is retained in the executor's existing
+history, reuse it exactly. A canonical reconciliation instead carries only
+`receipt: {receipt_id}` and
+`source: {kind: wiki_canonical_answer_reconciliation, coverage: canonical_event_and_transition_lineage}`.
+The [observation helper](../../../wiki_core/answer_observation.py) supports this
+explicit variant. It does not invent a lost original after hash or HTTP
+provenance. Both variants verify the original payload hash over the complete
+dialogue prefix (including the referenced question), and the current governed
+support hash. If other support changed with the answer and was overwritten by
+a later receipt, its old values are not retained: reconciliation refuses rather
+than infer that payload. Missing retained proof leaves the work held/unknown; recovery after
+a process crash is bounded by actual retained history, not promised as complete.
+The kit retains no extra durable delivery queue. The operator owns activation
+and reader/service adoption in the project application already in use.
