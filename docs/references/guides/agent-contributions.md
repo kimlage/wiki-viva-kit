@@ -8,8 +8,12 @@ application already open on the project remains the executor; the kit never
 launches another agent. Claude, Codex, Hermes or a manual operator can supply
 reviewable material through this trusted local interface.
 
-This increment covers **one existing action's body**, not arbitrary files or
-complete project integration. Lifecycle, questions, answers and direction still
+This increment covers **one existing action's body and its deterministic
+annotation in the existing memory log**, not arbitrary files or complete
+project integration. The request still has exactly one authored file; the
+log annotation is generated from its link, material hash and receipt time.
+Its exact append-only bytes are revalidated on every use. It is not a second
+task database or an additional business claim. Lifecycle, questions, answers and direction still
 use the existing canonical transition API. The contribution cannot replace
 frontmatter, ownership, tool scope or authority. It preserves legitimate
 canonical dialogue suffixes, with receipts checked against a known Git base;
@@ -76,9 +80,17 @@ Consumer-owned `approval.contribution_gates` can add argv arrays of normal
 project gates. Model work and auditing hold no application checkout lock.
 Ref installation then revalidates HEAD, policy and source bytes under the
 canonical writer's cross-process guards and Git ref CAS. It never switches the
-application's branch, stages its files or overwrites disjoint WIP. The action's
+application's branch, stages its files or overwrites disjoint WIP. The existing
+memory log is a shared overlapping resource: uncommitted log changes are a
+conflict, and its source bytes are revalidated under its own cross-process
+guard before proposal installation and again against canonical Git before
+integration. An intervening append requires reconciliation of the existing
+proposal under normal project review/CI, without repeating the model/body
+work, inventing a new review or granting another authority. The existing memory log receives only the generated annotation. The action's
 existing history receives a body-integration receipt binding material, review,
-references, effect key and before/after body hashes. Generated receipt time is
+references, effect key and before/after body hashes (plus base-comparable revisions insensitive only to terminal
+newlines, matching the auditor's Git wrapper). Exact requested body bytes are
+still enforced at proposal use and readback. Generated receipt time is
 not a refresh of the business evidence or a waiver of freshness checks.
 
 Publication/integration currently implements the consumer's `github_pr`
@@ -106,7 +118,7 @@ reads actual Git objects and bytes; it never repeats the merge. A failed
 readback stays unknown/refused. Even a successful remote merge is not proof of
 local application adoption: `remote_merged` and `source_commit` report Git
 facts, while `canonical_body_adopted` requires the selected checkout to contain
-the merged source and matching action bytes. Otherwise the result is
+the merged source and matching action and generated-log bytes. Otherwise the result is
 `waiting_worktree_adoption`. The operator owns that adoption; the port does not
 reset, stash or update the active checkout. `served_adoption_verified` remains
 false: reader/service adoption is a separate operator readback, not implied by

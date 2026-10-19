@@ -35,6 +35,9 @@ def fixture(root):
     # not production auditor acceptance. The installed CLI smoke uses real kit.
     for name in ("wiki_audit", "wiki_input_stage", "wiki_pr_summary"):
         (root / f"scripts/{name}.py").write_text("print('synthetic gate fixture')\n")
+    log = root / "memories/system/log.md"
+    log.parent.mkdir(parents=True)
+    log.write_text("# Synthetic memory log\n")
     p = root / "memories/actions/example.md"
     p.parent.mkdir(parents=True)
     p.write_text("---\n" + yaml.safe_dump({"page_id": "example-action", "page_type": "action",
@@ -89,6 +92,7 @@ def test_prepare_preserves_real_canonical_suffix_and_disjoint_wip(tmp_path):
     assert _action_history_shape_errors("synthetic", fm, "open") == []
     assert "Reviewed historical evidence." in body
     assert action_transition_diagnostics(original, adopted) == ()
+    assert action_transition_diagnostics(original.rstrip(), adopted) == ()
     assert p.read_text() == before and (tmp_path / "unrelated.md").read_text().startswith("Untracked")
     again = call(tmp_path, "prepare", request, review=review(request))
     assert again["proposal_commit"] == out["proposal_commit"] and again["idempotent"]
@@ -147,6 +151,8 @@ def test_normal_gate_failure_does_not_install_candidate(tmp_path):
     before = p.read_bytes()
     out = call(tmp_path, "prepare", request, review=review(request))
     assert out["error"].startswith("proposal_gate_failed")
+    assert out["gate_receipts"][0]["exit_code"] == 7
+    assert "wiki_audit.py" in out["gate_receipts"][0]["argv"][-2]
     assert p.read_bytes() == before and not git(tmp_path, "branch", "--list", "wiki/contribution-*")
 
 
@@ -316,3 +322,34 @@ def test_structured_review_keeps_nonblocking_findings_losslessly(tmp_path):
             bad["report"]["findings"][0]["blocking"] = True
         with pytest.raises(port.ContributionError, match="review_not_approved"):
             port._review(request, port.digest(request), bad)
+
+
+def test_canonical_fetch_ignores_shared_fetch_head(tmp_path, monkeypatch):
+    _, request = fixture(tmp_path)
+    old = git(tmp_path, "rev-parse", "HEAD")
+    remote = tmp_path.parent / (tmp_path.name + "-remote.git")
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+    git(tmp_path, "remote", "add", "origin", str(remote)); git(tmp_path, "push", "origin", "main")
+    (tmp_path / "unrelated.md").write_text("Concurrent canonical work")
+    git(tmp_path, "add", "."); git(tmp_path, "commit", "-m", "Canonical advance")
+    current = git(tmp_path, "rev-parse", "HEAD"); git(tmp_path, "push", "origin", "main")
+    real_git = port._git
+    def interleaved(root, *args):
+        out = real_git(root, *args)
+        if args[:3] == ("fetch", "--no-write-fetch-head", "origin"):
+            git(tmp_path, "fetch", str(tmp_path), old)
+        return out
+    monkeypatch.setattr(port, "_git", interleaved)
+    assert port._fetch_canonical(tmp_path, "main") == current
+    assert git(tmp_path, "rev-parse", "FETCH_HEAD") == old
+    assert git(tmp_path, "for-each-ref", "refs/wiki/contribution-read") == ""
+
+
+def test_overlapping_log_wip_is_preserved_as_a_conflict(tmp_path):
+    _, request = fixture(tmp_path)
+    log = tmp_path / "memories/system/log.md"
+    before = log.read_text() + "\nConcurrent append\n"
+    log.write_text(before)
+    result = call(tmp_path, "prepare", request, review=review(request))
+    assert result["error"] == "log_overlap_reconcile_required"
+    assert log.read_text() == before

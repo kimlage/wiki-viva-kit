@@ -946,6 +946,26 @@ def transition_action_page(
 
 
 
+
+def contribution_log_text(before: str, action_ref: str, log_ref: str,
+                          material: str, recorded_at: str) -> str:
+    """Deterministic annotation in the consumer's existing memory log."""
+    link = Path(os.path.relpath(action_ref, Path(log_ref).parent)).as_posix()
+    return before + ("\n\n## [" + recorded_at[:10] + "] Reviewed action body\n\n"
+        + "- Prepared a reviewed body contribution to [the action](" + link + "). "
+        + "Material: `" + material + "`. Execution and served adoption are not implied.\n")
+
+
+def append_contribution_log(root: Path, log_ref: str, action_ref: str,
+                            material: str, recorded_at: str) -> None:
+    path, ref = _contained_action_path(root, log_ref)
+    with _TRANSITION_LOCK, _action_file_lock(root, ref):
+        before = path.read_text(encoding="utf-8")
+        after = contribution_log_text(before, action_ref, ref, material, recorded_at)
+        _assert_no_secrets(after)
+        _atomic_write(path, after)
+
+
 def seed_action_proposal(root: Path, page: Path | str, committed: str, current: str) -> None:
     """Carry a proved local canonical suffix into an isolated proposal only."""
     from wiki_core.action_contribution import _reconcile_source
@@ -998,6 +1018,8 @@ def integrate_action_body(
         metadata = dict(contribution)
         metadata["before_body_sha256"] = _sha256_text(old_body)
         metadata["after_body_sha256"] = _sha256_text(body)
+        metadata["before_body_revision"] = _revision_sha256(old_body)
+        metadata["after_body_revision"] = _revision_sha256(body)
         entry = {
             "schema_version": ACTION_TRANSITION_RECEIPT_VERSION,
             "kind": "body_integration", "page_id": fm["page_id"],
@@ -1114,7 +1136,7 @@ def _receipt_entry_error(
         material = entry.get("contribution")
         if schema_version != ACTION_TRANSITION_RECEIPT_VERSION or not isinstance(material, dict):
             return "body integration is missing its material binding"
-        for field in ("material_sha256", "before_body_sha256", "after_body_sha256"):
+        for field in ("material_sha256", "before_body_sha256", "after_body_sha256", "before_body_revision", "after_body_revision"):
             if not _SHA256_RE.fullmatch(str(material.get(field) or "")):
                 return "body integration has an invalid material hash"
         if not material.get("effect_key") or support_fields:
@@ -1306,8 +1328,8 @@ def action_transition_diagnostics(
                     "body integration is missing its material binding"),)
         first = integrated_bodies[0].get("contribution", {})
         last = integrated_bodies[-1].get("contribution", {})
-        if (first.get("before_body_sha256") != _sha256_text(previous_body)
-            or last.get("after_body_sha256") != _sha256_text(current_body)):
+        if (first.get("before_body_revision") != _revision_sha256(previous_body)
+            or last.get("after_body_revision") != _revision_sha256(current_body)):
             return (ActionTransitionDiagnostic("action_body_integration_mismatch",
                     "body integration does not bind the audited body"),)
     expected_state = previous_resolution.state
