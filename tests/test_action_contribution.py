@@ -281,3 +281,38 @@ def test_remote_policy_change_blocks_stale_integration(tmp_path, monkeypatch):
     result = call(tmp_path, "integrate", request, pr=1)
     assert result["error"].startswith("canonical_policy_changed"), result
     assert not result["canonical_body_adopted"]
+
+
+@pytest.mark.parametrize("field", ["owner", "body"])
+def test_reused_candidate_revalidates_effective_bytes(tmp_path, field):
+    p, request = fixture(tmp_path)
+    out = call(tmp_path, "prepare", request, review=review(request))
+    git(tmp_path, "switch", out["branch"])
+    text = p.read_text()
+    p.write_text(text.replace("synthetic-owner", "unauthorized-owner") if field == "owner"
+                 else text.replace("Reviewed historical evidence.", "Unreviewed replacement."))
+    git(tmp_path, "add", str(p)); git(tmp_path, "commit", "--amend", "--no-edit")
+    git(tmp_path, "switch", "main")
+    result = call(tmp_path, "prepare", request, review=review(request))
+    assert result["error"] == "candidate_material_or_frontmatter_tampered"
+    assert not result["canonical_body_adopted"]
+
+
+def test_structured_review_keeps_nonblocking_findings_losslessly(tmp_path):
+    _, request = fixture(tmp_path)
+    report = review(request)
+    report["report"] = {"criteria": [{"criterion": "Evidence verified", "met": True,
+        "evidence_refs": ["synthetic-source"]}], "findings": [{"blocking": False,
+        "description": "Retained limitation", "evidence_refs": ["synthetic-source"]}]}
+    out = call(tmp_path, "prepare", request, review=report)
+    assert out["ok"], out
+    entry, _ = port._entry(tmp_path, out["proposal_commit"], request["files"][0]["path"], request, port.digest(request))
+    assert entry["contribution"]["review"] == report
+    for field in ("criterion", "finding"):
+        bad = copy.deepcopy(report)
+        if field == "criterion":
+            bad["report"]["criteria"][0]["met"] = False
+        else:
+            bad["report"]["findings"][0]["blocking"] = True
+        with pytest.raises(port.ContributionError, match="review_not_approved"):
+            port._review(request, port.digest(request), bad)

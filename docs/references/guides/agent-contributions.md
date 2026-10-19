@@ -42,8 +42,12 @@ request or replace original run/session references after review.
 
 The separate review object contains `material_sha256`, `reviewer_session_id`,
 `evidence_ref`, `report: {criteria, findings}` and `decision: approved`. Criteria
-must be nonempty, findings must be an empty list, and the reviewer session must
-differ from the author session. These assertions come from the trusted local
+must be a nonempty list of text criteria or structured objects
+`{criterion, met: true, evidence_refs: [nonempty references]}`. Findings must be
+a list; each retained finding must explicitly state `blocking: false`. Missing,
+ambiguous or blocking findings refuse integration. The complete original report
+is preserved, without deleting nonblocking findings to obtain approval. The
+reviewer session must differ from the author session. These assertions come from the trusted local
 adapter and are recorded as **independent agent/operator review**, never as a
 fabricated human approval, provider execution, permission grant or CI pass.
 

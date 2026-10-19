@@ -105,11 +105,20 @@ def _review(request: dict[str, Any], material: str, review: Any) -> dict[str, An
         raise ContributionError("independent_reviewer_required")
     _string(review.get("evidence_ref"), "review_evidence_ref")
     report = review.get("report")
+    def valid_criterion(item: Any) -> bool:
+        if isinstance(item, str):
+            return bool(item.strip())
+        return (isinstance(item, dict) and isinstance(item.get("criterion"), str)
+                and bool(item["criterion"].strip()) and item.get("met") is True
+                and isinstance(item.get("evidence_refs"), list) and bool(item["evidence_refs"])
+                and all(isinstance(ref, str) and ref.strip() for ref in item["evidence_refs"]))
     if (review.get("decision") != "approved" or not isinstance(report, dict)
         or not isinstance(report.get("criteria"), list) or not report["criteria"]
-        or any(not isinstance(c, str) or not c.strip() for c in report["criteria"])
-        or report.get("findings") != []):
+        or not all(valid_criterion(c) for c in report["criteria"])
+        or not isinstance(report.get("findings"), list)
+        or any(not isinstance(f, dict) or f.get("blocking") is not False for f in report["findings"])):
         raise ContributionError("review_not_approved")
+    digest(review)  # reject non-finite JSON; preserve the original report losslessly
     _assert_no_secrets(json.dumps(review, ensure_ascii=False))
     return review
 
@@ -134,8 +143,25 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str) -> 
     if len(found) != 1 or fm.get("page_id") != request["task_ref"]["action_id"]:
         raise ContributionError("contribution_receipt_missing")
     entry = found[0]
-    if entry["contribution"]["material_sha256"] != material:
+    metadata = entry["contribution"]
+    if metadata.get("material_sha256") != material:
         raise ContributionError("effect_key_conflict")
+    known = _known_base(root, path, request["files"][0])
+    known_fm, _ = _parse_document(known)
+    proposed_fm, proposed_body = _parse_document(request["files"][0]["text"])
+    parent_text = _blob(root, parent, path)
+    parent_fm, _ = _parse_document(parent_text)
+    _, actual_body = _parse_document(text)
+    allowed = {*_SUPPORT_FIELDS, "action_state", "action_state_history", "updated_at", "completed_at"}
+    if (known_fm != proposed_fm or proposed_body != actual_body or history[-1] != entry
+        or {k: v for k, v in fm.items() if k not in allowed} !=
+           {k: v for k, v in parent_fm.items() if k not in allowed}
+        or action_transition_diagnostics(parent_text, text)):
+        raise ContributionError("candidate_material_or_frontmatter_tampered")
+    for field in ("task_ref", "run_ref", "session_ref"):
+        if metadata.get(field) != request[field]:
+            raise ContributionError("candidate_reference_tampered")
+    _review(request, material, metadata.get("review"))
     return entry, text
 
 
