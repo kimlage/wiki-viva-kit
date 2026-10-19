@@ -123,6 +123,8 @@ def _atomic_create(path: Path, text: str) -> None:
 
 def prepare_page(root: Path, page_type: str, title: str, context: str | None = None,
                  output: str | None = None) -> tuple[str, str]:
+    if not isinstance(title, str) or not title.strip() or any(ord(c) < 32 for c in title):
+        raise ValueError("rendered `title` does not match the single-line title contract")
     config = load_config(root)
     registry = load_page_type_registry(root)
     if registry is None:

@@ -1401,7 +1401,10 @@ def action_transition_diagnostics(
         for event in content_events:
             if event.get("kind") == "body_integration":
                 material = event.get("contribution")
-                if not isinstance(material, dict) or material.get("before_body_revision") != projection["body_revision"]:
+                if not isinstance(material, dict):
+                    return (ActionTransitionDiagnostic("invalid_action_transition_receipt",
+                            "body integration is missing its material binding"),)
+                if material.get("before_body_revision") != projection["body_revision"]:
                     return (ActionTransitionDiagnostic("action_body_integration_mismatch",
                             "body integration does not extend the audited body"),)
                 projection["body_revision"] = material.get("after_body_revision")
