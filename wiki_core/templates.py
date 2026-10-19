@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 from wiki_core.config import WikiConfig, freshness_for
 from wiki_core.ids import slugify
@@ -150,9 +153,16 @@ def instantiate_template(
         "template_id": resolved.template_id,
         "template_version": resolved.template_version,
     }
+    def scalar(value: str) -> str:
+        try:
+            parsed = yaml.safe_load(value)
+        except yaml.YAMLError:
+            parsed = None
+        return value if parsed == value and "\n" not in value and "\r" not in value else json.dumps(value, ensure_ascii=False)
+
+    scalar_values = {key: scalar(value) if key in {"title", "context"} else value
+                     for key, value in replacements.items()}
     text = resolved.text
-    for key, value in replacements.items():
-        text = text.replace(f"{{{{{key}}}}}", value)
     lines = text.splitlines()
     if lines and lines[0] == "---":
         try:
@@ -165,7 +175,7 @@ def instantiate_template(
             present = {line.split(":", 1)[0].strip() for line in fm if ":" in line}
             override_keys = set(replacements)
             fm = [
-                f"{line.split(':', 1)[0].strip()}: {replacements[line.split(':', 1)[0].strip()]}"
+                f"{line.split(':', 1)[0].strip()}: {scalar_values[line.split(':', 1)[0].strip()]}"
                 if ":" in line and line.split(":", 1)[0].strip() in override_keys
                 else line
                 for line in fm
@@ -173,13 +183,15 @@ def instantiate_template(
             additions = []
             for key, value in replacements.items():
                 if key not in present:
-                    additions.append(f"{key}: {value}")
+                    additions.append(f"{key}: {scalar_values[key]}")
             if "template_ref" not in present:
                 additions.append(f"template_ref: {resolved.template_path}")
             if resolved.overlay_path and "template_overlay" not in present:
                 additions.append(f"template_overlay: {resolved.overlay_path}")
             lines = [*fm, *additions, *body]
             text = "\n".join(lines) + "\n"
+    for key, value in replacements.items():
+        text = text.replace(f"{{{{{key}}}}}", value)
     return text
 
 

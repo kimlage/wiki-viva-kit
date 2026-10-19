@@ -58,6 +58,9 @@ from wiki_core.frontmatter import FRONTMATTER_RE
 
 
 ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v4"
+_PAGE_EDIT_RECEIPT_VERSION = "wiki_action_transition_receipt.v5"
+_PAGE_EDIT_FIELDS = ("title", "owner_kind", "owner_ref", "body")
+_PAGE_EDIT_HASH_FIELDS = ("title_sha256", "owner_kind_sha256", "owner_ref_sha256", "body_revision")
 _V3_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v3"
 _V2_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v2"
 _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v1"
@@ -143,10 +146,11 @@ class ActionTransitionReceipt:
     after_sha256: str
     recorded_at: str
     warnings: tuple[str, ...] = ()
+    schema_version: str = ACTION_TRANSITION_RECEIPT_VERSION
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": ACTION_TRANSITION_RECEIPT_VERSION,
+            "schema_version": self.schema_version,
             "ok": True,
             "receipt_id": self.receipt_id,
             "page_id": self.page_id,
@@ -357,6 +361,39 @@ def _safe_text(value: Any, *, field: str, limit: int) -> str:
     return text
 
 
+
+def validate_page_edit(value: Any) -> dict[str, str]:
+    """A small operator edit, never arbitrary frontmatter or authority."""
+    if not isinstance(value, dict) or not value or set(value) - set(_PAGE_EDIT_FIELDS):
+        raise ActionTransitionError("invalid_page_edit")
+    result: dict[str, str] = {}
+    for field, text in value.items():
+        if not isinstance(text, str) or "\x00" in text:
+            raise ActionTransitionError("invalid_page_edit")
+        limit = 128_000 if field == "body" else 500
+        if len(text) > limit:
+            raise ActionTransitionError(f"{field}_too_long")
+        if field != "body" and any(ord(c) < 32 for c in text):
+            raise ActionTransitionError("invalid_page_edit")
+        result[field] = text if field == "body" else text.strip()
+    if "title" in result and not result["title"]:
+        raise ActionTransitionError("missing_title")
+    if ("owner_kind" in result) != ("owner_ref" in result):
+        raise ActionTransitionError("owner_pair_required")
+    if "owner_kind" in result:
+        kind, ref = result["owner_kind"], result["owner_ref"]
+        if kind not in {"human", "agent", "system", "other", "unassigned"}:
+            raise ActionTransitionError("invalid_owner_kind")
+        if (kind == "unassigned" and ref) or (kind != "unassigned" and not ref):
+            raise ActionTransitionError("invalid_owner_ref")
+    _assert_no_secrets(json.dumps(result, ensure_ascii=False))
+    return result
+
+
+def _page_edit_projection(fm: Mapping[str, Any], body: str) -> dict[str, str]:
+    return {**{key + "_sha256": _sha256_text(str(fm.get(key) or "")) for key in _PAGE_EDIT_FIELDS if key != "body"},
+            "body_revision": _revision_sha256(body)}
+
 def _assert_no_secrets(text: str) -> None:
     if any(finding.category == "secret" for finding in scan_text(text)):
         raise ActionTransitionError("secret_blocked")
@@ -521,6 +558,7 @@ def _history_last_instant(history: list[dict[str, Any]]) -> datetime | None:
             _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION,
             _V2_ACTION_TRANSITION_RECEIPT_VERSION,
             _V3_ACTION_TRANSITION_RECEIPT_VERSION,
+            _PAGE_EDIT_RECEIPT_VERSION,
             ACTION_TRANSITION_RECEIPT_VERSION,
         }:
             raise ActionTransitionError("invalid_action_state_history")
@@ -618,6 +656,7 @@ def _transition_action_page_locked(
     priority: str | None = None,
     dialogue_event: dict[str, Any] | None = None,
     dialogue_actor: str = "operator",
+    page_edit: dict[str, Any] | None = None,
     expected_sha256: str | None = None,
     recorded_at: str | None = None,
 ) -> ActionTransitionReceipt:
@@ -722,6 +761,21 @@ def _transition_action_page_locked(
             raise ActionTransitionError("direction_next_action_mismatch")
 
     updated = dict(frontmatter)
+    edited_body = body
+    edit_binding = None
+    if page_edit is not None:
+        edit = validate_page_edit(page_edit)
+        if current in {"done", "cancelled"}:
+            raise ActionTransitionError("terminal_page_read_only")
+        edited_body = edit.pop("body", body)
+        updated.update(edit)
+        if edit.get("owner_kind") == "unassigned":
+            updated.pop("owner_ref", None)
+        before_projection = _page_edit_projection(frontmatter, body)
+        after_projection = _page_edit_projection(updated, edited_body)
+        edited_fields = sorted(key for key in before_projection if before_projection[key] != after_projection[key])
+        if edited_fields:
+            edit_binding = {"fields": edited_fields, "before": before_projection, "after": after_projection}
     for field, value in supplied.items():
         existing = _governed_support_value(updated, field)
         if field in _IMMUTABLE_RECEIPT_FIELDS and existing and existing != value:
@@ -775,7 +829,7 @@ def _transition_action_page_locked(
         != _governed_support_value(updated, field)
     )
     support_changed = bool(support_fields)
-    changed = state_changed or support_changed
+    changed = state_changed or support_changed or edit_binding is not None
 
     if changed:
         if last_history_instant is not None and parsed_at <= last_history_instant:
@@ -851,7 +905,7 @@ def _transition_action_page_locked(
         )
     )
     entry: dict[str, Any] = {
-        "schema_version": ACTION_TRANSITION_RECEIPT_VERSION,
+        "schema_version": _PAGE_EDIT_RECEIPT_VERSION if edit_binding else ACTION_TRANSITION_RECEIPT_VERSION,
         "kind": kind,
         "page_id": page_id,
         "from": current,
@@ -866,6 +920,8 @@ def _transition_action_page_locked(
         "prior_receipt_id": _last_receipt_id(history),
         "reason_recorded": bool(reason_text),
     }
+    if edit_binding:
+        entry["page_edit"] = edit_binding
     entry["receipt_id"] = _receipt_id(entry)
     if reason_text:
         entry["reason"] = reason_text
@@ -874,7 +930,7 @@ def _transition_action_page_locked(
     history.append(entry)
     updated[_HISTORY_FIELD] = history
     updated["updated_at"] = parsed_at.astimezone(timezone.utc).date().isoformat()
-    after_text = _render_document(updated, body)
+    after_text = _render_document(updated, edited_body)
     _assert_no_secrets(after_text)
     directory_synced = _atomic_write(path, after_text)
     after_sha256 = _sha256_text(after_text)
@@ -899,6 +955,7 @@ def _transition_action_page_locked(
         after_sha256=after_sha256,
         recorded_at=at,
         warnings=tuple(warnings),
+        schema_version=str(entry["schema_version"]),
     )
 
 
@@ -916,6 +973,7 @@ def transition_action_page(
     priority: str | None = None,
     dialogue_event: dict[str, Any] | None = None,
     dialogue_actor: str = "operator",
+    page_edit: dict[str, Any] | None = None,
     expected_sha256: str | None = None,
     recorded_at: str | None = None,
 ) -> ActionTransitionReceipt:
@@ -939,6 +997,7 @@ def transition_action_page(
                 priority=priority,
                 dialogue_event=dialogue_event,
                 dialogue_actor=dialogue_actor,
+                page_edit=page_edit,
                 expected_sha256=expected_sha256,
                 recorded_at=recorded_at,
             )
@@ -1064,6 +1123,7 @@ def _receipt_entry_error(
         _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION,
         _V2_ACTION_TRANSITION_RECEIPT_VERSION,
         _V3_ACTION_TRANSITION_RECEIPT_VERSION,
+        _PAGE_EDIT_RECEIPT_VERSION,
         ACTION_TRANSITION_RECEIPT_VERSION,
     }:
         return "receipt schema is missing or unsupported"
@@ -1130,8 +1190,22 @@ def _receipt_entry_error(
         or support_fields != sorted(set(support_fields))
     ):
         return "receipt governed support fields are invalid"
-    if kind == "contract_update" and not support_fields:
+    if kind == "contract_update" and not support_fields and not entry.get("page_edit"):
         return "contract-update receipt must bind at least one governed support field"
+    if schema_version == _PAGE_EDIT_RECEIPT_VERSION:
+        edit = entry.get("page_edit")
+        if not isinstance(edit, dict) or set(edit) != {"fields", "before", "after"}:
+            return "page edit is missing its field binding"
+        for side in ("before", "after"):
+            values = edit.get(side)
+            if (not isinstance(values, dict) or set(values) != set(_PAGE_EDIT_HASH_FIELDS)
+                or any(not isinstance(v, str) or not _SHA256_RE.fullmatch(v) for v in values.values())):
+                return "page edit has an invalid projection"
+        fields = sorted(key for key in _PAGE_EDIT_HASH_FIELDS if edit["before"][key] != edit["after"][key])
+        if not fields or edit.get("fields") != fields:
+            return "page edit fields do not match its projection"
+    elif "page_edit" in entry:
+        return "legacy receipt cannot bind page edits"
     if kind == "body_integration":
         material = entry.get("contribution")
         if schema_version != ACTION_TRANSITION_RECEIPT_VERSION or not isinstance(material, dict):
@@ -1321,17 +1395,31 @@ def action_transition_diagnostics(
     if not additions:
         return ()
 
-    integrated_bodies = [e for e in additions if e.get("kind") == "body_integration"]
-    if integrated_bodies:
-        if any(not isinstance(e.get("contribution"), dict) for e in integrated_bodies):
-            return (ActionTransitionDiagnostic("invalid_action_transition_receipt",
-                    "body integration is missing its material binding"),)
-        first = integrated_bodies[0].get("contribution", {})
-        last = integrated_bodies[-1].get("contribution", {})
-        if (first.get("before_body_revision") != _revision_sha256(previous_body)
-            or last.get("after_body_revision") != _revision_sha256(current_body)):
+    content_events = [e for e in additions if e.get("page_edit") is not None or e.get("kind") == "body_integration"]
+    if content_events:
+        projection = _page_edit_projection(previous, previous_body)
+        for event in content_events:
+            if event.get("kind") == "body_integration":
+                material = event.get("contribution")
+                if not isinstance(material, dict):
+                    return (ActionTransitionDiagnostic("invalid_action_transition_receipt",
+                            "body integration is missing its material binding"),)
+                if material.get("before_body_revision") != projection["body_revision"]:
+                    return (ActionTransitionDiagnostic("action_body_integration_mismatch",
+                            "body integration does not extend the audited body"),)
+                projection["body_revision"] = material.get("after_body_revision")
+            else:
+                edit = event.get("page_edit")
+                if not isinstance(edit, dict) or edit.get("before") != projection or not isinstance(edit.get("after"), dict):
+                    return (ActionTransitionDiagnostic("action_page_edit_mismatch",
+                            "page edit does not extend the audited page"),)
+                projection = dict(edit["after"])
+        final_projection = _page_edit_projection(current, current_body)
+        has_page_edits = any("page_edit" in e for e in content_events)
+        if (projection["body_revision"] != final_projection["body_revision"]
+            or (has_page_edits and projection != final_projection)):
             return (ActionTransitionDiagnostic("action_body_integration_mismatch",
-                    "body integration does not bind the audited body"),)
+                    "content receipts do not bind the audited page"),)
     expected_state = previous_resolution.state
     prior_receipt_id = _last_receipt_id(
         [dict(item) for item in previous_history if isinstance(item, dict)]

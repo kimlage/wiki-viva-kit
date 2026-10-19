@@ -66,11 +66,11 @@ the semantic lifecycle state without that receipt is rejected by
 a permitted migration no-op. `/api/actions/run` is intentionally different: it
 runs an allowlisted operator command card and does not change a domain action.
 
-The current cockpit does not yet expose a direct transition control; this slice
-ships the core/operator boundary and audit enforcement for future experience
-packs and agent workflows. Legacy `state`, `status`, `State:` and `Estado:`
-values remain readable and can be canonicalized through the same boundary, but
-new targets must use the exact canonical vocabulary.
+The [native action board](../../guides/native-action-board.md) exposes creation,
+title/body/responsible edits and this same transition control. The page remains
+the task: changing its title preserves its path and `page_id`. Legacy `state`,
+`status`, `State:` and `Estado:` values remain readable and can be canonicalized
+through the same boundary; new targets use the exact canonical vocabulary.
 
 Deleting an existing action is not a lifecycle transition and is rejected by
 the audit because it would discard the history. Cancel it with a

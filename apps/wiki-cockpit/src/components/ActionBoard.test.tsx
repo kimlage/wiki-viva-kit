@@ -18,7 +18,7 @@ it('recovers one stale content read from a fresh snapshot without writing',async
   const save=vi.fn();
   render(<ActionBoard operator={operator} save={save}/>);
   fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
-  expect(await screen.findByText('Current evidence')).toBeTruthy();
+  expect(await screen.findByText('Current evidence', { selector: '.boardMarkdown :is(p,h1)' })).toBeTruthy();
   expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(2);
   expect(operator.loadPageContent.mock.calls.map(call=>call[1].snapshotId)).toEqual(['revision-a','revision-b']);
   expect(save).not.toHaveBeenCalled();
@@ -81,10 +81,10 @@ it('ignores a late revision conflict from a page the user already left',async()=
   await waitFor(()=>expect(operator.loadPageContent).toHaveBeenCalledTimes(1));
   const oldSignal=operator.loadPageContent.mock.calls[0][1].signal as AbortSignal;
   fireEvent.click(screen.getByRole('button',{name:/Second task/}));
-  await screen.findByText('Second evidence');
+  await screen.findByText('Second evidence', { selector: '.boardMarkdown :is(p,h1)' });
   expect(oldSignal.aborted).toBe(true);
   await act(async()=>finishOldRead(staleRead('revision-a','revision-b')));
-  expect(screen.getByText('Second evidence')).toBeTruthy();
+  expect(screen.getByText('Second evidence', { selector: '.boardMarkdown :is(p,h1)' })).toBeTruthy();
   expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(1);
   expect(save).not.toHaveBeenCalled();
 });
@@ -98,7 +98,7 @@ it('requires the refreshed coordinator map before a recovered card can save with
   const save=vi.fn().mockResolvedValue(undefined);
   render(<ActionBoard operator={operator} save={save} loadCoordination={loadCoordination}/>);
   fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
-  await screen.findByText('Current evidence');
+  await screen.findByText('Current evidence', { selector: '.boardMarkdown :is(p,h1)' });
   expect(screen.getByLabelText('Next step').closest('fieldset')?.disabled).toBe(true);
   expect(screen.queryByRole('button',{name:'Save to wiki'})).toBeNull();
   expect(save).not.toHaveBeenCalled();
@@ -175,7 +175,7 @@ it('shows the primary coordinator while preserving owner and leaving live connec
   await screen.findByLabelText('Coordinator');
   fireEvent.change(screen.getByLabelText('Coordinator'),{target:{value:'research'}});
   fireEvent.click(screen.getByRole('button',{name:/Synthetic task/}));
-  await screen.findByText('Evidence');
+  await screen.findByText('Evidence', { selector: '.boardMarkdown :is(p,h1)' });
   expect(screen.getAllByText('Not verified in this interface')).toHaveLength(2);
   expect(screen.getAllByText(/Coordinator:/).length).toBeGreaterThan(0);
 });
@@ -259,7 +259,7 @@ it('does not start an obsolete recovery while a manual refresh is already fetchi
  await act(async()=>finishRead(staleRead('revision-a','revision-b')));
  await act(async()=>finishRefresh(readSnapshot('revision-b')));
  expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(2);
- expect(await screen.findByText('Current evidence')).toBeTruthy();
+ expect(await screen.findByText('Current evidence', { selector: '.boardMarkdown :is(p,h1)' })).toBeTruthy();
  expect(save).not.toHaveBeenCalled();
 });
 it('does not expose unvalidated response strings as snapshot diagnostics',async()=>{
@@ -295,4 +295,70 @@ it.each([
   expect(await screen.findByText(expected)).toBeTruthy();
   expect(save).toHaveBeenCalledTimes(1);
   await waitFor(()=>expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toBe(''));
+});
+
+function setupAuthoring(mode='local_operator', demo=false) {
+  const page=action('Synthetic task');
+  const loaded={source:'/api/snapshot',runtime:{mode},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test'},pages:{pages:[page]},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'# Original text',frontmatter:{owner_kind:'human',owner_ref:'synthetic-owner'},source_refs:[],resolved_links:[]})};
+  const save=vi.fn().mockResolvedValue(undefined);
+  const create=vi.fn().mockResolvedValue({created:true,page_id:'new-task',page_ref:'memories/actions/new-task.md',after_sha256:'b'.repeat(64)});
+  const loadCreationOptions=vi.fn().mockResolvedValue({contexts:['system','example'],default_context:'system'});
+  render(<ActionBoard operator={operator} save={save} create={create} loadCreationOptions={loadCreationOptions} demo={demo}/>);
+  return {operator,save,create,loadCreationOptions,loaded};
+}
+it('creates one page in a configured context and reads the returned canonical identity',async()=>{
+  const {create,operator,loaded}=setupAuthoring();
+  const button=await screen.findByRole('button',{name:'New task'});
+  await waitFor(()=>expect((button as HTMLButtonElement).disabled).toBe(false)); fireEvent.click(button);
+  await screen.findByRole('form',{name:'New task'});
+  fireEvent.change(screen.getByLabelText('Task title'),{target:{value:'New task'}});
+  fireEvent.change(screen.getByLabelText('Page text (Markdown)'),{target:{value:'# A new page'}});
+  fireEvent.change(screen.getByLabelText('Next step'),{target:{value:'Read the source'}});
+  fireEvent.change(screen.getByLabelText('Context'),{target:{value:'example'}});
+  operator.loadSnapshotBundle.mockResolvedValue({...loaded,bundle:{...loaded.bundle,pages:{pages:[{...action('new-task'),title:'New task',context:'example',content_sha256:'b'.repeat(64)}]}}} as SnapshotLoadResult);
+  fireEvent.click(screen.getByRole('button',{name:'Create task'}));
+  await waitFor(()=>expect(create).toHaveBeenCalledTimes(1));
+  expect(create).toHaveBeenCalledWith({title:'New task',body:'# A new page',context:'example',next_action:'Read the source',owner_kind:'unassigned',owner_ref:''});
+  await waitFor(()=>expect(operator.loadPageContent).toHaveBeenCalledWith('new-task',expect.anything()));
+  expect(screen.queryByRole('form',{name:'New task'})).toBeNull();
+});
+it('edits title, body and owner and moves column in the same CAS transaction',async()=>{
+  const {save}=setupAuthoring();
+  fireEvent.click(await screen.findByRole('button',{name:/Synthetic task/}));
+  fireEvent.change(await screen.findByLabelText('Task title'),{target:{value:'Renamed'}});
+  fireEvent.change(screen.getByLabelText('Page text (Markdown)'),{target:{value:'# New body'}});
+  fireEvent.change(screen.getByLabelText('Responsible type'),{target:{value:'agent'}});
+  fireEvent.change(screen.getByLabelText('Responsible reference'),{target:{value:'context-coordinator'}});
+  fireEvent.change(screen.getByLabelText(/Action state/),{target:{value:'in_progress'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save to wiki'}));
+  await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({page_ref:'memories/Synthetic task.md',expected_sha256:'a'.repeat(64),next_state:'in_progress',page_edit:{title:'Renamed',body:'# New body',owner_kind:'agent',owner_ref:'context-coordinator'}}));
+});
+it('retains typed page text after stale CAS and does not reload or replay the save',async()=>{
+  const {save,operator}=setupAuthoring(); save.mockRejectedValue(new Error('stale_action_revision'));
+  fireEvent.click(await screen.findByRole('button',{name:/Synthetic task/}));
+  const body=await screen.findByLabelText('Page text (Markdown)');
+  fireEvent.change(body,{target:{value:'Unsaved work'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save to wiki'}));
+  expect((await screen.findByRole('status')).textContent).toContain('The page changed');
+  expect((body as HTMLTextAreaElement).value).toBe('Unsaved work');
+  expect(save).toHaveBeenCalledTimes(1); expect(operator.loadSnapshotBundle).toHaveBeenCalledTimes(1);
+});
+it('preserves a creation draft on collision and never creates under a different title',async()=>{
+  const {create}=setupAuthoring(); create.mockRejectedValue(new Error('action_already_exists'));
+  const button=await screen.findByRole('button',{name:'New task'});
+  await waitFor(()=>expect((button as HTMLButtonElement).disabled).toBe(false)); fireEvent.click(button);
+  const title=await screen.findByLabelText('Task title');
+  fireEvent.change(title,{target:{value:'Existing title'}});
+  fireEvent.change(screen.getByLabelText('Next step'),{target:{value:'Read evidence'}});
+  fireEvent.click(screen.getByRole('button',{name:'Create task'}));
+  expect((await screen.findByRole('status')).textContent).toContain('already exists');
+  expect((title as HTMLInputElement).value).toBe('Existing title'); expect(create).toHaveBeenCalledTimes(1);
+});
+it.each([['static',false],['local_operator',true]])('disables creation in %s / demo=%s',async(mode,demo)=>{
+  const {create,loadCreationOptions}=setupAuthoring(mode,demo);
+  const button=await screen.findByRole('button',{name:'New task'});
+  expect((button as HTMLButtonElement).disabled).toBe(true); fireEvent.click(button);
+  expect(create).not.toHaveBeenCalled(); expect(loadCreationOptions).not.toHaveBeenCalled();
 });

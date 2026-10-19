@@ -33,10 +33,11 @@ WEB_DIFF_SCHEMA_VERSION = "wiki_web_diff.v1"
 # cockpit can detect a stale operator (old process, newer code on disk) and show
 # an honest "operador desatualizado — reinicie" state instead of a raw 404. Add
 # a capability string here the moment its endpoint ships.
-WEB_SERVER_VERSION = "wiki_web_server.v8"
+WEB_SERVER_VERSION = "wiki_web_server.v9"
 WEB_OPERATOR_SECURITY_VERSION = "wiki_operator_security.v2"
 OPERATOR_SECURITY_CAPABILITY = "operator_security_v2"
 CORS_DEFAULT_DENY_CAPABILITY = "cors_default_deny_v1"
+ACTION_PAGE_AUTHORING_CAPABILITY = "action_page_authoring_v1"
 ACTION_STATE_TRANSITION_CAPABILITY = "action_state_transitions_v1"
 SNAPSHOT_PUBLICATION_CAPABILITY = "filesystem_snapshot_publication_v1"
 SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY = "snapshot_external_freshness_v1"
@@ -64,6 +65,7 @@ SCHEMA_CAPABILITIES = (
     "codex",  # /api/codex/capability + /api/codex/jobs
     "briefs",  # /api/briefs
     "gates",  # /api/gates/run (persisted receipts)
+    ACTION_PAGE_AUTHORING_CAPABILITY,  # canonical page creation and CAS title/body/owner editing
     ACTION_STATE_TRANSITION_CAPABILITY,  # /api/actions/transition (domain action pages)
     SNAPSHOT_PUBLICATION_CAPABILITY,  # immutable filesystem revisions + active pointer
     SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY,  # live cache observes external writers

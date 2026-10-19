@@ -48,11 +48,12 @@ const health = (codex: Record<string, unknown> | null, nonce = "capability-curre
   json: async () => ({
     ok: true,
     repo: "t",
-    server_version: "wiki_web_server.v8",
+    server_version: "wiki_web_server.v9",
     schema_capabilities: [
       "operator_security_v2",
       "cors_default_deny_v1",
       "action_state_transitions_v1",
+      "action_page_authoring_v1",
       "admin_capabilities_v1",
       "admin_session_v1",
       "admin_commands_v1",

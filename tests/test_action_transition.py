@@ -1175,3 +1175,56 @@ def test_v2_receipt_can_be_followed_by_v3_priority_update(tmp_path, monkeypatch)
     assert action_transition_diagnostics(before, v2) == ()
     transition_action_page(tmp_path, path, "in_progress", priority="high", recorded_at="2026-07-11T14:31:00Z")
     assert action_transition_diagnostics(v2, path.read_text()) == ()
+
+
+@pytest.mark.parametrize("contribution_first", [False, True])
+def test_page_edits_interleave_with_v4_contribution_and_dialogue(tmp_path: Path, contribution_first: bool) -> None:
+    from wiki_core.action_transition import integrate_action_body
+    path = _write_action(tmp_path)
+    base = path.read_text()
+    digest = lambda: hashlib.sha256(path.read_bytes()).hexdigest()
+    def contribution(at):
+        integrate_action_body(tmp_path, path, "# Reviewed synthetic body\n", expected_sha256=digest(),
+            contribution={"effect_key": "synthetic-mixed-edit", "material_sha256": "a" * 64}, recorded_at=at)
+    def edit(at):
+        transition_action_page(tmp_path, path, "open", expected_sha256=digest(), recorded_at=at,
+            page_edit={"title": "Edited title", "body": "# Operator text\n", "owner_kind": "human", "owner_ref": "synthetic-owner"})
+    if contribution_first:
+        contribution("2026-07-11T14:30:01Z"); edit("2026-07-11T14:30:02Z")
+    else:
+        edit("2026-07-11T14:30:01Z"); contribution("2026-07-11T14:30:02Z")
+    transition_action_page(tmp_path, path, "open", expected_sha256=digest(), recorded_at="2026-07-11T14:30:03Z",
+        dialogue_event={"event_id": "synthetic-question-1", "kind": "question", "coordinator": "example", "text": "Which source?"},
+        dialogue_actor="coordinator:example")
+    current = path.read_text()
+    assert action_transition_diagnostics(base, current) == ()
+    values, _ = parse_frontmatter(current)
+    assert {e["schema_version"] for e in values["action_state_history"]} == {
+        "wiki_action_transition_receipt.v4", "wiki_action_transition_receipt.v5"}
+    # An unreceipted body overwrite cannot hide behind either kind of receipt.
+    tampered = current + "\nUnbound content.\n"
+    assert action_transition_diagnostics(base, tampered)[0].code == "action_body_integration_mismatch"
+
+
+@pytest.mark.parametrize("edit,code", [
+    ({"title": ""}, "missing_title"), ({"action_dialogue": []}, "invalid_page_edit"),
+    ({"title": "x\nowner_kind: agent"}, "invalid_page_edit"),
+    ({"owner_kind": "agent"}, "owner_pair_required"),
+    ({"owner_kind": "agent", "owner_ref": ""}, "invalid_owner_ref"),
+    ({"owner_kind": "unassigned", "owner_ref": "someone"}, "invalid_owner_ref"),
+])
+def test_page_edit_rejects_invalid_inputs_without_writes(tmp_path: Path, edit: dict, code: str) -> None:
+    path = _write_action(tmp_path)
+    before = path.read_bytes()
+    with pytest.raises(ActionTransitionError, match=code):
+        transition_action_page(tmp_path, path, "open", page_edit=edit, expected_sha256=hashlib.sha256(before).hexdigest())
+    assert path.read_bytes() == before
+
+
+def test_terminal_page_edit_cannot_rewrite_result(tmp_path: Path) -> None:
+    path = _write_action(tmp_path)
+    transition_action_page(tmp_path, path, "done", completion_receipt="synthetic:reviewed")
+    before = path.read_bytes()
+    with pytest.raises(ActionTransitionError, match="terminal_page_read_only"):
+        transition_action_page(tmp_path, path, "done", page_edit={"body": "A different result"})
+    assert path.read_bytes() == before

@@ -20,7 +20,12 @@ export function boardPages(pages: PageRecord[], context: string, query: string, 
     .filter(p => [p.title, p.id, p.work?.owner_ref, p.work?.next_action, p.work?.blocker_reason].join(" ").toLocaleLowerCase().includes(query.toLocaleLowerCase()))
     .sort((a, b) => (rank[String(a.work?.priority)] ?? 2) - (rank[String(b.work?.priority)] ?? 2) || a.title.localeCompare(b.title));
 }
+export type PageEdit = { title?: string; body?: string; owner_kind?: string; owner_ref?: string };
+export type ActionCreate = { title: string; body: string; context: string; next_action: string; owner_kind: string; owner_ref: string };
+export type ActionCreated = { page_id: string; page_ref: string; after_sha256: string; created: boolean };
+export type ActionCreationOptions = { contexts: string[]; default_context: string };
 export type ActionEdit = {
+  page_edit?: PageEdit;
   page_ref: string; expected_sha256: string; next_state: ActionState;
   next_action?: string; blocker_reason?: string; completion_receipt?: string;
   cancellation_receipt?: string; priority?: string; dialogue_event?: DialogueInput;

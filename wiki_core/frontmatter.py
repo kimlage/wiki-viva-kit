@@ -139,7 +139,13 @@ def unquote(value: str) -> str:
     the quotes) or a public page escapes the PII block (wiki_audit finding 15).
     """
     if len(value) >= 2 and value[0] in "\"'" and value[-1] == value[0]:
-        return value[1:-1]
+        # Preserve the flat string contract, while decoding YAML quoting used
+        # by canonical page writers (escaped quotes and doubled apostrophes).
+        try:
+            decoded = yaml.safe_load(value)
+        except yaml.YAMLError:
+            decoded = None
+        return decoded if isinstance(decoded, str) else value[1:-1]
     return value
 
 

@@ -229,7 +229,7 @@ describe("AdminDock — §6.3 states, read-only", () => {
     expect(screen.getByText("wiki/topic")).toBeTruthy();
     expect(screen.getByText("kit-test")).toBeTruthy();
     expect(
-      screen.getByText(t("admin.system.frontendRequires", { version: "wiki_web_server.v8" }))
+      screen.getByText(t("admin.system.frontendRequires", { version: "wiki_web_server.v9" }))
     ).toBeTruthy();
   });
 });
