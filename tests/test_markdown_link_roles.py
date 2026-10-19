@@ -57,3 +57,21 @@ def test_reference_style_occurrence_is_bound_without_qualifying_its_sibling():
     body = declare_link_role(literal, "navigation") + " and [Open][item]\n\n[item]: item.md\n"
     _, roles = parse_role_markdown(body)
     assert list(roles) == [(0, len(literal))]
+
+
+@pytest.mark.parametrize("second_role", ["navigation", "change_target", "factual", "unknown"])
+@pytest.mark.parametrize("separator", ["", " ", "<!-- ordinary note -->"])
+def test_multiple_declarations_on_same_occurrence_are_conservative(second_role, separator):
+    literal = "[Open](item.md)"
+    first = declare_link_role(literal, "navigation")
+    digest = hashlib.sha256(literal.encode()).hexdigest()
+    second = f"<!-- wiki-link-role.v1 {second_role} sha256:{digest} -->"
+    _, roles = parse_role_markdown(first + separator + second)
+    assert not roles
+
+
+def test_code_example_of_second_marker_is_not_an_authored_declaration():
+    first = declare_link_role("[Open](item.md)", "navigation")
+    marker = first[first.index("<!--"):]
+    _, roles = parse_role_markdown(first + " `" + marker + "`")
+    assert len(roles) == 1

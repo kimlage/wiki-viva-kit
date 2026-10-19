@@ -18,6 +18,21 @@ _MARKER = re.compile(
 )
 _SPAN = "_wiki_link_span"
 _ABSOLUTE_SPAN = "_wiki_body_link_span"
+_DECLARATION_PREFIX = re.compile(r"<!--\s*wiki-link-role\b")
+
+
+def _has_following_declaration(children, index):
+    """Conflicting/duplicate declarations in the same comment cluster abstain."""
+    for following in children[index + 1:]:
+        if following.type == "softbreak":
+            continue
+        if following.type == "text" and not following.content.strip():
+            continue
+        if following.type != "html_inline" or not following.content.startswith("<!--"):
+            break
+        if _DECLARATION_PREFIX.match(following.content):
+            return True
+    return False
 
 
 def declare_link_role(markdown: str, role: str) -> str:
@@ -84,6 +99,8 @@ def parse_role_markdown(body: str):
             span = closing.meta.get(_SPAN) if closing.type == "link_close" else None
             marker_span = child.meta.get(_SPAN)
             if not marker or not span or not marker_span or span[1] != marker_span[0]:
+                continue
+            if _has_following_declaration(children, index):
                 continue
             # The matching opener must have the very same parser-produced span.
             opening = next((t for t in reversed(children[:index - 1])
