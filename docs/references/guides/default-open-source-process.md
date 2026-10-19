@@ -415,6 +415,38 @@ python3 scripts/wiki_input_stage.py --ready
 This catches unlinked input channels and stale source-config routing before the
 agent spends semantic work on the wrong target pages.
 
+When checking an existing publication during maintenance or a kit upgrade, use
+`python3 scripts/wiki_input_stage.py --write --if-changed` to avoid publishing a
+new Markdown version solely to renew its generation date. The API equivalent
+is `write_input_stage(..., if_changed=True)`; the default remains `False`, so
+ordinary `--write` continues regenerating both outputs normally. `--if-changed`
+requires `--write`.
+
+The opt-in writer recompiles current inputs and preserves the Markdown bytes,
+inode, mtime and publication date only when they exactly match a complete
+supported render at the Markdown's own canonical date. Supported forms are the
+current render and the complete legacy render without target-column role
+annotations. Arbitrary mixed annotations, added comments, retargeted links,
+manual prose or policy edits do not qualify. The writer regenerates unsupported
+or changed output normally; `--check` rejects it without writing. No input text
+is normalized to establish equality.
+
+Markdown and the ignored JSON catalog are separate artifacts. The full JSON
+can change when fields such as privacy or refresh cadence are not displayed in
+Markdown. An existing complete canonical JSON is retained at its own date;
+missing or changed JSON is generated with the current requested generation
+date. Its date never chooses the Markdown date. `--check` validates each output
+against current inputs at its own date and still allows the ignored JSON to be
+absent. A newly written JSON is not backdated to a retained Markdown date.
+
+After the two output paths, `--write` prints a JSON status line with
+`md_changed`, `catalog_changed`, `md_publication_date`,
+`catalog_generation_date` and `executed_at`. Execution/check time is separate
+from either artifact's generation date. A retained artifact keeps its existing
+freshness age. Source/config changes remain ordinary Git impact seeds even
+when the Markdown row does not change; this option does not refresh providers,
+grant access or remove dependency propagation.
+
 ### 2. Register or identify the source
 
 For repeatable sources, create a source page and optional source config first.
