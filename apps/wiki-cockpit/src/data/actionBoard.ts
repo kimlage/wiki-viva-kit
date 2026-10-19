@@ -71,3 +71,10 @@ export function isDialogueHistory(value: unknown): value is DialogueEvent[] {
     return true;
   });
 }
+
+export type ActionSaveResult = {
+  answer_observation?: {
+    status?: string; consumer_status?: string; unblocked?: boolean;
+    event_id?: string; task_ref?: { action_id?: string; repo_id?: string };
+  };
+};

@@ -269,3 +269,30 @@ it('does not expose unvalidated response strings as snapshot diagnostics',async(
  await screen.findByRole('alert');
  expect(document.body.innerHTML).not.toContain('untrusted response detail');
 });
+
+it.each([
+  ['resumed', 'Answer accepted. Task ready for the executor.'],
+  ['held', 'Answer received. The executor keeps the task on hold.'],
+  ['unknown', 'Answer saved. Delivery to the executor is not yet confirmed.'],
+  ['wrong-task', 'Answer saved. Delivery to the executor is not yet confirmed.'],
+])('keeps answer delivery separate from execution: %s', async (mode, expected) => {
+  const pages = [action('Reply task')];
+  const question = {event_id:'question-native-one',kind:'question',text:'Which source?',coordinator:'research',actor:'coordinator:research',reply_to:'',at:'2026-10-19T12:00:00Z',before_sha256:'a'.repeat(64)};
+  const loaded = readSnapshot('test', pages);
+  const operator = {loadSnapshotBundle:vi.fn().mockImplementation(async()=>structuredClone(loaded)),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'Evidence',frontmatter:{action_dialogue:[question]},source_refs:[],resolved_links:[]})};
+  const loadCoordination = vi.fn().mockResolvedValue({configured:true,snapshot_id:'test',profiles:[{id:'research',label:'Research',action_ids:['Reply task']}],actions:[{action_id:'Reply task',coordinator:'research',content_sha256:'a'.repeat(64),dialogue:{pending_question_ids:['question-native-one']}}]});
+  const save = vi.fn().mockImplementation(async edit => ({answer_observation:{
+    status:mode==='unknown'?'unknown':'delivered', consumer_status:mode==='held'?'held':'resumed',
+    unblocked:mode!=='held',event_id:edit.dialogue_event.event_id,
+    task_ref:{action_id:mode==='wrong-task'?'Other task':'Reply task'}
+  }}));
+  render(<ActionBoard operator={operator} save={save} loadCoordination={loadCoordination}/>);
+  await screen.findByLabelText('Coordinator');
+  fireEvent.click(screen.getByRole('button',{name:/Reply task/}));
+  fireEvent.click(await screen.findByRole('button',{name:'Reply'}));
+  fireEvent.change(screen.getByLabelText('Message'),{target:{value:'The retained source.'}});
+  fireEvent.click(screen.getByRole('button',{name:'Record on card'}));
+  expect(await screen.findByText(expected)).toBeTruthy();
+  expect(save).toHaveBeenCalledTimes(1);
+  await waitFor(()=>expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toBe(''));
+});
