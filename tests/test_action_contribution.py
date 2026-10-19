@@ -353,3 +353,9 @@ def test_overlapping_log_wip_is_preserved_as_a_conflict(tmp_path):
     result = call(tmp_path, "prepare", request, review=review(request))
     assert result["error"] == "log_overlap_reconcile_required"
     assert log.read_text() == before
+
+
+def test_external_effect_failure_is_unknown_not_automatic_retry(tmp_path, monkeypatch):
+    monkeypatch.setattr(port.subprocess, "run", lambda *a, **kw: subprocess.CompletedProcess(a, 1, "", "connection lost"))
+    with pytest.raises(port.ContributionError, match="outcome_unknown"):
+        port._run(tmp_path, "gh", "pr", "merge", "1")

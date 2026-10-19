@@ -50,6 +50,8 @@ def _run(root: Path, *argv: str, timeout: int = 120) -> str:
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ContributionError("command_outcome_unknown: reconcile before retry") from exc
     if p.returncode:
+        if argv[:3] in {("gh", "pr", "merge"), ("gh", "pr", "create")}:
+            raise ContributionError("command_outcome_unknown: reconcile before retry")
         raise ContributionError("command_failed:" + argv[0])
     return p.stdout.strip()
 
@@ -481,6 +483,7 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
         if pr.get("headRefOid") != commit or pr.get("baseRefName") != str(config.approval.get("default_branch") or "main"):
             raise ContributionError("pr_identity_conflict")
         if pr.get("state") == "MERGED":
+            result.update(remote_merged=True, source_commit=(pr.get("mergeCommit") or {}).get("oid"))
             return {**result, **_canonical_readback(root, config, pr, path, commit, request, material), "ok": True}
         if operation == "reconcile_contribution":
             return {**result, "ok": True, "status": "waiting_pr", "pr_state": pr.get("state")}
@@ -535,9 +538,10 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
         confirmed = _pr(root, pr["number"])
         if confirmed.get("state") != "MERGED" or confirmed.get("headRefOid") != commit:
             raise ContributionError("merge_outcome_unknown: reconcile")
+        result.update(remote_merged=True, source_commit=(confirmed.get("mergeCommit") or {}).get("oid"))
         return {**result, **_canonical_readback(root, config, confirmed, path, commit, request, material),
                 "ok": True, "gate_receipts": checks}
     except (ContributionError, ActionTransitionError, ValueError, KeyError, TypeError) as exc:
         message = exc.code if isinstance(exc, ActionTransitionError) else str(exc) if isinstance(exc, ContributionError) else "invalid_contribution_input"
         details = exc.details if isinstance(exc, ContributionError) else {}
-        return {**result, **details, "error": message, "status": "unknown" if "unknown" in message else "refused"}
+        return {**result, **details, "error": message, "status": "unknown" if "unknown" in message or result.get("remote_merged") else "refused"}
