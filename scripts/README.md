@@ -51,3 +51,8 @@ view of the [native action board](../docs/references/guides/native-action-board.
 The local operator can serve a built cockpit with `--frontend` on its own origin.
 
 [wiki_coordination.py](wiki_coordination.py) reads configured coordinator routes and composes revision-bound context packets without dispatching agents. See [context coordinators](../docs/references/guides/context-coordinators.md).
+
+[wiki_contribution.py](wiki_contribution.py) prepares and reconciles independently
+reviewed action-body proposals with optional local agents. See the
+[provider-neutral contribution contract](../docs/references/guides/agent-contributions.md)
+for Git policy gates, conflict handling and adoption coverage.

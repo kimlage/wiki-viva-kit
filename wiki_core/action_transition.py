@@ -944,6 +944,105 @@ def transition_action_page(
             )
 
 
+
+
+
+def contribution_log_text(before: str, action_ref: str, log_ref: str,
+                          material: str, recorded_at: str) -> str:
+    """Deterministic annotation in the consumer's existing memory log."""
+    link = Path(os.path.relpath(action_ref, Path(log_ref).parent)).as_posix()
+    return before + ("\n\n## [" + recorded_at[:10] + "] Reviewed action body\n\n"
+        + "- Prepared a reviewed body contribution to [the action](" + link + "). "
+        + "Material: `" + material + "`. Execution and served adoption are not implied.\n")
+
+
+def append_contribution_log(root: Path, log_ref: str, action_ref: str,
+                            material: str, recorded_at: str) -> None:
+    path, ref = _contained_action_path(root, log_ref)
+    with _TRANSITION_LOCK, _action_file_lock(root, ref):
+        before = path.read_text(encoding="utf-8")
+        after = contribution_log_text(before, action_ref, ref, material, recorded_at)
+        _assert_no_secrets(after)
+        _atomic_write(path, after)
+
+
+def seed_action_proposal(root: Path, page: Path | str, committed: str, current: str) -> None:
+    """Carry a proved local canonical suffix into an isolated proposal only."""
+    from wiki_core.action_contribution import _reconcile_source
+    path, ref = _contained_action_path(root, page)
+    with _TRANSITION_LOCK, _action_file_lock(root, ref):
+        if path.read_text(encoding="utf-8") != committed:
+            raise ActionTransitionError("stale_proposal_seed")
+        _reconcile_source(committed, current, committed)
+        _assert_no_secrets(current)
+        _atomic_write(path, current)
+
+
+def integrate_action_body(
+    root: Path, page: Path | str, body: str, *, expected_sha256: str,
+    contribution: Mapping[str, Any], recorded_at: str | None = None,
+) -> dict[str, Any]:
+    """Adopt one reviewed body inside a proposal, using the canonical writer.
+
+    Trusted local adapters supply the material/review binding. This does not
+    approve a PR, run a provider, change lifecycle, or publish canonical main.
+    The contribution adapter calls this only in an isolated proposal checkout.
+    """
+    if os.name == "nt":
+        raise ActionTransitionError("action_writes_unsupported_on_windows")
+    path, ref = _contained_action_path(root, page)
+    with _TRANSITION_LOCK, _action_file_lock(root, ref):
+        before = path.read_text(encoding="utf-8")
+        if _sha256_text(before) != expected_sha256:
+            raise ActionTransitionError("stale_action_revision")
+        fm, old_body = _parse_document(before)
+        state = resolve_action_state(fm, legacy_state=legacy_action_state_from_body(old_body))
+        if fm.get("page_type") != "action" or state.source != "action_state" or not state.valid:
+            raise ActionTransitionError("invalid_current_state")
+        if state.state not in NON_TERMINAL_ACTION_STATES:
+            raise ActionTransitionError("terminal_action_body_immutable")
+        if not isinstance(body, str) or not body.strip() or body == old_body:
+            raise ActionTransitionError("empty_body_contribution")
+        if _lifecycle_contract_error(fm, state.state):
+            raise ActionTransitionError("invalid_current_lifecycle_contract")
+        history = _history(fm)
+        effect_key = contribution.get("effect_key")
+        if not effect_key or any(isinstance(e.get("contribution"), dict) and
+                e["contribution"].get("effect_key") == effect_key for e in history):
+            raise ActionTransitionError("contribution_effect_already_recorded")
+        at, instant = _transition_instant(recorded_at)
+        last = _history_last_instant(history)
+        prior_date = _frontmatter_date(fm.get("updated_at"))
+        if (last and instant <= last) or (prior_date and instant.date() < prior_date):
+            raise ActionTransitionError("non_monotonic_recorded_at")
+        metadata = dict(contribution)
+        metadata["before_body_sha256"] = _sha256_text(old_body)
+        metadata["after_body_sha256"] = _sha256_text(body)
+        metadata["before_body_revision"] = _revision_sha256(old_body)
+        metadata["after_body_revision"] = _revision_sha256(body)
+        entry = {
+            "schema_version": ACTION_TRANSITION_RECEIPT_VERSION,
+            "kind": "body_integration", "page_id": fm["page_id"],
+            "from": state.state, "to": state.state, "at": at,
+            "state_source": state.source, "before_sha256": expected_sha256,
+            "before_revision": _revision_sha256(before),
+            "payload_sha256": _sha256_text(json.dumps(metadata, sort_keys=True, ensure_ascii=False, separators=(",", ":"))),
+            "support_fields": [], "governed_support_sha256": _governed_support_sha256(fm),
+            "prior_receipt_id": _last_receipt_id(history), "reason_recorded": False,
+            "contribution": metadata,
+        }
+        entry["receipt_id"] = _receipt_id(entry)
+        fm[_HISTORY_FIELD] = [*history, entry]
+        fm["updated_at"] = instant.astimezone(timezone.utc).date().isoformat()
+        after = _render_document(fm, body)
+        _assert_no_secrets(after)
+        if action_transition_diagnostics(before, after):
+            raise ActionTransitionError("invalid_body_integration_receipt")
+        synced = _atomic_write(path, after)
+        return {"receipt_id": entry["receipt_id"], "before_sha256": expected_sha256,
+                "after_sha256": _sha256_text(after), "directory_fsynced": synced}
+
+
 def _document_for_audit(text: str) -> tuple[dict[str, Any], str] | None:
     try:
         return _parse_document(text)
@@ -981,7 +1080,7 @@ def _receipt_entry_error(
         return "receipt chain starts from a state different from the prior action"
     kind = str(entry.get("kind") or "")
     if previous == target:
-        if kind not in {"legacy_canonicalization", "contract_update"}:
+        if kind not in {"legacy_canonicalization", "contract_update", "body_integration"}:
             return "state-preserving receipt has an invalid kind"
     else:
         if not valid_action_transition(previous, target):
@@ -1033,6 +1132,18 @@ def _receipt_entry_error(
         return "receipt governed support fields are invalid"
     if kind == "contract_update" and not support_fields:
         return "contract-update receipt must bind at least one governed support field"
+    if kind == "body_integration":
+        material = entry.get("contribution")
+        if schema_version != ACTION_TRANSITION_RECEIPT_VERSION or not isinstance(material, dict):
+            return "body integration is missing its material binding"
+        for field in ("material_sha256", "before_body_sha256", "after_body_sha256", "before_body_revision", "after_body_revision"):
+            if not _SHA256_RE.fullmatch(str(material.get(field) or "")):
+                return "body integration has an invalid material hash"
+        if not material.get("effect_key") or support_fields:
+            return "body integration must preserve governed support fields"
+        encoded = json.dumps(material, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        if entry.get("payload_sha256") != _sha256_text(encoded):
+            return "body integration payload does not match its material"
     if not _SHA256_RE.fullmatch(str(entry.get("governed_support_sha256") or "")):
         return "receipt is missing its governed support hash"
     return ""
@@ -1210,6 +1321,17 @@ def action_transition_diagnostics(
     if not additions:
         return ()
 
+    integrated_bodies = [e for e in additions if e.get("kind") == "body_integration"]
+    if integrated_bodies:
+        if any(not isinstance(e.get("contribution"), dict) for e in integrated_bodies):
+            return (ActionTransitionDiagnostic("invalid_action_transition_receipt",
+                    "body integration is missing its material binding"),)
+        first = integrated_bodies[0].get("contribution", {})
+        last = integrated_bodies[-1].get("contribution", {})
+        if (first.get("before_body_revision") != _revision_sha256(previous_body)
+            or last.get("after_body_revision") != _revision_sha256(current_body)):
+            return (ActionTransitionDiagnostic("action_body_integration_mismatch",
+                    "body integration does not bind the audited body"),)
     expected_state = previous_resolution.state
     prior_receipt_id = _last_receipt_id(
         [dict(item) for item in previous_history if isinstance(item, dict)]
@@ -1317,4 +1439,5 @@ __all__ = [
     "ActionTransitionReceipt",
     "action_transition_diagnostics",
     "transition_action_page",
+    "integrate_action_body",
 ]

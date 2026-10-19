@@ -68,6 +68,7 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 | [wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py) | Dry-run/apply B0/C1/C2/C3 kit adoption |
 | [wiki_vercel_preview.py](../../../scripts/wiki_vercel_preview.py) | Prepare a synthetic-only Vercel function preview without deploying |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |
+| [wiki_contribution.py](../../../scripts/wiki_contribution.py) | Prepare, review and reconcile provider-neutral action-body contributions under consumer Git policy |
 | [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Read coordinator routes and prepare revision-bound context without dispatch |
 | [wiki_hermes_board.py](../../../scripts/wiki_hermes_board.py) | Install the optional Hermes Desktop view of the canonical wiki action board |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Run the localhost operator API |

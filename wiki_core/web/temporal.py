@@ -567,6 +567,7 @@ def _adapt_pages(
                 event_kind = {
                     "legacy_canonicalization": "action_state_canonicalized",
                     "contract_update": "action_contract_updated",
+                    "body_integration": "action_contract_updated",
                 }.get(receipt_kind, "")
                 if not event_kind:
                     diagnostics.append(
