@@ -90,6 +90,44 @@ concurrent changes fail closed. Other audit errors are never filtered by scope.
 
 ## Explicit documentary records
 
+### Roles carried by Markdown producers
+
+Authors and deterministic producers can declare the intent of one link with
+[declare_link_role](../../wiki_core/markdown_link_roles.py). The producer supplies
+`navigation` for a place to visit or `change_target` for a destination to update.
+These are the same nonfactual roles used by the documentary projection below;
+they do not exempt a page, table, context, or another link to the same endpoint.
+An ordinary citation or an unrecognized role remains conservative.
+
+```python
+from wiki_core.markdown_link_roles import declare_link_role
+
+cell = declare_link_role("[Command reference](commands.md)", "navigation")
+```
+
+The helper appends an invisible, versioned Markdown comment binding the role to
+the SHA256 of that literal link. This is an **authored declaration requiring
+content review**, not authentication of a producer, a permission, or proof that
+the role is true. The CommonMark parser must confirm the link and the immediately
+adjacent inline comment as the same tokenized occurrence and exact source span.
+An altered link, unknown role, ambiguous mapping, marker in a label, fenced/inline
+code, image, or HTML block cannot qualify a citation. Reference-style links retain
+their independent occurrences. A factual second citation remains a dependency.
+
+The [input-stage renderer](../../wiki_core/input_stage.py) emits `change_target`
+only for the known `target_pages` column. Source, state, config and channel cells
+retain their existing semantics. Navigation-table authors use the same explicit
+helper; a table heading or page type alone never implies a role. The evaluator
+records the declaration and its origin through the existing association graph.
+Inline `provenance` is not supported: verified replacement evidence still uses
+the documentary contract below.
+
+A declaration in the candidate never narrows an unqualified historical citation.
+Legacy migration needs semantic review of each relevant historical occurrence
+through the existing origin-bound role contract; adding candidate markers alone
+cannot hide an old dependency. Regenerating a producer changes its artifact,
+not the freshness or truth of its input business sources.
+
 Consumers may opt into `audit.freshness_records: path/to/records.json` through
 their own reviewed C3 migration. This is an authored semantic declaration for
 one exact base/candidate pair, not a permanent waiver or an automatically
