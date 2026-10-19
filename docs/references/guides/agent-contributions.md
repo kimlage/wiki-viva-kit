@@ -115,7 +115,38 @@ question or rerun a model. No exclusion of all history is used as a shortcut.
 
 After a timeout or `unknown`, call **reconcile only**. It queries the PR and
 reads actual Git objects and bytes; it never repeats the merge. A failed
-readback stays unknown/refused. Even a successful remote merge is not proof of
+readback stays unknown/refused. The PR number is optional during recovery:
+
+```sh
+python3 scripts/wiki_contribution.py reconcile --root /path/to/project \
+  --request /path/to/original-request.json --apply
+```
+
+The unchanged request/effect key locates its deterministic proposal branch.
+Discovery queries only that branch in the origin repository and at most 100
+matching PRs. Multiple results (including a full 100-result window) are
+ambiguous. Both supplied and discovered PRs must match the complete origin,
+head repository/owner, branch, target branch and exact commit identity. Every
+present local or remote proposal ref must agree. A deleted branch after merge
+can be read through the origin's exact PR head ref. Candidate bytes still pass
+the full material, body, log, history, independent-review and reference checks
+against freshly observed canonical ancestry. A second PR read detects changed
+identity. No title, branch name or stored material hash alone proves the effect.
+
+Recovery imports Git objects through unique temporary refs, then deletes only
+its own refs with CAS. It updates no permanent ref, FETCH_HEAD, tag, worktree or
+index; it never prepares, pushes, creates, reopens or merges. Valid retained
+proposals without a visible PR return `prepared_ref_no_pr_observed` or
+`published_ref_no_pr_observed`; an open PR returns `waiting_pr`, and an observed
+unmerged closure returns `closed_unmerged_pr`. None authorizes repetition.
+No retained ref/PR is `unknown` (`contribution_effect_not_observed`), not proof
+of absence. Query and fetch failures remain unknown; conflicting identities or
+bytes are refused. Coverage is the current configured proposal namespace: a
+changed proposal prefix may make older evidence undiscoverable. Do not broaden
+the scan or change the frozen request to force a match. No durable recovery
+ledger or additional task store is introduced.
+
+Even a successful remote merge is not proof of
 local application adoption: `remote_merged` and `source_commit` report Git
 facts, while `canonical_body_adopted` requires the selected checkout to contain
 the merged source and matching action and generated-log bytes. Otherwise the result is

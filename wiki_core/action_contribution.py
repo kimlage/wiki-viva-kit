@@ -134,10 +134,11 @@ def _review(request: dict[str, Any], material: str, review: Any) -> dict[str, An
     return review
 
 
-def _entry(root: Path, commit: str, path: str, request: dict, material: str) -> tuple[dict, str]:
+def _entry(root: Path, commit: str, path: str, request: dict, material: str,
+           *, approved: str | None = None) -> tuple[dict, str]:
     parent = _git(root, "rev-parse", commit + "^")
     branch = str(load_config(root).approval.get("default_branch") or "main")
-    approved = _candidate_ref(root, f"refs/remotes/origin/{branch}") or _candidate_ref(root, f"refs/heads/{branch}")
+    approved = approved or _candidate_ref(root, f"refs/remotes/origin/{branch}") or _candidate_ref(root, f"refs/heads/{branch}")
     if not approved:
         raise ContributionError("approved_base_unavailable")
     _git(root, "merge-base", "--is-ancestor", parent, approved)
@@ -383,14 +384,18 @@ def _gh(root: Path, *args: str) -> Any:
     return json.loads(_run(root, "gh", *args))
 
 
-def _pr(root: Path, number: Any) -> dict:
+def _pr(root: Path, number: Any, repository: str | None = None) -> dict:
     if not str(number).isdigit():
         raise ContributionError("invalid_pr")
-    return _gh(root, "pr", "view", str(number), "--repo", _repository(root), "--json",
-               "number,url,state,headRefOid,baseRefName,mergeCommit,statusCheckRollup,reviews,reviewDecision,isDraft")
+    return _gh(root, "pr", "view", str(number), "--repo", repository or _repository(root), "--json",
+               "number,url,state,headRefOid,headRefName,headRepository,headRepositoryOwner,isCrossRepository,baseRefName,mergeCommit,statusCheckRollup,reviews,reviewDecision,isDraft")
 
 
 def _fetch_canonical(root: Path, branch: str) -> str:
+    return _fetch_remote_ref(root, f"refs/heads/{branch}")
+
+
+def _fetch_remote_ref(root: Path, source_ref: str, expected: str | None = None) -> str:
     # FETCH_HEAD is shared by unrelated fetches in this repository. Give this
     # read its own ref so local proposal/object imports cannot change identity
     # between fetch and readback; remove only our exact temporary ref.
@@ -398,17 +403,140 @@ def _fetch_canonical(root: Path, branch: str) -> str:
     ref = "refs/wiki/contribution-read/" + uuid.uuid4().hex
     commit = None
     try:
-        _git(root, "fetch", "--no-write-fetch-head", "origin", f"refs/heads/{branch}:{ref}")
-        commit = _git(root, "rev-parse", ref)
+        _git(root, "fetch", "--no-write-fetch-head", "origin", "--no-tags", "--no-prune",
+             "--refmap=", "--no-auto-maintenance", f"{source_ref}:{ref}")
+        commit = _git(root, "rev-parse", ref + "^{commit}")
+        if expected is not None and commit != expected:
+            raise ContributionError("discovered_ref_identity_changed")
         return commit
     finally:
-        if commit is not None:
-            _git(root, "update-ref", "-d", ref, commit)
+        # A failed command may already have created its temporary ref.
+        retained = _candidate_ref(root, ref)
+        if retained is not None:
+            _git(root, "update-ref", "-d", ref, retained)
+
+
+def _remote_branch(root: Path, branch: str) -> str | None:
+    p = subprocess.run(["git", "ls-remote", "--exit-code", "--refs", "origin", f"refs/heads/{branch}"],
+                       cwd=root, text=True, capture_output=True, timeout=120)
+    if p.returncode == 2:
+        return None  # successful lookup, no such ref; not a transport failure
+    if p.returncode:
+        raise ContributionError("remote_ref_observation_unknown")
+    rows = [line.split() for line in p.stdout.splitlines()]
+    import re
+    if (len(rows) != 1 or len(rows[0]) != 2 or rows[0][1] != f"refs/heads/{branch}"
+        or not re.fullmatch(r"[0-9a-f]{40}", rows[0][0])):
+        raise ContributionError("remote_ref_observation_unknown")
+    return rows[0][0]
+
+
+def _merge_oid(pr: dict) -> str | None:
+    import re
+    merge = pr.get("mergeCommit")
+    oid = merge.get("oid") if isinstance(merge, dict) else None
+    return oid if isinstance(oid, str) and re.fullmatch(r"[0-9a-f]{40}", oid) else None
+
+
+def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
+               material: str, branch: str, number: Any, result: dict) -> dict:
+    """Observe one frozen contribution; never restore a ref or repeat an effect."""
+    if str(config.approval.get("gate") or "") != "github_pr":
+        return {**result, "ok": True, "status": "waiting_policy_adapter"}
+    import re
+    repository = _repository(root)
+    _, owner, name = repository.split("/")
+    base = str(config.approval.get("default_branch") or "main")
+    result.update(discovery={"repository": repository, "branch": branch,
+        "coverage": "current_configured_proposal_namespace_only; no absence-of-effect guarantee"},
+        served_adoption_verified=False)
+    listed_head = None
+    if number is not None and (isinstance(number, bool) or not str(number).isdigit() or int(number) < 1):
+        raise ContributionError("invalid_pr")
+    if number is None:
+        try:
+            matches = _gh(root, "pr", "list", "--repo", repository, "--head", branch,
+                          "--state", "all", "--limit", "100", "--json", "number,headRefOid")
+        except ContributionError as exc:
+            raise ContributionError("pr_discovery_unknown") from exc
+        if not isinstance(matches, list):
+            raise ContributionError("pr_discovery_unknown")
+        if len(matches) > 1:
+            raise ContributionError("pr_discovery_ambiguous")
+        if matches:
+            if not isinstance(matches[0], dict):
+                raise ContributionError("pr_discovery_unknown")
+            number, listed_head = matches[0].get("number"), matches[0].get("headRefOid")
+            if (not isinstance(number, int) or isinstance(number, bool) or number < 1
+                or not re.fullmatch(r"[0-9a-f]{40}", str(listed_head or ""))):
+                raise ContributionError("pr_discovery_unknown")
+    try:
+        pr = _pr(root, number, repository) if number is not None else None
+    except ContributionError as exc:
+        raise ContributionError("pr_observation_unknown") from exc
+    if pr is not None:
+        if (not isinstance(pr, dict) or pr.get("number") != int(number)
+            or pr.get("headRefName") != branch or pr.get("baseRefName") != base
+            or pr.get("isCrossRepository") is not False
+            or not isinstance(pr.get("headRepository"), dict)
+            or not isinstance(pr.get("headRepositoryOwner"), dict)
+            or (pr.get("headRepository") or {}).get("name") != name
+            or not isinstance(pr["headRepositoryOwner"].get("login"), str)
+            or pr["headRepositoryOwner"]["login"].lower() != owner.lower()
+            or not re.fullmatch(r"[0-9a-f]{40}", str(pr.get("headRefOid") or ""))
+            or (listed_head is not None and listed_head != pr["headRefOid"])):
+            raise ContributionError("pr_identity_conflict")
+        result["observed_pr"] = {"number": pr["number"], "state": pr.get("state")}
+        if pr.get("state") == "MERGED":
+            result.update(remote_merged=True, source_commit=_merge_oid(pr))
+    local, remote = _candidate(root, branch), _remote_branch(root, branch)
+    identities = {x for x in (local, remote, pr["headRefOid"] if pr else None) if x is not None}
+    if len(identities) > 1:
+        raise ContributionError("proposal_ref_identity_conflict")
+    if not identities:
+        return {**result, "status": "unknown", "error": "contribution_effect_not_observed"}
+    expected = identities.pop()
+    try:
+        if remote:
+            commit = _fetch_remote_ref(root, f"refs/heads/{branch}", expected)
+        elif local:
+            commit = local
+        else:
+            commit = _fetch_remote_ref(root, f"refs/pull/{pr['number']}/head", expected)
+        canonical = _fetch_canonical(root, base)
+    except ContributionError as exc:
+        if str(exc) == "discovered_ref_identity_changed":
+            raise
+        raise ContributionError("contribution_object_observation_unknown") from exc
+    _entry(root, commit, path, request, material, approved=canonical)
+    if _repository(root) != repository:
+        raise ContributionError("origin_identity_changed")
+    result.update(proposal_commit=commit, proposal_validated=True)
+    if pr is None:
+        return {**result, "ok": True, "status": "published_ref_no_pr_observed" if remote else "prepared_ref_no_pr_observed"}
+    # Re-read the same PR after object acquisition; separate observations must
+    # not be presented as a single atomic remote transaction.
+    try:
+        current = _pr(root, pr["number"], repository)
+    except ContributionError as exc:
+        raise ContributionError("pr_observation_unknown") from exc
+    identity_fields = ("number", "headRefOid", "headRefName", "baseRefName", "headRepository", "headRepositoryOwner", "isCrossRepository")
+    if not isinstance(current, dict) or any(current.get(k) != pr.get(k) for k in identity_fields):
+        raise ContributionError("pr_identity_changed_during_reconciliation")
+    result.update(pr=current)
+    if current.get("state") == "MERGED":
+        result.update(remote_merged=True, source_commit=_merge_oid(current))
+        return {**result, **_canonical_readback(root, config, current, path, commit, request, material), "ok": True}
+    if current.get("state") == "CLOSED":
+        return {**result, "ok": True, "status": "closed_unmerged_pr", "pr_state": "CLOSED"}
+    if current.get("state") == "OPEN":
+        return {**result, "ok": True, "status": "waiting_pr", "pr_state": "OPEN"}
+    raise ContributionError("pr_state_observation_unknown")
 
 
 def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
                         candidate: str, request: dict, material: str) -> dict:
-    merge = pr.get("mergeCommit", {}).get("oid")
+    merge = _merge_oid(pr)
     if not merge:
         raise ContributionError("merge_readback_unavailable")
     # A fetch reads canonical Git source; it does not switch or update the
@@ -417,7 +545,7 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     remote_head = _fetch_canonical(root, branch)
     _git(root, "merge-base", "--is-ancestor", merge, remote_head)
     expected = _blob(root, candidate, path)
-    _, merged_text = _entry(root, merge, path, request, material)
+    _, merged_text = _entry(root, merge, path, request, material, approved=remote_head)
     if merged_text != expected:
         raise ContributionError("merged_body_readback_mismatch")
     current_text = _blob(root, remote_head, path)
@@ -459,6 +587,8 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
             return {**result, "ok": True, "status": "dry_run", "dry_run": True}
         if operation == "prepare_contribution":
             return {**result, **_prepare(root, config, request, payload.get("review")), "ok": True}
+        if operation == "reconcile_contribution":
+            return _reconcile(root, config, request, path, material, branch, payload.get("pr"), result)
         commit = _candidate(root, branch)
         if not commit:
             raise ContributionError("prepare_required")
@@ -483,10 +613,8 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
         if pr.get("headRefOid") != commit or pr.get("baseRefName") != str(config.approval.get("default_branch") or "main"):
             raise ContributionError("pr_identity_conflict")
         if pr.get("state") == "MERGED":
-            result.update(remote_merged=True, source_commit=(pr.get("mergeCommit") or {}).get("oid"))
+            result.update(remote_merged=True, source_commit=_merge_oid(pr))
             return {**result, **_canonical_readback(root, config, pr, path, commit, request, material), "ok": True}
-        if operation == "reconcile_contribution":
-            return {**result, "ok": True, "status": "waiting_pr", "pr_state": pr.get("state")}
         if operation != "integrate_contribution":
             raise ContributionError("unknown_contribution_operation")
         if str(config.approval.get("gate") or "") != "github_pr":
@@ -538,10 +666,12 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
         confirmed = _pr(root, pr["number"])
         if confirmed.get("state") != "MERGED" or confirmed.get("headRefOid") != commit:
             raise ContributionError("merge_outcome_unknown: reconcile")
-        result.update(remote_merged=True, source_commit=(confirmed.get("mergeCommit") or {}).get("oid"))
+        result.update(remote_merged=True, source_commit=_merge_oid(confirmed))
         return {**result, **_canonical_readback(root, config, confirmed, path, commit, request, material),
                 "ok": True, "gate_receipts": checks}
-    except (ContributionError, ActionTransitionError, ValueError, KeyError, TypeError) as exc:
-        message = exc.code if isinstance(exc, ActionTransitionError) else str(exc) if isinstance(exc, ContributionError) else "invalid_contribution_input"
+    except (ContributionError, ActionTransitionError, ValueError, KeyError, TypeError, OSError, subprocess.TimeoutExpired) as exc:
+        message = (exc.code if isinstance(exc, ActionTransitionError) else str(exc) if isinstance(exc, ContributionError)
+                   else "contribution_observation_unknown" if isinstance(exc, (OSError, subprocess.TimeoutExpired))
+                   else "invalid_contribution_input")
         details = exc.details if isinstance(exc, ContributionError) else {}
         return {**result, **details, "error": message, "status": "unknown" if "unknown" in message or result.get("remote_merged") else "refused"}
