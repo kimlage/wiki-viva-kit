@@ -494,6 +494,8 @@ def _reconcile(root: Path, config: WikiConfig, request: dict, path: str,
         pr = _pr(root, number, repository) if number is not None else None
     except (ContributionError, ValueError, TypeError) as exc:
         raise ContributionError("pr_observation_unknown") from exc
+    if number is not None and not isinstance(pr, dict):
+        raise ContributionError("pr_observation_unknown")
     if pr is not None:
         if (not isinstance(pr, dict) or pr.get("number") != int(number)
             or pr.get("headRefName") != branch or pr.get("baseRefName") != base

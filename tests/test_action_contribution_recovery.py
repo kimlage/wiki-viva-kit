@@ -321,3 +321,13 @@ def test_malformed_github_json_is_unknown_remote_observation(tmp_path,monkeypatc
     monkeypatch.setattr(port,"_gh",malformed)
     result=call(tmp_path,"reconcile",req)
     assert result["status"]=="unknown" and result["error"] in {"pr_discovery_unknown","pr_observation_unknown"},result
+
+
+@pytest.mark.parametrize("response",[None,[],3,"incomplete"])
+@pytest.mark.parametrize("explicit",[False,True])
+def test_invalid_pr_view_shape_is_unknown_not_no_pr_observed(tmp_path,monkeypatch,response,explicit):
+    _,req,_,_,responses,_=recovery(tmp_path,monkeypatch)
+    responses["pr"]=response
+    result=call(tmp_path,"reconcile",req,**({"pr":7} if explicit else {}))
+    assert result["status"]=="unknown" and result["error"]=="pr_observation_unknown",result
+    assert not result["ok"]
