@@ -31,6 +31,66 @@ class AnswerObservationError(ValueError):
     pass
 
 
+def validate_canonical_answer_payload(frontmatter: dict[str, Any], event_id: str,
+                                      receipt_id: str) -> None:
+    """Pure check of retained answer bytes against canonical transition hashes.
+
+    Requires the actual parsed canonical action, never an HTTP-supplied copy.
+    No I/O, lock, transport or authority grant. The caller owns a stable source
+    read, profile/lineage/STOP checks and its own atomic unblock boundary.
+    Raises AnswerObservationError (or ValueError for malformed dialogue).
+    """
+    fm = frontmatter
+    if fm.get("page_type") != "action":
+        raise AnswerObservationError("not_a_canonical_action")
+    events = fm.get("action_dialogue") or []
+    validate_history(events)
+    matches = [e for e in events if e["event_id"] == event_id]
+    if len(matches) != 1 or matches[0]["kind"] != "answer" or matches[0]["actor"] != "operator":
+        raise AnswerObservationError("canonical_operator_answer_required")
+    event = matches[0]
+    history = fm.get("action_state_history") or []
+    if not isinstance(history, list) or any(not isinstance(e, dict) for e in history):
+        raise AnswerObservationError("invalid_transition_history")
+    previous = None
+    for row in history:
+        error = _receipt_entry_error(row, expected_from=previous["to"] if previous else str(row.get("from") or ""),
+            expected_page_id=str(fm.get("page_id") or ""),
+            expected_prior_receipt_id=previous["receipt_id"] if previous else "",
+            expected_first_revision=None,
+            expected_prior_at=_parsed_transition_instant(previous["at"]) if previous else None)
+        if error:
+            raise AnswerObservationError("invalid_transition_lineage")
+        previous = row
+    entries = [(i, e) for i, e in enumerate(history) if e.get("receipt_id") == receipt_id]
+    if len(entries) != 1:
+        raise AnswerObservationError("canonical_receipt_missing")
+    index, entry = entries[0]
+    if (entry.get("receipt_id") != _receipt_id(entry) or entry.get("page_id") != fm.get("page_id")
+        or entry.get("before_sha256") != event["before_sha256"] or entry.get("at") != event["at"]
+        or "action_dialogue" not in (entry.get("support_fields") or [])):
+        raise AnswerObservationError("answer_transition_binding_mismatch")
+    # Receipt IDs bind hashes, not the current event text. Verify the
+    # original payload, including the entire question/answer prefix. A
+    # later receipt cannot legitimize a rewritten historical answer.
+    if history[-1]["governed_support_sha256"] != _governed_support_sha256(
+            fm, schema_version=history[-1]["schema_version"]):
+        raise AnswerObservationError("current_support_binding_mismatch")
+    fields = entry["support_fields"]
+    subsequent_fields = {field for row in history[index + 1:] for field in row["support_fields"]}
+    if (set(fields) - {"action_dialogue"}) & subsequent_fields:
+        # Old values are not retained in this bounded receipt chain.
+        # Refuse rather than infer them from newer support values.
+        raise AnswerObservationError("original_answer_support_not_retained")
+    event_index = events.index(event)
+    support = {field: events[:event_index + 1] if field == "action_dialogue"
+               else _governed_support_value(fm, field) for field in fields}
+    payload = json.dumps({"reason": entry.get("reason", ""), "support": support},
+                         ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    if hashlib.sha256(payload.encode()).hexdigest() != entry["payload_sha256"]:
+        raise AnswerObservationError("answer_payload_binding_mismatch")
+
+
 def _capture(root: Path, page_ref: str, event_id: str, receipt: dict[str, Any],
              *, reconciliation: bool) -> tuple[dict, dict, str]:
     config = load_config(root)
@@ -43,55 +103,14 @@ def _capture(root: Path, page_ref: str, event_id: str, receipt: dict[str, Any],
         fm, _ = _parse_document(raw)
         if fm.get("page_type") != "action":
             raise AnswerObservationError("not_a_canonical_action")
-        events = fm.get("action_dialogue") or []
-        validate_history(events)
-        matches = [e for e in events if e["event_id"] == event_id]
-        if len(matches) != 1 or matches[0]["kind"] != "answer" or matches[0]["actor"] != "operator":
-            raise AnswerObservationError("canonical_operator_answer_required")
-        event = matches[0]
+        validate_canonical_answer_payload(fm, event_id, receipt.get("receipt_id"))
+        events = fm["action_dialogue"]
+        event = next(e for e in events if e["event_id"] == event_id)
         profile = policy[0]["profiles"].get(event["coordinator"])
         if not profile or fm.get("page_id") not in profile.get("action_ids", []):
             raise AnswerObservationError("coordinator_route_changed")
-        history = fm.get("action_state_history") or []
-        if not isinstance(history, list) or any(not isinstance(e, dict) for e in history):
-            raise AnswerObservationError("invalid_transition_history")
-        previous = None
-        for row in history:
-            error = _receipt_entry_error(row, expected_from=previous["to"] if previous else str(row.get("from") or ""),
-                expected_page_id=str(fm.get("page_id") or ""),
-                expected_prior_receipt_id=previous["receipt_id"] if previous else "",
-                expected_first_revision=None,
-                expected_prior_at=_parsed_transition_instant(previous["at"]) if previous else None)
-            if error:
-                raise AnswerObservationError("invalid_transition_lineage")
-            previous = row
-        entries = [(i, e) for i, e in enumerate(history) if e.get("receipt_id") == receipt.get("receipt_id")]
-        if len(entries) != 1:
-            raise AnswerObservationError("canonical_receipt_missing")
-        index, entry = entries[0]
-        if (entry.get("receipt_id") != _receipt_id(entry) or entry.get("page_id") != fm.get("page_id")
-            or entry.get("before_sha256") != event["before_sha256"] or entry.get("at") != event["at"]
-            or "action_dialogue" not in (entry.get("support_fields") or [])):
-            raise AnswerObservationError("answer_transition_binding_mismatch")
-        # Receipt IDs bind hashes, not the current event text. Verify the
-        # original payload, including the entire question/answer prefix. A
-        # later receipt cannot legitimize a rewritten historical answer.
-        if history[-1]["governed_support_sha256"] != _governed_support_sha256(
-                fm, schema_version=history[-1]["schema_version"]):
-            raise AnswerObservationError("current_support_binding_mismatch")
-        fields = entry["support_fields"]
-        subsequent_fields = {field for row in history[index + 1:] for field in row["support_fields"]}
-        if (set(fields) - {"action_dialogue"}) & subsequent_fields:
-            # Old values are not retained in this bounded receipt chain.
-            # Refuse rather than infer them from newer support values.
-            raise AnswerObservationError("original_answer_support_not_retained")
-        event_index = events.index(event)
-        support = {field: events[:event_index + 1] if field == "action_dialogue"
-                   else _governed_support_value(fm, field) for field in fields}
-        payload = json.dumps({"reason": entry.get("reason", ""), "support": support},
-                             ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-        if hashlib.sha256(payload.encode()).hexdigest() != entry["payload_sha256"]:
-            raise AnswerObservationError("answer_payload_binding_mismatch")
+        history = fm["action_state_history"]
+        index = next(i for i, e in enumerate(history) if e["receipt_id"] == receipt["receipt_id"])
         if reconciliation:
             if set(receipt) != {"receipt_id"}:
                 raise AnswerObservationError("reconciliation_receipt_id_only")

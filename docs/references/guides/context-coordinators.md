@@ -152,7 +152,11 @@ provenance. Both variants verify the original payload hash over the complete
 dialogue prefix (including the referenced question), and the current governed
 support hash. If other support changed with the answer and was overwritten by
 a later receipt, its old values are not retained: reconciliation refuses rather
-than infer that payload. Missing retained proof leaves the work held/unknown; recovery after
+than infer that payload. Consumers can reuse the pure
+`validate_canonical_answer_payload(frontmatter, event_id, receipt_id)` helper
+from the same module under their existing canonical-source lock. It performs
+no I/O or unblock and does not replace profile, authority or STOP validation.
+Missing retained proof leaves the work held/unknown; recovery after
 a process crash is bounded by actual retained history, not promised as complete.
 The kit retains no extra durable delivery queue. The operator owns activation
 and reader/service adoption in the project application already in use.
