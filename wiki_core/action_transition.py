@@ -773,9 +773,17 @@ def _transition_action_page_locked(
             updated.pop("owner_ref", None)
         before_projection = _page_edit_projection(frontmatter, body)
         after_projection = _page_edit_projection(updated, edited_body)
-        edited_fields = sorted(key for key in before_projection if before_projection[key] != after_projection[key])
+        edited_fields = [key for key in before_projection if before_projection[key] != after_projection[key]]
+        # Git-base audit projections deliberately ignore terminal newlines;
+        # submitted text and the write/no-op decision must preserve exact bytes.
+        body_bytes = {"before_sha256": _sha256_text(body), "after_sha256": _sha256_text(edited_body)}
+        body_changed = body_bytes["before_sha256"] != body_bytes["after_sha256"]
+        if body_changed:
+            edited_fields.append("body_bytes")
         if edited_fields:
-            edit_binding = {"fields": edited_fields, "before": before_projection, "after": after_projection}
+            edit_binding = {"fields": sorted(edited_fields), "before": before_projection, "after": after_projection}
+            if body_changed:
+                edit_binding["body_bytes"] = body_bytes
     for field, value in supplied.items():
         existing = _governed_support_value(updated, field)
         if field in _IMMUTABLE_RECEIPT_FIELDS and existing and existing != value:
@@ -1194,15 +1202,23 @@ def _receipt_entry_error(
         return "contract-update receipt must bind at least one governed support field"
     if schema_version == _PAGE_EDIT_RECEIPT_VERSION:
         edit = entry.get("page_edit")
-        if not isinstance(edit, dict) or set(edit) != {"fields", "before", "after"}:
+        required = {"fields", "before", "after"}
+        if not isinstance(edit, dict) or not required <= set(edit) or set(edit) - required - {"body_bytes"}:
             return "page edit is missing its field binding"
         for side in ("before", "after"):
             values = edit.get(side)
             if (not isinstance(values, dict) or set(values) != set(_PAGE_EDIT_HASH_FIELDS)
                 or any(not isinstance(v, str) or not _SHA256_RE.fullmatch(v) for v in values.values())):
                 return "page edit has an invalid projection"
-        fields = sorted(key for key in _PAGE_EDIT_HASH_FIELDS if edit["before"][key] != edit["after"][key])
-        if not fields or edit.get("fields") != fields:
+        fields = [key for key in _PAGE_EDIT_HASH_FIELDS if edit["before"][key] != edit["after"][key]]
+        if "body_bytes" in edit:
+            hashes = edit["body_bytes"]
+            if (not isinstance(hashes, dict) or set(hashes) != {"before_sha256", "after_sha256"}
+                or any(not isinstance(v, str) or not _SHA256_RE.fullmatch(v) for v in hashes.values())
+                or hashes["before_sha256"] == hashes["after_sha256"]):
+                return "page edit has an invalid exact body binding"
+            fields.append("body_bytes")
+        if not fields or edit.get("fields") != sorted(fields):
             return "page edit fields do not match its projection"
     elif "page_edit" in entry:
         return "legacy receipt cannot bind page edits"

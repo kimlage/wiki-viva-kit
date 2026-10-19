@@ -1228,3 +1228,46 @@ def test_terminal_page_edit_cannot_rewrite_result(tmp_path: Path) -> None:
     with pytest.raises(ActionTransitionError, match="terminal_page_read_only"):
         transition_action_page(tmp_path, path, "done", page_edit={"body": "A different result"})
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("edit", ["append", "remove"])
+def test_page_edit_preserves_trailing_newline_only_changes(tmp_path: Path, edit: str) -> None:
+    path = _write_action(tmp_path)
+    before = path.read_text()
+    original, body = parse_frontmatter(before)
+    requested_body = body + "\n" if edit == "append" else body.rstrip("\r\n")
+    receipt = transition_action_page(tmp_path, path, "open",
+        page_edit={"body": requested_body}, expected_sha256=hashlib.sha256(before.encode()).hexdigest(),
+        recorded_at=FIXED_AT)
+    after = path.read_text()
+    current, stored_body = parse_frontmatter(after)
+    assert receipt.changed and not receipt.idempotent
+    assert stored_body == requested_body
+    assert current["page_id"] == original["page_id"]
+    assert current["action_state"] == original["action_state"]
+    assert receipt.after_sha256 == hashlib.sha256(after.encode()).hexdigest()
+    assert receipt.after_sha256 != receipt.before_sha256
+    assert action_transition_diagnostics(before, after) == ()
+    # The normal Git-base wrapper strips terminal newlines; its audit contract
+    # must remain compatible without weakening the writer's exact-byte CAS.
+    assert action_transition_diagnostics(before.rstrip("\r\n"), after) == ()
+
+
+def test_page_edit_keeps_previous_v5_receipts_and_validates_exact_body_binding(tmp_path: Path) -> None:
+    import copy
+    path = _write_action(tmp_path)
+    before = path.read_text()
+    transition_action_page(tmp_path, path, "open", page_edit={"body": "# Different body\n"}, recorded_at=FIXED_AT)
+    fm, body = transition_module._parse_document(path.read_text())
+    # V5 receipts issued before exact-byte witnesses remain valid unchanged.
+    legacy = copy.deepcopy(fm)
+    entry = legacy["action_state_history"][-1]
+    entry["page_edit"].pop("body_bytes")
+    entry["page_edit"]["fields"].remove("body_bytes")
+    entry["receipt_id"] = transition_module._receipt_id(entry)
+    assert action_transition_diagnostics(before, transition_module._render_document(legacy, body)) == ()
+    entry = fm["action_state_history"][-1]
+    entry["page_edit"]["body_bytes"]["after_sha256"] = entry["page_edit"]["body_bytes"]["before_sha256"]
+    entry["receipt_id"] = transition_module._receipt_id(entry)
+    diagnostics = action_transition_diagnostics(before, transition_module._render_document(fm, body))
+    assert diagnostics[0].code == "invalid_action_transition_receipt"

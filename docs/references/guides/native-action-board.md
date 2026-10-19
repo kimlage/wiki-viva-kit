@@ -100,6 +100,10 @@ or start a bot.
 The operator uses the page's exact content SHA for optimistic concurrency.
 A stale save is rejected without overwriting the file. The draft remains in
 the form; copy it before refreshing and reconcile against the current page.
+Body edits preserve the submitted text, including trailing blank lines. Exact
+body hashes decide whether a write is needed; the newline-normalized Git audit
+projection does not decide whether text was saved. Existing v5 receipts remain
+readable alongside the optional exact-byte witness in new body edits.
 The API accepts a small `page_edit` allowlist, never a frontmatter patch. Other
 frontmatter values, prior history and dialogue are preserved structurally;
 YAML comments and formatting can change during the existing serialization.
