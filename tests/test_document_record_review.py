@@ -175,7 +175,7 @@ def transaction(repo):
 
 
 def test_repository_tool_uses_configured_transaction_pair_without_writes(repo):
-    from scripts.wiki_record_review import repository_review
+    from wiki_core.document_record_review import repository_review
     parent = transaction(repo)
     before = git(repo, "status", "--porcelain")
     result = repository_review(repo, ["memories/log.md"])
@@ -191,9 +191,10 @@ def test_repository_tool_uses_configured_transaction_pair_without_writes(repo):
 
 @pytest.mark.parametrize("mutation", ["existing", "new-page", "config"])
 def test_repository_tool_refuses_concurrent_inputs(repo, monkeypatch, mutation):
-    from scripts import wiki_record_review as cli
+    from scripts import wiki_page_graph as cli
     transaction(repo)
-    original = cli.review_records
+    from wiki_core import document_record_review as review
+    original = review.review_records
     def concurrent(*args, **kwargs):
         result = original(*args, **kwargs)
         if mutation == "new-page":
@@ -205,26 +206,64 @@ def test_repository_tool_refuses_concurrent_inputs(repo, monkeypatch, mutation):
             with (repo / "memories/consumer.md").open("a") as stream:
                 stream.write("\nChanged.\n")
         return result
-    monkeypatch.setattr(cli, "review_records", concurrent)
+    monkeypatch.setattr(review, "review_records", concurrent)
     with pytest.raises(ValueError, match="inputs changed"):
-        cli.repository_review(repo, ["memories/log.md"])
+        review.repository_review(repo, ["memories/log.md"])
 
 
 def test_cli_never_overwrites_evidence(repo, monkeypatch):
-    from scripts import wiki_record_review as cli
+    from scripts import wiki_page_graph as cli
     transaction(repo)
     out = repo / "existing.json"
     out.write_text("Retained evidence")
     monkeypatch.setattr(cli, "ROOT", repo)
     with pytest.raises(SystemExit) as exc:
-        cli.main(["--target", "memories/log.md", "--out", str(out)])
+        cli.main(["--record-review", "--target", "memories/log.md", "--out", str(out)])
     assert exc.value.code == 1
     assert out.read_text() == "Retained evidence"
 
 
+@pytest.mark.parametrize("extra", [["--impact"], ["--base", "HEAD"], ["--write"],
+                                   ["--check"]])
+def test_record_review_rejects_other_modes_before_execution(monkeypatch, extra):
+    from scripts import wiki_page_graph as cli
+    from wiki_core import document_record_review as review
+    def forbidden(*args, **kwargs):
+        raise AssertionError("must reject before any execution")
+    monkeypatch.setattr(cli, "build_page_graph", forbidden)
+    monkeypatch.setattr(review, "repository_review", forbidden)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--record-review", "--target", "memories/log.md", *extra])
+    assert exc.value.code == 2
+
+
+def test_record_review_dispatch_never_runs_normal_graph_checks(repo, monkeypatch, capsys):
+    from scripts import wiki_page_graph as cli
+    from wiki_core import freshness_impact
+    transaction(repo)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("normal graph validation must not run")
+    monkeypatch.setattr(cli, "ROOT", repo)
+    monkeypatch.setattr(cli, "build_page_graph", forbidden)
+    monkeypatch.setattr(cli, "compute_impact", forbidden)
+    monkeypatch.setattr(cli, "orphan_pages", forbidden)
+    monkeypatch.setattr(freshness_impact, "evaluate_impact", forbidden)
+    assert cli.main(["--record-review", "--target", "memories/log.md"]) == 0
+    assert json.loads(capsys.readouterr().out)["schema"] == "document_record_review.v1"
+
+
+@pytest.mark.parametrize("args", [["--record-review"], ["--target", "memories/log.md"],
+                                  ["--out", "new.json"]])
+def test_review_flags_require_explicit_mode_and_target(args):
+    from scripts import wiki_page_graph as cli
+    with pytest.raises(SystemExit) as exc:
+        cli.main(args)
+    assert exc.value.code == 2
+
+
 def test_cli_json_is_deterministic_across_hash_seeds(repo):
     transaction(repo)
-    code = "from pathlib import Path; from scripts import wiki_record_review as c; c.ROOT=Path(__import__('sys').argv[1]); c.main(['--target','memories/log.md'])"
+    code = "from pathlib import Path; from scripts import wiki_page_graph as c; c.ROOT=Path(__import__('sys').argv[1]); c.main(['--record-review','--target','memories/log.md'])"
     outputs = [subprocess.check_output([sys.executable, "-c", code, str(repo)],
         env={**os.environ, "PYTHONHASHSEED": seed}) for seed in ("11", "59")]
     assert outputs[0] == outputs[1]
@@ -252,7 +291,7 @@ def test_a_revocation_still_reaches_unknown_live_consumers(repo):
 
 
 def test_new_v1_transaction_preserves_old_contract_and_real_stale_dependencies(repo):
-    from scripts.wiki_record_review import repository_review
+    from wiki_core.document_record_review import repository_review
     from wiki_core.freshness_impact import evaluate_impact
     page(repo, "debt", stale=True)
     p = page(repo, "log", body="# Log\n\n## Old\nPrior.\n\n")

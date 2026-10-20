@@ -82,11 +82,11 @@ only its declared synthetic case.
 
 ## Authoring the complete consumption frontier
 
-Use [wiki_record_review.py](../../../scripts/wiki_record_review.py) to inspect the
+Use [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) to inspect the
 configured exact snapshot pair without evaluating freshness or inferring roles:
 
 ```sh
-python3 scripts/wiki_record_review.py --target memories/coordination.md \
+python3 scripts/wiki_page_graph.py --record-review --target memories/coordination.md \
   --target memories/system/log.md --out /private/new-record-review.json
 ```
 

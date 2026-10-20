@@ -59,7 +59,6 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 | [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) | Check graph reachability and impact |
 | [wiki_performance.py](../../../scripts/wiki_performance.py) | Plan, run and verify fail-closed performance evidence |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarize a PR |
-| [wiki_record_review.py](../../../scripts/wiki_record_review.py) | Inspect the configured documentary occurrence/variant frontier without inferring bindings or evaluating freshness |
 | [wiki_quadrant_contract.py](../../../scripts/wiki_quadrant_contract.py) | Print the AQAL quadrant contract |
 | [wiki_quadrant_projection_report.py](../../../scripts/wiki_quadrant_projection_report.py) | Review quadrant projections |
 | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Report quality/cost telemetry |
