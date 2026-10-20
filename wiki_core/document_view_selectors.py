@@ -34,7 +34,7 @@ def _blocks(body):
     return tokens, result, paths
 
 
-def body_span(text, selector):
+def body_span(text, selector, *, common_ranges=None):
     """Return a body line span or proven absent H2/row; ambiguity is an error."""
     from wiki_core.document_records import digest, section_spans
     _, body = _body(text)
@@ -70,6 +70,8 @@ def body_span(text, selector):
         if len(tables) != 1:
             raise ValueError("missing or ambiguous table/header selector")
         index, table = tables[0]
+        if common_ranges is not None:
+            common_ranges.append((table.map[0], table.map[0] + 2))
         column, key = selector.get("key_column"), selector.get("key", {})
         if type(column) is not int or column < 0 or key.get("kind") not in {"text", "link_destination"}:
             raise ValueError("invalid table key")
@@ -209,6 +211,7 @@ def partition_view(text, entries, origin):
     full_lines = text.splitlines(keepends=True)
     body_offset = len(full_lines) - len(lines)
     ranges, full_ranges, parts, fm_fields = [], [], {}, {}
+    shared_body_context = []
     for record in entries:
         rid = record["id"]
         selectors = record.get("selectors", {})
@@ -230,7 +233,8 @@ def partition_view(text, entries, origin):
             if len(probe["path"]) == 1:
                 fm_fields[probe["path"][0]] = rid
         else:
-            span = body_span(text, probe)
+            common = []
+            span = body_span(text, probe, common_ranges=common)
             if absent:
                 if span is not None:
                     raise ValueError("declared absent record exists")
@@ -238,6 +242,7 @@ def partition_view(text, entries, origin):
             if span is None:
                 raise ValueError("record selector missing")
             body_range = span
+            shared_body_context.extend((a, b, rid) for a, b in common)
             start, end = (v + body_offset for v in span)
         if any(start < b and a < end for a, b, _ in full_ranges):
             raise ValueError("overlapping explicit view selectors")
@@ -254,4 +259,5 @@ def partition_view(text, entries, origin):
                                             if i not in selected)
     parts["remainder"] = dict(content_sha256=digest(remainder))
     return dict(parts=parts, ranges=ranges, order_ranges=full_ranges, remainder=remainder,
-                section_ranges=[(a, b) for _, a, b, _ in section_spans(text)[1]], fm_fields=fm_fields)
+                section_ranges=[(a, b) for _, a, b, _ in section_spans(text)[1]], fm_fields=fm_fields,
+                shared_body_context=shared_body_context)

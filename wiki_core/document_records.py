@@ -362,7 +362,15 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                     # References in the document introduction are common
                     # premises. H2 siblings require explicit authored context.
                     inside_section = any(start <= line < end for start, end in partition["section_ranges"])
-                    if not inside_section and not (modes.get(path) == "explicit_view_v2" and rid != "remainder"):
+                    header_consumers = {part for start, end, part in partition.get("shared_body_context", [])
+                                        if start <= line < end}
+                    if header_consumers:
+                        # A table header defines its selected rows even within
+                        # H2. Keep the common remainder occurrence too.
+                        variants = [{**edge, "source": node_id(path, part),
+                                     "inherited_document_context": True}
+                                    for part in sorted(header_consumers | {rid})]
+                    elif not inside_section and not (modes.get(path) == "explicit_view_v2" and rid != "remainder"):
                         variants = [{**edge, "source": node_id(path, part),
                                      "inherited_document_context": True}
                                     for part in partition["parts"]]

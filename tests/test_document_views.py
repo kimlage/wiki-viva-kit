@@ -375,3 +375,69 @@ def test_other_producer_layouts_keep_header_norm_and_aggregate_outside_row(title
     assert "Normative interpretation" in partition["remainder"]
     assert "ranking and blockers" in partition["remainder"]
     assert header in partition["remainder"]
+
+
+@pytest.mark.parametrize("title,section", [
+    ("Operation cockpit", "Actions"), ("Input stage", "Sources"),
+    ("Operational pass", "Complete actions"), ("Actions index", "Inventory"),
+])
+def test_nested_table_header_norm_is_inherited_by_its_rows(repo, title, section):
+    from test_freshness_impact import page, TODAY
+    page(repo, "norm", body="# Canonical norm\n\nVersion one.\n")
+    view = page(repo, "view", body=(f"# {title}\n\n## {section}\n\n"
+                "| Item | [Norm](norm.md) |\n| --- | --- |\n| [A](a.md) | partial |\n"
+                "\n## Other table\n\n| Item | [Other norm](norm-b.md) |\n| --- | --- |\n"
+                "| [B](b.md) | recorded |\n"))
+    page(repo, "a", body="# Source A\n")
+    page(repo, "b", body="# Source B\n")
+    page(repo, "norm-b", body="# Separate norm\n")
+    page(repo, "consumer", body="# Consumer\n\nConsumes the recorded A entry of [view](view.md).\n")
+    page(repo, "consumer-b", body="# Consumer B\n\nConsumes only the B entry of [view](view.md).\n")
+    base = authored_graph(repo, load_config(repo))
+    norm = repo / "memories/norm.md"
+    norm.write_text(norm.read_text() + "\nA new canonical restriction.\n")
+    current = authored_graph(repo, load_config(repo))
+    assert not base["errors"] and not current["errors"]
+    body = view.read_text().split("---\n", 2)[2]
+    lines = body.splitlines(keepends=True)
+    start = next(i for i, line in enumerate(lines) if line.startswith("| Item"))
+    selector = dict(kind="table_row", container_heading_path=[title, section],
+                    header_sha256=digest("".join(lines[start:start + 2])), key_column=0,
+                    key=dict(kind="link_destination", value="a.md"), required_match_count=1)
+    row_hash = digest("| [A](a.md) | partial |\n")
+    record = dict(id="entry-a", selectors={o: selector for o in ("base", "current")},
+                  base_sha256=row_hash, current_sha256=row_hash, independent=True,
+                  rationale="Complete source row under its actual table header and norm.",
+                  epistemic_status="observation", recorded_on=TODAY.isoformat(), context_records=[])
+    selector_b = copy.deepcopy(selector)
+    selector_b.update(container_heading_path=[title, "Other table"],
+                      header_sha256=digest("| Item | [Other norm](norm-b.md) |\n| --- | --- |\n"),
+                      key=dict(kind="link_destination", value="b.md"))
+    record_b = {**record, "id": "entry-b", "selectors": {o: selector_b for o in ("base", "current")},
+                "base_sha256": digest("| [B](b.md) | recorded |\n"),
+                "current_sha256": digest("| [B](b.md) | recorded |\n")}
+    bindings = []
+    for origin, graph in (("base", base), ("current", current)):
+        for consumer, entry in (("consumer", record), ("consumer-b", record_b)):
+            edge = next(e for e in graph["edges"] if e["source"] == f"memories/{consumer}.md"
+                        and e["target"] == "memories/view.md")
+            bindings.append(dict(origin=origin, edge_sha256=edge_digest(edge), consumer_record="document",
+                                 role="consumption", target_record=entry["id"],
+                                 consumed_sha256=entry[origin + "_sha256"],
+                                 rationale="Consumes only the complete row and its required interpretation."))
+    contract = dict(schema_version="document_record.v2",
+                    document_modes={"memories/view.md": "explicit_view_v2"},
+                    documents=[dict(path="memories/view.md", records=[record, record_b], envelope=[])], bindings=bindings,
+                    **{o + "_documents_sha256": {p: digest(t) for p, t in g["documents"].items()}
+                       for o, g in (("base", base), ("current", current))})
+    pc, pb, seeds, _ = project_records(current, base, {"memories/norm.md"}, contract)
+    row = node_id("memories/view.md", "entry-a")
+    for graph in (pb, pc):
+        assert any(e["source"] == row and e["target"] == "memories/norm.md"
+                   and e.get("inherited_document_context") for e in graph["edges"])
+        assert not any(e["source"] == node_id("memories/view.md", "entry-b")
+                       and e["target"] == "memories/norm.md" for e in graph["edges"])
+    result = evaluate_impact(pc, pb, seeds, today=TODAY)
+    assert seeds == {"memories/norm.md"}
+    assert "memories/consumer.md" in {r["path"] for r in result["included"]}
+    assert "memories/consumer-b.md" not in {r["path"] for r in result["included"]}
