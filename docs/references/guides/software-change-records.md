@@ -79,3 +79,59 @@ implementation evidence. Negative controls retain stale canonical rules and
 facts, body/metadata financial claims, missing qualifications, real-change
 propagation and refusal of a changed canonical snapshot. This fixture verifies
 only its declared synthetic case.
+
+## Authoring the complete consumption frontier
+
+Use [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) to inspect the
+configured exact snapshot pair without evaluating freshness or inferring roles:
+
+```sh
+python3 scripts/wiki_page_graph.py --record-review --target memories/coordination.md \
+  --target memories/system/log.md --out /private/new-record-review.json
+```
+
+Use the consumer's actual paths. The command reads `audit.freshness_base` and
+`audit.freshness_records`; it has no base/contract override or apply option.
+It refuses existing output files, invalid snapshots/bindings and changing inputs.
+The output includes complete source text at the frontier: retain it privately.
+
+The same `project_records` loop supplies raw occurrence digests, both origins,
+every inherited consumer variant, existing bindings and actual projected edges.
+The census includes all incoming occurrences and own premises of the requested
+documents, plus every other authored page changed in that transaction. Second
+links, factual metadata and relations authored on another page remain distinct.
+It is not a list of selected shortest-path witnesses. Input maps, variant counts
+and a checksum bind what was enumerated; they do not prove semantic approval.
+
+Read the assertion and its necessary context before authoring each v1 binding.
+An absent binding stays WHOLE; a declared invalid binding fails closed. A valid
+contract alone does not prove the author's review is complete. Unknown, LIVE,
+temporal and identity assertions must retain their actual support. For example,
+an appended account revocation must still reach a consumer asserting current
+authorization, even if the source's earlier prefix is unchanged. A statement
+explicitly limited to an earlier cut can consume its proven historical support.
+Neither append-only preservation nor a new record date supplies that intention.
+
+## A new transaction using v1
+
+A v1 declaration describes one exact pair, not a permanent frozen diff base.
+For a later proposal, preserve the historical contract unchanged and author a
+new file for the approved parent and final candidate. The approved parent's
+CURRENT view can supply the initial BASE semantics only after checking the
+parent's bytes, occurrences, selectors, inherited context and evidence. Do not
+copy the earlier BASE bindings blindly. Re-key an identity only when its content
+and consumption are equivalent; hashes do not establish semantic intent.
+
+The new complete BASE/CURRENT maps and origin-specific artifact/record hashes
+must match their snapshots. Keep dates, cadence, normative premises and unknown
+WHOLE consumers. Removed or retargeted dependencies in this transaction still
+participate from BASE; new candidate evidence cannot be placed in the parent.
+Change the configured pointer/base only through the reviewed consumer C3, with
+the normal integrity, privacy, impact and freshness gates. An unchanged stale
+page is still blocking when actually required, or under applicable global
+maintenance; making a new pair does not renew it or waive its dependencies.
+
+This authoring tool does not replace the separate direct-impact check or its
+reasoned acknowledgments. Review the entire final package before application,
+then validate it normally. No report, checksum or role grants access or proves
+that the integration passed.
