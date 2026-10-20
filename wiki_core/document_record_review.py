@@ -1,4 +1,4 @@
-"""Read-only occurrence census for authoring an existing document_record.v1.
+"""Read-only occurrence census for authoring an explicit record contract.
 
 This does not infer intent, propose bindings, evaluate freshness or approve a
 transaction. The projector supplies every variant and its actual output.
@@ -112,7 +112,7 @@ def review_records(current, base, changed, contract, *, targets, artifact_inputs
     # completeness checksum, not a semantic qualification or a freshness gate.
     input_hashes = {o: {p: digest(t) for p, t in sorted(g["documents"].items())}
                    for o, g in originals.items()}
-    return dict(schema="document_record_review.v1", targets=sorted(targets),
+    result = dict(schema="document_record_review.v1", targets=sorted(targets),
         purpose="Authoring aid only; no inferred bindings, approval or freshness result",
         contract_sha256=edge_digest(contract), input_documents_sha256=input_hashes,
         projected_variant_count=len(trace), selected_variant_count=len(rows),
@@ -121,6 +121,10 @@ def review_records(current, base, changed, contract, *, targets, artifact_inputs
         record_declarations=[copy.deepcopy(d) for d in contract["documents"]
             if any(d["path"] in documents[o] for o in originals)],
         changed_record_seeds=sorted(seeds), record_coverage=coverage)
+    if contract["schema_version"] == "document_record.v2":
+        result.update(contract_schema_version=contract["schema_version"],
+                      document_modes=copy.deepcopy(contract["document_modes"]))
+    return result
 
 
 def repository_review(root: Path, targets):

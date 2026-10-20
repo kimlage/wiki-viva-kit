@@ -1,0 +1,403 @@
+{
+  "documents": {
+    "base": {
+      "memories/views/source-register.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\ncollection:\n  members: [a, b]\n---\n# Source register\n\nRecorded canonical fields; no external-state certification.\n\n| Source | Recorded ingestion_state |\n| --- | --- |\n| [A](../sources/a.md) | partial |\n| [B](../sources/b.md) | partial |\n\n## Reading rule\nRows reproduce recorded ingestion_state only. They do not certify external access or current progress. The [canonical rule](../system/observation-rule.md) remains applicable.\n",
+      "memories/system/observation-rule.md": "---\npage_type: rule\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# Observation rule\n\nRecorded ingestion state is a repository observation, not an authorization or current external fact.\n",
+      "memories/consumers/a-fields.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# A fields\n\nThe [register](../views/source-register.md) provides A recorded ingestion_state only, subject to its reading rule; publication date and membership are not asserted.\n",
+      "memories/consumers/register-whole.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# Whole register\n\nThe [register](../views/source-register.md) supplies its complete current membership, publication date, rows and rules.\n",
+      "memories/sources/a.md": "---\npage_type: source\npage_id: a\nsource_id: a\nupdated_at: 2026-10-01\nstale_after_days: 90\ningestion_state: partial\n---\n# Source A\n\nExternal progress is not asserted by this fixture.\n",
+      "memories/sources/b.md": "---\npage_type: source\npage_id: b\nsource_id: b\nupdated_at: 2026-10-01\nstale_after_days: 90\ningestion_state: partial\n---\n# Source B\n\nExternal progress is not asserted by this fixture.\n",
+      "memories/log/history.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# History\n\n## Approved note\nA historical implementation cut; no current external claim.\n",
+      "memories/consumers/history.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# Historical consumer\n\nThe [history](../log/history.md) supplies only Approved note.\n",
+      "memories/consumers/live-a.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# Current external fact\n\nThe current external progress of [A](../sources/a.md) is a factual premise of this consumer.\n"
+    },
+    "current": {
+      "memories/views/source-register.md": "---\npage_type: context_note\nupdated_at: 2026-10-02\nstale_after_days: 90\ncollection:\n  members: [a, b, c]\n---\n# Source register\n\nRecorded canonical fields; no external-state certification.\n\n| Source | Recorded ingestion_state |\n| --- | --- |\n| [A](../sources/a.md) | partial |\n| [B](../sources/b.md) | partial |\n| [C](../sources/c.md) | partial |\n\n## Reading rule\nRows reproduce recorded ingestion_state only. They do not certify external access or current progress. The [canonical rule](../system/observation-rule.md) remains applicable.\n",
+      "memories/system/observation-rule.md": "---\npage_type: rule\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# Observation rule\n\nRecorded ingestion state is a repository observation, not an authorization or current external fact.\n",
+      "memories/consumers/a-fields.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# A fields\n\nThe [register](../views/source-register.md) provides A recorded ingestion_state only, subject to its reading rule; publication date and membership are not asserted.\n",
+      "memories/consumers/register-whole.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# Whole register\n\nThe [register](../views/source-register.md) supplies its complete current membership, publication date, rows and rules.\n",
+      "memories/sources/a.md": "---\npage_type: source\npage_id: a\nsource_id: a\nupdated_at: 2026-10-01\nstale_after_days: 90\ningestion_state: partial\n---\n# Source A\n\nExternal progress is not asserted by this fixture.\n",
+      "memories/sources/b.md": "---\npage_type: source\npage_id: b\nsource_id: b\nupdated_at: 2026-10-01\nstale_after_days: 90\ningestion_state: partial\n---\n# Source B\n\nExternal progress is not asserted by this fixture.\n",
+      "memories/sources/c.md": "---\npage_type: source\npage_id: c\nsource_id: c\nupdated_at: 2026-10-01\nstale_after_days: 90\ningestion_state: partial\n---\n# Source C\n\nExternal progress is not asserted by this fixture.\n",
+      "memories/log/history.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# History\n\n## Approved note\nA historical implementation cut; no current external claim.\n",
+      "memories/consumers/history.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# Historical consumer\n\nThe [history](../log/history.md) supplies only Approved note.\n",
+      "memories/consumers/live-a.md": "---\npage_type: context_note\nupdated_at: 2026-10-01\nstale_after_days: 90\n---\n# Current external fact\n\nThe current external progress of [A](../sources/a.md) is a factual premise of this consumer.\n"
+    }
+  },
+  "artifact_files": {
+    "docs/evidence/observed-ingestion-a.json": "{\n  \"schema_version\": \"synthetic_canonical_observation.v1\",\n  \"source_document\": \"memories/sources/a.md\",\n  \"source_document_sha256\": \"33fa94c46d9d08b5cfea64d79245f0346b33b041882e2e059b8dc2865ee37e12\",\n  \"observed_fields\": {\n    \"source_id\": \"a\",\n    \"ingestion_state\": \"partial\"\n  },\n  \"field_origins\": {\n    \"source_id\": \"frontmatter.source_id\",\n    \"ingestion_state\": \"frontmatter.ingestion_state\"\n  },\n  \"interpretation\": \"Recorded canonical metadata only; no external fact or authority.\",\n  \"algorithm\": {\n    \"identity\": \"synthetic direct-field-copy fixture\",\n    \"version\": \"1\",\n    \"read_set\": [\n      \"frontmatter.source_id\",\n      \"frontmatter.ingestion_state\"\n    ],\n    \"uses_clock\": false\n  },\n  \"cut\": {\n    \"source_bytes_sha256\": \"33fa94c46d9d08b5cfea64d79245f0346b33b041882e2e059b8dc2865ee37e12\",\n    \"authority_claim\": false\n  }\n}\n",
+    "docs/evidence/observed-ingestion-b.json": "{\n  \"schema_version\": \"synthetic_canonical_observation.v1\",\n  \"source_document\": \"memories/sources/b.md\",\n  \"source_document_sha256\": \"97cc49e6305bc3fcb8196c15040fe151d36850fcae4e1cdda37b91611be35e86\",\n  \"observed_fields\": {\n    \"source_id\": \"b\",\n    \"ingestion_state\": \"partial\"\n  },\n  \"field_origins\": {\n    \"source_id\": \"frontmatter.source_id\",\n    \"ingestion_state\": \"frontmatter.ingestion_state\"\n  },\n  \"interpretation\": \"Recorded canonical metadata only; no external fact or authority.\",\n  \"algorithm\": {\n    \"identity\": \"synthetic direct-field-copy fixture\",\n    \"version\": \"1\",\n    \"read_set\": [\n      \"frontmatter.source_id\",\n      \"frontmatter.ingestion_state\"\n    ],\n    \"uses_clock\": false\n  },\n  \"cut\": {\n    \"source_bytes_sha256\": \"97cc49e6305bc3fcb8196c15040fe151d36850fcae4e1cdda37b91611be35e86\",\n    \"authority_claim\": false\n  }\n}\n",
+    "docs/evidence/observed-ingestion-c.json": "{\n  \"schema_version\": \"synthetic_canonical_observation.v1\",\n  \"source_document\": \"memories/sources/c.md\",\n  \"source_document_sha256\": \"27604bd8f5deda34d5b8a2f40f0bdf65a2558bb664a9a6bd4fbade26ba8ea38e\",\n  \"observed_fields\": {\n    \"source_id\": \"c\",\n    \"ingestion_state\": \"partial\"\n  },\n  \"field_origins\": {\n    \"source_id\": \"frontmatter.source_id\",\n    \"ingestion_state\": \"frontmatter.ingestion_state\"\n  },\n  \"interpretation\": \"Recorded canonical metadata only; no external fact or authority.\",\n  \"algorithm\": {\n    \"identity\": \"synthetic direct-field-copy fixture\",\n    \"version\": \"1\",\n    \"read_set\": [\n      \"frontmatter.source_id\",\n      \"frontmatter.ingestion_state\"\n    ],\n    \"uses_clock\": false\n  },\n  \"cut\": {\n    \"source_bytes_sha256\": \"27604bd8f5deda34d5b8a2f40f0bdf65a2558bb664a9a6bd4fbade26ba8ea38e\",\n    \"authority_claim\": false\n  }\n}\n"
+  },
+  "contract": {
+    "schema_version": "document_record.v2",
+    "base_documents_sha256": {
+      "memories/views/source-register.md": "5ab93c6808b0f4b5d5156cf08fd870e94778776d9380f25b847b4aadc6950cb0",
+      "memories/system/observation-rule.md": "8b4435b083ffa3d5763dc032dce7215b4d63d27d7fef57364c0420469b67acdd",
+      "memories/consumers/a-fields.md": "5385819f68d1faf4957c193da4bb4d25551589708a9eed549c9d867885a4d290",
+      "memories/consumers/register-whole.md": "3e4658bb893f00b7ee5b5a92e6895cbf3cb3719a2bb50824e50fa19fd2efff20",
+      "memories/sources/a.md": "33fa94c46d9d08b5cfea64d79245f0346b33b041882e2e059b8dc2865ee37e12",
+      "memories/sources/b.md": "97cc49e6305bc3fcb8196c15040fe151d36850fcae4e1cdda37b91611be35e86",
+      "memories/log/history.md": "5eb4ea84da0f9b67b63c9ea2c4ff0c037f8d0f407fa453ac33c4b9cda684a30d",
+      "memories/consumers/history.md": "47014240415ab9a148a01d583fdccc745c90cec08c5e1c587fce2de6f60d162a",
+      "memories/consumers/live-a.md": "4a7b2624fdb553d4bee509ba5c7308e73a11b5493ec48e5b3f31b5e7f1a73629"
+    },
+    "current_documents_sha256": {
+      "memories/views/source-register.md": "c2944e006543de05265794bec6d37c3656b18ae87db2f7094c4803c2c57f3fd7",
+      "memories/system/observation-rule.md": "8b4435b083ffa3d5763dc032dce7215b4d63d27d7fef57364c0420469b67acdd",
+      "memories/consumers/a-fields.md": "5385819f68d1faf4957c193da4bb4d25551589708a9eed549c9d867885a4d290",
+      "memories/consumers/register-whole.md": "3e4658bb893f00b7ee5b5a92e6895cbf3cb3719a2bb50824e50fa19fd2efff20",
+      "memories/sources/a.md": "33fa94c46d9d08b5cfea64d79245f0346b33b041882e2e059b8dc2865ee37e12",
+      "memories/sources/b.md": "97cc49e6305bc3fcb8196c15040fe151d36850fcae4e1cdda37b91611be35e86",
+      "memories/sources/c.md": "27604bd8f5deda34d5b8a2f40f0bdf65a2558bb664a9a6bd4fbade26ba8ea38e",
+      "memories/log/history.md": "5eb4ea84da0f9b67b63c9ea2c4ff0c037f8d0f407fa453ac33c4b9cda684a30d",
+      "memories/consumers/history.md": "47014240415ab9a148a01d583fdccc745c90cec08c5e1c587fce2de6f60d162a",
+      "memories/consumers/live-a.md": "4a7b2624fdb553d4bee509ba5c7308e73a11b5493ec48e5b3f31b5e7f1a73629"
+    },
+    "document_modes": {
+      "memories/views/source-register.md": "explicit_view_v2",
+      "memories/log/history.md": "h2_v1"
+    },
+    "documents": [
+      {
+        "path": "memories/views/source-register.md",
+        "records": [
+          {
+            "id": "entry-a",
+            "selectors": {
+              "base": {
+                "kind": "table_row",
+                "container_heading_path": [
+                  "Source register"
+                ],
+                "header_sha256": "d3133f17f1c6eb147ca3802db0c19ec33cf999eca7b3e6d02a89996bdd96879a",
+                "key_column": 0,
+                "key": {
+                  "kind": "link_destination",
+                  "value": "../sources/a.md"
+                },
+                "required_match_count": 1
+              },
+              "current": {
+                "kind": "table_row",
+                "container_heading_path": [
+                  "Source register"
+                ],
+                "header_sha256": "d3133f17f1c6eb147ca3802db0c19ec33cf999eca7b3e6d02a89996bdd96879a",
+                "key_column": 0,
+                "key": {
+                  "kind": "link_destination",
+                  "value": "../sources/a.md"
+                },
+                "required_match_count": 1
+              }
+            },
+            "base_sha256": "0d7b33646459ae2ca09650dab2d87f7acf89156db313a86324bdf02b629d6055",
+            "current_sha256": "0d7b33646459ae2ca09650dab2d87f7acf89156db313a86324bdf02b629d6055",
+            "independent": true,
+            "rationale": "This full row observes only source A recorded ingestion_state under the common reading rule; no membership, rank, publication-date or external-state claim.",
+            "epistemic_status": "observation",
+            "recorded_on": "2026-10-02",
+            "context_records": [
+              "reading-rule"
+            ],
+            "base_evidence": [],
+            "current_evidence": []
+          },
+          {
+            "id": "entry-b",
+            "selectors": {
+              "base": {
+                "kind": "table_row",
+                "container_heading_path": [
+                  "Source register"
+                ],
+                "header_sha256": "d3133f17f1c6eb147ca3802db0c19ec33cf999eca7b3e6d02a89996bdd96879a",
+                "key_column": 0,
+                "key": {
+                  "kind": "link_destination",
+                  "value": "../sources/b.md"
+                },
+                "required_match_count": 1
+              },
+              "current": {
+                "kind": "table_row",
+                "container_heading_path": [
+                  "Source register"
+                ],
+                "header_sha256": "d3133f17f1c6eb147ca3802db0c19ec33cf999eca7b3e6d02a89996bdd96879a",
+                "key_column": 0,
+                "key": {
+                  "kind": "link_destination",
+                  "value": "../sources/b.md"
+                },
+                "required_match_count": 1
+              }
+            },
+            "base_sha256": "55cb778026d87c71405a195c8b06cc4fd680e190baad92e6db69ff32f37e08b5",
+            "current_sha256": "55cb778026d87c71405a195c8b06cc4fd680e190baad92e6db69ff32f37e08b5",
+            "independent": true,
+            "rationale": "This full row observes only source B recorded ingestion_state under the common reading rule; no membership, rank, publication-date or external-state claim.",
+            "epistemic_status": "observation",
+            "recorded_on": "2026-10-02",
+            "context_records": [
+              "reading-rule"
+            ],
+            "base_evidence": [],
+            "current_evidence": []
+          },
+          {
+            "id": "entry-c",
+            "selectors": {
+              "base": null,
+              "current": {
+                "kind": "table_row",
+                "container_heading_path": [
+                  "Source register"
+                ],
+                "header_sha256": "d3133f17f1c6eb147ca3802db0c19ec33cf999eca7b3e6d02a89996bdd96879a",
+                "key_column": 0,
+                "key": {
+                  "kind": "link_destination",
+                  "value": "../sources/c.md"
+                },
+                "required_match_count": 1
+              }
+            },
+            "base_sha256": null,
+            "current_sha256": "b7985a2ff285dbe7f9a69b5e0d3e17ce223f232cc6b35f1dc23146f51f7c198a",
+            "independent": true,
+            "rationale": "This full row observes only source C recorded ingestion_state under the common reading rule; no membership, rank, publication-date or external-state claim.",
+            "epistemic_status": "observation",
+            "recorded_on": "2026-10-02",
+            "context_records": [
+              "reading-rule"
+            ],
+            "base_evidence": [],
+            "current_evidence": []
+          },
+          {
+            "id": "reading-rule",
+            "selectors": {
+              "base": {
+                "kind": "h2",
+                "heading": "Reading rule",
+                "leading_blank_lines": 0
+              },
+              "current": {
+                "kind": "h2",
+                "heading": "Reading rule",
+                "leading_blank_lines": 0
+              }
+            },
+            "base_sha256": "b03a47b884fe480b27697d1d2fde3fbbba8b10363041a6bc71bcb52f6308f9dc",
+            "current_sha256": "b03a47b884fe480b27697d1d2fde3fbbba8b10363041a6bc71bcb52f6308f9dc",
+            "independent": true,
+            "rationale": "Actual canonical interpretation rule remains a factual prerequisite of every row and envelope; its linked policy stays live.",
+            "epistemic_status": "decision",
+            "recorded_on": "2026-10-01",
+            "context_records": [],
+            "base_evidence": [],
+            "current_evidence": []
+          }
+        ],
+        "envelope": [
+          {
+            "id": "publication",
+            "selectors": {
+              "base": {
+                "kind": "frontmatter_field",
+                "path": [
+                  "updated_at"
+                ]
+              },
+              "current": {
+                "kind": "frontmatter_field",
+                "path": [
+                  "updated_at"
+                ]
+              }
+            },
+            "base_sha256": "72119cfb032c28ede7a799205108d6a7b97f2f39ba379c7c6b5aa5432bdb82bc",
+            "current_sha256": "a28867a5d1ca9990c02d3b09e802341cd053333420f23e56a5681c27d986dbc4",
+            "value_shape": "canonical_iso_date",
+            "claim": "artifact_publication_date",
+            "rationale": "Date of publication of this view, not date of external observation or authority. Material-only row claims do not assert it.",
+            "context_records": [
+              "reading-rule"
+            ]
+          },
+          {
+            "id": "membership",
+            "selectors": {
+              "base": {
+                "kind": "frontmatter_field",
+                "path": [
+                  "collection",
+                  "members"
+                ]
+              },
+              "current": {
+                "kind": "frontmatter_field",
+                "path": [
+                  "collection",
+                  "members"
+                ]
+              }
+            },
+            "base_sha256": "80bb5f6c3b36f5219c925fc234d23b8ddc6a5c227ac395bd93400554be67ec6c",
+            "current_sha256": "ada09bd8c5ba13275622af09d7626782c2f881358aec60bce568c70f7e07f2ff",
+            "value_shape": "unique_string_sequence",
+            "claim": "declared_view_membership",
+            "rationale": "Complete membership is consumed by WHOLE; individual row consumers explicitly do not assert it.",
+            "context_records": [
+              "reading-rule"
+            ]
+          }
+        ]
+      },
+      {
+        "path": "memories/log/history.md",
+        "records": [
+          {
+            "id": "approved-note",
+            "heading": "Approved note",
+            "leading_blank_lines": 0,
+            "base_sha256": "ea2212bd4755ee904e5e08aed6bb1a06d701db2ecb089d0b8896059761c8e46b",
+            "current_sha256": "ea2212bd4755ee904e5e08aed6bb1a06d701db2ecb089d0b8896059761c8e46b",
+            "independent": true,
+            "rationale": "Historical note has its own scope; no narrowing of any other page.",
+            "epistemic_status": "observation",
+            "recorded_on": "2026-10-01",
+            "context_records": []
+          }
+        ]
+      }
+    ],
+    "artifacts": [
+      {
+        "origin": "base",
+        "id": "observed-ingestion-a",
+        "path": "docs/evidence/observed-ingestion-a.json",
+        "sha256": "f9b062c341e01ddcfcf294fbdf078b0b0cace3e86ebe67c993c9b19f95284f43"
+      },
+      {
+        "origin": "base",
+        "id": "observed-ingestion-b",
+        "path": "docs/evidence/observed-ingestion-b.json",
+        "sha256": "b2949dc8d3a538150065e4e555c12bd867554b4fe112c6530e84efe391e805a8"
+      },
+      {
+        "origin": "current",
+        "id": "observed-ingestion-a",
+        "path": "docs/evidence/observed-ingestion-a.json",
+        "sha256": "f9b062c341e01ddcfcf294fbdf078b0b0cace3e86ebe67c993c9b19f95284f43"
+      },
+      {
+        "origin": "current",
+        "id": "observed-ingestion-b",
+        "path": "docs/evidence/observed-ingestion-b.json",
+        "sha256": "b2949dc8d3a538150065e4e555c12bd867554b4fe112c6530e84efe391e805a8"
+      },
+      {
+        "origin": "current",
+        "id": "observed-ingestion-c",
+        "path": "docs/evidence/observed-ingestion-c.json",
+        "sha256": "07008d2b3829ec847937d93776c688b7729a190e2ea98e09890a510d2c84b45e"
+      }
+    ],
+    "bindings": [
+      {
+        "origin": "base",
+        "edge_sha256": "b93a1cfb00274200d09de930ea9755113b5d20db5aa6e2dab43137da2e3a8ef7",
+        "consumer_record": "document",
+        "role": "consumption",
+        "target_record": "entry-a",
+        "consumed_sha256": "0d7b33646459ae2ca09650dab2d87f7acf89156db313a86324bdf02b629d6055",
+        "rationale": "The sentence explicitly consumes A recorded ingestion_state and reading-rule context only; not the complete register or its time/membership."
+      },
+      {
+        "origin": "base",
+        "edge_sha256": "8f80616ad859be28fe6d704ad67f6bc5831b8384d0f88b3e7179840170ad00e4",
+        "consumer_record": "entry-a",
+        "role": "provenance",
+        "prerequisite_document_sha256": "33fa94c46d9d08b5cfea64d79245f0346b33b041882e2e059b8dc2865ee37e12",
+        "evidence": [
+          "observed-ingestion-a"
+        ],
+        "rationale": "This exact full row observes canonical source_id/ingestion_state in the frozen source bytes using the described direct-copy read set; it does not assert the source body, current progress or authority. The live reading-rule dependency is retained."
+      },
+      {
+        "origin": "base",
+        "edge_sha256": "551e75eb1e5b2e12dd04ca240f0f7f6c168987baa28ff660f9908ec663962621",
+        "consumer_record": "entry-b",
+        "role": "provenance",
+        "prerequisite_document_sha256": "97cc49e6305bc3fcb8196c15040fe151d36850fcae4e1cdda37b91611be35e86",
+        "evidence": [
+          "observed-ingestion-b"
+        ],
+        "rationale": "This exact full row observes canonical source_id/ingestion_state in the frozen source bytes using the described direct-copy read set; it does not assert the source body, current progress or authority. The live reading-rule dependency is retained."
+      },
+      {
+        "origin": "current",
+        "edge_sha256": "b93a1cfb00274200d09de930ea9755113b5d20db5aa6e2dab43137da2e3a8ef7",
+        "consumer_record": "document",
+        "role": "consumption",
+        "target_record": "entry-a",
+        "consumed_sha256": "0d7b33646459ae2ca09650dab2d87f7acf89156db313a86324bdf02b629d6055",
+        "rationale": "The sentence explicitly consumes A recorded ingestion_state and reading-rule context only; not the complete register or its time/membership."
+      },
+      {
+        "origin": "current",
+        "edge_sha256": "8f80616ad859be28fe6d704ad67f6bc5831b8384d0f88b3e7179840170ad00e4",
+        "consumer_record": "entry-a",
+        "role": "provenance",
+        "prerequisite_document_sha256": "33fa94c46d9d08b5cfea64d79245f0346b33b041882e2e059b8dc2865ee37e12",
+        "evidence": [
+          "observed-ingestion-a"
+        ],
+        "rationale": "This exact full row observes canonical source_id/ingestion_state in the frozen source bytes using the described direct-copy read set; it does not assert the source body, current progress or authority. The live reading-rule dependency is retained."
+      },
+      {
+        "origin": "current",
+        "edge_sha256": "551e75eb1e5b2e12dd04ca240f0f7f6c168987baa28ff660f9908ec663962621",
+        "consumer_record": "entry-b",
+        "role": "provenance",
+        "prerequisite_document_sha256": "97cc49e6305bc3fcb8196c15040fe151d36850fcae4e1cdda37b91611be35e86",
+        "evidence": [
+          "observed-ingestion-b"
+        ],
+        "rationale": "This exact full row observes canonical source_id/ingestion_state in the frozen source bytes using the described direct-copy read set; it does not assert the source body, current progress or authority. The live reading-rule dependency is retained."
+      },
+      {
+        "origin": "current",
+        "edge_sha256": "901b00f28f75f1624d59aec652dd507b4a2c8197dc0135d8a9f7c6c41747f874",
+        "consumer_record": "entry-c",
+        "role": "provenance",
+        "prerequisite_document_sha256": "27604bd8f5deda34d5b8a2f40f0bdf65a2558bb664a9a6bd4fbade26ba8ea38e",
+        "evidence": [
+          "observed-ingestion-c"
+        ],
+        "rationale": "This exact full row observes canonical source_id/ingestion_state in the frozen source bytes using the described direct-copy read set; it does not assert the source body, current progress or authority. The live reading-rule dependency is retained."
+      },
+      {
+        "origin": "base",
+        "edge_sha256": "7d05ceccc1cf43e92d28e3e72d7565c192cadb427717bd8a20b2e2e4740d1133",
+        "consumer_record": "document",
+        "role": "consumption",
+        "target_record": "approved-note",
+        "consumed_sha256": "ea2212bd4755ee904e5e08aed6bb1a06d701db2ecb089d0b8896059761c8e46b",
+        "rationale": "Original v1 binding preserved unchanged in the mixed contract."
+      },
+      {
+        "origin": "current",
+        "edge_sha256": "7d05ceccc1cf43e92d28e3e72d7565c192cadb427717bd8a20b2e2e4740d1133",
+        "consumer_record": "document",
+        "role": "consumption",
+        "target_record": "approved-note",
+        "consumed_sha256": "ea2212bd4755ee904e5e08aed6bb1a06d701db2ecb089d0b8896059761c8e46b",
+        "rationale": "Original v1 binding preserved unchanged in the mixed contract."
+      }
+    ]
+  }
+}

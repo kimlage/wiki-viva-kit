@@ -228,6 +228,113 @@ review, secrets and publication gates.
 
 ## Conservative boundary
 
+### Explicit view entries (opt-in v2)
+
+`document_record.v2` adds whole table-row selectors and explicit publication /
+composition slots to the **same** projector, review command and impact evaluator.
+It does not infer which views are generated or which claims are independent.
+Existing `document_record.v1` contracts retain their H2 behavior. A v2 contract
+requires `document_modes` with exactly one entry for every declared document:
+`h2_v1` preserves its original declarations and bindings; `explicit_view_v2`
+requires the selectors below. Converting a document is a reviewed migration,
+not an automatic consequence of bumping the schema version.
+
+In an explicit view, records retain stable IDs, independence, rationale,
+epistemic status, recorded date, contexts and evidence. Replace `heading` with
+`selectors: {base: ..., current: ...}`. Each origin also retains its exact
+`base_sha256` / `current_sha256` for the **complete lexical selection**:
+
+- `kind: h2`, `heading`, optional `leading_blank_lines`: the existing unique
+  top-level H2 section, including its full content.
+- `kind: table_row`, `container_heading_path` (complete heading titles),
+  `header_sha256` (both raw header/separator lines), `key_column` (zero based),
+  `key: {kind: link_destination, value: ...}` or a plain `text` key, and
+  `required_match_count: 1`. The GFM table AST must identify one top-level table
+  and one complete single-line row. Every cell, qualifier and link is hashed;
+  a convenient cell is not the record. Duplicate paths, tables or keys fail.
+
+`null` selector and hash together mean proven absence using the other origin's
+identity, never parser failure. A changed container/header that prevents proving
+absence is rejected. New documents without BASE remain WHOLE in this first
+scope. Escaped pipes and LF/CRLF bytes are preserved. Fenced/HTML fake tables,
+overlapping selections, missing hashes and ambiguous boundaries fail closed.
+Canonical reference-style occurrences with block-wide offsets cannot receive a
+focal v2 binding; their dependencies stay conservative. This does not change
+the authored graph's lexical dependency enumeration.
+
+The optional `envelope` list shares the record ID namespace. Every slot declares
+`selectors` in both origins, both hashes, `rationale`, `context_records` and one
+of these limited claims:
+
+- `artifact_publication_date`: a `frontmatter_field` selector with an explicit
+  YAML `path` and `value_shape: canonical_iso_date`.
+- `declared_view_membership`: a `frontmatter_field` with
+  `value_shape: unique_string_sequence`.
+- `artifact_publication_date` in a `markdown_generation_paragraph`: explicit
+  `container_heading_path`, `required_match_count: 1`, and a literal `template`
+  with `prefix`, `suffix`, and `value_format: iso_date` or
+  `iso_datetime_minutes` (`YYYY-MM-DD HH:MM`). The entire top-level single-line
+  paragraph must be exactly that timestamp; links, extra sentences and
+  continuations fail.
+
+Envelope selectors/templates must be identical across origins. YAML selection
+uses complete field lexemes without reserialization; duplicate/complex keys,
+aliases, anchors, merges, tags and comments within selected fields are refused.
+There is no arbitrary ignored span and no default volatile field list.
+Calling a field `updated_at` does not establish that its meaning is publication:
+semantic review must establish that claim. Norms, authority, freshness policy,
+identity, interpretation and operational cadence remain real premises.
+
+Raw changed/removed paths and the raw view node/seed are preserved in v2.
+A WHOLE consumer references that raw document, which consumes all its
+components through normal factual `source_ref` edges. A narrow consumer
+references the reviewed component. With identical common remainder, reference
+definitions, surviving order and anchors, only changed/added/removed components
+receive **additional** seeds. Any uncovered delta or reordering seeds all
+components. Unchanged components still enter the upstream required closure;
+that inclusion does not start a new downstream traversal to their consumers.
+No BFS direction, raw-source seed or policy changes.
+
+Rows and envelope slots remain factual, freshness-checked components using the
+original page metadata. WHOLE/date/hash/composition/count/rank consumers must
+retain those premises. A calculation that uses `as_of` must explicitly consume
+its temporal context even if its rendered text coincides on two dates. Common
+FM and introduction/table-header references remain inherited; located row and
+envelope references belong to their actual component. Other H2 contexts require
+the existing explicit `context_records` when materially needed.
+
+For a claim limited to canonical fields observed at a compilation cut, existing
+`provenance` evidence can describe the exact per-entry read set, parent/config
+hashes, algorithm/version and material parameters. File verification proves
+bytes, not field correspondence: review must compare each origin's capture
+with its complete parent and the actual producer. Never manufacture BASE from
+CURRENT. Such an observation does not prove current external progress, access,
+authority or cadence compliance. Those dependencies remain LIVE.
+
+The public synthetic mixed example is in
+[`mixed-example.json`](../../tests/fixtures/document-view/mixed-example.json).
+Its captures deliberately copy two canonical fields, rather than claiming to
+reproduce every production algorithm. Tests also use the actual source-registry
+renderer, retaining LIVE sources and the status column's temporal premise.
+Producer boundaries remain different:
+
+| Surface | Possible entry | Premises that remain material |
+| --- | --- | --- |
+| Source registry | Complete source row | Recipe schedule, type/state, cadence, `as_of` and interpretation |
+| Operation cockpit | Complete action/decision row | Effective state, receipt, queue/closure, alerts and aggregate vitality |
+| Input stage | Complete source row | Root, channel, config, privacy, perspectives and non-rendered JSON inputs |
+| Operational pass | Complete table row | Explicit next-refresh precedence, blockers, priority, top-five/order and summaries |
+| Authored action index | Complete authored row/H2 | Norms, qualifications, later revocation, factual FM and current aggregates |
+
+An authored index is not automatically generated metadata. Ranking/top-five
+entries are not independent just because they are rows. Output equality never
+removes a raw source/config change. A second WHOLE occurrence, BASE occurrence,
+alternative factual route, cycle or stale upstream prerequisite can still
+include/block a narrow consumer. A complete private migration needs one exact
+reviewed packet for both origins, all declarations/bindings/contexts/evidence,
+normal gates and its own PR policy. A public v2 PASS is not private adoption or
+proof that existing freshness debt has disappeared.
+
 For a read-only occurrence census and a new exact v1 transaction, follow
 [authoring the complete consumption frontier](guides/software-change-records.md#authoring-the-complete-consumption-frontier).
 
