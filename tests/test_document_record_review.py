@@ -11,10 +11,52 @@ import yaml
 
 from wiki_core.document_record_review import review_records
 from wiki_core.document_records import digest, edge_digest, project_records
+from wiki_core.document_records import structured_digest
 from test_document_records import (
     add_binding, declaration, graph, setup_increment,
 )
 from test_freshness_impact import page, repo, commit, git, TODAY
+
+
+@pytest.mark.parametrize("kind", ["record_evidence", "occurrence_evidence"])
+def test_structured_evidence_includes_unlinked_parent_text_per_origin(repo, kind):
+    event = dict(event_id="dated-result", text="Assisted historical result.")
+    parent = page(repo, "archive", action_dialogue=[event],
+                  body="# Archive\n\nBASE context and limitations.\n")
+    page(repo, "source")
+    link = "[Source](source.md)." if kind == "occurrence_evidence" else "No citation."
+    log = page(repo, "log", body="# Log\n\n## New record\n" + link + "\n")
+    base = graph(repo)
+    parent.write_text(parent.read_text().replace("BASE context", "CURRENT context"))
+    log.write_text(log.read_text() + "Additional dated observation.\n")
+    current = graph(repo)
+    contract = declaration(base, current)
+    contract["artifacts"] = [dict(origin=origin, id="dated-result",
+        document="memories/archive.md", field="action_dialogue",
+        match_key="event_id", match_value="dated-result", sha256=structured_digest(event))
+        for origin in ("base", "current")]
+    for origin, authored in (("base", base), ("current", current)):
+        if kind == "record_evidence":
+            contract["documents"][0]["records"][0][origin + "_evidence"] = ["dated-result"]
+        else:
+            raw = next(e for e in authored["edges"] if e["source"] == "memories/log.md")
+            contract["bindings"].append(dict(origin=origin, edge_sha256=edge_digest(raw),
+                consumer_record="entry-0", role="provenance", evidence=["dated-result"],
+                prerequisite_document_sha256=digest(authored["documents"]["memories/source.md"]),
+                rationale="The isolated event supplies historical evidence only."))
+    before = copy.deepcopy((base, current, contract))
+    result = review_records(current, base, {"memories/log.md"}, contract,
+                            targets={"memories/log.md"})
+    for origin, authored in (("base", base), ("current", current)):
+        # No raw relation or requested target otherwise selects the archive.
+        assert not any("memories/archive.md" in (e["source"], e["target"])
+                       for e in authored["edges"])
+        assert result["documents"][origin]["memories/archive.md"] == dict(
+            text=authored["documents"]["memories/archive.md"],
+            sha256=digest(authored["documents"]["memories/archive.md"]))
+        assert any(n.get("evidence_source", {}).get("document") == "memories/archive.md"
+                   for n in result["nodes"][origin].values())
+    assert (base, current, contract) == before
 
 
 def test_trace_is_an_observer_and_does_not_mutate_inputs(repo):
