@@ -2034,6 +2034,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             initialSrc={worldRoute.query.src}
             demo={route.demo}
             intakeCopy={operator.intakeCopy}
+            buildIngestionPlan={buildIngestionPlan}
             onComposeBrief={runBrief}
             onOpenCreate={() => navigate(hrefForWorldPatch(worldRoute, { dock: "create", src: null }))}
             onNotice={notify}

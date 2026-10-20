@@ -1,5 +1,9 @@
 # Context coordinators
 
+See [source access and ingestion previews](source-access-and-ingestion.md) for
+declared accounts/scopes, bounded adapter evidence and read-only composition
+of explicitly linked events and actions. These projections grant no execution.
+
 The [native board](native-action-board.md) can show an explicitly assigned coordinator for each canonical action. The domain owner and executor remain unchanged. A consumer-owned `wiki.coordination.yaml` defines the routes; the kit supplies a context composer and a receipted conversation on the action itself. It does not create another task queue or scheduler.
 
 ## Consumer configuration

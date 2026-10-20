@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -9,10 +11,111 @@ from wiki_core.config import WikiConfig
 from wiki_core.web.commands import SECRET_VALUE_RE
 from wiki_core.web.git_ops import build_git_state
 from wiki_core.web.source_triage import triage_source
+from wiki_core.events import resolve_ingestion_event_identity
 
 
 READ_STEPS = {"proposal_preview", "ingest_dry_run", "llm_request_preview"}
 WRITE_STEPS = {"proposal_write", "llm_request_emit"}
+
+
+def compose_event_action_preview(event_path: str, event: dict[str, Any], manifest: dict[str, Any],
+                                 binding: Any, actions: list[dict[str, Any]], *, repo_id: str) -> dict[str, Any]:
+    """Pure composition over explicit, revision-bound inputs. Never admission.
+
+    Titles, context similarity and content hashes are not logical identities.
+    Reuse means pointing to one canonical action, not executing/reopening it.
+    """
+    result: dict[str, Any] = {"status": "unmapped", "reason": "explicit_binding_required",
+        "execution_ready": False, "writes": False, "task_ref": None, "preview_key": "",
+        "source_checks": {}, "blockers": [], "owner_ref": "", "coordinator": ""}
+    fields = {"repo_id", "source_key", "account_id", "context", "event_id", "event_sha256", "action_id", "action_sha256", "owner_ref", "coordinator"}
+    if not isinstance(binding, dict) or not fields <= binding.keys() or set(binding) - fields - {"required_sources"}:
+        return result
+    if any(not isinstance(binding[k], str) or (not binding[k].strip() and k != "action_sha256") or len(binding[k]) > 300 for k in fields):
+        return {**result, "reason": "invalid_binding"}
+    from wiki_core.action_transition import _assert_no_secrets
+    import re
+    if any(any(ord(c) < 32 for c in binding[k]) or "://" in binding[k] or re.search(r"\bbearer\s+", binding[k], re.I) for k in fields):
+        return {**result, "reason": "invalid_binding"}
+    try:
+        _assert_no_secrets(json.dumps(binding, allow_nan=False))
+    except ValueError:
+        return {**result, "reason": "invalid_binding"}
+    required = binding.get("required_sources", [])
+    if not isinstance(required, list) or any(not isinstance(v, str) or not v or len(v) > 100 for v in required):
+        return {**result, "reason": "invalid_binding"}
+    result["source_checks"] = {key: "unknown" for key in required}
+    identity = resolve_ingestion_event_identity(Path(event_path), event, in_events_directory=False)
+    if not identity.recognized or identity.compatibility != "canonical" or not identity.event_id:
+        return {**result, "reason": "normalized_event_required"}
+    if (binding["repo_id"] != repo_id or identity.event_id != binding["event_id"]
+        or not isinstance(event.get("source_refs"), list) or binding["source_key"] not in event["source_refs"]
+        or event.get("source_account") != binding["account_id"] or event.get("context") != binding["context"]
+        or manifest.get("context") != binding["context"]):
+        return {**result, "status": "conflict", "reason": "identity_or_context_mismatch"}
+    result.update(task_ref={"repo_id": repo_id, "action_id": binding["action_id"]},
+                  owner_ref=binding["owner_ref"], coordinator=binding["coordinator"])
+    stable = {key: binding[key] for key in ("repo_id", "source_key", "account_id", "event_id", "action_id")}
+    result["preview_key"] = hashlib.sha256(json.dumps(stable, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    if not manifest.get("hash_sha256") or binding["event_sha256"] != manifest["hash_sha256"]:
+        return {**result, "status": "reconcile", "reason": "event_revision_changed"}
+    matches = [a for a in actions if a.get("action_id") == binding["action_id"]]
+    if not matches:
+        return {**result, "status": "propose", "reason": "new_card_requires_review_and_route", "blockers": ["coordinator_binding_pending"]}
+    if len(matches) != 1:
+        return {**result, "status": "conflict", "reason": "ambiguous_action"}
+    action = matches[0]
+    if action.get("context") != binding["context"] or action.get("owner_ref") != binding["owner_ref"] or action.get("coordinator") != binding["coordinator"]:
+        return {**result, "status": "conflict", "reason": "action_binding_mismatch"}
+    if action.get("content_sha256") != binding["action_sha256"]:
+        return {**result, "status": "reconcile", "reason": "action_revision_changed"}
+    blockers = list(action.get("blockers") or [])
+    if action.get("state") in {"blocked", "waiting_human", "done", "cancelled"}:
+        blockers.append(str(action["state"]))
+    if action.get("stop"):
+        blockers.append("STOP")
+    return {**result, "status": "reuse", "reason": "explicit_revision_bound_action", "blockers": blockers}
+
+
+def _action_preview(root: Path, config: WikiConfig, source: str, manifest: dict[str, Any], snapshot: dict | None) -> dict:
+    from wiki_core.source_config import find_source_config
+    from wiki_core.coordination import _read, coordination_index, CoordinationError
+    from wiki_core.frontmatter import parse_frontmatter
+    empty = compose_event_action_preview(source, {}, {}, None, [], repo_id=config.repo_id)
+    try:
+        configured = find_source_config(root, config, source)
+        if not configured:
+            return empty
+        config_raw = _read(root, configured["path"])
+        cfg, _ = parse_frontmatter(config_raw.decode())
+        binding = cfg.get("action_binding")
+        if binding is None:
+            return empty
+        if snapshot is None:
+            return {**empty, "reason": "canonical_snapshot_required"}
+        event_raw = _read(root, source)
+        event, _ = parse_frontmatter(event_raw.decode())
+        if hashlib.sha256(event_raw).hexdigest() != manifest.get("hash_sha256"):
+            return {**empty, "status": "reconcile", "reason": "event_revision_changed"}
+        index = coordination_index(root, snapshot)
+        pages = {p["id"]: p for p in snapshot.get("pages.json", {}).get("pages", [])}
+        actions = []
+        for item in index["actions"]:
+            raw = _read(root, item["path"])
+            if hashlib.sha256(raw).hexdigest() != item["content_sha256"]:
+                raise CoordinationError("action revision changed")
+            fm, _ = parse_frontmatter(raw.decode())
+            actions.append({**item, "context": pages[item["action_id"]].get("context"),
+                            "owner_ref": fm.get("owner_ref"), "stop": fm.get("stop"),
+                            "blockers": fm.get("blockers", [])})
+        result = compose_event_action_preview(source, event, manifest, binding, actions, repo_id=config.repo_id)
+        if (config_raw != _read(root, configured["path"]) or event_raw != _read(root, source)
+            or hashlib.sha256(_read(root, "wiki.coordination.yaml")).hexdigest() != index["policy_sha256"]
+            or any(hashlib.sha256(_read(root, a["path"])).hexdigest() != a["content_sha256"] for a in index["actions"])):
+            return {**empty, "status": "reconcile", "reason": "inputs_changed"}
+        return result
+    except (ValueError, OSError, UnicodeError, KeyError, TypeError):
+        return {**empty, "status": "conflict", "reason": "invalid_or_changed_inputs"}
 
 
 def _redact(text: str) -> str:
@@ -71,7 +174,7 @@ def _stage(
     }
 
 
-def build_ingestion_plan(root: Path, config: WikiConfig, source: str, *, context: str | None = None) -> dict[str, Any]:
+def build_ingestion_plan(root: Path, config: WikiConfig, source: str, *, context: str | None = None, snapshot: dict | None = None) -> dict[str, Any]:
     triage = triage_source(root, config, source, context=context)
     selected_context = str(triage.get("context") or context or config.default_context)
     source_value = str(triage.get("source") or source)
@@ -149,6 +252,7 @@ def build_ingestion_plan(root: Path, config: WikiConfig, source: str, *, context
         "context": selected_context,
         "source_id": triage.get("source_id"),
         "triage": triage,
+        "action_preview": _action_preview(root, config, source_value, triage.get("manifest") or {}, snapshot) if not secret_block else {"status": "blocked", "reason": "secret_block", "execution_ready": False, "writes": False},
         "stages": stages,
         "next_blocked_stage": blocked or waiting,
     }

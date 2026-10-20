@@ -900,6 +900,21 @@ describe("SourceDock honest edges (§19.6)", () => {
     expect(within(authorization).getByText(/does not expose google-drive/)).toBeTruthy();
   });
 
+  it("previews expected account and scope metadata without a grant", async () => {
+    const preview = vi.fn().mockResolvedValue({ ok: true, preview_token: "fictional-preview", changes: [] });
+    render(<SourceDock bundle={bundleWith(sourceFixture())} sourceId="source-gmail" onPreviewConfiguration={preview} onNotice={noop} onClose={noop} />);
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    fireEvent.change(screen.getByLabelText("Expected account"), { target: { value: "reader@example.test" } });
+    fireEvent.change(screen.getByLabelText("Context coordinator"), { target: { value: "research" } });
+    fireEvent.change(screen.getByLabelText("Declared executor"), { target: { value: "fixture-executor" } });
+    fireEvent.change(screen.getByLabelText("Requested scopes (comma separated)"), { target: { value: "read" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review source settings" }));
+    await waitFor(() => expect(preview).toHaveBeenCalledWith("source-gmail", "__source__", { access: {
+      schema_version: "wiki_source_access.v1", expected_identity: "reader@example.test", coordinator: "research", executor: "fixture-executor", requested_scopes: ["read"]
+    } }));
+    expect(screen.queryByText("Access verified")).toBeNull();
+  });
+
   it("says when a source is not in the snapshot", () => {
     render(<SourceDock bundle={bundleWith(null)} sourceId="ghost" onNotice={noop} onClose={noop} />);
     expect(screen.getByText("Source `ghost` is not in this snapshot.")).toBeTruthy();

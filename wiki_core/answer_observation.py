@@ -185,7 +185,10 @@ def observe_canonical_answer(root: Path, page_ref: str, event_id: str,
         if hashlib.sha256(_read(root, POLICY_FILE)).hexdigest() != policy_sha:
             raise AnswerObservationError("observer_policy_changed")
         with tempfile.TemporaryDirectory(prefix="wiki-answer-") as directory:
-            event_file = Path(directory) / "event.json"
+            # Canonicalize only our newly created private directory. On macOS
+            # tempfile can return /var while strict consumers require /private/var.
+            # This does not resolve or relax any consumer-supplied file path.
+            event_file = Path(directory).resolve() / "event.json"
             with event_file.open("x", encoding="utf-8") as handle:
                 os.chmod(event_file, 0o600)
                 json.dump(envelope, handle, ensure_ascii=False, allow_nan=False)

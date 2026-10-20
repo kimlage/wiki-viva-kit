@@ -684,6 +684,13 @@ export type SourceLifecycleProjection = {
   authoring_error_codes: string[];
 };
 
+export type SourceAccessPolicy = { schema_version: "wiki_source_access.v1"; expected_identity: string; coordinator: string; executor: string; requested_scopes: string[] };
+export type SourceAccess = {
+  schema_version: "wiki_source_access.v1"; binding_sha256: string; status: string; verified: boolean;
+  expected_identity: string; confirmed_identity: string; coordinator: string; executor: string;
+  requested_scopes: string[]; granted_scopes: string[]; checked_at: string; valid_until: string;
+  evidence_ref: string; error_code: string; execution_ready: false; business_authority: "unknown";
+};
 export type SourceEntity = {
   source_id: string;
   path: string;
@@ -730,6 +737,8 @@ export type SourceEntity = {
   // Rich config (recipe v2): the auth POINTER (never a value), the schedule, and
   // days until the next scheduled sync (negative = overdue).
   auth?: { method: string; ref: string; scopes: string[]; note: string } | null;
+  access_policy?: SourceAccessPolicy | null;
+  access?: SourceAccess;
   schedule?: { mode: string; cadence_days: number; cron_hint: string } | null;
   next_due_days?: number | null;
 };
@@ -780,6 +789,7 @@ export type SourceInventoryDiff = {
   fingerprint: string;
 };
 export type SourceOperationPreview = {
+  access?: SourceAccess;
   ok: boolean;
   error?: string;
   schema_version?: string;
@@ -802,6 +812,7 @@ export type SourceOperationPreview = {
   steps?: { id: string; label: string; status: string }[];
 };
 export type SourceOperationReceipt = {
+  access?: SourceAccess;
   ok?: boolean;
   error?: string;
   operation_id: string;
@@ -1073,6 +1084,7 @@ export type IngestionStage = {
 };
 
 export type IngestionPlan = {
+  action_preview?: { status: string; reason: string; execution_ready: false; writes: false; task_ref?: { repo_id: string; action_id: string } | null; preview_key?: string; owner_ref?: string; coordinator?: string; blockers?: string[]; source_checks?: Record<string, string> };
   ok: boolean;
   source: string;
   context: string;

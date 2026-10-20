@@ -269,6 +269,11 @@ export function SourceDock({
     (refreshPreview?.execution?.requires_agent && (!connectorReady || !agentReady))
   );
   const updateRoute = refreshPreview?.execution ?? source.update_route;
+  const retainedAccess = receipts.find((r) => r.access?.binding_sha256 === source.access?.binding_sha256)?.access;
+  // Retained receipts show the historical cut; a new view requires a fresh
+  // probe before presenting verified access (including after a lost denial).
+  const displayedAccess = refreshPreview?.access ?? refreshReceipt?.access ??
+    (retainedAccess ? { ...retainedAccess, status: "unknown", verified: false } : source.access);
   const selectedAgentName = agentPreference === "claude" ? "Claude" : "Codex";
   const showAgentChoice = updateRoute ? Boolean(updateRoute.requires_agent) : true;
   const refreshPanelKind = updateRoute?.mode === "script"
@@ -598,7 +603,10 @@ export function SourceDock({
               agentCapabilitiesKnown={Boolean(agentCapabilities)}
               agentReady={agentReady}
               connectorReady={connectorReady}
-              liveAccessVerified={Boolean(refreshPreview?.ok && refreshPreview.execution?.mode === "deterministic_connector")}
+              access={displayedAccess}
+              probeFailed={Boolean(operationError)}
+              onConfigure={() => setSection("configure")}
+              onRevalidate={!demo && !operationBusy && updateRoute?.mode === "deterministic_connector" && onPreviewRefresh ? () => void inspectRefresh() : undefined}
             />
             <div className="sourceUpdateRoute">
               <div>
@@ -787,6 +795,17 @@ export function SourceDock({
                 <input type="number" min="1" max="3650" value={sourceDraft.scheduleCadenceDays} disabled={sourceDraft.scheduleMode !== "recurring"} onChange={(event) => setSourceDraft({ ...sourceDraft, scheduleCadenceDays: event.target.value })} />
                 <small>{sourceDraft.scheduleMode === "recurring" ? t("source.configure.cadenceRecurringHint") : t("source.configure.cadenceDisabledHint")}</small>
               </label>
+              <fieldset className="sourceConfigWide sourceAccessFields">
+                <legend>{t("source.auth.accessTitle")}</legend>
+                <p>{t("source.access.metadataOnly")}</p>
+                {(["expected_identity", "coordinator", "executor", "requested_scopes"] as const).map((field) => <label key={field}>
+                  <span>{t(`source.access.field.${field}`)}</span>
+                  <input value={field === "requested_scopes" ? (sourceDraft.access?.requested_scopes ?? []).join(", ") : sourceDraft.access?.[field] ?? ""} onChange={(event) => setSourceDraft({ ...sourceDraft, access: {
+                    schema_version: "wiki_source_access.v1", expected_identity: "", coordinator: "", executor: "", requested_scopes: [], ...sourceDraft.access,
+                    [field]: field === "requested_scopes" ? event.target.value.split(",").map((s) => s.trim()).filter(Boolean) : event.target.value
+                  } })} />
+                </label>)}
+              </fieldset>
               <div className="sourceConfigWide sourcePreviewAction">
                 <button className="btn btn--run" type="submit" disabled={demo || operationBusy}>
                   {operationBusy ? <Loader2 className="sourceSpin" size={14} aria-hidden /> : <ClipboardCheck size={14} aria-hidden />}

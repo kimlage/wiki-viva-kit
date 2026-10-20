@@ -93,6 +93,7 @@ export function useSourceOperations({
       return;
     }
     setSourceDraft({
+      access: source.access_policy ?? undefined,
       sourceKind: source.source_kind || "collection",
       scheduleMode: (source.schedule?.mode as SourceDraft["scheduleMode"]) || "on_demand",
       scheduleCadenceDays: String(source.schedule?.cadence_days ?? 0)
@@ -100,7 +101,7 @@ export function useSourceOperations({
     setOperationPreview(null);
     setOperationTargetId("");
     setOperationError("");
-  }, [source?.source_id, source?.source_kind, source?.schedule?.mode, source?.schedule?.cadence_days]);
+  }, [source?.source_id, source?.source_kind, source?.schedule?.mode, source?.schedule?.cadence_days, source?.access?.binding_sha256]);
 
   useEffect(() => {
     if (!source?.source_id || demo || !onListReceipts) {

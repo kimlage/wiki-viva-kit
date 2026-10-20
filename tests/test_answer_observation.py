@@ -109,6 +109,36 @@ def test_http_answer_calls_real_cli_once_after_commit_and_unblocks_fixture(app, 
     assert len(_parse_document(p.read_text())[0]["action_dialogue"]) == 2
 
 
+def test_owned_temp_directory_alias_is_canonical_for_strict_real_cli(app, tmp_path, monkeypatch):
+    """Actual local HTTP/CLI, fictional consumer; reproduces macOS /var alias.
+
+    No Hermes runtime, account or model is imported. The consumer keeps its
+    strict no-alias, no-symlink,0600 checks; only producer-owned temp is resolved.
+    """
+    import wiki_core.answer_observation as producer
+    root, page, request, _ = setup(app)
+    script = root / "fixture_observer.py"
+    text = script.read_text().replace("e=json.loads(pathlib.Path(a.event_file).read_text());root=pathlib.Path.cwd()",
+        "file=pathlib.Path(a.event_file)\nassert file.resolve()==file\nassert not file.is_symlink()\nassert __import__('stat').S_IMODE(file.stat().st_mode)==0o600\n"
+        "e=json.loads(file.read_text());root=pathlib.Path.cwd()")
+    script.write_text(text)
+    real = tmp_path / "real-temp"; real.mkdir()
+    alias = tmp_path / "temp-alias"; alias.symlink_to(real, target_is_directory=True)
+    temporary = producer.tempfile.TemporaryDirectory
+    def aliased_directory(*args, **kwargs):
+        kwargs["dir"] = str(alias)
+        return temporary(*args, **kwargs)
+    monkeypatch.setattr(producer.tempfile, "TemporaryDirectory", aliased_directory)
+    status, result = app.post("/api/actions/transition", request, attempt_key="aliased-owned-temp")
+    assert status == 200 and result["answer_observation"]["status"] == "delivered", result
+    assert result["answer_observation"]["answer_committed"]
+    before = page.read_bytes()
+    repeated = app.post("/api/actions/transition", request, attempt_key="aliased-owned-temp")
+    assert repeated[1]["replayed"] and page.read_bytes() == before
+    assert json.loads((root / "fixture_task.json").read_text())["seen"] == ["answer-fixture-one"]
+    assert alias.is_symlink() and not list(real.iterdir())
+
+
 def test_reconciliation_uses_canonical_event_and_only_retained_receipt_id(app):
     root, p, request, _ = setup(app)
     status, result = app.post("/api/actions/transition", request)
