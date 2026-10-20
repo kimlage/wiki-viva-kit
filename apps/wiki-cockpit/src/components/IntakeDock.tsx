@@ -5,14 +5,14 @@
 // with Codex. The already-added catalog is NOT an inbox; it lives in the
 // Districts view (raw data). Everything t()'d EN+PT.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FilePlus, Sparkles, X } from "lucide-react";
 import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import { t } from "../data/i18n";
 import { contextLabel } from "../data/presentation";
 import { contextsOf } from "../data/creation";
 import { composeInstruments } from "../data/surfaces";
-import type { BriefSpec, SnapshotBundle } from "../types";
+import type { BriefSpec, SnapshotBundle, IngestionPlan } from "../types";
 import type { OperatorPort } from "../application/ports";
 
 export function IntakeDock({
@@ -20,6 +20,7 @@ export function IntakeDock({
   initialSrc,
   demo = false,
   intakeCopy,
+  buildIngestionPlan,
   onComposeBrief,
   onOpenCreate,
   onNotice,
@@ -29,6 +30,7 @@ export function IntakeDock({
   initialSrc?: string;
   demo?: boolean;
   intakeCopy: OperatorPort["intakeCopy"];
+  buildIngestionPlan?: OperatorPort["buildIngestionPlan"];
   onComposeBrief?: (spec: BriefSpec) => void;
   onOpenCreate?: () => void;
   onNotice: (text: string) => void;
@@ -41,6 +43,20 @@ export function IntakeDock({
   const [context, setContext] = useState(contexts[0] ?? "system");
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<{ path: string; context: string } | null>(null);
+  const [plan, setPlan] = useState<IngestionPlan | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const previewRevision = useRef(0);
+  const preview = async () => {
+    if (demo || !src.trim() || !buildIngestionPlan || previewBusy) return;
+    const revision = ++previewRevision.current;
+    setPreviewBusy(true); setPlan(null);
+    try {
+      const result = await buildIngestionPlan(src.trim(), context);
+      if (revision === previewRevision.current) setPlan(result);
+    } catch {
+      if (revision === previewRevision.current) onNotice(t("source.operation.failed"));
+    } finally { setPreviewBusy(false); }
+  };
 
   const add = async () => {
     if (demo || !src.trim() || busy) return;
@@ -77,14 +93,14 @@ export function IntakeDock({
           <span>{t("intake.path")}</span>
           <input
             value={src}
-            onChange={(event) => setSrc(event.target.value)}
+            onChange={(event) => { setSrc(event.target.value); previewRevision.current++; setPlan(null); }}
             placeholder={t("intake.pathPlaceholder")}
             spellCheck={false}
           />
         </label>
         <label className="intakeField">
           <span>{t("intake.context")}</span>
-          <select value={context} onChange={(event) => setContext(event.target.value)}>
+          <select value={context} onChange={(event) => { setContext(event.target.value); previewRevision.current++; setPlan(null); }}>
             {contexts.map((ctx) => (
               <option key={ctx} value={ctx}>
                 {contextLabel(ctx)}
@@ -94,6 +110,7 @@ export function IntakeDock({
         </label>
 
         <div className="dockActions">
+          {buildIngestionPlan && <button type="button" className="secondaryButton" disabled={demo || !src.trim() || previewBusy} onClick={() => void preview()}>{t("intake.actionPreview")}</button>}
           <button
             className="primaryButton"
             onClick={add}
@@ -106,6 +123,18 @@ export function IntakeDock({
             <span>{busy ? t("intake.adding") : t("intake.add")}</span>
           </button>
         </div>
+        {plan?.action_preview && <section className="sourceAuthorizationCard" aria-label={t("intake.actionPreview")}>
+          <strong>{t(`intake.preview.${plan.action_preview.status}`)}</strong>
+          <p>{t("intake.preview.boundary")}</p>
+          <dl>
+            <dt>{t("intake.preview.target")}</dt><dd>{plan.action_preview.task_ref?.action_id || t("source.access.unknown")}</dd>
+            <dt>{t("intake.preview.owner")}</dt><dd>{plan.action_preview.owner_ref || t("source.access.unknown")}</dd>
+            <dt>{t("source.access.coordinator")}</dt><dd>{plan.action_preview.coordinator || t("source.access.unknown")}</dd>
+          </dl>
+          {Boolean(plan.action_preview.blockers?.length) && <p>{plan.action_preview.blockers?.join(", ")}</p>}
+          {Object.entries(plan.action_preview.source_checks ?? {}).map(([key, value]) => <p key={key}>{key}: {value === "unknown" ? t("source.access.unknown") : value}</p>)}
+          <details><summary>{t("source.access.error")}</summary>{plan.action_preview.reason}</details>
+        </section>}
 
         {added && (
           <div className="intakeResult">

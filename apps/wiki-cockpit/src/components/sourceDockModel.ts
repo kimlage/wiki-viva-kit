@@ -1,5 +1,5 @@
 import { t } from "../data/i18n";
-import type { SourceEntity } from "../types";
+import type { SourceEntity, SourceAccessPolicy } from "../types";
 import type { DockTelemetryItem } from "./DockTelemetryRail";
 
 export type SourceSection = "records" | "update" | "configure" | "history";
@@ -16,6 +16,7 @@ export type StreamDraft = {
 };
 
 export type SourceDraft = {
+  access?: SourceAccessPolicy;
   sourceKind: "item" | "collection" | "account" | "endpoint" | "repository";
   scheduleMode: "one_shot" | "on_demand" | "recurring" | "event_driven";
   scheduleCadenceDays: string;
@@ -249,11 +250,13 @@ export function collectSourceUpdates(source: SourceEntity | undefined, draft: So
   if (!source) return {};
   const cadence = draft.scheduleMode === "recurring" ? Number(draft.scheduleCadenceDays || 0) : 0;
   const values: Record<string, unknown> = {
+    ...(draft.access ? { access: draft.access } : {}),
     source_kind: draft.sourceKind,
     schedule_mode: draft.scheduleMode,
     schedule_cadence_days: cadence
   };
   const current: Record<string, unknown> = {
+    access: source.access_policy,
     source_kind: source.source_kind || "collection",
     schedule_mode: source.schedule?.mode || "on_demand",
     schedule_cadence_days: source.schedule?.cadence_days ?? 0

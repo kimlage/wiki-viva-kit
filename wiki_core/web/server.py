@@ -1749,7 +1749,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 self._send_error("missing source", status=HTTPStatus.BAD_REQUEST)
                 return
             if parsed.path == "/api/ingestion/plan":
-                result = build_ingestion_plan(self.server.root, self.server.config, source, context=context)
+                result = build_ingestion_plan(self.server.root, self.server.config, source, context=context, snapshot=self.server.snapshot_payloads())
                 self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
                 return
             step_id = str(payload.get("step_id") or "")

@@ -28,6 +28,7 @@ SOURCE_RECIPE_SAFETY_ERROR_CODE = "source_recipe_secret_detected"
 SOURCE_RECIPE_STRUCTURE_ERROR_CODES = frozenset(
     {
         "source_recipe_auth_invalid",
+        "source_recipe_access_invalid",
         "source_recipe_auth_scopes_invalid",
         "source_recipe_ingest_invalid",
         "source_recipe_ingest_argv_invalid",
@@ -58,8 +59,8 @@ _RECIPE_BLOCK_RE = re.compile(r"```ya?ml\n(.*?)\n```", re.S)
 @dataclass(frozen=True)
 class AuthPointer:
     """A POINTER to where the operator's credential lives — never the secret. The
-    agent reads the token from this location at ingest time; the wiki only records
-    where to look. validate_recipe's secret scan rejects a pasted token."""
+    consumer adapter resolves the locator through its supported authentication
+    mechanism. The locator itself grants no access. Secret scans reject tokens."""
 
     method: str  # env | keychain | onepassword | oauth_file | mcp | none
     ref: str  # e.g. an env var name, a keychain item, an MCP server id
@@ -110,6 +111,11 @@ class SourceRecipe:
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
     def to_json(self) -> dict[str, Any]:
+        from wiki_core.source_config import source_access_metadata
+        try:
+            access = source_access_metadata(self.raw.get("access"))
+        except ValueError:
+            access = {}
         return {
             "schema_version": self.schema_version,
             "platform": self.platform,
@@ -130,6 +136,7 @@ class SourceRecipe:
                 for s in self.streams
             ],
             "how_to_export": self.how_to_export,
+            **({"access": access} if access else {}),
             "ingest": {"argv": list(self.ingest_argv), "mcp_hint": self.mcp_hint},
             "refresh": {"argv": list(self.refresh_argv)},
             "auth": (
@@ -330,6 +337,11 @@ def validate_recipe(recipe: SourceRecipe) -> list[str]:
         return [SOURCE_RECIPE_SAFETY_ERROR_CODE]
 
     errors: list[str] = list(recipe.structural_error_codes)
+    from wiki_core.source_config import source_access_metadata
+    try:
+        source_access_metadata(recipe.raw.get("access"))
+    except ValueError:
+        errors.append("source_recipe_access_invalid")
     if recipe.platform and recipe.platform not in PLATFORMS:
         errors.append(f"unknown platform `{recipe.platform}` (use {sorted(PLATFORMS)})")
     if not recipe.locator:
@@ -414,6 +426,10 @@ def _recipe_contains_secret(value: Any) -> bool:
     # provider additions (GitHub, Anthropic, Stripe, connection URIs, etc.)
     # automatically protect recipes too. Any unserializable/non-finite value is
     # refused here rather than allowed into a downstream payload by accident.
+    auth = value.get("auth") if isinstance(value, dict) else None
+    ref = auth.get("ref") if isinstance(auth, dict) else None
+    if isinstance(ref, str) and (_URLish_RE.search(ref) or re.search(r"\b(?:bearer|basic)\s+\S+|[?&](?:code|state|token)=|[\r\n]", ref, re.I)):
+        return True
     try:
         serialized = json.dumps(
             value,

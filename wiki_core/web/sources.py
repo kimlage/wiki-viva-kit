@@ -376,7 +376,7 @@ def _source_record(
         else "manual_export"
     )
 
-    return {
+    record = {
         "source_id": source_id,
         "path": rel,
         "title": str(values.get("title") or source_id),
@@ -473,6 +473,11 @@ def _source_record(
         "schedule": recipe_json.get("schedule") or None,
         "next_due_days": next_due_days,
     }
+    from wiki_core.source_config import project_source_access
+    if recipe_json.get("access"):
+        record["access_policy"] = recipe_json["access"]
+        record["access"] = project_source_access(record)
+    return record
 
 
 def build_sources_payload(

@@ -27,6 +27,7 @@ from wiki_core.source_recipe import extract_recipe_mapping, parse_recipe, valida
 from wiki_core.source_schedule import SCHEDULE_MODES, SOURCE_KINDS
 from wiki_core.web.sources import build_sources_payload
 from wiki_core.web.commands import SECRET_VALUE_RE
+from wiki_core.source_config import project_source_access, source_access_metadata
 
 SOURCE_OPERATION_SCHEMA_VERSION = "wiki_source_operation.v1"
 SOURCE_INVENTORY_SCHEMA_VERSION = "wiki_source_inventory.v1"
@@ -43,7 +44,7 @@ _ALLOWED_UPDATES = {
     "target_pages",
     "processing_state",
 }
-_ALLOWED_SOURCE_UPDATES = {"source_kind", "schedule_mode", "schedule_cadence_days"}
+_ALLOWED_SOURCE_UPDATES = {"source_kind", "schedule_mode", "schedule_cadence_days", "access"}
 
 
 def _now() -> str:
@@ -52,6 +53,16 @@ def _now() -> str:
 
 def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _redacted_output(value: str, limit: int = 200_000) -> str:
+    """Diagnostics never retain login URLs, bearer material or known secrets."""
+    value = re.sub(r"https?://[^\s\"<>]+", lambda m: "[REDACTED_URL]" if "?" in m[0] or "@" in m[0].split("://", 1)[-1].split("/", 1)[0] else m[0], value, flags=re.I)
+    value = re.sub(r"\bbearer\s+\S+", "Bearer [REDACTED]", value, flags=re.I)
+    value = SECRET_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}[REDACTED]", value)
+    if any(f.category == "secret" for f in scan_text(value)):
+        return "[REDACTED_SECRET_OUTPUT]"
+    return value[:limit]
 
 
 def _safe_repo_file(root: Path, relative: str) -> Path:
@@ -138,6 +149,8 @@ def _normalize_source_updates(updates: Any) -> dict[str, Any]:
     if unknown:
         raise ValueError("source_operation_unknown_field:" + ",".join(unknown))
     out: dict[str, Any] = {}
+    if "access" in updates:
+        out["access"] = source_access_metadata(updates["access"])
     if "source_kind" in updates:
         source_kind = str(updates["source_kind"]).strip()
         if source_kind not in SOURCE_KINDS:
@@ -176,12 +189,15 @@ def _patched_recipe(recipe: dict[str, Any], stream_id: str, updates: dict[str, A
             schedule = {"mode": "on_demand", "cadence_days": 0}
             copied["schedule"] = schedule
         before = {
+            "access": copied.get("access") or {},
             "source_kind": str(copied.get("source_kind") or ""),
             "schedule_mode": str(schedule.get("mode") or ""),
             "schedule_cadence_days": int(schedule.get("cadence_days") or 0),
         }
         for key, value in updates.items():
-            if key == "source_kind":
+            if key == "access":
+                copied["access"] = value
+            elif key == "source_kind":
                 copied["source_kind"] = value
             elif key == "schedule_mode":
                 schedule["mode"] = value
@@ -190,6 +206,7 @@ def _patched_recipe(recipe: dict[str, Any], stream_id: str, updates: dict[str, A
             elif key == "schedule_cadence_days":
                 schedule["cadence_days"] = value
         after = {
+            "access": copied.get("access") or {},
             "source_kind": str(copied.get("source_kind") or ""),
             "schedule_mode": str(schedule.get("mode") or ""),
             "schedule_cadence_days": int(schedule.get("cadence_days") or 0),
@@ -722,6 +739,7 @@ def preview_source_refresh(
     argv: list[str] = []
     discovery: dict[str, Any] | None = None
     adapter_stderr = ""
+    access_observation = None
     raw: dict[str, Any] = {
         "scope": "source",
         "source_kind": source.get("source_kind"),
@@ -752,6 +770,7 @@ def preview_source_refresh(
             config_ref=str(source.get("config_ref") or ""),
         )
         payload, adapter_stderr = _run_refresh_adapter(argv, root=root)
+        access_observation = payload.get("access_probe") if isinstance(payload, dict) else None
         inventory = _normalize_inventory(
             payload,
             source_id=source_id,
@@ -778,6 +797,8 @@ def preview_source_refresh(
         "discovery_sha256": discovery.get("fingerprint") if discovery else "",
     }
     token = _sha(json.dumps(token_material, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
+    access = project_source_access(source, access_observation)
+    access_blocked = bool(source.get("access_policy")) and not access["verified"]
     return {
         "ok": True,
         "schema_version": SOURCE_OPERATION_SCHEMA_VERSION,
@@ -790,22 +811,20 @@ def preview_source_refresh(
         "raw_path": normalized_raw_path,
         "raw_inventory": raw,
         "discovery": discovery,
+        "access": access,
         "execution": {
             "mode": mode,
             "argv": argv,
             "mcp_hint": recipe.mcp_hint,
             "how_to_export": recipe.how_to_export,
-            "runnable": mode in {"script", "deterministic_connector"},
+            "runnable": mode in {"script", "deterministic_connector"} and not access_blocked,
             "requires_agent": mode == "agent_connector",
-            "stderr": SECRET_VALUE_RE.sub(
-                lambda match: f"{match.group(1)}{match.group(2)}[REDACTED]",
-                adapter_stderr,
-            )[:20_000],
+            "stderr": _redacted_output(adapter_stderr, 20_000),
         },
         "steps": [
             {"id": "bind", "label": "Confirm source and collection scope", "status": "complete"},
             {"id": "inventory", "label": "Inventory the whole source and detect record changes", "status": "complete"},
-            {"id": "execute", "label": "Apply selected inventory records" if mode == "deterministic_connector" else "Run the allowlisted ingestion script", "status": "ready" if mode in {"script", "deterministic_connector"} else "delegated" if mode == "agent_connector" else "blocked"},
+            {"id": "execute", "label": "Apply selected inventory records" if mode == "deterministic_connector" else "Run the allowlisted ingestion script", "status": "blocked" if access_blocked else "ready" if mode in {"script", "deterministic_connector"} else "delegated" if mode == "agent_connector" else "blocked"},
             {"id": "review", "label": "Review emitted event and file diff", "status": "pending"},
             {"id": "receipt", "label": "Persist execution receipt", "status": "pending"},
         ],
@@ -827,6 +846,8 @@ def run_source_refresh(
     mode = str(preview.get("execution", {}).get("mode") or "")
     if mode not in {"script", "deterministic_connector"}:
         raise ValueError("source_refresh_requires_agent_or_manual_export")
+    if not preview["execution"].get("runnable"):
+        raise ValueError("source_refresh_access_not_verified")
     if not preview_token or preview_token != preview["preview_token"]:
         raise ValueError("source_operation_preview_stale")
     if mode == "deterministic_connector":
@@ -884,6 +905,7 @@ def run_source_refresh(
             "stdout": "",
             "stderr": preview.get("execution", {}).get("stderr") or "",
             "status": status,
+            "access": preview["access"],
             "changes": changes,
             "discovery": discovery,
             "selected_external_ids": sorted(selected),
@@ -929,7 +951,7 @@ def run_source_refresh(
         stdout = completed.stdout
         stderr = completed.stderr
         returncode = completed.returncode
-    redact = lambda value: SECRET_VALUE_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}[REDACTED]", value)[:200_000]
+    redact = _redacted_output
     operation_id = "sop-" + uuid.uuid4().hex[:12]
     receipt = {
         "schema_version": SOURCE_OPERATION_SCHEMA_VERSION,
