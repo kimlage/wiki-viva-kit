@@ -81,16 +81,27 @@ def review_records(current, base, changed, contract, *, targets, artifact_inputs
             presence[document(graph, prerequisite)][origin]["incoming_variants"] += 1
         if premise:
             presence[document(graph, dependent)][origin]["own_premise_variants"] += 1
+        context_paths = {item["raw"]["path"], document(graph, prerequisite),
+                         document(graph, dependent)}
         for relation in [item["raw"], item["before"], *item["projected"]]:
             for key in ("source", "target"):
                 endpoint = relation[key]
                 if endpoint in graph["nodes"]:
-                    nodes[origin][endpoint] = _metadata(graph["nodes"][endpoint])
+                    values = graph["nodes"][endpoint]
+                    nodes[origin][endpoint] = _metadata(values)
+                    # Structured evidence has a synthetic endpoint. Its verified
+                    # parent text is still needed to review the event's meaning.
+                    evidence_source = values.get("evidence_source")
+                    if (endpoint.startswith("evidence::")
+                            and values.get("immutable_evidence") is True
+                            and isinstance(evidence_source, dict)):
+                        parent = evidence_source.get("document")
+                        if isinstance(parent, str):
+                            context_paths.add(parent)
         # Full author/source context remains available for focal reading; the
         # line/section/field in each occurrence identifies the assertion. A hash
         # or local snippet alone cannot approve its semantics.
-        for path in sorted({item["raw"]["path"], document(graph, prerequisite),
-                            document(graph, dependent)}):
+        for path in sorted(context_paths):
             text = originals[origin]["documents"].get(path)
             if text is not None:
                 documents[origin][path] = dict(sha256=digest(text), text=text)
