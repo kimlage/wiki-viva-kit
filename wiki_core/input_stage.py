@@ -874,5 +874,9 @@ def existing_generated_at(paths: WikiPaths) -> str | None:
         except json.JSONDecodeError:
             return None
         if isinstance(data, dict):
-            return str(data.get("generated_at") or "") or None
+            date_text = data.get("generated_at")
+            try:
+                return date_text if isinstance(date_text, str) and dt.date.fromisoformat(date_text).isoformat() == date_text else None
+            except ValueError:
+                return None
     return None

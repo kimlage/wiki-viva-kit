@@ -1352,3 +1352,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - Documented the [existing v1 composition](../../docs/references/guides/software-change-records.md) in the [portable skill](../../.skills/wiki-viva/SKILL.md): canonical rules retain dates, limits and real factual support; historical origins and recording destinations require exact per-origin review.
 - The [composite synthetic case](../../tests/test_software_change_records.py) covers two new records, inherited metadata/introduction, rule contexts and six old obligation occurrences. Negative controls retain stale rules/facts, real financial claims and actual-change propagation. It does not establish closure of a consumer wiki or activate execution.
 - The [input-stage CLI](../../scripts/wiki_input_stage.py) emits a verified JSON catalog at its own generation date after a hidden-model change. [Regression tests](../../tests/test_input_stage.py) reject mismatching/malformed caches and retain read-only Markdown behavior. No graph schema or evaluator behavior changed.
+
+## [2026-10-19] system | Validate cache dates without Markdown
+
+- The [input-stage reader](../../wiki_core/input_stage.py) accepts only canonical ISO dates from an existing JSON catalog when Markdown is absent. Invalid dates fall back to the current compilation date. [Regressions](../../tests/test_input_stage.py) cover invalid strings, integers and valid retained dates while preserving stored bytes.
+- The [single-page HTTP regression](../../tests/test_web_server.py) resolves the existing configured action template and overlay, with an isolated synthetic output directory. Localized consumer paths use the same creation, editing, idempotency and stale-CAS assertions.

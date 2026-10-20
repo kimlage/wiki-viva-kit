@@ -1746,16 +1746,32 @@ profiles:
 def test_board_single_page_create_edit_move_and_stale_cas(tmp_path: Path) -> None:
     """A real HTTP/file flow: no task DB, no runtime, no synthetic save stub."""
     import shutil
+    import yaml
     from wiki_core.action_transition import action_transition_diagnostics, _render_document
     from wiki_core.page_creation import _render_errors
     from wiki_core.page_types import load_page_type_registry
+    from wiki_core.templates import resolve_template
 
     config = _repo(tmp_path)
     kit = Path(__file__).resolve().parents[1]
-    shutil.copy2(kit / "wiki.page-types.yaml", tmp_path / "wiki.page-types.yaml")
-    template = Path("docs/references/templates/wiki/action.md")
+    # Reuse the consumer's configured template; only the isolated output
+    # directory belongs to this synthetic HTTP fixture.
+    resolved = resolve_template(kit, load_config(kit), load_page_type_registry(kit), "action")
+    registry = yaml.safe_load((kit / "wiki.page-types.yaml").read_text())
+    registry["page_types"]["action"]["allowed_dirs"] = ["memories/actions"]
+    registry["page_types"]["action"]["template"] = resolved.template_path
+    (tmp_path / "wiki.page-types.yaml").write_text(yaml.safe_dump(registry, sort_keys=False))
+    template = Path(resolved.template_path)
     (tmp_path / template.parent).mkdir(parents=True)
     shutil.copy2(kit / template, tmp_path / template)
+    if resolved.overlay_path:
+        overlay = Path(resolved.overlay_path)
+        (tmp_path / overlay.parent).mkdir(parents=True, exist_ok=True)
+        shutil.copy2(kit / overlay, tmp_path / overlay)
+        fixture_config = yaml.safe_load((tmp_path / "wiki.config.yaml").read_text())
+        fixture_config["templates"] = {"page_type_overrides": {"action": {"overlay": resolved.overlay_path}}}
+        (tmp_path / "wiki.config.yaml").write_text(yaml.safe_dump(fixture_config, sort_keys=False))
+        config = load_config(tmp_path)
     server = _Server(tmp_path, config)
     try:
         status, options = server.get("/api/actions/create")
