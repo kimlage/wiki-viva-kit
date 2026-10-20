@@ -84,6 +84,17 @@ def test_missing_binding_and_new_card_are_unexecuted_proposals():
     assert not result["execution_ready"]
 
 
+def test_missing_action_with_existing_revision_is_reconciled_without_a_new_target():
+    values = inputs(); baseline = compose(values)
+    values[3].clear()
+    before = copy.deepcopy(values)
+    result = compose(values)
+    assert result["status"] == "reconcile" and result["reason"] == "bound_action_missing"
+    assert result["task_ref"] == baseline["task_ref"] and result["preview_key"] == baseline["preview_key"]
+    assert not result["writes"] and not result["execution_ready"]
+    assert compose(values) == result and values == before
+
+
 def test_real_manifest_template_creation_and_coordination_feed_existing_plan(tmp_path):
     root = fixture(tmp_path)
     cfg = load_config(root)
@@ -109,4 +120,17 @@ def test_real_manifest_template_creation_and_coordination_feed_existing_plan(tmp
     assert first["action_preview"]["task_ref"]["action_id"] == created["page_id"]
     assert {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()} == original
     assert action.read_bytes() == original[created["page_ref"]]
+    # A legitimate removal also removes the profile's reference. The older
+    # source binding still names its prior revision and must not resurrect it.
+    action.unlink()
+    (root / "wiki.coordination.yaml").write_text(yaml.safe_dump({"schema_version": "wiki_coordination.v1", "profiles": {
+        "research": {"label": "Research", "scope": "Fictional local review", "action_ids": []}}}))
+    after_removal = {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+    missing_action = copy.deepcopy(snapshot)
+    missing_action["pages.json"]["pages"] = []
+    absent = build_ingestion_plan(root, cfg, event_path, context="example", snapshot=missing_action)["action_preview"]
+    assert absent["status"] == "reconcile" and absent["reason"] == "bound_action_missing"
+    assert absent["task_ref"] == first["action_preview"]["task_ref"]
+    assert not absent["writes"] and not absent["execution_ready"]
+    assert {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()} == after_removal
     assert build_ingestion_plan(root, cfg, event_path)["action_preview"]["reason"] == "canonical_snapshot_required"

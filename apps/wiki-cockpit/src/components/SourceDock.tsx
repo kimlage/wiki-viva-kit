@@ -751,7 +751,7 @@ export function SourceDock({
           </section>
         )}
 
-        {section === "configure" && selectedStream && (
+        {section === "configure" && (
           <section className="sourceOperationWorkspace" aria-label={t("source.configure.title")}>
             <header className="sourceOperationHeader">
               <span className="sourceOperationIcon"><Settings2 size={18} aria-hidden /></span>
@@ -814,6 +814,7 @@ export function SourceDock({
                 </button>
               </div>
             </form>
+            {selectedStream && <>
             <div className="sourceSelectedContext">
               <span>
                 <small>{t("source.record.eyebrow")}</small>
@@ -868,6 +869,7 @@ export function SourceDock({
                 <small>{t("source.configure.previewHint")}</small>
               </div>
             </form>
+            </>}
             {operationError && (
               <p className="sourceOperationError"><AlertTriangle size={14} aria-hidden /> {operationError}</p>
             )}

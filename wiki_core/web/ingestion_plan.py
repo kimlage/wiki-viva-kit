@@ -61,6 +61,8 @@ def compose_event_action_preview(event_path: str, event: dict[str, Any], manifes
         return {**result, "status": "reconcile", "reason": "event_revision_changed"}
     matches = [a for a in actions if a.get("action_id") == binding["action_id"]]
     if not matches:
+        if binding["action_sha256"]:
+            return {**result, "status": "reconcile", "reason": "bound_action_missing"}
         return {**result, "status": "propose", "reason": "new_card_requires_review_and_route", "blockers": ["coordinator_binding_pending"]}
     if len(matches) != 1:
         return {**result, "status": "conflict", "reason": "ambiguous_action"}

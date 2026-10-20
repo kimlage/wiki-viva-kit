@@ -954,6 +954,28 @@ describe("SourceDock honest edges (§19.6)", () => {
     expect(preview).toHaveBeenCalledTimes(2);
   });
 
+  it("configures a valid empty source before discovering any records", async () => {
+    const access = { schema_version: "wiki_source_access.v1", expected_identity: "reader@example.test",
+      coordinator: "research", executor: "fixture-executor", requested_scopes: ["read"] };
+    const preview = vi.fn().mockResolvedValue({ ok: true, preview_token: "empty-source-preview", updates: { access }, changes: [] });
+    const receipt: SourceOperationReceipt = { ok: true, operation_id: "empty-source-configuration", source_id: "source-gmail",
+      stream_id: "__source__", changes: [], recorded_at: "2026-10-20T12:00:00Z", status: "applied" };
+    const apply = vi.fn().mockResolvedValue(receipt);
+    render(<SourceDock bundle={bundleWith(sourceFixture({ streams: [], pending_streams: 0 }))}
+      sourceId="source-gmail" onPreviewConfiguration={preview} onApplyConfiguration={apply} onNotice={noop} onClose={noop} />);
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    fireEvent.change(screen.getByLabelText("Expected account"), { target: { value: access.expected_identity } });
+    fireEvent.change(screen.getByLabelText("Context coordinator"), { target: { value: access.coordinator } });
+    fireEvent.change(screen.getByLabelText("Declared executor"), { target: { value: access.executor } });
+    fireEvent.change(screen.getByLabelText("Requested scopes (comma separated)"), { target: { value: "read" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review source settings" }));
+    await waitFor(() => expect(preview).toHaveBeenCalledWith("source-gmail", "__source__", { access }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and apply" }));
+    await waitFor(() => expect(apply).toHaveBeenCalledWith("source-gmail", "__source__", { access }, "empty-source-preview"));
+    await screen.findByText("empty-source-configuration");
+    expect(screen.queryByText("Access verified")).toBeNull();
+  });
+
   it("says when a source is not in the snapshot", () => {
     render(<SourceDock bundle={bundleWith(null)} sourceId="ghost" onNotice={noop} onClose={noop} />);
     expect(screen.getByText("Source `ghost` is not in this snapshot.")).toBeTruthy();
