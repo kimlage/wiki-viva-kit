@@ -91,9 +91,13 @@ def review_records(current, base, changed, contract, *, targets, artifact_inputs
                     nodes[origin][endpoint] = _metadata(values)
                     # Structured evidence has a synthetic endpoint. Its verified
                     # parent text is still needed to review the event's meaning.
-                    parent = values.get("evidence_source", {}).get("document")
-                    if parent is not None:
-                        context_paths.add(parent)
+                    evidence_source = values.get("evidence_source")
+                    if (endpoint.startswith("evidence::")
+                            and values.get("immutable_evidence") is True
+                            and isinstance(evidence_source, dict)):
+                        parent = evidence_source.get("document")
+                        if isinstance(parent, str):
+                            context_paths.add(parent)
         # Full author/source context remains available for focal reading; the
         # line/section/field in each occurrence identifies the assertion. A hash
         # or local snippet alone cannot approve its semantics.

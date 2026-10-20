@@ -59,6 +59,23 @@ def test_structured_evidence_includes_unlinked_parent_text_per_origin(repo, kind
     assert (base, current, contract) == before
 
 
+@pytest.mark.parametrize("metadata", [None, "ordinary annotation",
+                                      {"document": "memories/unrelated.md"}])
+@pytest.mark.parametrize("marker", [False, True])
+def test_ordinary_frontmatter_cannot_impersonate_evidence_context(repo, metadata, marker):
+    page(repo, "source", evidence_source=metadata, immutable_evidence=marker)
+    page(repo, "unrelated", body="Unrelated context must not be imported.")
+    log = page(repo, "log", body="# Log\n\n## Old\nPrior.\n\n")
+    base = graph(repo)
+    log.write_text(log.read_text() + "## New record\n[Source](source.md).\n")
+    current = graph(repo)
+    contract = declaration(base, current)
+    result = review_records(current, base, {"memories/log.md"}, contract,
+                            targets={"memories/log.md"})
+    assert "memories/source.md" in result["documents"]["current"]
+    assert "memories/unrelated.md" not in result["documents"]["current"]
+
+
 def test_trace_is_an_observer_and_does_not_mutate_inputs(repo):
     base, current, contract = setup_increment(repo, consumer=True)
     before = copy.deepcopy((current, base, contract))
