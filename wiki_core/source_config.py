@@ -17,6 +17,11 @@ ACCESS_SCHEMA = "wiki_source_access.v1"
 _ACCESS_FIELDS = {"schema_version", "expected_identity", "coordinator", "executor", "requested_scopes"}
 
 
+def _unsafe_access_label(value: str) -> bool:
+    # These are short identities/pointers, never a login URL or callback blob.
+    return bool(re.search(r"://|[?&#=]|\bbearer\s+", value, re.I))
+
+
 def source_access_metadata(value: Any) -> dict[str, Any]:
     """Consumer-owned declarations, never observed permissions or credentials."""
     if value is None or value == {}:
@@ -24,7 +29,7 @@ def source_access_metadata(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != _ACCESS_FIELDS or value.get("schema_version") != ACCESS_SCHEMA:
         raise ValueError("source_access_metadata_invalid")
     for key in ("expected_identity", "coordinator", "executor"):
-        if not isinstance(value[key], str) or not value[key].strip() or len(value[key]) > 240 or any(ord(c) < 32 for c in value[key]):
+        if not isinstance(value[key], str) or not value[key].strip() or len(value[key]) > 240 or any(ord(c) < 32 for c in value[key]) or _unsafe_access_label(value[key]):
             raise ValueError("source_access_metadata_invalid")
     scopes = value["requested_scopes"]
     if not isinstance(scopes, list) or len(scopes) > 32 or any(not isinstance(s, str) or not re.fullmatch(r"[\w:/.-]{1,240}", s) for s in scopes) or len(set(scopes)) != len(scopes):
@@ -76,6 +81,8 @@ def project_source_access(source: dict[str, Any], observation: Any = None, *, no
     for key in ("binding_sha256", "outcome", "confirmed_identity", "checked_at", "valid_until", "evidence_ref", "error_code"):
         if not isinstance(observation[key], str) or len(observation[key]) > 240 or any(ord(c) < 32 for c in observation[key]):
             return {**result, "status": "technical_blocked", "error_code": "invalid_probe"}
+        if _unsafe_access_label(observation[key]):
+            return {**result, "status": "technical_blocked", "error_code": "unsafe_probe"}
     if observation["binding_sha256"] != binding:
         return {**result, "status": "identity_mismatch", "error_code": "probe_subject_mismatch"}
     if observation["evidence_ref"] and (not re.fullmatch(r"[\w./:-]{1,240}", observation["evidence_ref"]) or "://" in observation["evidence_ref"]):

@@ -138,3 +138,15 @@ def test_probe_and_adapter_diagnostics_never_retain_login_material():
     assert marker not in redacted and "fictional-bearer-value" not in redacted and "?code" not in redacted
     result = project_source_access(source(), probe(confirmed_identity="Bearer fictional-bearer-value"), now=NOW)
     assert result["error_code"] == "unsafe_probe" and "fictional-bearer-value" not in str(result)
+
+
+@pytest.mark.parametrize("material", ["https://example.test/login?code=opaque&state=fixture", "code=opaque&state=fixture"])
+@pytest.mark.parametrize("outcome", ["verified", "awaiting_auth", "revoked"])
+def test_authorization_material_is_rejected_before_identity_projection(material, outcome):
+    from wiki_core.source_config import source_access_metadata
+    result = project_source_access(source(), probe(confirmed_identity=material, outcome=outcome), now=NOW)
+    assert result["status"] == "technical_blocked" and not result["verified"]
+    assert result["confirmed_identity"] == "" and material not in str(result)
+    for field in ["expected_identity", "coordinator", "executor"]:
+        with pytest.raises(ValueError, match="^source_access_metadata_invalid$"):
+            source_access_metadata({**policy(), field: material})

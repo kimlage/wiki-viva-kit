@@ -127,6 +127,7 @@ export function SourceDock({
     operationPreview,
     operationBusy,
     operationError,
+    accessProbeFailed,
     receipts,
     agentPreference,
     setAgentPreference,
@@ -604,7 +605,7 @@ export function SourceDock({
               agentReady={agentReady}
               connectorReady={connectorReady}
               access={displayedAccess}
-              probeFailed={Boolean(operationError)}
+              probeFailed={accessProbeFailed}
               onConfigure={() => setSection("configure")}
               onRevalidate={!demo && !operationBusy && updateRoute?.mode === "deterministic_connector" && onPreviewRefresh ? () => void inspectRefresh() : undefined}
             />

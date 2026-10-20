@@ -10,7 +10,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureLanguage } from "../data/i18n";
-import type { BriefSpec, SnapshotBundle, SourceEntity, SourceGroup, SourceGroupsOperationResult, SourceOperationPreview, SourceOperationReceipt } from "../types";
+import type { BriefSpec, SnapshotBundle, SourceAccess, SourceEntity, SourceGroup, SourceGroupsOperationResult, SourceOperationPreview, SourceOperationReceipt } from "../types";
 import { SourceDock } from "./SourceDock";
 import { SourceWorkspace } from "./SourceWorkspace";
 
@@ -913,6 +913,45 @@ describe("SourceDock honest edges (§19.6)", () => {
       schema_version: "wiki_source_access.v1", expected_identity: "reader@example.test", coordinator: "research", executor: "fixture-executor", requested_scopes: ["read"]
     } }));
     expect(screen.queryByText("Access verified")).toBeNull();
+  });
+
+  it.each(["throws", "failed_receipt"])("does not revive verified evidence after run %s and a metadata preview", async (failure) => {
+    const access: SourceAccess = { schema_version: "wiki_source_access.v1", binding_sha256: "a".repeat(64),
+      status: "configured", verified: false, expected_identity: "reader@example.test", confirmed_identity: "",
+      coordinator: "research", executor: "fixture-executor", requested_scopes: ["read"], granted_scopes: [],
+      checked_at: "", valid_until: "", evidence_ref: "", error_code: "", execution_ready: false, business_authority: "unknown" };
+    const verified: SourceAccess = { ...access, status: "verified", verified: true, confirmed_identity: access.expected_identity,
+      granted_scopes: ["read"], checked_at: new Date(Date.now() - 1000).toISOString(),
+      valid_until: new Date(Date.now() + 60000).toISOString(), evidence_ref: "receipt:fictional-001" };
+    const preview = vi.fn().mockResolvedValue({ ok: true, preview_token: "fictional", access: verified,
+      execution: { mode: "deterministic_connector", argv: [], mcp_hint: "", how_to_export: "", runnable: true } });
+    const failedReceipt: SourceOperationReceipt = { ok: false, error: "source_refresh_access_not_verified", operation_id: "fictional-failed",
+      source_id: "source-gmail", stream_id: "__source__", status: "failed", recorded_at: "", changes: [] };
+    const run = failure === "throws" ? vi.fn().mockRejectedValue(new Error("source_refresh_access_not_verified")) : vi.fn().mockResolvedValue(failedReceipt);
+    const metadata = vi.fn().mockResolvedValue({ ok: true, preview_token: "metadata", updates: {}, changes: [] });
+    render(<SourceDock bundle={bundleWith(sourceFixture({ access, access_policy: {
+      schema_version: "wiki_source_access.v1", expected_identity: access.expected_identity, coordinator: access.coordinator,
+      executor: access.executor, requested_scopes: access.requested_scopes
+    }, update_route: { mode: "deterministic_connector", mcp_hint: "", runnable: true, requires_agent: false } }))}
+      sourceId="source-gmail" onPreviewRefresh={preview} onRunRefresh={run} onPreviewConfiguration={metadata} onNotice={noop} onClose={noop} />);
+    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revalidate with the configured adapter" }));
+    await screen.findByText("Access verified");
+    fireEvent.click(screen.getByRole("button", { name: "Add selected records" }));
+    await screen.findByText("Technical blocker");
+    expect(screen.queryByText("Access verified")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add selected records" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    fireEvent.change(screen.getByLabelText("Expected account"), { target: { value: "other@example.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review source settings" }));
+    await waitFor(() => expect(metadata).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    expect(screen.getByText("Technical blocker")).toBeTruthy();
+    expect(screen.queryByText("Access verified")).toBeNull();
+    expect(run).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Revalidate with the configured adapter" }));
+    await screen.findByText("Access verified");
+    expect(preview).toHaveBeenCalledTimes(2);
   });
 
   it("says when a source is not in the snapshot", () => {

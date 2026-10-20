@@ -58,6 +58,7 @@ export function useSourceOperations({
   const [operationTargetId, setOperationTargetId] = useState("");
   const [operationBusy, setOperationBusy] = useState(false);
   const [operationError, setOperationError] = useState("");
+  const [accessProbeFailed, setAccessProbeFailed] = useState(false);
   const [receipts, setReceipts] = useState<SourceOperationReceipt[]>([]);
   const [agentPreference, setAgentPreference] = useState<"codex" | "claude">("codex");
   const [rawPath, setRawPath] = useState("");
@@ -83,6 +84,7 @@ export function useSourceOperations({
     setOperationError("");
     setRefreshPreview(null);
     setRefreshReceipt(null);
+    setAccessProbeFailed(false);
     setSelectedDiscoveryIds([]);
     setRawPath("");
   }, [selectedStream?.id, source?.source_id, selectedStreamRevision]);
@@ -209,10 +211,12 @@ export function useSourceOperations({
     setOperationError("");
     setRefreshPreview(null);
     setRefreshReceipt(null);
+    setAccessProbeFailed(false);
     try {
       if (!onPreviewRefresh) throw new Error(t("source.operation.unavailable"));
       const result = await onPreviewRefresh(source.source_id, "__source__", rawPath.trim());
       if (!result.ok) {
+        setAccessProbeFailed(true);
         setOperationError(result.error || t("source.operation.failed"));
         return;
       }
@@ -223,6 +227,7 @@ export function useSourceOperations({
           .map((record) => record.external_id)
       );
     } catch (error) {
+      setAccessProbeFailed(true);
       setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
     } finally {
       setOperationBusy(false);
@@ -231,20 +236,27 @@ export function useSourceOperations({
 
   const executeRefresh = async () => {
     if (demo || !source || !refreshPreview?.preview_token) return;
+    const previewToken = refreshPreview.preview_token;
     setOperationBusy(true);
     setOperationError("");
+    // A run re-observes authority. Consume the old preview before awaiting it:
+    // a denied/unknown result must neither revive green evidence nor retry it.
+    setRefreshPreview(null);
+    setRefreshReceipt(null);
+    setAccessProbeFailed(false);
     try {
       if (!onRunRefresh) throw new Error(t("source.operation.unavailable"));
       const result = await onRunRefresh(
         source.source_id,
         "__source__",
         rawPath.trim(),
-        refreshPreview.preview_token,
+        previewToken,
         selectedDiscoveryIds
       );
       setRefreshReceipt(result);
       setReceipts((current) => [result, ...current.filter((item) => item.operation_id !== result.operation_id)]);
       if (!result.ok) {
+        setAccessProbeFailed(true);
         setOperationError(result.error || result.stderr || t("source.operation.failed"));
         return;
       }
@@ -253,6 +265,7 @@ export function useSourceOperations({
       setSelectedDiscoveryIds([]);
       onSourceChanged?.();
     } catch (error) {
+      setAccessProbeFailed(true);
       setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
     } finally {
       setOperationBusy(false);
@@ -275,6 +288,7 @@ export function useSourceOperations({
     operationPreview,
     operationBusy,
     operationError,
+    accessProbeFailed,
     receipts,
     agentPreference,
     setAgentPreference,

@@ -92,6 +92,13 @@ export default defineConfig(({ command }) => {
           maxSize: 450_000,
           groups: [
             {
+              // Shared translations are a real module boundary, kept out of
+              // the growing shell chunk without relaxing warning budgets.
+              name: "cockpit-translations",
+              test: /src[\\/]data[\\/]i18n\.ts$/,
+              priority: 20
+            },
+            {
               name: "three-runtime",
               test: /node_modules[\\/](three|three-stdlib|@react-three|camera-controls|maath)[\\/]/,
               priority: 30,
