@@ -60,6 +60,10 @@ def main() -> int:
         return 0
 
     generated_at = existing_generated_at(paths)
+    if args.format == "json" and not args.check and not args.ready and not paths.input_stage_page.exists():
+        # Without published Markdown, an unverified cache cannot date the
+        # fallback. The complete-model check below may retain a valid cache.
+        generated_at = None
     catalog = compile_input_stage(ROOT, config, generated_at=generated_at)
     markdown = render_input_stage_markdown(catalog, config)
 

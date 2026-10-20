@@ -707,6 +707,25 @@ def test_cli_json_without_markdown_retains_verified_cache_date(tmp_path, monkeyp
     assert not paths.input_stage_page.exists()
 
 
+def test_cli_json_without_markdown_rejects_unverified_model_date(tmp_path, monkeypatch, capsys):
+    from scripts import wiki_input_stage as cli
+
+    cfg = _fixture_repo(tmp_path)
+    paths = _published_stage(tmp_path, cfg)
+    paths.input_stage_page.unlink()
+    invalid = json.loads(paths.input_stage_catalog.read_bytes())
+    invalid["sources"][0]["privacy_boundary"] = "public"
+    paths.input_stage_catalog.write_text(json.dumps(invalid, indent=2, sort_keys=True) + "\n")
+    cache_before = paths.input_stage_catalog.read_bytes()
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+    monkeypatch.setattr(cli, "load_config", lambda root: cfg)
+    monkeypatch.setattr(sys, "argv", ["wiki_input_stage.py", "--format", "json"])
+    assert cli.main() == 0
+    assert json.loads(capsys.readouterr().out) == compile_input_stage(tmp_path, cfg, generated_at=dt.date.today())
+    assert paths.input_stage_catalog.read_bytes() == cache_before
+    assert not paths.input_stage_page.exists()
+
+
 def test_cli_checks_independent_output_dates_and_reports_actual_execution(tmp_path, monkeypatch, capsys):
     from scripts import wiki_input_stage as cli
 

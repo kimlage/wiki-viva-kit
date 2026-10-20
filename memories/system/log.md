@@ -1355,5 +1355,5 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 ## [2026-10-19] system | Validate cache dates without Markdown
 
-- The [input-stage reader](../../wiki_core/input_stage.py) accepts only canonical ISO dates from an existing JSON catalog when Markdown is absent. Invalid dates fall back to the current compilation date. [Regressions](../../tests/test_input_stage.py) cover invalid strings, integers and valid retained dates while preserving stored bytes.
+- The [input-stage reader](../../wiki_core/input_stage.py) accepts only canonical ISO dates from an existing JSON catalog when Markdown is absent. The [CLI](../../scripts/wiki_input_stage.py) uses the current date for a JSON fallback; only a verified complete cache can retain its earlier date. [Regressions](../../tests/test_input_stage.py) cover invalid strings, integers, a divergent model and valid retained dates while preserving stored bytes.
 - The [single-page HTTP regression](../../tests/test_web_server.py) resolves the existing configured action template and overlay, with an isolated synthetic output directory. Localized consumer paths use the same creation, editing, idempotency and stale-CAS assertions.
