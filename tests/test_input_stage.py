@@ -618,6 +618,58 @@ def test_hidden_model_change_updates_json_at_its_real_date_not_markdown_date(tmp
     assert catalog["sources"][0]["refresh_cadence_days"] == "7"
 
 
+def test_cli_json_uses_verified_catalog_date_after_hidden_model_change(tmp_path, monkeypatch, capsys):
+    from scripts import wiki_input_stage as cli
+    from wiki_core.input_stage import write_input_stage
+
+    cfg = _fixture_repo(tmp_path)
+    paths = _published_stage(tmp_path, cfg)
+    markdown_before = paths.input_stage_page.read_bytes()
+    source = tmp_path / "memories/sources/team-handbook.md"
+    source.write_text(source.read_text().replace("visibility: private_self", "visibility: public"))
+    write_input_stage(tmp_path, cfg, generated_at="2026-06-26", if_changed=True)
+    assert paths.input_stage_page.read_bytes() == markdown_before
+    stored = json.loads(paths.input_stage_catalog.read_bytes())
+    assert stored["generated_at"] == "2026-06-26"
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+    monkeypatch.setattr(cli, "load_config", lambda root: cfg)
+    monkeypatch.setattr(sys, "argv", ["wiki_input_stage.py", "--format", "json"])
+    assert cli.main() == 0
+    assert json.loads(capsys.readouterr().out) == stored
+    monkeypatch.setattr(sys, "argv", ["wiki_input_stage.py", "--format", "markdown"])
+    assert cli.main() == 0
+    assert capsys.readouterr().out.rstrip("\n") == markdown_before.decode().rstrip("\n")
+    assert paths.input_stage_page.read_bytes() == markdown_before
+    assert json.loads(paths.input_stage_catalog.read_bytes()) == stored
+
+
+@pytest.mark.parametrize("corruption", ["model", "invalid_date", "invalid_json"])
+def test_cli_json_never_trusts_unverified_catalog(tmp_path, monkeypatch, capsys, corruption):
+    from scripts import wiki_input_stage as cli
+    from wiki_core.input_stage import write_input_stage
+
+    cfg = _fixture_repo(tmp_path)
+    paths = _published_stage(tmp_path, cfg)
+    source = tmp_path / "memories/sources/team-handbook.md"
+    source.write_text(source.read_text().replace("visibility: private_self", "visibility: public"))
+    write_input_stage(tmp_path, cfg, generated_at="2026-06-26", if_changed=True)
+    invalid = json.loads(paths.input_stage_catalog.read_bytes())
+    if corruption == "model":
+        invalid["sources"][0]["privacy_boundary"] = "private_self"
+    else:
+        invalid["generated_at"] = "20260626"
+    paths.input_stage_catalog.write_text(
+        "not JSON" if corruption == "invalid_json" else json.dumps(invalid, indent=2, sort_keys=True) + "\n")
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+    monkeypatch.setattr(cli, "load_config", lambda root: cfg)
+    monkeypatch.setattr(sys, "argv", ["wiki_input_stage.py", "--format", "json"])
+    assert cli.main() == 0
+    emitted = json.loads(capsys.readouterr().out)
+    assert emitted["generated_at"] == "2026-06-25"  # Existing recompile fallback.
+    assert emitted["sources"][0]["privacy_boundary"] == "public"
+    assert emitted != invalid
+
+
 def test_cli_checks_independent_output_dates_and_reports_actual_execution(tmp_path, monkeypatch, capsys):
     from scripts import wiki_input_stage as cli
 

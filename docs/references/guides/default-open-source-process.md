@@ -439,6 +439,12 @@ date. Its date never chooses the Markdown date. `--check` validates each output
 against current inputs at its own date and still allows the ignored JSON to be
 absent. A newly written JSON is not backdated to a retained Markdown date.
 
+`--format json` also retains the catalog's own date only after verifying its
+complete model against current inputs. A malformed or mismatching cache is not
+emitted; the CLI recompiles using its existing date-selection fallback.
+`--format markdown` continues to use the Markdown publication date. Neither
+read-only format command rewrites either artifact.
+
 After the two output paths, `--write` prints a JSON status line with
 `md_changed`, `catalog_changed`, `md_publication_date`,
 `catalog_generation_date` and `executed_at`. Execution/check time is separate
