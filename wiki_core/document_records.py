@@ -138,7 +138,8 @@ def evidence_nodes(graphs, contract, artifact_inputs):
     return evidence
 
 
-def project_records(current: dict, base: dict, changed: set[str], contract: dict, *, artifact_inputs=None):
+def project_records(current: dict, base: dict, changed: set[str], contract: dict, *, artifact_inputs=None,
+                    review_trace: list | None = None):
     """Validate and project an explicit document_record.v1 declaration.
 
     A declaration binds BOTH full input snapshots. It is not a path filter:
@@ -146,6 +147,10 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
     Mixed deltas retain whole-page seeds. Records use page freshness unchanged.
     """
     from wiki_core.freshness_impact import ASSOCIATION, REFERENCE, STRUCTURAL
+
+    # Diagnostics observe this exact projection, never a second implementation
+    # of inheritance or consumption. Publish only after all guards succeed.
+    trace = [] if review_trace is not None else None
 
     if contract.get("schema_version") != "document_record.v1":
         raise ValueError("unsupported document record contract")
@@ -287,7 +292,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
     used = set()
     for origin, graph in graphs.items():
         projected = []
-        for raw in graph["edges"]:
+        for raw_index, raw in enumerate(graph["edges"]):
             edge = dict(raw)
             path = raw["path"]
             partition = partitions[origin].get(path)
@@ -324,7 +329,9 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                         "inherited_document_context": True} for rid in consumer_parts["parts"])
                 else:
                     inherited_variants.append(variant)
-            for variant in inherited_variants:
+            for variant_index, variant in enumerate(inherited_variants):
+                before = copy.deepcopy(variant) if trace is not None else None
+                output_start = len(projected)
                 dependent = "source" if variant["type"] in REFERENCE else "target"
                 prerequisite = "target" if variant["type"] in REFERENCE else "source"
                 consumer = graph["nodes"].get(variant[dependent], {}).get("document_record_id", "document")
@@ -364,20 +371,26 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                     used.add(key)
                 if variant["type"] in STRUCTURAL | ASSOCIATION:
                     projected.append(variant)
-                    continue
-                # A whole-document reference consumes ALL assertions. Expand
-                # at the consumer, so the document is not itself an accidental
-                # shared-prerequisite bridge between independent siblings.
-                prerequisite = "target" if variant["type"] in REFERENCE else "source"
-                whole = partitions[origin].get(variant[prerequisite])
-                if whole:
-                    projected.extend({**variant,
-                                      prerequisite: node_id(variant[prerequisite], rid),
-                                      "whole_document_consumption": True}
-                                     for rid in whole["parts"])
                 else:
-                    projected.append(variant)
+                    # A whole-document reference consumes ALL assertions.
+                    prerequisite = "target" if variant["type"] in REFERENCE else "source"
+                    whole = partitions[origin].get(variant[prerequisite])
+                    if whole:
+                        projected.extend({**variant,
+                                          prerequisite: node_id(variant[prerequisite], rid),
+                                          "whole_document_consumption": True}
+                                         for rid in whole["parts"])
+                    else:
+                        projected.append(variant)
+                if trace is not None:
+                    trace.append(dict(origin=origin, raw_index=raw_index,
+                        variant_index=variant_index, edge_sha256=edge_digest(raw),
+                        raw=copy.deepcopy(raw), before=before, consumer_record=consumer,
+                        binding=copy.deepcopy(binding),
+                        projected=copy.deepcopy(projected[output_start:])))
         graph["edges"] = projected
     if set(bindings) != used:
         raise ValueError("record contract has stale or unmatched consumption bindings")
+    if review_trace is not None:
+        review_trace.extend(trace)
     return graphs["current"], graphs["base"], changes, evidence

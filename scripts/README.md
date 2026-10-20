@@ -56,3 +56,8 @@ The local operator can serve a built cockpit with `--frontend` on its own origin
 reviewed action-body proposals with optional local agents. See the
 [provider-neutral contribution contract](../docs/references/guides/agent-contributions.md)
 for Git policy gates, conflict handling and adoption coverage.
+
+[wiki_record_review.py](wiki_record_review.py) inspects the configured exact
+documentary snapshot pair using the projector's own occurrence/variant trace.
+It emits private authoring context, never inferred bindings or freshness approval.
+See [documentary authoring](../docs/references/guides/software-change-records.md#authoring-the-complete-consumption-frontier).

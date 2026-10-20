@@ -44,3 +44,8 @@ code or weaken core gates. See the
 [experience-pack authoring guide](../docs/references/guides/experience-pack-authoring.md).
 
 Agent-facing commands live in [scripts](../scripts/README.md).
+
+[document_record_review.py](document_record_review.py) consumes the optional
+read-only trace of [document_records.py](document_records.py) for a complete
+incoming/own-premise census. It does not introduce another projection algorithm,
+infer authored intent or evaluate freshness.

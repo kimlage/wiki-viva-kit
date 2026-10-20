@@ -228,6 +228,9 @@ review, secrets and publication gates.
 
 ## Conservative boundary
 
+For a read-only occurrence census and a new exact v1 transaction, follow
+[authoring the complete consumption frontier](guides/software-change-records.md#authoring-the-complete-consumption-frontier).
+
 For a complete software log/catalogue example using these existing v1
 primitives, see [Software changes under living wiki rules](guides/software-change-records.md).
 It preserves live norms and factual support while distinguishing reviewed
