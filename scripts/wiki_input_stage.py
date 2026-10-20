@@ -86,6 +86,12 @@ def main() -> int:
         return 0
 
     if args.format == "json":
+        # JSON has its own generation date. Reuse it only when the complete
+        # stored model reproduces current inputs; Markdown dates only Markdown.
+        if paths.input_stage_catalog.exists():
+            retained = matching_input_stage_cache(catalog, paths.input_stage_catalog.read_bytes())
+            if retained is not None:
+                catalog = retained
         print(json.dumps(catalog, ensure_ascii=False, indent=2, sort_keys=True))
     else:
         print(markdown)

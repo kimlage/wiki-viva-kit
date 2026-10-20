@@ -45,6 +45,15 @@ Regenerate operational, input-stage, semantic and snapshot read models with the
 repo commands. Review the conceptual Markdown and UI diff. A green low-level
 test does not replace rendered-cockpit readback for visual work.
 
+For software log/catalogue changes governed by living rules, use the existing
+[v1 documentary pattern](../../docs/references/guides/software-change-records.md).
+Review the complete causal frontier, including inherited metadata, both origins
+and every applicable rule context. Keep canonical authority, dates, exclusions
+and real factual support active. Historical evidence and recording destinations
+need exact semantic justification; classification does not prove gates passed
+or grant accounts. Review the full consumer C3 plan before applying it; never
+iterate on the last reported dependency path merely to obtain a passing gate.
+
 ## Upgrade a downstream consumer
 
 The certification state machine is retired. Do not create release subjects,

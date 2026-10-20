@@ -228,6 +228,11 @@ review, secrets and publication gates.
 
 ## Conservative boundary
 
+For a complete software log/catalogue example using these existing v1
+primitives, see [Software changes under living wiki rules](guides/software-change-records.md).
+It preserves live norms and factual support while distinguishing reviewed
+historical origins and recording destinations; it is not an automatic migration.
+
 Outside explicit navigation items, Markdown citations cannot distinguish live
 evidence from historical mentions. They remain conservative dependencies. A log
 with many historical citations or a factual catalogue table may therefore have
