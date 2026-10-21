@@ -121,3 +121,45 @@ def test_pairing_is_one_use_bounded_and_expires(monkeypatch):
     with pytest.raises(ValueError): pair.attest(challenge, 'wiki-viva-board')
     for _ in range(128): pair.challenge()
     with pytest.raises(ValueError, match='busy'): pair.challenge()
+
+
+def test_blocking_binding_and_git_head_keep_loop_responsive_and_profile_context(tmp_path):
+    import contextvars
+    import threading
+
+    profile = contextvars.ContextVar('synthetic_source_profile')
+    runtime, binding, calls = service(tmp_path)
+    started, release = threading.Event(), threading.Event()
+    observed = []
+
+    async def scenario():
+        loop_thread = threading.get_ident()
+        token = profile.set('research')
+        def blocking(stage, result):
+            observed.append((stage, threading.get_ident(), profile.get()))
+            started.set()
+            assert release.wait(2), 'event loop could not unblock the native I/O worker'
+            return copy.deepcopy(result)
+        runtime.binding = lambda *args: blocking('binding', binding)
+        runtime.head_reader = lambda path: blocking('head', 'c' * 40)
+        try:
+            task = asyncio.create_task(runtime.read_test('source-a', SHA, CONFIG, 'responsive-fixture-0001'))
+            try:
+                # The controller and its caller must both retain their profile,
+                # while unrelated work can run before blocking I/O completes.
+                while not started.is_set():
+                    await asyncio.sleep(0)
+                assert not task.done() and profile.get() == 'research'
+                release.set()
+                receipt = await task
+                assert receipt['status'] == 'read_verified'
+                assert [stage for stage, _, _ in observed] == ['binding', 'head', 'head', 'binding']
+                assert all(thread != loop_thread and owner == 'research' for _, thread, owner in observed)
+                assert len(calls) == 1
+            finally:
+                release.set()
+                if not task.done():
+                    task.cancel()
+        finally:
+            profile.reset(token)
+    asyncio.run(scenario())

@@ -4,6 +4,7 @@ The native plugin API supplies its authenticated profile scope and its canonical
 Git reader. The wiki supplies the source configuration and repository scope.
 """
 from pathlib import Path
+import asyncio
 import datetime as dt
 import hashlib
 import json
@@ -96,7 +97,7 @@ class SourceAccessRuntime:
     async def read_test(self, source_id, expected_sha, config_sha, request_id):
         if not re.fullmatch(r'[a-zA-Z0-9-]{16,80}', request_id):
             raise SourceReadError('source_request_invalid')
-        binding = self.binding(source_id, expected_sha)
+        binding = await asyncio.to_thread(self.binding, source_id, expected_sha)
         if binding['config_sha256'] != config_sha:
             raise SourceReadError('source_configuration_changed')
         execution = self._scope(binding)
@@ -126,7 +127,7 @@ class SourceAccessRuntime:
         try:
             if execution.get('method') == 'managed_connector' and self.managed_reader:
                 result = await self.managed_reader(binding)
-                latest = self.binding(source_id, expected_sha)
+                latest = await asyncio.to_thread(self.binding, source_id, expected_sha)
                 if latest['config_sha256'] != config_sha or latest.get('access_policy') != binding.get('access_policy'):
                     raise SourceReadError('source_configuration_changed')
                 receipt.update(result)
@@ -140,10 +141,10 @@ class SourceAccessRuntime:
                 path = scope.get('repository_root')
                 if not isinstance(path, str) or not Path(path).is_absolute():
                     raise SourceReadError('source_resource_invalid')
-                before = self.head_reader(path)
+                before = await asyncio.to_thread(self.head_reader, path)
                 data = await self.repo_reader(path)
-                after = self.head_reader(path)
-                latest = self.binding(source_id, expected_sha)
+                after = await asyncio.to_thread(self.head_reader, path)
+                latest = await asyncio.to_thread(self.binding, source_id, expected_sha)
                 if latest['config_sha256'] != config_sha or latest.get('access_policy') != binding.get('access_policy'):
                     raise SourceReadError('source_configuration_changed')
                 if not isinstance(data, dict) or not re.fullmatch(r'[a-f0-9]{40,64}', before or '') or before != after:
