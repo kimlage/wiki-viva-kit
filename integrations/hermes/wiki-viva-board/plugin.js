@@ -20,7 +20,9 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
     return {...result, status:result.status === 'submitted' ? 'pending' : result.status,
       identity:{status:'unknown'}, read_verified:false, write_verified:false, grants_verified:false};
   };
+  const assertOpen = () => { if (closed) throw new Error('source_host_closed'); };
   async function retain(route) {
+    assertOpen();
     const key = JSON.stringify([route.connectionId, route.profile, route.targetProfile]);
     if (!leases.has(key) && !retaining.has(key)) {
       const pending=(async()=>{
@@ -29,6 +31,7 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
       if (closed) { release(); throw new Error('source_host_closed'); }
       const state = {release, sessions:new Set(), events:new Map(), journal:new Map(), off:null};
       state.off = host.onEvent('*', event => {
+        if (closed) return;
         // Never accept ambient events from another connection/profile. Live events
         // are hints only; terminal tracking always rechecks native history below.
         if (event.connectionId !== route.connectionId || event.profile !== route.profile || !state.sessions.has(event.session_id)) return;
@@ -57,14 +60,16 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
     return leases.get(key);
   }
   async function resume(route, execution) {
-    const lease=await retain(route);
+    const lease=await retain(route); assertOpen();
     const value = await request(route, 'session.resume', {session_id:execution.stored_session_id, omit_messages:true, inline_images:false});
+    assertOpen();
     if (!validId(value?.session_id) || ![value.stored_session_id, value.resumed, value.session_key].includes(execution.stored_session_id)) throw new Error('native_session_mismatch');
     lease.sessions.add(value.session_id);
     return value;
   }
   const track = (route, ref, row, tracking) => native(route, 'source-intent-track', 'POST', {...ref, request_id:row.request_id, tracking});
   async function reconcile(route, ref, row, token) {
+    live(token); assertOpen();
     const session = await resume(route, row.execution); live(token);
     const replaySession=row.runtime_session_id || session.session_id;
     const replay = await request(route, 'session.events.since', {session_id:replaySession, last_seen:row.submit_after_seq || 0}); live(token);
@@ -111,17 +116,27 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
     },
     async read(route, ref, requestId, token) {
       // Exclusive durable claim happens BEFORE any native prompt submission.
-      const claim = await native(route, 'source-intent-claim', 'POST', {...ref,request_id:requestId}); live(token);
+      live(token); assertOpen();
+      const claim = await native(route, 'source-intent-claim', 'POST', {...ref,request_id:requestId});
       const row = claim.intent;
-      if (!claim.created) return ['native_trace_observed','native_trace_failed','not_submitted'].includes(row.status)?publicRow(row):reconcile(route,ref,row,token);
+      if (!claim.created) {
+        live(token); assertOpen();
+        return ['native_trace_observed','native_trace_failed','not_submitted'].includes(row.status)?publicRow(row):reconcile(route,ref,row,token);
+      }
       let submitted = false;
       try {
+        live(token); assertOpen();
         const session = await resume(route,row.execution); live(token);
         if (session.running || session.hydrating || session.pending_approval || session.open_requests?.length) throw new Error('native_session_busy');
         const replay = await request(route,'session.events.since',{session_id:session.session_id,last_seen:0}); live(token);
         if (!validId(replay.epoch) || !Number.isSafeInteger(replay.latest_seq)) throw new Error('native_trace_unavailable');
         Object.assign(row,{runtime_session_id:session.session_id,epoch:replay.epoch,last_seen:replay.latest_seq,submit_after_seq:replay.latest_seq});
         await track(route,ref,row,{runtime_session_id:session.session_id,epoch:replay.epoch,last_seen:replay.latest_seq,submit_after_seq:replay.latest_seq,status:'pending'}); live(token);
+        // Recheck the canonical owner/config after all preflight awaits. Tracking
+        // deliberately accepts old receipts for recovery; it is not dispatch authority.
+        const binding=await native(route,'source-binding/'+encodeURIComponent(ref.source_id)+'?binding_sha256='+ref.binding_sha256); live(token); assertOpen();
+        if(binding.source_id!==ref.source_id || binding.binding_sha256!==ref.binding_sha256)throw new Error('source_binding_changed');
+        if(binding.config_sha256!==ref.config_sha256)throw new Error('source_configuration_changed');
         watched.set(row.request_id,{ref,row,token,busy:false});
         submitted = true; // From this boundary a timeout is UNKNOWN, never a retry.
         const ack = await request(route,'prompt.submit',{session_id:session.session_id,text:row.prompt,queued:true});
@@ -184,7 +199,8 @@ function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigin, chan
     path: '/api/plugins/wiki-viva-board/' + suffix + (suffix.includes('?') ? '&' : '?') + 'profile=' + encodeURIComponent(route.targetProfile),
     method, body, connectionId:route.connectionId, profile:route.profile, priority:'foreground', timeoutMs:35000
   });
-  const sessions = createNativeSessionAccess({host,native,live,activity:(route,source)=>{if(alive && currentGeneration()===generation)reply({protocol:'wiki.source_access.v1',kind:'native_activity',channel,source,route_key:key(route)});}});
+  const newSessionAccess = () => createNativeSessionAccess({host,native,live,activity:(route,source)=>{if(alive && currentGeneration()===generation)reply({protocol:'wiki.source_access.v1',kind:'native_activity',channel,source,route_key:key(route)});}});
+  let sessions = newSessionAccess();
   const routeMatches = (execution, route) => execution && execution.connection_id === route.connectionId && execution.profile === route.profile && execution.target_profile === route.targetProfile;
   const perform = async (message, token) => {
     live(token);
@@ -243,7 +259,7 @@ function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigin, chan
   };
   const receiveBound = async m => {
       if (!alive || currentGeneration() !== generation || !m || m.protocol !== 'wiki.source_access.v1') return false;
-      if (m.kind === 'close' && m.channel === channel) { session++; requests.clear(); return true; }
+      if (m.kind === 'close' && m.channel === channel) { session++; requests.clear(); sessions.dispose(); sessions=newSessionAccess(); return true; }
       const token = session;
       if (m.kind !== 'request' || m.channel !== channel || !actions.has(m.action) || !/^[a-zA-Z0-9-]{16,80}$/.test(m.request_id || '') ||
           !/^[\w-]{1,160}$/.test(m.source?.source_id || '') || !/^[a-f0-9]{64}$/.test(m.source?.binding_sha256 || '') ||

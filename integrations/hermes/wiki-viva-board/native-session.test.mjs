@@ -4,7 +4,7 @@ import {createNativeSessionAccess} from './native-session.mjs';
 const route={connectionId:'fixture',profile:'research',targetProfile:'research',mode:'local'};
 const execution={...Object.fromEntries([['connection_id','fixture'],['profile','research'],['target_profile','research']]),method:'native_session',stored_session_id:'stored-fixture'};
 const ref={source_id:'source-a',binding_sha256:'a'.repeat(64),config_sha256:'b'.repeat(64)};
-function fixture(){
+function fixture(options={}){
  const calls=[],rows=new Map();let messages=[],events=[],epoch='epoch-fixture',seq=4,running=false,fail=false,runtimeId='runtime-fixture',truncated=false,activities=0,off=0,released=0,listener;
  const host={retainProfile:async(r)=>{assert.deepEqual(r,route);return()=>released++;},onEvent:(t,cb)=>{listener=cb;return()=>off++;},
   requestProfile:async(r,method,params)=>{
@@ -16,6 +16,8 @@ function fixture(){
    if(method==='prompt.submit'){if(fail)throw new Error('timeout');messages=[{role:'user',text:params.text,row_id:17}];events=[{session_id:'runtime-fixture',seq:5,type:'message.start'}];seq=5;return {status:'streaming',user_row_id:17};}
   },openSession:async(id,options)=>calls.push({method:'openSession',id,options})};
  const native=async(_r,path,_method,body)=>{
+  await options.beforeNative?.(path,body);
+  if(path.startsWith('source-binding/'))return {...ref,...options.binding};
   if(path==='source-intent-claim'){
    if(rows.has(body.request_id))return {created:false,intent:structuredClone(rows.get(body.request_id))};
    const row={...ref,request_id:body.request_id,execution,status:'pending',prompt:'Native source intent '+body.request_id,identity:{status:'unknown'},read_verified:false};rows.set(body.request_id,row);return {created:true,intent:structuredClone(row)};
@@ -23,7 +25,7 @@ function fixture(){
   if(path==='source-intent-track'){const row=rows.get(body.request_id);Object.assign(row,body.tracking);return structuredClone(row);}
   if(path==='source-read-receipts')return {receipts:[...rows.values()].map(r=>structuredClone(r))};
  };
- const access=createNativeSessionAccess({host,native,live:()=>{},activity:()=>activities++});
+ const access=createNativeSessionAccess({host,native,live:options.live || (()=>{}),activity:()=>activities++});
  return {access,calls,rows,host,setFail:v=>fail=v,setRuntime:v=>runtimeId=v,setTruncated:v=>truncated=v,setReplay:v=>events=v,events:()=>structuredClone(events),activities:()=>activities,setRunning:v=>running=v,setEpoch:v=>epoch=v,
   complete:(id,name,result)=>{events=events.filter(e=>e.type!=='message.complete');events.push({session_id:'runtime-fixture',seq:++seq,type:'tool.complete',payload:{tool_id:id,name,result}},{session_id:'runtime-fixture',seq:++seq,type:'message.complete',payload:{persisted_turn:{complete:true,user_row_id:17,row_ids:[17]}}});messages.push({role:'tool',tool_call_id:id,name,content:{ok:true}},{role:'assistant',text:'Native result'});seq++;},
   mutateHistory:fn=>{messages=fn(messages);},event:e=>listener(e),disposed:()=>({off,released})};
@@ -95,4 +97,33 @@ test('owner-filtered live journal preserves a complete native trace when replay 
  await new Promise(resolve=>setImmediate(resolve));
  assert.equal(f.rows.get('fixture-request-0001').status,'native_trace_failed');assert.ok(f.activities()>0);
  const record=JSON.stringify(f.rows.get('fixture-request-0001'));assert.ok(!record.includes('private details'));assert.equal(f.calls.filter(c=>c.method==='prompt.submit').length,1);
+});
+
+test('closing after claim releases the new unsubmitted intent without resuming or submitting',async()=>{
+ let invalid=false;
+ const f=fixture({beforeNative:async path=>{if(path==='source-intent-claim')invalid=true;},live:()=>{if(invalid)throw new Error('source_binding_changed');}});
+ await assert.rejects(f.access.read(route,ref,'fixture-request-0001',0),/source_binding_changed/);
+ assert.equal(f.rows.get('fixture-request-0001').status,'not_submitted');assert.equal(f.calls.length,0);
+});
+test('configuration changed during preflight prevents dispatch but keeps the receipt recoverable',async()=>{
+ const f=fixture({binding:{config_sha256:'c'.repeat(64)}});
+ await assert.rejects(f.access.read(route,ref,'fixture-request-0001',0),/source_configuration_changed/);
+ assert.equal(f.calls.filter(c=>c.method==='prompt.submit').length,0);
+ assert.equal(f.rows.get('fixture-request-0001').status,'not_submitted');
+});
+test('disposed access ignores queued events and cannot resume or mutate existing submitted receipts',async()=>{
+ const f=fixture();await f.access.read(route,ref,'fixture-request-0001',0);f.access.dispose();
+ const before=f.calls.length, row=structuredClone(f.rows.get('fixture-request-0001'));
+ f.event({connectionId:'fixture',profile:'research',session_id:'runtime-fixture',seq:9,type:'message.complete'});
+ await new Promise(resolve=>setImmediate(resolve));
+ await assert.rejects(f.access.read(route,ref,'fixture-request-0001',0),/source_host_closed/);
+ assert.equal(f.calls.length,before);assert.deepEqual(f.rows.get('fixture-request-0001'),row);assert.deepEqual(f.disposed(),{off:1,released:1});
+});
+
+test('cancellation while retrieving an existing intent cannot mark a dispatched prompt unsubmitted',async()=>{
+ let invalid=false;const options={live:()=>{if(invalid)throw new Error('source_binding_changed');}};
+ const f=fixture(options);await f.access.read(route,ref,'fixture-request-0001',0);
+ options.beforeNative=async path=>{if(path==='source-intent-claim')invalid=true;};
+ await assert.rejects(f.access.read(route,ref,'fixture-request-0001',0),/source_binding_changed/);
+ assert.equal(f.rows.get('fixture-request-0001').status,'submitted');assert.equal(f.calls.filter(c=>c.method==='prompt.submit').length,1);
 });

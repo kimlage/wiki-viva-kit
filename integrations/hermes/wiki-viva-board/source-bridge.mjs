@@ -26,7 +26,8 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
     path: '/api/plugins/wiki-viva-board/' + suffix + (suffix.includes('?') ? '&' : '?') + 'profile=' + encodeURIComponent(route.targetProfile),
     method, body, connectionId:route.connectionId, profile:route.profile, priority:'foreground', timeoutMs:35000
   });
-  const sessions = createNativeSessionAccess({host,native,live,activity:(route,source)=>{if(alive && currentGeneration()===generation)reply({protocol:'wiki.source_access.v1',kind:'native_activity',channel,source,route_key:key(route)});}});
+  const newSessionAccess = () => createNativeSessionAccess({host,native,live,activity:(route,source)=>{if(alive && currentGeneration()===generation)reply({protocol:'wiki.source_access.v1',kind:'native_activity',channel,source,route_key:key(route)});}});
+  let sessions = newSessionAccess();
   const routeMatches = (execution, route) => execution && execution.connection_id === route.connectionId && execution.profile === route.profile && execution.target_profile === route.targetProfile;
   const perform = async (message, token) => {
     live(token);
@@ -85,7 +86,7 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
   };
   const receiveBound = async m => {
       if (!alive || currentGeneration() !== generation || !m || m.protocol !== 'wiki.source_access.v1') return false;
-      if (m.kind === 'close' && m.channel === channel) { session++; requests.clear(); return true; }
+      if (m.kind === 'close' && m.channel === channel) { session++; requests.clear(); sessions.dispose(); sessions=newSessionAccess(); return true; }
       const token = session;
       if (m.kind !== 'request' || m.channel !== channel || !actions.has(m.action) || !/^[a-zA-Z0-9-]{16,80}$/.test(m.request_id || '') ||
           !/^[\w-]{1,160}$/.test(m.source?.source_id || '') || !/^[a-f0-9]{64}$/.test(m.source?.binding_sha256 || '') ||

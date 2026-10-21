@@ -79,3 +79,21 @@ test('managed account choices come from actual scoped account rows, never defaul
  const call=methods.find(r=>r.m==='connectors.accounts');assert.deepEqual(call.p,{});assert.equal(call.r.profile,'research');
  assert.equal(f.replies[0].result.connection_verified,false);
 });
+
+test('closing a source releases its native listener/lease and reopening uses a fresh access object',async()=>{
+ let released=0,off=0,listener;const methods=[];
+ const f=fixture({host:{profileRoutes:async()=>[route],retainProfile:async()=>()=>released++,onEvent:(_type,cb)=>{listener=cb;return()=>off++;},requestProfile:async(_route,method)=>{
+  methods.push(method);
+  if(method==='session.resume')return {session_id:'runtime-fixture',resumed:'stored-fixture'};
+  if(method==='session.events.since')return {epoch:'fixture-epoch',latest_seq:0};
+  if(method==='prompt.submit')return {user_row_id:17};
+ }}});
+ await f.send(f.message('read_test'));const before=methods.length,callsBefore=f.calls.length;
+ await f.bridge.receivePort({protocol:'wiki.source_access.v1',kind:'close',channel:'fixture-channel-001'});
+ assert.deepEqual({off,released},{off:1,released:1});
+ listener({connectionId:route.connectionId,profile:route.profile,session_id:'runtime-fixture',seq:9,type:'message.complete'});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(methods.length,before);assert.equal(f.calls.length,callsBefore);
+ await f.send(f.message('read_test','fixture-request-0002'));
+ assert.equal(f.replies.at(-1).ok,true);assert.equal(methods.filter(method=>method==='prompt.submit').length,2);
+ f.bridge.dispose();assert.deepEqual({off,released},{off:2,released:2});
+});
