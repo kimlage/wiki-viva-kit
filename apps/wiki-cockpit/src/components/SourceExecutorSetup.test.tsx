@@ -43,3 +43,11 @@ it('inspection refreshes configuration while native submissions remain pinned',a
  expect(request.mock.calls.filter(c=>c[1]==='inspect').slice(-1)[0][3]).toBeUndefined();
  fireEvent.click(screen.getByText('Reload receipts for this binding'));await waitFor(()=>expect(request.mock.calls.filter(c=>c[1]==='read_receipts').slice(-1)[0][3]).toBe(configNow));
 });
+
+it('opens official configuration for a discovered native toolset without provider-specific UI',async()=>{
+ request.mockImplementation(async(_s,a)=>a==='routes'?{routes:[route]}:a==='inspect'?{...inspection(),toolsets:[{name:'new-native-tools',enabled:false,tools:[]}]}:{});
+ render(<SourceExecutorSetup source={source()} demo={false} onBind={vi.fn()} createHost={createHost}/>);await inspect();
+ fireEvent.change(screen.getByLabelText('Official settings'),{target:{value:'toolset:new-native-tools'}});
+ fireEvent.click(screen.getByText('Configure in Hermes'));
+ await waitFor(()=>expect(request.mock.calls.some(c=>c[1]==='configure' && c[4]==='toolset:new-native-tools')).toBe(true));
+});

@@ -97,3 +97,15 @@ test('closing a source releases its native listener/lease and reopening uses a f
  assert.equal(f.replies.at(-1).ok,true);assert.equal(methods.filter(method=>method==='prompt.submit').length,2);
  f.bridge.dispose();assert.deepEqual({off,released},{off:2,released:2});
 });
+
+test('generic native settings validate newly discovered toolsets in the exact executor profile',async()=>{
+ const scopes=[];const host={profileRoutes:async()=>[route],requestProfile:async()=>({}),toolsets:{list:async scope=>{scopes.push(scope);return [{name:'unseen-tools-A',enabled:false},{name:'new-tools-B',enabled:true}];}}};
+ const f=fixture({host});await f.send(f.message());
+ assert.deepEqual(f.replies.at(-1).result.toolsets.map(row=>row.name),['unseen-tools-A','new-tools-B']);
+ for(const [i,name] of ['unseen-tools-A','new-tools-B'].entries())await f.send({...f.message('configure','fixture-toolset-000'+i),setup_method:'toolset:'+name});
+ assert.deepEqual(f.setups.map(row=>({method:row.method,toolset:row.toolset})),[{method:'native_toolset',toolset:'unseen-tools-A'},{method:'native_toolset',toolset:'new-tools-B'}]);
+ assert.ok(scopes.every(scope=>JSON.stringify(scope)===JSON.stringify({connectionId:route.connectionId,profile:route.profile})));
+ await f.send({...f.message('configure','fixture-toolset-0003'),setup_method:'toolset:absent-tools'});
+ assert.equal(f.replies.at(-1).ok,false);assert.equal(f.setups.length,2);
+ assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
+});
