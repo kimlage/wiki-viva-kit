@@ -172,6 +172,11 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
             raise ValueError("v2 requires a complete explicit document_modes map")
     graphs = {"base": copy.deepcopy(base), "current": copy.deepcopy(current)}
     artifacts = evidence_nodes(graphs, contract, artifact_inputs or {})
+    from wiki_core.document_view_selectors import verify_locator_changes
+    locator_changes = verify_locator_changes(current, base, contract, artifact_inputs or {})
+    if not set(locator_changes) <= set(changed):
+        raise ValueError("locator declaration must describe an actual changed document")
+    locator_ids = {v["id"] for v in locator_changes.values()}
     partitions = {"base": {}, "current": {}}
     declared = set()
     changes = set(changed)
@@ -356,6 +361,14 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                     or not re.fullmatch(r"[0-9a-f]{64}", str(binding.get("prerequisite_document_sha256", "")))):
                 raise ValueError("invalid canonical contribution effect qualification")
         bindings[key] = binding
+        if "locator_review" in binding:
+            review = binding["locator_review"]
+            if (binding.get("role", "consumption") != "consumption" or not isinstance(review, dict)
+                    or set(review) != {"change_id", "consumption", "rationale"}
+                    or not isinstance(review["change_id"], str) or review["change_id"] not in locator_ids
+                    or review["consumption"] != "historical_observation_without_locator"
+                    or not isinstance(review["rationale"], str) or not review["rationale"].strip()):
+                raise ValueError("invalid locator-specific historical consumption qualification")
     used = set()
     for origin, graph in graphs.items():
         projected = []
@@ -430,6 +443,12 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                         if not part or part["content_sha256"] != binding.get("consumed_sha256"):
                             raise ValueError("consumption target record/hash mismatch")
                         variant[prerequisite] = node_id(target, rid)
+                        if "locator_review" in binding:
+                            declaration = next(d for d in declarations if d["path"] == target)
+                            record = next((r for r in declaration["records"] if r["id"] == rid), None)
+                            if record is None or record["epistemic_status"] != "observation":
+                                raise ValueError("locator qualification requires an explicit observation record, never WHOLE/remainder")
+                            variant["locator_review"] = copy.deepcopy(binding["locator_review"])
                     elif role in {"navigation", "change_target", "provenance"}:
                         target_text = graphs[origin]["documents"].get(target)
                         if target_text is None or digest(target_text) != binding.get("prerequisite_document_sha256", binding.get("target_document_sha256")):
@@ -487,6 +506,11 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                         projected=[copy.deepcopy(relation)]))
                 raw_count += 1
         graph["edges"] = projected
+        if locator_changes:
+            graph["verified_locator_changes"] = copy.deepcopy(locator_changes)
+    # Preserve the raw representation seeds even when v1 isolated an H2 delta.
+    # Nothing here assigns factual freshness or removes a declared dependency.
+    changes.update(locator_changes)
     if set(bindings) != used:
         raise ValueError("record contract has stale or unmatched consumption bindings")
     if review_trace is not None:

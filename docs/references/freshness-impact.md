@@ -228,6 +228,69 @@ review, secrets and publication gates.
 
 ## Conservative boundary
 
+### Reviewed custody locator changes (opt-in)
+
+An optional `locator_changes` list in the existing record contract distinguishes
+a verified change of an artifact's custody address from a factual content
+update. This adds a review obligation, not factual freshness. Existing contracts
+retain their behavior. Invalid declarations fail closed.
+
+Each declaration supplies a unique `id`, document `path`, substantive `rationale`
+and nonempty `replacements`. A replacement supplies the exact `base_markdown`
+and `current_markdown`, `locator_use: historical_artifact_address`, original
+`artifact_sha256`/`size_bytes`, and `custody_evidence` (a CURRENT file-artifact ID).
+Optional `custody_entry` selects one exact entry in an existing receipt's
+`files` mapping. The receipt records `source_path`, `sha256`, `size_bytes`,
+`view_url` and a timezone-aware `verified_at`.
+
+The CommonMark parser must prove unique literal inline links in both complete,
+hash-bound snapshots. Only their destinations may differ; applying all declared
+substitutions must reproduce CURRENT byte for byte. Image/link changes, labels,
+titles, metadata, norms, dates and other prose cannot share this qualification.
+The initial scope supports local artifact paths becoming HTTPS custody links;
+reference-style, autolinks, title-bearing links and ambiguous mappings are
+conservative. A CURRENT custody event is never assigned to BASE.
+
+The file verifier checks the pinned receipt's bytes. Content review must verify
+its claimed original identity and remote custody, and establish that the URL is
+only an artifact address for this operation. Neither a hash nor this declaration
+proves remote state, account access, permission, semantic independence or current
+profile content. A URL used as identity, authority, version or an assertion
+remains factual. No network access or new source ingestion happens here.
+
+Consumer intent is separately authored for each origin and inherited variant.
+An existing `role: consumption` binding to an explicit `observation` record can
+add `locator_review: {change_id: ID, consumption:
+historical_observation_without_locator, rationale: ...}`. This does not narrow
+WHOLE or `remainder`, does not apply retroactively to BASE, and does not alter
+the factual dependency for any other change. Record independence, contexts and
+ordinary semantic review remain required. An active rule or current external
+use must not be mislabeled as historical consumption.
+
+The same evaluator joins obligations monotonically across every route and both
+origins. Unknown/WHOLE consumption and unqualified own premises require factual
+review; an actual factual source or policy change always remains factual even
+when rendered output coincides. Such a requirement dominates a competing
+representational reason. Upstream expansion still does not restart downstream
+traversal. A first witness cannot override a later factual route.
+
+Raw seeds, paths, hashes and `stale`/`unknown` verdicts remain visible. The report
+and review packet expose verified locator declarations and per-node obligations;
+`preserved_content_debt` shows expired content whose only obligation in this
+operation is custody review. Only that obligation can be satisfied by the
+receipt. A factual requirement reached by another route remains blocking. The
+source's freshness policy, schedule and dates are never renewed or exempted.
+An `explicit_view_v2` raw document continues to consume all its components;
+unqualified component premises therefore remain factual and may still block.
+
+For upgrades, author the optional declarations and BOTH-origin qualifications
+as explicit consumer-owned C3 input after custody and claim review. Run the
+normal gates; this feature does not promise to remove unrelated or genuinely
+required debt. The synthetic regression
+[`test_locator_review_requirements.py`](../../tests/test_locator_review_requirements.py)
+exercises the normal projector, repository report and review APIs, including
+mixed policy changes and competing WHOLE consumption.
+
 ### Explicit view entries (opt-in v2)
 
 `document_record.v2` adds whole table-row selectors and explicit publication /

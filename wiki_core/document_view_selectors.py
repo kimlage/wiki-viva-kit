@@ -6,13 +6,157 @@ Unselected material remains common context; no producer/path defaults exist.
 from __future__ import annotations
 
 import datetime as dt
+import json
+import posixpath
 import re
+from urllib.parse import unquote, urlsplit
 
 import yaml
 from markdown_it import MarkdownIt
 from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 
 from wiki_core.frontmatter import FRONTMATTER_RE
+
+
+def _literal_inline_links(text):
+    """Parser-proven, uniquely mapped inline links; no reference/image guesses."""
+    from wiki_core.markdown_link_roles import parse_role_markdown
+    fm, body = _body(text)
+    tokens, _ = parse_role_markdown(body)
+    lines = body.splitlines(keepends=True)
+    offsets = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line))
+    result = []
+    for token in tokens:
+        if token.type != "inline" or not token.map or not token.content:
+            continue
+        block_start, block_end = (offsets[n] for n in token.map)
+        block = body[block_start:block_end]
+        relative = block.find(token.content)
+        if relative < 0 or block.find(token.content, relative + 1) >= 0:
+            continue
+        for child in token.children or []:
+            span = child.meta.get("_wiki_link_span")
+            if child.type != "link_open" or not span or "label" in child.meta:
+                continue
+            start, end = (block_start + relative + n for n in span)
+            literal = body[start:end]
+            href = child.attrGet("href") or ""
+            # Minimal scope: literal inline destinations, without titles or
+            # parser normalization. Other syntax remains conservative.
+            suffix = "](" + href + ")"
+            if not literal.endswith(suffix) or not literal.startswith("["):
+                continue
+            absolute = fm.end() if fm else 0
+            result.append(dict(start=start + absolute, end=end + absolute,
+                               markdown=literal, href=href, prefix=literal[:-len(suffix)]))
+    return result
+
+
+def verify_locator_changes(current, base, contract, artifact_inputs):
+    """Verify lexical custody edits, never semantic independence or freshness.
+
+    The pinned CURRENT receipt is reviewed evidence of original identity and
+    custody. Its hash proves receipt bytes, not remote state or authorization.
+    BASE is never assigned that later custody event. Consumer intent requires
+    separate origin/occurrence-bound qualifications in the existing contract.
+    """
+    declarations = contract.get("locator_changes", [])
+    if not isinstance(declarations, list):
+        raise ValueError("locator_changes must be an explicit list")
+    result, ids = {}, set()
+
+    def unique_keys(pairs):
+        values = {}
+        for key, value in pairs:
+            if key in values:
+                raise ValueError("duplicate custody receipt key")
+            values[key] = value
+        return values
+
+    for declaration in declarations:
+        if not isinstance(declaration, dict):
+            raise ValueError("locator change must be a mapping")
+        if set(declaration) != {"id", "path", "rationale", "replacements"}:
+            raise ValueError("unknown or missing locator change field")
+        identity, path = declaration["id"], declaration["path"]
+        if (not isinstance(identity, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", identity)
+                or identity in ids or not isinstance(path, str) or path in result
+                or path not in base["documents"] or path not in current["documents"]
+                or not isinstance(declaration["rationale"], str) or not declaration["rationale"].strip()):
+            raise ValueError("invalid or duplicate locator change")
+        replacements = declaration["replacements"]
+        if not isinstance(replacements, list) or not replacements:
+            raise ValueError("locator change requires explicit replacements")
+        old, new = base["documents"][path], current["documents"][path]
+        links = {o: _literal_inline_links(t) for o, t in (("base", old), ("current", new))}
+        edits, occupied, proofs = [], {"base": set(), "current": set()}, []
+        for replacement in replacements:
+            required = {"base_markdown", "current_markdown", "locator_use", "artifact_sha256",
+                        "size_bytes", "custody_evidence"}
+            if (not isinstance(replacement, dict)
+                    or set(replacement) not in (required, required | {"custody_entry"})
+                    or replacement.get("locator_use") != "historical_artifact_address"):
+                raise ValueError("locator replacement requires reviewed historical-address intent")
+            selected = {}
+            for origin in ("base", "current"):
+                matches = [v for v in links[origin] if v["markdown"] == replacement[f"{origin}_markdown"]]
+                if len(matches) != 1:
+                    raise ValueError("locator occurrence missing, ambiguous or unsupported")
+                selected[origin] = matches[0]
+                span = (matches[0]["start"], matches[0]["end"])
+                if span in occupied[origin]:
+                    raise ValueError("duplicate locator occurrence")
+                occupied[origin].add(span)
+            a, b = selected["base"], selected["current"]
+            if a["prefix"] != b["prefix"] or a["href"] == b["href"]:
+                raise ValueError("locator edit changes label or does not change destination")
+            before, after = urlsplit(a["href"]), urlsplit(b["href"])
+            source_path = posixpath.normpath(posixpath.join(posixpath.dirname(path), unquote(before.path)))
+            if (before.scheme or before.netloc or before.query or before.fragment
+                    or source_path.startswith(("/", "../")) or "\\" in source_path
+                    or after.scheme != "https" or not after.netloc or after.username or after.password):
+                raise ValueError("unsupported custody locator boundary")
+            aid = replacement["custody_evidence"]
+            if not isinstance(aid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", aid):
+                raise ValueError("invalid custody evidence identity")
+            key = ("current", aid)
+            artifacts = [v for v in contract.get("artifacts", [])
+                         if v.get("origin") == "current" and v.get("id") == aid and "path" in v]
+            if len(artifacts) != 1 or key not in artifact_inputs:
+                raise ValueError("custody evidence must be a verified CURRENT file receipt")
+            try:
+                receipt = json.loads(artifact_inputs[key], object_pairs_hook=unique_keys)
+                if "custody_entry" in replacement:
+                    receipt = receipt["files"][replacement["custody_entry"]]
+                if not isinstance(receipt, dict):
+                    raise ValueError("custody receipt must be a mapping")
+                verified = dt.datetime.fromisoformat(receipt["verified_at"])
+            except (TypeError, KeyError, UnicodeError, json.JSONDecodeError) as exc:
+                raise ValueError("invalid custody receipt") from exc
+            sha, size = replacement["artifact_sha256"], replacement["size_bytes"]
+            if (not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha)
+                    or type(size) is not int or size <= 0 or verified.tzinfo is None
+                    or receipt.get("sha256") != sha or type(receipt.get("size_bytes")) is not int
+                    or receipt.get("size_bytes") != size
+                    or receipt.get("source_path") != source_path or receipt.get("view_url") != b["href"]):
+                raise ValueError("custody receipt does not match original identity and destination")
+            edits.append((a["start"], a["end"], b["markdown"]))
+            proofs.append(dict(base_span=[a["start"], a["end"]], current_span=[b["start"], b["end"]],
+                custody_evidence=aid, custody_origin="current", source_path=source_path,
+                artifact_sha256=sha, size_bytes=size, base_href=a["href"], current_href=b["href"]))
+        rewritten = old
+        for start, end, value in sorted(edits, reverse=True):
+            rewritten = rewritten[:start] + value + rewritten[end:]
+        if rewritten != new:
+            raise ValueError("locator delta contains another lexical or factual change")
+        result[path] = dict(id=identity, path=path, rationale=declaration["rationale"],
+                            base_sha256=contract["base_documents_sha256"][path],
+                            current_sha256=contract["current_documents_sha256"][path],
+                            replacements=proofs)
+        ids.add(identity)
+    return result
 
 
 def _body(text):

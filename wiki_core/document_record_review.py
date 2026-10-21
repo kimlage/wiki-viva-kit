@@ -124,6 +124,8 @@ def review_records(current, base, changed, contract, *, targets, artifact_inputs
     if contract["schema_version"] == "document_record.v2":
         result.update(contract_schema_version=contract["schema_version"],
                       document_modes=copy.deepcopy(contract["document_modes"]))
+    if projected_current.get("verified_locator_changes"):
+        result["locator_changes"] = copy.deepcopy(list(projected_current["verified_locator_changes"].values()))
     return result
 
 
