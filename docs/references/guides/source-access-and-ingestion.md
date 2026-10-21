@@ -12,6 +12,36 @@ the official client or secret store. URLs, bearer values and credential-looking
 blobs are refused. Profiles, provider login, capability flags and successful
 process exit do not prove access to a resource or isolation of accounts.
 
+## Textual wiki content and external originals
+
+A consumer that keeps originals outside its wiki can enable an existing-auditor
+check without changing application resources or granting storage access:
+
+```yaml
+audit:
+  wiki_text_storage:
+    enabled: true
+    roots: [memories, docs]
+```
+
+Roots are explicit, unique repository-relative content directories. The check
+runs in `wiki_audit.py --check`, including the existing `drive_artifact_links`
+selection. It rejects binary/source-container content in those directories by
+bytes rather than extension, even when tracked, untracked or ignored by Git.
+Application code and its resources outside those content roots are unaffected;
+do not put an application resource directory in this policy based on extension.
+UTF-8 Markdown, code examples and operational configuration remain valid.
+
+The existing `data/drive_artifacts_manifest.json` also identifies external
+captures by normalized `source_path`: a file still present in a selected content
+root is refused even if it is UTF-8 JSON. The audit does not infer the purpose of
+uncatalogued text, authenticate, verify remote custody, upload, delete, rewrite
+historical evidence or authorize a financial export. Review that classification
+and verify the correct external destination, access, exact bytes and references
+before removing an original. Retain its Git provenance without rewriting history.
+The feature is absent by default; malformed policies and unreadable catalogs
+refuse when configured. Existing privacy and secret gates remain mandatory.
+
 ## Declared access
 
 An optional `access` mapping in the existing source recipe has this shape:

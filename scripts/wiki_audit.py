@@ -8,11 +8,14 @@
 from __future__ import annotations
 
 import argparse
+import codecs
 import datetime as dt
 import functools
 import hashlib
 import json
+import os
 import re
+import stat
 import subprocess
 import sys
 import unicodedata
@@ -1105,6 +1108,96 @@ def audit_drive_artifact_links(warnings: list[str], config: WikiConfig) -> None:
             "general rule: content on Drive (wiki_drive_publish) and the wiki points to the "
             "manifest view_url. Use --list-stale-gaps to list."
         )
+
+
+def audit_wiki_text_storage(errors: list[str], config: WikiConfig) -> None:
+    """Opt-in content custody check, independent of extension or Git tracking.
+
+    Scope is explicitly selected content roots, never application resource
+    directories by default. UTF-8 technical configuration remains valid; a
+    capture declared external in the existing artifact manifest does not.
+    This check reports only: it neither uploads nor removes any source.
+    """
+    policy = config.audit.get("wiki_text_storage")
+    if policy is None:
+        return
+    if (not isinstance(policy, dict) or set(policy) != {"enabled", "roots"}
+            or type(policy.get("enabled")) is not bool):
+        errors.append("audit.wiki_text_storage requires boolean enabled and explicit roots")
+        return
+    roots = policy.get("roots")
+
+    def normalized(value):
+        path = Path(value) if isinstance(value, str) else None
+        return bool(path and value and not path.is_absolute() and path.as_posix() == value
+                    and value != "." and not any(v in {".", ".."} for v in path.parts)
+                    and "\\" not in value)
+
+    if (not isinstance(roots, list) or not roots or any(not normalized(v) for v in roots)
+            or len(set(roots)) != len(roots)):
+        errors.append("audit.wiki_text_storage roots must be unique normalized repository-relative paths")
+        return
+    if not policy["enabled"]:
+        return
+    root = ROOT.resolve()
+    for rel in roots:
+        path = ROOT / rel
+        if path.is_symlink() or not path.is_dir() or not path.resolve().is_relative_to(root):
+            errors.append(f"audit.wiki_text_storage invalid content root: {rel}")
+            return
+    external = set()
+    manifest = ROOT / "data/drive_artifacts_manifest.json"
+    if manifest.exists() or manifest.is_symlink():
+        try:
+            if manifest.is_symlink() or not manifest.resolve().is_relative_to(root):
+                raise ValueError("manifest must be a contained regular file")
+            descriptor = os.open(manifest, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
+            with os.fdopen(descriptor, "r", encoding="utf-8") as stream:
+                if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                    raise ValueError("manifest must be regular")
+                values = json.load(stream)["files"]
+            if not isinstance(values, dict) or any(not isinstance(v, dict) for v in values.values()):
+                raise ValueError("invalid manifest files")
+            external = {v["source_path"] for v in values.values() if normalized(v.get("source_path"))}
+        except (OSError, UnicodeError, ValueError, KeyError, TypeError):
+            errors.append("audit.wiki_text_storage cannot validate external artifact manifest")
+            return
+    # Use raw NUL-separated Git paths rather than the legacy display-oriented
+    # tracked_files() helper: spaces/accents must not make a source disappear.
+    paths = set()
+    for args in (["ls-files", "-z"], ["ls-files", "--others", "-z"]):
+        result = subprocess.run(["git", *args, "--", *[":(literal)" + v for v in roots]],
+                                cwd=ROOT, capture_output=True)
+        if result.returncode:
+            errors.append("audit.wiki_text_storage Git content inventory unavailable")
+            return
+        paths.update(v.decode("utf-8", errors="surrogateescape") for v in result.stdout.split(b"\0") if v)
+    for rel in sorted(paths):
+        if not any(rel == v or rel.startswith(v + "/") for v in roots):
+            continue
+        path = ROOT / rel
+        if not path.exists() and not path.is_symlink():
+            continue  # removal in this candidate; ordinary link audit still applies
+        if rel in external:
+            errors.append(f"{rel}: externally catalogued source must remain outside wiki content")
+            continue
+        try:
+            if path.is_symlink() or not path.resolve().is_relative_to(root):
+                raise ValueError("not a contained regular file")
+            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
+            with os.fdopen(descriptor, "rb") as stream:
+                if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                    raise ValueError("not a regular file")
+                decoder = codecs.getincrementaldecoder("utf-8")()
+                first = True
+                while data := stream.read(65536):
+                    if b"\0" in data or (first and data.lstrip().startswith(b"%PDF-")):
+                        raise ValueError("source container or binary content")
+                    decoder.decode(data)
+                    first = False
+                decoder.decode(b"", final=True)
+        except (OSError, UnicodeError, ValueError):
+            errors.append(f"{rel}: wiki content must be text; preserve original externally and cite its verified reference")
 
 
 def audit_stale_coverage(warnings: list[str], config: WikiConfig) -> None:
@@ -2338,7 +2431,8 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
     ("stale_coverage", lambda ctx: audit_stale_coverage(ctx.warnings, ctx.config)),
     ("freshness_budget", lambda ctx: audit_freshness_budget(ctx.errors, ctx.warnings, ctx.config,
         base_ref=ctx.freshness_base, report_path=ctx.freshness_report)),
-    ("drive_artifact_links", lambda ctx: audit_drive_artifact_links(ctx.warnings, ctx.config)),
+    ("drive_artifact_links", lambda ctx: (audit_drive_artifact_links(ctx.warnings, ctx.config),
+                                        audit_wiki_text_storage(ctx.errors, ctx.config))),
     ("command_reference", lambda ctx: audit_command_reference(ctx.errors, ctx.config)),
     ("relations", lambda ctx: audit_relations(ctx.errors, ctx.config)),
     ("old_paths", lambda ctx: audit_old_paths(ctx.errors, ctx.config)),
