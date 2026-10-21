@@ -49,3 +49,10 @@ Agent-facing commands live in [scripts](../scripts/README.md).
 read-only trace of [document_records.py](document_records.py) for a complete
 incoming/own-premise census. It does not introduce another projection algorithm,
 infer authored intent or evaluate freshness.
+
+[contribution_records.py](contribution_records.py) derives the explicitly
+opted-in documentary support for [action_contribution.py](action_contribution.py).
+It reuses the projector, preserves BASE and semantic declarations, and refuses
+affected bindings requiring C3. Models still request one action body; normal
+producer checks and exact generated-head review cover the complete proposal.
+See [agent contributions](../docs/references/guides/agent-contributions.md).

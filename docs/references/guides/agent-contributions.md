@@ -126,6 +126,60 @@ No access, absent CI or a pending gate is a refusal/wait, never successful
 adoption. Local-only projects can prepare/review proposals; another integration
 policy requires its own explicit adapter.
 
+## Exact documentary support (optional)
+
+An exact `audit.freshness_records` contract binds the entire BASE and CURRENT
+document maps. A normal contribution changes the action and log, so leaving
+that contract unchanged makes the real auditor refuse the proposal. Merely
+configuring an audit input does not authorize the port to write it.
+
+A project operator may opt in through the approved parent policy:
+
+```yaml
+approval:
+  contribution_record_support: true
+```
+
+The default is `false`. The model request still contains exactly one action.
+The port derives only the one existing tracked, regular JSON contract named by
+the parent's `audit.freshness_records`, outside memory/raw/cache/secret paths.
+It validates the actual configured BASE and parent CURRENT using the existing
+projector (this bounded option requires `audit.freshness_base` to be a full
+commit SHA), then updates only the final action/log CURRENT hashes. An existing
+last H2 record in the log may acquire only the exact blank separator from the
+canonical append. Every other declaration field, BASE hash, artifact, date,
+role, evidence, rationale and context remains unchanged. Duplicate JSON keys,
+unsupported selectors and changed semantic record content cause refusal.
+
+Every affected occurrence guard or consumed-record binding needs explicit
+project migration (C3); the port never renews a guard merely because its role
+is `navigation` or `change_target`. A capture proving an earlier log update
+does not prove a future update. `record_support_c3_required` identifies the
+binding or declaration field to review. This helper does not author that
+review or automatically solve a project's initial five-view migration.
+
+The opted-in transaction also runs the real source-registry, operation and
+operational-pass checks alongside the existing auditor/input-stage gates.
+Other authored pages, including the action index, remain byte-identical.
+If an H1 or other producer input requires a generated view update, preparation
+refuses instead of adding another output file. Failed checks install no ref.
+
+The generated proposal and exact-head review bind all three files. Reuse,
+publication, reconciliation and merged readback recompute the exact support
+from the immutable parent and validated canonical action/log delta. Local
+support/input drift fails the late CAS. Publication and OPEN integration
+require freshly observed canonical HEAD to equal the proposal parent; a main
+advance is a conflict, without automatic rebase or hash renewal. The remote
+base may still race that observation: post-merge readback detects an unexpected
+parent or support, retains `remote_merged`, and reports unknown rather than
+replaying or rolling back. Canonical readback also validates the complete
+document pair and retained artifact bytes. Readback covers the support file as well as the
+action/log; selected checkout and served adoption remain separate observations.
+
+A dry-run preparation does not derive support or run these gates and therefore
+does not establish contract eligibility. With the flag off, the original
+two-path flow and its exact-contract refusal remain unchanged.
+
 ## Recovery and adoption coverage
 
 A prepared proposal is identified by its Git branch and recorded effect, so a
