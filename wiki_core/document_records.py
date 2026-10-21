@@ -80,8 +80,11 @@ def structured_digest(value) -> str:
     return digest(json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str))
 
 
-def artifact_paths(root, contract):
-    """Only local immutable captures; no network or implicit source refresh."""
+def artifact_paths(root, contract, *, check_worktree=True):
+    """Local captures; Git-only callers must validate immutable entry modes.
+
+    Default filesystem checks remain required for working-tree audit inputs.
+    """
     from pathlib import Path
     result = {}
     for item in contract.get("artifacts", []):
@@ -91,7 +94,7 @@ def artifact_paths(root, contract):
         if rel.is_absolute() or rel.as_posix() != item["path"] or ".." in rel.parts:
             raise ValueError("record artifact requires a normalized repository-relative path")
         path = root / rel
-        if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+        if check_worktree and (path.is_symlink() or not path.resolve().is_relative_to(root.resolve())):
             raise ValueError("record artifact must be a local non-symlink file")
         result[(item["origin"], item["id"])] = path
     return result

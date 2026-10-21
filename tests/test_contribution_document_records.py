@@ -39,7 +39,7 @@ def command(root, *args):
     return result.stdout
 
 
-def fullmap_consumer(tmp_path, *, support=False, guarded=False):
+def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False):
     root = tmp_path / 'consumer'
     command(tmp_path, 'git', 'clone', '--shared', '--quiet', str(SOURCE), str(root))
     git(root, 'switch', '-C', 'main')
@@ -101,6 +101,11 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False):
                         id='preserved-note', heading=heading, base_sha256=log_sha, current_sha256=log_sha,
                         independent=True, rationale='Existing historical note with no current-state claim.',
                         epistemic_status='observation', recorded_on=today, context_records=[])])], bindings=[])
+    if captured:
+        artifact = root / 'docs/synthetic-frozen-capture.json'
+        artifact.write_text('{"scope": "Synthetic frozen observation, no live permissions"}\n')
+        contract['artifacts'] = [dict(origin='current', id='synthetic-frozen-observation',
+                                     path='docs/synthetic-frozen-capture.json', sha256=digest(artifact.read_text()))]
     if guarded:
         edge, = [e for e in graph['edges'] if e.get('source') == 'memories/actions/contract-example.md'
                  and e.get('target') == 'memories/system/log.md']
@@ -155,7 +160,7 @@ def test_canonical_prepare_refuses_full_snapshot_contract_without_support(tmp_pa
 
 
 def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, monkeypatch):
-    root, action, log, records, request = fullmap_consumer(tmp_path, support=True)
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True, captured=True)
     before = {p: p.read_bytes() for p in (action, log, records)}
     head = git(root, 'rev-parse', 'HEAD')
     result = run_git_workflow(root, load_config(root), 'prepare_contribution',
@@ -179,6 +184,8 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
     again = run_git_workflow(root, load_config(root), 'prepare_contribution',
                             {'request': request, 'review': review(request)}, dry_run=False)
     assert again['ok'] and again['idempotent'] and again['proposal_commit'] == commit, again
+    assert again['generated_paths'] == result['generated_paths']
+    assert again['receipt_id'] == result['receipt_id']
     # Forge only this test proposal's metadata blob, without changing source.
     environment = {**os.environ, 'GIT_INDEX_FILE': str(tmp_path / 'tamper-index')}
     def indexed(*args, data=None):
@@ -223,7 +230,54 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
                                {'request': request, 'pr': 7}, dry_run=False)
     assert observed['ok'] and observed['remote_merged'] and observed['canonical_body_adopted'], observed
     assert len(observed['readback_files']) == 3
+    assert observed['generated_paths'] == result['generated_paths']
+    assert observed['receipt_id'] == result['receipt_id']
     assert not git(root, 'branch', '--list', result['branch'])
+    # Evidence validation also uses the immutable Git cut, not a local alias.
+    artifact = root / 'docs/synthetic-frozen-capture.json'
+    artifact_bytes = artifact.read_bytes()
+    external_artifact = tmp_path / 'outside-capture.json'
+    external_artifact.write_bytes(artifact_bytes)
+    try:
+        artifact.unlink()
+        artifact.symlink_to(external_artifact)
+        immutable = run_git_workflow(root, load_config(root), 'reconcile_contribution',
+                                    {'request': request, 'pr': 7}, dry_run=False)
+        assert immutable['ok'] and immutable['canonical_body_adopted'], immutable
+        assert artifact.is_symlink() and external_artifact.read_bytes() == artifact_bytes
+    finally:
+        artifact.unlink()
+        artifact.write_bytes(artifact_bytes)
+    # Recovery validates immutable Git even when the selected checkout still
+    # needs adoption. Never follow a local alias or claim a wrong mode adopted.
+    support_bytes = records.read_bytes()
+    alias_target = tmp_path / 'same-bytes-outside-checkout.json'
+    alias_target.write_bytes(support_bytes)
+    recoveries = []
+    for mutation in ('missing', 'symlink', 'executable'):
+        try:
+            if mutation == 'executable':
+                records.chmod(0o755)
+            else:
+                records.unlink()
+                if mutation == 'symlink':
+                    records.symlink_to(alias_target)
+            recovery = run_git_workflow(root, load_config(root), 'reconcile_contribution',
+                                       {'request': request, 'pr': 7}, dry_run=False)
+            recoveries.append((mutation, recovery))
+            assert not git(root, 'branch', '--list', result['branch'])
+            assert alias_target.read_bytes() == support_bytes
+        finally:
+            if records.is_symlink():
+                records.unlink()
+            records.write_bytes(support_bytes)
+            records.chmod(0o644)
+    assert all(value.get('ok') and value.get('remote_merged')
+               and value.get('status') == 'waiting_worktree_adoption'
+               and value.get('worktree_adopted') is False
+               and value.get('generated_paths') == result['generated_paths']
+               and value.get('receipt_id') == result['receipt_id']
+               for _, value in recoveries), recoveries
     # Later memory drift with unchanged support is not a valid full snapshot.
     unrelated = root / 'memories/example/index.md'
     unrelated.write_text(unrelated.read_text() + '\nUnrelated synthetic new claim.\n')
@@ -295,4 +349,6 @@ def test_operator_support_path_is_not_an_arbitrary_third_file(tmp_path, case):
         record.unlink()
         record.symlink_to(other)
     with pytest.raises(ValueError, match='record_support'):
-        support_path(tmp_path, parent)
+        support_path(tmp_path, parent, require_worktree=True)
+    if case in {'symlink', 'executable'}:
+        assert support_path(tmp_path, parent) == ref
