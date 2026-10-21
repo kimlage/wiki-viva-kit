@@ -243,7 +243,11 @@ def test_raw_factual_page_cannot_borrow_locator_identity_from_frontmatter(migrat
     assert not report["ok"] and row in report["blockers"]
 
 
-def test_complete_git_migration_normative_and_whole_routes_use_normal_callers(migration, repo):
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_complete_git_migration_normative_and_whole_routes_use_normal_callers(migration, repo, wrapped):
+    if wrapped:
+        migration = _wrapped_locator_case(migration,
+            "- Old historical context\n  before {link}\n  with unchanged trailing prose.\n")
     current, base, contract, inputs = migration
     for path, text in base["documents"].items():
         (repo / path).write_text(text)
@@ -357,3 +361,102 @@ def test_absence_retains_existing_contract_and_review_uses_same_projection(migra
     for binding in original[2]["bindings"]:
         binding.pop("locator_review")
     assert not result(original)["ok"]
+
+
+def _wrapped_locator_case(case, layout, *, current_extra="", current_metadata=False,
+                          base_link=OLD, current_link=NEW):
+    """Keep the complete input pair and selected-record hashes explicit."""
+    current, base, contract, _ = case
+    for origin, graph, link in (("base", base, base_link), ("current", current, current_link)):
+        text = graph["documents"][SOURCE]
+        text = text.replace("Captured in January: " + (OLD if origin == "base" else NEW) + "\n",
+                            layout.format(link=link))
+        if origin == "current":
+            text += current_extra
+            if current_metadata:
+                text = text.replace("2026-01-01", "2026-10-18")
+        graph["documents"][SOURCE] = text
+        contract[f"{origin}_documents_sha256"][SOURCE] = digest(text)
+        contract["documents"][0]["records"][0][f"{origin}_sha256"] = digest(
+            sections(text)[1]["Historical observation"][2])
+    for binding in contract["bindings"]:
+        binding["consumed_sha256"] = contract["documents"][0]["records"][0][
+            f"{binding['origin']}_sha256"]
+    return case
+
+
+@pytest.mark.parametrize("layout", [
+    "- A historical observation wraps\n  before {link}\n  and retains its trailing context.\n",
+    "1. An old observation:\n   - Nested context wraps\n     before {link}\n     and retains its trailing context.\n",
+    "> - An old observation wraps\n>   before {link}\n>   with unchanged context.\n",
+])
+def test_locator_literal_maps_wrapped_container_without_normalizing_the_link(migration, layout):
+    case = _wrapped_locator_case(migration, layout)
+    packet = review_records(case[0], case[1], {SOURCE}, case[2],
+                            targets=[SOURCE], artifact_inputs=case[3])
+    proof = packet["locator_changes"][0]["replacements"][0]
+    for origin, graph in (("base", case[1]), ("current", case[0])):
+        start, end = proof[f"{origin}_span"]
+        assert graph["documents"][SOURCE][start:end] == (OLD if origin == "base" else NEW)
+    report = result(case)
+    assert report["ok"]
+    assert RULE in {r["path"] for r in report["included"]}
+    assert SOURCE in {r["path"] for r in report["preserved_content_debt"]}
+
+
+def test_locator_wrapped_crlf_pair_keeps_exact_raw_offsets(migration):
+    case = _wrapped_locator_case(migration, "- Old context\n  {link}\n  unchanged prose.\n")
+    for origin, graph in (("base", case[1]), ("current", case[0])):
+        text = graph["documents"][SOURCE].replace("\n", "\r\n")
+        graph["documents"][SOURCE] = text
+        case[2][f"{origin}_documents_sha256"][SOURCE] = digest(text)
+        case[2]["documents"][0]["records"][0][f"{origin}_sha256"] = digest(
+            sections(text)[1]["Historical observation"][2])
+    for binding in case[2]["bindings"]:
+        binding["consumed_sha256"] = case[2]["documents"][0]["records"][0][
+            f"{binding['origin']}_sha256"]
+    assert result(case)["ok"]
+
+
+@pytest.mark.parametrize("fault", ["duplicate", "inline-code", "fenced-code", "reference",
+                                    "image", "label", "metadata", "prose", "factual"])
+def test_wrapped_locator_mapping_keeps_ambiguity_syntax_and_full_pair_fail_closed(migration, fault):
+    layout = "- Old context\n  {link}\n  unchanged prose.\n"
+    if fault == "duplicate":
+        layout = "- Old context\n  {link} and {link}\n  unchanged prose.\n"
+    elif fault == "inline-code":
+        layout = "- Old context\n  `{link}`\n  unchanged prose.\n"
+    elif fault == "fenced-code":
+        layout = "```markdown\n- Old context\n  {link}\n```\n"
+    elif fault == "reference":
+        layout = "- Old context\n  [Preserved banner][banner]\n  unchanged prose.\n\n[banner]: {link}\n"
+    elif fault == "image":
+        layout = "- Old context\n  !{link}\n  unchanged prose.\n"
+    extra = "\nA new factual assertion about present state.\n" if fault == "factual" else ""
+    if fault == "prose":
+        extra = "\nDifferent context.\n"
+    case = _wrapped_locator_case(migration, layout, current_extra=extra,
+                                current_metadata=fault == "metadata",
+                                base_link="../assets/banner.png" if fault == "reference" else OLD,
+                                current_link=("https://files.example.invalid/banner" if fault == "reference"
+                                              else NEW.replace("Preserved banner", "Approved banner")
+                                              if fault == "label" else NEW))
+    if fault == "label":
+        case[2]["locator_changes"][0]["replacements"][0]["current_markdown"] = (
+            NEW.replace("Preserved banner", "Approved banner"))
+    with pytest.raises(ValueError):
+        projected(case)
+
+
+def test_normalized_link_cannot_borrow_literal_from_code_in_wrapped_block(migration):
+    # The real AST link spans indented lines and has no contiguous raw literal.
+    # A matching spelling in code must never be used as that link's raw span.
+    case = _wrapped_locator_case(migration,
+        "- Old context [Preserved\n  banner]({link})\n  with code `[Preserved\nbanner]({link})`.\n",
+        base_link="../assets/banner.png", current_link="https://files.example.invalid/banner")
+    for origin in ("base", "current"):
+        case[2]["locator_changes"][0]["replacements"][0][f"{origin}_markdown"] = (
+            "[Preserved\nbanner](" + ("../assets/banner.png" if origin == "base"
+                                       else "https://files.example.invalid/banner") + ")")
+    with pytest.raises(ValueError):
+        projected(case)

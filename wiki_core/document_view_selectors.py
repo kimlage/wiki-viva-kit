@@ -34,13 +34,46 @@ def _literal_inline_links(text):
         block_start, block_end = (offsets[n] for n in token.map)
         block = body[block_start:block_end]
         relative = block.find(token.content)
-        if relative < 0 or block.find(token.content, relative + 1) >= 0:
+        if relative >= 0 and block.find(token.content, relative + 1) >= 0:
             continue
+        mapped_lines = []
+        if relative < 0:
+            # CommonMark strips list/quote prefixes from each inline line.
+            # Align complete lines first, never search a link in unrelated code.
+            parsed_lines = token.content.split("\n")
+            source_lines = block.splitlines(keepends=True)
+            if len(parsed_lines) != len(source_lines):
+                continue
+            cursor = block_start
+            for parsed, source in zip(parsed_lines, source_lines):
+                raw = source.rstrip("\r\n")
+                position = raw.find(parsed) if parsed else -1
+                if (position < 0 or raw.find(parsed, position + 1) >= 0
+                        or not re.fullmatch(r"(?:[ \t]*(?:>[ \t]?|(?:[-+*]|[0-9]{1,9}[.)])[ \t]+))*[ \t]*",
+                                            raw[:position])
+                        or raw[position + len(parsed):].strip(" \t")):
+                    break
+                mapped_lines.append(cursor + position)
+                cursor += len(source)
+            if len(mapped_lines) != len(parsed_lines):
+                continue
         for child in token.children or []:
             span = child.meta.get("_wiki_link_span")
             if child.type != "link_open" or not span or "label" in child.meta:
                 continue
-            start, end = (block_start + relative + n for n in span)
+            if relative >= 0:
+                start, end = (block_start + relative + n for n in span)
+            else:
+                literal = token.content[span[0]:span[1]]
+                # Normalization inside the link itself stays unsupported.
+                if "\n" in literal or "\r" in literal or block.count(literal) != 1:
+                    continue
+                line = token.content.count("\n", 0, span[0])
+                column = span[0] - token.content.rfind("\n", 0, span[0]) - 1
+                start = mapped_lines[line] + column
+                end = start + len(literal)
+                if body[start:end] != literal:
+                    continue
             literal = body[start:end]
             href = child.attrGet("href") or ""
             # Minimal scope: literal inline destinations, without titles or

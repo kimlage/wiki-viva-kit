@@ -251,6 +251,14 @@ The initial scope supports local artifact paths becoming HTTPS custody links;
 reference-style, autolinks, title-bearing links and ambiguous mappings are
 conservative. A CURRENT custody event is never assigned to BASE.
 
+Wrapped list and quote paragraphs can retain a supported literal link even
+when CommonMark removes container indentation outside that link. The mapper
+must align complete source lines with the parsed inline lines, accepting only
+unambiguous container prefixes and unchanged link bytes. Normalization inside
+the link, duplicate literals and uncertain line mappings stay unsupported;
+a matching spelling inside code cannot supply the span of another AST link.
+The complete BASE-to-CURRENT byte replay remains required.
+
 The file verifier checks the pinned receipt's bytes. Content review must verify
 its claimed original identity and remote custody, and establish that the URL is
 only an artifact address for this operation. Neither a hash nor this declaration
