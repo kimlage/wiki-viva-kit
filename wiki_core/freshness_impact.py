@@ -245,7 +245,15 @@ def evaluate_impact(
     requirements = {}
     witnesses = {}
     for path in seeds:
-        document = nodes.get(path, {}).get("document_path", path)
+        # Raw identity dominates all authored metadata, including fields that
+        # resemble projected component metadata. Only the projector's validated
+        # graph-root lineage may associate a non-document seed with a locator.
+        if path in current["documents"] or path in base["documents"]:
+            document = path
+        else:
+            parents = {graph.get("verified_locator_record_documents", {}).get(path)
+                       for graph in (base, current)} - {None}
+            document = next(iter(parents)) if len(parents) == 1 else None
         kind = locators[document]["id"] if document in locators else None
         requirements[path] = {kind}
         witnesses[(path, kind)] = reasons[path]

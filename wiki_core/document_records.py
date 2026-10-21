@@ -508,6 +508,11 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
         graph["edges"] = projected
         if locator_changes:
             graph["verified_locator_changes"] = copy.deepcopy(locator_changes)
+            # This graph-root lineage is built from validated partitions, never
+            # inherited from ordinary page frontmatter or synthetic-looking flags.
+            graph["verified_locator_record_documents"] = {
+                node_id(path, rid): path for path in locator_changes
+                for rid in partitions[origin].get(path, {}).get("parts", {})}
     # Preserve the raw representation seeds even when v1 isolated an H2 delta.
     # Nothing here assigns factual freshness or removes a declared dependency.
     changes.update(locator_changes)

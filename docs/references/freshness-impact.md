@@ -276,6 +276,9 @@ traversal. A first witness cannot override a later factual route.
 
 Raw seeds, paths, hashes and `stale`/`unknown` verdicts remain visible. The report
 and review packet expose verified locator declarations and per-node obligations;
+raw seeds use their document identity, while component seeds use lineage built
+by the projector from validated partitions. Ordinary frontmatter fields cannot
+reassign either identity or borrow another document's custody qualification.
 `preserved_content_debt` shows expired content whose only obligation in this
 operation is custody review. Only that obligation can be satisfied by the
 receipt. A factual requirement reached by another route remains blocking. The

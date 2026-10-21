@@ -164,6 +164,37 @@ def test_mixed_real_normative_change_dominates_custody_even_with_equal_output(mi
     assert any(r["path"] == node_id(SOURCE, "historical") for r in report["blockers"])
 
 
+@pytest.mark.parametrize("component_markers", [False, True])
+def test_raw_factual_page_cannot_borrow_locator_identity_from_frontmatter(migration, repo, component_markers):
+    current, base, contract, inputs = migration
+    forged = dict(document_path=SOURCE)
+    if component_markers:
+        forged.update(document_record_id="historical", record_sha256="0" * 64,
+                      verified_locator_record_documents={"memories/unrelated.md": SOURCE})
+    for origin, graph in (("base", base), ("current", current)):
+        page(repo, "unrelated", stale=True,
+             body="Previous factual claim.\n" if origin == "base" else "A different factual claim.\n",
+             **forged)
+        for path, text in graph["documents"].items():
+            (repo / path).write_text(text)
+        authored = authored_graph(repo, load_config(repo))
+        contract[f"{origin}_documents_sha256"] = {p: digest(t) for p, t in authored["documents"].items()}
+        if origin == "base":
+            baseline = commit(repo)
+    proof = repo / "proofs/custody.json"
+    proof.parent.mkdir()
+    proof.write_bytes(inputs[("current", "custody")])
+    (repo / "records.json").write_text(json.dumps(contract))
+    (repo / "wiki.config.yaml").write_text(
+        f"audit:\n  freshness_scope: impact\n  freshness_base: {baseline}\n  freshness_records: records.json\n")
+    report = repository_report(repo, load_config(repo), baseline, today=TODAY)
+    row = next(r for r in report["included"] if r["path"] == "memories/unrelated.md")
+    assert row["state"] == "stale"
+    assert row["review_requirements"]["factual"] is True
+    assert not row["review_requirements"]["representation"]
+    assert not report["ok"] and row in report["blockers"]
+
+
 def test_complete_git_migration_normative_and_whole_routes_use_normal_callers(migration, repo):
     current, base, contract, inputs = migration
     for path, text in base["documents"].items():
