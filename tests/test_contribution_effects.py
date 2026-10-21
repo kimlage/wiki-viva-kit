@@ -4,7 +4,7 @@ import copy
 import pytest
 
 import wiki_core.action_contribution as port
-from wiki_core.action_transition import (_parse_document, append_contribution_log,
+from wiki_core.action_transition import (_parse_document, _render_document, append_contribution_log,
     integrate_action_body, transition_action_page)
 from wiki_core.config import load_config
 from wiki_core.contribution_records import _canonical_log_effect
@@ -53,9 +53,14 @@ def test_effect_qualification_is_explicit_and_strict(repo, mutation):
             project_records(current, base, {'memories/log.md'}, contract)
 
 
-def test_new_receipt_and_log_proof_preserves_dialogue_suffix_and_refuses_forgery(tmp_path):
+@pytest.mark.parametrize('base_history', ['absent', 'null', 'empty'])
+def test_new_receipt_and_log_proof_preserves_dialogue_suffix_and_refuses_forgery(tmp_path, base_history):
     action, request = fixture(tmp_path)
     path, log = 'memories/actions/example.md', 'memories/system/log.md'
+    if base_history != 'absent':
+        values, body = _parse_document(action.read_text())
+        values['action_state_history'] = None if base_history == 'null' else []
+        action.write_text(_render_document(values, body))
     documents = {path: action.read_text(), log: (tmp_path / log).read_text()}
     # These are real canonical writers. The fixture's gate scripts are never
     # executed and do not qualify the separate real-producer integration test.
@@ -91,6 +96,13 @@ def test_new_receipt_and_log_proof_preserves_dialogue_suffix_and_refuses_forgery
             candidate['documents'][path] = candidate['documents'][path].replace('body_integration', 'contract_update')
         with pytest.raises(ValueError, match='canonical_log_effect_unproved'):
             _canonical_log_effect(documents, candidate, path, log, expected)
+    for invalid in (False, 0, 'empty', {}):
+        invalid_documents = dict(documents)
+        values, body = _parse_document(documents[path])
+        values['action_state_history'] = invalid
+        invalid_documents[path] = _render_document(values, body)
+        with pytest.raises(ValueError, match='canonical_log_effect_unproved'):
+            _canonical_log_effect(invalid_documents, final, path, log, identity)
     # The same effect cannot prove a second transaction on top of itself.
     with pytest.raises(ValueError, match='canonical_log_effect_unproved'):
         _canonical_log_effect(final['documents'], final, path, log, identity)
