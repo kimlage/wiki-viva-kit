@@ -1,3 +1,4 @@
+import { SourceHostBridge } from "./sourceHostBridge";
 import {
   buildIngestionPlan,
   cancelCodexJob,
@@ -9,6 +10,7 @@ import {
   applySourceGroups,
   listSourceOperationReceipts,
   previewSourceRefresh,
+  testSourceAccess,
   runSourceRefresh,
   discardBrief,
   getBrief,
@@ -68,6 +70,7 @@ const admin: AdminPort = {
 };
 
 const operator: OperatorPort = {
+  createSourceHost: () => new SourceHostBridge(),
   loadSnapshotBundle,
   loadPageContent,
   loadTemporalGraph: (bundle, options) => loadTemporalGraphForBundle(bundle, options?.signal),
@@ -95,6 +98,7 @@ const operator: OperatorPort = {
   applySourceGroups,
   listSourceOperationReceipts,
   previewSourceRefresh,
+  testSourceAccess,
   runSourceRefresh,
   buildIngestionPlan,
   runIngestionStep

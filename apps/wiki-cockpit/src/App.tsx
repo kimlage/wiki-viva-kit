@@ -1188,6 +1188,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     previewSourceOperation,
     previewSourceGroups,
     previewSourceRefresh,
+    testSourceAccess,
     returnCodexJob,
     runOperatorCommand,
     runGitWorkflow,
@@ -1867,6 +1868,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onApplySourceGroups={applySourceGroups}
             onListReceipts={listSourceOperationReceipts}
             onPreviewRefresh={previewSourceRefresh}
+            onTestAccess={testSourceAccess}
+            createSourceHost={operator.createSourceHost}
             onRunRefresh={runSourceRefresh}
             onListJobs={listCodexJobs}
             onStreamJobLog={streamCodexLog}

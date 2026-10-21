@@ -68,6 +68,8 @@ from wiki_core.web.source_operations import (
     preview_source_operation,
     preview_source_refresh,
     run_source_refresh,
+    probe_source_connection,
+    source_access_binding,
 )
 from wiki_core.web.source_groups import (
     apply_source_groups_operation,
@@ -245,6 +247,8 @@ class CockpitServer(ThreadingHTTPServer):
         self._mutation_lock = threading.Lock()
         self._active_mutations = 0
         self._mutation_local = threading.local()
+        from wiki_core.web.source_host import SourceHostPairing
+        self.source_host_pairing = SourceHostPairing()
         self.operator_nonce = secrets.token_urlsafe(32)
         self._attempt_lock = threading.Lock()
         self._attempt_receipts: OrderedDict[str, dict[str, Any]] = OrderedDict()
@@ -1004,7 +1008,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             return False
         if path == "/wiki-cockpit.config.json":
             self._send_json({"api_base": "/api", "snapshot_base": "/api/snapshot",
-                             "mode": "local_operator", "language": self.server.config.language})
+                             "mode": "local_operator", "language": self.server.config.language,
+                             "source_host_origins": [o for o in self.server.frame_origins if o != "file:"],
+                             "source_host_transport": "electron_message_port" if "file:" in self.server.frame_origins else "origins"})
             return True
         route = path.removeprefix("/demo") if path == "/demo" or path.startswith("/demo/") else path
         spa_roots = ("/w", "/review", "/sources", "/health", "/pages")
@@ -1185,6 +1191,17 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 return
             self._send_json({"ok": True, **record})
             return
+        if path in {"/api/source-host/challenge", "/api/source-host/status"}:
+            if "file:" not in self.server.frame_origins:
+                self._send_json({"ok": False, "error": "source_host_not_allowed"}, status=HTTPStatus.FORBIDDEN)
+                return
+            try:
+                result = ({"challenge": self.server.source_host_pairing.challenge()} if path.endswith("/challenge")
+                          else self.server.source_host_pairing.status(parse_qs(parsed.query).get("challenge", [""])[0]))
+                self._send_json(result)
+            except ValueError as exc:
+                self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
         if path == "/api/sources":
             # Friendlier alias for the rich source read model (also served raw
             # at /api/snapshot/source_entities.json).
@@ -1194,6 +1211,13 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             source_id = path[len("/api/sources/") : -len("/operations")].strip("/")
             records = list_source_operation_receipts(self.server.root, self.server.config, source_id)
             self._send_json({"ok": True, "source_id": source_id, "receipts": records})
+            return
+        if path.startswith("/api/sources/") and path.endswith("/access-binding"):
+            source_id = path[len("/api/sources/") : -len("/access-binding")].strip("/")
+            try:
+                self._send_json(source_access_binding(self.server.root, self.server.config, source_id))
+            except ValueError as exc:
+                self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
         if path == "/api/snapshot":
             self._send_json(self.server.snapshot_payloads())
@@ -1428,6 +1452,16 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             # handler owns that decision per plan.
             self._handle_admin_command_post(parsed.path, payload)
             return
+        if parsed.path == "/api/source-host/attest":
+            # Full operator host/origin/nonce/attempt/body gate already passed.
+            # Transport pairing never writes or rebuilds the wiki.
+            try:
+                if "file:" not in self.server.frame_origins or not isinstance(payload, dict) or set(payload) != {"challenge", "host_id"}:
+                    raise ValueError("source_host_not_allowed")
+                self._send_json(self.server.source_host_pairing.attest(payload["challenge"], payload["host_id"]))
+            except (ValueError, TypeError):
+                self._send_json({"ok": False, "error": "source_host_challenge_invalid"}, status=HTTPStatus.FORBIDDEN)
+            return
         self.server.begin_mutation()
         self._mutation_owned = True
         if parsed.path == "/api/snapshot/write":
@@ -1635,9 +1669,11 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             or parsed.path.endswith("/operations/apply")
             or parsed.path.endswith("/operations/refresh-preview")
             or parsed.path.endswith("/operations/refresh-run")
+            or parsed.path.endswith("/operations/access-test")
         ):
             suffix = next(
                 item for item in (
+                    "/operations/access-test",
                     "/operations/refresh-preview",
                     "/operations/refresh-run",
                     "/operations/preview",
@@ -1646,7 +1682,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             )
             source_id = parsed.path[len("/api/sources/") : -len(suffix)].strip("/")
             stream_id = str(payload.get("stream_id") or "").strip()
-            is_refresh = suffix.startswith("/operations/refresh-")
+            is_refresh = suffix.startswith("/operations/refresh-") or suffix == "/operations/access-test"
             if not source_id or (not is_refresh and not stream_id):
                 self._send_error(
                     "source_id is required" if is_refresh else "source_id and stream_id are required",
@@ -1656,7 +1692,11 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             if is_refresh:
                 stream_id = "__source__"
             try:
-                if suffix == "/operations/preview":
+                if suffix == "/operations/access-test":
+                    if payload:
+                        raise ValueError("source_access_test_accepts_no_identity_or_grant")
+                    result = probe_source_connection(self.server.root, self.server.config, source_id)
+                elif suffix == "/operations/preview":
                     result = preview_source_operation(
                         self.server.root, self.server.config, source_id, stream_id, payload.get("updates")
                     )

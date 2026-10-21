@@ -330,6 +330,7 @@ vi.mock("./data/snapshot", () => ({
   applySourceGroups: vi.fn(),
   listSourceOperationReceipts: vi.fn(async () => []),
   previewSourceRefresh: vi.fn(),
+  testSourceAccess: vi.fn(),
   runSourceRefresh: vi.fn(),
   composeBrief: vi.fn(),
   saveBriefText: vi.fn(),

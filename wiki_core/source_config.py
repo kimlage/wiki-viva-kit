@@ -26,10 +26,12 @@ def source_access_metadata(value: Any) -> dict[str, Any]:
     """Consumer-owned declarations, never observed permissions or credentials."""
     if value is None or value == {}:
         return {}
-    if not isinstance(value, dict) or set(value) != _ACCESS_FIELDS or value.get("schema_version") != ACCESS_SCHEMA:
+    if not isinstance(value, dict) or set(value) not in (_ACCESS_FIELDS, _ACCESS_FIELDS | {"execution"}) or value.get("schema_version") != ACCESS_SCHEMA:
         raise ValueError("source_access_metadata_invalid")
+    native_session = isinstance(value.get("execution"), dict) and value["execution"].get("method") == "native_session"
     for key in ("expected_identity", "coordinator", "executor"):
-        if not isinstance(value[key], str) or not value[key].strip() or len(value[key]) > 240 or any(ord(c) < 32 for c in value[key]) or _unsafe_access_label(value[key]):
+        empty_identity = key == "expected_identity" and native_session
+        if not isinstance(value[key], str) or (not value[key].strip() and not empty_identity) or len(value[key]) > 240 or any(ord(c) < 32 for c in value[key]) or _unsafe_access_label(value[key]):
             raise ValueError("source_access_metadata_invalid")
     scopes = value["requested_scopes"]
     if not isinstance(scopes, list) or len(scopes) > 32 or any(not isinstance(s, str) or not re.fullmatch(r"[\w:/.-]{1,240}", s) for s in scopes) or len(set(scopes)) != len(scopes):
@@ -38,6 +40,19 @@ def source_access_metadata(value: Any) -> dict[str, Any]:
     serialized = json.dumps(value, ensure_ascii=False, allow_nan=False)
     if re.search(r"\bbearer\s+\S+", serialized, re.I) or any(f.category == "secret" for f in scan_text(serialized)):
         raise ValueError("source_access_metadata_invalid")
+    if "execution" in value:
+        execution = value["execution"]
+        keys = {"connection_id", "profile", "target_profile", "method", "stored_session_id"}
+        account_keys = {"provider_id", "account_id", "account_alias"}
+        if (not isinstance(execution, dict) or set(execution) not in (keys, keys | account_keys)
+                or execution.get("method") != "native_session"
+                or any(not isinstance(execution[k], str) or len(execution[k]) > 240
+                       or any(ord(c) < 32 for c in execution[k]) or _unsafe_access_label(execution[k]) for k in execution)
+                or any(not execution[k].strip() for k in ("connection_id", "profile", "target_profile", "stored_session_id"))
+                or not re.fullmatch(r"[\w-]{1,160}", execution["stored_session_id"])):
+            raise ValueError("source_access_execution_invalid")
+        if account_keys.issubset(execution) and (not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,159}", execution["provider_id"]) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,31}", execution["account_alias"]) or not re.fullmatch(r"[\w-]{1,160}", execution["account_id"])):
+            raise ValueError("source_access_execution_invalid")
     return {**value, "requested_scopes": list(scopes)}
 
 
@@ -67,6 +82,8 @@ def project_source_access(source: dict[str, Any], observation: Any = None, *, no
               "execution_ready": False, "business_authority": "unknown"}
     if observation is None:
         return result
+    if policy.get("execution"):
+        return {**result, "status": "execution_unknown", "error_code": "native_tool_evidence_required"}
     allowed = {"schema_version", "binding_sha256", "outcome", "confirmed_identity", "granted_scopes", "checked_at", "valid_until", "evidence_ref", "error_code"}
     if not isinstance(observation, dict) or set(observation) != allowed or observation.get("schema_version") != ACCESS_SCHEMA:
         return {**result, "status": "technical_blocked", "error_code": "invalid_probe"}
@@ -91,7 +108,8 @@ def project_source_access(source: dict[str, Any], observation: Any = None, *, no
     if not isinstance(scopes, list) or len(scopes) > 32 or any(not isinstance(s, str) or not re.fullmatch(r"[\w:/.-]{1,240}", s) for s in scopes) or len(set(scopes)) != len(scopes):
         return {**result, "status": "technical_blocked", "error_code": "invalid_probe"}
     outcome = observation["outcome"]
-    if outcome not in {"verified", "awaiting_auth", "awaiting_approval", "authority_blocked", "technical_blocked", "execution_unknown", "revoked"}:
+    if outcome not in {"verified", "awaiting_auth", "awaiting_approval", "authority_blocked", "technical_blocked", "execution_unknown", "revoked",
+                        "wrong_account", "executor_unavailable", "session_expired", "authorization_missing"}:
         return {**result, "status": "technical_blocked", "error_code": "invalid_probe"}
     try:
         checked = dt.datetime.fromisoformat(observation["checked_at"].replace("Z", "+00:00"))

@@ -16,6 +16,7 @@
     "check:snapshot-api": "node scripts/check-snapshot-api.mjs",
     "test": "vitest run src",
     "test:gates": "node --test scripts/*.test.mjs",
+    "test:hermes": "node --test ../../integrations/hermes/wiki-viva-board/*.test.mjs",
     "test:visual": "npm run build && playwright test --config=playwright.config.ts --retries=0",
     "test:e2e:release": "sh scripts/run-playwright-release.sh --scope public_required",
     "test:e2e:operator": "node scripts/run-playwright-release.mjs --scope downstream_required",

@@ -417,6 +417,56 @@ def list_source_operation_receipts(root: Path, config: WikiConfig, source_id: st
     return records[:20]
 
 
+def source_access_binding(root: Path, config: WikiConfig, source_id: str) -> dict[str, Any]:
+    """Canonical data for the native owner; never an executable provider adapter."""
+    source = _source(root, config, source_id)
+    path = _safe_repo_file(root, str(source.get("config_ref") or ""))
+    return {"source_id": source_id, "context": source["context"], "source_kind": source.get("source_kind"),
+            "platform": source.get("platform"), "locator": source.get("locator"),
+            "config_sha256": _sha(path.read_text(encoding="utf-8")),
+            "binding_sha256": project_source_access(source)["binding_sha256"],
+            "access_policy": source.get("access_policy") or {}}
+
+
+def probe_source_connection(root: Path, config: WikiConfig, source_id: str) -> dict[str, Any]:
+    """Read-only access test through the source's existing allowlisted adapter.
+
+    This never accepts an observed identity, argv or permission from the browser.
+    An agent/MCP hint is not an implemented adapter or an authenticated executor.
+    The receipt records failures too, without running ingestion or granting access.
+    """
+    source = _source(root, config, source_id)
+    if (source.get("access_policy") or {}).get("execution"):
+        raise ValueError("source_access_requires_native_executor")
+    path = _safe_repo_file(root, str(source.get("config_ref") or ""))
+    recipe = parse_recipe(extract_recipe_mapping(path.read_text(encoding="utf-8")))
+    access = project_source_access(source)
+    method = "refresh_adapter" if recipe.refresh_argv else "agent_connector" if recipe.mcp_hint else "local_input" if recipe.ingest_argv else "manual_export"
+    if not recipe.refresh_argv:
+        access.update(status="executor_unavailable", error_code="source_access_adapter_not_implemented")
+    else:
+        try:
+            argv = _safe_refresh_argv(root, recipe.refresh_argv, source_id=source_id,
+                                     locator=str(source.get("locator") or ""),
+                                     config_ref=str(source.get("config_ref") or ""))
+            payload, _ = _run_refresh_adapter(argv, root=root)
+            observation = payload.get("access_probe") if isinstance(payload, dict) else None
+            access = project_source_access(source, observation)
+            if observation is None:
+                access.update(status="executor_unavailable", error_code="source_access_probe_not_supported")
+        except (OSError, ValueError, subprocess.SubprocessError):
+            access.update(status="executor_unavailable", error_code="source_access_adapter_unavailable")
+    operation_id = "sop-" + uuid.uuid4().hex[:12]
+    receipt = dict(schema_version=SOURCE_OPERATION_SCHEMA_VERSION, operation_id=operation_id,
+                   recorded_at=_now(), source_id=source_id, stream_id="__source__", kind="access_test",
+                   status="verified" if access["verified"] else "blocked", method=method, changes=[], access=access)
+    directory = WikiPaths(root, config).derived_root / "source-operations"
+    directory.mkdir(parents=True, exist_ok=True)
+    receipt_path = directory / f"{operation_id}.json"
+    receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
+    return dict(ok=True, **receipt, receipt_path=str(receipt_path.relative_to(root)))
+
+
 def _safe_raw_path(root: Path, config: WikiConfig, value: str) -> Path:
     if not value or Path(value).is_absolute():
         raise ValueError("source_refresh_raw_path_required")
@@ -721,6 +771,8 @@ def preview_source_refresh(
     raw_path: str = "",
 ) -> dict[str, Any]:
     source = _source(root, config, source_id)
+    if (source.get("access_policy") or {}).get("execution"):
+        raise ValueError("source_access_requires_native_executor")
     config_path = _safe_repo_file(root, str(source.get("config_ref") or ""))
     config_text = config_path.read_text(encoding="utf-8")
     recipe_mapping = extract_recipe_mapping(config_text)

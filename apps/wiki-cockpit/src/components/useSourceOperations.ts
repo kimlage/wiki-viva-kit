@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { t } from "../data/i18n";
 import type {
   AgentCapabilities,
   BriefSpec,
   SourceEntity,
+  SourceAccess,
   SourceOperationPreview,
   SourceOperationReceipt
 } from "../types";
@@ -19,6 +20,7 @@ type SourceOperationsOptions = {
   onPreviewConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>) => Promise<SourceOperationPreview>;
   onApplyConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>, previewToken: string) => Promise<SourceOperationReceipt>;
   onListReceipts?: (sourceId: string, options?: { signal?: AbortSignal }) => Promise<SourceOperationReceipt[]>;
+  onTestAccess?: (sourceId: string) => Promise<SourceOperationReceipt>;
   onPreviewRefresh?: (sourceId: string, streamId: string, rawPath?: string) => Promise<SourceOperationPreview>;
   onRunRefresh?: (sourceId: string, streamId: string, rawPath: string, previewToken: string, selectedExternalIds?: string[]) => Promise<SourceOperationReceipt>;
   onSourceChanged?: () => void;
@@ -37,6 +39,7 @@ export function useSourceOperations({
   onApplyConfiguration,
   onListReceipts,
   onPreviewRefresh,
+  onTestAccess,
   onRunRefresh,
   onSourceChanged,
   onNotice,
@@ -58,6 +61,11 @@ export function useSourceOperations({
   const [operationTargetId, setOperationTargetId] = useState("");
   const [operationBusy, setOperationBusy] = useState(false);
   const [operationError, setOperationError] = useState("");
+  const [testedAccess, setTestedAccess] = useState<SourceAccess>();
+  const sourceKey = `${source?.source_id}:${source?.access?.binding_sha256}`;
+  const activeSource = useRef(sourceKey);
+  activeSource.current = sourceKey;
+  useEffect(() => { setTestedAccess(undefined); setOperationBusy(false); }, [sourceKey]);
   const [accessProbeFailed, setAccessProbeFailed] = useState(false);
   const [receipts, setReceipts] = useState<SourceOperationReceipt[]>([]);
   const [agentPreference, setAgentPreference] = useState<"codex" | "claude">("codex");
@@ -205,6 +213,31 @@ export function useSourceOperations({
     }
   };
 
+  const testAccess = async () => {
+    if (demo || !source || !onTestAccess) return;
+    const requestedSource = sourceKey;
+    setOperationBusy(true);
+    setAccessProbeFailed(false);
+    setOperationError("");
+    setTestedAccess(undefined);
+    try {
+      const receipt = await onTestAccess(source.source_id);
+      if (activeSource.current !== requestedSource) return;
+      if (receipt.ok === false || !receipt.access || receipt.source_id !== source.source_id ||
+          receipt.access.binding_sha256 !== source.access?.binding_sha256) {
+        throw new Error(receipt.error || t("source.operation.failed"));
+      }
+      setTestedAccess(receipt.access);
+      setReceipts((current) => [receipt, ...current.filter((r) => r.operation_id !== receipt.operation_id)]);
+    } catch (error) {
+      if (activeSource.current !== requestedSource) return;
+      setAccessProbeFailed(true);
+      setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
+    } finally {
+      if (activeSource.current === requestedSource) setOperationBusy(false);
+    }
+  };
+
   const inspectRefresh = async () => {
     if (demo || !source) return;
     setOperationBusy(true);
@@ -289,6 +322,8 @@ export function useSourceOperations({
     operationBusy,
     operationError,
     accessProbeFailed,
+    testedAccess,
+    testAccess,
     receipts,
     agentPreference,
     setAgentPreference,

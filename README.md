@@ -134,6 +134,19 @@ follow the consumer's own PR review policy before promotion.
 
 Full instructions: [downstream upgrade runbook](docs/references/guides/wiki-viva-v8-downstream-upgrade.md).
 
+### Upgrading source access controls
+
+The normal C1 allowlist now includes only the optional host integration prefix
+`integrations/hermes/wiki-viva-board/**`, alongside the cockpit that uses it.
+B0 lists these passive source files; C1 tracks them in `kit.lock`. Sync does not
+install or enable a Hermes plugin, change native settings, connect an account,
+or create an execution binding. Existing source recipes remain valid.
+
+After the consumer's normal PR gates, its operator may adopt the reviewed native
+plugin through Hermes' existing trust/enable flow and configure each source's
+executor/account explicitly. Private account data and any required C3 migration
+remain consumer-owned. See the [Hermes source integration contract](integrations/hermes/wiki-viva-board/README.md).
+
 ## Release policy
 
 A kit release consists of:

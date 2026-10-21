@@ -1,3 +1,4 @@
+import type { SourceHostPort } from "./sourceAccess";
 import type {
   AdminAccess,
   AdminCatalogResult,
@@ -62,6 +63,7 @@ export type SourceBriefResult = { ok: boolean; spec?: BriefSpec; pending?: numbe
 // surfaces receive the port (or a narrower member) and can be tested without a
 // browser transport; they never import the operator client itself.
 export interface OperatorPort {
+  createSourceHost?(): SourceHostPort;
   loadSnapshotBundle(options?: SnapshotLoadOptions): Promise<SnapshotLoadResult>;
   loadPageContent(pageId: string, options?: ContentLoadOptions): Promise<PageContent>;
   loadTemporalGraph(
@@ -99,6 +101,7 @@ export interface OperatorPort {
   previewSourceGroups(groups: SourceGroup[]): Promise<SourceGroupsOperationResult>;
   applySourceGroups(groups: SourceGroup[], previewToken: string): Promise<SourceGroupsOperationResult>;
   listSourceOperationReceipts(sourceId: string, options?: OperatorReadOptions): Promise<SourceOperationReceipt[]>;
+  testSourceAccess(sourceId: string): Promise<SourceOperationReceipt>;
   previewSourceRefresh(sourceId: string, streamId: string, rawPath?: string): Promise<SourceOperationPreview>;
   runSourceRefresh(sourceId: string, streamId: string, rawPath: string, previewToken: string, selectedExternalIds?: string[]): Promise<SourceOperationReceipt>;
   buildIngestionPlan(source: string, context?: string): Promise<IngestionPlan>;

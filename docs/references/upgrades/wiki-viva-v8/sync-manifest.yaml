@@ -12,6 +12,7 @@ portable:
     - tests/test_source_registry_policy.py
     - tests/test_web_snapshot.py
     - apps/wiki-cockpit/**
+    - integrations/hermes/wiki-viva-board/**
     - .skills/wiki-*/**
     - packs/**
     - docs/references/guides/**

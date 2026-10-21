@@ -1,3 +1,4 @@
+import type { SourceHostPort } from "../application/sourceAccess";
 // SourceDock (?dock=source&src=<id>): a data source as a FIRST-CLASS entity.
 // Identity (platform · locator · owner), sync health, the channels/streams as a
 // table with per-stream freshness vs cadence, the executable export manual, and
@@ -51,6 +52,7 @@ import { useSourceOperations } from "./useSourceOperations";
 import { SourceRunMonitor } from "./SourceRunMonitor";
 import { SourcePlatformIcon } from "./SourcePlatformIcon";
 import { SourceAuthorizationCard } from "./SourceAuthorizationCard";
+import { SourceExecutorSetup } from "./SourceExecutorSetup";
 
 export function SourceDock({
   bundle,
@@ -66,6 +68,8 @@ export function SourceDock({
   onApplyConfiguration,
   onListReceipts,
   onPreviewRefresh,
+  onTestAccess,
+  createSourceHost,
   onRunRefresh,
   onListJobs,
   onStreamJobLog,
@@ -92,6 +96,8 @@ export function SourceDock({
   onPreviewConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>) => Promise<SourceOperationPreview>;
   onApplyConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>, previewToken: string) => Promise<SourceOperationReceipt>;
   onListReceipts?: (sourceId: string, options?: { signal?: AbortSignal }) => Promise<SourceOperationReceipt[]>;
+  createSourceHost?: () => SourceHostPort;
+  onTestAccess?: (sourceId: string) => Promise<SourceOperationReceipt>;
   onPreviewRefresh?: (sourceId: string, streamId: string, rawPath?: string) => Promise<SourceOperationPreview>;
   onRunRefresh?: (sourceId: string, streamId: string, rawPath: string, previewToken: string, selectedExternalIds?: string[]) => Promise<SourceOperationReceipt>;
   onListJobs?: (options?: { signal?: AbortSignal }) => Promise<CodexJobRecord[]>;
@@ -128,6 +134,8 @@ export function SourceDock({
     operationBusy,
     operationError,
     accessProbeFailed,
+    testedAccess,
+    testAccess,
     receipts,
     agentPreference,
     setAgentPreference,
@@ -160,6 +168,7 @@ export function SourceDock({
     onApplyConfiguration,
     onListReceipts,
     onPreviewRefresh,
+  onTestAccess,
     onRunRefresh,
     onSourceChanged,
     onNotice,
@@ -262,7 +271,6 @@ export function SourceDock({
     );
   }
 
-  const syncTone = SYNC_TONE[source.sync.last_status] ?? "muted";
   const recurring = source.schedule?.mode === "recurring";
   const scopeCounts = sourceScopeCounts(source.streams);
   const refreshPlanBlocked = Boolean(
@@ -273,8 +281,9 @@ export function SourceDock({
   const retainedAccess = receipts.find((r) => r.access?.binding_sha256 === source.access?.binding_sha256)?.access;
   // Retained receipts show the historical cut; a new view requires a fresh
   // probe before presenting verified access (including after a lost denial).
-  const displayedAccess = refreshPreview?.access ?? refreshReceipt?.access ??
+  const displayedAccess = testedAccess ?? refreshPreview?.access ?? refreshReceipt?.access ??
     (retainedAccess ? { ...retainedAccess, status: "unknown", verified: false } : source.access);
+  const nativeControls = Boolean(source.access_policy?.execution) || updateRoute?.mode !== "deterministic_connector";
   const selectedAgentName = agentPreference === "claude" ? "Claude" : "Codex";
   const showAgentChoice = updateRoute ? Boolean(updateRoute.requires_agent) : true;
   const refreshPanelKind = updateRoute?.mode === "script"
@@ -294,7 +303,10 @@ export function SourceDock({
         <header className="dockHeader">
           <SourcePlatformIcon source={source} size={16} />
           <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
-          <span className={`pill pill-${syncTone}`}>{t(`source.sync.${source.sync.last_status}`)}</span>
+          <span className="pill pill-muted">{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
+          <SourceAuthorizationCard compact source={source} route={updateRoute} agentName={selectedAgentName}
+            agentCapabilitiesKnown={Boolean(agentCapabilities)} agentReady={agentReady} connectorReady={connectorReady}
+            access={displayedAccess} probeFailed={accessProbeFailed} />
           {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
         </header>
 
@@ -607,7 +619,9 @@ export function SourceDock({
               access={displayedAccess}
               probeFailed={accessProbeFailed}
               onConfigure={() => setSection("configure")}
-              onRevalidate={!demo && !operationBusy && updateRoute?.mode === "deterministic_connector" && onPreviewRefresh ? () => void inspectRefresh() : undefined}
+              nativeManaged={nativeControls}
+              revalidateLabel={nativeControls ? t("source.access.manageHermes") : undefined}
+              onRevalidate={!demo && !operationBusy ? nativeControls ? () => setSection("configure") : onTestAccess ? () => void testAccess() : onPreviewRefresh ? () => void inspectRefresh() : undefined : undefined}
             />
             <div className="sourceUpdateRoute">
               <div>
@@ -761,6 +775,19 @@ export function SourceDock({
                 <p>{t("source.configure.intro")}</p>
               </span>
             </header>
+            <SourceAuthorizationCard source={source} route={updateRoute} agentName={selectedAgentName}
+              agentCapabilitiesKnown={Boolean(agentCapabilities)} agentReady={agentReady} connectorReady={connectorReady}
+              access={displayedAccess} probeFailed={accessProbeFailed}
+              nativeManaged={nativeControls}
+              onRevalidate={!nativeControls && !demo && !operationBusy ? onTestAccess ? () => void testAccess() : onPreviewRefresh ? () => void inspectRefresh() : undefined : undefined} />
+            <SourceExecutorSetup source={source} demo={demo} createHost={createSourceHost} onBind={execution => {
+              const policy = sourceDraft.access || source.access_policy;
+              setSourceDraft({ ...sourceDraft, access: { schema_version: "wiki_source_access.v1",
+                expected_identity: policy?.expected_identity || "",
+                coordinator: policy?.coordinator || source.context, executor: policy?.executor || "Hermes",
+                requested_scopes: policy?.requested_scopes?.length ? policy.requested_scopes : [],
+                execution } });
+            }} />
             <form className="sourceConfigForm sourceLevelConfig" onSubmit={(event) => { event.preventDefault(); void previewSourceConfiguration(); }}>
               <div className="sourceConfigWide sourceConfigHeading">
                 <span>
