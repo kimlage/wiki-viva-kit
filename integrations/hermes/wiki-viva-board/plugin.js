@@ -349,21 +349,22 @@ function WikiSurface({sources=false}) {
     current.hello();
     return ()=>{handshakes++;outputPort?.close();current.dispose();window.removeEventListener('message',receive);bridge.current=null;};
   },[generation,sources]);
-  return React.createElement('section',{style:{height:'100%',minHeight:'80vh',display:'flex',flexDirection:'column'}},
-    React.createElement('header',{style:{display:'flex',gap:16,padding:'8px 16px',alignItems:'center'}},
+  return React.createElement('section',{style:{height:'100%',minHeight:0,minWidth:0,display:'flex',flexDirection:'column',overflow:'hidden'}},
+    React.createElement('header',{style:{display:'flex',flexShrink:0,flexWrap:'wrap',gap:16,padding:'8px 16px',alignItems:'center'}},
       React.createElement('strong',null,sources?'Wiki Viva · Fontes e acessos':'Wiki Viva · Kanban'),
       React.createElement('a',{href:url,target:'_blank',rel:'noopener noreferrer'},'Open wiki'),
       React.createElement('button',{onClick:()=>{setSetup(null);setGeneration(n=>n+1);}},'Reload')),
-    setup && React.createElement('section',{role:'dialog','aria-label':'Configurar executor da fonte',style:{border:'1px solid currentColor',padding:16,overflow:'auto',maxHeight:'75vh'}},
-      React.createElement('header',null,
+    setup && React.createElement('section',{role:'dialog','aria-label':'Configurar executor da fonte',style:{border:'1px solid currentColor',padding:16,flex:1,minHeight:0,minWidth:0,display:'flex',flexDirection:'column',overflow:'hidden'}},
+      React.createElement('header',{style:{flexShrink:0}},
         React.createElement('strong',null,setup.binding.source_id+' · '+setup.route.connectionId+' / '+setup.route.profile),
         React.createElement('p',null,'Configuração oficial do Hermes. Depois volte à fonte para pedir uma leitura à conversa nativa; configurar não comprova acesso.'),
         React.createElement('button',{onClick:()=>setSetup(null)},'Voltar à fonte')),
+      React.createElement('div',{style:{flex:1,minHeight:0,minWidth:0,overflow:'auto'}},
       ['browser_controller','native_toolset'].includes(setup.method)
         ? React.createElement(ToolsetConfigPanel,{toolset:setup.toolset || 'browser',profile:{connectionId:setup.route.connectionId,profile:setup.route.profile}})
-        : React.createElement(ConnectorsTab,{gateway:null,profile:{connectionId:setup.route.connectionId,profile:setup.route.profile}})),
+        : React.createElement(ConnectorsTab,{gateway:null,profile:{connectionId:setup.route.connectionId,profile:setup.route.profile}}))),
     React.createElement('iframe',{ref:frame,key:generation,src:url,title:sources?'Wiki Viva sources and access':'Wiki Viva action board',
-      onLoad:()=>bridge.current?.hello(),style:{border:0,width:'100%',flex:1,minHeight:'75vh'},referrerPolicy:'no-referrer',
+      onLoad:()=>bridge.current?.hello(),style:{border:0,width:'100%',flex:1,minHeight:0,display:setup?'none':'block'},referrerPolicy:'no-referrer',
       sandbox:'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox'}));
 }
 export default {id:'wiki-viva-board',name:'Wiki Viva Kanban',defaultEnabled:true,register(ctx){ctx.registerMany([
