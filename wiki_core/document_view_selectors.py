@@ -255,6 +255,10 @@ def body_span(text, selector, *, common_ranges=None):
     if selector.get("required_match_count") != 1:
         raise ValueError("selector requires exactly one match")
     if kind == "markdown_list_item":
+        # Raw HTML containers may be sibling AST blocks around a level-1 item,
+        # even across headings. Do not infer enclosure/independence from level.
+        if any(token.type == "html_block" for token in tokens):
+            raise ValueError("unsupported raw HTML container in list-item document")
         prefix = selector.get("literal_prefix")
         if (not isinstance(prefix, str) or not prefix.strip()
                 or "\n" in prefix or "\r" in prefix):

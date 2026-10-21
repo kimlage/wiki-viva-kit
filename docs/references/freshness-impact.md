@@ -345,6 +345,9 @@ epistemic status, recorded date, contexts and evidence. Replace `heading` with
   review while that separate raw/WHOLE route requires factual review of the
   observation and its normative contexts. This selector does not change that
   traversal or make such a document fresh.
+  A body containing any raw HTML block cannot use this list selector: container
+  tags can surround otherwise top-level AST items, even across headings. This
+  conservative boundary prevents a selected item shedding that outer context.
 
 `null` selector and hash together mean proven absence using the other origin's
 identity, never parser failure. A changed container/header that prevents proving

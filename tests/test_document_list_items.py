@@ -63,6 +63,17 @@ def test_inline_code_is_retained_literal_not_a_link_or_item_boundary():
     assert selected("## Evidence\n\n" + item + "- Do not disclose.\n") == item
 
 
+@pytest.mark.parametrize("wrapper", ["blockquote", "div", "section"])
+@pytest.mark.parametrize("heading_inside", [False, True])
+def test_raw_html_wrapper_cannot_shed_enclosing_context(wrapper, heading_inside):
+    heading = "## Evidence\n\n"
+    opening = f"<{wrapper}>\n\nPrivate: do not disclose.\n\n"
+    text = (opening + heading if heading_inside else heading + opening)
+    text += f"- Readback: [capture](capture.md)\n\n</{wrapper}>\n"
+    with pytest.raises(ValueError, match="raw HTML container"):
+        selected(text)
+
+
 def test_missing_and_full_lexeme_hash_drift_fail_partition():
     item = "- Readback: recorded.\n  Never disclose.\n"
     text = "## Evidence\n\n" + item
