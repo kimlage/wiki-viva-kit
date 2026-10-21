@@ -92,7 +92,7 @@ def _invalid_constant(value):
 
 def _canonical_log_effect(documents: dict, final: dict, action: str, log: str, identity: dict | None):
     """Prove the new canonical effect, not the continuing truth of an old capture."""
-    from wiki_core.action_transition import (_parse_document, action_transition_diagnostics,
+    from wiki_core.action_transition import (_history, _parse_document, action_transition_diagnostics,
                                              contribution_log_text)
     from wiki_core.action_contribution import _review
 
@@ -103,9 +103,8 @@ def _canonical_log_effect(documents: dict, final: dict, action: str, log: str, i
             raise ValueError("missing exact contribution identity")
         before, _ = _parse_document(documents[action])
         after, _ = _parse_document(final["documents"][action])
-        prior, history = before.get("action_state_history", []), after.get("action_state_history", [])
-        if (not isinstance(prior, list) or not isinstance(history, list)
-                or len(history) <= len(prior) or history[:len(prior)] != prior
+        prior, history = _history(before), _history(after)
+        if (len(history) <= len(prior) or history[:len(prior)] != prior
                 or action_transition_diagnostics(documents[action], final["documents"][action])):
             raise ValueError("invalid canonical receipt extension")
         entry = history[-1]

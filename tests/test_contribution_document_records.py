@@ -79,7 +79,7 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
                   created_at=action_day, next_action='Review fictional source.', priority='normal',
                   attention_basis='Synthetic exact-contract lifecycle only.')
     if effects:
-        values['action_state_history'] = None  # Canonical empty history, not malformed input.
+        values['action_state_history'] = []  # Healthy schema and a first canonical body receipt.
     action.write_text('---\n' + yaml.safe_dump(values, sort_keys=False) + '---\n\n# Synthetic contract action\n\n'
                       'Fictional evidence for the [example context](../example/index.md).\n')
     if guarded:
