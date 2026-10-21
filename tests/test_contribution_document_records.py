@@ -224,6 +224,34 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
     assert observed['ok'] and observed['remote_merged'] and observed['canonical_body_adopted'], observed
     assert len(observed['readback_files']) == 3
     assert not git(root, 'branch', '--list', result['branch'])
+    # Recovery validates immutable Git even when the selected checkout still
+    # needs adoption. Never follow a local alias or claim a wrong mode adopted.
+    support_bytes = records.read_bytes()
+    alias_target = tmp_path / 'same-bytes-outside-checkout.json'
+    alias_target.write_bytes(support_bytes)
+    recoveries = []
+    for mutation in ('missing', 'symlink', 'executable'):
+        try:
+            if mutation == 'executable':
+                records.chmod(0o755)
+            else:
+                records.unlink()
+                if mutation == 'symlink':
+                    records.symlink_to(alias_target)
+            recovery = run_git_workflow(root, load_config(root), 'reconcile_contribution',
+                                       {'request': request, 'pr': 7}, dry_run=False)
+            recoveries.append((mutation, recovery))
+            assert not git(root, 'branch', '--list', result['branch'])
+            assert alias_target.read_bytes() == support_bytes
+        finally:
+            if records.is_symlink():
+                records.unlink()
+            records.write_bytes(support_bytes)
+            records.chmod(0o644)
+    assert all(value.get('ok') and value.get('remote_merged')
+               and value.get('status') == 'waiting_worktree_adoption'
+               and value.get('worktree_adopted') is False
+               for _, value in recoveries), recoveries
     # Later memory drift with unchanged support is not a valid full snapshot.
     unrelated = root / 'memories/example/index.md'
     unrelated.write_text(unrelated.read_text() + '\nUnrelated synthetic new claim.\n')
