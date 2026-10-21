@@ -230,24 +230,62 @@ def evaluate_impact(
     for edge in edges:
         downstream[edge["prerequisite"]].append(edge)
         upstream[edge["dependent"]].append(edge)
+    locators = current.get("verified_locator_changes", {})
+    if locators != base.get("verified_locator_changes", {}):
+        raise ValueError("locator review requires the same verified input pair")
+    for path, declaration in locators.items():
+        for origin, graph in (("base", base), ("current", current)):
+            text = graph["documents"].get(path)
+            if text is None or hashlib.sha256(text.encode()).hexdigest() != declaration.get(f"{origin}_sha256"):
+                raise ValueError("locator input pair changed after projection")
     reasons = {p: dict(reason="changed_page", seed=p, via=None, chain=[]) for p in seeds}
+    # None is a factual obligation; a string identifies one verified custody
+    # delta. These form a monotone union, not a first-witness exemption. Unknown
+    # or WHOLE consumption promotes representation to factual by default.
+    requirements = {}
+    witnesses = {}
+    for path in seeds:
+        # Raw identity dominates all authored metadata, including fields that
+        # resemble projected component metadata. Only the projector's validated
+        # graph-root lineage may associate a non-document seed with a locator.
+        if path in current["documents"] or path in base["documents"]:
+            document = path
+        else:
+            parents = {graph.get("verified_locator_record_documents", {}).get(path)
+                       for graph in (base, current)} - {None}
+            document = next(iter(parents)) if len(parents) == 1 else None
+        kind = locators[document]["id"] if document in locators else None
+        requirements[path] = {kind}
+        witnesses[(path, kind)] = reasons[path]
 
-    def expand(start: list[str], adjacency: dict, endpoint: str, phase: str) -> None:
+    def expand(start, adjacency: dict, endpoint: str, phase: str) -> None:
         queue = deque(start)
         visited = set(start)
         while queue:
-            parent = queue.popleft()
+            parent, requirement = queue.popleft()
             for edge in adjacency[parent]:
                 target = edge[endpoint]
+                qualification = edge.get("locator_review", {})
+                qualified = (requirement is not None and not edge.get("whole_document_consumption")
+                             and qualification.get("change_id") == requirement
+                             and qualification.get("consumption") == "historical_observation_without_locator")
+                resulting = requirement if qualified else None
+                state = (target, resulting)
+                if state in visited:
+                    continue
+                reason = dict(reason=phase, seed=witnesses[(parent, requirement)]["seed"],
+                              via=parent, chain=[*witnesses[(parent, requirement)]["chain"], edge])
                 if target not in reasons:
-                    reasons[target] = dict(reason=phase, seed=reasons[parent]["seed"],
-                                           via=parent, chain=[*reasons[parent]["chain"], edge])
-                if target not in visited:
-                    visited.add(target)
-                    queue.append(target)
+                    reasons[target] = reason
+                requirements.setdefault(target, set()).add(resulting)
+                witnesses.setdefault((target, resulting), reason)
+                visited.add(state)
+                queue.append(state)
 
-    expand(seeds, downstream, "dependent", "affected_dependent")
-    expand(sorted(reasons), upstream, "prerequisite", "required_dependency")
+    expand([(p, next(iter(requirements[p]))) for p in seeds], downstream, "dependent", "affected_dependent")
+    # As before, prerequisites never trigger a fresh downstream traversal.
+    expand([(p, kind) for p in sorted(reasons) for kind in sorted(requirements[p], key=str)],
+           upstream, "prerequisite", "required_dependency")
 
     def verdict(path: str) -> str:
         values = nodes[path]
@@ -258,15 +296,30 @@ def evaluate_impact(
 
     included = [dict(path=p, state=verdict(p) if p in nodes else "removed", **reasons[p])
                 for p in sorted(reasons)]
+    if locators:
+        for row in included:
+            path = row["path"]
+            row["review_requirements"] = dict(
+                factual=None in requirements[path],
+                representation=sorted(v for v in requirements[path] if v is not None),
+                factual_witness=witnesses.get((path, None)),
+                representation_witnesses={v: witnesses[(path, v)]
+                    for v in sorted(requirements[path] - {None})})
     debt = [dict(path=p, state=verdict(p), reason="outside_change_dependency_closure")
             for p in sorted(set(nodes) - set(reasons)) if verdict(p) != "fresh"]
-    blockers = [r for r in included if r["state"] in {"stale", "unknown"}]
-    return dict(schema_version="wiki_freshness_impact.v1", evaluated_on=today.isoformat(),
+    blockers = [r for r in included if r["state"] in {"stale", "unknown"}
+                and None in requirements[r["path"]]]
+    result = dict(schema_version="wiki_freshness_impact.v1", evaluated_on=today.isoformat(),
                 seeds=seeds, included=included, blockers=blockers, unrelated_debt=debt,
                 removed_pages=sorted(set(base["nodes"]) - set(nodes)),
                 nonpropagating_relations=nonpropagating,
                 relation_errors=current["errors"], base_relation_diagnostics=base["errors"],
                 ok=not blockers and not current["errors"])
+    if locators:
+        result["locator_changes"] = list(locators.values())
+        result["preserved_content_debt"] = [r for r in included
+            if r["state"] in {"stale", "unknown"} and None not in requirements[r["path"]]]
+    return result
 
 
 def input_hashes(root: Path, config: WikiConfig) -> dict[str, str]:
