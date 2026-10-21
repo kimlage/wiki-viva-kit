@@ -240,3 +240,33 @@ def test_published_contract_applies_c2_and_second_b0_is_unchanged(tmp_path: Path
     assert plan["c1"]["change"] == []
     assert plan["c1"]["remove_previously_managed"] == []
     assert plan["c1"]["unchanged"] == plan["c1"]["managed_total"]
+
+
+def test_optional_hermes_integration_travels_with_cockpit_but_is_not_installed(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    canonical = yaml.safe_load((ROOT / 'docs/references/upgrades/sync-manifest.yaml').read_text())
+    exact = 'integrations/hermes/wiki-viva-board/**'
+    assert exact in canonical['portable']['allow']
+    assert 'integrations/**' not in canonical['portable']['allow']
+    body = yaml.safe_load(manifest.read_text())
+    body['portable']['allow'].extend(['apps/wiki-cockpit/**', exact])
+    manifest.write_text(yaml.safe_dump(body, sort_keys=False))
+    for relative in ['integrations/hermes/wiki-viva-board/plugin.js', 'integrations/hermes/wiki-viva-board/plugin.yaml', 'integrations/hermes/wiki-viva-board/dashboard/plugin_api.py', 'apps/wiki-cockpit/src/infrastructure/hermesSourceWrapper.test.tsx', 'integrations/hermes/other-plugin/plugin.js']:
+        target = kit / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('public synthetic source\n')
+    _git(kit, 'add', '.')
+    _git(kit, 'commit', '-qm', 'optional passive host integration')
+    before = _git(consumer, 'status', '--porcelain')
+    planned = _run(kit, consumer, manifest, '--dry-run', '--json')
+    assert planned.returncode == 0, planned.stderr
+    plan = json.loads(planned.stdout)
+    expected = 'integrations/hermes/wiki-viva-board/plugin.js'
+    assert expected in plan['c1']['add']
+    assert _git(consumer, 'status', '--porcelain') == before == ''
+    applied = _run(kit, consumer, manifest)
+    assert applied.returncode == 0, applied.stderr
+    assert (consumer / expected).read_bytes() == (kit / expected).read_bytes()
+    assert not (consumer / 'integrations/hermes/other-plugin').exists()
+    assert not (consumer / '.hermes').exists()
+    assert expected in (consumer / 'kit.lock').read_text()

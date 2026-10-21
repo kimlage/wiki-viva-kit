@@ -785,7 +785,7 @@ export function SourceDock({
               setSourceDraft({ ...sourceDraft, access: { schema_version: "wiki_source_access.v1",
                 expected_identity: execution.method === "local_git" ? "" : policy?.expected_identity || "",
                 coordinator: policy?.coordinator || source.context, executor: policy?.executor || "Hermes",
-                requested_scopes: policy?.requested_scopes.length ? policy.requested_scopes : execution.method === "local_git" ? ["git.metadata.read"] : [],
+                requested_scopes: policy?.requested_scopes?.length ? policy.requested_scopes : execution.method === "local_git" ? ["git.metadata.read"] : [],
                 execution } });
             }} />
             <form className="sourceConfigForm sourceLevelConfig" onSubmit={(event) => { event.preventDefault(); void previewSourceConfiguration(); }}>

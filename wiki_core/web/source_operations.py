@@ -821,6 +821,8 @@ def preview_source_refresh(
     raw_path: str = "",
 ) -> dict[str, Any]:
     source = _source(root, config, source_id)
+    if (source.get("access_policy") or {}).get("execution"):
+        raise ValueError("source_access_requires_native_executor")
     config_path = _safe_repo_file(root, str(source.get("config_ref") or ""))
     config_text = config_path.read_text(encoding="utf-8")
     recipe_mapping = extract_recipe_mapping(config_text)

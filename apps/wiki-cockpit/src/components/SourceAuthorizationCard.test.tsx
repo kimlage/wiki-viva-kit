@@ -61,3 +61,10 @@ it("compact header cannot infer a connection from an account recipe", () => {
   expect(screen.getByText(/Connection:/)).toBeTruthy();
   expect(screen.queryByText(/Access verified/)).toBeNull();
 });
+
+it('renders the actual first-setup empty policy payload without claiming access',()=>{
+ const empty={...source,access_policy:{} as SourceEntity['access_policy'],access:{...base,status:'not_configured'}};
+ render(<SourceAuthorizationCard source={empty} access={empty.access} agentName="Example agent" agentCapabilitiesKnown={false} agentReady={false} connectorReady={false}/>);
+ expect(screen.getByText('Authorization and live access')).toBeTruthy();
+ expect(screen.queryByText('Access verified')).toBeNull();
+});

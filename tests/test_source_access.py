@@ -255,4 +255,8 @@ def test_saved_native_execution_cannot_fall_back_to_legacy_adapter(tmp_path, mon
     monkeypatch.setattr(ops, '_run_refresh_adapter', lambda *args, **kwargs: pytest.fail('wrong executor'))
     with pytest.raises(ValueError, match='requires_native_executor'):
         ops.probe_source_connection(tmp_path, cfg, 'source-a')
+    with pytest.raises(ValueError, match='requires_native_executor'):
+        ops.preview_source_refresh(tmp_path, cfg, 'source-a')
+    with pytest.raises(ValueError, match='requires_native_executor'):
+        ops.run_source_refresh(tmp_path, cfg, 'source-a', '__source__', '', 'stale-token')
     assert path.read_text() == text

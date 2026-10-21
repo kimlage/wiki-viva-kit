@@ -44,7 +44,7 @@ export function SourceAuthorizationCard({
   const current = bound && access?.valid_until && Number.isFinite(Date.parse(access.valid_until)) && Date.parse(access.valid_until) > now;
   const verified = Boolean(current && access?.verified && access.status === "verified" &&
     access.confirmed_identity === source.access_policy?.expected_identity &&
-    source.access_policy?.requested_scopes.every((scope) => access.granted_scopes.includes(scope)));
+    source.access_policy?.requested_scopes?.every((scope) => access.granted_scopes.includes(scope)));
   const auth = source.auth;
   const authDeclared = Boolean(auth && auth.method !== "none" && auth.ref);
   const noAuthRequired = auth?.method === "none";
@@ -89,7 +89,7 @@ export function SourceAuthorizationCard({
         <dt>{t("source.access.executor")}</dt><dd>{source.access_policy?.executor || t("source.access.unknown")}</dd>
         <dt>{t("source.access.expected")}</dt><dd>{source.access_policy?.expected_identity || t("source.access.unknown")}</dd>
         <dt>{t("source.access.confirmed")}</dt><dd>{bound ? access?.confirmed_identity || t("source.access.unknown") : t("source.access.unknown")}</dd>
-        <dt>{t("source.access.requested")}</dt><dd>{source.access_policy?.requested_scopes.join(", ") || t("source.access.unknown")}</dd>
+        <dt>{t("source.access.requested")}</dt><dd>{source.access_policy?.requested_scopes?.join(", ") || t("source.access.unknown")}</dd>
         <dt>{t("source.access.granted")}</dt><dd>{bound ? access?.granted_scopes.join(", ") || t("source.access.unknown") : t("source.access.unknown")}</dd>
         <dt>{t("source.access.checked")}</dt><dd>{bound ? access?.checked_at || t("source.access.unknown") : t("source.access.unknown")}</dd>
         <dt>{t("source.access.valid")}</dt><dd>{bound ? access?.valid_until || t("source.access.unknown") : t("source.access.unknown")}</dd>
