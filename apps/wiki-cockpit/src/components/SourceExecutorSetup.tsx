@@ -36,7 +36,7 @@ export function SourceExecutorSetup({ source, demo, onBind, createHost }: {sourc
     const epoch = generation.current; setBusy(true); setError("");
     try {
       if (!bridge.current) { if (!createHost) throw new Error("executor_unavailable"); const client = createHost(); bridge.current = client; await client.connect(); }
-      const result = await bridge.current.request(source, action, action === "routes" ? undefined : routeKey, inspection?.binding?.config_sha256, action === "configure" ? method : undefined);
+      const result = await bridge.current.request(source, action, action === "routes" ? undefined : routeKey, action === "inspect" || action === "routes" ? undefined : inspection?.binding?.config_sha256, action === "configure" ? method : undefined);
       if (epoch !== generation.current) return;
       if (action === "routes") {
         setRoutes(result.routes || []);
@@ -81,7 +81,7 @@ export function SourceExecutorSetup({ source, demo, onBind, createHost }: {sourc
       </select></label>}
       <div className="sourceUpdateActions">
         {(method === "managed_connector" || method === "mcp" || method === "browser_controller") && <button type="button" className="secondaryButton" disabled={!route || busy || demo} onClick={() => void run("configure")}>{t("source.executor.configureOfficial")}</button>}
-        <button type="button" className="secondaryButton" disabled={!route || busy || demo || (method !== "local_git" ? !provider || (managedAccount && !account) : !inspection.binding?.resource_options?.some(r=>r.id==="wiki_repository"))} onClick={() => route && onBind({connection_id:route.connectionId,profile:route.profile,target_profile:route.targetProfile,method,provider_id:provider,resource_ref:method==='local_git'?'wiki_repository':'',...(managedAccount && account ? {account_id:account.id,account_alias:account.alias}:{})})}>{t("source.executor.bind")}</button>
+        <button type="button" className="secondaryButton" disabled={!route || busy || demo || (method === "local_git" ? !inspection.binding?.resource_options?.some(r=>r.id==="wiki_repository") : method === "browser_controller" ? false : !provider || (managedAccount && !account))} onClick={() => route && onBind({connection_id:route.connectionId,profile:route.profile,target_profile:route.targetProfile,method,provider_id:provider,resource_ref:method==='local_git'?'wiki_repository':'',...(managedAccount && account ? {account_id:account.id,account_alias:account.alias}:{})})}>{t("source.executor.bind")}</button>
         <button type="button" className="secondaryButton" disabled={!bound || busy || demo || readUnknown || !reconciled} onClick={() => void run("read_test")}>{t("source.executor.testRead")}</button>
         <button type="button" className="secondaryButton" disabled={!bound || busy || demo} onClick={() => void run("read_receipts")}>{t("source.executor.receipts")}</button>
       </div>

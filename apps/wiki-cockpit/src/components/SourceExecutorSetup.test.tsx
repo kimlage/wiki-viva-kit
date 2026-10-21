@@ -53,3 +53,40 @@ it('invalid receipt expiry never displays a verified read',async()=>{
  render(<SourceExecutorSetup createHost={createHost} source={source()} demo={false} onBind={vi.fn()}/>);await inspect();fireEvent.click(screen.getByText('Reload receipts for this binding'));
  await screen.findByText('Recorded read: evidence expired');expect(screen.queryByText('Read verified within the receipt scope')).toBeNull();
 });
+
+it('stages browser-controller binding without a hidden provider or starting a read',async()=>{
+ const bind=vi.fn();render(<SourceExecutorSetup createHost={createHost} source={source(false)} demo={false} onBind={bind}/>);await inspect();
+ fireEvent.change(screen.getByLabelText('Access method'),{target:{value:'browser_controller'}});
+ expect(screen.queryByLabelText('Configured provider')).toBeNull();
+ const save=screen.getByText('Use this executor in source settings') as HTMLButtonElement;
+ expect(save.disabled).toBe(false);fireEvent.click(save);
+ expect(bind).toHaveBeenCalledWith({...execution,method:'browser_controller',resource_ref:''});
+ expect(mocks.request.mock.calls.map(c=>c[1])).toEqual(['routes','inspect']);
+ expect(screen.queryByText('Read verified within the receipt scope')).toBeNull();
+});
+
+it('inspection discovers the current configuration while reads remain pinned and reconciled',async()=>{
+ let currentConfig=config;
+ mocks.request.mockImplementation(async(_s,action,_route,expectedConfig)=>{
+  if(action==='routes')return {routes:[route]};
+  if(expectedConfig && expectedConfig!==currentConfig)throw new Error('source_configuration_changed');
+  if(action==='inspect')return {binding:{config_sha256:currentConfig,resource_options:[{id:'wiki_repository',target:'/synthetic/wiki'}]}};
+  if(action==='read_receipts')return {receipts:[]};
+  return {...receipt(),config_sha256:currentConfig};
+ });
+ render(<SourceExecutorSetup createHost={createHost} source={source()} demo={false} onBind={vi.fn()}/>);await inspect();
+ fireEvent.click(screen.getByText('Reload receipts for this binding'));
+ const read=screen.getByText('Test read in the saved executor') as HTMLButtonElement;
+ await waitFor(()=>expect(read.disabled).toBe(false));
+ currentConfig='c'.repeat(64);
+ fireEvent.click(read);await screen.findByRole('alert');
+ expect(mocks.request.mock.calls.filter(c=>c[1]==='read_test').slice(-1)[0]?.[3]).toBe(config);
+ fireEvent.click(screen.getByText('Inspect methods in this executor'));
+ await waitFor(()=>expect(screen.queryByRole('alert')).toBeNull());
+ expect(mocks.request.mock.calls.filter(c=>c[1]==='inspect').slice(-1)[0]?.[3]).toBeUndefined();
+ expect(read.disabled).toBe(true);
+ fireEvent.click(screen.getByText('Reload receipts for this binding'));await waitFor(()=>expect(read.disabled).toBe(false));
+ expect(mocks.request.mock.calls.filter(c=>c[1]==='read_receipts').slice(-1)[0]?.[3]).toBe(currentConfig);
+ fireEvent.click(read);await screen.findByText('Read verified within the receipt scope');
+ expect(mocks.request.mock.calls.filter(c=>c[1]==='read_test').slice(-1)[0]?.[3]).toBe(currentConfig);
+});
