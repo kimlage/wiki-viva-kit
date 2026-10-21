@@ -3,6 +3,9 @@ import copy
 import datetime as dt
 import hashlib
 import json
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -460,3 +463,23 @@ def test_normalized_link_cannot_borrow_literal_from_code_in_wrapped_block(migrat
                                        else "https://files.example.invalid/banner") + ")")
     with pytest.raises(ValueError):
         projected(case)
+
+
+@pytest.mark.parametrize("prefix, accepted", [
+    ("", True), (" \t", True), ("> >\t", True), ("- ", True),
+    ("  > 3.  - \t", True), ("999999999)\t", True),
+    ("x", False), ("> > x", False), ("-", False), ("-x ", False),
+    ("3.", False), ("1000000000. ", False), (">\n", False),
+])
+def test_container_prefix_guard_preserves_exact_lexical_boundaries(prefix, accepted):
+    from wiki_core.document_view_selectors import _literal_container_prefix
+    assert _literal_container_prefix(prefix) is accepted
+
+
+def test_container_prefix_guard_rejects_long_invalid_prefix_in_bounded_process():
+    # An isolated rejection-guard regression, not a claimed document exploit.
+    subprocess.run([sys.executable, "-B", "-c",
+        "from wiki_core.document_view_selectors import _literal_container_prefix; "
+        "assert _literal_container_prefix('> ' * 4096 + 'x') is False"],
+        cwd=Path(__file__).resolve().parents[1], check=True, timeout=5,
+        capture_output=True, text=True)

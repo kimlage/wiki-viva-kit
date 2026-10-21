@@ -18,6 +18,21 @@ from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 from wiki_core.frontmatter import FRONTMATTER_RE
 
 
+def _literal_container_prefix(value):
+    """Recognize only whitespace, quotes and whitespace-terminated list markers."""
+    marker = re.compile(r"(?:[-+*]|[0-9]{1,9}[.)])[ \t]+")
+    cursor = 0
+    while cursor < len(value):
+        if value[cursor] in " \t>":
+            cursor += 1
+            continue
+        match = marker.match(value, cursor)
+        if match is None:
+            return False
+        cursor = match.end()
+    return True
+
+
 def _literal_inline_links(text):
     """Parser-proven, uniquely mapped inline links; no reference/image guesses."""
     from wiki_core.markdown_link_roles import parse_role_markdown
@@ -49,8 +64,7 @@ def _literal_inline_links(text):
                 raw = source.rstrip("\r\n")
                 position = raw.find(parsed) if parsed else -1
                 if (position < 0 or raw.find(parsed, position + 1) >= 0
-                        or not re.fullmatch(r"(?:[ \t]*(?:>[ \t]?|(?:[-+*]|[0-9]{1,9}[.)])[ \t]+))*[ \t]*",
-                                            raw[:position])
+                        or not _literal_container_prefix(raw[:position])
                         or raw[position + len(parsed):].strip(" \t")):
                     break
                 mapped_lines.append(cursor + position)
