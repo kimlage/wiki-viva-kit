@@ -180,6 +180,22 @@ A dry-run preparation does not derive support or run these gates and therefore
 does not establish contract eligibility. With the flag off, the original
 two-path flow and its exact-contract refusal remain unchanged.
 
+Retained and merged proposal validation reads support eligibility, modes and
+artifact bytes from immutable Git. A missing, aliased or executable local
+support file reports `waiting_worktree_adoption` after canonical validation;
+recovery does not follow or replace it. Preparation, its late CAS and integration
+still require a safe regular local support file with the expected preimage,
+using the existing bounded file reader. Working-tree audits retain their normal
+filesystem guards for evidence. Git-only artifact validation checks the entry
+types in both frozen cuts instead of resolving aliases in the selected checkout.
+
+Successful repeated preparation and reconciliation reconstruct the same
+`generated_paths` and `receipt_id` from the validated commit and frozen parent
+policy. They do not depend on retaining the first response. The list contains
+the verified canonical log and, when opted in, the exact derived contract; a
+model-supplied path list never determines it. A dry run or an unvalidated
+candidate does not establish this prepared receipt.
+
 ## Recovery and adoption coverage
 
 A prepared proposal is identified by its Git branch and recorded effect, so a

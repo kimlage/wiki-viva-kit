@@ -36,7 +36,8 @@ def parent_policy(root: Path, parent: str):
     return config, enabled
 
 
-def support_path(root: Path, parent: str) -> str | None:
+def support_path(root: Path, parent: str, *, require_worktree: bool = False) -> str | None:
+    """Resolve eligibility from Git; local source checks are opt-in for writers."""
     config, enabled = parent_policy(root, parent)
     if not enabled:
         return None
@@ -51,14 +52,29 @@ def support_path(root: Path, parent: str) -> str | None:
             or any(path.is_relative_to(Path(str(config.paths[key])))
                    for key in ("memory_root", "raw_root", "derived_root"))):
         raise ValueError("record_support_path_not_eligible")
-    target = root / path
-    if (target.resolve() != root.resolve() / path or not target.is_file()
-            or target.is_symlink() or target.stat().st_mode & 0o111):
-        raise ValueError("record_support_requires_local_regular_file")
     result = subprocess.run(["git", "ls-tree", parent, "--", value], cwd=root, capture_output=True, text=True)
     if result.returncode or not result.stdout.startswith("100644 blob "):
         raise ValueError("record_support_requires_tracked_regular_file")
+    if require_worktree:
+        worktree_support_bytes(root, value)
     return value
+
+
+def worktree_support_bytes(root: Path, path: str) -> bytes:
+    """Use the existing bounded, handle-pinned regular-file reader and mode guard."""
+    from wiki_core.source_integrity import SourceIntegrityError, _worktree_entry
+    try:
+        return _worktree_entry(root, "100644", path)
+    except (SourceIntegrityError, OSError) as exc:
+        raise ValueError("record_support_requires_local_regular_file") from exc
+
+
+def worktree_support_matches(root: Path, path: str, expected: bytes) -> bool:
+    """A local adoption mismatch does not invalidate immutable canonical Git."""
+    try:
+        return worktree_support_bytes(root, path) == expected
+    except ValueError:
+        return False
 
 
 def _unique_object(pairs):
@@ -86,6 +102,11 @@ def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
     path = support_path(root, parent)
     if path is None:
         return None
+    if final_revision:
+        mode = subprocess.run(["git", "ls-tree", final_revision, "--", path],
+                              cwd=root, capture_output=True, text=True)
+        if mode.returncode or not mode.stdout.startswith("100644 blob "):
+            raise ValueError("record_support_requires_tracked_regular_file")
     config, _ = parent_policy(root, parent)
     contract = json.loads(_blob(root, parent, path), object_pairs_hook=_unique_object,
                           parse_constant=_invalid_constant)
@@ -98,7 +119,13 @@ def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
     old = project_memory_at_commit(parent, authored_graph, root=root)
     if old["errors"] or base["errors"] or final["errors"]:
         raise ValueError("record_support_graph_errors")
-    paths = artifact_paths(root, contract)
+    paths = artifact_paths(root, contract, check_worktree=False)
+    for p in paths.values():
+        for revision in {parent, final_revision} - {None}:
+            mode = subprocess.run(["git", "ls-tree", revision, "--", p.relative_to(root).as_posix()],
+                                  cwd=root, capture_output=True, text=True)
+            if mode.returncode or not mode.stdout.startswith(("100644 blob ", "100755 blob ")):
+                raise ValueError("record_support_artifact_requires_tracked_regular_file")
     artifacts = {key: _blob(root, parent, p.relative_to(root).as_posix()) for key, p in paths.items()}
     if final_revision and any(_blob(root, final_revision, p.relative_to(root).as_posix()) != artifacts[key]
                               for key, p in paths.items()):

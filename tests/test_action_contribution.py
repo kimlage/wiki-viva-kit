@@ -105,6 +105,7 @@ def test_prepare_preserves_real_canonical_suffix_and_disjoint_wip(tmp_path):
     assert p.read_text() == before and (tmp_path / "unrelated.md").read_text().startswith("Untracked")
     again = call(tmp_path, "prepare", request, review=review(request))
     assert again["proposal_commit"] == out["proposal_commit"] and again["idempotent"]
+    assert again["generated_paths"] == out["generated_paths"] == ["memories/system/log.md"]
 
 
 @pytest.mark.parametrize("change,error", [("owner", "source_authority_or_frontmatter_conflict"),
