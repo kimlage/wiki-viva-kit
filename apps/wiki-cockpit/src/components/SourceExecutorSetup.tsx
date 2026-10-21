@@ -72,6 +72,7 @@ export function SourceExecutorSetup({ source, demo, onBind, createHost }: {sourc
       {inspection.toolsets?.map(row=><p key={row.name}>{row.name}: {row.enabled?'✓':'—'} {row.tools.join(', ')}</p>)}
       <label>{t('source.executor.nativeSettings')}<select value={setupMethod} onChange={e=>setSetupMethod(e.target.value)} disabled={busy}>
         <option value="mcp">MCP / {t('source.executor.managed')}</option><option value="browser_controller">{t('source.executor.browser')}</option>
+        {inspection.toolsets?.map(row=><option key={row.name} value={'toolset:'+row.name}>{row.name}</option>)}
       </select></label>
       <div className="sourceUpdateActions">
         <button type="button" className="secondaryButton" disabled={!route||busy||demo} onClick={()=>void run('configure')}>{t('source.executor.configureOfficial')}</button>

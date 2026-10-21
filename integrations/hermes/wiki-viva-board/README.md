@@ -57,3 +57,10 @@ copies these passive source files. Installation, enablement, server rollout and
 real native acceptance remain explicit operator steps after review and CI.
 `WIKI_SOURCE_ORIGIN` permits only HTTP loopback with no redirects or ambient proxy.
 No gateway restart or package/provider upgrade is part of this source change.
+
+The official settings selector also lists native toolsets discovered through
+`host.toolsets.list` in the selected executor/profile. Selecting any discovered
+name opens the existing SDK `ToolsetConfigPanel`; the bridge rechecks membership
+before opening it. MCP/account settings continue through `ConnectorsTab`, and
+approvals/recovery remain in the existing native conversation. The bridge never
+enables a toolset or changes a provider configuration automatically.

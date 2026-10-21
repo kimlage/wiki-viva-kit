@@ -45,7 +45,8 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
       const results = await Promise.allSettled([
         host.requestProfile(route,'session.list',{limit:100,include_hidden:true},15000,{spawnPriority:'foreground'}),
         host.requestProfile(route,'connectors.list',{owner:{type:'account'}},15000,{spawnPriority:'foreground'}),
-        host.requestProfile(route,'mcp.servers.status',{},15000,{spawnPriority:'foreground'})
+        host.requestProfile(route,'mcp.servers.status',{},15000,{spawnPriority:'foreground'}),
+        (host.toolsets?.list ? host.toolsets.list({connectionId:route.connectionId,profile:route.profile}) : Promise.reject(new Error('executor_unavailable')))
       ]);
       live(token);
       const roster=results[0].status==='fulfilled'?results[0].value:null;
@@ -59,12 +60,13 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
             .map(r=>({id:r.connection_id,connector:r.connector,alias:r.alias,label:safe(r.label)?r.label:r.alias,status:r.status}));
         } catch(error) {account_error=failure(error);}
       }
+      const catalogue=results[3].status==='fulfilled' && Array.isArray(results[3].value)?results[3].value:[];
       const execution=binding.access_policy?.execution;
       if (routeMatches(execution,route) && execution.method==='native_session') {
         try {toolsets=await sessions.inspect(route,execution);live(token);} catch(error) {account_error=failure(error);}
       }
       return {binding,route,sessions:(roster?.sessions || []).filter(r=>safe(r.id)).map(r=>({id:r.resolved_id || r.id,title:safe(r.title)?r.title:r.id})),
-        accounts,toolsets,managed_available:managed?.available===true,mcp_available:Boolean(mcp),
+        accounts,toolsets:catalogue.filter(row=>typeof row.name==='string' && /^[\w:.-]{1,200}$/.test(row.name)).map(row=>({name:row.name,enabled:row.enabled===true,tools:toolsets.find(set=>set.name===row.name)?.tools || []})),managed_available:managed?.available===true,mcp_available:Boolean(mcp),
         providers:(managed?.connectors || []).filter(r=>safe(r.connector)).map(r=>({id:r.connector,label:r.connector,method:'native_session'})),
         support_errors:[...results.map(r=>r.status==='rejected'?failure(r.reason):null),account_error],connection_verified:false,read_verified:false};
     }
@@ -72,7 +74,15 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
       // This opens the real host UI. Only direct operator interaction there
       // starts a connection or specific consent. No connect/grant RPC here.
       live(token);
-      await openSetup({route,binding,method:message.setup_method || binding.access_policy?.execution?.method || 'mcp'});
+      const method=message.setup_method || 'mcp';
+      let toolset;
+      if(method.startsWith('toolset:')) {
+        if(!host.toolsets?.list)throw new Error('executor_unavailable');
+        const catalogue=await host.toolsets.list({connectionId:route.connectionId,profile:route.profile});live(token);
+        toolset=method.slice('toolset:'.length);
+        if(!Array.isArray(catalogue) || !catalogue.some(row=>row.name===toolset))throw new Error('executor_unavailable');
+      }
+      await openSetup({route,binding,method:toolset?'native_toolset':method,...(toolset?{toolset}:{})});
       return {status:'official_setup_opened',route,source_id:ref.source_id};
     }
     live(token);
@@ -92,7 +102,7 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
           !/^[\w-]{1,160}$/.test(m.source?.source_id || '') || !/^[a-f0-9]{64}$/.test(m.source?.binding_sha256 || '') ||
           Object.keys(m).some(k=>!['protocol','kind','channel','action','request_id','source','route_key','setup_method'].includes(k)) ||
           Object.keys(m.source).some(k=>!['source_id','binding_sha256','config_sha256'].includes(k))) return false;
-      if (m.setup_method !== undefined && (m.action !== 'configure' || !['mcp','managed_connector','browser_controller'].includes(m.setup_method))) return false;
+      if (m.setup_method !== undefined && (m.action !== 'configure' || !(['mcp','managed_connector','browser_controller'].includes(m.setup_method) || /^toolset:[\w:.-]{1,200}$/.test(m.setup_method)))) return false;
       const fingerprint = JSON.stringify(m);
       let pending = requests.get(m.request_id);
       if (pending && pending.fingerprint !== fingerprint) return false;

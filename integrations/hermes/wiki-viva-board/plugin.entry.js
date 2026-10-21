@@ -21,7 +21,7 @@ function WikiSurface({sources=false}) {
       if (!window.hermesDesktop?.api) throw new Error('executor_unavailable');
       return window.hermesDesktop.api(request);
     },openSetup:async value=>{
-      if (value.method === 'browser_controller' ? !ToolsetConfigPanel : !ConnectorsTab) throw new Error('executor_unavailable');
+      if (['browser_controller','native_toolset'].includes(value.method) ? !ToolsetConfigPanel : !ConnectorsTab) throw new Error('executor_unavailable');
       setSetup(value);
     },frameWindow:()=>frame.current?.contentWindow,wikiOrigin:origin,channel,generation,
       currentGeneration:()=>epoch.current,reply:value=>{ if (outputPort) outputPort.postMessage(value); else frame.current?.contentWindow?.postMessage(value,origin); }});
@@ -59,8 +59,8 @@ function WikiSurface({sources=false}) {
         React.createElement('strong',null,setup.binding.source_id+' · '+setup.route.connectionId+' / '+setup.route.profile),
         React.createElement('p',null,'Configuração oficial do Hermes. Depois volte à fonte para pedir uma leitura à conversa nativa; configurar não comprova acesso.'),
         React.createElement('button',{onClick:()=>setSetup(null)},'Voltar à fonte')),
-      setup.method === 'browser_controller'
-        ? React.createElement(ToolsetConfigPanel,{toolset:'browser',profile:{connectionId:setup.route.connectionId,profile:setup.route.profile}})
+      ['browser_controller','native_toolset'].includes(setup.method)
+        ? React.createElement(ToolsetConfigPanel,{toolset:setup.toolset || 'browser',profile:{connectionId:setup.route.connectionId,profile:setup.route.profile}})
         : React.createElement(ConnectorsTab,{gateway:null,profile:{connectionId:setup.route.connectionId,profile:setup.route.profile}})),
     React.createElement('iframe',{ref:frame,key:generation,src:url,title:sources?'Wiki Viva sources and access':'Wiki Viva action board',
       onLoad:()=>bridge.current?.hello(),style:{border:0,width:'100%',flex:1,minHeight:'75vh'},referrerPolicy:'no-referrer',
