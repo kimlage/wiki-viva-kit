@@ -44,7 +44,6 @@ def test_duplicate_item_prefix_and_ambiguous_heading_fail():
 
 @pytest.mark.parametrize("item", [
     "- Readback: [capture][proof]\n\n[proof]: capture.md\n",
-    "- Readback: `- not an item`\n",
     "- Readback: <span>uncertain</span>\n",
     "- Readback: ![capture](capture.png)\n",
     "- Readback: recorded.\n\n  ```md\n  - Code is not evidence.\n  ```\n",
@@ -57,6 +56,11 @@ def test_uncertain_reference_code_html_image_fail_closed(item):
 def test_fenced_and_quoted_lookalikes_are_not_independent_items():
     assert selected("## Evidence\n\n```md\n- Readback: fake.\n```\n") is None
     assert selected("## Evidence\n\n> - Readback: quoted.\n", selector("> - Readback:")) is None
+
+
+def test_inline_code_is_retained_literal_not_a_link_or_item_boundary():
+    item = "- Readback: `Featured` and `- fake [link](hidden.md)` were inspected.\n"
+    assert selected("## Evidence\n\n" + item + "- Do not disclose.\n") == item
 
 
 def test_missing_and_full_lexeme_hash_drift_fail_partition():

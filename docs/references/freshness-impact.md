@@ -334,8 +334,10 @@ epistemic status, recorded date, contexts and evidence. Replace `heading` with
   top-level list item in that unique heading path. The complete item lexeme,
   including continuation paragraphs and every nested subitem, is hashed.
   Nested or quoted items cannot be selected independently of their parent.
-  Duplicate prefixes, reference links, images, code and HTML in a matched item
-  fail closed. A sibling rule may be a separate record, but material rules must
+  Duplicate prefixes, reference links, images, block code and HTML in a matched
+  item fail closed. Inline code remains literal inside the hashed whole item
+  and cannot introduce a selectable item or dependency. A sibling rule may be
+  a separate record, but material rules must
   remain explicit required contexts; selection alone does not declare an
   observation independent or remove WHOLE, shared or inherited premises.
   In particular, an explicit view's retained raw document still consumes all

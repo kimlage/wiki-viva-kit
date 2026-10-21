@@ -273,11 +273,12 @@ def body_span(text, selector, *, common_ranges=None):
             if end_index is None:
                 raise ValueError("uncertain complete list item boundary")
             # Whole AST span includes continuation paragraphs and all subitems.
-            # References depend on definitions outside this lexeme; code/HTML
-            # and images remain conservative rather than guessing their role.
+            # References depend on definitions outside this lexeme; block code,
+            # HTML and images remain conservative. Inline code stays literal
+            # inside the whole item; it cannot introduce an AST link or item.
             for child in tokens[i + 1:end_index]:
                 if child.type in {"fence", "code_block", "html_block"} or any(
-                        c.type in {"code_inline", "html_inline", "image"} or "label" in c.meta
+                        c.type in {"html_inline", "image"} or "label" in c.meta
                         for c in child.children or []):
                     raise ValueError("unsupported code, HTML, image or reference in list item")
             matches.append(tuple(token.map))
