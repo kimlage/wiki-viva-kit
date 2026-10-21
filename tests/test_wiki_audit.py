@@ -635,6 +635,158 @@ def test_append_only_drive_artifact_links_are_ignored(tmp_path, audit, monkeypat
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("name,data", [("original.renamed", b"%PDF-1.7\nFictional source.\n"),
+    ("imagem original.md", b"\x89PNG\r\n\x1a\n\0source"), ("arquivo ç.bin", b"text\x00binary")])
+def test_text_storage_blocks_tracked_source_and_keeps_application_resources(tmp_path, audit, monkeypatch, capsys, name, data):
+    import json
+    import yaml
+
+    (tmp_path / "memories").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "apps/example").mkdir(parents=True)
+    (tmp_path / "wiki.config.yaml").write_text(yaml.safe_dump({"audit": {
+        "wiki_text_storage": {"enabled": True, "roots": ["memories", "docs"]}
+    }}))
+    original = tmp_path / "docs" / name
+    original.write_bytes(data)
+    (tmp_path / "apps/example/runtime.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00runtime")
+    (tmp_path / "apps/example/index.ts").write_text('import image from "./runtime.png";\n')
+    (tmp_path / "memories/index.md").write_text("# Wiki\n\nText with an [external source](https://example.invalid/source).\n")
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["wiki_audit.py", "--only", "drive_artifact_links", "--check"])
+    assert audit.main() == 1
+    output = capsys.readouterr().out
+    assert "docs/" + name in output and "apps/example/runtime.png" not in output
+    # A source is not made appropriate by Git-tracking it or by renaming it.
+    original.unlink()
+    (tmp_path / "docs/contract.json").write_text(json.dumps({"schema": "example", "version": 1}))
+    assert audit.main() == 0
+    assert "0 error(s)" in capsys.readouterr().out
+
+
+def test_text_storage_blocks_catalogued_text_capture_without_deleting_it(tmp_path, audit, monkeypatch):
+    import json
+
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "data").mkdir()
+    source = tmp_path / "docs/source-capture.json"
+    source.write_text('{"source": "fictional complete capture"}\n')
+    (tmp_path / "data/drive_artifacts_manifest.json").write_text(json.dumps({"files": {
+        "source-capture.json": {"source_path": "docs/source-capture.json",
+                                "view_url": "https://example.invalid/source"}
+    }}))
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+    cfg = WikiConfig(audit={"wiki_text_storage": {"enabled": True, "roots": ["docs"]}})
+    errors = []
+    audit.audit_wiki_text_storage(errors, cfg)
+    assert len(errors) == 1 and "docs/source-capture.json" in errors[0]
+    assert source.read_text() == '{"source": "fictional complete capture"}\n'
+
+
+@pytest.mark.parametrize("policy", [True, {"enabled": "yes", "roots": ["docs"]},
+    {"enabled": True, "roots": ["../outside"]}, {"enabled": True, "roots": ["docs", "docs"]},
+    {"enabled": True, "roots": []}, {"enabled": True, "roots": ["docs"], "waiver": True}])
+def test_text_storage_invalid_policy_refuses(policy, audit):
+    errors = []
+    audit.audit_wiki_text_storage(errors, WikiConfig(audit={"wiki_text_storage": policy}))
+    assert errors and "wiki_text_storage" in errors[0]
+
+
+def test_text_storage_checks_ignored_files_only_inside_explicit_content_roots(tmp_path, audit, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "apps/runtime").mkdir(parents=True)
+    (tmp_path / ".gitignore").write_text("*.pdf\n")
+    (tmp_path / "docs/original.pdf").write_bytes(b"%PDF-1.7\n")
+    (tmp_path / "apps/runtime/manual.pdf").write_bytes(b"%PDF-1.7\n")
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    errors = []
+    audit.audit_wiki_text_storage(errors, WikiConfig(audit={"wiki_text_storage": {"enabled": True, "roots": ["docs"]}}))
+    assert len(errors) == 1 and "docs/original.pdf" in errors[0]
+
+
+def test_text_storage_does_not_follow_symlink_or_read_fifo(tmp_path, audit, monkeypatch):
+    import os
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "target.txt").write_text("implementation resource\n")
+    (tmp_path / "docs/link.md").symlink_to(tmp_path / "target.txt")
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
+    if hasattr(os, "mkfifo"):
+        fifo = tmp_path / "docs/source.fifo"
+        fifo.write_text("formerly regular\n")
+        subprocess.run(["git", "add", "docs/source.fifo"], cwd=tmp_path, check=True, capture_output=True)
+        fifo.unlink()
+        os.mkfifo(fifo)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    errors = []
+    audit.audit_wiki_text_storage(errors, WikiConfig(audit={"wiki_text_storage": {"enabled": True, "roots": ["docs"]}}))
+    assert any("docs/link.md" in e for e in errors)
+    if hasattr(os, "mkfifo"):
+        assert any("docs/source.fifo" in e for e in errors)
+
+
+@pytest.mark.parametrize("manifest", ['not json', '[]', '{"files": []}', '{"files": {"source": false}}'])
+def test_text_storage_refuses_unreadable_catalog_without_mutating_it(tmp_path, audit, monkeypatch, manifest):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "data").mkdir()
+    path = tmp_path / "data/drive_artifacts_manifest.json"
+    path.write_text(manifest)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    errors = []
+    audit.audit_wiki_text_storage(errors, WikiConfig(audit={"wiki_text_storage": {"enabled": True, "roots": ["docs"]}}))
+    assert len(errors) == 1 and "manifest" in errors[0]
+    assert path.read_text() == manifest
+
+
+@pytest.mark.parametrize("declared", [None, 2, "", "docs/./capture.json", "../capture.json",
+    "docs//capture.json", "docs/../capture.json", "docs/capture.json\x00"])
+def test_text_storage_refuses_malformed_declared_source_path(tmp_path, audit, monkeypatch, declared):
+    import json
+
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "data").mkdir()
+    source = tmp_path / "docs/capture.json"
+    source.write_text('{"capture": "fictional"}\n')
+    manifest = tmp_path / "data/drive_artifacts_manifest.json"
+    original = json.dumps({"files": {"capture": {"source_path": declared}}})
+    manifest.write_text(original)
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    errors = []
+    audit.audit_wiki_text_storage(errors, WikiConfig(audit={"wiki_text_storage": {"enabled": True, "roots": ["docs"]}}))
+    assert len(errors) == 1 and "manifest" in errors[0]
+    assert manifest.read_text() == original and source.read_text() == '{"capture": "fictional"}\n'
+
+
+@pytest.mark.parametrize("kind", ["legacy-absent", "external-posix", "external-windows", "inside-absolute"])
+def test_text_storage_preserves_catalog_compatibility_and_guards_local_absolute(tmp_path, audit, monkeypatch, kind):
+    import json
+
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "data").mkdir()
+    source = tmp_path / "docs/capture.json"
+    source.write_text('{"capture": "fictional"}\n')
+    entry = {"view_url": "https://example.invalid/source"}
+    if kind != "legacy-absent":
+        entry["source_path"] = {"external-posix": str(tmp_path.parent / "outside/capture.json"),
+            "external-windows": r"C:\external\capture.json", "inside-absolute": str(source)}[kind]
+    (tmp_path / "data/drive_artifacts_manifest.json").write_text(json.dumps({"files": {"capture": entry}}))
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    errors = []
+    audit.audit_wiki_text_storage(errors, WikiConfig(audit={"wiki_text_storage": {"enabled": True, "roots": ["docs"]}}))
+    if kind == "inside-absolute":
+        assert len(errors) == 1 and "docs/capture.json" in errors[0]
+    else:
+        assert errors == []
+
+
 def _seed_prompts(
     tmp_path, audit, monkeypatch, *, checksums: str | None, prompt_text="prompt body\n"
 ):
