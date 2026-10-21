@@ -4,15 +4,19 @@ import { createSourceBridge } from './source-bridge.mjs';
 const route={connectionId:'fixture-local',profile:'research',targetProfile:'research',mode:'local'};
 const routeKey=JSON.stringify([route.connectionId,route.profile,route.targetProfile]);
 const ref={source_id:'fictional-source',binding_sha256:'a'.repeat(64)};
-const sourceBinding={...ref,config_sha256:'b'.repeat(64),source_kind:'repository',access_policy:{execution:{connection_id:route.connectionId,profile:route.profile,target_profile:route.targetProfile,method:'local_git',provider_id:'',resource_ref:'wiki_repository'}}};
+const sourceBinding={...ref,config_sha256:'b'.repeat(64),source_kind:'repository',access_policy:{execution:{connection_id:route.connectionId,profile:route.profile,target_profile:route.targetProfile,method:'native_session',stored_session_id:'stored-fixture'}}};
 function fixture(extra={}) {
   const calls=[],replies=[],setups=[];let epoch=0;const frame={};
-  const host={profileRoutes:async()=>[route],requestProfile:async(r,method,params)=>{
+  const host={profileRoutes:async()=>[route],retainProfile:async()=>()=>{},onEvent:()=>()=>{},requestProfile:async(r,method,params)=>{
     calls.push({r,method,params});
     if(method==='connectors.list')return {available:true,connectors:[{connector:'fictional-app',enabled:true,connected:false,connection_status:'disconnected',status_reason:null,gateway_disabled_tools:[]}]};
+    if(method==='session.list')return {sessions:[{id:'stored-fixture',title:'Existing context'}]};
+    if(method==='session.resume')return {session_id:'runtime-fixture',resumed:'stored-fixture',running:false};
+    if(method==='session.events.since')return {epoch:'fixture-epoch',latest_seq:0};
+    if(method==='prompt.submit')return {status:'streaming',user_row_id:17};
     return {servers:[{name:'fictional-mcp',connected:false,disabled:false,tools:0}]};
   }};
-  const bridge=createSourceBridge({host,...extra,api:async request=>{calls.push(request);return request.method==='POST'?{status:'read_verified'}:sourceBinding;},
+  const bridge=createSourceBridge({host,...extra,api:async request=>{calls.push(request);return request.path.includes('source-intent-claim')?{created:true,intent:{...sourceBinding,execution:sourceBinding.access_policy.execution,request_id:request.body.request_id,prompt:'Native intent'}}:request.path.includes('source-intent-track')?{...sourceBinding,execution:sourceBinding.access_policy.execution,request_id:request.body.request_id,...request.body.tracking}:sourceBinding;},
     openSetup:async input=>{setups.push(input);},frameWindow:()=>frame,wikiOrigin:'http://127.0.0.1:8765',channel:'fixture-channel-001',generation:0,currentGeneration:()=>epoch,reply:m=>replies.push(m),...extra});
   const message=(action='inspect',id='fixture-request-0001')=>({protocol:'wiki.source_access.v1',kind:'request',channel:'fixture-channel-001',request_id:id,action,source:ref,route_key:routeKey});
   const send=m=>bridge.receive({origin:'http://127.0.0.1:8765',source:frame,data:m});
@@ -20,7 +24,7 @@ function fixture(extra={}) {
 }
 test('real ConnectorRow.connector and MCP status are capabilities, never access evidence',async()=>{
   const f=fixture();await f.send(f.message());const r=f.replies[0].result;
-  assert.deepEqual(r.providers.map(p=>p.id),['fictional-app','fictional-mcp']);
+  assert.deepEqual(r.providers.map(p=>p.id),['fictional-app']);
   assert.equal(r.connection_verified,false);assert.equal(r.read_verified,false);
   assert.deepEqual(f.calls.filter(c=>c.method==='connectors.list')[0].params,{owner:{type:'account'}});
 });
@@ -55,11 +59,11 @@ test('stale reload or closed source cancels setup after an awaited source lookup
   await g.bridge.receivePort({protocol:'wiki.source_access.v1',kind:'close',channel:'fixture-channel-001'});
   assert.equal(g.setups.length,0);
 });
-test('read request routes only own plugin path with exact owner and server-side request id',async()=>{
+test('native intention claim routes only own plugin path with exact owner and request id',async()=>{
   const f=fixture();const m=f.message('read_test');await f.send(m);const call=f.calls.find(c=>c.method==='POST');
   assert.equal(call.connectionId,route.connectionId);assert.equal(call.profile,route.profile);
   assert.deepEqual(call.body,{source_id:ref.source_id,binding_sha256:ref.binding_sha256,config_sha256:sourceBinding.config_sha256,request_id:m.request_id});
-  assert.match(call.path,/^\/api\/plugins\/wiki-viva-board\/source-read-test\?profile=research$/);
+  assert.match(call.path,/^\/api\/plugins\/wiki-viva-board\/source-intent-claim\?profile=research$/);
 });
 
 test('managed account choices come from actual scoped account rows, never default/unnamed or disabled accounts',async()=>{

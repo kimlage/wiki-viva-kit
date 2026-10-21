@@ -57,7 +57,7 @@ function WikiSurface({sources=false}) {
     setup && React.createElement('section',{role:'dialog','aria-label':'Configurar executor da fonte',style:{border:'1px solid currentColor',padding:16,overflow:'auto',maxHeight:'75vh'}},
       React.createElement('header',null,
         React.createElement('strong',null,setup.binding.source_id+' · '+setup.route.connectionId+' / '+setup.route.profile),
-        React.createElement('p',null,'Configuração oficial do Hermes. Configurar um conector não verifica a conta da fonte; volte e teste a leitura.'),
+        React.createElement('p',null,'Configuração oficial do Hermes. Depois volte à fonte para pedir uma leitura à conversa nativa; configurar não comprova acesso.'),
         React.createElement('button',{onClick:()=>setSetup(null)},'Voltar à fonte')),
       setup.method === 'browser_controller'
         ? React.createElement(ToolsetConfigPanel,{toolset:'browser',profile:{connectionId:setup.route.connectionId,profile:setup.route.profile}})

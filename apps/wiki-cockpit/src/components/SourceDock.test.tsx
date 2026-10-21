@@ -1041,7 +1041,7 @@ describe("SourceDock focus restore (§14.4/§19.6)", () => {
 it("saved Hermes execution routes Update to native Configure without legacy test or refresh", () => {
   configureLanguage("en");
   const test = vi.fn(), refresh = vi.fn();
-  const source = sourceFixture({access_policy:{schema_version:"wiki_source_access.v1",expected_identity:"reader@example.test",coordinator:"research",executor:"fixture",requested_scopes:["read"],execution:{connection_id:"fixture",profile:"research",target_profile:"research",method:"mcp",provider_id:"fixture",resource_ref:""}},update_route:{mode:"deterministic_connector",mcp_hint:"",runnable:true,requires_agent:false}});
+  const source = sourceFixture({access_policy:{schema_version:"wiki_source_access.v1",expected_identity:"reader@example.test",coordinator:"research",executor:"fixture",requested_scopes:["read"],execution:{connection_id:"fixture",profile:"research",target_profile:"research",method:"native_session",stored_session_id:"stored-fixture"}},update_route:{mode:"deterministic_connector",mcp_hint:"",runnable:true,requires_agent:false}});
   render(<SourceDock bundle={bundleWith(source)} sourceId="source-gmail" onTestAccess={test} onPreviewRefresh={refresh} onNotice={noop} onClose={noop}/>);
   fireEvent.click(screen.getByRole("button",{name:"Update"}));
   fireEvent.click(screen.getByRole("button",{name:"Configure executor and access"}));
@@ -1055,15 +1055,15 @@ it('opens Configure and binds an executor with the backend first-setup access_po
  const source=sourceFixture({source_kind:'repository',access_policy:{} as SourceEntity['access_policy'],access:{schema_version:'wiki_source_access.v1',binding_sha256:'a'.repeat(64),status:'not_configured',verified:false,expected_identity:'',confirmed_identity:'',coordinator:'',executor:'',requested_scopes:[],granted_scopes:[],checked_at:'',valid_until:'',evidence_ref:'',error_code:'',execution_ready:false,business_authority:'unknown'}});
  const route={connectionId:'fixture',profile:'research',targetProfile:'research',mode:'local' as const,key:'fixture-route'};
  const preview=vi.fn().mockResolvedValue({ok:true,preview_token:'fixture',updates:{},changes:[]});
- const createSourceHost=()=>({connect:async()=>{},close:()=>{},request:async(_source:SourceEntity,action:string)=>action==='routes'?{routes:[route]}:{binding:{source_id:source.source_id,context:source.context,source_kind:'repository',binding_sha256:'a'.repeat(64),config_sha256:'b'.repeat(64),access_policy:{} as SourceEntity['access_policy'],resource_options:[{id:'wiki_repository',target:'/synthetic/wiki',source_scope:'repository_root',permission:'git.metadata.read'}]}}});
+ const createSourceHost=()=>({connect:async()=>{},close:()=>{},request:async(_source:SourceEntity,action:string)=>action==='routes'?{routes:[route]}:{binding:{source_id:source.source_id,context:source.context,source_kind:'repository',binding_sha256:'a'.repeat(64),config_sha256:'b'.repeat(64),access_policy:{} as SourceEntity['access_policy']},sessions:[{id:'stored-fixture',title:'Existing context'}]}});
  render(<SourceDock bundle={bundleWith(source)} sourceId={source.source_id} createSourceHost={createSourceHost} onPreviewConfiguration={preview} onNotice={noop} onClose={noop}/>);
  fireEvent.click(screen.getByRole('button',{name:'Configure'}));
  fireEvent.click(screen.getByRole('button',{name:'Find Hermes executors'}));
  await waitFor(()=>expect((screen.getByLabelText('Environment / profile') as HTMLSelectElement).disabled).toBe(false));
  fireEvent.change(screen.getByLabelText('Environment / profile'),{target:{value:route.key}});fireEvent.click(screen.getByRole('button',{name:'Inspect methods in this executor'}));
- await screen.findByText(/\/synthetic\/wiki/);fireEvent.click(screen.getByRole('button',{name:'Use this executor in source settings'}));
- expect((screen.getByLabelText('Requested scopes (comma separated)') as HTMLInputElement).value).toBe('git.metadata.read');
+ await screen.findByLabelText('Existing native conversation');fireEvent.change(screen.getByLabelText('Existing native conversation'),{target:{value:'stored-fixture'}});fireEvent.click(screen.getByRole('button',{name:'Use this executor in source settings'}));
+ expect((screen.getByLabelText('Requested scopes (comma separated)') as HTMLInputElement).value).toBe('');
  fireEvent.click(screen.getByRole('button',{name:'Review source settings'}));
- await waitFor(()=>expect(preview).toHaveBeenCalledWith(source.source_id,'__source__',{access:expect.objectContaining({expected_identity:'',coordinator:source.context,requested_scopes:['git.metadata.read'],execution:expect.objectContaining({connection_id:'fixture',profile:'research',target_profile:'research',method:'local_git',resource_ref:'wiki_repository'})})}));
+ await waitFor(()=>expect(preview).toHaveBeenCalledWith(source.source_id,'__source__',{access:expect.objectContaining({expected_identity:'',coordinator:source.context,requested_scopes:[],execution:expect.objectContaining({connection_id:'fixture',profile:'research',target_profile:'research',method:'native_session',stored_session_id:'stored-fixture'})})}));
  expect(screen.queryByText('Access verified')).toBeNull();
 });

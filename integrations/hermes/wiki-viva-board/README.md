@@ -1,108 +1,59 @@
-# Hermes source configuration bridge
+# Native Hermes source session bridge
 
-This optional integration adds **Sources and access** beside the existing Wiki
-Kanban. It embeds the same `/w?dock=source` wiki screen and opens the exported
-Hermes `ConnectorsTab` with an explicit `ProfileScope`. There is no second source
-registry, credential store, task queue or bot.
+This optional integration embeds the existing Wiki source screen beside Kanban.
+It binds a source to an explicitly selected native route/profile and **existing
+stored context conversation**. It creates no bot, task queue, agent loop, provider
+reader or credential store.
 
-Every safe source recipe, including one without access metadata, receives an
-unverified canonical binding. The operator discovers native routes, selects an
-environment/profile, inspects available providers/accounts, opens official
-settings, and reviews/confirms the binding through the existing preview/CAS flow.
-Catalogue support, configuration and tools/list are not account or read evidence.
+The public SDK supplies `profileRoutes`, `requestProfile`, `retainProfile`,
+`onEvent` and `openSession`. The bridge lists stored conversations and optional
+native account constraints, resumes the selected stored id, then submits one
+read intention with `prompt.submit`. Tools, schemas, resources and account
+semantics are discovered by that native conversation through
+`tool_search` → `tool_describe` → `tool_call`. Its existing policies, hooks,
+approvals and transport remain in force. No provider name or read-tool schema
+is implemented here. Official connector/MCP and browser settings remain the
+configuration and recovery surfaces.
 
-| Method | Configuration | Implemented source read |
-| --- | --- | --- |
-| `local_git` | Explicit eligible wiki repository + profile | Native Git status and stable HEAD; `git.metadata.read` only |
-| `managed_connector` | Official connectors + explicit named account | Gmail account profile, exact alias/id, observed email |
-| `mcp` | Official Hermes MCP settings | No read adapter yet; tools/list is not a resource read |
-| `browser_controller` | Official browser toolset settings in the chosen profile | Requires a real bound native controller contract |
+## Tracking and uncertain outcomes
 
-Gmail reads only `GMAIL_GET_PROFILE`, after current account, enabled connector,
-read facet and exact schema guards. It never searches tools, reads mail, changes
-policy, calls connections/reconnect, or selects a default/other account. The
-gateway resolves the explicit alias; account id is rechecked before/after. The
-observed email must match the expected source email. A successful profile read
-proves `gmail.profile.read`, not all mailbox/OAuth scopes or business authority.
-The native gateway may report `CONNECTION_REQUIRED` with an authorization link;
-the integration discards the link and records the need for official setup. It
-never follows that link or claims a completed OAuth grant.
+Before submission, the profile-scoped API exclusively claims an intention id
+under `cache/wiki-native-intents`. This is a receipt ledger, not a scheduler.
+Only canonical source bindings are accepted; source/config/profile/session
+changes invalidate the operation. The API never executes tools, Git commands
+or provider clients. Tracking metadata cannot certify account identity,
+permissions or read access; those fields always remain unknown/false.
 
-Local Git reads prove no Google/GitHub identity, remote access, full-text access
-or write permission. Identity is not applicable, without a fictional email. A
-legacy locator pointing to its own source page stays unchanged: the operator
-explicitly chooses `wiki_repository` and sees its actual target. Remote locators,
-other repositories, arbitrary files/subdirectories and cross-root paths fail.
+`prompt.submit` has no idempotency key. After its dispatch boundary, timeout
+means UNKNOWN. Repeating an intention reconciles native events/history and
+never submits another prompt. The bridge retains the native profile socket,
+filters live events by connection/profile/session, and reads `session.events.since`
+with epoch/sequence plus `session.history`. A bounded, owner-filtered live metadata journal preserves tool ids, reported failures and persisted-turn correlation without storing provider output. It notifies the source screen and reconciles terminal native events without resubmitting. Truncation or an epoch change requires
+history recovery; only a complete native replay or the scoped live journal can anchor a terminal tool trace. History tool references alone cannot establish resource success. The accepted
+`user_row_id`, exact source intention and native persisted-turn completion must
+match before the tracking record names actual tool ids. Search/skill activity
+and model text are not proof that a resource was read. The UI offers the native
+conversation and approval surface with `openSession(..., {route,
+awaitHydration:true, forceResume:true})`.
 
-The existing deterministic access test remains available without a native
-binding. Once native execution is saved, Update directs the operator to native
-Configure/read controls. The legacy endpoint refuses that binding before calling
-its adapter, so it cannot silently test another executor.
+The integration uses an existing conversation; it does not create sessions
+implicitly. A busy/waiting context is preserved. A race at submission uses the
+native queued input path. UNKNOWN records do not expire into permission to retry.
+An operator can inspect the native conversation to resolve missing evidence.
 
-## Packaging and adoption
+## Transport and adoption
 
-These files are a proposal, not an automatic installer:
+The iframe has typed source actions only: routes, inspect, official configuration,
+read intention, receipt reconciliation and open native conversation. It cannot
+supply arbitrary RPC names, tools, arguments, paths, observed identities or grants.
+HTTP embedding checks allowed origin, source window, generation and channel.
+Opaque Electron embedding uses a dedicated MessageChannel and one-use challenge,
+attested through the existing local operator gate. Pairing is transport trust,
+not account consent. Credentials never cross the frame boundary.
 
-- Run `python3 -B integrations/hermes/wiki-viva-board/build_plugin.py` to generate
-  `plugin.js` from `plugin.entry.js` and `source-bridge.mjs`.
-- After review, the operator may replace the existing desktop wrapper with
-  `plugin.js`. One plugin registers both `/wiki-board` and `/wiki-sources`.
-- Adopt `dashboard/` under the selected Hermes profile's normal user-plugin
-  directory using its existing discovery/trust/enable gates. The API namespace
-  is `/api/plugins/wiki-viva-board/*`; its empty UI entry avoids duplicate tabs.
-- The existing native API hot-mount fallback and wrapper runtime loader can
-  adopt qualified files without a gateway restart when supported by that host.
-- `WIKI_SOURCE_ORIGIN` defaults to `http://127.0.0.1:8765` and accepts only an HTTP
-  loopback origin. Redirects and ambient HTTP proxies are refused.
-- Native profile credentials stay in Hermes. Private source metadata stays in
-  the private consumer. Installing code does not grant organizational access.
-
-Browser recovery opens the exported `ToolsetConfigPanel` with `toolset: browser`
-and an explicit profile, without declaring an active browser session/controller.
-The desktop wrapper imports only public SDK exports. The API adapter calls the
-existing native profile, Git and managed-connector clients, preserving scoped
-execution and the gateway's tool policy. No internal frontend imports, parallel
-provider connections or copied auth headers/tokens enter the iframe.
-
-## Transport and recovery
-
-The iframe can request only `routes`, `inspect`, `configure`, `read_test` and
-`read_receipts`. It cannot supply RPC names, paths, URLs, argv, observed identities
-or granted permissions. Every operation rereads canonical source/config hashes.
-SDK calls and native HTTP explicitly select connection/profile; no ambient
-request fallback exists. Source/config/profile changes invalidate old evidence.
-
-HTTP hosts use a same-origin configured allowlist plus source-window/channel/
-request/generation checks. Explicit `file:` Electron embedding uses a dedicated
-MessageChannel and short-lived challenge. Raw `origin: null` is never trusted.
-Only the challenge/port crosses the exact parent bootstrap with `targetOrigin:
-*`, necessary for an opaque origin. Before source requests, the wiki checks its
-own server for native-backend pairing through the existing local-operator
-host/origin/nonce/attempt gates. The nonce stays only in backend memory. Pairing
-is one use, expires after 45 seconds and has bounded storage. It establishes
-transport at the existing local-operator trust boundary, not account consent or
-protection against an attacker already executing local operator code.
-
-Reads exclusively claim a request id before dispatch and persist receipts under
-the selected Hermes home's `cache/wiki-source-access`. Repeating that request
-reconciles its receipt, never reruns an unknown result. Interrupted reads remain
-pending. Reopening the source requires receipt reload before another read.
-An unresolved request id is retained in source/config/route-bound session storage
-across iframe reload, without credentials. Empty receipt lists do not clear it;
-only the exact terminal receipt does.
-Expired receipts remain history; they do not promote the source account badge.
-Receipts retain no raw provider content, changed filenames, login URLs or tokens.
-
-## Validation and operational acceptance
-
-Run normal kit PR gates. CI also executes `npm --prefix apps/wiki-cockpit run
-test:hermes`. Synthetic tests cover first setup, actual exported ConnectorsTab
-props, source/profile/account/schema/policy mismatch, scope, deduplication,
-pending recovery, expiration, stale close and opaque-port/origin pairing.
-
-Operational acceptance still requires the installed host: open Sources and
-access, choose its actual route, confirm an eligible source binding, reload
-receipts, perform the read, reload the iframe and recover that receipt. Verify
-the actual PID and exact source/config/profile tuple. Git requires stable HEAD;
-Gmail requires the selected account's observed email. Synthetic tests, catalogue
-listing or successful preview are not this operational acceptance.
+Run `python3 -B integrations/hermes/wiki-viva-board/build_plugin.py` to produce
+`plugin.js`; React and `@hermes/plugin-sdk` remain external. The normal kit sync
+copies these passive source files. Installation, enablement, server rollout and
+real native acceptance remain explicit operator steps after review and CI.
+`WIKI_SOURCE_ORIGIN` permits only HTTP loopback with no redirects or ambient proxy.
+No gateway restart or package/provider upgrade is part of this source change.

@@ -49,6 +49,17 @@ it('an unknown read survives bridge reopen; empty receipts do not authorize a du
  expect((await reconcile).unresolved_request).toBe(original.request_id);
  const before=parent.postMessage.mock.calls.length;await expect(reopened.request(source,'read_test','fixture-route','b'.repeat(64))).rejects.toThrow('source_read_result_unknown');expect(parent.postMessage.mock.calls.length).toBe(before);
  const finished=reopened.request(source,'read_receipts','fixture-route','b'.repeat(64));const finalQuery=parent.postMessage.mock.lastCall![0];
- message('https://hermes.example.test',{protocol,kind:'response',channel,request_id:finalQuery.request_id,ok:true,result:{receipts:[{request_id:original.request_id,status:'read_verified'}]}});
+ message('https://hermes.example.test',{protocol,kind:'response',channel,request_id:finalQuery.request_id,ok:true,result:{receipts:[{request_id:original.request_id,status:'native_trace_observed'}]}});
  await finished;expect(window.sessionStorage.length).toBe(0);reopened.close();
+});
+
+it('native activity matches the exact source/config/route and never becomes access proof',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({source_host_origins:['https://hermes.example.test']})})));
+ const bridge=new SourceHostBridge();const ready=bridge.connect();await settle();message('https://hermes.example.test',{protocol,kind:'hello',channel});await ready;
+ const listener=vi.fn();bridge.subscribeActivity(listener);
+ const query=bridge.request(source,'read_receipts','fixture-route','b'.repeat(64));const outgoing=parent.postMessage.mock.lastCall![0];
+ message('https://hermes.example.test',{protocol,kind:'response',channel,request_id:outgoing.request_id,ok:true,result:{receipts:[]}});await query;
+ const event={protocol,kind:'native_activity',channel,source:{source_id:source.source_id,binding_sha256:source.access!.binding_sha256,config_sha256:'b'.repeat(64)},route_key:'fixture-route'};
+ message('https://hermes.example.test',{...event,route_key:'other-owner'});expect(listener).not.toHaveBeenCalled();
+ message('https://hermes.example.test',event);expect(listener).toHaveBeenCalledTimes(1);bridge.close();
 });

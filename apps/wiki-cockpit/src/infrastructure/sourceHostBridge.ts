@@ -3,7 +3,7 @@ import type { SourceEntity } from "../types";
 import type { HostAction, HostResult, SourceHostPort } from "../application/sourceAccess";
 
 const PROTOCOL = "wiki.source_access.v1";
-const ACTIONS = new Set<HostAction>(["routes", "inspect", "configure", "read_test", "read_receipts"]);
+const ACTIONS = new Set<HostAction>(["routes", "inspect", "configure", "read_test", "read_receipts", "open_native"]);
 
 export class SourceHostBridge implements SourceHostPort {
   private channel = "";
@@ -11,6 +11,9 @@ export class SourceHostBridge implements SourceHostPort {
   private allowed: string[] = [];
   private pending = new Map<string, { resolve: (value: HostResult) => void; reject: (error: Error) => void; timer: number; action: HostAction; recoveryKey?: string }>();
   private closed = false;
+  private activityListeners=new Set<()=>void>();
+  private observed=new Set<string>();
+  subscribeActivity(listener:()=>void) {this.activityListeners.add(listener);return()=>{this.activityListeners.delete(listener);};}
   private port?: MessagePort;
   private readyResolve?: () => void;
   private readyReject?: (error: Error) => void;
@@ -33,6 +36,7 @@ export class SourceHostBridge implements SourceHostPort {
       this.channel = m.channel; this.origin = event.origin;
       window.clearTimeout(this.readyTimer); this.readyResolve?.(); return;
     }
+    if(m.kind === "native_activity" && m.channel===this.channel && this.observed.has(JSON.stringify([m.source?.source_id,m.source?.binding_sha256,m.route_key,m.source?.config_sha256]))) {for(const listener of this.activityListeners)listener();return;}
     if (m.kind !== "response" || m.channel !== this.channel || (!pairedPort && event.origin !== this.origin)) return;
     const item = this.pending.get(m.request_id);
     if (!item) return;
@@ -43,7 +47,7 @@ export class SourceHostBridge implements SourceHostPort {
         try {
           const unresolved = window.sessionStorage.getItem(item.recoveryKey);
           const receipt = item.action === "read_test" ? result : result.receipts?.find(row => row.request_id === unresolved);
-          if (unresolved && receipt?.request_id === unresolved && ["read_verified", "blocked", "unsupported"].includes(receipt.status || "")) window.sessionStorage.removeItem(item.recoveryKey);
+          if (unresolved && receipt?.request_id === unresolved && ["native_trace_observed", "native_trace_failed", "not_submitted"].includes(receipt.status || "")) window.sessionStorage.removeItem(item.recoveryKey);
           else if (unresolved && item.action === "read_receipts" && !receipt) result.unresolved_request = unresolved;
         } catch { item.reject(new Error("source_read_recovery_unavailable")); return; }
       }
@@ -99,6 +103,7 @@ export class SourceHostBridge implements SourceHostPort {
   }
   request(source: SourceEntity, action: HostAction, routeKey?: string, configSha?: string, setupMethod?: string): Promise<HostResult> {
     if (this.closed || !this.channel || !ACTIONS.has(action) || !/^[a-f0-9]{64}$/.test(source.access?.binding_sha256 || "")) return Promise.reject(new Error("source_binding_invalid"));
+    if(routeKey && configSha)this.observed.add(JSON.stringify([source.source_id,source.access?.binding_sha256,routeKey,configSha]));
     const requestId = "wiki-" + crypto.randomUUID();
     let recoveryKey: string | undefined;
     if (action === "read_test" || action === "read_receipts") {
@@ -125,7 +130,7 @@ export class SourceHostBridge implements SourceHostPort {
       const close = { protocol: PROTOCOL, kind: "close", channel: this.channel };
       if (this.port) this.port.postMessage(close); else if (this.origin) window.parent.postMessage(close, this.origin);
     }
-    this.closed = true; this.port?.close(); window.removeEventListener("message", this.receive); window.clearTimeout(this.readyTimer);
+    this.closed = true; this.activityListeners.clear();this.observed.clear(); this.port?.close(); window.removeEventListener("message", this.receive); window.clearTimeout(this.readyTimer);
     this.readyReject?.(new Error("source_host_closed"));
     for (const item of this.pending.values()) { window.clearTimeout(item.timer); item.reject(new Error("source_host_closed")); }
     this.pending.clear();

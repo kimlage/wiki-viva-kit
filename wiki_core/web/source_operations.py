@@ -417,65 +417,15 @@ def list_source_operation_receipts(root: Path, config: WikiConfig, source_id: st
     return records[:20]
 
 
-def _source_repository_scope(root: Path, source: dict[str, Any]) -> dict[str, Any]:
-    """Resolve a SELF source location, only for explicit wiki-repository reads.
-
-    Legacy repository sources locate their own canonical source page. That
-    pointer is not itself a repository path: the operator must explicitly
-    choose wiki_repository, whose actual target is displayed before saving.
-    No remote URL, other repository, arbitrary file or subdirectory substitutes.
-    """
-    if source.get("source_kind") != "repository":
-        raise ValueError("source_access_resource_not_supported")
-    locator = str(source.get("locator") or "")
-    if not locator or re.search(r"^[a-zA-Z][a-zA-Z0-9+.-]*:|[?#]", locator):
-        raise ValueError("source_access_repository_locator_mismatch")
-    candidate = Path(locator) if Path(locator).is_absolute() else root / locator
-    try:
-        repo_root = root.resolve()
-        canonical = candidate.resolve(strict=True)
-        own_page = _safe_repo_file(root, source.get("path") or "").resolve()
-        if not canonical.is_relative_to(repo_root):
-            raise ValueError("source_access_repository_locator_mismatch")
-        if canonical == repo_root and canonical.is_dir():
-            source_scope = "repository_root"
-        elif canonical == own_page and canonical.is_file():
-            source_scope = "legacy_source_page_explicit_wiki_repository"
-        else:
-            raise ValueError("source_access_repository_locator_mismatch")
-        probe = subprocess.run(["git", "-C", str(repo_root), "rev-parse", "--show-toplevel"],
-                               capture_output=True, text=True, timeout=8, check=True)
-        if Path(probe.stdout.strip()).resolve() != repo_root:
-            raise ValueError("source_access_repository_locator_mismatch")
-    except (OSError, subprocess.SubprocessError):
-        raise ValueError("source_access_repository_locator_mismatch") from None
-    return {"kind": "wiki_repository", "repository_root": str(repo_root), "source_scope": source_scope}
-
-
 def source_access_binding(root: Path, config: WikiConfig, source_id: str) -> dict[str, Any]:
-    """Canonical source-owned scope for an explicitly bound external executor."""
+    """Canonical data for the native owner; never an executable provider adapter."""
     source = _source(root, config, source_id)
     path = _safe_repo_file(root, str(source.get("config_ref") or ""))
-    policy = source.get("access_policy") or {}
-    execution = policy.get("execution") or {}
-    options = []
-    try:
-        eligible_scope = _source_repository_scope(root, source)
-        options = [{"id": "wiki_repository", "target": eligible_scope["repository_root"],
-                    "source_scope": eligible_scope["source_scope"], "permission": "git.metadata.read"}]
-    except ValueError:
-        eligible_scope = None
-    scope = None
-    if execution.get("method") == "local_git":
-        if execution.get("resource_ref") != "wiki_repository":
-            raise ValueError("source_access_resource_not_supported")
-        if not eligible_scope:
-            raise ValueError("source_access_repository_locator_mismatch")
-        scope = eligible_scope
-    return {"source_id": source_id, "context": source["context"], "source_kind": source.get("source_kind"), "platform": source.get("platform"),
+    return {"source_id": source_id, "context": source["context"], "source_kind": source.get("source_kind"),
+            "platform": source.get("platform"), "locator": source.get("locator"),
             "config_sha256": _sha(path.read_text(encoding="utf-8")),
             "binding_sha256": project_source_access(source)["binding_sha256"],
-            "access_policy": policy, "read_scope": scope, "resource_options": options}
+            "access_policy": source.get("access_policy") or {}}
 
 
 def probe_source_connection(root: Path, config: WikiConfig, source_id: str) -> dict[str, Any]:
