@@ -328,6 +328,21 @@ epistemic status, recorded date, contexts and evidence. Replace `heading` with
   `required_match_count: 1`. The GFM table AST must identify one top-level table
   and one complete single-line row. Every cell, qualifier and link is hashed;
   a convenient cell is not the record. Duplicate paths, tables or keys fail.
+- `kind: markdown_list_item`, explicit `container_heading_path`, a nonempty
+  `literal_prefix` matching the raw first line (including its list marker), and
+  `required_match_count: 1`. The CommonMark AST must identify exactly one
+  top-level list item in that unique heading path. The complete item lexeme,
+  including continuation paragraphs and every nested subitem, is hashed.
+  Nested or quoted items cannot be selected independently of their parent.
+  Duplicate prefixes, reference links, images, code and HTML in a matched item
+  fail closed. A sibling rule may be a separate record, but material rules must
+  remain explicit required contexts; selection alone does not declare an
+  observation independent or remove WHOLE, shared or inherited premises.
+  In particular, an explicit view's retained raw document still consumes all
+  its components. A qualified historical consumer can keep representation-only
+  review while that separate raw/WHOLE route requires factual review of the
+  observation and its normative contexts. This selector does not change that
+  traversal or make such a document fresh.
 
 `null` selector and hash together mean proven absence using the other origin's
 identity, never parser failure. A changed container/header that prevents proving
