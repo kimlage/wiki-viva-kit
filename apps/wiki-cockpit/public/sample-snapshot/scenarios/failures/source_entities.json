@@ -48,6 +48,25 @@
   },
   "sources": [
     {
+      "access": {
+        "binding_sha256": "47c3bcc2d0847322367d81621cded66b0975ed17a433d8ecee258de21f827d32",
+        "business_authority": "unknown",
+        "checked_at": "",
+        "confirmed_identity": "",
+        "coordinator": "",
+        "error_code": "",
+        "evidence_ref": "",
+        "execution_ready": false,
+        "executor": "",
+        "expected_identity": "",
+        "granted_scopes": [],
+        "requested_scopes": [],
+        "schema_version": "wiki_source_access.v1",
+        "status": "not_configured",
+        "valid_until": "",
+        "verified": false
+      },
+      "access_policy": {},
       "auth": null,
       "config_ref": "",
       "context": "clientes",
@@ -113,6 +132,25 @@
       "updated_at": "2026-07-03"
     },
     {
+      "access": {
+        "binding_sha256": "35002a7854dbe22b05e3e773acec983319b700bf74382869a1b79eea52b46820",
+        "business_authority": "unknown",
+        "checked_at": "",
+        "confirmed_identity": "",
+        "coordinator": "",
+        "error_code": "",
+        "evidence_ref": "",
+        "execution_ready": false,
+        "executor": "",
+        "expected_identity": "",
+        "granted_scopes": [],
+        "requested_scopes": [],
+        "schema_version": "wiki_source_access.v1",
+        "status": "not_configured",
+        "valid_until": "",
+        "verified": false
+      },
+      "access_policy": {},
       "auth": null,
       "config_ref": "",
       "context": "sistema",

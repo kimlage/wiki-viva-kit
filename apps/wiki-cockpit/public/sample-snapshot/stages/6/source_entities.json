@@ -47,6 +47,25 @@
   },
   "sources": [
     {
+      "access": {
+        "binding_sha256": "01d5686e61f94a5890eb726f21d2bd454d70c8e90b7c6b07d051c87a62c7591d",
+        "business_authority": "unknown",
+        "checked_at": "",
+        "confirmed_identity": "",
+        "coordinator": "",
+        "error_code": "",
+        "evidence_ref": "",
+        "execution_ready": false,
+        "executor": "",
+        "expected_identity": "",
+        "granted_scopes": [],
+        "requested_scopes": [],
+        "schema_version": "wiki_source_access.v1",
+        "status": "not_configured",
+        "valid_until": "",
+        "verified": false
+      },
+      "access_policy": {},
       "auth": null,
       "config_ref": "",
       "context": "financeiro",
