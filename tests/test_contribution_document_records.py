@@ -39,7 +39,7 @@ def command(root, *args):
     return result.stdout
 
 
-def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False):
+def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, effects=False):
     root = tmp_path / 'consumer'
     command(tmp_path, 'git', 'clone', '--shared', '--quiet', str(SOURCE), str(root))
     git(root, 'switch', '-C', 'main')
@@ -79,10 +79,12 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False):
                   attention_basis='Synthetic exact-contract lifecycle only.')
     action.write_text('---\n' + yaml.safe_dump(values, sort_keys=False) + '---\n\n# Synthetic contract action\n\n'
                       'Fictional evidence for the [example context](../example/index.md).\n')
-    if guarded:
+    if guarded or effects:
         action.write_text(action.read_text() + 'Record this result in [the log](../system/log.md).\n')
     hub = root / 'memories/example/index.md'
     hub.write_text(hub.read_text() + '\n- [Synthetic contract action](../actions/contract-example.md).\n')
+    if effects:
+        hub.write_text(hub.read_text() + '\nRecord the actual update in [the log](../system/log.md).\n')
     log = root / 'memories/system/log.md'
     log.write_text(log.read_text() + '\n## Preserved final note\n\nAn existing fictional historical unit.\n')
     for script in ('wiki_source_registry', 'wiki_input_stage', 'wiki_operation_compile', 'wiki_operational_pass'):
@@ -106,7 +108,7 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False):
         artifact.write_text('{"scope": "Synthetic frozen observation, no live permissions"}\n')
         contract['artifacts'] = [dict(origin='current', id='synthetic-frozen-observation',
                                      path='docs/synthetic-frozen-capture.json', sha256=digest(artifact.read_text()))]
-    if guarded:
+    if guarded or effects:
         edge, = [e for e in graph['edges'] if e.get('source') == 'memories/actions/contract-example.md'
                  and e.get('target') == 'memories/system/log.md']
         artifact = root / 'docs/synthetic-log-capture.txt'
@@ -118,6 +120,28 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False):
                                     prerequisite_document_sha256=digest(graph['documents']['memories/system/log.md']),
                                     evidence=['old-log-observation'],
                                     rationale='This capture proves this specific prior log update only.')]
+    if effects:
+        # Explicit synthetic parent authorship, never an automatic conversion
+        # of an evidence-bearing guard by the contribution helper.
+        contract['schema_version'] = 'document_record.v2'
+        contract['document_modes'] = {'memories/system/log.md': 'h2_v1'}
+        contract['artifacts'].append(dict(origin='current', id='synthetic-frozen-observation',
+            path='docs/synthetic-frozen-capture.json',
+            sha256=digest((root / 'docs/synthetic-frozen-capture.json').read_text())))
+        note = contract['documents'][0]['records'][0]
+        note['current_evidence'] = ['old-log-observation']
+        note['rationale'] += ' The old capture proves this past note only, never the next update.'
+        for binding in contract['bindings']:
+            binding.pop('evidence')
+            binding['contribution_effect'] = 'canonical_log_annotation'
+            binding['rationale'] = 'This occurrence requires the actual new canonical annotation; past proof stays on the historical record.'
+        edge, = [e for e in graph['edges'] if e.get('source') == 'memories/example/index.md'
+                 and e.get('target') == 'memories/system/log.md']
+        contract['bindings'].append(dict(origin='current', edge_sha256=edge_digest(edge),
+            consumer_record='document', role='change_target',
+            contribution_effect='canonical_log_annotation',
+            prerequisite_document_sha256=digest(graph['documents']['memories/system/log.md']),
+            rationale='A second independently authored exact obligation; not all historical log facts.'))
     records = root / 'docs/contribution-records.json'
     records.write_text(json.dumps(contract, indent=2) + '\n')
     config = yaml.safe_load(config_file.read_text())
@@ -159,8 +183,9 @@ def test_canonical_prepare_refuses_full_snapshot_contract_without_support(tmp_pa
     assert git(root, 'for-each-ref', '--format=%(refname) %(objectname)') == refs
 
 
-def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, monkeypatch):
-    root, action, log, records, request = fullmap_consumer(tmp_path, support=True, captured=True)
+@pytest.mark.parametrize('effects', [False, True])
+def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, monkeypatch, effects):
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True, captured=True, effects=effects)
     before = {p: p.read_bytes() for p in (action, log, records)}
     head = git(root, 'rev-parse', 'HEAD')
     result = run_git_workflow(root, load_config(root), 'prepare_contribution',
@@ -176,6 +201,16 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
     assert git(root, 'rev-parse', 'HEAD') == head
     old = json.loads(before[records])
     generated = json.loads(git(root, 'show', commit + ':' + records.relative_to(root).as_posix()))
+    if effects:
+        assert generated['artifacts'] == old['artifacts']
+        assert generated['documents'][0]['records'][0]['current_evidence'] == ['old-log-observation']
+        assert len(generated['bindings']) == 2
+        expected_log_hash = digest(git(root, 'show', commit + ':memories/system/log.md') + '\n')
+        # git() strips newlines; restore the single canonical annotation newline.
+        for previous, after in zip(old['bindings'], generated['bindings']):
+            assert after['prerequisite_document_sha256'] == expected_log_hash
+            assert {k: v for k, v in after.items() if k != 'prerequisite_document_sha256'} == {
+                k: v for k, v in previous.items() if k != 'prerequisite_document_sha256'}
     assert generated['base_documents_sha256'] == old['base_documents_sha256']
     assert {p for p in old['current_documents_sha256'] if old['current_documents_sha256'][p]
             != generated['current_documents_sha256'][p]} == {action.relative_to(root).as_posix(), log.relative_to(root).as_posix()}
