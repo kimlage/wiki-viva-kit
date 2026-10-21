@@ -39,7 +39,7 @@ def command(root, *args):
     return result.stdout
 
 
-def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False):
+def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, effects=False, effect_consumer=False, prior_day=False):
     root = tmp_path / 'consumer'
     command(tmp_path, 'git', 'clone', '--shared', '--quiet', str(SOURCE), str(root))
     git(root, 'switch', '-C', 'main')
@@ -69,20 +69,29 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False):
             path.write_text(front + text[match.end():])
     action = root / 'memories/actions/contract-example.md'
     action.parent.mkdir(exist_ok=True)
+    action_day = (dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=int(prior_day))).isoformat()
     values = dict(page_id='action-contract-example', page_type='action', title='Synthetic contract action',
-                  context='example', visibility='private_self', updated_at=today, stale_after_days=30,
+                  context='example', visibility='private_self', updated_at=action_day, stale_after_days=30,
                   sources_policy='synthetic_only', gate='github_pr', sensitive_data_policy='private_sensitive_allowed',
                   actions=[], claims=[], decisions=[], evidence_refs=[], owner=[], related_holons=[],
                   responsibilities=[], roles=[], source_refs=['sources-wiki-viva-methodology'],
                   moc_parent='memories/example/index.md', action_state='open', owner_kind='unassigned',
-                  created_at=today, next_action='Review fictional source.', priority='normal',
+                  created_at=action_day, next_action='Review fictional source.', priority='normal',
                   attention_basis='Synthetic exact-contract lifecycle only.')
+    if effects:
+        values['action_state_history'] = []  # Healthy schema and a first canonical body receipt.
     action.write_text('---\n' + yaml.safe_dump(values, sort_keys=False) + '---\n\n# Synthetic contract action\n\n'
                       'Fictional evidence for the [example context](../example/index.md).\n')
     if guarded:
         action.write_text(action.read_text() + 'Record this result in [the log](../system/log.md).\n')
+    if effect_consumer:
+        action.write_text(action.read_text().replace('# Synthetic contract action\n',
+            '# Synthetic contract action\n\nRecord this update in [the log](../system/log.md).\n'))
     hub = root / 'memories/example/index.md'
     hub.write_text(hub.read_text() + '\n- [Synthetic contract action](../actions/contract-example.md).\n')
+    if effects:
+        hub.write_text(hub.read_text() + '\nRecord the actual update in [the log](../system/log.md).\n'
+                       '\nBefore completing the change, annotate [the log](../system/log.md).\n')
     log = root / 'memories/system/log.md'
     log.write_text(log.read_text() + '\n## Preserved final note\n\nAn existing fictional historical unit.\n')
     for script in ('wiki_source_registry', 'wiki_input_stage', 'wiki_operation_compile', 'wiki_operational_pass'):
@@ -106,9 +115,12 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False):
         artifact.write_text('{"scope": "Synthetic frozen observation, no live permissions"}\n')
         contract['artifacts'] = [dict(origin='current', id='synthetic-frozen-observation',
                                      path='docs/synthetic-frozen-capture.json', sha256=digest(artifact.read_text()))]
-    if guarded:
-        edge, = [e for e in graph['edges'] if e.get('source') == 'memories/actions/contract-example.md'
+    if guarded or effects:
+        edges = [e for e in graph['edges'] if e.get('source') ==
+                 ('memories/example/index.md' if effects else 'memories/actions/contract-example.md')
                  and e.get('target') == 'memories/system/log.md']
+        assert len(edges) == (2 if effects else 1)
+        edge = edges[0]
         artifact = root / 'docs/synthetic-log-capture.txt'
         artifact.write_text('Observed the log before this contribution. This capture has no future scope.\n')
         contract['artifacts'] = [dict(origin='current', id='old-log-observation',
@@ -118,6 +130,35 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False):
                                     prerequisite_document_sha256=digest(graph['documents']['memories/system/log.md']),
                                     evidence=['old-log-observation'],
                                     rationale='This capture proves this specific prior log update only.')]
+    if effects:
+        # Explicit synthetic parent authorship, never an automatic conversion
+        # of an evidence-bearing guard by the contribution helper.
+        contract['schema_version'] = 'document_record.v2'
+        contract['document_modes'] = {'memories/system/log.md': 'h2_v1'}
+        contract['artifacts'].append(dict(origin='current', id='synthetic-frozen-observation',
+            path='docs/synthetic-frozen-capture.json',
+            sha256=digest((root / 'docs/synthetic-frozen-capture.json').read_text())))
+        note = contract['documents'][0]['records'][0]
+        note['current_evidence'] = ['old-log-observation']
+        note['rationale'] += ' The old capture proves this past note only, never the next update.'
+        for binding in contract['bindings']:
+            binding.pop('evidence')
+            binding['contribution_effect'] = 'canonical_log_annotation'
+            binding['rationale'] = 'This occurrence requires the actual new canonical annotation; past proof stays on the historical record.'
+        edge = edges[1]
+        contract['bindings'].append(dict(origin='current', edge_sha256=edge_digest(edge),
+            consumer_record='document', role='change_target',
+            contribution_effect='canonical_log_annotation',
+            prerequisite_document_sha256=digest(graph['documents']['memories/system/log.md']),
+            rationale='A second independently authored exact obligation; not all historical log facts.'))
+    if effect_consumer:
+        edge, = [e for e in graph['edges'] if e.get('source') == 'memories/actions/contract-example.md'
+                 and e.get('target') == 'memories/system/log.md']
+        contract['bindings'].append(dict(origin='current', edge_sha256=edge_digest(edge),
+            consumer_record='document', role='change_target',
+            contribution_effect='canonical_log_annotation',
+            prerequisite_document_sha256=digest(graph['documents']['memories/system/log.md']),
+            rationale='Parent qualification cannot survive a changed consumer context.'))
     records = root / 'docs/contribution-records.json'
     records.write_text(json.dumps(contract, indent=2) + '\n')
     config = yaml.safe_load(config_file.read_text())
@@ -159,8 +200,9 @@ def test_canonical_prepare_refuses_full_snapshot_contract_without_support(tmp_pa
     assert git(root, 'for-each-ref', '--format=%(refname) %(objectname)') == refs
 
 
-def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, monkeypatch):
-    root, action, log, records, request = fullmap_consumer(tmp_path, support=True, captured=True)
+@pytest.mark.parametrize('effects', [False, True])
+def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, monkeypatch, effects):
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True, captured=True, effects=effects)
     before = {p: p.read_bytes() for p in (action, log, records)}
     head = git(root, 'rev-parse', 'HEAD')
     result = run_git_workflow(root, load_config(root), 'prepare_contribution',
@@ -176,6 +218,16 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
     assert git(root, 'rev-parse', 'HEAD') == head
     old = json.loads(before[records])
     generated = json.loads(git(root, 'show', commit + ':' + records.relative_to(root).as_posix()))
+    if effects:
+        assert generated['artifacts'] == old['artifacts']
+        assert generated['documents'][0]['records'][0]['current_evidence'] == ['old-log-observation']
+        assert len(generated['bindings']) == 2
+        expected_log_hash = digest(subprocess.check_output(
+            ['git', 'show', commit + ':memories/system/log.md'], cwd=root).decode())
+        for previous, after in zip(old['bindings'], generated['bindings']):
+            assert after['prerequisite_document_sha256'] == expected_log_hash
+            assert {k: v for k, v in after.items() if k != 'prerequisite_document_sha256'} == {
+                k: v for k, v in previous.items() if k != 'prerequisite_document_sha256'}
     assert generated['base_documents_sha256'] == old['base_documents_sha256']
     assert {p for p in old['current_documents_sha256'] if old['current_documents_sha256'][p]
             != generated['current_documents_sha256'][p]} == {action.relative_to(root).as_posix(), log.relative_to(root).as_posix()}
@@ -352,3 +404,41 @@ def test_operator_support_path_is_not_an_arbitrary_third_file(tmp_path, case):
         support_path(tmp_path, parent, require_worktree=True)
     if case in {'symlink', 'executable'}:
         assert support_path(tmp_path, parent) == ref
+
+
+@pytest.mark.parametrize('mutation', ['wrong_target', 'consumer_context'])
+def test_effect_marker_cannot_author_other_targets_or_changed_context(tmp_path, mutation):
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True,
+        captured=True, effects=True, effect_consumer=mutation == 'consumer_context')
+    if mutation == 'wrong_target':
+        contract = json.loads(records.read_text())
+        graph = authored_graph(root, load_config(root))
+        edge, = [e for e in graph['edges'] if e.get('source') == 'memories/example/index.md'
+                 and e.get('target') == 'memories/actions/contract-example.md']
+        contract['bindings'][0].update(edge_sha256=edge_digest(edge),
+                                       prerequisite_document_sha256=digest(action.read_text()))
+        records.write_text(json.dumps(contract, indent=2) + '\n')
+        git(root, 'add', str(records))
+        git(root, 'commit', '-qm', 'Synthetic misplaced effect qualification')
+    before = {p: p.read_bytes() for p in (action, log, records)}
+    refs = git(root, 'for-each-ref', '--format=%(refname) %(objectname)')
+    result = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                              {'request': request, 'review': review(request)}, dry_run=False)
+    expected = 'record_support_effect_requires_configured_log' if mutation == 'wrong_target' else 'record_support_effect_consumer_context_changed'
+    assert not result['ok'] and result['error'] == expected, result
+    assert {p: p.read_bytes() for p in before} == before
+    assert git(root, 'for-each-ref', '--format=%(refname) %(objectname)') == refs
+
+
+def test_log_effect_qualification_does_not_anticipate_utc_producer_updates(tmp_path):
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True,
+        captured=True, effects=True, prior_day=True)
+    before = {p: p.read_bytes() for p in (action, log, records)}
+    refs = git(root, 'for-each-ref', '--format=%(refname) %(objectname)')
+    result = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                              {'request': request, 'review': review(request)}, dry_run=False)
+    assert not result['ok'] and result['error'].startswith('proposal_gate_failed:'), result
+    failed = result['gate_receipts'][-1]
+    assert failed['exit_code'] != 0 and failed['argv'][1] == 'scripts/wiki_operational_pass.py', result
+    assert {p: p.read_bytes() for p in before} == before
+    assert git(root, 'for-each-ref', '--format=%(refname) %(objectname)') == refs

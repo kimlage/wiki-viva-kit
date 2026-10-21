@@ -343,6 +343,15 @@ primitives, see [Software changes under living wiki rules](guides/software-chang
 It preserves live norms and factual support while distinguishing reviewed
 historical origins and recording destinations; it is not an automatic migration.
 
+An optional v2 occurrence qualification can express the obligation to append
+the **new canonical contribution** to the configured log. It retains the
+ordinary CURRENT guard and is usable only by the opted-in contribution port
+after real receipt and exact append proof; it is not a freshness exemption.
+It cannot carry evidence, apply to BASE, qualify another target or survive a
+changed consumer context. Historical proof requires separate reviewed C3
+authorship. See [exact documentary support](guides/agent-contributions.md#exact-documentary-support-optional).
+This does not refresh generated views, dates, policy or external facts.
+
 Outside explicit navigation items, Markdown citations cannot distinguish live
 evidence from historical mentions. They remain conservative dependencies. A log
 with many historical citations or a factual catalogue table may therefore have
