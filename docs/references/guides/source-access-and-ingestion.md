@@ -35,7 +35,11 @@ UTF-8 Markdown, code examples and operational configuration remain valid.
 The existing `data/drive_artifacts_manifest.json` also identifies external
 captures by normalized `source_path`: a file still present in a selected content
 root is refused even if it is UTF-8 JSON. The audit does not infer the purpose of
-uncatalogued text, authenticate, verify remote custody, upload, delete, rewrite
+uncatalogued text. Legacy entries may omit `source_path`; a declared malformed
+path is an error. Normalized absolute external paths remain metadata only and
+are not opened; an absolute path inside the checkout guards the same local file.
+The audit does not
+authenticate, verify remote custody, upload, delete, rewrite
 historical evidence or authorize a financial export. Review that classification
 and verify the correct external destination, access, exact bytes and references
 before removing an original. Retain its Git provenance without rewriting history.

@@ -742,6 +742,51 @@ def test_text_storage_refuses_unreadable_catalog_without_mutating_it(tmp_path, a
     assert path.read_text() == manifest
 
 
+@pytest.mark.parametrize("declared", [None, 2, "", "docs/./capture.json", "../capture.json",
+    "docs//capture.json", "docs/../capture.json", "docs/capture.json\x00"])
+def test_text_storage_refuses_malformed_declared_source_path(tmp_path, audit, monkeypatch, declared):
+    import json
+
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "data").mkdir()
+    source = tmp_path / "docs/capture.json"
+    source.write_text('{"capture": "fictional"}\n')
+    manifest = tmp_path / "data/drive_artifacts_manifest.json"
+    original = json.dumps({"files": {"capture": {"source_path": declared}}})
+    manifest.write_text(original)
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    errors = []
+    audit.audit_wiki_text_storage(errors, WikiConfig(audit={"wiki_text_storage": {"enabled": True, "roots": ["docs"]}}))
+    assert len(errors) == 1 and "manifest" in errors[0]
+    assert manifest.read_text() == original and source.read_text() == '{"capture": "fictional"}\n'
+
+
+@pytest.mark.parametrize("kind", ["legacy-absent", "external-posix", "external-windows", "inside-absolute"])
+def test_text_storage_preserves_catalog_compatibility_and_guards_local_absolute(tmp_path, audit, monkeypatch, kind):
+    import json
+
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "data").mkdir()
+    source = tmp_path / "docs/capture.json"
+    source.write_text('{"capture": "fictional"}\n')
+    entry = {"view_url": "https://example.invalid/source"}
+    if kind != "legacy-absent":
+        entry["source_path"] = {"external-posix": str(tmp_path.parent / "outside/capture.json"),
+            "external-windows": r"C:\external\capture.json", "inside-absolute": str(source)}[kind]
+    (tmp_path / "data/drive_artifacts_manifest.json").write_text(json.dumps({"files": {"capture": entry}}))
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    errors = []
+    audit.audit_wiki_text_storage(errors, WikiConfig(audit={"wiki_text_storage": {"enabled": True, "roots": ["docs"]}}))
+    if kind == "inside-absolute":
+        assert len(errors) == 1 and "docs/capture.json" in errors[0]
+    else:
+        assert errors == []
+
+
 def _seed_prompts(
     tmp_path, audit, monkeypatch, *, checksums: str | None, prompt_text="prompt body\n"
 ):

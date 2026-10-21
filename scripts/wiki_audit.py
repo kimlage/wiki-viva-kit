@@ -19,7 +19,7 @@ import stat
 import subprocess
 import sys
 import unicodedata
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from urllib.parse import unquote, urlparse
 
 import yaml
@@ -1158,7 +1158,32 @@ def audit_wiki_text_storage(errors: list[str], config: WikiConfig) -> None:
                 values = json.load(stream)["files"]
             if not isinstance(values, dict) or any(not isinstance(v, dict) for v in values.values()):
                 raise ValueError("invalid manifest files")
-            external = {v["source_path"] for v in values.values() if normalized(v.get("source_path"))}
+            for entry in values.values():
+                # Older publisher entries need not declare a source path.
+                # A present declaration must never silently disappear.
+                if "source_path" not in entry:
+                    continue
+                source = entry["source_path"]
+                if not isinstance(source, str) or not source or "\0" in source:
+                    raise ValueError("invalid declared source path")
+                path = Path(source)
+                if path.is_absolute():
+                    if str(path) != source or any(v in {".", ".."} for v in path.parts):
+                        raise ValueError("non-normalized absolute source path")
+                    # Publisher-compatible absolute paths outside this checkout
+                    # are metadata only: do not open or resolve them. Absolute
+                    # declarations inside this checkout still guard that file.
+                    for checkout in (ROOT.absolute(), root):
+                        if path.is_relative_to(checkout):
+                            external.add(path.relative_to(checkout).as_posix())
+                elif PureWindowsPath(source).is_absolute():
+                    windows = PureWindowsPath(source)
+                    if str(windows) != source or any(v in {".", ".."} for v in windows.parts):
+                        raise ValueError("non-normalized Windows source path")
+                elif normalized(source):
+                    external.add(source)
+                else:
+                    raise ValueError("invalid relative source path")
         except (OSError, UnicodeError, ValueError, KeyError, TypeError):
             errors.append("audit.wiki_text_storage cannot validate external artifact manifest")
             return
