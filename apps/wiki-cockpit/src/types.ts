@@ -684,7 +684,13 @@ export type SourceLifecycleProjection = {
   authoring_error_codes: string[];
 };
 
-export type SourceAccessPolicy = { schema_version: "wiki_source_access.v1"; expected_identity: string; coordinator: string; executor: string; requested_scopes: string[] };
+export type SourceExecutionBinding = {
+  connection_id: string; profile: string; target_profile: string;
+  method: "local_git" | "managed_connector" | "mcp" | "browser_controller";
+  provider_id: string; resource_ref: "" | "wiki_repository";
+  account_id?: string; account_alias?: string;
+};
+export type SourceAccessPolicy = { schema_version: "wiki_source_access.v1"; expected_identity: string; coordinator: string; executor: string; requested_scopes: string[]; execution?: SourceExecutionBinding };
 export type SourceAccess = {
   schema_version: "wiki_source_access.v1"; binding_sha256: string; status: string; verified: boolean;
   expected_identity: string; confirmed_identity: string; coordinator: string; executor: string;

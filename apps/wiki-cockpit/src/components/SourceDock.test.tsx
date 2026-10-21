@@ -935,7 +935,7 @@ describe("SourceDock honest edges (§19.6)", () => {
     }, update_route: { mode: "deterministic_connector", mcp_hint: "", runnable: true, requires_agent: false } }))}
       sourceId="source-gmail" onPreviewRefresh={preview} onRunRefresh={run} onPreviewConfiguration={metadata} onNotice={noop} onClose={noop} />);
     fireEvent.click(screen.getByRole("button", { name: "Update" }));
-    fireEvent.click(screen.getByRole("button", { name: "Revalidate with the configured adapter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Test access in this executor" }));
     await screen.findByText("Access verified");
     fireEvent.click(screen.getByRole("button", { name: "Add selected records" }));
     await screen.findByText("Technical blocker");
@@ -949,7 +949,7 @@ describe("SourceDock honest edges (§19.6)", () => {
     expect(screen.getByText("Technical blocker")).toBeTruthy();
     expect(screen.queryByText("Access verified")).toBeNull();
     expect(run).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("button", { name: "Revalidate with the configured adapter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Test access in this executor" }));
     await screen.findByText("Access verified");
     expect(preview).toHaveBeenCalledTimes(2);
   });
@@ -1035,4 +1035,17 @@ describe("SourceDock focus restore (§14.4/§19.6)", () => {
     opener.remove();
     other.remove();
   });
+});
+
+
+it("saved Hermes execution routes Update to native Configure without legacy test or refresh", () => {
+  configureLanguage("en");
+  const test = vi.fn(), refresh = vi.fn();
+  const source = sourceFixture({access_policy:{schema_version:"wiki_source_access.v1",expected_identity:"reader@example.test",coordinator:"research",executor:"fixture",requested_scopes:["read"],execution:{connection_id:"fixture",profile:"research",target_profile:"research",method:"mcp",provider_id:"fixture",resource_ref:""}},update_route:{mode:"deterministic_connector",mcp_hint:"",runnable:true,requires_agent:false}});
+  render(<SourceDock bundle={bundleWith(source)} sourceId="source-gmail" onTestAccess={test} onPreviewRefresh={refresh} onNotice={noop} onClose={noop}/>);
+  fireEvent.click(screen.getByRole("button",{name:"Update"}));
+  fireEvent.click(screen.getByRole("button",{name:"Configure executor and access"}));
+  expect(screen.getByRole("button",{name:"Find Hermes executors"})).toBeTruthy();
+  expect(screen.queryByRole("button",{name:"Test access in this executor"})).toBeNull();
+  expect(test).not.toHaveBeenCalled();expect(refresh).not.toHaveBeenCalled();
 });

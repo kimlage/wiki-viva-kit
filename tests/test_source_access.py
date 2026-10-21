@@ -58,6 +58,10 @@ def test_configuration_capability_exit_zero_are_not_identity_evidence():
     ("outcome", "technical_blocked", "technical_blocked"),
     ("outcome", "execution_unknown", "execution_unknown"),
     ("outcome", "revoked", "revoked"),
+    ("outcome", "wrong_account", "wrong_account"),
+    ("outcome", "executor_unavailable", "executor_unavailable"),
+    ("outcome", "session_expired", "session_expired"),
+    ("outcome", "authorization_missing", "authorization_missing"),
 ])
 def test_probe_failures_remain_distinct(field, value, status):
     result = project_source_access(source(), probe(**{field: value}), now=NOW)
@@ -150,3 +154,105 @@ def test_authorization_material_is_rejected_before_identity_projection(material,
     for field in ["expected_identity", "coordinator", "executor"]:
         with pytest.raises(ValueError, match="^source_access_metadata_invalid$"):
             source_access_metadata({**policy(), field: material})
+
+
+def test_explicit_connection_test_reports_unsupported_executor_and_persists_failure(tmp_path):
+    from wiki_core.web.source_operations import probe_source_connection, list_source_operation_receipts
+    cfg = _repo(tmp_path)
+    path = tmp_path / 'memories/sources/config/source-a.md'
+    before = path.read_bytes()
+    receipt = probe_source_connection(tmp_path, cfg, 'source-a')
+    assert receipt['kind'] == 'access_test' and receipt['method'] == 'agent_connector'
+    assert receipt['access']['status'] == 'executor_unavailable'
+    assert receipt['access']['error_code'] == 'source_access_adapter_not_implemented'
+    assert not receipt['access']['verified'] and not receipt['access']['execution_ready']
+    assert not receipt['access']['confirmed_identity']
+    assert list_source_operation_receipts(tmp_path, cfg, 'source-a')[0] == {k:v for k,v in receipt.items() if k not in {'ok','receipt_path'}}
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize('outcome', ['verified','wrong_account','executor_unavailable','session_expired','authorization_missing'])
+def test_connection_test_uses_bound_adapter_report_without_running_ingestion(tmp_path, monkeypatch, outcome):
+    from wiki_core.web.source_operations import probe_source_connection
+    import wiki_core.web.source_operations as ops
+    from wiki_core.web.sources import build_sources_payload
+    cfg = _repo(tmp_path)
+    path = tmp_path / 'memories/sources/config/source-a.md'
+    text = path.read_text().replace('  auth:', '  access:\n' + '\n'.join('    '+line for line in yaml.safe_dump(policy(),sort_keys=False).splitlines()) + '\n  refresh:\n    argv: [python3, scripts/fictional.py]\n  auth:')
+    path.write_text(text)
+    (tmp_path/'scripts').mkdir(); (tmp_path/'scripts/fictional.py').write_text('# fictional adapter\n')
+    s = build_sources_payload(tmp_path,cfg)['sources'][0]
+    now = dt.datetime.now(dt.timezone.utc)
+    observation = probe(s,outcome=outcome,checked_at=(now-dt.timedelta(seconds=5)).isoformat(),valid_until=(now+dt.timedelta(minutes=5)).isoformat())
+    calls=[]
+    def adapter(argv,**kwargs):
+        calls.append(argv)
+        return {'access_probe':observation}, ''
+    monkeypatch.setattr(ops,'_run_refresh_adapter',adapter)
+    receipt = probe_source_connection(tmp_path,cfg,'source-a')
+    assert len(calls)==1 and calls[0][1]=='scripts/fictional.py'
+    assert receipt['access']['status']==outcome
+    assert receipt['access']['verified'] is (outcome=='verified')
+    assert receipt['access']['execution_ready'] is False
+    assert path.read_text()==text and receipt['changes']==[]
+
+
+@pytest.mark.parametrize('locator', ['.', 'https://example.invalid/other/repo', '../other', 'subdir', 'outside-link', 'memories/sources/source-a.md', 'memories/sources/another-file.md'])
+def test_local_git_scope_requires_the_sources_own_repository_locator(tmp_path, locator):
+    from wiki_core.web.source_operations import source_access_binding
+    import subprocess
+    cfg = _repo(tmp_path)
+    subprocess.run(['git','init','-q',str(tmp_path)],check=True)
+    (tmp_path/'subdir').mkdir()
+    (tmp_path/'memories/sources/another-file.md').write_text('# Another file\n')
+    other=tmp_path.parent/'other';other.mkdir(exist_ok=True)
+    (tmp_path/'outside-link').symlink_to(other,target_is_directory=True)
+    path=tmp_path/'memories/sources/config/source-a.md'
+    execution={'connection_id':'fixture-local','profile':'research','target_profile':'research','method':'local_git','provider_id':'','resource_ref':'wiki_repository'}
+    value={**policy(),'execution':execution}
+    text=path.read_text().replace('  locator: folder-a', '  locator: '+locator).replace('  source_kind: collection','  source_kind: repository').replace('  auth:', '  access:\n'+'\n'.join('    '+line for line in yaml.safe_dump(value,sort_keys=False).splitlines())+'\n  auth:')
+    path.write_text(text)
+    page=tmp_path/'memories/sources/source-a.md'
+    page.write_text(page.read_text().replace('source_locator: folder-a','source_locator: '+locator))
+    if locator in {'.','memories/sources/source-a.md'}:
+        result=source_access_binding(tmp_path,cfg,'source-a')
+        assert result['read_scope']=={'kind':'wiki_repository','repository_root':str(tmp_path.resolve()),'source_scope':'legacy_source_page_explicit_wiki_repository' if locator=='memories/sources/source-a.md' else 'repository_root'}
+        assert result['config_sha256']==hashlib.sha256(text.encode()).hexdigest()
+    else:
+        with pytest.raises(ValueError,match='repository_locator_mismatch'):
+            source_access_binding(tmp_path,cfg,'source-a')
+
+
+def test_first_setup_has_unverified_binding_without_authored_access(tmp_path):
+    from wiki_core.web.sources import build_sources_payload
+    cfg = _repo(tmp_path)
+    s = build_sources_payload(tmp_path, cfg)['sources'][0]
+    assert s['access_policy'] == {}
+    assert s['access']['status'] == 'not_configured' and not s['access']['verified']
+    assert len(s['access']['binding_sha256']) == 64
+
+
+def test_local_metadata_read_requires_no_fictional_account_and_cannot_verify_one():
+    from wiki_core.source_config import source_access_metadata
+    execution = dict(connection_id='fixture', profile='research', target_profile='research', method='local_git', provider_id='', resource_ref='wiki_repository')
+    value = {**policy(), 'expected_identity': '', 'execution': execution}
+    assert source_access_metadata(value)['expected_identity'] == ''
+    s = source(); s['access_policy'] = value
+    result = project_source_access(s, probe(s), now=NOW)
+    assert not result['verified'] and result['status'] == 'identity_not_applicable'
+    for method in ['mcp', 'managed_connector', 'browser_controller']:
+        with pytest.raises(ValueError, match='metadata_invalid'):
+            source_access_metadata({**value, 'execution': {**execution, 'method': method}})
+
+
+def test_saved_native_execution_cannot_fall_back_to_legacy_adapter(tmp_path, monkeypatch):
+    import wiki_core.web.source_operations as ops
+    cfg = _repo(tmp_path)
+    path = tmp_path / 'memories/sources/config/source-a.md'
+    value = {**policy(), 'execution': dict(connection_id='fixture',profile='research',target_profile='research',method='mcp',provider_id='fixture',resource_ref='')}
+    text = path.read_text().replace('  auth:', '  access:\n'+'\n'.join('    '+line for line in yaml.safe_dump(value,sort_keys=False).splitlines())+'\n  auth:')
+    path.write_text(text)
+    monkeypatch.setattr(ops, '_run_refresh_adapter', lambda *args, **kwargs: pytest.fail('wrong executor'))
+    with pytest.raises(ValueError, match='requires_native_executor'):
+        ops.probe_source_connection(tmp_path, cfg, 'source-a')
+    assert path.read_text() == text

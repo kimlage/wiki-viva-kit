@@ -1,0 +1,7 @@
+name: wiki-viva-board
+version: 1.0.0
+description: Source-bound configuration and read receipts for the Wiki Viva desktop wrapper
+author: Wiki Viva contributors
+kind: standalone
+provides_tools: []
+provides_hooks: []

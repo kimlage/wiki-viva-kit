@@ -28,7 +28,7 @@ it("configuration and capability do not prove live access or offer a fake grant"
 });
 it("only offers an existing supported callback, without claiming its result", () => {
   const callback = vi.fn(); render(panel(base, { onRevalidate: callback }));
-  fireEvent.click(screen.getByRole("button", { name: "Revalidate with the configured adapter" }));
+  fireEvent.click(screen.getByRole("button", { name: "Test access in this executor" }));
   expect(callback).toHaveBeenCalledOnce();
   expect(screen.queryByText("Access verified")).toBeNull();
 });
@@ -49,4 +49,15 @@ it.each(["awaiting_auth", "awaiting_approval", "authority_blocked", "execution_u
   render(panel({ ...verified, status, verified: false }));
   expect(screen.queryByText("Access verified")).toBeNull();
   expect(screen.queryAllByRole("button")).toHaveLength(0);
+});
+
+it.each(["wrong_account", "executor_unavailable", "session_expired", "authorization_missing"])("keeps %s distinct without granting access", (status) => {
+  render(panel({ ...base, status }));
+  expect(screen.queryByText("Access verified")).toBeNull();
+  expect(screen.queryByRole("button", { name: /grant|login|connect/i })).toBeNull();
+});
+it("compact header cannot infer a connection from an account recipe", () => {
+  render(panel(base, { compact: true }));
+  expect(screen.getByText(/Connection:/)).toBeTruthy();
+  expect(screen.queryByText(/Access verified/)).toBeNull();
 });

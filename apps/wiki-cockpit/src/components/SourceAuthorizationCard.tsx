@@ -15,8 +15,14 @@ export function SourceAuthorizationCard({
   access,
   probeFailed = false,
   onRevalidate,
-  onConfigure
+  onConfigure,
+  compact = false,
+  nativeManaged = false,
+  revalidateLabel
 }: {
+  compact?: boolean;
+  nativeManaged?: boolean;
+  revalidateLabel?: string;
   source: SourceEntity;
   route?: UpdateRoute;
   agentName: string;
@@ -61,6 +67,10 @@ export function SourceAuthorizationCard({
     ? t("source.auth.status.blockedDetail", { agent: agentName, connector: route?.mcp_hint || "MCP" })
     : t(`source.auth.status.${status}Detail`, { agent: agentName });
 
+  if (compact) return <span className={`pill pill-${healthy ? "good" : "muted"}`}>
+    {t("source.access.connection")}: {t(`source.auth.status.${status}`)}
+  </span>;
+
   return (
     <section className={`sourceAuthorizationCard ${healthy ? "healthy" : status}`} aria-label={t("source.auth.accessTitle")}>
       <header>
@@ -102,7 +112,7 @@ export function SourceAuthorizationCard({
       <p>{t("source.access.boundary")}</p>
       <div className="sourceUpdateActions">
         {onConfigure && <button type="button" className="secondaryButton" onClick={onConfigure}>{t("source.access.configure")}</button>}
-        {onRevalidate ? <button type="button" className="secondaryButton" onClick={onRevalidate}>{t("source.access.revalidate")}</button> : <p>{t("source.access.unsupported")}</p>}
+        {onRevalidate ? <button type="button" className="secondaryButton" onClick={onRevalidate}>{revalidateLabel || t("source.access.revalidate")}</button> : <p>{t(nativeManaged ? "source.access.nativeControlsBelow" : "source.access.unsupported")}</p>}
       </div>
     </section>
   );
