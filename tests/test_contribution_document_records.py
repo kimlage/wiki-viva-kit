@@ -79,12 +79,13 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
                   attention_basis='Synthetic exact-contract lifecycle only.')
     action.write_text('---\n' + yaml.safe_dump(values, sort_keys=False) + '---\n\n# Synthetic contract action\n\n'
                       'Fictional evidence for the [example context](../example/index.md).\n')
-    if guarded or effects:
+    if guarded:
         action.write_text(action.read_text() + 'Record this result in [the log](../system/log.md).\n')
     hub = root / 'memories/example/index.md'
     hub.write_text(hub.read_text() + '\n- [Synthetic contract action](../actions/contract-example.md).\n')
     if effects:
-        hub.write_text(hub.read_text() + '\nRecord the actual update in [the log](../system/log.md).\n')
+        hub.write_text(hub.read_text() + '\nRecord the actual update in [the log](../system/log.md).\n'
+                       '\nBefore completing the change, annotate [the log](../system/log.md).\n')
     log = root / 'memories/system/log.md'
     log.write_text(log.read_text() + '\n## Preserved final note\n\nAn existing fictional historical unit.\n')
     for script in ('wiki_source_registry', 'wiki_input_stage', 'wiki_operation_compile', 'wiki_operational_pass'):
@@ -109,8 +110,11 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
         contract['artifacts'] = [dict(origin='current', id='synthetic-frozen-observation',
                                      path='docs/synthetic-frozen-capture.json', sha256=digest(artifact.read_text()))]
     if guarded or effects:
-        edge, = [e for e in graph['edges'] if e.get('source') == 'memories/actions/contract-example.md'
+        edges = [e for e in graph['edges'] if e.get('source') ==
+                 ('memories/example/index.md' if effects else 'memories/actions/contract-example.md')
                  and e.get('target') == 'memories/system/log.md']
+        assert len(edges) == (2 if effects else 1)
+        edge = edges[0]
         artifact = root / 'docs/synthetic-log-capture.txt'
         artifact.write_text('Observed the log before this contribution. This capture has no future scope.\n')
         contract['artifacts'] = [dict(origin='current', id='old-log-observation',
@@ -135,8 +139,7 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
             binding.pop('evidence')
             binding['contribution_effect'] = 'canonical_log_annotation'
             binding['rationale'] = 'This occurrence requires the actual new canonical annotation; past proof stays on the historical record.'
-        edge, = [e for e in graph['edges'] if e.get('source') == 'memories/example/index.md'
-                 and e.get('target') == 'memories/system/log.md']
+        edge = edges[1]
         contract['bindings'].append(dict(origin='current', edge_sha256=edge_digest(edge),
             consumer_record='document', role='change_target',
             contribution_effect='canonical_log_annotation',
@@ -205,8 +208,8 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
         assert generated['artifacts'] == old['artifacts']
         assert generated['documents'][0]['records'][0]['current_evidence'] == ['old-log-observation']
         assert len(generated['bindings']) == 2
-        expected_log_hash = digest(git(root, 'show', commit + ':memories/system/log.md') + '\n')
-        # git() strips newlines; restore the single canonical annotation newline.
+        expected_log_hash = digest(subprocess.check_output(
+            ['git', 'show', commit + ':memories/system/log.md'], cwd=root).decode())
         for previous, after in zip(old['bindings'], generated['bindings']):
             assert after['prerequisite_document_sha256'] == expected_log_hash
             assert {k: v for k, v in after.items() if k != 'prerequisite_document_sha256'} == {
