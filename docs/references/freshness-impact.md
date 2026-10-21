@@ -261,8 +261,10 @@ remains factual. No network access or new source ingestion happens here.
 Consumer intent is separately authored for each origin and inherited variant.
 An existing `role: consumption` binding to an explicit `observation` record can
 add `locator_review: {change_id: ID, consumption:
-historical_observation_without_locator, rationale: ...}`. This does not narrow
-WHOLE or `remainder`, does not apply retroactively to BASE, and does not alter
+historical_observation_without_locator, rationale: ...}`.
+The ID must identify the custody change of that binding's prerequisite document;
+it cannot qualify a stale observation in another document.
+This does not narrow WHOLE or `remainder`, does not apply retroactively to BASE, and does not alter
 the factual dependency for any other change. Record independence, contexts and
 ordinary semantic review remain required. An active rule or current external
 use must not be mislabeled as historical consumption.
