@@ -41,3 +41,55 @@ it('reuses the same wrapper, adds source navigation, and opens actual Connectors
  expect(host.toolsets.list).toHaveBeenCalledWith({connectionId:'fixture',profile:'research'});
  expect(host.requestProfile).not.toHaveBeenCalled();
 });
+
+it('keeps the frame, bridge channel and retained native session alive while official setup takes the available space',async()=>{
+ const route={connectionId:'fixture',profile:'research',targetProfile:'research',mode:'local'};
+ const execution={connection_id:'fixture',profile:'research',target_profile:'research',method:'native_session',stored_session_id:'stored-one'};
+ const binding={source_id:'source-a',binding_sha256:'a'.repeat(64),config_sha256:'b'.repeat(64),access_policy:{execution}};
+ const release=vi.fn(),off=vi.fn();
+ const host={profileRoutes:vi.fn(async()=>[route]),retainProfile:vi.fn(async()=>release),onEvent:vi.fn(()=>off),
+  requestProfile:vi.fn(async(_route:unknown,method:string)=>{
+   if(method==='session.resume')return {session_id:'runtime-one',stored_session_id:'stored-one'};
+   if(method==='session.list')return {sessions:[]};
+   if(method==='tools.list')return {toolsets:[]};
+   return {};
+  }),toolsets:{list:vi.fn(async()=>[{name:'browser',enabled:true}])}};
+ Object.assign(window,{hermesDesktop:{api:vi.fn(async()=>binding)}});
+ const connectors=()=> <div>Official connectors</div>;
+ const tools=()=> <div>Official toolset</div>;
+ const plugin=new Function('React','ROUTES_AREA','SIDEBAR_NAV_AREA','host','ConnectorsTab','ToolsetConfigPanel',code)(React,'routes','sidebar',host,connectors,tools);
+ let rows:{id:string;render:()=>React.ReactNode}[]=[];
+ plugin.register({registerMany:(value:typeof rows)=>{rows=value;}});
+ const view=render(rows.find(row=>row.id==='sources')!.render());
+ const frame=screen.getByTitle('Wiki Viva sources and access') as HTMLIFrameElement;
+ const frameWindow=frame.contentWindow,src=frame.src;
+ const post=vi.spyOn(frameWindow!,'postMessage');fireEvent.load(frame);
+ const hello=post.mock.calls[post.mock.calls.length-1][0] as {channel:string};
+ let sequence=0;
+ const send=(action:string,setup_method?:string)=>{
+  const request_id='fixture-lifecycle-'+String(++sequence).padStart(4,'0');
+  window.dispatchEvent(new MessageEvent('message',{origin:'http://127.0.0.1:8765',source:frameWindow,data:{protocol:'wiki.source_access.v1',kind:'request',channel:hello.channel,request_id,action,source:{source_id:'source-a',binding_sha256:binding.binding_sha256},route_key:JSON.stringify([route.connectionId,route.profile,route.targetProfile]),...(setup_method?{setup_method}:{})}}));
+  return request_id;
+ };
+ const inspectId=send('inspect');
+ await waitFor(()=>expect(post.mock.calls.some(([row])=>row.request_id===inspectId && row.ok===true)).toBe(true));
+ expect(host.retainProfile).toHaveBeenCalledTimes(1);
+ const helloCount=()=>post.mock.calls.filter(([row])=>row.kind==='hello').length;
+ const count=helloCount();
+ for(const [method,text] of [['mcp','Official connectors'],['browser_controller','Official toolset']]){
+  send('configure',method);await screen.findByText(text);
+  expect(screen.getByTitle('Wiki Viva sources and access')).toBe(frame);
+  expect(frame.contentWindow).toBe(frameWindow);expect(frame.src).toBe(src);
+  expect(frame.style.display).toBe('none');expect(frame.style.minHeight).toBe('0px');
+  expect(screen.getByRole('dialog').style.minHeight).toBe('0px');
+  expect(release).not.toHaveBeenCalled();expect(off).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText('Voltar à fonte'));
+  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
+  expect(frame.style.display).toBe('block');expect(frame.contentWindow).toBe(frameWindow);
+  expect(helloCount()).toBe(count);
+ }
+ expect(host.retainProfile).toHaveBeenCalledTimes(1);
+ expect(host.requestProfile.mock.calls.filter(([,method])=>method==='session.resume')).toHaveLength(1);
+ expect(host.requestProfile.mock.calls.some(([,method])=>method==='prompt.submit')).toBe(false);
+ view.unmount();expect(release).toHaveBeenCalledTimes(1);expect(off).toHaveBeenCalledTimes(1);
+});
