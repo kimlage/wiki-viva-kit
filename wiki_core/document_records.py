@@ -347,6 +347,14 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
         key = (binding.get("origin"), binding.get("edge_sha256"), binding.get("consumer_record", "document"))
         if key[0] not in graphs or key in bindings or not binding.get("rationale", "").strip():
             raise ValueError("invalid/duplicate record consumption binding")
+        if "contribution_effect" in binding:
+            if (version != "document_record.v2"
+                    or binding["contribution_effect"] != "canonical_log_annotation"
+                    or key[0] != "current" or binding.get("role") != "change_target"
+                    or "evidence" in binding
+                    or "target_document_sha256" in binding
+                    or not re.fullmatch(r"[0-9a-f]{64}", str(binding.get("prerequisite_document_sha256", "")))):
+                raise ValueError("invalid canonical contribution effect qualification")
         bindings[key] = binding
     used = set()
     for origin, graph in graphs.items():

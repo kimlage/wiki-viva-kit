@@ -142,10 +142,17 @@ def _head_review(request: dict, material: str, commit: str, review: Any) -> dict
     return _review(request, material, review)
 
 
-def _support(root: Path, parent: str, path: str, log_ref: str, graph: dict, *, final_revision=None):
+def _support_identity(request: dict, material: str, review: dict) -> dict:
+    return {"material_sha256": material, "effect_key": request["effect_key"], "review": review,
+            **{field: request[field] for field in ("task_ref", "run_ref", "session_ref")}}
+
+
+def _support(root: Path, parent: str, path: str, log_ref: str, graph: dict, *, final_revision=None,
+             contribution_identity=None):
     from wiki_core.contribution_records import derive_support
     try:
-        return derive_support(root, parent, path, log_ref, graph, final_revision=final_revision)
+        return derive_support(root, parent, path, log_ref, graph, final_revision=final_revision,
+                              contribution_identity=contribution_identity)
     except ValueError as exc:
         raise ContributionError(str(exc)) from exc
 
@@ -226,7 +233,8 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str,
         from scripts.wiki_page_graph import project_memory_at_commit
         from wiki_core.freshness_impact import authored_graph
         support = _support(root, parent, path, log_ref,
-                           project_memory_at_commit(commit, authored_graph, root=root), final_revision=commit)
+                           project_memory_at_commit(commit, authored_graph, root=root), final_revision=commit,
+                           contribution_identity=_support_identity(request, material, metadata["review"]))
         if _blob(root, commit, support_ref).encode() != support[1]:
             raise ContributionError("candidate_record_support_tampered")
         if _git(root, "ls-tree", parent, "--", support_ref).split()[0] != _git(root, "ls-tree", commit, "--", support_ref).split()[0]:
@@ -408,7 +416,8 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         support = None
         if support_ref:
             from wiki_core.freshness_impact import authored_graph
-            support = _support(scratch, base, path, log_ref, authored_graph(scratch, load_config(scratch)))
+            support = _support(scratch, base, path, log_ref, authored_graph(scratch, load_config(scratch)),
+                               contribution_identity=_support_identity(request, material, review))
             (scratch / support_ref).write_bytes(support[1])
         gates = (_gates(scratch, load_config(scratch), record_support=True) if support_ref
                  else _gates(scratch, load_config(scratch)))
@@ -659,7 +668,7 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     remote_head = _canonical_observation(root, branch, dry_run=dry_run)
     _git(root, "merge-base", "--is-ancestor", merge, remote_head)
     expected = _blob(root, candidate, path)
-    _, merged_text = _entry(root, merge, path, request, material, approved=remote_head)
+    entry, merged_text = _entry(root, merge, path, request, material, approved=remote_head)
     if merged_text != expected:
         raise ContributionError("merged_body_readback_mismatch")
     current_text = _blob(root, remote_head, path)
@@ -688,7 +697,8 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
         from wiki_core.freshness_impact import authored_graph
         observed = _support(root, _git(root, "rev-parse", candidate + "^"), path, log_ref,
                             project_memory_at_commit(remote_head, authored_graph, root=root),
-                            final_revision=remote_head)
+                            final_revision=remote_head,
+                            contribution_identity=_support_identity(request, material, entry["contribution"]["review"]))
         if observed[1] != expected_support.encode():
             raise ContributionError("canonical_record_support_snapshot_changed: reconcile required")
         from wiki_core.contribution_records import worktree_support_matches

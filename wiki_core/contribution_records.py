@@ -90,12 +90,47 @@ def _invalid_constant(value):
     raise ValueError("record_support_nonfinite_json:" + value)
 
 
+def _canonical_log_effect(documents: dict, final: dict, action: str, log: str, identity: dict | None):
+    """Prove the new canonical effect, not the continuing truth of an old capture."""
+    from wiki_core.action_transition import (_parse_document, action_transition_diagnostics,
+                                             contribution_log_text)
+    from wiki_core.action_contribution import _review
+
+    fields = {"material_sha256", "effect_key", "task_ref", "run_ref", "session_ref", "review"}
+    try:
+        if (not isinstance(identity, dict) or set(identity) != fields
+                or not re.fullmatch(r"[0-9a-f]{64}", str(identity["material_sha256"]))):
+            raise ValueError("missing exact contribution identity")
+        before, _ = _parse_document(documents[action])
+        after, _ = _parse_document(final["documents"][action])
+        prior, history = before.get("action_state_history", []), after.get("action_state_history", [])
+        if (not isinstance(prior, list) or not isinstance(history, list)
+                or len(history) <= len(prior) or history[:len(prior)] != prior
+                or action_transition_diagnostics(documents[action], final["documents"][action])):
+            raise ValueError("invalid canonical receipt extension")
+        entry = history[-1]
+        material = entry.get("contribution")
+        if (entry.get("kind") != "body_integration" or not isinstance(material, dict)
+                or any(material.get(k) != identity[k] for k in fields)
+                or before.get("page_id") != identity["task_ref"]["action_id"]
+                or any(isinstance(e.get("contribution"), dict)
+                       and e["contribution"].get("effect_key") == identity["effect_key"] for e in prior)):
+            raise ValueError("contribution identity does not match new receipt")
+        _review(identity, identity["material_sha256"], identity["review"])
+        if final["documents"][log] != contribution_log_text(
+                documents[log], action, log, identity["material_sha256"], entry["at"]):
+            raise ValueError("canonical log annotation does not match receipt")
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise ValueError("record_support_canonical_log_effect_unproved") from exc
+
+
 def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
-                   *, final_revision: str | None = None) -> tuple[str, bytes] | None:
+                   *, final_revision: str | None = None, contribution_identity: dict | None = None) -> tuple[str, bytes] | None:
     """Validate the original pair, derive the exact subset, validate final pair.
 
     Final graph must come from the isolated proposal or immutable candidate.
-    Occurrence guards are never renewed, even if their role says navigation.
+    Unqualified occurrence guards are never renewed. An explicit parent-authored
+    log-effect qualification requires the actual new canonical receipt/annotation.
     """
     from scripts.wiki_page_graph import project_memory_at_commit, run_git
 
@@ -169,9 +204,26 @@ def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
                     or record.get("current_sha256") != digest(old_content)):
                 raise ValueError("record_support_c3_required:" + pointer)
             record["current_sha256"] = digest(new_content)
-    # A role name/empty evidence list cannot establish timeless identity. Keep
-    # every binding literal; point at any affected guard instead of laundering it.
     from wiki_core.freshness_impact import REFERENCE
+    qualified = []
+    for item in trace:
+        binding = item.get("binding")
+        if not binding or "contribution_effect" not in binding:
+            continue
+        edge = item["before"]
+        prerequisite = edge["target" if edge["type"] in REFERENCE else "source"]
+        # The projector already validates v2/CURRENT/change_target/no-evidence.
+        # Only the immutable policy can identify this exact canonical log.
+        if prerequisite != log:
+            raise ValueError("record_support_effect_requires_configured_log")
+        consumer = item["raw"]["source" if edge["type"] in REFERENCE else "target"]
+        if documents.get(consumer) != final["documents"].get(consumer):
+            raise ValueError("record_support_effect_consumer_context_changed")
+        qualified.append((binding["origin"], binding["edge_sha256"], binding.get("consumer_record", "document")))
+    if qualified:
+        _canonical_log_effect(documents, final, action, log, contribution_identity)
+    # Neither role names nor empty evidence infer an exemption. Only the
+    # already approved exact occurrence can advance its one CURRENT hash.
     for item in trace:
         binding = item.get("binding")
         if item["origin"] != "current" or not binding:
@@ -179,6 +231,13 @@ def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
         edge = item["before"]
         prerequisite = edge["target" if edge["type"] in REFERENCE else "source"]
         if prerequisite in {action, log} and binding.get("role", "consumption") != "consumption":
+            key = (binding["origin"], binding["edge_sha256"], binding.get("consumer_record", "document"))
+            if key in qualified:
+                for updated in result["bindings"]:
+                    if (updated.get("origin"), updated.get("edge_sha256"), updated.get("consumer_record", "document")) == key:
+                        updated["prerequisite_document_sha256"] = digest(final["documents"][log])
+                        break
+                continue
             raise ValueError("record_support_c3_required:binding/" + item["edge_sha256"]
                              + "/prerequisite_document_sha256/evidence/rationale")
     try:

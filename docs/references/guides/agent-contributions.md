@@ -151,12 +151,35 @@ canonical append. Every other declaration field, BASE hash, artifact, date,
 role, evidence, rationale and context remains unchanged. Duplicate JSON keys,
 unsupported selectors and changed semantic record content cause refusal.
 
-Every affected occurrence guard or consumed-record binding needs explicit
-project migration (C3); the port never renews a guard merely because its role
-is `navigation` or `change_target`. A capture proving an earlier log update
-does not prove a future update. `record_support_c3_required` identifies the
-binding or declaration field to review. This helper does not author that
-review or automatically solve a project's initial five-view migration.
+Affected occurrence guards and consumed-record bindings require explicit
+project migration (C3). The port never infers eligibility from `navigation`,
+`change_target`, a phrase or an empty evidence list. A capture proving an
+earlier log update does not prove a future update.
+
+A reviewed `document_record.v2` parent contract can explicitly qualify an
+individual CURRENT `change_target` occurrence with
+`"contribution_effect": "canonical_log_annotation"`. This narrow qualification
+requires the exact configured log, a canonical `prerequisite_document_sha256`,
+no `evidence` field (including an empty list), and unchanged consumer document
+and occurrence context. BASE, other roles, legacy hash aliases and unknown
+values are invalid. Ordinary projection still checks the exact hash; the
+qualification itself proves no completed write.
+
+Only support derivation can advance that one CURRENT guard, after proving the
+actual new canonical body receipt/history and matching material, effect,
+task/run/session and independent review, plus the exact canonical log append.
+Preparation, immutable candidate validation and merged canonical readback use
+the same proof. Valid earlier dialogue suffixes remain preserved. An unmarked
+or evidence-bearing guard still refuses: initial C3 must separately preserve
+and justify the dated old proof, never silently remove it or turn it into proof
+of the new transaction. The helper cannot add a qualification, change a role,
+edit evidence/rationale/contexts or renew BASE/artifacts.
+
+`record_support_c3_required` identifies other binding or declaration fields to
+review. This mechanism does not author the complete initial five-view C3. In
+particular, the real body writer sets `updated_at` to the receipt's UTC date;
+if that changes a producer's content or ordering, normal checks still refuse.
+Do not anticipate or renew a date to make those checks pass.
 
 The opted-in transaction also runs the real source-registry, operation and
 operational-pass checks alongside the existing auditor/input-stage gates.
