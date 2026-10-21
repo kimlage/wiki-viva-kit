@@ -444,6 +444,9 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                             raise ValueError("consumption target record/hash mismatch")
                         variant[prerequisite] = node_id(target, rid)
                         if "locator_review" in binding:
+                            locator = locator_changes.get(target)
+                            if locator is None or locator["id"] != binding["locator_review"]["change_id"]:
+                                raise ValueError("locator qualification requires the same changed document as its target")
                             declaration = next(d for d in declarations if d["path"] == target)
                             record = next((r for r in declaration["records"] if r["id"] == rid), None)
                             if record is None or record["epistemic_status"] != "observation":

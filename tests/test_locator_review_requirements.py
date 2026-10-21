@@ -70,6 +70,7 @@ def result(case, changed=None):
 
 
 def test_locator_only_keeps_raw_seed_verdict_and_debt_without_factual_renewal(migration):
+    assert {binding["origin"] for binding in migration[2]["bindings"]} == {"base", "current"}
     report = result(migration)
     assert report["ok"]
     assert SOURCE in report["seeds"]
@@ -162,6 +163,53 @@ def test_mixed_real_normative_change_dominates_custody_even_with_equal_output(mi
     report = result(migration, {SOURCE, RULE})
     assert not report["ok"]
     assert any(r["path"] == node_id(SOURCE, "historical") for r in report["blockers"])
+
+
+@pytest.mark.parametrize("foreign_origin", [None, "base", "current", "both"])
+def test_locator_review_cannot_qualify_another_documents_stale_observation(migration, repo, foreign_origin):
+    current, base, contract, inputs = migration
+    heading = "Independent historical observation"
+    other_sha = None
+    for origin, graph in (("base", base), ("current", current)):
+        for path, text in graph["documents"].items():
+            (repo / path).write_text(text)
+        page(repo, "rule", stale=True, body=f"## {heading}\n\nA separate event recorded in January.\n")
+        authored = authored_graph(repo, load_config(repo))
+        other_sha = digest(sections(authored["documents"][RULE])[1][heading][2])
+        contract[f"{origin}_documents_sha256"] = {p: digest(t) for p, t in authored["documents"].items()}
+        edge = next(e for e in authored["edges"] if e["source"] == SOURCE and e["target"] == RULE)
+        for consumer in ("historical", "remainder"):
+            binding = dict(origin=origin, edge_sha256=edge_digest(edge),
+                consumer_record=consumer, target_record="other-observation", consumed_sha256=other_sha,
+                rationale="A separate historical observation is the explicit prerequisite.")
+            if foreign_origin in {origin, "both"}:
+                binding["locator_review"] = dict(change_id="banner-custody",
+                    consumption="historical_observation_without_locator",
+                    rationale="This deliberately names the other document's locator change.")
+            contract["bindings"].append(binding)
+        if origin == "base":
+            baseline = commit(repo)
+    contract["documents"].append(dict(path=RULE, records=[dict(id="other-observation", heading=heading,
+        independent=True, recorded_on="2026-01-01", epistemic_status="observation", context_records=[],
+        rationale="A distinct dated event, with no custody change in this operation.",
+        base_sha256=other_sha, current_sha256=other_sha)]))
+    proof = repo / "proofs/custody.json"
+    proof.parent.mkdir()
+    proof.write_bytes(inputs[("current", "custody")])
+    (repo / "records.json").write_text(json.dumps(contract))
+    (repo / "wiki.config.yaml").write_text(
+        f"audit:\n  freshness_scope: impact\n  freshness_base: {baseline}\n  freshness_records: records.json\n")
+    if foreign_origin:
+        with pytest.raises(ValueError, match="same changed document"):
+            report = repository_report(repo, load_config(repo), baseline, today=TODAY)
+            print(json.dumps(dict(incorrectly_accepted=report["ok"],
+                other_observation=next(r for r in report["included"]
+                                      if r["path"] == node_id(RULE, "other-observation")))))
+    else:
+        report = repository_report(repo, load_config(repo), baseline, today=TODAY)
+        row = next(r for r in report["included"] if r["path"] == node_id(RULE, "other-observation"))
+        assert row["state"] == "stale" and row["review_requirements"]["factual"]
+        assert not report["ok"] and row in report["blockers"]
 
 
 @pytest.mark.parametrize("component_markers", [False, True])
