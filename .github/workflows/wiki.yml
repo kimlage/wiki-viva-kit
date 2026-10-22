@@ -93,8 +93,6 @@ jobs:
           npm --prefix apps/wiki-cockpit ci
       - name: Frontend unit tests
         run: npm --prefix apps/wiki-cockpit test
-      - name: Hermes source bridge contract
-        run: npm --prefix apps/wiki-cockpit run test:hermes
       - name: Architecture, assets and gate contracts
         run: |
           npm --prefix apps/wiki-cockpit run check:architecture

@@ -4,7 +4,6 @@ import type {
   AgentCapabilities,
   BriefSpec,
   SourceEntity,
-  SourceAccess,
   SourceOperationPreview,
   SourceOperationReceipt
 } from "../types";
@@ -20,7 +19,6 @@ type SourceOperationsOptions = {
   onPreviewConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>) => Promise<SourceOperationPreview>;
   onApplyConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>, previewToken: string) => Promise<SourceOperationReceipt>;
   onListReceipts?: (sourceId: string, options?: { signal?: AbortSignal }) => Promise<SourceOperationReceipt[]>;
-  onTestAccess?: (sourceId: string) => Promise<SourceOperationReceipt>;
   onPreviewRefresh?: (sourceId: string, streamId: string, rawPath?: string) => Promise<SourceOperationPreview>;
   onRunRefresh?: (sourceId: string, streamId: string, rawPath: string, previewToken: string, selectedExternalIds?: string[]) => Promise<SourceOperationReceipt>;
   onSourceChanged?: () => void;
@@ -39,7 +37,6 @@ export function useSourceOperations({
   onApplyConfiguration,
   onListReceipts,
   onPreviewRefresh,
-  onTestAccess,
   onRunRefresh,
   onSourceChanged,
   onNotice,
@@ -61,12 +58,9 @@ export function useSourceOperations({
   const [operationTargetId, setOperationTargetId] = useState("");
   const [operationBusy, setOperationBusy] = useState(false);
   const [operationError, setOperationError] = useState("");
-  const [testedAccess, setTestedAccess] = useState<SourceAccess>();
-  const sourceKey = `${source?.source_id}:${source?.access?.binding_sha256}`;
+  const sourceKey = [source?.source_id, source?.config_ref, source?.updated_at].join(":");
   const activeSource = useRef(sourceKey);
   activeSource.current = sourceKey;
-  useEffect(() => { setTestedAccess(undefined); setOperationBusy(false); }, [sourceKey]);
-  const [accessProbeFailed, setAccessProbeFailed] = useState(false);
   const [receipts, setReceipts] = useState<SourceOperationReceipt[]>([]);
   const [agentPreference, setAgentPreference] = useState<"codex" | "claude">("codex");
   const [rawPath, setRawPath] = useState("");
@@ -92,7 +86,6 @@ export function useSourceOperations({
     setOperationError("");
     setRefreshPreview(null);
     setRefreshReceipt(null);
-    setAccessProbeFailed(false);
     setSelectedDiscoveryIds([]);
     setRawPath("");
   }, [selectedStream?.id, source?.source_id, selectedStreamRevision]);
@@ -103,7 +96,6 @@ export function useSourceOperations({
       return;
     }
     setSourceDraft({
-      access: source.access_policy ?? undefined,
       sourceKind: source.source_kind || "collection",
       scheduleMode: (source.schedule?.mode as SourceDraft["scheduleMode"]) || "on_demand",
       scheduleCadenceDays: String(source.schedule?.cadence_days ?? 0)
@@ -111,7 +103,7 @@ export function useSourceOperations({
     setOperationPreview(null);
     setOperationTargetId("");
     setOperationError("");
-  }, [source?.source_id, source?.source_kind, source?.schedule?.mode, source?.schedule?.cadence_days, source?.access?.binding_sha256]);
+  }, [source?.source_id, source?.source_kind, source?.schedule?.mode, source?.schedule?.cadence_days]);
 
   useEffect(() => {
     if (!source?.source_id || demo || !onListReceipts) {
@@ -216,43 +208,16 @@ export function useSourceOperations({
     }
   };
 
-  const testAccess = async () => {
-    if (demo || !source || !onTestAccess) return;
-    const requestedSource = sourceKey;
-    setOperationBusy(true);
-    setAccessProbeFailed(false);
-    setOperationError("");
-    setTestedAccess(undefined);
-    try {
-      const receipt = await onTestAccess(source.source_id);
-      if (activeSource.current !== requestedSource) return;
-      if (receipt.ok === false || !receipt.access || receipt.source_id !== source.source_id ||
-          receipt.access.binding_sha256 !== source.access?.binding_sha256) {
-        throw new Error(receipt.error || t("source.operation.failed"));
-      }
-      setTestedAccess(receipt.access);
-      setReceipts((current) => [receipt, ...current.filter((r) => r.operation_id !== receipt.operation_id)]);
-    } catch (error) {
-      if (activeSource.current !== requestedSource) return;
-      setAccessProbeFailed(true);
-      setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
-    } finally {
-      if (activeSource.current === requestedSource) setOperationBusy(false);
-    }
-  };
-
   const inspectRefresh = async () => {
     if (demo || !source) return;
     setOperationBusy(true);
     setOperationError("");
     setRefreshPreview(null);
     setRefreshReceipt(null);
-    setAccessProbeFailed(false);
     try {
       if (!onPreviewRefresh) throw new Error(t("source.operation.unavailable"));
       const result = await onPreviewRefresh(source.source_id, "__source__", rawPath.trim());
       if (!result.ok) {
-        setAccessProbeFailed(true);
         setOperationError(result.error || t("source.operation.failed"));
         return;
       }
@@ -263,7 +228,6 @@ export function useSourceOperations({
           .map((record) => record.external_id)
       );
     } catch (error) {
-      setAccessProbeFailed(true);
       setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
     } finally {
       setOperationBusy(false);
@@ -279,7 +243,6 @@ export function useSourceOperations({
     // a denied/unknown result must neither revive green evidence nor retry it.
     setRefreshPreview(null);
     setRefreshReceipt(null);
-    setAccessProbeFailed(false);
     try {
       if (!onRunRefresh) throw new Error(t("source.operation.unavailable"));
       const result = await onRunRefresh(
@@ -292,7 +255,6 @@ export function useSourceOperations({
       setRefreshReceipt(result);
       setReceipts((current) => [result, ...current.filter((item) => item.operation_id !== result.operation_id)]);
       if (!result.ok) {
-        setAccessProbeFailed(true);
         setOperationError(result.error || result.stderr || t("source.operation.failed"));
         return;
       }
@@ -301,7 +263,6 @@ export function useSourceOperations({
       setSelectedDiscoveryIds([]);
       onSourceChanged?.();
     } catch (error) {
-      setAccessProbeFailed(true);
       setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
     } finally {
       setOperationBusy(false);
@@ -324,9 +285,6 @@ export function useSourceOperations({
     operationPreview,
     operationBusy,
     operationError,
-    accessProbeFailed,
-    testedAccess,
-    testAccess,
     receipts,
     agentPreference,
     setAgentPreference,

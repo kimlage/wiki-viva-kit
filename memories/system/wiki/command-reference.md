@@ -70,9 +70,10 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |
 | [wiki_contribution.py](../../../scripts/wiki_contribution.py) | Prepare, review and reconcile provider-neutral action-body contributions under consumer Git policy |
 | [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Read coordinator routes and prepare revision-bound context without dispatch |
-| [wiki_hermes_board.py](../../../scripts/wiki_hermes_board.py) | Install the optional Hermes Desktop view of the canonical wiki action board |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Run the localhost operator API |
 | [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generate/check atomic cockpit snapshot |
+
+The cancelled host integration is retained in the [withdrawal record](../../../docs/references/releases/hermes-integration-withdrawal-2026-10-22.md) and Git history, outside this active CLI catalogue.
 
 ## Common flows
 

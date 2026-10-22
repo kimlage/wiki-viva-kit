@@ -473,11 +473,6 @@ def _source_record(
         "schedule": recipe_json.get("schedule") or None,
         "next_due_days": next_due_days,
     }
-    from wiki_core.source_config import project_source_access
-    if not unsafe_recipe:
-        # First setup needs a canonical, explicitly unverified binding too.
-        record["access_policy"] = recipe_json.get("access") or {}
-        record["access"] = project_source_access(record)
     return record
 
 

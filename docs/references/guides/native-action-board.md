@@ -34,32 +34,19 @@ pretends an optimistic movement has been persisted. Saving edits the current
 workspace, not approved `main`: the consumer's normal review/promotion policy
 still applies.
 
-## Hermes Desktop
+## Standalone browser
 
-The optional extension displays this same board in Hermes. It does not add a
-second backlog, agent tool, hook, database or background polling job.
+Serve the built cockpit using the local operator:
 
 ```sh
 python3 scripts/wiki_web_server.py --root . \
-  --frontend apps/wiki-cockpit/dist --port 8765 --frame-origin file:
-python3 scripts/wiki_hermes_board.py --url http://127.0.0.1:8765/board
+  --frontend apps/wiki-cockpit/dist --port 8765
 ```
 
-The installer writes `~/.hermes/desktop-plugins/wiki-viva-board/plugin.js` using
-the Hermes Desktop SDK. Hermes loads the **Wiki Kanban** sidebar route. An
-explicit alternate `--plugins-dir` supports another Hermes home. The URL must
-be loopback HTTP with the `/board` path and no credentials or query. Installing
-again is idempotent; a different existing plugin is preserved and must be
-reviewed before replacement. Keep the local operator process running while
-using the view. The plugin does not start a service or alter Hermes runtime.
-
-`--frame-origin file:` is optional and only required for the Electron desktop
-host. Without it the UI permits only same-origin embedding. This setting does
-not grant cross-origin API access or bypass operator writes' nonce checks.
-The browser dashboard is a separate Hermes extension target and is not installed
-by this Desktop installer.
-
-SDK: <https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk/>
+Open `http://127.0.0.1:8765/board`. The operator nonce, revision checks and
+canonical Markdown persistence apply unchanged. The cancelled Hermes extension
+is no longer distributed; its removal does not remove the action board.
+See the [withdrawal record](../releases/hermes-integration-withdrawal-2026-10-22.md).
 
 ## Reading completed work
 

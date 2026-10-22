@@ -32,7 +32,7 @@ Packets contain the configured common/domain context and the action's direct pag
 
 This release always reports `runtime_connected: false` and `execution_ready: false`: it prepares context and records directions/questions/answers without claiming delivery or execution. Packet generation is not evidence of LLM reading, context comprehension, authorization or execution. An existing runtime must bind the intended profile, canonical chat, native claim/STOP/dedup checks and permitted operations before dispatch. Do not replace a refused runtime review or existing admission boundary with this reader. Waiting and terminal states remain canonical; coordinator assignment never changes them. Preserve existing action IDs and executor ownership; never import these packets as duplicate domain Tasks.
 
-Runtime results must retain provenance and use the existing guarded action-transition contract, with revision checks and evidence for completion. A queued, claimed or settled runtime job is not a completed wiki action. The [Hermes view](native-action-board.md) remains usable while execution is unavailable.
+Runtime results must retain provenance and use the existing guarded action-transition contract, with revision checks and evidence for completion. A queued, claimed or settled runtime job is not a completed wiki action. The [standalone board](native-action-board.md) remains usable while execution is unavailable.
 
 ## Card conversation and asynchronous work
 

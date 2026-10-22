@@ -29,6 +29,8 @@ storage.
 
 ## Release documentation
 
+- [Hermes integration withdrawal](references/releases/hermes-integration-withdrawal-2026-10-22.md): cancelled integration, preserved wiki features and selective downstream removal.
+
 - [Wiki Viva v8.2.1](references/releases/wiki-viva-v8.2.1.md): valid source creation and append-only discovery/record freshness separation
 - [Wiki Viva v8.2.0](references/releases/wiki-viva-v8.2.0.md): selectable English, Spanish and Portuguese output across the core, cockpit and experience packs
 - [Wiki Viva v8.1.5](references/releases/wiki-viva-v8.1.5.md): strict generated-warning links and safe TODO-recipe promotion

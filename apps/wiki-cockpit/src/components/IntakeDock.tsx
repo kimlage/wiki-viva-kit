@@ -127,13 +127,13 @@ export function IntakeDock({
           <strong>{t(`intake.preview.${plan.action_preview.status}`)}</strong>
           <p>{t("intake.preview.boundary")}</p>
           <dl>
-            <dt>{t("intake.preview.target")}</dt><dd>{plan.action_preview.task_ref?.action_id || t("source.access.unknown")}</dd>
-            <dt>{t("intake.preview.owner")}</dt><dd>{plan.action_preview.owner_ref || t("source.access.unknown")}</dd>
-            <dt>{t("source.access.coordinator")}</dt><dd>{plan.action_preview.coordinator || t("source.access.unknown")}</dd>
+            <dt>{t("intake.preview.target")}</dt><dd>{plan.action_preview.task_ref?.action_id || t("intake.preview.unknown")}</dd>
+            <dt>{t("intake.preview.owner")}</dt><dd>{plan.action_preview.owner_ref || t("intake.preview.unknown")}</dd>
+            <dt>{t("intake.preview.coordinator")}</dt><dd>{plan.action_preview.coordinator || t("intake.preview.unknown")}</dd>
           </dl>
           {Boolean(plan.action_preview.blockers?.length) && <p>{plan.action_preview.blockers?.join(", ")}</p>}
-          {Object.entries(plan.action_preview.source_checks ?? {}).map(([key, value]) => <p key={key}>{key}: {value === "unknown" ? t("source.access.unknown") : value}</p>)}
-          <details><summary>{t("source.access.error")}</summary>{plan.action_preview.reason}</details>
+          {Object.entries(plan.action_preview.source_checks ?? {}).map(([key, value]) => <p key={key}>{key}: {value === "unknown" ? t("intake.preview.unknown") : value}</p>)}
+          <details><summary>{t("intake.preview.reason")}</summary>{plan.action_preview.reason}</details>
         </section>}
 
         {added && (

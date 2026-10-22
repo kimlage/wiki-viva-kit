@@ -925,11 +925,6 @@ export async function listSourceOperationReceipts(
   return result.receipts ?? [];
 }
 
-export async function testSourceAccess(sourceId: string): Promise<import("../types").SourceOperationReceipt> {
-  const response = await operatorPost(`/sources/${encodeURIComponent(sourceId)}/operations/access-test`, {});
-  return (await response.json()) as import("../types").SourceOperationReceipt;
-}
-
 export async function previewSourceRefresh(
   sourceId: string,
   streamId: string,

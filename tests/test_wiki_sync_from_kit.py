@@ -229,6 +229,7 @@ def test_published_contract_applies_c2_and_second_b0_is_unchanged(tmp_path: Path
         "docs/references/fixtures/demo-wiki/wiki.templates.yaml",
         "tests/test_build_demo.py",
         "tests/test_web_snapshot.py",
+        "docs/references/releases/hermes-integration-withdrawal-2026-10-22.md",
     ):
         assert (consumer / relative).is_file(), relative
     assert (consumer / "apps/wiki-cockpit/public/sample-snapshot/manifest.json").is_file()
@@ -242,31 +243,37 @@ def test_published_contract_applies_c2_and_second_b0_is_unchanged(tmp_path: Path
     assert plan["c1"]["unchanged"] == plan["c1"]["managed_total"]
 
 
-def test_optional_hermes_integration_travels_with_cockpit_but_is_not_installed(tmp_path: Path) -> None:
+def test_retired_host_is_pruned_only_when_previously_managed(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
-    canonical = yaml.safe_load((ROOT / 'docs/references/upgrades/sync-manifest.yaml').read_text())
-    exact = 'integrations/hermes/wiki-viva-board/**'
-    assert exact in canonical['portable']['allow']
-    assert 'integrations/**' not in canonical['portable']['allow']
+    canonical = yaml.safe_load((ROOT / "docs/references/upgrades/sync-manifest.yaml").read_text())
+    retired = "integrations/hermes/wiki-viva-board/**"
+    assert retired not in canonical["portable"]["allow"]
     body = yaml.safe_load(manifest.read_text())
-    body['portable']['allow'].extend(['apps/wiki-cockpit/**', exact])
+    body["portable"]["allow"].extend(["apps/wiki-cockpit/**", retired])
     manifest.write_text(yaml.safe_dump(body, sort_keys=False))
-    for relative in ['integrations/hermes/wiki-viva-board/plugin.js', 'integrations/hermes/wiki-viva-board/plugin.yaml', 'integrations/hermes/wiki-viva-board/dashboard/plugin_api.py', 'apps/wiki-cockpit/src/infrastructure/hermesSourceWrapper.test.tsx', 'integrations/hermes/other-plugin/plugin.js']:
+    paths = ["integrations/hermes/wiki-viva-board/plugin.js", "apps/wiki-cockpit/src/App.tsx"]
+    for relative in paths:
         target = kit / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text('public synthetic source\n')
-    _git(kit, 'add', '.')
-    _git(kit, 'commit', '-qm', 'optional passive host integration')
-    before = _git(consumer, 'status', '--porcelain')
-    planned = _run(kit, consumer, manifest, '--dry-run', '--json')
+        target.write_text("synthetic portable source\n")
+    _git(kit, "add", ".")
+    _git(kit, "commit", "-qm", "previous host contract")
+    assert _run(kit, consumer, manifest).returncode == 0
+    unmanaged = consumer / "integrations/consumer-owned.txt"
+    unmanaged.write_text("preserve consumer integration\n")
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "consumer adoption")
+    body["portable"]["allow"].remove(retired)
+    manifest.write_text(yaml.safe_dump(body, sort_keys=False))
+    _git(kit, "add", ".")
+    _git(kit, "commit", "-qm", "retire host integration")
+    planned = _run(kit, consumer, manifest, "--dry-run", "--json")
     assert planned.returncode == 0, planned.stderr
-    plan = json.loads(planned.stdout)
-    expected = 'integrations/hermes/wiki-viva-board/plugin.js'
-    assert expected in plan['c1']['add']
-    assert _git(consumer, 'status', '--porcelain') == before == ''
-    applied = _run(kit, consumer, manifest)
-    assert applied.returncode == 0, applied.stderr
-    assert (consumer / expected).read_bytes() == (kit / expected).read_bytes()
-    assert not (consumer / 'integrations/hermes/other-plugin').exists()
-    assert not (consumer / '.hermes').exists()
-    assert expected in (consumer / 'kit.lock').read_text()
+    assert json.loads(planned.stdout)["c1"]["remove_previously_managed"] == [paths[0]]
+    assert (consumer / paths[0]).is_file()
+    result = _run(kit, consumer, manifest)
+    assert result.returncode == 0, result.stderr
+    assert not (consumer / paths[0]).exists()
+    assert (consumer / paths[1]).read_bytes() == (kit / paths[1]).read_bytes()
+    assert unmanaged.read_text() == "preserve consumer integration\n"
+    assert not (consumer / ".hermes").exists()

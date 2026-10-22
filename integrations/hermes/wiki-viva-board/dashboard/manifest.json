@@ -1,9 +1,0 @@
-{
-  "name": "wiki-viva-board",
-  "label": "Wiki source access",
-  "description": "Source-bound read receipts in the authenticated Hermes profile",
-  "version": "1.0.0",
-  "tab": {"hidden": true},
-  "entry": "dist/index.js",
-  "api": "plugin_api.py"
-}
