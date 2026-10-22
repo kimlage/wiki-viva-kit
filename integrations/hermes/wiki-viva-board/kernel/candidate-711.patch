@@ -3660,6 +3660,343 @@
      bound = _SECRET_SCOPE.get()
      scope = bound.mapping if bound is not None else None
      if not isinstance(scope, dict):
+--- a/tui_gateway/methods_config.py
++++ b/tui_gateway/methods_config.py
+@@ -285,9 +285,7 @@
+ _CONFIG_GET_ERR = {"provider": 5013, "approval_mode": 5001, "approvals.mode": 5001}
+ 
+ 
+-@method("config.get")
+-@_profile_scoped
+-def _(rid, params: dict) -> dict:
++def _cfg_get_scoped(rid, params: dict) -> dict:
+     key = params.get("key", "")
+     getter = _CONFIG_GETTERS.get(key)
+     if getter is None:
+@@ -298,6 +296,39 @@
+         if key not in _CONFIG_GET_ERR:
+             raise
+         return _err(rid, _CONFIG_GET_ERR[key], str(e))
++
++
++def _cfg_get_connector_gateway_origin(params):
++    from tools.wiki_gateway_origin import origin_metadata, unknown_origin
++    # Validate against the native launch home without entering runtime/secret
++    # scope, touching a session, or activating multi-profile hosting. A sibling
++    # profile's effective settings cannot be inferred from this process env.
++    try:
++        from hermes_cli.profiles import normalize_profile_name, get_profile_dir
++        requested = params.get("profile")
++        if type(requested) is not str or not requested:
++            return unknown_origin("gateway_origin_profile_unknown")
++        name = normalize_profile_name(requested)
++        if name != requested:
++            return unknown_origin("gateway_origin_profile_unknown")
++        target = Path(get_profile_dir(name))
++        if not target.is_dir() or target.resolve() != Path(_hermes_home).resolve():
++            return unknown_origin("gateway_origin_profile_mismatch")
++    except Exception:
++        return unknown_origin("gateway_origin_profile_unknown")
++    return origin_metadata(name)
++
++
++@method("config.get")
++def _(rid, params: dict) -> dict:
++    if isinstance(params, dict) and params.get("key") == "connector_gateway_origin":
++        if params.get("metadata_only") is not True:
++            return _err(rid, 4000, "origin metadata requires metadata_only")
++        return _ok(rid, {"connector_gateway_origin": _cfg_get_connector_gateway_origin(params)})
++    if isinstance(params, dict) and "metadata_only" in params:
++        return _err(rid, 4000, "metadata_only is restricted to origin metadata")
++    return _profile_scoped(_cfg_get_scoped)(rid, params)
++_._connector_gateway_origin = "hermes.connector_gateway_origin.v1"
+ 
+ 
+ # ── setup readiness
+--- a/tui_gateway/methods_voice.py
++++ b/tui_gateway/methods_voice.py
+@@ -436,7 +436,8 @@
+     """What THIS BUILD enforces (a client withholds unless advertised), sourced from the enforcing
+     module, never config: a believed-but-absent capability is worse."""
+     from hermes_cli.active_sessions import PER_SESSION_EXCLUSIVE_SUBMIT
+-    return _ok(rid, {"per_session_exclusive_submit": bool(PER_SESSION_EXCLUSIVE_SUBMIT)})
++    return _ok(rid, {"per_session_exclusive_submit": bool(PER_SESSION_EXCLUSIVE_SUBMIT),
++                     "connector_gateway_origin": getattr(_methods.get("config.get"), "_connector_gateway_origin", None)})
+ 
+ 
+ @method("client.capabilities")
+--- a/tui_gateway/contracts/config_free_tier_control.py
++++ b/tui_gateway/contracts/config_free_tier_control.py
+@@ -26,6 +26,7 @@
+     ``session_id`` lets ``reasoning`` / ``fast`` answer with the session's live pin."""
+ 
+     key: str
++    metadata_only: bool | None = None
+     cwd: str | None = None
+     session_id: str | None = None
+ 
+@@ -57,6 +58,7 @@
+     prompt: str | None = None
+     mtime: float | None = None
+     mcp_rev: str | None = None
++    connector_gateway_origin: dict[str, JsonValue] | None = None
+ 
+ 
+ method("config.get", params=ConfigGetParams, result=ConfigGetResult,
+--- a/tui_gateway/contracts/liveness.py
++++ b/tui_gateway/contracts/liveness.py
+@@ -20,9 +20,14 @@
+ 
+ class GatewayCapabilitiesResult(Result):
+     per_session_exclusive_submit: bool
++    connector_gateway_origin: str | None = None
+ 
+ 
+-method("gateway.capabilities", params=PingParams, result=GatewayCapabilitiesResult,
++class GatewayCapabilitiesParams(Params):
++    profile: str | None = None
++
++
++method("gateway.capabilities", params=GatewayCapabilitiesParams, result=GatewayCapabilitiesResult,
+        doc="What THIS build enforces (a client withholds a feature unless advertised).")
+ 
+ 
+--- a/apps/shared/src/gateway-contract.generated.ts
++++ b/apps/shared/src/gateway-contract.generated.ts
+@@ -462,6 +462,7 @@
+ export interface ConfigGetParams {
+   profile?: string | null
+   key: string
++  metadata_only?: boolean | null
+   cwd?: string | null
+   session_id?: string | null
+ }
+@@ -480,6 +481,7 @@
+   prompt?: string | null
+   mtime?: number | null
+   mcp_rev?: string | null
++  connector_gateway_origin?: Record<string, unknown> | null
+ }
+ /** ``hermes_cli/models.py::list_available_providers`` row. */
+ export interface ConfigProviderRef {
+@@ -1907,8 +1909,12 @@
+ export interface PingResult {
+   pong: boolean
+ }
++export interface GatewayCapabilitiesParams {
++  profile?: string | null
++}
+ export interface GatewayCapabilitiesResult {
+   per_session_exclusive_submit: boolean
++  connector_gateway_origin?: string | null
+ }
+ export interface ClientCapabilitiesParams {
+   server_requests?: boolean
+@@ -5160,7 +5166,7 @@
+   /** Pure read of the focused profile's free-tier identity state (no network, no side effects). */
+   'free_tier.status': { params: ProfileParams; result: FreeTierStatusResult }
+   /** What THIS build enforces (a client withholds a feature unless advertised). */
+-  'gateway.capabilities': { params: PingParams; result: GatewayCapabilitiesResult }
++  'gateway.capabilities': { params: GatewayCapabilitiesParams; result: GatewayCapabilitiesResult }
+   /** Resolve one exact pending approval raised by a local or peer room member. */
+   'groups.approve': { params: GroupsApproveParams; result: GroupsApproveResult }
+   /** Describe the hosted-room protocol implemented by this gateway. */
+--- a/apps/shared/src/gateway-contract.openrpc.json
++++ b/apps/shared/src/gateway-contract.openrpc.json
+@@ -1111,7 +1111,7 @@
+         {
+           "name": "params",
+           "schema": {
+-            "$ref": "#/components/schemas/PingParams"
++            "$ref": "#/components/schemas/GatewayCapabilitiesParams"
+           }
+         }
+       ],
+@@ -8751,6 +8751,18 @@
+             "title": "Key",
+             "type": "string"
+           },
++          "metadata_only": {
++            "anyOf": [
++              {
++                "type": "boolean"
++              },
++              {
++                "type": "null"
++              }
++            ],
++            "default": null,
++            "title": "Metadata Only"
++          },
+           "cwd": {
+             "anyOf": [
+               {
+@@ -8945,6 +8957,19 @@
+             ],
+             "default": null,
+             "title": "Mcp Rev"
++          },
++          "connector_gateway_origin": {
++            "anyOf": [
++              {
++                "additionalProperties": true,
++                "type": "object"
++              },
++              {
++                "type": "null"
++              }
++            ],
++            "default": null,
++            "title": "Connector Gateway Origin"
+           }
+         },
+         "title": "ConfigGetResult",
+@@ -14611,12 +14636,43 @@
+         "title": "FreeTierStatusResult",
+         "type": "object"
+       },
++      "GatewayCapabilitiesParams": {
++        "additionalProperties": false,
++        "properties": {
++          "profile": {
++            "anyOf": [
++              {
++                "type": "string"
++              },
++              {
++                "type": "null"
++              }
++            ],
++            "default": null,
++            "title": "Profile"
++          }
++        },
++        "title": "GatewayCapabilitiesParams",
++        "type": "object"
++      },
+       "GatewayCapabilitiesResult": {
+         "additionalProperties": false,
+         "properties": {
+           "per_session_exclusive_submit": {
+             "title": "Per Session Exclusive Submit",
+             "type": "boolean"
++          },
++          "connector_gateway_origin": {
++            "anyOf": [
++              {
++                "type": "string"
++              },
++              {
++                "type": "null"
++              }
++            ],
++            "default": null,
++            "title": "Connector Gateway Origin"
+           }
+         },
+         "required": [
+--- /dev/null
++++ b/tools/wiki_gateway_origin.py
+@@ -0,0 +1,99 @@
++def _native_connector_origin(env):
++    class _Environment:
++        getenv = staticmethod(env.get)
++    os = _Environment
++    _DEFAULT_TOOL_GATEWAY_DOMAIN = "nousresearch.com"
++
++    _DEFAULT_TOOL_GATEWAY_SCHEME = "https"
++
++    def get_tool_gateway_scheme() -> str:
++        """Return configured shared gateway URL scheme."""
++        scheme = os.getenv("TOOL_GATEWAY_SCHEME", "").strip().lower() or _DEFAULT_TOOL_GATEWAY_SCHEME
++        if scheme not in {"http", "https"}:
++            raise ValueError("TOOL_GATEWAY_SCHEME must be 'http' or 'https'")
++        return scheme
++
++    def build_vendor_gateway_url(vendor: str) -> str:
++        """Return the gateway origin for a specific vendor."""
++        if explicit_vendor_url := os.getenv(f"{vendor.upper().replace('-', '_')}_GATEWAY_URL", "").strip().rstrip("/"):
++            return explicit_vendor_url
++        shared_domain = os.getenv("TOOL_GATEWAY_DOMAIN", "").strip().strip("/") or _DEFAULT_TOOL_GATEWAY_DOMAIN
++        return f"{get_tool_gateway_scheme()}://{vendor}-gateway.{shared_domain}"
++    return build_vendor_gateway_url('connector')
++
++
++"""Sanitized process origin metadata; never account or transport authority.
++
++The candidate builder prepends the exact pinned native pure URL resolver in a
++local environment scope. Importing the authenticated gateway module is avoided.
++"""
++import ipaddress
++import os
++import re
++from urllib.parse import urlsplit
++
++_ORIGIN_ENV_KEYS = ("CONNECTOR_GATEWAY_URL", "TOOL_GATEWAY_DOMAIN", "TOOL_GATEWAY_SCHEME")
++_SCHEMA = "hermes.connector_gateway_origin.v1"
++
++
++def unknown_origin(reason="gateway_origin_unknown"):
++    return {"schema_version": _SCHEMA, "status": "unknown", "profile": None,
++            "origin": None, "provenance": "unknown", "resolution_scope": "process",
++            "reason_code": reason, "account_identity_verified": False, "account_enforced": False}
++
++
++def _sanitized_origin(value):
++    if type(value) is not str or not value or len(value) > 4096:
++        raise ValueError("invalid origin")
++    # urlsplit otherwise silently removes some controls. Reject before parsing;
++    # raw URLs and parser exceptions must never become RPC errors or logs.
++    if re.search(r"[\x00-\x20\x7f\\]", value):
++        raise ValueError("invalid origin")
++    parsed = urlsplit(value)
++    if parsed.scheme not in {"http", "https"} or not parsed.netloc or not parsed.hostname:
++        raise ValueError("invalid origin")
++    authority = parsed.netloc.rsplit("@", 1)[-1]
++    host = parsed.hostname
++    if ":" in host:
++        if not re.fullmatch(r"\[[0-9a-fA-F:.]+\](?::[0-9]+)?", authority):
++            raise ValueError("invalid origin")
++        host = str(ipaddress.IPv6Address(host))
++    else:
++        if not re.fullmatch(r"[a-zA-Z0-9.-]+(?::[0-9]+)?", authority):
++            raise ValueError("invalid origin")
++        name = host.removesuffix(".")
++        if len(name) > 253 or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in name.split(".")):
++            raise ValueError("invalid origin")
++        if re.fullmatch(r"[0-9.]+", name):
++            ipaddress.IPv4Address(name)
++    port = parsed.port
++    if port is None:
++        port = 443 if parsed.scheme == "https" else 80
++    if not 1 <= port <= 65535:
++        raise ValueError("invalid origin")
++    return {"scheme": parsed.scheme, "host": host, "port": port}
++
++
++def origin_metadata(profile, environment=None):
++    """Read only three URL settings, never dotenv, config, credentials or HTTP.
++
++    This is the resolver's process environment at observation time. It neither
++    resolves a profile's secret scope nor proves the endpoint an authenticated
++    operation would use after future secret hydration or an environment change.
++    """
++    if type(profile) is not str or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", profile):
++        return unknown_origin("gateway_origin_profile_unknown")
++    try:
++        env = os.environ if environment is None else environment
++        snapshot = {key: env.get(key, "") for key in _ORIGIN_ENV_KEYS}
++        if any(type(value) is not str or len(value) > 4096 for value in snapshot.values()):
++            return unknown_origin("gateway_origin_invalid")
++        explicit = snapshot["CONNECTOR_GATEWAY_URL"].strip().rstrip("/")
++        derived = snapshot["TOOL_GATEWAY_DOMAIN"].strip().strip("/") or snapshot["TOOL_GATEWAY_SCHEME"].strip()
++        provenance = "override" if explicit else "derived" if derived else "default"
++        origin = _sanitized_origin(_native_connector_origin(snapshot))
++    except Exception:
++        return unknown_origin("gateway_origin_invalid")
++    return {"schema_version": _SCHEMA, "status": "known", "profile": profile,
++            "origin": origin, "provenance": provenance, "resolution_scope": "process",
++            "reason_code": None, "account_identity_verified": False, "account_enforced": False}
 --- /dev/null
 +++ b/tools/wiki_native_projection.py
 @@ -0,0 +1,57 @@

@@ -12,6 +12,10 @@ export function SourceExecutorSetup({ source, demo, onBind, onConnectBinding, cr
   const [routes, setRoutes] = useState<ExecutorRoute[]>([]);
   const [routeKey, setRouteKey] = useState("");
   const [inspection, setInspection] = useState<HostResult>();
+  const originGeneration = useRef(0);
+  const [gatewayOrigin, setGatewayOrigin] = useState<HostResult["gateway_origin"]>();
+  const [originChecked, setOriginChecked] = useState(false);
+  const [originBusy, setOriginBusy] = useState(false);
   const current = source.access_policy?.execution;
   const connection = source.access_policy?.connection;
   const owner = connection || current;
@@ -42,6 +46,7 @@ export function SourceExecutorSetup({ source, demo, onBind, onConnectBinding, cr
     const epoch = ++generation.current;
     bridge.current?.close(); bridge.current = undefined; active.current = true;
     setRoutes([]); setRouteKey(""); setInspection(undefined);
+    originGeneration.current++; setGatewayOrigin(undefined); setOriginChecked(false); setOriginBusy(false);
     setStoredId(current?.stored_session_id || ""); setAccountId(owner?.account_id || "");
     setReceipts([]); setError(""); setUnknown(false); setActivity(false); setBusy(!demo);
     if (!demo) void (async () => {
@@ -71,6 +76,7 @@ export function SourceExecutorSetup({ source, demo, onBind, onConnectBinding, cr
   const run = async (action: HostAction, selected = route) => {
     if (demo || active.current || !bridge.current || !selected) return;
     const epoch = generation.current, host = bridge.current;
+    originGeneration.current++; setGatewayOrigin(undefined); setOriginChecked(false); setOriginBusy(false);
     active.current = true; setBusy(true); setError("");
     const request = (kind: HostAction) => host.request(source, kind, selected.key,
       kind === "inspect" ? undefined : inspection?.binding?.config_sha256, kind === "configure" ? setupMethod : undefined);
@@ -97,9 +103,24 @@ export function SourceExecutorSetup({ source, demo, onBind, onConnectBinding, cr
       }
     } finally { if (epoch === generation.current) { active.current = false; setBusy(false); } }
   };
+  const inspectOrigin = async () => {
+    if (demo || busy || originBusy || !route || !bridge.current) return;
+    const epoch = generation.current, originEpoch = ++originGeneration.current, selected = route, host = bridge.current;
+    const currentRequest = () => epoch === generation.current && originEpoch === originGeneration.current;
+    setGatewayOrigin(undefined); setOriginChecked(false); setOriginBusy(true);
+    try {
+      const result = await host.request(source, "transport_metadata", selected.key);
+      if (!currentRequest()) return;
+      const observed = result.route;
+      if (observed && (["connectionId", "profile", "targetProfile", "mode", "key"] as const).every(key => observed[key] === selected[key])) setGatewayOrigin(result.gateway_origin);
+      setOriginChecked(true);
+    } catch { if (currentRequest()) setOriginChecked(true); }
+    finally { if (currentRequest()) setOriginBusy(false); }
+  };
   const selectRoute = (key: string) => {
     const selected = routes.find(row => row.key === key); if (!selected || active.current) return;
     setRouteKey(key); setInspection(undefined); setReceipts([]); setUnknown(false);
+    originGeneration.current++; setGatewayOrigin(undefined); setOriginChecked(false); setOriginBusy(false);
     const saved = savedSourceRoute(source, [selected]);
     setStoredId(saved ? current?.stored_session_id || "" : ""); setAccountId(saved ? owner?.account_id || "" : "");
     void run("inspect", selected);
@@ -115,6 +136,7 @@ export function SourceExecutorSetup({ source, demo, onBind, onConnectBinding, cr
   const needsBinding = Boolean(onConnectBinding && !connectionBound && !(recoveryBound && accountId === (owner?.account_id || "")));
   const reviewConnection = () => route && onConnectBinding?.({connection_id: route.connectionId, profile: route.profile, target_profile: route.targetProfile,
     ...(account ? {provider_id: account.connector, account_id: account.id, account_alias: account.alias} : {})});
+  const knownOrigin = gatewayOrigin?.status === "known" && gatewayOrigin.profile === route?.targetProfile && gatewayOrigin.resolution_scope === "process" && gatewayOrigin.account_enforced === false && gatewayOrigin.account_identity_verified === false ? gatewayOrigin.origin : null;
 
   return <section className="sourceConnectionCard" aria-label={t("source.connection.title")} aria-busy={busy}>
     <header><h4>{t("source.connection.title")}</h4><span className={`pill pill-${state === "verified" ? "good" : "muted"}`} role="status">{t(`source.connection.state.${state}`)}</span></header>
@@ -148,6 +170,12 @@ export function SourceExecutorSetup({ source, demo, onBind, onConnectBinding, cr
       <label>{t("source.connection.environment")}<select value={routeKey} disabled={busy || !routes.length} onChange={event => selectRoute(event.target.value)}>
         <option value="">{t("source.connection.chooseContext")}</option>{routes.map(row => <option key={row.key} value={row.key}>{routeLabel(row)}</option>)}
       </select></label>
+      <div className="sourceConnectionOrigin">
+        <button type="button" className="secondaryButton" disabled={!route || busy || originBusy || demo} onClick={() => void inspectOrigin()}>{t(originBusy ? "source.connection.origin.loading" : "source.connection.origin.inspect")}</button>
+        <p aria-live="polite">{t("source.connection.origin.title")}: {knownOrigin ? <code>{`${knownOrigin.scheme}://${knownOrigin.host.includes(":") ? "[" + knownOrigin.host + "]" : knownOrigin.host}:${knownOrigin.port}`}</code> : t(originChecked ? "source.connection.origin.unknown" : "source.connection.origin.unchecked")}</p>
+        {knownOrigin && <p>{t("source.connection.origin.process")} · {t(`source.connection.origin.provenance.${gatewayOrigin!.provenance}`)}</p>}
+        <p>{t("source.connection.origin.boundary")}</p>
+      </div>
       {inspection && <>
         <label>{t("source.executor.nativeSession")}<select value={storedId} disabled={busy} onChange={event => { setStoredId(event.target.value); setReceipts([]); setUnknown(false); }}>
           <option value="">{t("source.executor.choose")}</option>

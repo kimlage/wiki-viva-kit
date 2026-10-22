@@ -216,6 +216,9 @@ def test_patch_applies_only_to_a_disposable_source_copy_and_preserves_pin_check(
     subprocess.run(["git", "apply", str(patch)], cwd=tmp_path, check=True, capture_output=True)
     for path, (_, after) in candidate.items():
         assert (tmp_path / path).read_text() == after
-        compile(after, path, "exec")
+        if path.endswith(".py"):
+            compile(after, path, "exec")
+        elif path.endswith(".json"):
+            json.loads(after)
     with pytest.raises(ValueError, match="revision mismatch"):
         builder.candidate(tmp_path)

@@ -228,7 +228,7 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
 
 /** Credential-free, source-bound iframe adapter. Never expose generic RPC/REST. */
 function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigin, channel, generation, currentGeneration, reply}) {
-  const actions = new Set(['routes', 'inspect', 'configure', 'read_test', 'read_receipts', 'open_native']);
+  const actions = new Set(['routes', 'inspect', 'transport_metadata', 'configure', 'read_test', 'read_receipts', 'open_native']);
   const requests = new Map();
   let alive = true;
   let session = 0;
@@ -273,13 +273,51 @@ function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigin, chan
   const newSessionAccess = () => createNativeSessionAccess({host,native,live,activity:(route,source)=>{if(alive && currentGeneration()===generation)reply({protocol:'wiki.source_access.v1',kind:'native_activity',channel,source,route_key:key(route)});}});
   let sessions = newSessionAccess();
   const routeMatches = (execution, route) => execution && execution.connection_id === route.connectionId && execution.profile === route.profile && execution.target_profile === route.targetProfile;
+  const originSchema = 'hermes.connector_gateway_origin.v1';
+  const unknownOrigin = (reason_code='gateway_origin_unavailable') => ({schema_version:originSchema,status:'unknown',profile:null,origin:null,provenance:'unknown',resolution_scope:'process',reason_code,account_identity_verified:false,account_enforced:false});
+  const publicOrigin = (raw, route) => {
+    if (!raw || raw.schema_version !== originSchema || raw.resolution_scope !== 'process' || raw.account_identity_verified !== false || raw.account_enforced !== false) return unknownOrigin('gateway_origin_invalid');
+    if (raw.status === 'unknown') return unknownOrigin(['gateway_origin_profile_unknown','gateway_origin_profile_mismatch','gateway_origin_invalid'].includes(raw.reason_code)?raw.reason_code:'gateway_origin_unknown');
+    if (raw.status !== 'known' || raw.profile !== route.targetProfile || !['default','override','derived'].includes(raw.provenance) || raw.reason_code !== null) return unknownOrigin('gateway_origin_invalid');
+    const origin=raw.origin;
+    if (!origin || !['http','https'].includes(origin.scheme) || typeof origin.host !== 'string' || origin.host.length > 253 || !Number.isInteger(origin.port) || origin.port < 1 || origin.port > 65535) return unknownOrigin('gateway_origin_invalid');
+    const ipv6=origin.host.includes(':');
+    if (ipv6 ? !/^[a-f0-9:.]+$/.test(origin.host) : !origin.host.replace(/\.$/,'').split('.').every(label=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) return unknownOrigin('gateway_origin_invalid');
+    try {
+      const parsed=new URL(`${origin.scheme}://${ipv6?'['+origin.host+']':origin.host}:${origin.port}`);
+      if (parsed.hostname !== (ipv6?'['+origin.host+']':origin.host) || parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== '/') return unknownOrigin('gateway_origin_invalid');
+    } catch { return unknownOrigin('gateway_origin_invalid'); }
+    // Project only the documented fields; never forward raw RPC/error objects.
+    return {...unknownOrigin(),status:'known',profile:raw.profile,origin:{scheme:origin.scheme,host:origin.host,port:origin.port},provenance:raw.provenance,reason_code:null};
+  };
+  const transportMetadata = async (route, token) => {
+    const stillRegistered = async () => {
+      const current=await routes(); live(token);
+      if (!current.some(row=>row.key===route.key && row.mode===route.mode)) throw new Error('executor_profile_mismatch');
+    };
+    let capabilities;
+    try { capabilities=await host.requestProfile(route,'gateway.capabilities',{},15000,{spawnPriority:'foreground'}); }
+    catch { live(token); await stillRegistered(); live(token); return {route,gateway_origin:unknownOrigin(),connection_verified:false,read_verified:false}; }
+    live(token); await stillRegistered(); live(token);
+    if (capabilities?.connector_gateway_origin !== originSchema) return {route,gateway_origin:unknownOrigin(),connection_verified:false,read_verified:false};
+    let raw;
+    // An old backend rejects this new contract parameter before its generic
+    // profile decorator, even if it replaced the advertised build between RPCs.
+    try { raw=await host.requestProfile(route,'config.get',{key:'connector_gateway_origin',profile:route.targetProfile,metadata_only:true},15000,{spawnPriority:'foreground'}); }
+    catch { live(token); await stillRegistered(); live(token); return {route,gateway_origin:unknownOrigin(),connection_verified:false,read_verified:false}; }
+    live(token); await stillRegistered(); live(token);
+    return {route,gateway_origin:publicOrigin(raw?.connector_gateway_origin,route),connection_verified:false,read_verified:false};
+  };
   const perform = async (message, token) => {
     live(token);
     const available = await routes(message.action === 'routes');
     live(token);
-    if (message.action === 'routes') return {routes:available,capabilities:['inspect','configure','read_test','read_receipts']};
+    if (message.action === 'routes') return {routes:available,capabilities:['inspect','transport_metadata','configure','read_test','read_receipts']};
     const route = available.find(r => r.key === message.route_key);
     if (!route) throw new Error('executor_unavailable');
+    // This separate metadata action never reads source bodies/bindings, account
+    // catalogues, sessions or tools, and never creates a conversation/mission.
+    if (message.action === 'transport_metadata') return transportMetadata(route, token);
     const ref = message.source;
     const binding = await native(route, 'source-binding/' + encodeURIComponent(ref.source_id) + '?binding_sha256=' + ref.binding_sha256);
     live(token);

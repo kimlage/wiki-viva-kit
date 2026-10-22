@@ -98,6 +98,53 @@ effect/model call. Replaced runs, revocation and lost delivery remain holds.
 
 ## Entry coverage
 
+The candidate also extends the existing `config.get` dispatcher with the
+`connector_gateway_origin` key. The existing `gateway.capabilities` advertises
+it only when the actually registered enforcing handler carries that contract.
+The UI withholds this query on an older or unknown build, whose ordinary
+`config.get` profile decorator could otherwise hydrate secrets before rejecting
+an unknown key. Native result and parameter contracts include the extension.
+The query additionally requires the new `metadata_only: true` wire parameter.
+An old backend's native strict parameter validation rejects it before its
+profile decorator, including a backend replaced between the capability and
+configuration calls. The new handler refuses this parameter on every other
+getter before entering a scope. This is a proposed native wire extension, not
+a currently installed SDK capability or an account grant.
+
+For this one key, the handler validates the exact canonical native launch
+profile using directory metadata, before entering any runtime/secret scope.
+Another profile, absent profile or failure returns explicit unknown metadata;
+it never selects a default profile. It does not activate multiplexing, open a
+session, load dotenv/config/credentials or make a network request. Legacy keys
+keep their existing profile scope. The pure URL resolver is generated from the
+pinned native function bodies and constants, with a snapshot of only its three
+URL settings; the authenticated gateway module is never imported for this read.
+
+The result contains only sanitized scheme, host and port, provenance
+(`default`, `override`, `derived`), canonical profile and `resolution_scope:
+process`. Invalid input is unknown without raw URLs or errors. Userinfo, path,
+query and fragment never cross the result boundary. This observes process
+settings before account hydration: it does not establish effective account
+identity, account enforcement, the endpoint after future secret hydration, or
+permission to query a source. Both account proof flags remain false.
+
+The same single UI exposes this as an explicit diagnostic action on an exact
+native route. It uses `host.requestProfile` with the existing capability and
+configuration RPCs, without a source-binding HTTP read, account/session/tool
+discovery, conversation or mission. Route inventory is revalidated between
+calls and before disclosure; frame/source/route changes discard old results.
+The public boundary projects only documented fields and keeps failures content
+free. It never changes the source access state or enables a private read. This
+extension remains inactive until the candidate is separately adopted.
+
+The patch includes the native Python wire contracts and their TypeScript and
+OpenRPC derivatives. The builder applies only the frozen generator delta to
+the pinned public artifacts. The complete native renderer was run in a
+disposable public fixture: it first reproduced the base artifacts exactly,
+then reproduced the candidate derivatives and validated both native results
+with the strict Pydantic contract checks. No installed generator, auth/cache
+client or runtime was invoked.
+
 | Boundary | Candidate behavior |
 |---|---|
 | Complete import, dotenv and plugin refresh | Shared restriction/admission before native launch preparation and main/model module effects; native dotenv, external-source, scope and discovery paths remain closed for protected public workers, including reload. |
@@ -202,6 +249,14 @@ Only PM dependencies, the OS birth-time command and final external exec are
 fictitious. A fresh import preserves administrative startup and refuses an
 unqualified worker before loaders. A missing guard without a repairable journal
 remains an error, never an import bypass.
+`tests/test_gateway_origin_metadata.py` runs sanitization on the complete
+committed candidate module even without native source. With the pinned source,
+it registers the full native `methods_config` through the real `method_ctx`,
+uses the native profile-scoping entry, verifies the old-key control and refuses
+all file-open/network/process boundaries during the positive metadata read.
+It also checks exact native resolver bodies and actual capability advertisement.
+Source bridge and UI fixtures cover route replacement, old builds, malformed
+metadata and stale responses without an account, credential or live RPC.
 The default portable suite also checks that the patch vendors the exact module.
 
 The source-connection UI displays missing enforcement as a read hold; opening

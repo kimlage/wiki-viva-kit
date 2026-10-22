@@ -102,6 +102,36 @@
     },
     "hermes_cli/update_lock.py": {
       "sha256": "45fe832597560cf3139871aaec0a45590a463d0029a8d672a4ee801bf754fc24"
+    },
+    "tui_gateway/methods_config.py": {
+      "sha256": "cc70b29141543df29dd7204566f86dbb6dc776766f23d6a9d5e3860b69b474c3"
+    },
+    "tui_gateway/method_ctx.py": {
+      "sha256": "2f8b8098dc16bfecb6c31de15eca21ab426f48f7e18e8adb78492a0bb70d5514"
+    },
+    "tui_gateway/server.py": {
+      "sha256": "16e42a0b9dace637dd0d19f11cc1312a81c4b1658ba6369576e9f47cfb46baeb"
+    },
+    "hermes_cli/profiles.py": {
+      "sha256": "a87c2cb824cbf0f10fb618c282612d0f9263798a9e7962e9223984de05b65c94"
+    },
+    "tools/managed_tool_gateway.py": {
+      "sha256": "07469827b48838be12500960254d2745f8941925d231b5e9c92a410b17e37143"
+    },
+    "tui_gateway/methods_voice.py": {
+      "sha256": "a31b5ccccd117f4e94f72b799273820dd0d7613619fe3c98361d5c58524fd28f"
+    },
+    "tui_gateway/contracts/config_free_tier_control.py": {
+      "sha256": "09db46f33c15296f69a644a35a50c2042ee59f89ec3e31e1f409b986d3470740"
+    },
+    "tui_gateway/contracts/liveness.py": {
+      "sha256": "b46913c61f39784b2b78af1640d79409d4f3ed79e05ff9cb45e81e9bc4766692"
+    },
+    "apps/shared/src/gateway-contract.generated.ts": {
+      "sha256": "9ae61ed270bc7999aef6d2585ac25d9b3aeab18b7c17f4b87210eda873ac0b48"
+    },
+    "apps/shared/src/gateway-contract.openrpc.json": {
+      "sha256": "f239d061e3d83b58caeba48686cd92ee4d1dc91570f606d9686b3708ac6741a0"
     }
   },
   "schema": "wiki_native_source_pins.v2"

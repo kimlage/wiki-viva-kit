@@ -14,6 +14,45 @@ beforeEach(()=>{configureLanguage('en');request.mockReset();close.mockReset();re
 afterEach(cleanup);
 async function ready(){await waitFor(()=>expect((screen.getByRole('button',{name:'Connect'}) as HTMLButtonElement).disabled).toBe(false));}
 function advanced(){fireEvent.click(screen.getByText('Advanced: execution and diagnostics'));}
+const gatewayOrigin={schema_version:'hermes.connector_gateway_origin.v1',status:'known',profile:'research',origin:{scheme:'https',host:'fixture.example.test',port:8443},provenance:'override',resolution_scope:'process',reason_code:null,account_identity_verified:false,account_enforced:false};
+it('inspects process origin separately without changing access trust or submitting a read',async()=>{
+ request.mockImplementation(async(_s,a)=>a==='routes'?{routes:[route]}:a==='inspect'?inspection():{route,gateway_origin:gatewayOrigin});
+ render(<SourceExecutorSetup source={source()} demo={false} onBind={vi.fn()} createHost={createHost}/>);await ready();advanced();
+ const before=screen.getByRole('status').textContent;
+ fireEvent.click(screen.getByRole('button',{name:'Inspect gateway origin'}));
+ await screen.findByText('https://fixture.example.test:8443');
+ expect(request.mock.calls.map(c=>c[1])).toEqual(['routes','inspect','transport_metadata']);
+ expect(request.mock.calls[request.mock.calls.length-1]?.slice(2)).toEqual(['fixture-route']);
+ expect(screen.getByRole('status').textContent).toBe(before);
+ expect(screen.getByText('Resolution in this Hermes process · Explicit process override')).toBeTruthy();
+ expect(screen.getByText(/This does not identify an account or authorize a read/)).toBeTruthy();
+});
+it('discards origin from an old route even when both environments use the same profile name',async()=>{
+ let resolve!: (result:unknown)=>void;
+ const other={...route,connectionId:'other-device',mode:'remote',key:'other-route'};
+ request.mockImplementation(async(_s,a)=>a==='routes'?{routes:[route,other]}:a==='inspect'?inspection():new Promise(done=>{resolve=done;}));
+ render(<SourceExecutorSetup source={source()} demo={false} onBind={vi.fn()} createHost={createHost}/>);await ready();advanced();
+ fireEvent.click(screen.getByRole('button',{name:'Inspect gateway origin'}));
+ await screen.findByRole('button',{name:'Checking origin…'});
+ fireEvent.change(screen.getByRole('combobox',{name:'Hermes environment'}),{target:{value:'other-route'}});
+ await ready();await act(async()=>resolve({route,gateway_origin:gatewayOrigin}));
+ expect(screen.queryByText('https://fixture.example.test:8443')).toBeNull();
+ expect(screen.getByText('Connector gateway origin: Not checked')).toBeTruthy();
+});
+it('treats a mismatched origin response and native failure as unknown without changing access state',async()=>{
+ request.mockImplementation(async(_s,a)=>a==='routes'?{routes:[route]}:a==='inspect'?inspection():{route:{...route,targetProfile:'other'},gateway_origin:gatewayOrigin});
+ render(<SourceExecutorSetup source={source()} demo={false} onBind={vi.fn()} createHost={createHost}/>);await ready();advanced();
+ const before=screen.getByRole('status').textContent;
+ fireEvent.click(screen.getByRole('button',{name:'Inspect gateway origin'}));
+ await screen.findByText('Connector gateway origin: Unknown on this host');
+ expect(screen.queryByText('https://fixture.example.test:8443')).toBeNull();
+ expect(screen.getByRole('status').textContent).toBe(before);
+ request.mockRejectedValueOnce(new Error('synthetic-only'));
+ fireEvent.click(screen.getByRole('button',{name:'Inspect gateway origin'}));
+ await waitFor(()=>expect((screen.getByRole('button',{name:'Inspect gateway origin'}) as HTMLButtonElement).disabled).toBe(false));
+ expect(screen.queryByText('synthetic-only')).toBeNull();
+ expect(screen.getByRole('status').textContent).toBe(before);
+});
 it.each(['removed','alias','provider','reconnected-account','discovery-unavailable','inactive'])('drops historical verified trust after current account %s and retains official recovery',async(change)=>{
  const nativeAccount={id:'account-a',connector:'fixture-mail',alias:'research',label:'Research',status:'active'};
  const boundExecution={...execution,account_id:nativeAccount.id,provider_id:nativeAccount.connector,account_alias:nativeAccount.alias};

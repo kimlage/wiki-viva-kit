@@ -174,6 +174,110 @@ def source_digest(pin):
     raise ValueError("kernel source pin format invalid")
 
 
+def _native_origin_resolver(source: str) -> str:
+    """Reuse the exact native pure resolver against only a three-key snapshot.
+
+    Keep the native transport module unchanged. Importing it just for metadata
+    would also import its authentication dependency graph.
+    """
+    tree = ast.parse(source)
+    selected = []
+    expected = {"_DEFAULT_TOOL_GATEWAY_DOMAIN", "_DEFAULT_TOOL_GATEWAY_SCHEME",
+                "get_tool_gateway_scheme", "build_vendor_gateway_url"}
+    for node in tree.body:
+        name = node.name if isinstance(node, ast.FunctionDef) else (node.targets[0].id
+            if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) else None)
+        if name in expected:
+            selected.append(ast.get_source_segment(source, node))
+    if len(selected) != len(expected):
+        raise ValueError("native origin resolver contract changed")
+    body = "\n\n".join(selected)
+    return ("def _native_connector_origin(env):\n"
+            "    class _Environment:\n        getenv = staticmethod(env.get)\n"
+            "    os = _Environment\n" +
+            "\n".join("    " + line if line else "" for line in body.splitlines()) +
+            "\n    return build_vendor_gateway_url('connector')\n\n\n")
+
+
+def _config_origin_metadata(source: str) -> str:
+    # This one key must branch before _profile_scoped: even its
+    # hydrate_secrets=False mode still reads a profile's dotenv store.
+    source = _replace(source, '@method("config.get")\n@_profile_scoped\ndef _(rid, params: dict) -> dict:\n',
+                      'def _cfg_get_scoped(rid, params: dict) -> dict:\n')
+    entry = '''def _cfg_get_connector_gateway_origin(params):
+    from tools.wiki_gateway_origin import origin_metadata, unknown_origin
+    # Validate against the native launch home without entering runtime/secret
+    # scope, touching a session, or activating multi-profile hosting. A sibling
+    # profile's effective settings cannot be inferred from this process env.
+    try:
+        from hermes_cli.profiles import normalize_profile_name, get_profile_dir
+        requested = params.get("profile")
+        if type(requested) is not str or not requested:
+            return unknown_origin("gateway_origin_profile_unknown")
+        name = normalize_profile_name(requested)
+        if name != requested:
+            return unknown_origin("gateway_origin_profile_unknown")
+        target = Path(get_profile_dir(name))
+        if not target.is_dir() or target.resolve() != Path(_hermes_home).resolve():
+            return unknown_origin("gateway_origin_profile_mismatch")
+    except Exception:
+        return unknown_origin("gateway_origin_profile_unknown")
+    return origin_metadata(name)
+
+
+@method("config.get")
+def _(rid, params: dict) -> dict:
+    if isinstance(params, dict) and params.get("key") == "connector_gateway_origin":
+        if params.get("metadata_only") is not True:
+            return _err(rid, 4000, "origin metadata requires metadata_only")
+        return _ok(rid, {"connector_gateway_origin": _cfg_get_connector_gateway_origin(params)})
+    if isinstance(params, dict) and "metadata_only" in params:
+        return _err(rid, 4000, "metadata_only is restricted to origin metadata")
+    return _profile_scoped(_cfg_get_scoped)(rid, params)
+_._connector_gateway_origin = "hermes.connector_gateway_origin.v1"
+'''
+    return _replace(source, '\n\n# ── setup readiness\n', '\n\n' + entry + '\n\n# ── setup readiness\n')
+
+
+def _origin_contract_ts(source: str) -> str:
+    """Frozen native generator delta, qualified against its complete renderer."""
+    source = _replace(source, '  mcp_rev?: string | null\n}',
+                      '  mcp_rev?: string | null\n  connector_gateway_origin?: Record<string, unknown> | null\n}')
+    source = _replace(source, 'export interface ConfigGetParams {\n  profile?: string | null\n  key: string\n',
+        'export interface ConfigGetParams {\n  profile?: string | null\n  key: string\n  metadata_only?: boolean | null\n')
+    source = _replace(source, 'export interface GatewayCapabilitiesResult {\n  per_session_exclusive_submit: boolean\n}',
+        'export interface GatewayCapabilitiesParams {\n  profile?: string | null\n}\n'
+        'export interface GatewayCapabilitiesResult {\n  per_session_exclusive_submit: boolean\n  connector_gateway_origin?: string | null\n}')
+    return _replace(source, "'gateway.capabilities': { params: PingParams; result: GatewayCapabilitiesResult }",
+                    "'gateway.capabilities': { params: GatewayCapabilitiesParams; result: GatewayCapabilitiesResult }")
+
+
+def _origin_contract_openrpc(source: str) -> str:
+    doc = json.loads(source)
+    schemas = doc["components"]["schemas"]
+    nullable_string = lambda title: {"anyOf": [{"type": "string"}, {"type": "null"}], "default": None, "title": title}
+    props = schemas["ConfigGetParams"]["properties"]
+    ordered_params = {}
+    for key, value in props.items():
+        ordered_params[key] = value
+        if key == "key":
+            ordered_params["metadata_only"] = {"anyOf": [{"type": "boolean"}, {"type": "null"}], "default": None, "title": "Metadata Only"}
+    schemas["ConfigGetParams"]["properties"] = ordered_params
+    schemas["ConfigGetResult"]["properties"]["connector_gateway_origin"] = {
+        "anyOf": [{"additionalProperties": True, "type": "object"}, {"type": "null"}], "default": None, "title": "Connector Gateway Origin"}
+    schemas["GatewayCapabilitiesResult"]["properties"]["connector_gateway_origin"] = nullable_string("Connector Gateway Origin")
+    added = {"additionalProperties": False, "properties": {"profile": nullable_string("Profile")}, "title": "GatewayCapabilitiesParams", "type": "object"}
+    ordered = {}
+    for key, value in schemas.items():
+        if key == "GatewayCapabilitiesResult":
+            ordered["GatewayCapabilitiesParams"] = added
+        ordered[key] = value
+    doc["components"]["schemas"] = ordered
+    method = next(row for row in doc["methods"] if row["name"] == "gateway.capabilities")
+    method["params"][0]["schema"]["$ref"] = "#/components/schemas/GatewayCapabilitiesParams"
+    return json.dumps(doc, indent=2, sort_keys=False) + "\n"
+
+
 def candidate(source_root: Path) -> dict[str, tuple[str, str]]:
     pins = json.loads((HERE / "source-pins.json").read_text())
     changes = {}
@@ -189,6 +293,28 @@ def candidate(source_root: Path) -> dict[str, tuple[str, str]]:
         changes[path] = (old, fn(new))
 
     edit("hermes_cli/web_server.py", _with_native_host_lifespan)
+    edit("tui_gateway/methods_config.py", _config_origin_metadata)
+    # Safe capability negotiation prevents a new UI from probing config.get on
+    # an old build, whose generic profile decorator would hydrate secrets first.
+    # The marker is on the actually registered enforcing entry, not a setting.
+    edit("tui_gateway/methods_voice.py", lambda s: _replace(s,
+        'return _ok(rid, {"per_session_exclusive_submit": bool(PER_SESSION_EXCLUSIVE_SUBMIT)})',
+        'return _ok(rid, {"per_session_exclusive_submit": bool(PER_SESSION_EXCLUSIVE_SUBMIT),\n'
+        '                     "connector_gateway_origin": getattr(_methods.get("config.get"), "_connector_gateway_origin", None)})'))
+    edit("tui_gateway/contracts/config_free_tier_control.py", lambda s: _replace(_replace(s,
+        '    key: str\n    cwd: str | None = None\n', '    key: str\n    metadata_only: bool | None = None\n    cwd: str | None = None\n'),
+        '    mcp_rev: str | None = None\n',
+        '    mcp_rev: str | None = None\n    connector_gateway_origin: dict[str, JsonValue] | None = None\n'))
+    edit("tui_gateway/contracts/liveness.py", lambda s: _replace(_replace(s,
+        '    per_session_exclusive_submit: bool\n',
+        '    per_session_exclusive_submit: bool\n    connector_gateway_origin: str | None = None\n'),
+        'method("gateway.capabilities", params=PingParams, result=GatewayCapabilitiesResult,',
+        'class GatewayCapabilitiesParams(Params):\n    profile: str | None = None\n\n\n'
+        'method("gateway.capabilities", params=GatewayCapabilitiesParams, result=GatewayCapabilitiesResult,'))
+    edit("apps/shared/src/gateway-contract.generated.ts", _origin_contract_ts)
+    edit("apps/shared/src/gateway-contract.openrpc.json", _origin_contract_openrpc)
+    changes["tools/wiki_gateway_origin.py"] = ("", _native_origin_resolver(changes["tools/managed_tool_gateway.py"][0]) +
+        (HERE / "gateway_origin_metadata.py").read_text())
 
     # Establish process restriction/admission at complete-module import time,
     # before native launch preparation, dotenv, user plugins or built-in tools.
@@ -709,8 +835,11 @@ return transformed"""))
             vendored = vendored.replace("from ." + old + " import", "from tools." + new + " import")
         changes["tools/" + target + ".py"] = ("", vendored)
     changes["tools/wiki_authority.py"] = ("", (KIT / "wiki_core/runtime_authority.py").read_text())
-    for _, text in changes.values():
-        ast.parse(text)
+    for path, (_, text) in changes.items():
+        if path.endswith(".py"):
+            ast.parse(text)
+        elif path.endswith(".json"):
+            json.loads(text)
     return changes
 
 
