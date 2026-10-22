@@ -307,3 +307,16 @@ def test_inventory_diff_uses_content_fingerprint_not_modified_timestamp() -> Non
     assert _inventory_diff(source, inventory)["records"][0]["status"] == "enriched"
     inventory["records"][0]["filters"]["md5_checksum"] = "def"
     assert _inventory_diff(source, inventory)["records"][0]["status"] == "changed"
+
+
+@pytest.mark.parametrize("updates", [
+    {"access": {"expected_identity": "reader@example.test"}},
+    {"execution": {"session_id": "retired-native-session"}},
+    {"source_host": "retired-host"},
+])
+def test_retired_connection_updates_do_not_change_source_content(tmp_path: Path, updates):
+    config = _repo(tmp_path)
+    before = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*.md")}
+    with pytest.raises(ValueError, match="source_operation_unknown_field"):
+        preview_source_operation(tmp_path, config, "source-a", "__source__", updates)
+    assert {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*.md")} == before

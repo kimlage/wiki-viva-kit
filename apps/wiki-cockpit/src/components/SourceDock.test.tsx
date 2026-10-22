@@ -7,10 +7,10 @@
 // brief stays server-composed, the auth block is a pointer without any secret
 // value, and focus returns to the opener after the dock closes.
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureLanguage } from "../data/i18n";
-import type { BriefSpec, SnapshotBundle, SourceAccess, SourceEntity, SourceGroup, SourceGroupsOperationResult, SourceOperationPreview, SourceOperationReceipt } from "../types";
+import type { BriefSpec, SnapshotBundle, SourceEntity, SourceGroup, SourceGroupsOperationResult, SourceOperationPreview, SourceOperationReceipt } from "../types";
 import { SourceDock } from "./SourceDock";
 import { SourceWorkspace } from "./SourceWorkspace";
 
@@ -617,6 +617,57 @@ describe("SourceDock operational workspace", () => {
     ));
   });
 
+  it.each(["resolve", "reject"] as const)("releases the next source while the previous preview is pending (%s)", async (settlement) => {
+    const a = sourceFixture();
+    const b = sourceFixture({ source_id: "source-drive", title: "Drive da equipe", platform: "drive",
+      config_ref: "memories/documentos/config-drive.md" });
+    const bundle = bundleWith(a);
+    bundle.sourceEntities!.sources.push(b);
+    let resolveA!: (value: SourceOperationPreview) => void;
+    let rejectA!: (reason: Error) => void;
+    let resolveB!: (value: SourceOperationPreview) => void;
+    const pendingA = new Promise<SourceOperationPreview>((resolve, reject) => { resolveA = resolve; rejectA = reject; });
+    const pendingB = new Promise<SourceOperationPreview>((resolve) => { resolveB = resolve; });
+    const preview = vi.fn((sourceId: string) => sourceId === a.source_id ? pendingA : pendingB);
+    const updates = { source_kind: "item" };
+    const previewA: SourceOperationPreview = { ok: true, preview_token: "preview-a", config_ref: a.config_ref,
+      updates, changes: [{ field: "source_kind", before: "account", after: "discarded-a-result" }] };
+    const previewB: SourceOperationPreview = { ok: true, preview_token: "preview-b", config_ref: b.config_ref,
+      updates, changes: [{ field: "source_kind", before: "account", after: "item" }] };
+    const apply = vi.fn().mockResolvedValue({ ok: true, operation_id: "source-b-applied", source_id: b.source_id,
+      stream_id: "__source__", changes: [], recorded_at: "2026-10-22T10:00:00Z", status: "applied" });
+    const props = { bundle, onPreviewConfiguration: preview, onApplyConfiguration: apply, onNotice: noop, onClose: noop };
+    const { rerender } = render(<SourceWorkspace {...props} sourceId={a.source_id} />);
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    fireEvent.change(screen.getByLabelText("Source type"), { target: { value: "item" } });
+    const reviewA = screen.getByRole("button", { name: "Review source settings" });
+    fireEvent.click(reviewA);
+    await waitFor(() => expect(preview).toHaveBeenCalledWith(a.source_id, "__source__", updates));
+    expect((reviewA as HTMLButtonElement).disabled).toBe(true);
+
+    // The real workspace reuses SourceDock; B must not require a remount to unlock.
+    rerender(<SourceWorkspace {...props} sourceId={b.source_id} />);
+    const reviewB = screen.getByRole("button", { name: "Review source settings" });
+    expect(reviewB).toBe(reviewA);
+    await waitFor(() => expect((reviewB as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(screen.getByLabelText("Source type"), { target: { value: "item" } });
+    fireEvent.click(reviewB);
+    await waitFor(() => expect(preview).toHaveBeenCalledWith(b.source_id, "__source__", updates));
+    expect((reviewB as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => {
+      if (settlement === "resolve") resolveA(previewA);
+      else rejectA(new Error("discarded-a-error"));
+      await pendingA.catch(() => undefined);
+    });
+    expect((reviewB as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/discarded-a/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirm and apply" })).toBeNull();
+    await act(async () => { resolveB(previewB); });
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm and apply" }));
+    await waitFor(() => expect(apply).toHaveBeenCalledWith(b.source_id, "__source__", updates, "preview-b"));
+    expect(apply).toHaveBeenCalledTimes(1);
+  });
+
   it("refreshes the configuration draft when the authoritative source record changes", async () => {
     const { rerender } = render(
       <SourceDock bundle={bundleWith(sourceFixture())} sourceId="source-gmail" onNotice={noop} onClose={noop} />
@@ -878,7 +929,7 @@ describe("SourceDock honest edges (§19.6)", () => {
     expect(document.querySelector('.dockHeader img[src="/source-icons/gmail.svg"]')).toBeTruthy();
   });
 
-  it("does not label native login from the legacy agent connector catalogue", () => {
+  it("keeps connector availability distinct from source login", () => {
     render(
       <SourceDock
         bundle={bundleWith(sourceFixture({
@@ -895,84 +946,29 @@ describe("SourceDock honest edges (§19.6)", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Update" }));
     const authorization = screen.getByRole("region", { name: "Authorization and live access" });
-    expect(within(authorization).queryByText("Connector unavailable")).toBeNull();
+    expect(within(authorization).getByText("Connector unavailable")).toBeTruthy();
     expect(within(authorization).getByText("keychain:gmail-personal")).toBeTruthy();
-    expect(within(authorization).queryByText(/does not expose google-drive/)).toBeNull();
-  });
-
-  it("previews expected account and scope metadata without a grant", async () => {
-    const preview = vi.fn().mockResolvedValue({ ok: true, preview_token: "fictional-preview", changes: [] });
-    render(<SourceDock bundle={bundleWith(sourceFixture())} sourceId="source-gmail" onPreviewConfiguration={preview} onNotice={noop} onClose={noop} />);
-    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
-    fireEvent.change(screen.getByLabelText("Expected account"), { target: { value: "reader@example.test" } });
-    fireEvent.change(screen.getByLabelText("Context coordinator"), { target: { value: "research" } });
-    fireEvent.change(screen.getByLabelText("Declared executor"), { target: { value: "fixture-executor" } });
-    fireEvent.change(screen.getByLabelText("Requested scopes (comma separated)"), { target: { value: "read" } });
-    fireEvent.click(screen.getByRole("button", { name: "Review source settings" }));
-    await waitFor(() => expect(preview).toHaveBeenCalledWith("source-gmail", "__source__", { access: {
-      schema_version: "wiki_source_access.v1", expected_identity: "reader@example.test", coordinator: "research", executor: "fixture-executor", requested_scopes: ["read"]
-    } }));
-    expect(screen.queryByText("Access verified")).toBeNull();
-  });
-
-  it.each(["throws", "failed_receipt"])("does not revive verified evidence after run %s and a metadata preview", async (failure) => {
-    const access: SourceAccess = { schema_version: "wiki_source_access.v1", binding_sha256: "a".repeat(64),
-      status: "configured", verified: false, expected_identity: "reader@example.test", confirmed_identity: "",
-      coordinator: "research", executor: "fixture-executor", requested_scopes: ["read"], granted_scopes: [],
-      checked_at: "", valid_until: "", evidence_ref: "", error_code: "", execution_ready: false, business_authority: "unknown" };
-    const verified: SourceAccess = { ...access, status: "verified", verified: true, confirmed_identity: access.expected_identity,
-      granted_scopes: ["read"], checked_at: new Date(Date.now() - 1000).toISOString(),
-      valid_until: new Date(Date.now() + 60000).toISOString(), evidence_ref: "receipt:fictional-001" };
-    const preview = vi.fn().mockResolvedValue({ ok: true, preview_token: "fictional", access: verified,
-      execution: { mode: "deterministic_connector", argv: [], mcp_hint: "", how_to_export: "", runnable: true } });
-    const failedReceipt: SourceOperationReceipt = { ok: false, error: "source_refresh_access_not_verified", operation_id: "fictional-failed",
-      source_id: "source-gmail", stream_id: "__source__", status: "failed", recorded_at: "", changes: [] };
-    const run = failure === "throws" ? vi.fn().mockRejectedValue(new Error("source_refresh_access_not_verified")) : vi.fn().mockResolvedValue(failedReceipt);
-    const metadata = vi.fn().mockResolvedValue({ ok: true, preview_token: "metadata", updates: {}, changes: [] });
-    render(<SourceDock bundle={bundleWith(sourceFixture({ access, access_policy: {
-      schema_version: "wiki_source_access.v1", expected_identity: access.expected_identity, coordinator: access.coordinator,
-      executor: access.executor, requested_scopes: access.requested_scopes
-    }, update_route: { mode: "deterministic_connector", mcp_hint: "", runnable: true, requires_agent: false } }))}
-      sourceId="source-gmail" onPreviewRefresh={preview} onRunRefresh={run} onPreviewConfiguration={metadata} onNotice={noop} onClose={noop} />);
-    fireEvent.click(screen.getByRole("button", { name: "Update" }));
-    fireEvent.click(screen.getByRole("button", { name: "Test access in this executor" }));
-    await screen.findByText("Access verified");
-    fireEvent.click(screen.getByRole("button", { name: "Add selected records" }));
-    await screen.findByText("Technical blocker");
-    expect(screen.queryByText("Access verified")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Add selected records" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
-    fireEvent.change(screen.getByLabelText("Expected account"), { target: { value: "other@example.test" } });
-    fireEvent.click(screen.getByRole("button", { name: "Review source settings" }));
-    await waitFor(() => expect(metadata).toHaveBeenCalledOnce());
-    fireEvent.click(screen.getByRole("button", { name: "Update" }));
-    expect(screen.getByText("Technical blocker")).toBeTruthy();
-    expect(screen.queryByText("Access verified")).toBeNull();
-    expect(run).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("button", { name: "Test access in this executor" }));
-    await screen.findByText("Access verified");
-    expect(preview).toHaveBeenCalledTimes(2);
+    expect(within(authorization).queryByText("Access verified")).toBeNull();
+    expect(within(authorization).queryByRole("combobox")).toBeNull();
   });
 
   it("configures a valid empty source before discovering any records", async () => {
-    const access = { schema_version: "wiki_source_access.v1", expected_identity: "reader@example.test",
-      coordinator: "research", executor: "fixture-executor", requested_scopes: ["read"] };
-    const preview = vi.fn().mockResolvedValue({ ok: true, preview_token: "empty-source-preview", updates: { access }, changes: [] });
+    const updates = { source_kind: "collection" };
+    const preview = vi.fn().mockResolvedValue({ ok: true, preview_token: "empty-source-preview", updates, changes: [] });
     const receipt: SourceOperationReceipt = { ok: true, operation_id: "empty-source-configuration", source_id: "source-gmail",
       stream_id: "__source__", changes: [], recorded_at: "2026-10-20T12:00:00Z", status: "applied" };
     const apply = vi.fn().mockResolvedValue(receipt);
+    const notice = vi.fn();
     render(<SourceDock bundle={bundleWith(sourceFixture({ streams: [], pending_streams: 0 }))}
-      sourceId="source-gmail" onPreviewConfiguration={preview} onApplyConfiguration={apply} onNotice={noop} onClose={noop} />);
+      sourceId="source-gmail" onPreviewConfiguration={preview} onApplyConfiguration={apply} onNotice={notice} onClose={noop} />);
     fireEvent.click(screen.getByRole("button", { name: "Configure" }));
-    fireEvent.change(screen.getByLabelText("Expected account"), { target: { value: access.expected_identity } });
-    fireEvent.change(screen.getByLabelText("Context coordinator"), { target: { value: access.coordinator } });
-    fireEvent.change(screen.getByLabelText("Declared executor"), { target: { value: access.executor } });
-    fireEvent.change(screen.getByLabelText("Requested scopes (comma separated)"), { target: { value: "read" } });
+    fireEvent.change(screen.getByLabelText("Source type"), { target: { value: "collection" } });
     fireEvent.click(screen.getByRole("button", { name: "Review source settings" }));
-    await waitFor(() => expect(preview).toHaveBeenCalledWith("source-gmail", "__source__", { access }));
+    await waitFor(() => expect(preview).toHaveBeenCalledWith("source-gmail", "__source__", updates));
     fireEvent.click(screen.getByRole("button", { name: "Confirm and apply" }));
-    await waitFor(() => expect(apply).toHaveBeenCalledWith("source-gmail", "__source__", { access }, "empty-source-preview"));
-    await screen.findByText("empty-source-configuration");
+    await waitFor(() => expect(apply).toHaveBeenCalledWith("source-gmail", "__source__", updates, "empty-source-preview"));
+    await waitFor(() => expect(notice).toHaveBeenCalledWith(expect.stringContaining("empty-source-configuration")));
+    expect(screen.queryByLabelText("Expected account")).toBeNull();
     expect(screen.queryByText("Access verified")).toBeNull();
   });
 
@@ -1035,35 +1031,4 @@ describe("SourceDock focus restore (§14.4/§19.6)", () => {
     opener.remove();
     other.remove();
   });
-});
-
-
-it("saved Hermes execution routes Update to native Configure without legacy test or refresh", () => {
-  configureLanguage("en");
-  const test = vi.fn(), refresh = vi.fn();
-  const source = sourceFixture({access_policy:{schema_version:"wiki_source_access.v1",expected_identity:"reader@example.test",coordinator:"research",executor:"fixture",requested_scopes:["read"],execution:{connection_id:"fixture",profile:"research",target_profile:"research",method:"native_session",stored_session_id:"stored-fixture"}},update_route:{mode:"deterministic_connector",mcp_hint:"",runnable:true,requires_agent:false}});
-  render(<SourceDock bundle={bundleWith(source)} sourceId="source-gmail" onTestAccess={test} onPreviewRefresh={refresh} onNotice={noop} onClose={noop}/>);
-  fireEvent.click(screen.getByRole("button",{name:"Update"}));
-  fireEvent.click(screen.getByRole("button",{name:"Configure executor and access"}));
-  expect(screen.getByRole("button",{name:"Connect"})).toBeTruthy();
-  expect(screen.queryByRole("button",{name:"Test access in this executor"})).toBeNull();
-  expect(test).not.toHaveBeenCalled();expect(refresh).not.toHaveBeenCalled();
-});
-
-it('opens Configure and binds an executor with the backend first-setup access_policy empty object',async()=>{
- configureLanguage('en');
- const source=sourceFixture({source_kind:'repository',access_policy:{} as SourceEntity['access_policy'],access:{schema_version:'wiki_source_access.v1',binding_sha256:'a'.repeat(64),status:'not_configured',verified:false,expected_identity:'',confirmed_identity:'',coordinator:'',executor:'',requested_scopes:[],granted_scopes:[],checked_at:'',valid_until:'',evidence_ref:'',error_code:'',execution_ready:false,business_authority:'unknown'}});
- const route={connectionId:'fixture',profile:'research',targetProfile:'research',mode:'local' as const,key:'fixture-route'};
- const preview=vi.fn().mockResolvedValue({ok:true,preview_token:'fixture',updates:{},changes:[]});
- const createSourceHost=()=>({connect:async()=>{},close:()=>{},request:async(_source:SourceEntity,action:string)=>action==='routes'?{routes:[route]}:{binding:{source_id:source.source_id,context:source.context,source_kind:'repository',binding_sha256:'a'.repeat(64),config_sha256:'b'.repeat(64),access_policy:{} as SourceEntity['access_policy']},sessions:[{id:'stored-fixture',title:'Existing context'}]}});
- render(<SourceDock bundle={bundleWith(source)} sourceId={source.source_id} createSourceHost={createSourceHost} onPreviewConfiguration={preview} onNotice={noop} onClose={noop}/>);
- fireEvent.click(screen.getByRole('button',{name:'Configure'}));
- await waitFor(()=>expect((screen.getByRole('button',{name:'Connect'}) as HTMLButtonElement).disabled).toBe(false));
- fireEvent.click(screen.getByText('Advanced: execution and diagnostics'));
- await screen.findByLabelText('Existing native conversation');fireEvent.change(screen.getByLabelText('Existing native conversation'),{target:{value:'stored-fixture'}});fireEvent.click(screen.getByRole('button',{name:'Use this executor in source settings'}));
- expect((screen.getByLabelText('Requested scopes (comma separated)') as HTMLInputElement).value).toBe('');
- fireEvent.click(screen.getByText('Source and record settings'));
- fireEvent.click(screen.getByRole('button',{name:'Review source settings'}));
- await waitFor(()=>expect(preview).toHaveBeenCalledWith(source.source_id,'__source__',{access:expect.objectContaining({expected_identity:'',coordinator:source.context,requested_scopes:[],execution:expect.objectContaining({connection_id:'fixture',profile:'research',target_profile:'research',method:'native_session',stored_session_id:'stored-fixture'})})}));
- expect(screen.queryByText('Access verified')).toBeNull();
 });

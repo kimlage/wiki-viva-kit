@@ -249,3 +249,12 @@ def test_malformed_nested_recipe_shapes_are_lenient_and_code_only() -> None:
     assert recipe.streams[0].target_pages == ()
     assert recipe.ingest_argv == ()
     assert not any("not-a-mapping" in error or "not-a-list" in error for error in errors)
+
+
+@pytest.mark.parametrize("ref", ["Bearer abcdefghijkl", "https://example.test/auth?code=opaque", "x"*60])
+def test_auth_ref_cannot_hide_a_secret_for_any_pointer_method(tmp_path, ref):
+    from wiki_core.source_recipe import parse_recipe, validate_recipe
+    for method in ["env", "keychain", "onepassword", "oauth_file", "mcp"]:
+        recipe = parse_recipe({"auth": {"method": method, "ref": ref}})
+        errors = validate_recipe(recipe)
+        assert errors == ["source_recipe_secret_detected"] and ref not in str(errors)

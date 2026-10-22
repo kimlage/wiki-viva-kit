@@ -2,7 +2,7 @@
 
 Real: source files/manifests, canonical action/context, Git/bare transport,
 contribution implementation, local HTTP producer and served body readback.
-Mocked: source account probe, executor material, independent review, GitHub/CI
+Mocked: executor material, independent review, GitHub/CI
 and merge service. Fixture gate scripts are invocation contracts, not audits.
 No model, corporate account or external network is used.
 """
@@ -17,10 +17,8 @@ import yaml
 import wiki_core.action_contribution as port
 from wiki_core.action_transition import _parse_document, _render_document
 from wiki_core.config import load_config
-from wiki_core.source_config import project_source_access
 from wiki_core.web.ingestion_plan import build_ingestion_plan
 from test_action_contribution import fixture, call, git, review, head_review, reconcile_pr_identity
-from test_source_access import source, probe
 from test_web_server import _Server
 
 
@@ -49,10 +47,6 @@ def test_composed_fictional_cycle_replay_interruption_exact_review_and_served_by
     preview = build_ingestion_plan(tmp_path,cfg,event_path,context="system",snapshot=snapshot)["action_preview"]
     assert preview["status"] == "reuse" and not preview["execution_ready"]
     assert preview == build_ingestion_plan(tmp_path,cfg,event_path,context="system",snapshot=snapshot)["action_preview"]
-    # A synthetic adapter assertion is NOT a real account observation.
-    s = source(); now=dt.datetime(2026,10,20,12,tzinfo=dt.timezone.utc)
-    assert project_source_access(s,probe(s),now=now)["verified"]
-    assert not project_source_access(s,probe(s,outcome="awaiting_auth"),now=now)["verified"]
     prepared = call(tmp_path,"prepare",request,review=review(request))
     assert prepared["status"] == "prepared",prepared
     replay = call(tmp_path,"prepare",request,review=review(request))

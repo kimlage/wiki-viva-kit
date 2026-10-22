@@ -46,9 +46,9 @@ for the routing contract and separate provider-protection checks.
 Private consumer PII is valid. Use `wiki_audit.py --public-export --check` at
 public boundaries. Access secrets are blocked everywhere.
 
-[wiki_hermes_board.py](wiki_hermes_board.py) installs the optional Hermes Desktop
-view of the [native action board](../docs/references/guides/native-action-board.md).
-The local operator can serve a built cockpit with `--frontend` on its own origin.
+The [standalone action board](../docs/references/guides/native-action-board.md)
+is served by `wiki_web_server.py --frontend`; it does not require a native host.
+The retired Hermes installer is retained in Git history only.
 
 [wiki_coordination.py](wiki_coordination.py) reads configured coordinator routes and composes revision-bound context packets without dispatching agents. See [context coordinators](../docs/references/guides/context-coordinators.md).
 

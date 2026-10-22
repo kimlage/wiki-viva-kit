@@ -1842,21 +1842,24 @@ def test_board_single_page_create_edit_move_and_stale_cas(tmp_path: Path) -> Non
         server.close()
 
 
-def test_source_host_pair_requires_explicit_embed_and_existing_operator_gate(server: _Server):
+@pytest.mark.parametrize("method,path", [
+    ("GET", "/api/source-host/challenge"),
+    ("GET", "/api/source-host/status?challenge=retired"),
+    ("GET", "/api/sources/synthetic/access-binding"),
+    ("POST", "/api/source-host/attest"),
+    ("POST", "/api/sources/synthetic/operations/access-test"),
+])
+def test_retired_host_routes_do_not_expose_or_mutate_the_wiki(server: _Server, method: str, path: str):
     server.server.frontend_dir = server.server.root
-    assert server.get('/api/source-host/challenge')[0] == 403
-    server.server.frame_origins = ('file:',)
-    assert server.get('/wiki-cockpit.config.json')[1]['source_host_transport'] == 'electron_message_port'
-    status, value = server.get('/api/source-host/challenge')
-    assert status == 200
-    key = value['challenge']
-    path = '/api/source-host/status?challenge=' + key
-    assert not server.get(path)[1]['attested']
-    body = {'challenge':key, 'host_id':'wiki-viva-board'}
-    assert server.post('/api/source-host/attest', body, nonce='invalid')[0] == 403
-    assert server.post('/api/source-host/attest', body, origin='https://foreign.invalid')[0] == 403
-    assert not server.get(path)[1]['attested']
-    server.server.begin_mutation = lambda: pytest.fail('pairing must not write the wiki')
-    assert server.post('/api/source-host/attest', body, origin=server.url(''))[1]['attested']
-    assert server.get(path)[1]['attested']
-    assert server.post('/api/source-host/attest', body)[0] == 403
+    server.server.frame_origins = ("file:",)
+    before = {p.relative_to(server.server.root): p.read_bytes()
+              for p in server.server.root.rglob("*.md")}
+    if method == "GET":
+        status, _ = server.get(path)
+    else:
+        status, _ = server.post(path, {"challenge": "retired", "host_id": "wiki-viva-board"})
+    assert status == 404
+    config = server.get("/wiki-cockpit.config.json")[1]
+    assert "source_host_transport" not in config and "source_host_origins" not in config
+    assert {p.relative_to(server.server.root): p.read_bytes()
+            for p in server.server.root.rglob("*.md")} == before

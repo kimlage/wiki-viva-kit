@@ -1,16 +1,17 @@
-# Source access and linked-action previews
+# Source configuration and linked-action previews
 
-The existing Sources workspace separates **declared configuration**, **adapter
-evidence**, and **execution authority**. Open a source's Update tab to inspect
-its account, context coordinator, executor, requested and observed scopes,
-last probe, validity, source update date, and technical state. Configure edits
-expected metadata through the existing content-bound preview/confirmation flow.
-Saving a declaration does not authenticate, grant permissions or activate a bot.
+The Sources workspace retains its catalogue, source and record settings,
+authentication method and non-secret reference, inventory refresh and ingestion.
+Configuration changes use the existing content-bound preview/confirmation flow.
+The cancelled Hermes connection controls, executor bindings, account tests and
+source-host pairing are removed. Historical access fields are not interpreted
+as authorization, and existing source documents are not rewritten by this change.
 
 No credential belongs in a recipe. `auth.ref` is a non-authorizing locator in
 the official client or secret store. URLs, bearer values and credential-looking
-blobs are refused. Profiles, provider login, capability flags and successful
-process exit do not prove access to a resource or isolation of accounts.
+blobs are refused. Capability flags and a successful process exit do not prove
+access to a private resource. The original authorization card remains descriptive;
+the wiki does not connect accounts or grant permissions.
 
 ## Textual wiki content and external originals
 
@@ -46,73 +47,6 @@ before removing an original. Retain its Git provenance without rewriting history
 The feature is absent by default; malformed policies and unreadable catalogs
 refuse when configured. Existing privacy and secret gates remain mandatory.
 
-## Declared access
-
-An optional `access` mapping in the existing source recipe has this shape:
-
-```yaml
-access:
-  schema_version: wiki_source_access.v1
-  expected_identity: reader@example.test
-  coordinator: research
-  executor: example-executor
-  requested_scopes: [read]
-```
-
-These are fictional values. Real identities remain in the private consumer.
-The existing source-operation API accepts `access` only at source scope; its
-preview token binds the complete configuration, and stale confirmation refuses
-the write. Observed identity, granted scopes and verification cannot be set by
-this browser patch. There is no new credential registry, task store or runner.
-
-## Evidence from a supported adapter
-
-Only the repository-owned, allowlisted deterministic refresh adapter may
-optionally return `access_probe` beside its existing inventory. It is not read
-from an authored recipe or accepted as an HTTP grant. The adapter owns the
-official authentication mechanism and its truthful resource-read assertion.
-Its complete observation contains exactly:
-
-```json
-{
-  "schema_version": "wiki_source_access.v1",
-  "binding_sha256": "<digest of the exact source_access_subject>",
-  "outcome": "verified",
-  "confirmed_identity": "reader@example.test",
-  "granted_scopes": ["read"],
-  "checked_at": "2026-01-01T12:00:00Z",
-  "valid_until": "2026-01-01T12:05:00Z",
-  "evidence_ref": "receipt:fictional-resource-read",
-  "error_code": ""
-}
-```
-
-The binding is SHA256 of UTF-8 canonical JSON (`sort_keys=True`,
-`ensure_ascii=False`, `allow_nan=False`, separators `(',', ':')`) over
-`source_access_subject(source)`: source ID, context, platform, locator, auth
-pointer and declared access. A different account, executor, scope or context
-cannot reuse that evidence. Dates require timezones and a valid finite window;
-expired evidence is unknown. A successful inventory without this observation
-remains unverified. A local report is trusted adapter evidence, not a signed
-platform permission or proof of an autonomous workflow.
-
-Retained source-operation receipts show their historical probe cut after a
-reload; a new view requires revalidation before showing verified access again.
-This prevents an older receipt from hiding a later session failure or denial.
-
-Other outcomes are `awaiting_auth`, `awaiting_approval`, `authority_blocked`,
-`technical_blocked`, `execution_unknown`, and `revoked`. A denial is not an
-expired login. Uncertain effects require reconciliation of the same task before
-retry. Probes and their diagnostics cannot contain secrets or authorization URLs.
-
-Revalidation is offered only through the existing deterministic-adapter preview.
-An agent connector, missing adapter or manual-export route has no invented
-Connect/Grant/Disconnect control. Use the supported official client when needed;
-disabling a tool is not revoking an account. Declared-access sources cannot apply
-inventory through this route until fresh identity/scope evidence is verified.
-Legacy recipes without access declarations retain their existing behavior and
-are never upgraded to verified by capability or exit code.
-
 ## Read-only event-to-action composition
 
 The existing ingestion plan and Add surface expose a linked-action preview.
@@ -146,20 +80,13 @@ states are retained; `execution_ready` and `writes` always remain false.
 Required-source reads remain explicitly unknown; this preview does not consult
 corporate services, Tasks, accounts or a model.
 
-## Validation and remaining acceptance
+## Validation boundary
 
-Public tests use fictional identities and clearly identify their doubles. The
-composed cycle uses real local files/manifests, templates, context/transition
-helpers, Git/bare transport and HTTP readback. Account probes, executor output,
-independent review, GitHub/CI and merge service are synthetic; fixture gate
-scripts prove invocation, not auditor acceptance. Replay, wrong accounts,
-expiry, approval/denial, revocation, unknown effects and interrupted merge are
-covered without claiming live account or autonomous-runtime acceptance.
+The composed contribution test uses real synthetic files, Git/bare transport,
+canonical action state and local HTTP served-body readback. Executor output,
+independent review, GitHub/CI and merge service are doubles. It proves neither
+live account access nor an autonomous runtime. Ingestion previews remain
+read-only and never authorize a source read or create an executor.
 
-Actual activation still requires an authorized real source read, event, same
-canonical task, admitted executor, result, independent exact-head review,
-applicable gates, merge and served-byte readback. Repeat without duplicate
-effects and validate supported expired-login/interruption recovery before
-scheduling autonomy. Pending work may recur briefly in reports; old results
-must retain their original dates and must not appear as new progress. No
-unchanged-source rule hides a still-open decision, question or access problem.
+The [withdrawal record](../releases/hermes-integration-withdrawal-2026-10-22.md)
+identifies the preserved code cut and the separate installed-plugin boundary.

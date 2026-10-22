@@ -1,4 +1,3 @@
-import type { SourceHostPort } from "../application/sourceAccess";
 // SourceDock (?dock=source&src=<id>): a data source as a FIRST-CLASS entity.
 // Identity (platform · locator · owner), sync health, the channels/streams as a
 // table with per-stream freshness vs cadence, the executable export manual, and
@@ -32,8 +31,8 @@ import { DockTelemetryRail } from "./DockTelemetryRail";
 import { ExpandablePre } from "./ExpandablePre";
 import type { AgentCapabilities, BriefSpec, CodexJobRecord, SnapshotBundle, SourceEntity, SourceOperationPreview, SourceOperationReceipt } from "../types";
 import {
-  EMITTED_PAGE_LINK_BUDGET,
   SYNC_TONE,
+  EMITTED_PAGE_LINK_BUDGET,
   TRACE_MODES,
   formatBytes,
   formatWhen,
@@ -52,7 +51,6 @@ import { useSourceOperations } from "./useSourceOperations";
 import { SourceRunMonitor } from "./SourceRunMonitor";
 import { SourcePlatformIcon } from "./SourcePlatformIcon";
 import { SourceAuthorizationCard } from "./SourceAuthorizationCard";
-import { SourceExecutorSetup } from "./SourceExecutorSetup";
 
 export function SourceDock({
   bundle,
@@ -68,8 +66,6 @@ export function SourceDock({
   onApplyConfiguration,
   onListReceipts,
   onPreviewRefresh,
-  onTestAccess,
-  createSourceHost,
   onRunRefresh,
   onListJobs,
   onStreamJobLog,
@@ -96,8 +92,6 @@ export function SourceDock({
   onPreviewConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>) => Promise<SourceOperationPreview>;
   onApplyConfiguration?: (sourceId: string, streamId: string, updates: Record<string, unknown>, previewToken: string) => Promise<SourceOperationReceipt>;
   onListReceipts?: (sourceId: string, options?: { signal?: AbortSignal }) => Promise<SourceOperationReceipt[]>;
-  createSourceHost?: () => SourceHostPort;
-  onTestAccess?: (sourceId: string) => Promise<SourceOperationReceipt>;
   onPreviewRefresh?: (sourceId: string, streamId: string, rawPath?: string) => Promise<SourceOperationPreview>;
   onRunRefresh?: (sourceId: string, streamId: string, rawPath: string, previewToken: string, selectedExternalIds?: string[]) => Promise<SourceOperationReceipt>;
   onListJobs?: (options?: { signal?: AbortSignal }) => Promise<CodexJobRecord[]>;
@@ -133,9 +127,6 @@ export function SourceDock({
     operationPreview,
     operationBusy,
     operationError,
-    accessProbeFailed,
-    testedAccess,
-    testAccess,
     receipts,
     agentPreference,
     setAgentPreference,
@@ -168,7 +159,6 @@ export function SourceDock({
     onApplyConfiguration,
     onListReceipts,
     onPreviewRefresh,
-  onTestAccess,
     onRunRefresh,
     onSourceChanged,
     onNotice,
@@ -278,12 +268,6 @@ export function SourceDock({
     (refreshPreview?.execution?.requires_agent && (!connectorReady || !agentReady))
   );
   const updateRoute = refreshPreview?.execution ?? source.update_route;
-  const retainedAccess = receipts.find((r) => r.access?.binding_sha256 === source.access?.binding_sha256)?.access;
-  // Retained receipts show the historical cut; a new view requires a fresh
-  // probe before presenting verified access (including after a lost denial).
-  const displayedAccess = testedAccess ?? refreshPreview?.access ?? refreshReceipt?.access ??
-    (retainedAccess ? { ...retainedAccess, status: "unknown", verified: false } : source.access);
-  const nativeControls = Boolean(source.access_policy?.execution) || updateRoute?.mode !== "deterministic_connector";
   const selectedAgentName = agentPreference === "claude" ? "Claude" : "Codex";
   const showAgentChoice = updateRoute ? Boolean(updateRoute.requires_agent) : true;
   const refreshPanelKind = updateRoute?.mode === "script"
@@ -304,9 +288,6 @@ export function SourceDock({
           <SourcePlatformIcon source={source} size={16} />
           <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
           <span className="pill pill-muted">{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
-          <SourceAuthorizationCard compact nativeManaged={nativeControls} source={source} route={updateRoute} agentName={selectedAgentName}
-            agentCapabilitiesKnown={Boolean(agentCapabilities)} agentReady={agentReady} connectorReady={connectorReady}
-            access={displayedAccess} probeFailed={accessProbeFailed} />
           {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
         </header>
 
@@ -616,12 +597,7 @@ export function SourceDock({
               agentCapabilitiesKnown={Boolean(agentCapabilities)}
               agentReady={agentReady}
               connectorReady={connectorReady}
-              access={displayedAccess}
-              probeFailed={accessProbeFailed}
-              onConfigure={() => setSection("configure")}
-              nativeManaged={nativeControls}
-              revalidateLabel={nativeControls ? t("source.access.manageHermes") : undefined}
-              onRevalidate={!demo && !operationBusy ? nativeControls ? () => setSection("configure") : onTestAccess ? () => void testAccess() : onPreviewRefresh ? () => void inspectRefresh() : undefined : undefined}
+              liveAccessVerified={false}
             />
             <div className="sourceUpdateRoute">
               <div>
@@ -767,43 +743,14 @@ export function SourceDock({
 
         {section === "configure" && (
           <section className="sourceOperationWorkspace" aria-label={t("source.configure.title")}>
-            {!nativeControls && <>
             <header className="sourceOperationHeader">
               <span className="sourceOperationIcon"><Settings2 size={18} aria-hidden /></span>
               <span>
                 <small>{t("source.configure.eyebrow")}</small>
-                <h3>{t(nativeControls ? "source.connection.title" : "source.configure.title")}</h3>
-                {!nativeControls && <p>{t("source.configure.intro")}</p>}
+                <h3>{t("source.configure.title")}</h3>
+                <p>{t("source.configure.intro")}</p>
               </span>
             </header>
-            </>}
-            <SourceExecutorSetup source={source} demo={demo} createHost={createSourceHost} onConnectBinding={connection => {
-              const policy = sourceDraft.access || source.access_policy;
-              const nextDraft = { ...sourceDraft, access: { schema_version: "wiki_source_access.v1" as const,
-                expected_identity: policy?.expected_identity || "",
-                coordinator: policy?.coordinator || source.context, executor: policy?.executor || "Hermes",
-                requested_scopes: policy?.requested_scopes || [], ...policy, connection } };
-              setSourceDraft(nextDraft);
-              void previewSourceConfiguration(nextDraft);
-            }} onBind={execution => {
-              const policy = sourceDraft.access || source.access_policy;
-              setSourceDraft({ ...sourceDraft, access: { schema_version: "wiki_source_access.v1",
-                expected_identity: policy?.expected_identity || "",
-                coordinator: policy?.coordinator || source.context, executor: policy?.executor || "Hermes",
-                requested_scopes: policy?.requested_scopes?.length ? policy.requested_scopes : [],
-                ...policy, execution } });
-            }} />
-            {receipts.find(receipt => receipt.stream_id === "__source__") && <details className="sourceConnectionAdvanced">
-              <summary>{t("source.history.sourceScope")}</summary>
-              <code>{receipts.find(receipt => receipt.stream_id === "__source__")?.operation_id}</code>
-            </details>}
-            <details className="sourceConnectionAdvanced sourceConfigurationDetails" open={!nativeControls}>
-              <summary>{t("source.connection.sourceSettings")}</summary>
-            <SourceAuthorizationCard source={source} route={updateRoute} agentName={selectedAgentName}
-              agentCapabilitiesKnown={Boolean(agentCapabilities)} agentReady={agentReady} connectorReady={connectorReady}
-              access={displayedAccess} probeFailed={accessProbeFailed}
-              nativeManaged={nativeControls}
-              onRevalidate={!nativeControls && !demo && !operationBusy ? onTestAccess ? () => void testAccess() : onPreviewRefresh ? () => void inspectRefresh() : undefined : undefined} />
             <form className="sourceConfigForm sourceLevelConfig" onSubmit={(event) => { event.preventDefault(); void previewSourceConfiguration(); }}>
               <div className="sourceConfigWide sourceConfigHeading">
                 <span>
@@ -839,17 +786,6 @@ export function SourceDock({
                 <input type="number" min="1" max="3650" value={sourceDraft.scheduleCadenceDays} disabled={sourceDraft.scheduleMode !== "recurring"} onChange={(event) => setSourceDraft({ ...sourceDraft, scheduleCadenceDays: event.target.value })} />
                 <small>{sourceDraft.scheduleMode === "recurring" ? t("source.configure.cadenceRecurringHint") : t("source.configure.cadenceDisabledHint")}</small>
               </label>
-              <fieldset className="sourceConfigWide sourceAccessFields">
-                <legend>{t("source.auth.accessTitle")}</legend>
-                <p>{t("source.access.metadataOnly")}</p>
-                {(["expected_identity", "coordinator", "executor", "requested_scopes"] as const).map((field) => <label key={field}>
-                  <span>{t(`source.access.field.${field}`)}</span>
-                  <input value={field === "requested_scopes" ? (sourceDraft.access?.requested_scopes ?? []).join(", ") : sourceDraft.access?.[field] ?? ""} onChange={(event) => setSourceDraft({ ...sourceDraft, access: {
-                    schema_version: "wiki_source_access.v1", expected_identity: "", coordinator: "", executor: "", requested_scopes: [], ...sourceDraft.access,
-                    [field]: field === "requested_scopes" ? event.target.value.split(",").map((s) => s.trim()).filter(Boolean) : event.target.value
-                  } })} />
-                </label>)}
-              </fieldset>
               <div className="sourceConfigWide sourcePreviewAction">
                 <button className="btn btn--run" type="submit" disabled={demo || operationBusy}>
                   {operationBusy ? <Loader2 className="sourceSpin" size={14} aria-hidden /> : <ClipboardCheck size={14} aria-hidden />}
@@ -913,7 +849,6 @@ export function SourceDock({
               </div>
             </form>
             </>}
-            </details>
             {operationError && (
               <p className="sourceOperationError"><AlertTriangle size={14} aria-hidden /> {operationError}</p>
             )}

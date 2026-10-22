@@ -1,3 +1,0 @@
-# Unified-diff data requires a space on blank context lines. Keep the patch
-# reviewable as text; privacy, source pins and disposable apply checks still run.
-integrations/hermes/wiki-viva-board/kernel/candidate-711.patch whitespace=-blank-at-eol

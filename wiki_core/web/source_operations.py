@@ -27,7 +27,6 @@ from wiki_core.source_recipe import extract_recipe_mapping, parse_recipe, valida
 from wiki_core.source_schedule import SCHEDULE_MODES, SOURCE_KINDS
 from wiki_core.web.sources import build_sources_payload
 from wiki_core.web.commands import SECRET_VALUE_RE
-from wiki_core.source_config import project_source_access, source_access_metadata
 
 SOURCE_OPERATION_SCHEMA_VERSION = "wiki_source_operation.v1"
 SOURCE_INVENTORY_SCHEMA_VERSION = "wiki_source_inventory.v1"
@@ -44,7 +43,7 @@ _ALLOWED_UPDATES = {
     "target_pages",
     "processing_state",
 }
-_ALLOWED_SOURCE_UPDATES = {"source_kind", "schedule_mode", "schedule_cadence_days", "access"}
+_ALLOWED_SOURCE_UPDATES = {"source_kind", "schedule_mode", "schedule_cadence_days"}
 
 
 def _now() -> str:
@@ -149,8 +148,6 @@ def _normalize_source_updates(updates: Any) -> dict[str, Any]:
     if unknown:
         raise ValueError("source_operation_unknown_field:" + ",".join(unknown))
     out: dict[str, Any] = {}
-    if "access" in updates:
-        out["access"] = source_access_metadata(updates["access"])
     if "source_kind" in updates:
         source_kind = str(updates["source_kind"]).strip()
         if source_kind not in SOURCE_KINDS:
@@ -189,15 +186,12 @@ def _patched_recipe(recipe: dict[str, Any], stream_id: str, updates: dict[str, A
             schedule = {"mode": "on_demand", "cadence_days": 0}
             copied["schedule"] = schedule
         before = {
-            "access": copied.get("access") or {},
             "source_kind": str(copied.get("source_kind") or ""),
             "schedule_mode": str(schedule.get("mode") or ""),
             "schedule_cadence_days": int(schedule.get("cadence_days") or 0),
         }
         for key, value in updates.items():
-            if key == "access":
-                copied["access"] = value
-            elif key == "source_kind":
+            if key == "source_kind":
                 copied["source_kind"] = value
             elif key == "schedule_mode":
                 schedule["mode"] = value
@@ -206,7 +200,6 @@ def _patched_recipe(recipe: dict[str, Any], stream_id: str, updates: dict[str, A
             elif key == "schedule_cadence_days":
                 schedule["cadence_days"] = value
         after = {
-            "access": copied.get("access") or {},
             "source_kind": str(copied.get("source_kind") or ""),
             "schedule_mode": str(schedule.get("mode") or ""),
             "schedule_cadence_days": int(schedule.get("cadence_days") or 0),
@@ -415,60 +408,6 @@ def list_source_operation_receipts(root: Path, config: WikiConfig, source_id: st
             records.append(record)
     records.sort(key=lambda item: str(item.get("recorded_at") or ""), reverse=True)
     return records[:20]
-
-
-def source_access_binding(root: Path, config: WikiConfig, source_id: str) -> dict[str, Any]:
-    """Canonical data for the native owner; never an executable provider adapter."""
-    source = _source(root, config, source_id)
-    path = _safe_repo_file(root, str(source.get("config_ref") or ""))
-    return {"source_id": source_id, "context": source["context"], "source_kind": source.get("source_kind"),
-            "platform": source.get("platform"), "locator": source.get("locator"),
-            # Already validated by the canonical recipe contract/secret gate.
-            # Connection metadata must never erase or replace the source's
-            # declared auth method, scopes or restrictive note.
-            "auth": {key: (source.get("auth") or {}).get(key) for key in ("method", "ref", "scopes", "note")} if source.get("auth") else None,
-            "config_sha256": _sha(path.read_text(encoding="utf-8")),
-            "binding_sha256": project_source_access(source)["binding_sha256"],
-            "access_policy": source.get("access_policy") or {}}
-
-
-def probe_source_connection(root: Path, config: WikiConfig, source_id: str) -> dict[str, Any]:
-    """Read-only access test through the source's existing allowlisted adapter.
-
-    This never accepts an observed identity, argv or permission from the browser.
-    An agent/MCP hint is not an implemented adapter or an authenticated executor.
-    The receipt records failures too, without running ingestion or granting access.
-    """
-    source = _source(root, config, source_id)
-    if (source.get("access_policy") or {}).get("execution"):
-        raise ValueError("source_access_requires_native_executor")
-    path = _safe_repo_file(root, str(source.get("config_ref") or ""))
-    recipe = parse_recipe(extract_recipe_mapping(path.read_text(encoding="utf-8")))
-    access = project_source_access(source)
-    method = "refresh_adapter" if recipe.refresh_argv else "agent_connector" if recipe.mcp_hint else "local_input" if recipe.ingest_argv else "manual_export"
-    if not recipe.refresh_argv:
-        access.update(status="executor_unavailable", error_code="source_access_adapter_not_implemented")
-    else:
-        try:
-            argv = _safe_refresh_argv(root, recipe.refresh_argv, source_id=source_id,
-                                     locator=str(source.get("locator") or ""),
-                                     config_ref=str(source.get("config_ref") or ""))
-            payload, _ = _run_refresh_adapter(argv, root=root)
-            observation = payload.get("access_probe") if isinstance(payload, dict) else None
-            access = project_source_access(source, observation)
-            if observation is None:
-                access.update(status="executor_unavailable", error_code="source_access_probe_not_supported")
-        except (OSError, ValueError, subprocess.SubprocessError):
-            access.update(status="executor_unavailable", error_code="source_access_adapter_unavailable")
-    operation_id = "sop-" + uuid.uuid4().hex[:12]
-    receipt = dict(schema_version=SOURCE_OPERATION_SCHEMA_VERSION, operation_id=operation_id,
-                   recorded_at=_now(), source_id=source_id, stream_id="__source__", kind="access_test",
-                   status="verified" if access["verified"] else "blocked", method=method, changes=[], access=access)
-    directory = WikiPaths(root, config).derived_root / "source-operations"
-    directory.mkdir(parents=True, exist_ok=True)
-    receipt_path = directory / f"{operation_id}.json"
-    receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
-    return dict(ok=True, **receipt, receipt_path=str(receipt_path.relative_to(root)))
 
 
 def _safe_raw_path(root: Path, config: WikiConfig, value: str) -> Path:
@@ -775,8 +714,6 @@ def preview_source_refresh(
     raw_path: str = "",
 ) -> dict[str, Any]:
     source = _source(root, config, source_id)
-    if (source.get("access_policy") or {}).get("execution"):
-        raise ValueError("source_access_requires_native_executor")
     config_path = _safe_repo_file(root, str(source.get("config_ref") or ""))
     config_text = config_path.read_text(encoding="utf-8")
     recipe_mapping = extract_recipe_mapping(config_text)
@@ -795,7 +732,6 @@ def preview_source_refresh(
     argv: list[str] = []
     discovery: dict[str, Any] | None = None
     adapter_stderr = ""
-    access_observation = None
     raw: dict[str, Any] = {
         "scope": "source",
         "source_kind": source.get("source_kind"),
@@ -826,7 +762,6 @@ def preview_source_refresh(
             config_ref=str(source.get("config_ref") or ""),
         )
         payload, adapter_stderr = _run_refresh_adapter(argv, root=root)
-        access_observation = payload.get("access_probe") if isinstance(payload, dict) else None
         inventory = _normalize_inventory(
             payload,
             source_id=source_id,
@@ -853,8 +788,6 @@ def preview_source_refresh(
         "discovery_sha256": discovery.get("fingerprint") if discovery else "",
     }
     token = _sha(json.dumps(token_material, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
-    access = project_source_access(source, access_observation)
-    access_blocked = bool(source.get("access_policy")) and not access["verified"]
     return {
         "ok": True,
         "schema_version": SOURCE_OPERATION_SCHEMA_VERSION,
@@ -867,20 +800,19 @@ def preview_source_refresh(
         "raw_path": normalized_raw_path,
         "raw_inventory": raw,
         "discovery": discovery,
-        "access": access,
         "execution": {
             "mode": mode,
             "argv": argv,
             "mcp_hint": recipe.mcp_hint,
             "how_to_export": recipe.how_to_export,
-            "runnable": mode in {"script", "deterministic_connector"} and not access_blocked,
+            "runnable": mode in {"script", "deterministic_connector"},
             "requires_agent": mode == "agent_connector",
             "stderr": _redacted_output(adapter_stderr, 20_000),
         },
         "steps": [
             {"id": "bind", "label": "Confirm source and collection scope", "status": "complete"},
             {"id": "inventory", "label": "Inventory the whole source and detect record changes", "status": "complete"},
-            {"id": "execute", "label": "Apply selected inventory records" if mode == "deterministic_connector" else "Run the allowlisted ingestion script", "status": "blocked" if access_blocked else "ready" if mode in {"script", "deterministic_connector"} else "delegated" if mode == "agent_connector" else "blocked"},
+            {"id": "execute", "label": "Apply selected inventory records" if mode == "deterministic_connector" else "Run the allowlisted ingestion script", "status": "ready" if mode in {"script", "deterministic_connector"} else "delegated" if mode == "agent_connector" else "blocked"},
             {"id": "review", "label": "Review emitted event and file diff", "status": "pending"},
             {"id": "receipt", "label": "Persist execution receipt", "status": "pending"},
         ],
@@ -902,8 +834,6 @@ def run_source_refresh(
     mode = str(preview.get("execution", {}).get("mode") or "")
     if mode not in {"script", "deterministic_connector"}:
         raise ValueError("source_refresh_requires_agent_or_manual_export")
-    if not preview["execution"].get("runnable"):
-        raise ValueError("source_refresh_access_not_verified")
     if not preview_token or preview_token != preview["preview_token"]:
         raise ValueError("source_operation_preview_stale")
     if mode == "deterministic_connector":
@@ -961,7 +891,6 @@ def run_source_refresh(
             "stdout": "",
             "stderr": preview.get("execution", {}).get("stderr") or "",
             "status": status,
-            "access": preview["access"],
             "changes": changes,
             "discovery": discovery,
             "selected_external_ids": sorted(selected),

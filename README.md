@@ -134,18 +134,15 @@ follow the consumer's own PR review policy before promotion.
 
 Full instructions: [downstream upgrade runbook](docs/references/guides/wiki-viva-v8-downstream-upgrade.md).
 
-### Upgrading source access controls
+### Retired Hermes integration
 
-The normal C1 allowlist now includes only the optional host integration prefix
-`integrations/hermes/wiki-viva-board/**`, alongside the cockpit that uses it.
-B0 lists these passive source files; C1 tracks them in `kit.lock`. Sync does not
-install or enable a Hermes plugin, change native settings, connect an account,
-or create an execution binding. Existing source recipes remain valid.
+The Hermes plugin and connection-control project has been withdrawn. The wiki
+continues to provide its source catalogue, configuration, ingestion, canonical
+action board and standalone browser routes. No native account, executor or
+conversation binding is required by these wiki features.
 
-After the consumer's normal PR gates, its operator may adopt the reviewed native
-plugin through Hermes' existing trust/enable flow and configure each source's
-executor/account explicitly. Private account data and any required C3 migration
-remain consumer-owned. See the [Hermes source integration contract](integrations/hermes/wiki-viva-board/README.md).
+See the [withdrawal and upgrade note](docs/references/releases/hermes-integration-withdrawal-2026-10-22.md)
+for the preserved source cut, selective removal and separate installed-plugin boundary.
 
 ## Release policy
 
