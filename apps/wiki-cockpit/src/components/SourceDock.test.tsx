@@ -878,7 +878,7 @@ describe("SourceDock honest edges (§19.6)", () => {
     expect(document.querySelector('.dockHeader img[src="/source-icons/gmail.svg"]')).toBeTruthy();
   });
 
-  it("shows authorization readiness before an update is attempted", () => {
+  it("does not label native login from the legacy agent connector catalogue", () => {
     render(
       <SourceDock
         bundle={bundleWith(sourceFixture({
@@ -895,9 +895,9 @@ describe("SourceDock honest edges (§19.6)", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Update" }));
     const authorization = screen.getByRole("region", { name: "Authorization and live access" });
-    expect(within(authorization).getByText("Connector unavailable")).toBeTruthy();
+    expect(within(authorization).queryByText("Connector unavailable")).toBeNull();
     expect(within(authorization).getByText("keychain:gmail-personal")).toBeTruthy();
-    expect(within(authorization).getByText(/does not expose google-drive/)).toBeTruthy();
+    expect(within(authorization).queryByText(/does not expose google-drive/)).toBeNull();
   });
 
   it("previews expected account and scope metadata without a grant", async () => {
@@ -1045,7 +1045,7 @@ it("saved Hermes execution routes Update to native Configure without legacy test
   render(<SourceDock bundle={bundleWith(source)} sourceId="source-gmail" onTestAccess={test} onPreviewRefresh={refresh} onNotice={noop} onClose={noop}/>);
   fireEvent.click(screen.getByRole("button",{name:"Update"}));
   fireEvent.click(screen.getByRole("button",{name:"Configure executor and access"}));
-  expect(screen.getByRole("button",{name:"Find Hermes executors"})).toBeTruthy();
+  expect(screen.getByRole("button",{name:"Connect"})).toBeTruthy();
   expect(screen.queryByRole("button",{name:"Test access in this executor"})).toBeNull();
   expect(test).not.toHaveBeenCalled();expect(refresh).not.toHaveBeenCalled();
 });
@@ -1058,11 +1058,11 @@ it('opens Configure and binds an executor with the backend first-setup access_po
  const createSourceHost=()=>({connect:async()=>{},close:()=>{},request:async(_source:SourceEntity,action:string)=>action==='routes'?{routes:[route]}:{binding:{source_id:source.source_id,context:source.context,source_kind:'repository',binding_sha256:'a'.repeat(64),config_sha256:'b'.repeat(64),access_policy:{} as SourceEntity['access_policy']},sessions:[{id:'stored-fixture',title:'Existing context'}]}});
  render(<SourceDock bundle={bundleWith(source)} sourceId={source.source_id} createSourceHost={createSourceHost} onPreviewConfiguration={preview} onNotice={noop} onClose={noop}/>);
  fireEvent.click(screen.getByRole('button',{name:'Configure'}));
- fireEvent.click(screen.getByRole('button',{name:'Find Hermes executors'}));
- await waitFor(()=>expect((screen.getByLabelText('Environment / profile') as HTMLSelectElement).disabled).toBe(false));
- fireEvent.change(screen.getByLabelText('Environment / profile'),{target:{value:route.key}});fireEvent.click(screen.getByRole('button',{name:'Inspect methods in this executor'}));
+ await waitFor(()=>expect((screen.getByRole('button',{name:'Connect'}) as HTMLButtonElement).disabled).toBe(false));
+ fireEvent.click(screen.getByText('Advanced: execution and diagnostics'));
  await screen.findByLabelText('Existing native conversation');fireEvent.change(screen.getByLabelText('Existing native conversation'),{target:{value:'stored-fixture'}});fireEvent.click(screen.getByRole('button',{name:'Use this executor in source settings'}));
  expect((screen.getByLabelText('Requested scopes (comma separated)') as HTMLInputElement).value).toBe('');
+ fireEvent.click(screen.getByText('Source and record settings'));
  fireEvent.click(screen.getByRole('button',{name:'Review source settings'}));
  await waitFor(()=>expect(preview).toHaveBeenCalledWith(source.source_id,'__source__',{access:expect.objectContaining({expected_identity:'',coordinator:source.context,requested_scopes:[],execution:expect.objectContaining({connection_id:'fixture',profile:'research',target_profile:'research',method:'native_session',stored_session_id:'stored-fixture'})})}));
  expect(screen.queryByText('Access verified')).toBeNull();

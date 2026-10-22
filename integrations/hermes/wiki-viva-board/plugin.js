@@ -61,16 +61,46 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
   }
   async function resume(route, execution) {
     const lease=await retain(route); assertOpen();
-    const value = await request(route, 'session.resume', {session_id:execution.stored_session_id, omit_messages:true, inline_images:false});
+    // A new source test mounts the acknowledged canonical tip lazily. Unlike a
+    // cold/eager resume this does not auto-continue an unrelated interrupted
+    // human turn. Native prompt.submit owns any later agent/tool hydration.
+    const value = await request(route, 'session.resume', {session_id:execution.stored_session_id, omit_messages:true, inline_images:false,
+      ...(execution.method==='profile_bot'?{lazy:true}:{})});
     assertOpen();
     if (!validId(value?.session_id) || ![value.stored_session_id, value.resumed, value.session_key].includes(execution.stored_session_id)) throw new Error('native_session_mismatch');
     lease.sessions.add(value.session_id);
     return value;
   }
   const track = (route, ref, row, tracking) => native(route, 'source-intent-track', 'POST', {...ref, request_id:row.request_id, tracking});
+  const ownerExecution = row => {
+    if(row.execution.method!=='profile_bot')return row.execution;
+    if(!validId(row.owner_stored_session_id))throw new Error('native_owner_unresolved');
+    return {...row.execution,stored_session_id:row.owner_stored_session_id};
+  };
+  async function canonicalOwner(route) {
+    const result=await request(route,'session.list',{title:'Bot Chat'});
+    const rows=result?.sessions;
+    if(!Array.isArray(rows) || rows.length!==1 || rows[0].title!=='Bot Chat' || !validId(rows[0].id))throw new Error('native_bot_context_unavailable');
+    return rows[0];
+  }
+  async function assertBotIdle(route, storedId, resolvedId=storedId) {
+    const result=await request(route,'session.active_list',{});
+    if(!Array.isArray(result?.sessions))throw new Error('native_trace_unavailable');
+    const live=result.sessions.filter(row=>[storedId,resolvedId].includes(row.session_key));
+    if(live.some(row=>row.status!=='idle'))throw new Error('native_session_busy');
+  }
+  function assertIdle(session) {
+    if(session.pending_approval)throw new Error('native_operation_approval_pending');
+    if(session.open_requests?.length || session.pending_connection)throw new Error('native_context_waiting');
+    if(session.running || session.info?.running || session.hydrating || session.queued || session.auto_continue || session.inflight ||
+       session.status && session.status!=='idle')throw new Error('native_session_busy');
+  }
   async function reconcile(route, ref, row, token) {
     live(token); assertOpen();
-    const session = await resume(route, row.execution); live(token);
+    // Recovery never performs another canonical-title lookup or adopts the
+    // latest chat. A missing acknowledged owner remains unresolved.
+    if(row.execution.method==='profile_bot' && !row.owner_stored_session_id)return publicRow(row);
+    const session = await resume(route, ownerExecution(row)); live(token);
     const replaySession=row.runtime_session_id || session.session_id;
     const replay = await request(route, 'session.events.since', {session_id:replaySession, last_seen:row.submit_after_seq || 0}); live(token);
     if (!validId(replay.epoch) || !Number.isSafeInteger(replay.latest_seq)) throw new Error('native_trace_unavailable');
@@ -126,10 +156,23 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
       let submitted = false;
       try {
         live(token); assertOpen();
-        const session = await resume(route,row.execution); live(token);
-        if (session.running || session.hydrating || session.pending_approval || session.open_requests?.length) throw new Error('native_session_busy');
+        if(row.execution.method==='profile_bot' && !row.owner_stored_session_id) {
+          await retain(route);live(token);
+          const owner=await canonicalOwner(route);live(token);
+          const stored=owner.resolved_id || owner.id;
+          if(!validId(stored))throw new Error('native_owner_unresolved');
+          await assertBotIdle(route,owner.id,stored);live(token);
+          const pinned=await track(route,ref,row,{owner_stored_session_id:stored,status:'pending'});live(token);
+          if(pinned.owner_stored_session_id!==stored)throw new Error('native_owner_unresolved');
+          row.owner_stored_session_id=stored;
+        }
+        const execution=ownerExecution(row);
+        const session = await resume(route,execution); live(token);
+        assertIdle(session);
+        if(row.execution.method==='profile_bot' && session.running!==false && session.status!=='idle')throw new Error('native_trace_unavailable');
         const replay = await request(route,'session.events.since',{session_id:session.session_id,last_seen:0}); live(token);
         if (!validId(replay.epoch) || !Number.isSafeInteger(replay.latest_seq)) throw new Error('native_trace_unavailable');
+        if(replay.open_requests?.length)throw new Error('native_context_waiting');
         Object.assign(row,{runtime_session_id:session.session_id,epoch:replay.epoch,last_seen:replay.latest_seq,submit_after_seq:replay.latest_seq});
         await track(route,ref,row,{runtime_session_id:session.session_id,epoch:replay.epoch,last_seen:replay.latest_seq,submit_after_seq:replay.latest_seq,status:'pending'}); live(token);
         // Recheck the canonical owner/config after all preflight awaits. Tracking
@@ -137,11 +180,13 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
         const binding=await native(route,'source-binding/'+encodeURIComponent(ref.source_id)+'?binding_sha256='+ref.binding_sha256); live(token); assertOpen();
         if(binding.source_id!==ref.source_id || binding.binding_sha256!==ref.binding_sha256)throw new Error('source_binding_changed');
         if(binding.config_sha256!==ref.config_sha256)throw new Error('source_configuration_changed');
+        if(binding.execution_hold)throw new Error(binding.execution_hold);
+        if(row.execution.method==='profile_bot') {await assertBotIdle(route,execution.stored_session_id,session.session_id);live(token);}
         watched.set(row.request_id,{ref,row,token,busy:false});
         submitted = true; // From this boundary a timeout is UNKNOWN, never a retry.
         const ack = await request(route,'prompt.submit',{session_id:session.session_id,text:row.prompt,queued:true});
         live(token);
-        const tracking={runtime_session_id:session.session_id,status:'submitted'};
+        const tracking={runtime_session_id:session.session_id,status:'submitted',native_submission_status:ack?.status==='queued'?'queued':'submitted'};
         if (Number.isSafeInteger(ack?.user_row_id) && ack.user_row_id > 0) {tracking.user_row_id=ack.user_row_id;row.user_row_id=ack.user_row_id;}
         const result=await track(route,ref,row,tracking);live(token);
         return publicRow(result);
@@ -151,21 +196,30 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
         throw error;
       }
     },
-    async receipts(route,ref,token) {
+    async receipts(route,ref,token,hold='') {
       const result=await native(route,'source-read-receipts','POST',ref);live(token);
       const rows=[];
       for (const row of result.receipts || []) {
-        if (['not_submitted','native_trace_observed','native_trace_failed'].includes(row.status)) rows.push(publicRow(row));
+        if (hold || ['not_submitted','native_trace_observed','native_trace_failed'].includes(row.status)) rows.push(publicRow(row));
         else {
           if(row.execution.connection_id!==route.connectionId || row.execution.profile!==route.profile || row.execution.target_profile!==route.targetProfile)throw new Error('executor_profile_mismatch');
           rows.push(await reconcile(route,{source_id:row.source_id,binding_sha256:row.binding_sha256,config_sha256:row.config_sha256},row,token));
         }
       }
-      return {receipts:rows,...(rows.find(row=>['pending','submitted'].includes(row.status))?{unresolved_request:rows.find(row=>['pending','submitted'].includes(row.status)).request_id}:{})};
+      return {receipts:rows,...(hold?{execution_hold:hold}:{}),...(rows.find(row=>['pending','submitted'].includes(row.status))?{unresolved_request:rows.find(row=>['pending','submitted'].includes(row.status)).request_id}:{})};
     },
-    async open(route,execution) {
+    async open(route,execution,ref,token) {
       if (typeof host.openSession !== 'function') throw new Error('executor_unavailable');
-      await host.openSession(execution.stored_session_id,{route,awaitHydration:true,forceResume:true});
+      let stored=execution.stored_session_id;
+      if(execution.method==='profile_bot') {
+        const result=await native(route,'source-read-receipts','POST',ref);live(token);
+        const pending=(result.receipts || []).find(row=>['pending','submitted'].includes(row.status));
+        if(pending) {
+          if(pending.execution.connection_id!==route.connectionId || pending.execution.profile!==route.profile || pending.execution.target_profile!==route.targetProfile)throw new Error('executor_profile_mismatch');
+          stored=ownerExecution(pending).stored_session_id;
+        } else {stored=(await canonicalOwner(route)).id;live(token);}
+      }
+      await host.openSession(stored,{route,awaitHydration:true,forceResume:true});
       return {status:'native_session_opened'};
     },
     dispose() {closed=true;watched.clear();for(const state of leases.values()){state.off();state.release();}leases.clear();}
@@ -174,7 +228,7 @@ function createNativeSessionAccess({host, native, live, activity=()=>{}}) {
 
 /** Credential-free, source-bound iframe adapter. Never expose generic RPC/REST. */
 function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigin, channel, generation, currentGeneration, reply}) {
-  const actions = new Set(['routes', 'inspect', 'configure', 'read_test', 'read_receipts', 'open_native']);
+  const actions = new Set(['routes', 'inspect', 'transport_metadata', 'configure', 'read_test', 'read_receipts', 'open_native']);
   const requests = new Map();
   let alive = true;
   let session = 0;
@@ -183,17 +237,34 @@ function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigin, chan
   const key = route => JSON.stringify([route.connectionId, route.profile, route.targetProfile]);
   const failure = error => {
     const text = String(error?.data?.reason || error?.reason || error?.message || '');
-    for (const code of ['source_binding_changed', 'source_configuration_changed', 'executor_profile_mismatch', 'source_policy_denied', 'source_request_reused', 'source_read_result_unknown', 'source_read_adapter_not_implemented', 'native_session_required', 'native_session_mismatch', 'native_session_busy', 'native_trace_unavailable', 'source_access_repository_locator_mismatch', 'source_access_resource_not_supported', 'source_configuration_unavailable']) if (text.includes(code)) return code;
+    for (const code of ['source_authorization_unavailable', 'source_authorization_denied', 'authority_account_enforcement_required', 'source_binding_changed', 'source_configuration_changed', 'executor_profile_mismatch', 'source_policy_denied', 'source_request_reused', 'source_read_result_unknown', 'source_read_adapter_not_implemented', 'native_session_required', 'native_session_mismatch', 'native_session_busy', 'native_trace_unavailable', 'native_bot_context_unavailable', 'native_owner_unresolved', 'native_operation_approval_pending', 'native_context_waiting', 'profile_stopped', 'source_identity_ambiguous', 'source_access_repository_locator_mismatch', 'source_access_resource_not_supported', 'source_configuration_unavailable']) if (text.includes(code)) return code;
     if (/404|not_found/i.test(text)) return 'source_read_adapter_not_implemented';
     if (/org_access_denied|forbidden_scope|4030/.test(text)) return 'authority_blocked';
     if (/needs_nous_auth|401|4032/.test(text)) return 'authorization_missing';
     return 'executor_unavailable';
   };
-  const routes = async () => {
+  const routes = async (withLabels=false) => {
     if (typeof host.profileRoutes !== 'function' || typeof host.requestProfile !== 'function') throw new Error('executor_unavailable');
     const rows = await host.profileRoutes();
-    return (Array.isArray(rows) ? rows : []).filter(r => ['connectionId', 'profile', 'targetProfile'].every(k => safe(r[k])) && ['local','remote'].includes(r.mode))
+    const available=(Array.isArray(rows) ? rows : []).filter(r => ['connectionId', 'profile', 'targetProfile'].every(k => safe(r[k])) && ['local','remote'].includes(r.mode))
       .map(r => ({connectionId:r.connectionId,profile:r.profile,targetProfile:r.targetProfile,mode:r.mode,key:key(r)}));
+    if(withLabels) {
+      // Official HTTP roster contains display_name/bot_title without the RPC
+      // profiles.list default's canonical-session lookup. Names are labels,
+      // never evidence that this bot owns a source/account or is running.
+      await Promise.all([...new Set(available.map(row=>row.connectionId))].map(async connectionId=>{
+        const first=available.find(row=>row.connectionId===connectionId);
+        try {
+          const roster=await api({path:'/api/profiles',method:'GET',connectionId,profile:first.profile,priority:'foreground',timeoutMs:15000});
+          for(const route of available.filter(row=>row.connectionId===connectionId)) {
+            const profile=(roster.profiles || []).find(row=>row.name===route.profile);
+            const label=profile && [profile.bot_title,profile.display_name].find(safe);
+            if(label)route.label=label;
+          }
+        } catch { /* Optional human label lookup cannot select another owner. */ }
+      }));
+    }
+    return available;
   };
   const native = async (route, suffix, method='GET', body) => api({
     path: '/api/plugins/wiki-viva-board/' + suffix + (suffix.includes('?') ? '&' : '?') + 'profile=' + encodeURIComponent(route.targetProfile),
@@ -202,13 +273,51 @@ function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigin, chan
   const newSessionAccess = () => createNativeSessionAccess({host,native,live,activity:(route,source)=>{if(alive && currentGeneration()===generation)reply({protocol:'wiki.source_access.v1',kind:'native_activity',channel,source,route_key:key(route)});}});
   let sessions = newSessionAccess();
   const routeMatches = (execution, route) => execution && execution.connection_id === route.connectionId && execution.profile === route.profile && execution.target_profile === route.targetProfile;
+  const originSchema = 'hermes.connector_gateway_origin.v1';
+  const unknownOrigin = (reason_code='gateway_origin_unavailable') => ({schema_version:originSchema,status:'unknown',profile:null,origin:null,provenance:'unknown',resolution_scope:'process',reason_code,account_identity_verified:false,account_enforced:false});
+  const publicOrigin = (raw, route) => {
+    if (!raw || raw.schema_version !== originSchema || raw.resolution_scope !== 'process' || raw.account_identity_verified !== false || raw.account_enforced !== false) return unknownOrigin('gateway_origin_invalid');
+    if (raw.status === 'unknown') return unknownOrigin(['gateway_origin_profile_unknown','gateway_origin_profile_mismatch','gateway_origin_invalid'].includes(raw.reason_code)?raw.reason_code:'gateway_origin_unknown');
+    if (raw.status !== 'known' || raw.profile !== route.targetProfile || !['default','override','derived'].includes(raw.provenance) || raw.reason_code !== null) return unknownOrigin('gateway_origin_invalid');
+    const origin=raw.origin;
+    if (!origin || !['http','https'].includes(origin.scheme) || typeof origin.host !== 'string' || origin.host.length > 253 || !Number.isInteger(origin.port) || origin.port < 1 || origin.port > 65535) return unknownOrigin('gateway_origin_invalid');
+    const ipv6=origin.host.includes(':');
+    if (ipv6 ? !/^[a-f0-9:.]+$/.test(origin.host) : !origin.host.replace(/\.$/,'').split('.').every(label=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) return unknownOrigin('gateway_origin_invalid');
+    try {
+      const parsed=new URL(`${origin.scheme}://${ipv6?'['+origin.host+']':origin.host}:${origin.port}`);
+      if (parsed.hostname !== (ipv6?'['+origin.host+']':origin.host) || parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== '/') return unknownOrigin('gateway_origin_invalid');
+    } catch { return unknownOrigin('gateway_origin_invalid'); }
+    // Project only the documented fields; never forward raw RPC/error objects.
+    return {...unknownOrigin(),status:'known',profile:raw.profile,origin:{scheme:origin.scheme,host:origin.host,port:origin.port},provenance:raw.provenance,reason_code:null};
+  };
+  const transportMetadata = async (route, token) => {
+    const stillRegistered = async () => {
+      const current=await routes(); live(token);
+      if (!current.some(row=>row.key===route.key && row.mode===route.mode)) throw new Error('executor_profile_mismatch');
+    };
+    let capabilities;
+    try { capabilities=await host.requestProfile(route,'gateway.capabilities',{},15000,{spawnPriority:'foreground'}); }
+    catch { live(token); await stillRegistered(); live(token); return {route,gateway_origin:unknownOrigin(),connection_verified:false,read_verified:false}; }
+    live(token); await stillRegistered(); live(token);
+    if (capabilities?.connector_gateway_origin !== originSchema) return {route,gateway_origin:unknownOrigin(),connection_verified:false,read_verified:false};
+    let raw;
+    // An old backend rejects this new contract parameter before its generic
+    // profile decorator, even if it replaced the advertised build between RPCs.
+    try { raw=await host.requestProfile(route,'config.get',{key:'connector_gateway_origin',profile:route.targetProfile,metadata_only:true},15000,{spawnPriority:'foreground'}); }
+    catch { live(token); await stillRegistered(); live(token); return {route,gateway_origin:unknownOrigin(),connection_verified:false,read_verified:false}; }
+    live(token); await stillRegistered(); live(token);
+    return {route,gateway_origin:publicOrigin(raw?.connector_gateway_origin,route),connection_verified:false,read_verified:false};
+  };
   const perform = async (message, token) => {
     live(token);
-    const available = await routes();
+    const available = await routes(message.action === 'routes');
     live(token);
-    if (message.action === 'routes') return {routes:available,capabilities:['inspect','configure','read_test','read_receipts']};
+    if (message.action === 'routes') return {routes:available,capabilities:['inspect','transport_metadata','configure','read_test','read_receipts']};
     const route = available.find(r => r.key === message.route_key);
     if (!route) throw new Error('executor_unavailable');
+    // This separate metadata action never reads source bodies/bindings, account
+    // catalogues, sessions or tools, and never creates a conversation/mission.
+    if (message.action === 'transport_metadata') return transportMetadata(route, token);
     const ref = message.source;
     const binding = await native(route, 'source-binding/' + encodeURIComponent(ref.source_id) + '?binding_sha256=' + ref.binding_sha256);
     live(token);
@@ -225,21 +334,20 @@ function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigin, chan
       const roster=results[0].status==='fulfilled'?results[0].value:null;
       const managed=results[1].status==='fulfilled'?results[1].value:null;
       const mcp=results[2].status==='fulfilled'?results[2].value:null;
-      let accounts=[],account_error=null,toolsets=[];
+      let accounts=[],account_error=null,accounts_available=false;
       if (managed?.available===true) {
         try {
           const result=await host.requestProfile(route,'connectors.accounts',{},15000,{spawnPriority:'foreground'});live(token);
+          accounts_available=Array.isArray(result.accounts);
           accounts=(result.accounts || []).filter(r=>!r.disabled && safe(r.connection_id) && safe(r.connector) && /^[a-z0-9][a-z0-9-]{0,31}$/.test(r.alias || ''))
             .map(r=>({id:r.connection_id,connector:r.connector,alias:r.alias,label:safe(r.label)?r.label:r.alias,status:r.status}));
         } catch(error) {account_error=failure(error);}
       }
       const catalogue=results[3].status==='fulfilled' && Array.isArray(results[3].value)?results[3].value:[];
-      const execution=binding.access_policy?.execution;
-      if (routeMatches(execution,route) && execution.method==='native_session') {
-        try {toolsets=await sessions.inspect(route,execution);live(token);} catch(error) {account_error=failure(error);}
-      }
+      // Discovery is read-only. Opening connection settings must never resume a
+      // saved conversation, acquire its lease or start execution in that context.
       return {binding,route,sessions:(roster?.sessions || []).filter(r=>safe(r.id)).map(r=>({id:r.resolved_id || r.id,title:safe(r.title)?r.title:r.id})),
-        accounts,toolsets:catalogue.filter(row=>typeof row.name==='string' && /^[\w:.-]{1,200}$/.test(row.name)).map(row=>({name:row.name,enabled:row.enabled===true,tools:toolsets.find(set=>set.name===row.name)?.tools || []})),managed_available:managed?.available===true,mcp_available:Boolean(mcp),
+        accounts,accounts_available,toolsets:catalogue.filter(row=>typeof row.name==='string' && /^[\w:.-]{1,200}$/.test(row.name)).map(row=>({name:row.name,enabled:row.enabled===true,tools:[]})),managed_available:managed?.available===true,mcp_available:Boolean(mcp),
         providers:(managed?.connectors || []).filter(r=>safe(r.connector)).map(r=>({id:r.connector,label:r.connector,method:'native_session'})),
         support_errors:[...results.map(r=>r.status==='rejected'?failure(r.reason):null),account_error],connection_verified:false,read_verified:false};
     }
@@ -259,12 +367,13 @@ function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigin, chan
       return {status:'official_setup_opened',route,source_id:ref.source_id};
     }
     live(token);
-    const execution = binding.access_policy?.execution;
+    const execution = binding.access_policy?.execution || (binding.access_policy?.connection && {...binding.access_policy.connection,method:'profile_bot'});
     if (!routeMatches(execution, route)) throw new Error('executor_profile_mismatch');
     const body = {source_id:ref.source_id,binding_sha256:ref.binding_sha256,config_sha256:binding.config_sha256};
-    if (execution?.method !== 'native_session') throw new Error('native_session_required');
-    if (message.action === 'open_native') return sessions.open(route,execution);
-    if (message.action === 'read_receipts') return sessions.receipts(route,body,token);
+    if (!['native_session','profile_bot'].includes(execution?.method)) throw new Error('native_session_required');
+    if (message.action === 'open_native') return sessions.open(route,execution,body,token);
+    if (message.action === 'read_receipts') return sessions.receipts(route,body,token,binding.execution_hold || '');
+    if (binding.execution_hold)throw new Error('profile_stopped');
     return sessions.read(route,body,message.request_id,token);
   };
   const receiveBound = async m => {

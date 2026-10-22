@@ -1,95 +1,205 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../data/i18n";
-import type { SourceEntity, SourceExecutionBinding } from "../types";
+import { contextLabel } from "../data/presentation";
+import type { SourceEntity, SourceExecutionBinding, SourceConnectionBinding } from "../types";
 import type { SourceHostPort, ExecutorRoute, HostResult, NativeReadReceipt, HostAction } from "../application/sourceAccess";
+import { savedSourceRoute, sourceConnectionState } from "../application/sourceConnection";
 
-export function SourceExecutorSetup({ source, demo, onBind, createHost }: {source: SourceEntity; demo: boolean; createHost?: () => SourceHostPort; onBind: (execution: SourceExecutionBinding) => void}) {
-  const bridge=useRef<SourceHostPort>();
-  const [routes,setRoutes]=useState<ExecutorRoute[]>([]);
-  const [routeKey,setRouteKey]=useState("");
-  const [inspection,setInspection]=useState<HostResult>();
-  const current=source.access_policy?.execution;
-  const [storedId,setStoredId]=useState(current?.stored_session_id || "");
-  const [accountId,setAccountId]=useState(current?.account_id || "");
-  const [setupMethod,setSetupMethod]=useState("mcp");
-  const [receipts,setReceipts]=useState<NativeReadReceipt[]>([]);
-  const [activity,setActivity]=useState(false);
-  const [busy,setBusy]=useState(false);
-  const [error,setError]=useState("");
-  const [unknown,setUnknown]=useState(false);
-  const [reconciled,setReconciled]=useState(false);
-  const generation=useRef(0);
-  useEffect(()=>{
-    generation.current++;bridge.current?.close();bridge.current=undefined;
-    setRoutes([]);setRouteKey("");setInspection(undefined);setStoredId(current?.stored_session_id || "");setAccountId(current?.account_id || "");
-    setReceipts([]);setBusy(false);setError("");setUnknown(false);setReconciled(false);setActivity(false);
-    return ()=>{generation.current++;bridge.current?.close();};
-  },[source.source_id,source.access?.binding_sha256]);
-  const route=routes.find(r=>r.key===routeKey);
-  const account=inspection?.accounts?.find(a=>a.id===accountId);
-  const bound=Boolean(current && route && current.connection_id===route.connectionId && current.profile===route.profile && current.target_profile===route.targetProfile && current.stored_session_id===storedId &&
-    (current.account_id ? account?.id===current.account_id && account.alias===current.account_alias && account.connector===current.provider_id : !accountId));
-  const run=async(action:HostAction)=>{
-    if(demo || busy)return;
-    const epoch=generation.current;setBusy(true);setError("");
+export function SourceExecutorSetup({ source, demo, onBind, onConnectBinding, createHost }: {source: SourceEntity; demo: boolean; createHost?: () => SourceHostPort; onBind: (execution: SourceExecutionBinding) => void; onConnectBinding?: (connection: SourceConnectionBinding) => void}) {
+  const bridge = useRef<SourceHostPort>();
+  const factory = useRef(createHost); factory.current = createHost;
+  const generation = useRef(0), active = useRef(false);
+  const [routes, setRoutes] = useState<ExecutorRoute[]>([]);
+  const [routeKey, setRouteKey] = useState("");
+  const [inspection, setInspection] = useState<HostResult>();
+  const originGeneration = useRef(0);
+  const [gatewayOrigin, setGatewayOrigin] = useState<HostResult["gateway_origin"]>();
+  const [originChecked, setOriginChecked] = useState(false);
+  const [originBusy, setOriginBusy] = useState(false);
+  const current = source.access_policy?.execution;
+  const connection = source.access_policy?.connection;
+  const owner = connection || current;
+  const [storedId, setStoredId] = useState(current?.stored_session_id || "");
+  const [accountId, setAccountId] = useState(owner?.account_id || "");
+  const [setupMethod, setSetupMethod] = useState("mcp");
+  const [receipts, setReceipts] = useState<NativeReadReceipt[]>([]);
+  const [activity, setActivity] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [unknown, setUnknown] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    setNow(Date.now());
+    if (!source.access?.valid_until) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [source.access?.valid_until]);
+  const route = routes.find(row => row.key === routeKey);
+  const account = inspection?.accounts?.find(row => row.id === accountId);
+  const connectionBound = Boolean(owner && route && owner.connection_id === route.connectionId && owner.profile === route.profile && owner.target_profile === route.targetProfile &&
+    (owner.account_id ? account?.id === owner.account_id && account.alias === owner.account_alias && account.connector === owner.provider_id : !accountId));
+  const bound = connectionBound && (!current || current.stored_session_id === storedId);
+  const recoveryBound = Boolean(owner && route && inspection && owner.connection_id === route.connectionId &&
+    owner.profile === route.profile && owner.target_profile === route.targetProfile);
+
+  useEffect(() => {
+    const epoch = ++generation.current;
+    bridge.current?.close(); bridge.current = undefined; active.current = true;
+    setRoutes([]); setRouteKey(""); setInspection(undefined);
+    originGeneration.current++; setGatewayOrigin(undefined); setOriginChecked(false); setOriginBusy(false);
+    setStoredId(current?.stored_session_id || ""); setAccountId(owner?.account_id || "");
+    setReceipts([]); setError(""); setUnknown(false); setActivity(false); setBusy(!demo);
+    if (!demo) void (async () => {
+      try {
+        if (!factory.current) throw new Error("source_host_standalone");
+        const host = factory.current(); bridge.current = host;
+        host.subscribeActivity?.(() => { if (epoch === generation.current) setActivity(true); });
+        await host.connect(); if (epoch !== generation.current) return;
+        const result = await host.request(source, "routes"); if (epoch !== generation.current) return;
+        const available = result.routes || []; setRoutes(available);
+        const selected = savedSourceRoute(source, available);
+        if (!selected) {
+          if (!available.length) throw new Error("executor_unavailable");
+          if (owner) throw new Error("executor_profile_mismatch");
+          return;
+        }
+        setRouteKey(selected.key);
+        const details = await host.request(source, "inspect", selected.key);
+        if (epoch === generation.current) setInspection(details);
+      } catch (cause) { if (epoch === generation.current) setError(cause instanceof Error ? cause.message : "executor_unavailable"); }
+      finally { if (epoch === generation.current) { active.current = false; setBusy(false); } }
+    })();
+    else active.current = false;
+    return () => { generation.current++; bridge.current?.close(); bridge.current = undefined; };
+  }, [source.source_id, source.access?.binding_sha256, demo]);
+
+  const run = async (action: HostAction, selected = route) => {
+    if (demo || active.current || !bridge.current || !selected) return;
+    const epoch = generation.current, host = bridge.current;
+    originGeneration.current++; setGatewayOrigin(undefined); setOriginChecked(false); setOriginBusy(false);
+    active.current = true; setBusy(true); setError("");
+    const request = (kind: HostAction) => host.request(source, kind, selected.key,
+      kind === "inspect" ? undefined : inspection?.binding?.config_sha256, kind === "configure" ? setupMethod : undefined);
     try {
-      if(!bridge.current){if(!createHost)throw new Error("executor_unavailable");bridge.current=createHost();bridge.current.subscribeActivity?.(()=>{if(epoch===generation.current)setActivity(true);});await bridge.current.connect();}
-      const result=await bridge.current.request(source,action,action==='routes'?undefined:routeKey,
-        action==='routes'||action==='inspect'?undefined:inspection?.binding?.config_sha256,action==='configure'?setupMethod:undefined);
-      if(epoch!==generation.current)return;
-      if(action==='routes'){
-        setRoutes(result.routes || []);
-        setRouteKey(result.routes?.find(r=>r.connectionId===current?.connection_id && r.profile===current?.profile && r.targetProfile===current?.target_profile)?.key || "");
-      }else if(action==='inspect'){setInspection(result);setReceipts([]);setReconciled(false);}
-      else if(action==='read_test'){setReceipts([result as NativeReadReceipt]);setUnknown(['pending','submitted'].includes(result.status || ''));}
-      else if(action==='read_receipts'){
-        setActivity(false);setReceipts(result.receipts || []);setUnknown(Boolean(result.unresolved_request)||(result.receipts || []).some(r=>['pending','submitted'].includes(r.status)));setReconciled(true);
+      if (action === "inspect") {
+        const result = await request(action);
+        if (epoch === generation.current) setInspection(result);
+      } else if (action === "read_test" || action === "read_receipts") {
+        // One deliberate click first reconciles the existing request. An unknown
+        // or pending effect never becomes permission to submit another prompt.
+        const prior = await request("read_receipts"); if (epoch !== generation.current) return;
+        const pending = Boolean(prior.unresolved_request) || (prior.receipts || []).some(row => ["pending", "submitted"].includes(row.status));
+        setReceipts(prior.receipts || []); setUnknown(pending); setActivity(false);
+        if(prior.execution_hold && !pending) {setError(prior.execution_hold);return;}
+        if (action === "read_test" && !pending) {
+          const result = await request("read_test"); if (epoch !== generation.current) return;
+          setReceipts([result as NativeReadReceipt]); setUnknown(["pending", "submitted"].includes(result.status || ""));
+        }
+      } else await request(action);
+    } catch (cause) {
+      if (epoch === generation.current) {
+        const code = cause instanceof Error ? cause.message : "executor_unavailable"; setError(code);
+        if (code === "source_read_result_unknown") setUnknown(true);
       }
-    }catch(cause){if(epoch===generation.current){const code=cause instanceof Error?cause.message:'executor_unavailable';setError(code);if(code==='source_read_result_unknown'){setUnknown(true);setReconciled(false);}}}
-    finally{if(epoch===generation.current)setBusy(false);}
+    } finally { if (epoch === generation.current) { active.current = false; setBusy(false); } }
   };
-  const same=(a:typeof current,b:typeof current)=>Boolean(a&&b&&(['connection_id','profile','target_profile','stored_session_id','provider_id','account_id','account_alias'] as const).every(k=>a[k]===b[k]));
-  const visible=receipts.filter(r=>r.source_id===source.source_id && r.binding_sha256===source.access?.binding_sha256 && r.config_sha256===inspection?.binding?.config_sha256 && same(r.execution,current));
-  return <section className="sourceAuthorizationCard" aria-label={t('source.executor.title')}>
-    <h4>{t('source.executor.title')}</h4><p>{t('source.executor.nativeIntro')}</p>
-    <button type="button" className="secondaryButton" disabled={demo||busy} onClick={()=>void run('routes')}>{t('source.executor.discover')}</button>
-    <label>{t('source.executor.route')}<select value={routeKey} disabled={busy||!routes.length} onChange={e=>{setRouteKey(e.target.value);setInspection(undefined);setReceipts([]);setReconciled(false);}}>
-      <option value="">{t('source.executor.choose')}</option>{routes.map(r=><option key={r.key} value={r.key}>{r.connectionId} / {r.profile} → {r.targetProfile}</option>)}
-    </select></label>
-    <button type="button" className="secondaryButton" disabled={!route||busy||demo} onClick={()=>void run('inspect')}>{t('source.executor.inspect')}</button>
-    {inspection&&<>
-      <p>{t('source.executor.catalogBoundary')}</p>
-      {inspection.support_errors?.filter((e):e is string=>Boolean(e)).map((e,i)=><p role="alert" key={i}>{t(`source.executor.error.${e}`)}</p>)}
-      <label>{t('source.executor.nativeSession')}<select value={storedId} disabled={busy} onChange={e=>{setStoredId(e.target.value);setReconciled(false);setReceipts([]);}}>
-        <option value="">{t('source.executor.choose')}</option>
-        {current?.stored_session_id && !inspection.sessions?.some(s=>s.id===current.stored_session_id) && <option value={current.stored_session_id}>{current.stored_session_id}</option>}
-        {inspection.sessions?.map(s=><option key={s.id} value={s.id}>{s.title} · {s.id}</option>)}
+  const inspectOrigin = async () => {
+    if (demo || busy || originBusy || !route || !bridge.current) return;
+    const epoch = generation.current, originEpoch = ++originGeneration.current, selected = route, host = bridge.current;
+    const currentRequest = () => epoch === generation.current && originEpoch === originGeneration.current;
+    setGatewayOrigin(undefined); setOriginChecked(false); setOriginBusy(true);
+    try {
+      const result = await host.request(source, "transport_metadata", selected.key);
+      if (!currentRequest()) return;
+      const observed = result.route;
+      if (observed && (["connectionId", "profile", "targetProfile", "mode", "key"] as const).every(key => observed[key] === selected[key])) setGatewayOrigin(result.gateway_origin);
+      setOriginChecked(true);
+    } catch { if (currentRequest()) setOriginChecked(true); }
+    finally { if (currentRequest()) setOriginBusy(false); }
+  };
+  const selectRoute = (key: string) => {
+    const selected = routes.find(row => row.key === key); if (!selected || active.current) return;
+    setRouteKey(key); setInspection(undefined); setReceipts([]); setUnknown(false);
+    originGeneration.current++; setGatewayOrigin(undefined); setOriginChecked(false); setOriginBusy(false);
+    const saved = savedSourceRoute(source, [selected]);
+    setStoredId(saved ? current?.stored_session_id || "" : ""); setAccountId(saved ? owner?.account_id || "" : "");
+    void run("inspect", selected);
+  };
+  const routeLabel = (row: ExecutorRoute) => `${t(row.mode === "local" ? "source.connection.local" : "source.connection.remote")} · ${row.label || (row.profile === "default" ? t("source.connection.defaultProfile") : contextLabel(row.profile))}`;
+  const state = sourceConnectionState(source, { loading: busy && !inspection, error: error || inspection?.binding?.execution_hold || "", available: Boolean(route && inspection), accountFound: Boolean(account), bindingMatches: bound && account?.status === "active", accountsAvailable: inspection?.accounts_available === true, unresolved: unknown, needsContext: routes.length > 1 && !route, pending: receipts.some(row => ["pending", "submitted"].includes(row.status)), queued: receipts.some(row => ["pending", "submitted"].includes(row.status) && row.native_submission_status === "queued"), now, bindingSha: inspection?.binding?.binding_sha256 });
+  const same = (a: NativeReadReceipt["execution"], b: NativeReadReceipt["execution"]) => Boolean(a && b && a.method === b.method &&
+    (["connection_id", "profile", "target_profile", "provider_id", "account_id", "account_alias"] as const).every(key => a[key] === b[key]) &&
+    (a.method !== "native_session" || b.method !== "native_session" || a.stored_session_id === b.stored_session_id));
+  const executionOwner = current || (connection && {...connection, method: "profile_bot" as const});
+  const visible = receipts.filter(row => row.source_id === source.source_id && row.binding_sha256 === source.access?.binding_sha256 && row.config_sha256 === inspection?.binding?.config_sha256 && same(row.execution, executionOwner));
+  const reconnect = state === "expired" || state === "revoked";
+  const needsBinding = Boolean(onConnectBinding && !connectionBound && !(recoveryBound && accountId === (owner?.account_id || "")));
+  const reviewConnection = () => route && onConnectBinding?.({connection_id: route.connectionId, profile: route.profile, target_profile: route.targetProfile,
+    ...(account ? {provider_id: account.connector, account_id: account.id, account_alias: account.alias} : {})});
+  const knownOrigin = gatewayOrigin?.status === "known" && gatewayOrigin.profile === route?.targetProfile && gatewayOrigin.resolution_scope === "process" && gatewayOrigin.account_enforced === false && gatewayOrigin.account_identity_verified === false ? gatewayOrigin.origin : null;
+
+  return <section className="sourceConnectionCard" aria-label={t("source.connection.title")} aria-busy={busy}>
+    <header><h4>{t("source.connection.title")}</h4><span className={`pill pill-${state === "verified" ? "good" : "muted"}`} role="status">{t(`source.connection.state.${state}`)}</span></header>
+    <dl className="sourceConnectionIdentity">
+      <div><dt>{t("source.connection.source")}</dt><dd>{source.title || source.source_id}</dd></div>
+      <div><dt>{t("source.connection.account")}</dt><dd>{state === "verified" ? source.access?.confirmed_identity : t("source.connection.accountUnknown")}</dd></div>
+      {source.access_policy?.expected_identity && <div><dt>{t("source.access.expected")}</dt><dd>{source.access_policy.expected_identity}</dd></div>}
+      <div><dt>{t("source.connection.context")}</dt><dd>{contextLabel(source.context)}</dd></div>
+      {route && <div><dt>{t("source.connection.environment")}</dt><dd>{routeLabel(route)}</dd></div>}
+    </dl>
+    <p>{t(`source.connection.detail.${state}`)}</p>
+    {routes.length > 1 && !route && <fieldset className="sourceContextChoice"><legend>{t("source.connection.chooseContext")}</legend>
+      {routes.map(row => <button type="button" className="secondaryButton" key={row.key} disabled={busy} onClick={() => selectRoute(row.key)}>{routeLabel(row)}</button>)}
+    </fieldset>}
+    {inspection && !connectionBound && Boolean(inspection.accounts?.length) && <label>{t("source.connection.chooseAccount")}<select value={accountId} disabled={busy} onChange={event => {setAccountId(event.target.value); setReceipts([]); setUnknown(false);}}>
+      <option value="">{t("source.connection.accountUnspecified")}</option>
+      {inspection.accounts?.map(row => <option key={row.id} value={row.id}>{row.label || row.alias} · {row.connector}</option>)}
+    </select></label>}
+    <div className="sourceUpdateActions">
+      <button type="button" className="btn btn--run" disabled={!route || busy || demo} onClick={() => needsBinding && !(accountId && !account) ? reviewConnection() : void run("configure")}>{t(reconnect ? "source.connection.reconnect" : "source.connection.connect")}</button>
+      <button type="button" className="secondaryButton" disabled={!(unknown ? recoveryBound : bound) || busy || demo || Boolean(inspection?.binding?.execution_hold && !unknown)} onClick={() => void run(unknown ? "read_receipts" : "read_test")}>{t(unknown ? "source.connection.checkProgress" : "source.connection.test")}</button>
+      {recoveryBound && (!bound || inspection?.binding?.execution_hold) && !unknown && <button type="button" className="secondaryButton" disabled={busy || demo} onClick={() => void run("read_receipts")}>{t("source.connection.checkProgress")}</button>}
+      <button type="button" className="secondaryButton" disabled={!route || busy || demo} onClick={() => void run("inspect")}>{t("source.connection.refresh")}</button>
+      {owner && (activity || unknown || state === "busy" || state === "approval" || state === "paused") && <button type="button" className="secondaryButton" disabled={!route || busy || demo} onClick={() => void run("open_native")}>{t("source.connection.openExecution")}</button>}
+    </div>
+    {inspection && !connectionBound && <p className="sourceConnectionHint">{t("source.connection.saveContext")}</p>}
+    {visible.map((row, index) => <p key={index} role="status">{t(`source.executor.receipt.${row.status}`)}</p>)}
+    <details className="sourceConnectionAdvanced">
+      <summary>{t("source.connection.advanced")}</summary>
+      <p>{t("source.connection.executionBoundary")}</p>
+      <label>{t("source.connection.environment")}<select value={routeKey} disabled={busy || !routes.length} onChange={event => selectRoute(event.target.value)}>
+        <option value="">{t("source.connection.chooseContext")}</option>{routes.map(row => <option key={row.key} value={row.key}>{routeLabel(row)}</option>)}
       </select></label>
-      <label>{t('source.executor.account')}<select value={accountId} disabled={busy} onChange={e=>{setAccountId(e.target.value);setReconciled(false);setReceipts([]);}}>
-        <option value="">{t('source.executor.nativeAccountUnspecified')}</option>
-        {inspection.accounts?.map(a=><option key={a.id} value={a.id}>{a.connector} / {a.alias} · {a.status}</option>)}
-      </select></label>
-      {inspection.toolsets?.map(row=><p key={row.name}>{row.name}: {row.enabled?'✓':'—'} {row.tools.join(', ')}</p>)}
-      <label>{t('source.executor.nativeSettings')}<select value={setupMethod} onChange={e=>setSetupMethod(e.target.value)} disabled={busy}>
-        <option value="mcp">MCP / {t('source.executor.managed')}</option><option value="browser_controller">{t('source.executor.browser')}</option>
-        {inspection.toolsets?.map(row=><option key={row.name} value={'toolset:'+row.name}>{row.name}</option>)}
-      </select></label>
-      <div className="sourceUpdateActions">
-        <button type="button" className="secondaryButton" disabled={!route||busy||demo} onClick={()=>void run('configure')}>{t('source.executor.configureOfficial')}</button>
-        <button type="button" className="secondaryButton" disabled={!route||!storedId||busy||demo||Boolean(accountId&&!account)} onClick={()=>route&&onBind({connection_id:route.connectionId,profile:route.profile,target_profile:route.targetProfile,method:'native_session',stored_session_id:storedId,...(account?{provider_id:account.connector,account_id:account.id,account_alias:account.alias}:{})})}>{t('source.executor.bind')}</button>
-        <button type="button" className="secondaryButton" disabled={!bound||busy||demo||unknown||!reconciled} onClick={()=>void run('read_test')}>{t('source.executor.testRead')}</button>
-        <button type="button" className="secondaryButton" disabled={!bound||busy||demo} onClick={()=>void run('read_receipts')}>{t('source.executor.receipts')}</button>
-        <button type="button" className="secondaryButton" disabled={!current||!route||busy||demo} onClick={()=>void run('open_native')}>{t('source.executor.openNative')}</button>
+      <div className="sourceConnectionOrigin">
+        <button type="button" className="secondaryButton" disabled={!route || busy || originBusy || demo} onClick={() => void inspectOrigin()}>{t(originBusy ? "source.connection.origin.loading" : "source.connection.origin.inspect")}</button>
+        <p aria-live="polite">{t("source.connection.origin.title")}: {knownOrigin ? <code>{`${knownOrigin.scheme}://${knownOrigin.host.includes(":") ? "[" + knownOrigin.host + "]" : knownOrigin.host}:${knownOrigin.port}`}</code> : t(originChecked ? "source.connection.origin.unknown" : "source.connection.origin.unchecked")}</p>
+        {knownOrigin && <p>{t("source.connection.origin.process")} · {t(`source.connection.origin.provenance.${gatewayOrigin!.provenance}`)}</p>}
+        <p>{t("source.connection.origin.boundary")}</p>
       </div>
-      {!bound&&<p>{t('source.executor.saveFirst')}</p>}{bound&&!reconciled&&<p>{t('source.executor.reconcileFirst')}</p>}
-      <p>{t('source.executor.nativeBoundary')}</p>
-    </>}
-    {activity&&<p>{t("source.executor.nativeActivity")}</p>}
-    {error&&<p role="alert">{t(`source.executor.error.${error}`)}</p>}
-    {visible.map((r,i)=><article key={i}><strong>{t(`source.executor.receipt.${r.status}`)}</strong>
-      <p>{r.checked_at} · {r.execution?.stored_session_id}</p>
-      <p>{r.tool_refs?.map(tool=>`${tool.name} · ${tool.id}${tool.outcome === "reported_failure" ? " · " + t("source.executor.toolFailure") : ""}`).join(', ')}</p>
-      <p>{t('source.executor.nativeBoundary')}</p>
-    </article>)}
+      {inspection && <>
+        <label>{t("source.executor.nativeSession")}<select value={storedId} disabled={busy} onChange={event => { setStoredId(event.target.value); setReceipts([]); setUnknown(false); }}>
+          <option value="">{t("source.executor.choose")}</option>
+          {current?.stored_session_id && !inspection.sessions?.some(row => row.id === current.stored_session_id) && <option value={current.stored_session_id}>{current.stored_session_id}</option>}
+          {inspection.sessions?.map(row => <option key={row.id} value={row.id}>{row.title}</option>)}
+        </select></label>
+        <label>{t("source.executor.account")}<select value={accountId} disabled={busy} onChange={event => { setAccountId(event.target.value); setReceipts([]); setUnknown(false); }}>
+          <option value="">{t("source.executor.nativeAccountUnspecified")}</option>
+          {inspection.accounts?.map(row => <option key={row.id} value={row.id}>{row.label || row.alias} · {row.connector}</option>)}
+        </select></label>
+        <label>{t("source.executor.nativeSettings")}<select value={setupMethod} onChange={event => setSetupMethod(event.target.value)} disabled={busy}>
+          <option value="mcp">MCP / {t("source.executor.managed")}</option><option value="browser_controller">{t("source.executor.browser")}</option>
+          {inspection.toolsets?.map(row => <option key={row.name} value={"toolset:" + row.name}>{row.name}</option>)}
+        </select></label>
+        <div className="sourceUpdateActions">
+          <button type="button" className="secondaryButton" disabled={!route || !storedId || busy || demo || Boolean(accountId && !account)} onClick={() => route && onBind({ connection_id: route.connectionId, profile: route.profile, target_profile: route.targetProfile, method: "native_session", stored_session_id: storedId, ...(account ? { provider_id: account.connector, account_id: account.id, account_alias: account.alias } : {}) })}>{t("source.executor.bind")}</button>
+          {owner && <button type="button" className="secondaryButton" disabled={!route || busy || demo} onClick={() => void run("open_native")}>{t("source.connection.openExecution")}</button>}
+        </div>
+        {inspection.toolsets?.map(row => <p key={row.name}><code>{row.name}</code>: {row.enabled ? "✓" : "—"}</p>)}
+        {inspection.support_errors?.filter((code): code is string => Boolean(code)).map((code, index) => <p key={index}>{t(`source.executor.error.${code}`)}</p>)}
+        <p>{t("source.executor.saveFirst")}</p>
+      </>}
+      {error && <p role="alert">{t(`source.executor.error.${error}`)}</p>}
+      {visible.map((row, index) => <article key={index}><p>{row.checked_at} · {row.execution?.method === "native_session" ? row.execution.stored_session_id : row.owner_stored_session_id}</p><p>{row.tool_refs?.map(tool => `${tool.name} · ${tool.id}${tool.outcome === "reported_failure" ? " · " + t("source.executor.toolFailure") : ""}`).join(", ")}</p></article>)}
+    </details>
   </section>;
 }

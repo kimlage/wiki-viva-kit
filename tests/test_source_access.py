@@ -234,3 +234,49 @@ def test_saved_native_execution_cannot_fall_back_to_legacy_adapter(tmp_path, mon
     with pytest.raises(ValueError, match='requires_native_executor'):
         ops.run_source_refresh(tmp_path, cfg, 'source-a', '__source__', '', 'stale-token')
     assert path.read_text() == text
+
+
+def test_connection_metadata_needs_no_conversation_and_never_changes_legacy_owner():
+    from wiki_core.source_config import source_access_metadata
+    connection = dict(connection_id='fixture', profile='research', target_profile='research')
+    value = {**policy(), 'connection': connection}
+    assert source_access_metadata(value) == value
+    assert 'execution' not in source_access_metadata(value)
+    legacy = {**connection, 'method': 'native_session', 'stored_session_id': 'existing-owner'}
+    both = {**value, 'execution': legacy}
+    assert source_access_metadata(both)['execution'] == legacy
+    with pytest.raises(ValueError, match='owner_conflict'):
+        source_access_metadata({**both, 'connection': {**connection, 'profile': 'another'}})
+    for extra in [{'stored_session_id': 'forbidden'}, {'grant': 'all'}, {'account_id': 'partial'}]:
+        with pytest.raises(ValueError, match='connection_invalid'):
+            source_access_metadata({**value, 'connection': {**connection, **extra}})
+    s = {**source(), 'access_policy': value}
+    assert not project_source_access(s, probe(s), now=NOW)['verified']
+
+
+def test_connection_preview_confirmation_preserves_canonical_auth_and_requires_cas(tmp_path):
+    from wiki_core.web.source_operations import source_access_binding
+    cfg = _repo(tmp_path)
+    path = tmp_path/'memories/sources/config/source-a.md'
+    text = path.read_text()
+    # A generic restrictive pointer, not a provider-specific reader or a grant.
+    auth = dict(method='mcp', ref='browser-controller', scopes=['read'], note='Browser-only corporate access; never use a personal account or API.')
+    before_recipe = yaml.safe_load(text.split('```yaml\n')[1].split('```')[0])
+    before_recipe['recipe']['auth'] = auth
+    path.write_text(text.split('```yaml\n')[0] + '```yaml\n' + yaml.safe_dump(before_recipe, sort_keys=False) + '```\n')
+    before = path.read_bytes()
+    value = {**policy(), 'connection': dict(connection_id='fixture', profile='research', target_profile='research')}
+    updates = {'access': value}
+    preview = preview_source_operation(tmp_path, cfg, 'source-a', '__source__', updates)
+    assert path.read_bytes() == before
+    with pytest.raises(ValueError):
+        apply_source_operation(tmp_path, cfg, 'source-a', '__source__', updates, 'wrong-token')
+    assert path.read_bytes() == before
+    applied = apply_source_operation(tmp_path, cfg, 'source-a', '__source__', updates, preview['preview_token'])
+    assert applied['ok']
+    binding = source_access_binding(tmp_path, cfg, 'source-a')
+    assert binding['auth'] == auth
+    assert binding['access_policy']['connection'] == value['connection']
+    assert 'execution' not in binding['access_policy']
+    with pytest.raises(ValueError):
+        preview_source_operation(tmp_path, cfg, 'source-a', '__source__', {'auth': {'method': 'none'}})

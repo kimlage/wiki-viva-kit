@@ -5,28 +5,30 @@ const route={connectionId:'fixture',profile:'research',targetProfile:'research',
 const execution={...Object.fromEntries([['connection_id','fixture'],['profile','research'],['target_profile','research']]),method:'native_session',stored_session_id:'stored-fixture'};
 const ref={source_id:'source-a',binding_sha256:'a'.repeat(64),config_sha256:'b'.repeat(64)};
 function fixture(options={}){
- const calls=[],rows=new Map();let messages=[],events=[],epoch='epoch-fixture',seq=4,running=false,fail=false,runtimeId='runtime-fixture',truncated=false,activities=0,off=0,released=0,listener;
+ const calls=[],timeline=[],rows=new Map();let canonicalId='bot-root',canonicalTip='bot-tip',snapshot={};let messages=[],events=[],epoch='epoch-fixture',seq=4,running=false,fail=false,runtimeId='runtime-fixture',truncated=false,activities=0,off=0,released=0,listener;
  const host={retainProfile:async(r)=>{assert.deepEqual(r,route);return()=>released++;},onEvent:(t,cb)=>{listener=cb;return()=>off++;},
   requestProfile:async(r,method,params)=>{
-   assert.deepEqual(r,route);calls.push({method,params});
-   if(method==='session.resume')return {session_id:runtimeId,resumed:execution.stored_session_id,running};
+   assert.deepEqual(r,route);calls.push({method,params});timeline.push({rpc:method,params});
+   if(method==='session.resume')return {session_id:runtimeId,resumed:params.session_id,running,...snapshot};
+   if(method==='session.list')return {sessions:options.noCanonical?[]:[{id:canonicalId,resolved_id:canonicalTip,title:'Bot Chat'}]};
+   if(method==='session.active_list')return {sessions:running?[{session_key:canonicalTip,status:'working'}]:[]};
    if(method==='session.events.since')return {epoch,latest_seq:seq,truncated:truncated||epoch!=='epoch-fixture',events};
    if(method==='session.history')return {messages};
    if(method==='tools.list')return {toolsets:[{name:'unknown-toolset',enabled:true,tools:['new_capability_A','new_capability_B']}]};
-   if(method==='prompt.submit'){if(fail)throw new Error('timeout');messages=[{role:'user',text:params.text,row_id:17}];events=[{session_id:'runtime-fixture',seq:5,type:'message.start'}];seq=5;return {status:'streaming',user_row_id:17};}
+   if(method==='prompt.submit'){if(options.queueRace){running=true;return {status:'queued',user_row_id:17};}if(fail)throw new Error('timeout');messages=[{role:'user',text:params.text,row_id:17}];events=[{session_id:'runtime-fixture',seq:5,type:'message.start'}];seq=5;return {status:'streaming',user_row_id:17};}
   },openSession:async(id,options)=>calls.push({method:'openSession',id,options})};
  const native=async(_r,path,_method,body)=>{
-  await options.beforeNative?.(path,body);
+  timeline.push({native:path,body});await options.beforeNative?.(path,body);
   if(path.startsWith('source-binding/'))return {...ref,...options.binding};
   if(path==='source-intent-claim'){
    if(rows.has(body.request_id))return {created:false,intent:structuredClone(rows.get(body.request_id))};
-   const row={...ref,request_id:body.request_id,execution,status:'pending',prompt:'Native source intent '+body.request_id,identity:{status:'unknown'},read_verified:false};rows.set(body.request_id,row);return {created:true,intent:structuredClone(row)};
+   const row={...ref,request_id:body.request_id,execution:options.execution || execution,status:'pending',prompt:'Native source intent '+body.request_id,identity:{status:'unknown'},read_verified:false};rows.set(body.request_id,row);return {created:true,intent:structuredClone(row)};
   }
   if(path==='source-intent-track'){const row=rows.get(body.request_id);Object.assign(row,body.tracking);return structuredClone(row);}
   if(path==='source-read-receipts')return {receipts:[...rows.values()].map(r=>structuredClone(r))};
  };
  const access=createNativeSessionAccess({host,native,live:options.live || (()=>{}),activity:()=>activities++});
- return {access,calls,rows,host,setFail:v=>fail=v,setRuntime:v=>runtimeId=v,setTruncated:v=>truncated=v,setReplay:v=>events=v,events:()=>structuredClone(events),activities:()=>activities,setRunning:v=>running=v,setEpoch:v=>epoch=v,
+ return {access,calls,timeline,rows,host,setCanonical:(id,tip=id)=>{canonicalId=id;canonicalTip=tip;},setSnapshot:value=>snapshot=value,setFail:v=>fail=v,setRuntime:v=>runtimeId=v,setTruncated:v=>truncated=v,setReplay:v=>events=v,events:()=>structuredClone(events),activities:()=>activities,setRunning:v=>running=v,setEpoch:v=>epoch=v,
   complete:(id,name,result)=>{events=events.filter(e=>e.type!=='message.complete');events.push({session_id:'runtime-fixture',seq:++seq,type:'tool.complete',payload:{tool_id:id,name,result}},{session_id:'runtime-fixture',seq:++seq,type:'message.complete',payload:{persisted_turn:{complete:true,user_row_id:17,row_ids:[17]}}});messages.push({role:'tool',tool_call_id:id,name,content:{ok:true}},{role:'assistant',text:'Native result'});seq++;},
   mutateHistory:fn=>{messages=fn(messages);},event:e=>listener(e),disposed:()=>({off,released})};
 }
@@ -126,4 +128,57 @@ test('cancellation while retrieving an existing intent cannot mark a dispatched 
  options.beforeNative=async path=>{if(path==='source-intent-claim')invalid=true;};
  await assert.rejects(f.access.read(route,ref,'fixture-request-0001',0),/source_binding_changed/);
  assert.equal(f.rows.get('fixture-request-0001').status,'submitted');assert.equal(f.calls.filter(c=>c.method==='prompt.submit').length,1);
+});
+
+const botExecution={connection_id:'fixture',profile:'research',target_profile:'research',method:'profile_bot'};
+test('connection-only test claims first, pins the canonical tip once and never creates a conversation',async()=>{
+ const f=fixture({execution:botExecution});
+ const result=await f.access.read(route,ref,'fixture-bot-read-0001',0);
+ assert.equal(result.owner_stored_session_id,'bot-tip');assert.equal(result.status,'pending');
+ const claim=f.timeline.findIndex(row=>row.native==='source-intent-claim');
+ const lookup=f.timeline.findIndex(row=>row.rpc==='session.list');
+ const pin=f.timeline.findIndex(row=>row.native==='source-intent-track' && row.body.tracking.owner_stored_session_id);
+ const submit=f.timeline.findIndex(row=>row.rpc==='prompt.submit');
+ assert.ok(claim<lookup && lookup<pin && pin<submit);
+ assert.deepEqual(f.calls.find(row=>row.method==='session.list').params,{title:'Bot Chat'});
+ assert.deepEqual(f.calls.find(row=>row.method==='session.resume').params,{session_id:'bot-tip',omit_messages:true,inline_images:false,lazy:true});
+ assert.equal(f.calls.filter(row=>row.method==='session.create').length,0);
+ f.setCanonical('different-root','different-tip');await f.access.read(route,ref,'fixture-bot-read-0001',0);
+ assert.equal(f.calls.filter(row=>row.method==='session.list').length,1);
+ assert.equal(f.calls.filter(row=>row.method==='prompt.submit').length,1);
+ await f.access.open(route,botExecution,ref,0);
+ assert.equal(f.calls.at(-1).id,'bot-tip');
+});
+test('missing canonical context never falls back to a recent chat or creates one',async()=>{
+ const f=fixture({execution:botExecution,noCanonical:true});
+ await assert.rejects(f.access.read(route,ref,'fixture-bot-read-0001',0),/native_bot_context_unavailable/);
+ assert.equal(f.calls.filter(row=>['session.resume','session.create','prompt.submit'].includes(row.method)).length,0);
+ assert.equal(f.rows.get('fixture-bot-read-0001').status,'not_submitted');
+});
+for(const snapshot of [{pending_approval:{id:'approval'}},{open_requests:[{id:'question'}]},{pending_connection:{id:'connect'}},{status:'waiting'},{queued:{user:'earlier human request'}},{auto_continue:{attempt:1}},{inflight:{recoverable:true}}]){
+ test('native pending state is preserved without submitting: '+Object.keys(snapshot)[0],async()=>{
+  const f=fixture({execution:botExecution});f.setSnapshot(snapshot);
+  await assert.rejects(f.access.read(route,ref,'fixture-bot-read-0001',0),/native_(operation_approval_pending|context_waiting|session_busy)/);
+  assert.equal(f.calls.filter(row=>row.method==='prompt.submit').length,0);
+  assert.equal(f.rows.get('fixture-bot-read-0001').status,'not_submitted');
+ });
+}
+test('a native busy race stays queued without interrupt or steering and is not access proof',async()=>{
+ const f=fixture({execution:botExecution,queueRace:true});
+ const result=await f.access.read(route,ref,'fixture-bot-read-0001',0);
+ assert.equal(result.native_submission_status,'queued');assert.equal(result.status,'pending');
+ assert.equal(result.read_verified,false);assert.equal(result.grants_verified,false);
+ assert.equal(f.calls.find(row=>row.method==='prompt.submit').params.queued,true);
+ assert.equal(f.calls.filter(row=>/interrupt|steer|redirect|session.create/.test(row.method)).length,0);
+ await f.access.read(route,ref,'fixture-bot-read-0001',0);
+ assert.equal(f.calls.filter(row=>row.method==='prompt.submit').length,1);
+});
+test('a source STOP during preflight prevents submission and metadata recovery never resumes a held context',async()=>{
+ const f=fixture({execution:botExecution,binding:{execution_hold:'profile_stopped'}});
+ await assert.rejects(f.access.read(route,ref,'fixture-bot-read-0001',0),/profile_stopped/);
+ assert.equal(f.calls.filter(row=>row.method==='prompt.submit').length,0);
+ f.rows.get('fixture-bot-read-0001').status='pending';const before=f.calls.length;
+ const result=await f.access.receipts(route,ref,0,'profile_stopped');
+ assert.equal(f.calls.length,before);assert.equal(result.execution_hold,'profile_stopped');
+ assert.equal(result.unresolved_request,'fixture-bot-read-0001');
 });

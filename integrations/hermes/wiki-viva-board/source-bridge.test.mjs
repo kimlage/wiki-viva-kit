@@ -5,6 +5,7 @@ const route={connectionId:'fixture-local',profile:'research',targetProfile:'rese
 const routeKey=JSON.stringify([route.connectionId,route.profile,route.targetProfile]);
 const ref={source_id:'fictional-source',binding_sha256:'a'.repeat(64)};
 const sourceBinding={...ref,config_sha256:'b'.repeat(64),source_kind:'repository',access_policy:{execution:{connection_id:route.connectionId,profile:route.profile,target_profile:route.targetProfile,method:'native_session',stored_session_id:'stored-fixture'}}};
+const originMetadata=(profile='research')=>({schema_version:'hermes.connector_gateway_origin.v1',status:'known',profile,origin:{scheme:'https',host:'fixture.example.test',port:8443},provenance:'override',resolution_scope:'process',reason_code:null,account_identity_verified:false,account_enforced:false});
 function fixture(extra={}) {
   const calls=[],replies=[],setups=[];let epoch=0;const frame={};
   const host={profileRoutes:async()=>[route],retainProfile:async()=>()=>{},onEvent:()=>()=>{},requestProfile:async(r,method,params)=>{
@@ -22,6 +23,79 @@ function fixture(extra={}) {
   const send=m=>bridge.receive({origin:'http://127.0.0.1:8765',source:frame,data:m});
   return {bridge,calls,replies,setups,message,send,frame,epoch:n=>epoch=n};
 }
+test('origin metadata uses exact native route and existing RPCs, with no account/source/session/HTTP reads',async()=>{
+ const target={connectionId:'fixture-remote',profile:'desktop-label',targetProfile:'research',mode:'remote'};
+ const calls=[];
+ const f=fixture({api:async()=>{assert.fail('metadata action must not call HTTP');},host:{profileRoutes:async()=>[route,target],requestProfile:async(r,method,params)=>{
+  calls.push({r,method,params});
+  if(method==='gateway.capabilities')return {connector_gateway_origin:'hermes.connector_gateway_origin.v1'};
+  assert.equal(method,'config.get');return {connector_gateway_origin:{...originMetadata(),raw_url:'synthetic-only',headers:{irrelevant:'synthetic-only'}}};
+ }}});
+ const message={...f.message('transport_metadata'),route_key:JSON.stringify([target.connectionId,target.profile,target.targetProfile])};
+ await f.send(message);await f.send(message);
+ assert.deepEqual(calls.map(c=>({method:c.method,params:c.params})),[{method:'gateway.capabilities',params:{}},{method:'config.get',params:{key:'connector_gateway_origin',profile:'research',metadata_only:true}}]);
+ assert.ok(calls.every(c=>c.r.connectionId===target.connectionId && c.r.profile===target.profile && c.r.targetProfile===target.targetProfile));
+ const result=f.replies.at(-1).result;
+ assert.deepEqual(result.gateway_origin,originMetadata());
+ assert.equal(result.connection_verified,false);assert.equal(result.read_verified,false);
+ assert.equal(JSON.stringify(result).includes('synthetic-only'),false);
+});
+test('old or unqualified native builds never receive the potentially hydrating config.get probe',async()=>{
+ for(const capability of [undefined,true,'other-version']) {
+  const methods=[];
+  const f=fixture({api:async()=>assert.fail('no HTTP'),host:{profileRoutes:async()=>[route],requestProfile:async(_r,m)=>{methods.push(m);assert.equal(m,'gateway.capabilities');return {connector_gateway_origin:capability};}}});
+  await f.send(f.message('transport_metadata'));
+  assert.deepEqual(methods,['gateway.capabilities']);
+  assert.equal(f.replies.at(-1).result.gateway_origin.status,'unknown');
+ }
+});
+test('native metadata errors stay content free and do not fall back to config, accounts or private tools',async()=>{
+ for(const failAt of ['gateway.capabilities','config.get']) {
+  const methods=[];
+  const f=fixture({host:{profileRoutes:async()=>[route],requestProfile:async(_r,m)=>{methods.push(m);if(m===failAt)throw new Error('https://synthetic-user:synthetic-only@fixture.example.test/private?synthetic-only');return {connector_gateway_origin:'hermes.connector_gateway_origin.v1'};}}});
+  await f.send(f.message('transport_metadata'));
+  assert.equal(f.replies.at(-1).result.gateway_origin.status,'unknown');
+  assert.ok(methods.length<=2);assert.equal(JSON.stringify(f.replies).includes('synthetic-only'),false);
+ }
+});
+test('wrong profile, proof flags and malformed origin cannot become known metadata',async()=>{
+ for(const change of [{profile:'another'},{account_enforced:true},{account_identity_verified:true},{resolution_scope:'account'},
+  {origin:{scheme:'https',host:'user:synthetic-only@fixture.example.test',port:443}},
+  {origin:{scheme:'file',host:'fixture.example.test',port:443}},
+  {origin:{scheme:'https',host:'fixture.example.test',port:0}}]) {
+  const f=fixture({host:{profileRoutes:async()=>[route],requestProfile:async(_r,m)=>m==='gateway.capabilities'?{connector_gateway_origin:'hermes.connector_gateway_origin.v1'}:{connector_gateway_origin:{...originMetadata(),...change}}}});
+  await f.send(f.message('transport_metadata'));
+  assert.equal(f.replies.at(-1).result.gateway_origin.status,'unknown');
+  assert.equal(f.replies.at(-1).result.connection_verified,false);
+  assert.equal(JSON.stringify(f.replies).includes('synthetic-only'),false);
+ }
+});
+test('removed or changed native routes stop metadata before config or before response disclosure',async()=>{
+ for(const stage of ['capability','origin']) {
+  let available=[route];const methods=[];
+  const f=fixture({host:{profileRoutes:async()=>available,requestProfile:async(_r,m)=>{
+   methods.push(m);
+   if((stage==='capability' && m==='gateway.capabilities') || m==='config.get')available=[{...route,targetProfile:'replacement'}];
+   return m==='gateway.capabilities'?{connector_gateway_origin:'hermes.connector_gateway_origin.v1'}:{connector_gateway_origin:originMetadata()};
+  }}});
+  await f.send(f.message('transport_metadata'));
+  assert.equal(f.replies.at(-1).error_code,'executor_profile_mismatch');
+  assert.equal(f.replies.at(-1).result,undefined);
+  assert.equal(methods.includes('config.get'),stage==='origin');
+ }
+});
+test('source close or generation change discards an outstanding metadata result',async()=>{
+ for(const close of [false,true]) {
+  let release;const wait=new Promise(done=>release=done);
+  const f=fixture({host:{profileRoutes:async()=>[route],requestProfile:async(_r,m)=>{
+   if(m==='gateway.capabilities')return {connector_gateway_origin:'hermes.connector_gateway_origin.v1'};
+   await wait;return {connector_gateway_origin:originMetadata()};
+  }}});
+  const pending=f.send(f.message('transport_metadata'));await new Promise(done=>setImmediate(done));
+  if(close)await f.bridge.receivePort({protocol:'wiki.source_access.v1',kind:'close',channel:'fixture-channel-001'});else f.epoch(1);
+  release();await pending;assert.equal(f.replies.length,0);
+ }
+});
 test('real ConnectorRow.connector and MCP status are capabilities, never access evidence',async()=>{
   const f=fixture();await f.send(f.message());const r=f.replies[0].result;
   assert.deepEqual(r.providers.map(p=>p.id),['fictional-app']);
@@ -78,6 +152,31 @@ test('managed account choices come from actual scoped account rows, never defaul
  assert.deepEqual(f.replies[0].result.accounts,[{id:'fixture-account',connector:'gmail',alias:'research',label:'Research',status:'active'}]);
  const call=methods.find(r=>r.m==='connectors.accounts');assert.deepEqual(call.p,{});assert.equal(call.r.profile,'research');
  assert.equal(f.replies[0].result.connection_verified,false);
+ assert.equal(f.replies[0].result.accounts_available,true);
+});
+
+test('failed account discovery stays unknown while official setup remains available',async()=>{
+ const methods=[];
+ const f=fixture({host:{profileRoutes:async()=>[route],requestProfile:async(_r,m)=>{
+  methods.push(m);
+  if(m==='connectors.list')return {available:true,connectors:[]};
+  if(m==='connectors.accounts')throw new Error('unavailable');
+  return {};
+ }}});
+ await f.send(f.message('inspect'));
+ const result=f.replies.at(-1).result;
+ assert.equal(result.accounts_available,false);assert.deepEqual(result.accounts,[]);
+ assert.equal(result.connection_verified,false);
+ await f.send(f.message('configure','fixture-configure-0002'));
+ assert.equal(f.setups.length,1);
+ assert.ok(!methods.some(m=>m==='prompt.submit'||m==='connectors.connect'));
+});
+
+test('a malformed or absent account inventory is not successful account discovery',async()=>{
+ const f=fixture({host:{profileRoutes:async()=>[route],requestProfile:async(_r,m)=>m==='connectors.list'?{available:true,connectors:[]}:{}}});
+ await f.send(f.message('inspect'));
+ assert.equal(f.replies.at(-1).result.accounts_available,false);
+ assert.deepEqual(f.replies.at(-1).result.accounts,[]);
 });
 
 test('closing a source releases its native listener/lease and reopening uses a fresh access object',async()=>{
@@ -108,4 +207,28 @@ test('generic native settings validate newly discovered toolsets in the exact ex
  await f.send({...f.message('configure','fixture-toolset-0003'),setup_method:'toolset:absent-tools'});
  assert.equal(f.replies.at(-1).ok,false);assert.equal(f.setups.length,2);
  assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
+});
+
+test('connection discovery never resumes or retains the saved execution session',async()=>{
+ let retain=0,events=0;
+ const f=fixture({host:{profileRoutes:async()=>[route],retainProfile:async()=>{retain++;return()=>{};},onEvent:()=>{events++;return()=>{};},requestProfile:async(_route,method)=>{
+  f.calls.push({method});
+  if(method==='connectors.list')return {available:true,connectors:[]};
+  if(method==='connectors.accounts')return {accounts:[]};
+  if(method==='session.list')return {sessions:[]};
+  return {servers:[]};
+ },toolsets:{list:async()=>[]}}});
+ await f.send(f.message('inspect'));
+ assert.equal(f.replies.at(-1).ok,true);
+ assert.equal(retain,0);assert.equal(events,0);
+ assert.ok(f.calls.every(row=>!['session.create','session.resume','tools.list','prompt.submit'].includes(row.method)));
+});
+
+test('route names use official read-only profile labels without assuming bot ownership or querying canonical conversations',async()=>{
+ const queried=[];
+ const f=fixture({api:async request=>{queried.push(request);return {profiles:[{name:'research',bot_title:'Research assistant',display_name:'Research'}]};}});
+ await f.send(f.message('routes'));
+ assert.equal(f.replies.at(-1).result.routes[0].label,'Research assistant');
+ assert.deepEqual(queried.map(row=>[row.method,row.path,row.connectionId,row.profile]),[['GET','/api/profiles','fixture-local','research']]);
+ assert.equal(f.calls.filter(row=>row.method==='profiles.list' || row.method==='session.resume').length,0);
 });

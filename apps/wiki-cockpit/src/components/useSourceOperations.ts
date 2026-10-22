@@ -161,16 +161,18 @@ export function useSourceOperations({
     }
   };
 
-  const previewSourceConfiguration = async () => {
+  const previewSourceConfiguration = async (nextDraft = sourceDraft) => {
     if (demo || !source) return;
+    const requestedSource = sourceKey;
     setOperationBusy(true);
     setOperationError("");
     setOperationPreview(null);
     try {
       if (!onPreviewConfiguration) throw new Error(t("source.operation.unavailable"));
-      const updates = collectSourceUpdates(source, sourceDraft);
+      const updates = collectSourceUpdates(source, nextDraft);
       if (Object.keys(updates).length === 0) throw new Error(t("source.operation.noChanges"));
       const result = await onPreviewConfiguration(source.source_id, "__source__", updates);
+      if (activeSource.current !== requestedSource) return;
       if (!result.ok) {
         setOperationError(result.error || t("source.operation.failed"));
         return;
@@ -178,9 +180,9 @@ export function useSourceOperations({
       setOperationTargetId("__source__");
       setOperationPreview(result);
     } catch (error) {
-      setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
+      if (activeSource.current === requestedSource) setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
     } finally {
-      setOperationBusy(false);
+      if (activeSource.current === requestedSource) setOperationBusy(false);
     }
   };
 
@@ -201,11 +203,12 @@ export function useSourceOperations({
         return;
       }
       setReceipts((current) => [result, ...current.filter((item) => item.operation_id !== result.operation_id)]);
+      const sourceLevel = operationTargetId === "__source__";
       setOperationPreview(null);
       setOperationTargetId("");
       onNotice(t("source.operation.applied", { id: result.operation_id }));
       onSourceChanged?.();
-      setSection("history");
+      setSection(sourceLevel ? "configure" : "history");
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : t("source.operation.failed"));
     } finally {

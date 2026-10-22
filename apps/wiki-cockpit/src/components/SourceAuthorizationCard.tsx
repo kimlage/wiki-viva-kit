@@ -48,8 +48,8 @@ export function SourceAuthorizationCard({
   const auth = source.auth;
   const authDeclared = Boolean(auth && auth.method !== "none" && auth.ref);
   const noAuthRequired = auth?.method === "none";
-  const connectorBlocked = Boolean(route?.requires_agent && agentCapabilitiesKnown && (!agentReady || !connectorReady));
-  const connectorAvailable = Boolean(route?.requires_agent && agentCapabilitiesKnown && agentReady && connectorReady);
+  const connectorBlocked = Boolean(!nativeManaged && route?.requires_agent && agentCapabilitiesKnown && (!agentReady || !connectorReady));
+  const connectorAvailable = Boolean(!nativeManaged && route?.requires_agent && agentCapabilitiesKnown && agentReady && connectorReady);
   const status = probeFailed ? "technical_blocked" : access?.valid_until && bound && !current ? "unknown" : access && bound && !["configured", "not_configured"].includes(access.status) && !verified && access.status !== "verified" ? access.status : verified
     ? "verified"
     : connectorBlocked

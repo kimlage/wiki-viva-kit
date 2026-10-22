@@ -3,7 +3,7 @@ import type { SourceEntity } from "../types";
 import type { HostAction, HostResult, SourceHostPort } from "../application/sourceAccess";
 
 const PROTOCOL = "wiki.source_access.v1";
-const ACTIONS = new Set<HostAction>(["routes", "inspect", "configure", "read_test", "read_receipts", "open_native"]);
+const ACTIONS = new Set<HostAction>(["routes", "inspect", "transport_metadata", "configure", "read_test", "read_receipts", "open_native"]);
 
 export class SourceHostBridge implements SourceHostPort {
   private channel = "";

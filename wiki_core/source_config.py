@@ -26,9 +26,11 @@ def source_access_metadata(value: Any) -> dict[str, Any]:
     """Consumer-owned declarations, never observed permissions or credentials."""
     if value is None or value == {}:
         return {}
-    if not isinstance(value, dict) or set(value) not in (_ACCESS_FIELDS, _ACCESS_FIELDS | {"execution"}) or value.get("schema_version") != ACCESS_SCHEMA:
+    if (not isinstance(value, dict) or not _ACCESS_FIELDS.issubset(value)
+            or set(value) - _ACCESS_FIELDS - {"execution", "connection"}
+            or value.get("schema_version") != ACCESS_SCHEMA):
         raise ValueError("source_access_metadata_invalid")
-    native_session = isinstance(value.get("execution"), dict) and value["execution"].get("method") == "native_session"
+    native_session = bool(value.get("connection")) or isinstance(value.get("execution"), dict) and value["execution"].get("method") == "native_session"
     for key in ("expected_identity", "coordinator", "executor"):
         empty_identity = key == "expected_identity" and native_session
         if not isinstance(value[key], str) or (not value[key].strip() and not empty_identity) or len(value[key]) > 240 or any(ord(c) < 32 for c in value[key]) or _unsafe_access_label(value[key]):
@@ -53,6 +55,21 @@ def source_access_metadata(value: Any) -> dict[str, Any]:
             raise ValueError("source_access_execution_invalid")
         if account_keys.issubset(execution) and (not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,159}", execution["provider_id"]) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,31}", execution["account_alias"]) or not re.fullmatch(r"[\w-]{1,160}", execution["account_id"])):
             raise ValueError("source_access_execution_invalid")
+    if "connection" in value:
+        connection = value["connection"]
+        keys = {"connection_id", "profile", "target_profile"}
+        account_keys = {"provider_id", "account_id", "account_alias"}
+        if (not isinstance(connection, dict) or set(connection) not in (keys, keys | account_keys)
+                or any(not isinstance(v, str) or not v.strip() or len(v) > 240
+                       or any(ord(c) < 32 for c in v) or _unsafe_access_label(v) for v in connection.values())):
+            raise ValueError("source_access_connection_invalid")
+        if account_keys.issubset(connection) and (not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,159}", connection["provider_id"]) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,31}", connection["account_alias"]) or not re.fullmatch(r"[\w-]{1,160}", connection["account_id"])):
+            raise ValueError("source_access_connection_invalid")
+        legacy = value.get("execution")
+        if legacy and (any(connection[k] != legacy[k] for k in keys)
+                       or account_keys.issubset(legacy) and account_keys.issubset(connection)
+                       and any(connection[k] != legacy[k] for k in account_keys)):
+            raise ValueError("source_access_connection_owner_conflict")
     return {**value, "requested_scopes": list(scopes)}
 
 
@@ -82,7 +99,7 @@ def project_source_access(source: dict[str, Any], observation: Any = None, *, no
               "execution_ready": False, "business_authority": "unknown"}
     if observation is None:
         return result
-    if policy.get("execution"):
+    if policy.get("execution") or policy.get("connection"):
         return {**result, "status": "execution_unknown", "error_code": "native_tool_evidence_required"}
     allowed = {"schema_version", "binding_sha256", "outcome", "confirmed_identity", "granted_scopes", "checked_at", "valid_until", "evidence_ref", "error_code"}
     if not isinstance(observation, dict) or set(observation) != allowed or observation.get("schema_version") != ACCESS_SCHEMA:

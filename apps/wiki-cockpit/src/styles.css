@@ -12247,3 +12247,24 @@ html[data-wiki-theme="luminous-observatory"] .readerDockBackdrop {
     outline-offset: 1px;
   }
 }
+
+.sourceConnectionCard { display: grid; gap: 16px; padding: 20px; border: 1px solid var(--line, #2c4656); border-radius: 14px; background: rgba(28, 54, 69, .16); min-width: 0; }
+.sourceConnectionCard > header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.sourceConnectionCard h4, .sourceConnectionCard p { margin: 0; }
+.sourceConnectionIdentity { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 16px; margin: 0; }
+.sourceConnectionIdentity dt { font-size: 12px; color: #8ca6b7; margin-bottom: 5px; }
+.sourceConnectionIdentity dd { margin: 0; overflow-wrap: anywhere; }
+.sourceConnectionCard .sourceUpdateActions { display: flex; flex-wrap: wrap; gap: 10px; }
+.sourceConnectionHint { font-size: 13px; color: #9eb2bf; }
+.sourceConnectionAdvanced { border-top: 1px solid var(--line, #2c4656); padding-top: 14px; min-width: 0; }
+.sourceConnectionAdvanced > summary { cursor: pointer; color: #a9becd; padding: 6px 0; }
+.sourceConnectionAdvanced[open] > :not(summary) { margin-top: 14px; }
+.sourceConnectionAdvanced label { display: grid; gap: 6px; min-width: 0; margin-top: 14px; }
+.sourceConnectionAdvanced select { max-width: 100%; min-width: 0; }
+@media (max-width: 820px) {
+  .sourceDock.sourceDockEmbedded > .dockHeader { flex-wrap: wrap; }
+  .sourceDock.sourceDockEmbedded > .dockHeader strong { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+  .sourceDock.sourceDockEmbedded > .dockHeader .pill { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}
+.sourceContextChoice { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px; border: 1px solid #3c5668; }
+.sourceContextChoice legend { padding: 0 6px; }
