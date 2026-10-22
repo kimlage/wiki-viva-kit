@@ -52,9 +52,16 @@ it('keeps the frame, bridge channel and retained native session alive while offi
    if(method==='session.resume')return {session_id:'runtime-one',stored_session_id:'stored-one'};
    if(method==='session.list')return {sessions:[]};
    if(method==='tools.list')return {toolsets:[]};
+   if(method==='session.events.since')return {epoch:'fixture-epoch',latest_seq:0};
+   if(method==='prompt.submit')return {user_row_id:42};
    return {};
   }),toolsets:{list:vi.fn(async()=>[{name:'browser',enabled:true}])}};
- Object.assign(window,{hermesDesktop:{api:vi.fn(async()=>binding)}});
+ Object.assign(window,{hermesDesktop:{api:vi.fn(async(request:{path:string;body?:{request_id:string;tracking?:object}})=>{
+  const row={execution,source_id:binding.source_id,binding_sha256:binding.binding_sha256,config_sha256:binding.config_sha256,request_id:request.body?.request_id,prompt:'Synthetic read intent'};
+  if(request.path.includes('source-intent-claim'))return {created:true,intent:row};
+  if(request.path.includes('source-intent-track'))return {...row,...request.body?.tracking};
+  return binding;
+ })}});
  const connectors=()=> <div>Official connectors</div>;
  const tools=()=> <div>Official toolset</div>;
  const plugin=new Function('React','ROUTES_AREA','SIDEBAR_NAV_AREA','host','ConnectorsTab','ToolsetConfigPanel',code)(React,'routes','sidebar',host,connectors,tools);
@@ -73,6 +80,9 @@ it('keeps the frame, bridge channel and retained native session alive while offi
  };
  const inspectId=send('inspect');
  await waitFor(()=>expect(post.mock.calls.some(([row])=>row.request_id===inspectId && row.ok===true)).toBe(true));
+ expect(host.retainProfile).not.toHaveBeenCalled();
+ const readId=send('read_test');
+ await waitFor(()=>expect(post.mock.calls.some(([row])=>row.request_id===readId && row.ok===true)).toBe(true));
  expect(host.retainProfile).toHaveBeenCalledTimes(1);
  const helloCount=()=>post.mock.calls.filter(([row])=>row.kind==='hello').length;
  const count=helloCount();
@@ -90,6 +100,6 @@ it('keeps the frame, bridge channel and retained native session alive while offi
  }
  expect(host.retainProfile).toHaveBeenCalledTimes(1);
  expect(host.requestProfile.mock.calls.filter(([,method])=>method==='session.resume')).toHaveLength(1);
- expect(host.requestProfile.mock.calls.some(([,method])=>method==='prompt.submit')).toBe(false);
+ expect(host.requestProfile.mock.calls.filter(([,method])=>method==='prompt.submit')).toHaveLength(1);
  view.unmount();expect(release).toHaveBeenCalledTimes(1);expect(off).toHaveBeenCalledTimes(1);
 });

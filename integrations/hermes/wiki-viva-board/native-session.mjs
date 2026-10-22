@@ -58,16 +58,46 @@ export function createNativeSessionAccess({host, native, live, activity=()=>{}})
   }
   async function resume(route, execution) {
     const lease=await retain(route); assertOpen();
-    const value = await request(route, 'session.resume', {session_id:execution.stored_session_id, omit_messages:true, inline_images:false});
+    // A new source test mounts the acknowledged canonical tip lazily. Unlike a
+    // cold/eager resume this does not auto-continue an unrelated interrupted
+    // human turn. Native prompt.submit owns any later agent/tool hydration.
+    const value = await request(route, 'session.resume', {session_id:execution.stored_session_id, omit_messages:true, inline_images:false,
+      ...(execution.method==='profile_bot'?{lazy:true}:{})});
     assertOpen();
     if (!validId(value?.session_id) || ![value.stored_session_id, value.resumed, value.session_key].includes(execution.stored_session_id)) throw new Error('native_session_mismatch');
     lease.sessions.add(value.session_id);
     return value;
   }
   const track = (route, ref, row, tracking) => native(route, 'source-intent-track', 'POST', {...ref, request_id:row.request_id, tracking});
+  const ownerExecution = row => {
+    if(row.execution.method!=='profile_bot')return row.execution;
+    if(!validId(row.owner_stored_session_id))throw new Error('native_owner_unresolved');
+    return {...row.execution,stored_session_id:row.owner_stored_session_id};
+  };
+  async function canonicalOwner(route) {
+    const result=await request(route,'session.list',{title:'Bot Chat'});
+    const rows=result?.sessions;
+    if(!Array.isArray(rows) || rows.length!==1 || rows[0].title!=='Bot Chat' || !validId(rows[0].id))throw new Error('native_bot_context_unavailable');
+    return rows[0];
+  }
+  async function assertBotIdle(route, storedId, resolvedId=storedId) {
+    const result=await request(route,'session.active_list',{});
+    if(!Array.isArray(result?.sessions))throw new Error('native_trace_unavailable');
+    const live=result.sessions.filter(row=>[storedId,resolvedId].includes(row.session_key));
+    if(live.some(row=>row.status!=='idle'))throw new Error('native_session_busy');
+  }
+  function assertIdle(session) {
+    if(session.pending_approval)throw new Error('native_operation_approval_pending');
+    if(session.open_requests?.length || session.pending_connection)throw new Error('native_context_waiting');
+    if(session.running || session.info?.running || session.hydrating || session.queued || session.auto_continue || session.inflight ||
+       session.status && session.status!=='idle')throw new Error('native_session_busy');
+  }
   async function reconcile(route, ref, row, token) {
     live(token); assertOpen();
-    const session = await resume(route, row.execution); live(token);
+    // Recovery never performs another canonical-title lookup or adopts the
+    // latest chat. A missing acknowledged owner remains unresolved.
+    if(row.execution.method==='profile_bot' && !row.owner_stored_session_id)return publicRow(row);
+    const session = await resume(route, ownerExecution(row)); live(token);
     const replaySession=row.runtime_session_id || session.session_id;
     const replay = await request(route, 'session.events.since', {session_id:replaySession, last_seen:row.submit_after_seq || 0}); live(token);
     if (!validId(replay.epoch) || !Number.isSafeInteger(replay.latest_seq)) throw new Error('native_trace_unavailable');
@@ -123,10 +153,23 @@ export function createNativeSessionAccess({host, native, live, activity=()=>{}})
       let submitted = false;
       try {
         live(token); assertOpen();
-        const session = await resume(route,row.execution); live(token);
-        if (session.running || session.hydrating || session.pending_approval || session.open_requests?.length) throw new Error('native_session_busy');
+        if(row.execution.method==='profile_bot' && !row.owner_stored_session_id) {
+          await retain(route);live(token);
+          const owner=await canonicalOwner(route);live(token);
+          const stored=owner.resolved_id || owner.id;
+          if(!validId(stored))throw new Error('native_owner_unresolved');
+          await assertBotIdle(route,owner.id,stored);live(token);
+          const pinned=await track(route,ref,row,{owner_stored_session_id:stored,status:'pending'});live(token);
+          if(pinned.owner_stored_session_id!==stored)throw new Error('native_owner_unresolved');
+          row.owner_stored_session_id=stored;
+        }
+        const execution=ownerExecution(row);
+        const session = await resume(route,execution); live(token);
+        assertIdle(session);
+        if(row.execution.method==='profile_bot' && session.running!==false && session.status!=='idle')throw new Error('native_trace_unavailable');
         const replay = await request(route,'session.events.since',{session_id:session.session_id,last_seen:0}); live(token);
         if (!validId(replay.epoch) || !Number.isSafeInteger(replay.latest_seq)) throw new Error('native_trace_unavailable');
+        if(replay.open_requests?.length)throw new Error('native_context_waiting');
         Object.assign(row,{runtime_session_id:session.session_id,epoch:replay.epoch,last_seen:replay.latest_seq,submit_after_seq:replay.latest_seq});
         await track(route,ref,row,{runtime_session_id:session.session_id,epoch:replay.epoch,last_seen:replay.latest_seq,submit_after_seq:replay.latest_seq,status:'pending'}); live(token);
         // Recheck the canonical owner/config after all preflight awaits. Tracking
@@ -134,11 +177,13 @@ export function createNativeSessionAccess({host, native, live, activity=()=>{}})
         const binding=await native(route,'source-binding/'+encodeURIComponent(ref.source_id)+'?binding_sha256='+ref.binding_sha256); live(token); assertOpen();
         if(binding.source_id!==ref.source_id || binding.binding_sha256!==ref.binding_sha256)throw new Error('source_binding_changed');
         if(binding.config_sha256!==ref.config_sha256)throw new Error('source_configuration_changed');
+        if(binding.execution_hold)throw new Error(binding.execution_hold);
+        if(row.execution.method==='profile_bot') {await assertBotIdle(route,execution.stored_session_id,session.session_id);live(token);}
         watched.set(row.request_id,{ref,row,token,busy:false});
         submitted = true; // From this boundary a timeout is UNKNOWN, never a retry.
         const ack = await request(route,'prompt.submit',{session_id:session.session_id,text:row.prompt,queued:true});
         live(token);
-        const tracking={runtime_session_id:session.session_id,status:'submitted'};
+        const tracking={runtime_session_id:session.session_id,status:'submitted',native_submission_status:ack?.status==='queued'?'queued':'submitted'};
         if (Number.isSafeInteger(ack?.user_row_id) && ack.user_row_id > 0) {tracking.user_row_id=ack.user_row_id;row.user_row_id=ack.user_row_id;}
         const result=await track(route,ref,row,tracking);live(token);
         return publicRow(result);
@@ -148,21 +193,30 @@ export function createNativeSessionAccess({host, native, live, activity=()=>{}})
         throw error;
       }
     },
-    async receipts(route,ref,token) {
+    async receipts(route,ref,token,hold='') {
       const result=await native(route,'source-read-receipts','POST',ref);live(token);
       const rows=[];
       for (const row of result.receipts || []) {
-        if (['not_submitted','native_trace_observed','native_trace_failed'].includes(row.status)) rows.push(publicRow(row));
+        if (hold || ['not_submitted','native_trace_observed','native_trace_failed'].includes(row.status)) rows.push(publicRow(row));
         else {
           if(row.execution.connection_id!==route.connectionId || row.execution.profile!==route.profile || row.execution.target_profile!==route.targetProfile)throw new Error('executor_profile_mismatch');
           rows.push(await reconcile(route,{source_id:row.source_id,binding_sha256:row.binding_sha256,config_sha256:row.config_sha256},row,token));
         }
       }
-      return {receipts:rows,...(rows.find(row=>['pending','submitted'].includes(row.status))?{unresolved_request:rows.find(row=>['pending','submitted'].includes(row.status)).request_id}:{})};
+      return {receipts:rows,...(hold?{execution_hold:hold}:{}),...(rows.find(row=>['pending','submitted'].includes(row.status))?{unresolved_request:rows.find(row=>['pending','submitted'].includes(row.status)).request_id}:{})};
     },
-    async open(route,execution) {
+    async open(route,execution,ref,token) {
       if (typeof host.openSession !== 'function') throw new Error('executor_unavailable');
-      await host.openSession(execution.stored_session_id,{route,awaitHydration:true,forceResume:true});
+      let stored=execution.stored_session_id;
+      if(execution.method==='profile_bot') {
+        const result=await native(route,'source-read-receipts','POST',ref);live(token);
+        const pending=(result.receipts || []).find(row=>['pending','submitted'].includes(row.status));
+        if(pending) {
+          if(pending.execution.connection_id!==route.connectionId || pending.execution.profile!==route.profile || pending.execution.target_profile!==route.targetProfile)throw new Error('executor_profile_mismatch');
+          stored=ownerExecution(pending).stored_session_id;
+        } else {stored=(await canonicalOwner(route)).id;live(token);}
+      }
+      await host.openSession(stored,{route,awaitHydration:true,forceResume:true});
       return {status:'native_session_opened'};
     },
     dispose() {closed=true;watched.clear();for(const state of leases.values()){state.off();state.release();}leases.clear();}

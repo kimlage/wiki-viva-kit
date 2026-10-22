@@ -1,13 +1,23 @@
 # Native Hermes source session bridge
 
+The current inactive candidate requires the [mandatory kernel authority](kernel/README.md)
+before any new read. This passive plugin does not install a trusted host backend;
+missing admission is displayed as a read hold. Existing receipt recovery and
+official configuration remain available. The native flow described below is a
+transport contract, not proof of authorization, account isolation or adoption.
+
 This optional integration embeds the existing Wiki source screen beside Kanban.
-It binds a source to an explicitly selected native route/profile and **existing
-stored context conversation**. It creates no bot, task queue, agent loop, provider
+It saves a reusable source connection reference to an explicitly confirmed native
+route/profile and optional named account, independently of a conversation. Existing
+source execution bindings keep their original stored owner unchanged. It creates no bot, task queue, agent loop, provider
 reader or credential store.
 
 The public SDK supplies `profileRoutes`, `requestProfile`, `retainProfile`,
-`onEvent` and `openSession`. The bridge lists stored conversations and optional
-native account constraints, resumes the selected stored id, then submits one
+`onEvent` and `openSession`. Opening the source discovers metadata only; it does not retain or resume a chat.
+A deliberate read test claims an intention first. A connection-only source resolves
+that profile’s canonical `Bot Chat` with the native exact-title lookup, pins its
+acknowledged compression tip once in the intent ledger, and mounts it lazily.
+An existing legacy execution uses its original stored id. The bridge submits one
 read intention with `prompt.submit`. Tools, schemas, resources and account
 semantics are discovered by that native conversation through
 `tool_search` → `tool_describe` → `tool_call`. Its existing policies, hooks,
@@ -36,9 +46,12 @@ and model text are not proof that a resource was read. The UI offers the native
 conversation and approval surface with `openSession(..., {route,
 awaitHydration:true, forceResume:true})`.
 
-The integration uses an existing conversation; it does not create sessions
-implicitly. A busy/waiting context is preserved. A race at submission uses the
-native queued input path. UNKNOWN records do not expire into permission to retry.
+The integration reuses the canonical bot context or the exact legacy owner; it
+never calls `session.create`. Missing, busy, waiting, approval and profile STOP
+states hold submission. Native lazy mounting avoids cold-resume auto-continuation
+of a different interrupted human turn. If work starts after the final preflight,
+`queued:true` preserves the native queue instead of interrupting or steering; the UI
+shows waiting for execution. The preflight is not an atomic idle fence. UNKNOWN records do not expire into permission to retry.
 An operator can inspect the native conversation to resolve missing evidence.
 
 ## Transport and adoption
@@ -64,3 +77,20 @@ name opens the existing SDK `ToolsetConfigPanel`; the bridge rechecks membership
 before opening it. MCP/account settings continue through `ConnectorsTab`, and
 approvals/recovery remain in the existing native conversation. The bridge never
 enables a toolset or changes a provider configuration automatically.
+
+## Connection declarations and daily controls
+
+`access_policy.connection` contains route identifiers and optional native account
+references, never credentials, observed identity or grants. Saving it uses the
+existing source preview/confirmation and content comparison. One native connection
+may be referenced by several sources. Native account auth can be profile-scoped
+with global inheritance; this integration does not promise credential isolation.
+The source’s validated auth method, scopes and restrictive note remain canonical
+and travel unchanged as data in the read intention. A new connection cannot edit
+that auth declaration or override native policy.
+
+The daily view shows source, context, expected/selected account and evidenced access
+state. It reuses a saved route, offers a human context choice when necessary, and
+keeps session ids, toolset catalogues and recipe controls under disclosures. Recipe
+counts describe catalogue configuration, not authenticated accounts or verified
+access. A queued ACK or native tool trace still certifies none of those.

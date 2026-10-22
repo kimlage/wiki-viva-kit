@@ -10,7 +10,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -109,7 +109,9 @@ def load_policy(root: Path) -> tuple[dict[str, Any], str] | None:
     return policy, hashlib.sha256(raw).hexdigest()
 
 
-def coordination_index(root: Path, snapshot: dict[str, Any]) -> dict[str, Any]:
+def coordination_index(root: Path, snapshot: dict[str, Any], *,
+                       _profile_id: str | None = None, _action_id: str | None = None,
+                       _authorize_ref: Callable[[str, str], None] | None = None) -> dict[str, Any]:
     loaded = load_policy(root)
     result: dict[str, Any] = {"schema_version": SCHEMA, "configured": bool(loaded),
         "runtime_connected": False, "execution_ready": False,
@@ -136,7 +138,11 @@ def coordination_index(root: Path, snapshot: dict[str, Any]) -> dict[str, Any]:
     for p in pages:
         if p.get("page_type") != "action":
             continue
+        if _profile_id is not None and (mapped.get(p["id"]) != _profile_id or p["id"] != _action_id):
+            continue
         work = p.get("work") or {}
+        if _authorize_ref:
+            _authorize_ref(p["path"], p.get("content_sha256", ""))
         raw = _read(root, p["path"])
         if hashlib.sha256(raw).hexdigest() != p.get("content_sha256"):
             raise CoordinationError("action revision changed; refresh")
@@ -158,8 +164,13 @@ def coordination_index(root: Path, snapshot: dict[str, Any]) -> dict[str, Any]:
 
 
 def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
-                   profile_id: str, action_id: str | None = None) -> dict[str, Any]:
-    index = coordination_index(root, snapshot)
+                   profile_id: str, action_id: str | None = None, *,
+                   authorize_ref: Callable[[str, str], None] | None = None) -> dict[str, Any]:
+    if authorize_ref and not action_id:
+        raise CoordinationError("protected context requires an exact action")
+    index = coordination_index(root, snapshot,
+        _profile_id=profile_id if authorize_ref else None,
+        _action_id=action_id, _authorize_ref=authorize_ref)
     loaded = load_policy(root)
     if not loaded or loaded[1] != index.get("policy_sha256"):
         raise CoordinationError("coordination policy missing or changed")
@@ -178,12 +189,17 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
     refs = policy.get("common_context", []) + profile.get("context_pages", []) + selected + [r["source_ref"] for r in profile.get("access_requirements", [])]
     required: dict[str, dict[str, Any]] = {}
     procedures: dict[str, bytes] = {}
+    procedure_paths = []
     for ref in refs:
         page = by_id.get(ref) or by_path.get(ref)
         if page:
+            if authorize_ref:
+                authorize_ref(page["path"], page["content_sha256"])
             required[page["id"]] = page
         elif ref == "AGENTS.md" or (ref.startswith(".skills/") and ref.endswith("/SKILL.md")):
-            procedures[ref] = _read(root, ref)
+            if authorize_ref:
+                authorize_ref(ref, "")
+            procedure_paths.append(ref)
         else:
             raise CoordinationError(f"unknown context page: {ref}")
     # Expand the action's explicit context, parent and source relations one hop.
@@ -209,6 +225,18 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
         for link in content.get("resolved_links", []):
             if link.get("kind") == "page" and link.get("page_id") in by_id:
                 required[link["page_id"]] = by_id[link["page_id"]]
+    # Resolve one hop using the already authorized action. Relations never grant
+    # access: authorize the entire closure before reading any related body.
+    if authorize_ref:
+        if unresolved:
+            raise CoordinationError("required context reference unresolved")
+        for page in required.values():
+            authorize_ref(page["path"], page["content_sha256"])
+    for ref in procedure_paths:
+        raw = _read(root, ref)
+        if authorize_ref:
+            authorize_ref(ref, hashlib.sha256(raw).hexdigest())
+        procedures[ref] = raw
     contents = []
     for page in required.values():
         # Same boundaries and immutable hashes as the existing page reader.

@@ -78,6 +78,31 @@ test('managed account choices come from actual scoped account rows, never defaul
  assert.deepEqual(f.replies[0].result.accounts,[{id:'fixture-account',connector:'gmail',alias:'research',label:'Research',status:'active'}]);
  const call=methods.find(r=>r.m==='connectors.accounts');assert.deepEqual(call.p,{});assert.equal(call.r.profile,'research');
  assert.equal(f.replies[0].result.connection_verified,false);
+ assert.equal(f.replies[0].result.accounts_available,true);
+});
+
+test('failed account discovery stays unknown while official setup remains available',async()=>{
+ const methods=[];
+ const f=fixture({host:{profileRoutes:async()=>[route],requestProfile:async(_r,m)=>{
+  methods.push(m);
+  if(m==='connectors.list')return {available:true,connectors:[]};
+  if(m==='connectors.accounts')throw new Error('unavailable');
+  return {};
+ }}});
+ await f.send(f.message('inspect'));
+ const result=f.replies.at(-1).result;
+ assert.equal(result.accounts_available,false);assert.deepEqual(result.accounts,[]);
+ assert.equal(result.connection_verified,false);
+ await f.send(f.message('configure','fixture-configure-0002'));
+ assert.equal(f.setups.length,1);
+ assert.ok(!methods.some(m=>m==='prompt.submit'||m==='connectors.connect'));
+});
+
+test('a malformed or absent account inventory is not successful account discovery',async()=>{
+ const f=fixture({host:{profileRoutes:async()=>[route],requestProfile:async(_r,m)=>m==='connectors.list'?{available:true,connectors:[]}:{}}});
+ await f.send(f.message('inspect'));
+ assert.equal(f.replies.at(-1).result.accounts_available,false);
+ assert.deepEqual(f.replies.at(-1).result.accounts,[]);
 });
 
 test('closing a source releases its native listener/lease and reopening uses a fresh access object',async()=>{
@@ -108,4 +133,28 @@ test('generic native settings validate newly discovered toolsets in the exact ex
  await f.send({...f.message('configure','fixture-toolset-0003'),setup_method:'toolset:absent-tools'});
  assert.equal(f.replies.at(-1).ok,false);assert.equal(f.setups.length,2);
  assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
+});
+
+test('connection discovery never resumes or retains the saved execution session',async()=>{
+ let retain=0,events=0;
+ const f=fixture({host:{profileRoutes:async()=>[route],retainProfile:async()=>{retain++;return()=>{};},onEvent:()=>{events++;return()=>{};},requestProfile:async(_route,method)=>{
+  f.calls.push({method});
+  if(method==='connectors.list')return {available:true,connectors:[]};
+  if(method==='connectors.accounts')return {accounts:[]};
+  if(method==='session.list')return {sessions:[]};
+  return {servers:[]};
+ },toolsets:{list:async()=>[]}}});
+ await f.send(f.message('inspect'));
+ assert.equal(f.replies.at(-1).ok,true);
+ assert.equal(retain,0);assert.equal(events,0);
+ assert.ok(f.calls.every(row=>!['session.create','session.resume','tools.list','prompt.submit'].includes(row.method)));
+});
+
+test('route names use official read-only profile labels without assuming bot ownership or querying canonical conversations',async()=>{
+ const queried=[];
+ const f=fixture({api:async request=>{queried.push(request);return {profiles:[{name:'research',bot_title:'Research assistant',display_name:'Research'}]};}});
+ await f.send(f.message('routes'));
+ assert.equal(f.replies.at(-1).result.routes[0].label,'Research assistant');
+ assert.deepEqual(queried.map(row=>[row.method,row.path,row.connectionId,row.profile]),[['GET','/api/profiles','fixture-local','research']]);
+ assert.equal(f.calls.filter(row=>row.method==='profiles.list' || row.method==='session.resume').length,0);
 });

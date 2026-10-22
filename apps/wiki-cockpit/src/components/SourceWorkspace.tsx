@@ -335,7 +335,7 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
           <div className="sourceRegistryFilters" aria-label={t("source.registry.filters")}>
             <span className="pill pill-muted">{t("source.registry.all")} {sources.length}</span>
             <span className="pill pill-warn">{t("source.registry.attention")} {overdue}</span>
-            <span className="pill pill-good">{t("source.registry.configured")} {sources.filter((source) => source.recipe_ok).length}</span>
+            <span className="pill pill-good" title={t("source.registry.recipeHint")}>{t("source.registry.configured")} {sources.filter((source) => source.recipe_ok).length}</span>
           </div>
 
           <button

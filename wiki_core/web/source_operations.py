@@ -423,6 +423,10 @@ def source_access_binding(root: Path, config: WikiConfig, source_id: str) -> dic
     path = _safe_repo_file(root, str(source.get("config_ref") or ""))
     return {"source_id": source_id, "context": source["context"], "source_kind": source.get("source_kind"),
             "platform": source.get("platform"), "locator": source.get("locator"),
+            # Already validated by the canonical recipe contract/secret gate.
+            # Connection metadata must never erase or replace the source's
+            # declared auth method, scopes or restrictive note.
+            "auth": {key: (source.get("auth") or {}).get(key) for key in ("method", "ref", "scopes", "note")} if source.get("auth") else None,
             "config_sha256": _sha(path.read_text(encoding="utf-8")),
             "binding_sha256": project_source_access(source)["binding_sha256"],
             "access_policy": source.get("access_policy") or {}}

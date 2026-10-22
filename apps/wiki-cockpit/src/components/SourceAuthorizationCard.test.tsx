@@ -68,3 +68,10 @@ it('renders the actual first-setup empty policy payload without claiming access'
  expect(screen.getByText('Authorization and live access')).toBeTruthy();
  expect(screen.queryByText('Access verified')).toBeNull();
 });
+
+it('does not treat a legacy Codex connector catalogue as native Hermes login state',()=>{
+ render(panel(base,{nativeManaged:true,agentReady:false,connectorReady:false,route:{mode:'agent_export',requires_agent:true,mcp_hint:'fictional'}}));
+ expect(screen.queryByText('Blocked')).toBeNull();
+ expect(screen.queryByText(/Example agent.*fictional|fictional.*Example agent/)).toBeNull();
+ expect(screen.queryByText('Access verified')).toBeNull();
+});

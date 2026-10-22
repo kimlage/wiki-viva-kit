@@ -304,7 +304,7 @@ export function SourceDock({
           <SourcePlatformIcon source={source} size={16} />
           <strong title={source.title}>{sourceDisplayName(source.title)}</strong>
           <span className="pill pill-muted">{t("source.sync.recorded")}: {t(`source.sync.${source.sync.last_status}`)}</span>
-          <SourceAuthorizationCard compact source={source} route={updateRoute} agentName={selectedAgentName}
+          <SourceAuthorizationCard compact nativeManaged={nativeControls} source={source} route={updateRoute} agentName={selectedAgentName}
             agentCapabilitiesKnown={Boolean(agentCapabilities)} agentReady={agentReady} connectorReady={connectorReady}
             access={displayedAccess} probeFailed={accessProbeFailed} />
           {!embedded && <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button"><X size={16} /></button>}
@@ -767,27 +767,43 @@ export function SourceDock({
 
         {section === "configure" && (
           <section className="sourceOperationWorkspace" aria-label={t("source.configure.title")}>
+            {!nativeControls && <>
             <header className="sourceOperationHeader">
               <span className="sourceOperationIcon"><Settings2 size={18} aria-hidden /></span>
               <span>
                 <small>{t("source.configure.eyebrow")}</small>
-                <h3>{t("source.configure.title")}</h3>
-                <p>{t("source.configure.intro")}</p>
+                <h3>{t(nativeControls ? "source.connection.title" : "source.configure.title")}</h3>
+                {!nativeControls && <p>{t("source.configure.intro")}</p>}
               </span>
             </header>
-            <SourceAuthorizationCard source={source} route={updateRoute} agentName={selectedAgentName}
-              agentCapabilitiesKnown={Boolean(agentCapabilities)} agentReady={agentReady} connectorReady={connectorReady}
-              access={displayedAccess} probeFailed={accessProbeFailed}
-              nativeManaged={nativeControls}
-              onRevalidate={!nativeControls && !demo && !operationBusy ? onTestAccess ? () => void testAccess() : onPreviewRefresh ? () => void inspectRefresh() : undefined : undefined} />
-            <SourceExecutorSetup source={source} demo={demo} createHost={createSourceHost} onBind={execution => {
+            </>}
+            <SourceExecutorSetup source={source} demo={demo} createHost={createSourceHost} onConnectBinding={connection => {
+              const policy = sourceDraft.access || source.access_policy;
+              const nextDraft = { ...sourceDraft, access: { schema_version: "wiki_source_access.v1" as const,
+                expected_identity: policy?.expected_identity || "",
+                coordinator: policy?.coordinator || source.context, executor: policy?.executor || "Hermes",
+                requested_scopes: policy?.requested_scopes || [], ...policy, connection } };
+              setSourceDraft(nextDraft);
+              void previewSourceConfiguration(nextDraft);
+            }} onBind={execution => {
               const policy = sourceDraft.access || source.access_policy;
               setSourceDraft({ ...sourceDraft, access: { schema_version: "wiki_source_access.v1",
                 expected_identity: policy?.expected_identity || "",
                 coordinator: policy?.coordinator || source.context, executor: policy?.executor || "Hermes",
                 requested_scopes: policy?.requested_scopes?.length ? policy.requested_scopes : [],
-                execution } });
+                ...policy, execution } });
             }} />
+            {receipts.find(receipt => receipt.stream_id === "__source__") && <details className="sourceConnectionAdvanced">
+              <summary>{t("source.history.sourceScope")}</summary>
+              <code>{receipts.find(receipt => receipt.stream_id === "__source__")?.operation_id}</code>
+            </details>}
+            <details className="sourceConnectionAdvanced sourceConfigurationDetails" open={!nativeControls}>
+              <summary>{t("source.connection.sourceSettings")}</summary>
+            <SourceAuthorizationCard source={source} route={updateRoute} agentName={selectedAgentName}
+              agentCapabilitiesKnown={Boolean(agentCapabilities)} agentReady={agentReady} connectorReady={connectorReady}
+              access={displayedAccess} probeFailed={accessProbeFailed}
+              nativeManaged={nativeControls}
+              onRevalidate={!nativeControls && !demo && !operationBusy ? onTestAccess ? () => void testAccess() : onPreviewRefresh ? () => void inspectRefresh() : undefined : undefined} />
             <form className="sourceConfigForm sourceLevelConfig" onSubmit={(event) => { event.preventDefault(); void previewSourceConfiguration(); }}>
               <div className="sourceConfigWide sourceConfigHeading">
                 <span>
@@ -897,6 +913,7 @@ export function SourceDock({
               </div>
             </form>
             </>}
+            </details>
             {operationError && (
               <p className="sourceOperationError"><AlertTriangle size={14} aria-hidden /> {operationError}</p>
             )}

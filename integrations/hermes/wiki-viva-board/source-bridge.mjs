@@ -10,17 +10,34 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
   const key = route => JSON.stringify([route.connectionId, route.profile, route.targetProfile]);
   const failure = error => {
     const text = String(error?.data?.reason || error?.reason || error?.message || '');
-    for (const code of ['source_binding_changed', 'source_configuration_changed', 'executor_profile_mismatch', 'source_policy_denied', 'source_request_reused', 'source_read_result_unknown', 'source_read_adapter_not_implemented', 'native_session_required', 'native_session_mismatch', 'native_session_busy', 'native_trace_unavailable', 'source_access_repository_locator_mismatch', 'source_access_resource_not_supported', 'source_configuration_unavailable']) if (text.includes(code)) return code;
+    for (const code of ['source_authorization_unavailable', 'source_authorization_denied', 'authority_account_enforcement_required', 'source_binding_changed', 'source_configuration_changed', 'executor_profile_mismatch', 'source_policy_denied', 'source_request_reused', 'source_read_result_unknown', 'source_read_adapter_not_implemented', 'native_session_required', 'native_session_mismatch', 'native_session_busy', 'native_trace_unavailable', 'native_bot_context_unavailable', 'native_owner_unresolved', 'native_operation_approval_pending', 'native_context_waiting', 'profile_stopped', 'source_identity_ambiguous', 'source_access_repository_locator_mismatch', 'source_access_resource_not_supported', 'source_configuration_unavailable']) if (text.includes(code)) return code;
     if (/404|not_found/i.test(text)) return 'source_read_adapter_not_implemented';
     if (/org_access_denied|forbidden_scope|4030/.test(text)) return 'authority_blocked';
     if (/needs_nous_auth|401|4032/.test(text)) return 'authorization_missing';
     return 'executor_unavailable';
   };
-  const routes = async () => {
+  const routes = async (withLabels=false) => {
     if (typeof host.profileRoutes !== 'function' || typeof host.requestProfile !== 'function') throw new Error('executor_unavailable');
     const rows = await host.profileRoutes();
-    return (Array.isArray(rows) ? rows : []).filter(r => ['connectionId', 'profile', 'targetProfile'].every(k => safe(r[k])) && ['local','remote'].includes(r.mode))
+    const available=(Array.isArray(rows) ? rows : []).filter(r => ['connectionId', 'profile', 'targetProfile'].every(k => safe(r[k])) && ['local','remote'].includes(r.mode))
       .map(r => ({connectionId:r.connectionId,profile:r.profile,targetProfile:r.targetProfile,mode:r.mode,key:key(r)}));
+    if(withLabels) {
+      // Official HTTP roster contains display_name/bot_title without the RPC
+      // profiles.list default's canonical-session lookup. Names are labels,
+      // never evidence that this bot owns a source/account or is running.
+      await Promise.all([...new Set(available.map(row=>row.connectionId))].map(async connectionId=>{
+        const first=available.find(row=>row.connectionId===connectionId);
+        try {
+          const roster=await api({path:'/api/profiles',method:'GET',connectionId,profile:first.profile,priority:'foreground',timeoutMs:15000});
+          for(const route of available.filter(row=>row.connectionId===connectionId)) {
+            const profile=(roster.profiles || []).find(row=>row.name===route.profile);
+            const label=profile && [profile.bot_title,profile.display_name].find(safe);
+            if(label)route.label=label;
+          }
+        } catch { /* Optional human label lookup cannot select another owner. */ }
+      }));
+    }
+    return available;
   };
   const native = async (route, suffix, method='GET', body) => api({
     path: '/api/plugins/wiki-viva-board/' + suffix + (suffix.includes('?') ? '&' : '?') + 'profile=' + encodeURIComponent(route.targetProfile),
@@ -31,7 +48,7 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
   const routeMatches = (execution, route) => execution && execution.connection_id === route.connectionId && execution.profile === route.profile && execution.target_profile === route.targetProfile;
   const perform = async (message, token) => {
     live(token);
-    const available = await routes();
+    const available = await routes(message.action === 'routes');
     live(token);
     if (message.action === 'routes') return {routes:available,capabilities:['inspect','configure','read_test','read_receipts']};
     const route = available.find(r => r.key === message.route_key);
@@ -52,21 +69,20 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
       const roster=results[0].status==='fulfilled'?results[0].value:null;
       const managed=results[1].status==='fulfilled'?results[1].value:null;
       const mcp=results[2].status==='fulfilled'?results[2].value:null;
-      let accounts=[],account_error=null,toolsets=[];
+      let accounts=[],account_error=null,accounts_available=false;
       if (managed?.available===true) {
         try {
           const result=await host.requestProfile(route,'connectors.accounts',{},15000,{spawnPriority:'foreground'});live(token);
+          accounts_available=Array.isArray(result.accounts);
           accounts=(result.accounts || []).filter(r=>!r.disabled && safe(r.connection_id) && safe(r.connector) && /^[a-z0-9][a-z0-9-]{0,31}$/.test(r.alias || ''))
             .map(r=>({id:r.connection_id,connector:r.connector,alias:r.alias,label:safe(r.label)?r.label:r.alias,status:r.status}));
         } catch(error) {account_error=failure(error);}
       }
       const catalogue=results[3].status==='fulfilled' && Array.isArray(results[3].value)?results[3].value:[];
-      const execution=binding.access_policy?.execution;
-      if (routeMatches(execution,route) && execution.method==='native_session') {
-        try {toolsets=await sessions.inspect(route,execution);live(token);} catch(error) {account_error=failure(error);}
-      }
+      // Discovery is read-only. Opening connection settings must never resume a
+      // saved conversation, acquire its lease or start execution in that context.
       return {binding,route,sessions:(roster?.sessions || []).filter(r=>safe(r.id)).map(r=>({id:r.resolved_id || r.id,title:safe(r.title)?r.title:r.id})),
-        accounts,toolsets:catalogue.filter(row=>typeof row.name==='string' && /^[\w:.-]{1,200}$/.test(row.name)).map(row=>({name:row.name,enabled:row.enabled===true,tools:toolsets.find(set=>set.name===row.name)?.tools || []})),managed_available:managed?.available===true,mcp_available:Boolean(mcp),
+        accounts,accounts_available,toolsets:catalogue.filter(row=>typeof row.name==='string' && /^[\w:.-]{1,200}$/.test(row.name)).map(row=>({name:row.name,enabled:row.enabled===true,tools:[]})),managed_available:managed?.available===true,mcp_available:Boolean(mcp),
         providers:(managed?.connectors || []).filter(r=>safe(r.connector)).map(r=>({id:r.connector,label:r.connector,method:'native_session'})),
         support_errors:[...results.map(r=>r.status==='rejected'?failure(r.reason):null),account_error],connection_verified:false,read_verified:false};
     }
@@ -86,12 +102,13 @@ export function createSourceBridge({host, api, openSetup, frameWindow, wikiOrigi
       return {status:'official_setup_opened',route,source_id:ref.source_id};
     }
     live(token);
-    const execution = binding.access_policy?.execution;
+    const execution = binding.access_policy?.execution || (binding.access_policy?.connection && {...binding.access_policy.connection,method:'profile_bot'});
     if (!routeMatches(execution, route)) throw new Error('executor_profile_mismatch');
     const body = {source_id:ref.source_id,binding_sha256:ref.binding_sha256,config_sha256:binding.config_sha256};
-    if (execution?.method !== 'native_session') throw new Error('native_session_required');
-    if (message.action === 'open_native') return sessions.open(route,execution);
-    if (message.action === 'read_receipts') return sessions.receipts(route,body,token);
+    if (!['native_session','profile_bot'].includes(execution?.method)) throw new Error('native_session_required');
+    if (message.action === 'open_native') return sessions.open(route,execution,body,token);
+    if (message.action === 'read_receipts') return sessions.receipts(route,body,token,binding.execution_hold || '');
+    if (binding.execution_hold)throw new Error('profile_stopped');
     return sessions.read(route,body,message.request_id,token);
   };
   const receiveBound = async m => {

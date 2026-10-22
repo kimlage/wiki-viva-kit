@@ -16,7 +16,10 @@ def runtime():
     from hermes_cli.profiles import profile_matches_home
     from hermes_constants import get_hermes_home
     return runtime_module.SourceAccessRuntime(os.environ.get('WIKI_SOURCE_ORIGIN', 'http://127.0.0.1:8765'),
-        profile_matches=profile_matches_home, receipt_root=lambda: get_hermes_home() / 'cache')
+        profile_matches=profile_matches_home, receipt_root=lambda: get_hermes_home() / 'cache',
+        # Same profile-local STOP marker honored by native owner bootstrap.
+        # This is a refusal check, never a reset or a new source of authority.
+        profile_stopped=lambda: (get_hermes_home() / 'ESTOP').exists())
 
 
 class BoundSource(BaseModel):

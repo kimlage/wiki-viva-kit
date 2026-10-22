@@ -684,13 +684,13 @@ export type SourceLifecycleProjection = {
   authoring_error_codes: string[];
 };
 
-export type SourceExecutionBinding = {
+export type SourceConnectionBinding = {
   connection_id: string; profile: string; target_profile: string;
-  method: "native_session"; stored_session_id: string;
   provider_id?: string;
   account_id?: string; account_alias?: string;
 };
-export type SourceAccessPolicy = { schema_version: "wiki_source_access.v1"; expected_identity: string; coordinator: string; executor: string; requested_scopes: string[]; execution?: SourceExecutionBinding };
+export type SourceExecutionBinding = SourceConnectionBinding & {method: "native_session"; stored_session_id: string};
+export type SourceAccessPolicy = { schema_version: "wiki_source_access.v1"; expected_identity: string; coordinator: string; executor: string; requested_scopes: string[]; connection?: SourceConnectionBinding; execution?: SourceExecutionBinding };
 export type SourceAccess = {
   schema_version: "wiki_source_access.v1"; binding_sha256: string; status: string; verified: boolean;
   expected_identity: string; confirmed_identity: string; coordinator: string; executor: string;
