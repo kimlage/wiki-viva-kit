@@ -7,7 +7,7 @@
 // brief stays server-composed, the auth block is a pointer without any secret
 // value, and focus returns to the opener after the dock closes.
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureLanguage } from "../data/i18n";
 import type { BriefSpec, SnapshotBundle, SourceEntity, SourceGroup, SourceGroupsOperationResult, SourceOperationPreview, SourceOperationReceipt } from "../types";
@@ -615,6 +615,57 @@ describe("SourceDock operational workspace", () => {
       "__source__",
       expect.objectContaining({ schedule_mode: "on_demand", schedule_cadence_days: 0 })
     ));
+  });
+
+  it.each(["resolve", "reject"] as const)("releases the next source while the previous preview is pending (%s)", async (settlement) => {
+    const a = sourceFixture();
+    const b = sourceFixture({ source_id: "source-drive", title: "Drive da equipe", platform: "drive",
+      config_ref: "memories/documentos/config-drive.md" });
+    const bundle = bundleWith(a);
+    bundle.sourceEntities!.sources.push(b);
+    let resolveA!: (value: SourceOperationPreview) => void;
+    let rejectA!: (reason: Error) => void;
+    let resolveB!: (value: SourceOperationPreview) => void;
+    const pendingA = new Promise<SourceOperationPreview>((resolve, reject) => { resolveA = resolve; rejectA = reject; });
+    const pendingB = new Promise<SourceOperationPreview>((resolve) => { resolveB = resolve; });
+    const preview = vi.fn((sourceId: string) => sourceId === a.source_id ? pendingA : pendingB);
+    const updates = { source_kind: "item" };
+    const previewA: SourceOperationPreview = { ok: true, preview_token: "preview-a", config_ref: a.config_ref,
+      updates, changes: [{ field: "source_kind", before: "account", after: "discarded-a-result" }] };
+    const previewB: SourceOperationPreview = { ok: true, preview_token: "preview-b", config_ref: b.config_ref,
+      updates, changes: [{ field: "source_kind", before: "account", after: "item" }] };
+    const apply = vi.fn().mockResolvedValue({ ok: true, operation_id: "source-b-applied", source_id: b.source_id,
+      stream_id: "__source__", changes: [], recorded_at: "2026-10-22T10:00:00Z", status: "applied" });
+    const props = { bundle, onPreviewConfiguration: preview, onApplyConfiguration: apply, onNotice: noop, onClose: noop };
+    const { rerender } = render(<SourceWorkspace {...props} sourceId={a.source_id} />);
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    fireEvent.change(screen.getByLabelText("Source type"), { target: { value: "item" } });
+    const reviewA = screen.getByRole("button", { name: "Review source settings" });
+    fireEvent.click(reviewA);
+    await waitFor(() => expect(preview).toHaveBeenCalledWith(a.source_id, "__source__", updates));
+    expect((reviewA as HTMLButtonElement).disabled).toBe(true);
+
+    // The real workspace reuses SourceDock; B must not require a remount to unlock.
+    rerender(<SourceWorkspace {...props} sourceId={b.source_id} />);
+    const reviewB = screen.getByRole("button", { name: "Review source settings" });
+    expect(reviewB).toBe(reviewA);
+    await waitFor(() => expect((reviewB as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(screen.getByLabelText("Source type"), { target: { value: "item" } });
+    fireEvent.click(reviewB);
+    await waitFor(() => expect(preview).toHaveBeenCalledWith(b.source_id, "__source__", updates));
+    expect((reviewB as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => {
+      if (settlement === "resolve") resolveA(previewA);
+      else rejectA(new Error("discarded-a-error"));
+      await pendingA.catch(() => undefined);
+    });
+    expect((reviewB as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/discarded-a/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirm and apply" })).toBeNull();
+    await act(async () => { resolveB(previewB); });
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm and apply" }));
+    await waitFor(() => expect(apply).toHaveBeenCalledWith(b.source_id, "__source__", updates, "preview-b"));
+    expect(apply).toHaveBeenCalledTimes(1);
   });
 
   it("refreshes the configuration draft when the authoritative source record changes", async () => {

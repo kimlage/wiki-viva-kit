@@ -1847,7 +1847,7 @@ def test_board_single_page_create_edit_move_and_stale_cas(tmp_path: Path) -> Non
     ("GET", "/api/source-host/status?challenge=retired"),
     ("GET", "/api/sources/synthetic/access-binding"),
     ("POST", "/api/source-host/attest"),
-    ("POST", "/api/sources/synthetic/access-test"),
+    ("POST", "/api/sources/synthetic/operations/access-test"),
 ])
 def test_retired_host_routes_do_not_expose_or_mutate_the_wiki(server: _Server, method: str, path: str):
     server.server.frontend_dir = server.server.root

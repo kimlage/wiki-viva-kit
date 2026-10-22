@@ -61,6 +61,7 @@ export function useSourceOperations({
   const sourceKey = [source?.source_id, source?.config_ref, source?.updated_at].join(":");
   const activeSource = useRef(sourceKey);
   activeSource.current = sourceKey;
+  useEffect(() => { setOperationBusy(false); }, [sourceKey]);
   const [receipts, setReceipts] = useState<SourceOperationReceipt[]>([]);
   const [agentPreference, setAgentPreference] = useState<"codex" | "claude">("codex");
   const [rawPath, setRawPath] = useState("");
