@@ -24,7 +24,8 @@ from wiki_core.markdown_link_roles import declare_link_role
 from wiki_core.web.git_workflows import run_git_workflow
 from test_action_contribution import review, fixture
 import wiki_core.action_contribution as port
-from wiki_core.contribution_records import support_path
+from wiki_core.contribution_records import support_path, _append_canonical_record
+from wiki_core.action_transition import contribution_log_text
 from scripts.wiki_page_graph import project_memory_at_commit
 
 
@@ -44,7 +45,7 @@ def command(root, *args):
 def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, effects=False,
                      effect_consumer=False, prior_day=False, historical_consumer=False,
                      unselected_tail=False, changed_consumer=False, inherited_event=False,
-                     qualified_context=False):
+                     qualified_context=False, terminal_newline=True):
     root = tmp_path / 'consumer'
     command(tmp_path, 'git', 'clone', '--shared', '--quiet', str(SOURCE), str(root))
     git(root, 'switch', '-C', 'main')
@@ -107,6 +108,8 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
     log.write_text(log.read_text() + '\n## Preserved final note\n\nAn existing fictional historical unit.\n')
     if unselected_tail:
         log.write_text(log.read_text() + '\n## Other preserved note\n\nAnother original fictional unit.\n')
+    if not terminal_newline:
+        log.write_text(log.read_text().rstrip('\n'))
     if inherited_event:
         event = root / 'memories/system/ingestion/events/retained-history-example.md'
         # A separate fictional event/source keeps the declared occurrence clear.
@@ -256,6 +259,73 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
                        path=action.relative_to(root).as_posix(), base_commit=git(root, 'rev-parse', 'HEAD'),
                        base_sha256=digest(before), sha256=digest(proposed), text=proposed)])
     return root, action, log, records, request
+
+
+@pytest.mark.parametrize('ending', ['', '\n', '\n\n', '\r\n'])
+@pytest.mark.parametrize('selected_final', [False, True])
+def test_new_record_selects_only_actual_blank_separator(ending, selected_final):
+    action, log = 'memories/actions/example.md', 'memories/system/log.md'
+    before = '# Log\n\n## Existing history\n\nOriginal fictional observation.' + ending
+    material = 'a' * 64
+    at = '2026-10-24T10:00:00Z'
+    after = contribution_log_text(before, action, log, material, at)
+    retained = {'id': 'history', 'heading': 'Existing history'}
+    contract = {'schema_version': 'document_record.v1', 'documents': [
+        {'path': log, 'records': [dict(retained)] if selected_final else []}]}
+    entry = {'at': at, 'receipt_id': 'synthetic-receipt',
+             'contribution': {'material_sha256': material}}
+    _append_canonical_record(contract, {log: before}, {'documents': {log: after}},
+                             action, log, {'entry': entry, 'legacy': False})
+    annotation = contract['documents'][0]['records'][-1]
+    padding = annotation['leading_blank_lines']
+    assert padding == (0 if selected_final else (1 if not ending else 2))
+    body, spans = sections(after)
+    start, end, _ = spans[annotation['heading']]
+    lines = body.splitlines(keepends=True)
+    assert all(not line.strip() for line in lines[start - padding:start])
+    selected = ''.join(lines[start - padding:end])
+    assert 'Original fictional observation.' not in selected
+    assert annotation['current_sha256'] == digest(selected)
+    assert after.startswith(before)
+    if selected_final:
+        assert contract['documents'][0]['records'][0] == retained
+
+
+def test_unselected_log_without_terminal_newline_passes_real_contribution_gates(tmp_path):
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True,
+        captured=True, effects=True, unselected_tail=True, terminal_newline=False)
+    before = {p: p.read_bytes() for p in (action, log, records)}
+    original = json.loads(before[records])
+    result = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                              {'request': request, 'review': review(request)}, dry_run=False)
+    assert result['ok'] and result['status'] == 'prepared', result
+    assert len(result['gate_receipts']) == 7
+    assert all(g['exit_code'] == 0 for g in result['gate_receipts'])
+    generated = json.loads(git(root, 'show', result['proposal_commit'] + ':docs/contribution-records.json'))
+    assert generated['documents'][0]['records'][:-1] == original['documents'][0]['records']
+    assert generated['documents'][0]['records'][-1]['leading_blank_lines'] == 1
+    assert generated['base_documents_sha256'] == original['base_documents_sha256']
+    new_log = subprocess.check_output(
+        ['git', 'show', result['proposal_commit'] + ':memories/system/log.md'], cwd=root).decode()
+    assert len(generated['bindings']) == len(original['bindings'])
+    for old, new in zip(original['bindings'], generated['bindings']):
+        assert old['origin'] == 'current' and old['contribution_effect'] == 'canonical_log_annotation'
+        assert new['prerequisite_document_sha256'] == digest(new_log)
+        assert {k: v for k, v in new.items() if k != 'prerequisite_document_sha256'} == {
+            k: v for k, v in old.items() if k != 'prerequisite_document_sha256'}
+    assert {p: p.read_bytes() for p in before} == before
+
+
+def test_unterminated_consumed_remainder_still_requires_explicit_c3(tmp_path):
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True,
+        captured=True, effects=True, unselected_tail=True, terminal_newline=False,
+        historical_consumer=True)
+    before = {p: p.read_bytes() for p in (action, log, records)}
+    result = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                              {'request': request, 'review': review(request)}, dry_run=False)
+    assert not result['ok'] and 'record_support_c3_required' in result['error'], result
+    assert 'leading padding is not blank' not in result['error'], result
+    assert {p: p.read_bytes() for p in before} == before
 
 
 def test_canonical_prepare_refuses_full_snapshot_contract_without_support(tmp_path):
