@@ -1015,20 +1015,29 @@ def transition_action_page(
 
 
 def contribution_log_text(before: str, action_ref: str, log_ref: str,
-                          material: str, recorded_at: str) -> str:
+                          material: str, recorded_at: str, *, legacy: bool = False) -> str:
     """Deterministic annotation in the consumer's existing memory log."""
+    from wiki_core.markdown_link_roles import declare_link_role
+
     link = Path(os.path.relpath(action_ref, Path(log_ref).parent)).as_posix()
-    return before + ("\n\n## [" + recorded_at[:10] + "] Reviewed action body\n\n"
-        + "- Prepared a reviewed body contribution to [the action](" + link + "). "
+    destination = "[the action](" + link + ")"
+    # The destination names the object of this exact receipt, not its current
+    # factual contents. A material-bound heading remains unique across several
+    # contributions on the same day. Legacy bytes remain readable for recovery.
+    if not legacy:
+        destination = declare_link_role(destination, "change_target")
+    heading = "] Reviewed action body" + ("" if legacy else " " + material)
+    return before + ("\n\n## [" + recorded_at[:10] + heading + "\n\n"
+        + "- Prepared a reviewed body contribution to " + destination + ". "
         + "Material: `" + material + "`. Execution and served adoption are not implied.\n")
 
 
 def append_contribution_log(root: Path, log_ref: str, action_ref: str,
-                            material: str, recorded_at: str) -> None:
+                            material: str, recorded_at: str, *, legacy: bool = False) -> None:
     path, ref = _contained_action_path(root, log_ref)
     with _TRANSITION_LOCK, _action_file_lock(root, ref):
         before = path.read_text(encoding="utf-8")
-        after = contribution_log_text(before, action_ref, ref, material, recorded_at)
+        after = contribution_log_text(before, action_ref, ref, material, recorded_at, legacy=legacy)
         _assert_no_secrets(after)
         _atomic_write(path, after)
 
