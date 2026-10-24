@@ -191,11 +191,29 @@ The port derives only the one existing tracked, regular JSON contract named by
 the parent's `audit.freshness_records`, outside memory/raw/cache/secret paths.
 It validates the actual configured BASE and parent CURRENT using the existing
 projector (this bounded option requires `audit.freshness_base` to be a full
-commit SHA), then updates only the final action/log CURRENT hashes. An existing
+commit SHA), then updates the final action/log CURRENT hashes. An existing
 last H2 record in the log may acquire only the exact blank separator from the
-canonical append. Every other declaration field, BASE hash, artifact, date,
-role, evidence, rationale and context remains unchanged. Duplicate JSON keys,
-unsupported selectors and changed semantic record content cause refusal.
+canonical append. All existing BASE hashes, semantic record content, artifacts,
+dates, roles, evidence, rationales and contexts remain unchanged. Duplicate JSON
+keys, unsupported selectors and changed semantic record content cause refusal.
+
+New canonical annotations have a material-bound H2 heading and an exact
+producer-declared change-target link to the action. After verifying the actual
+body-integration receipt, independent material review and complete annotation,
+the helper derives exactly one new H2 observation record and one structured
+evidence selector for that specific receipt in `action_state_history`. Its
+date is the receipt's actual UTC date. The model cannot supply that declaration,
+change its meaning or choose an extra output path. The generated head still
+requires independent review before integration.
+
+The new record selects only the appended annotation and its necessary blank
+separator. Earlier log remainder bytes and historical consumption hashes stay
+unchanged, so an older observation does not silently consume the next entry.
+Repeated contributions on the same day have distinct material-bound headings.
+This does not reclassify a WHOLE consumer or an unqualified recording obligation.
+The exact legacy annotation format remains readable: a retained legacy proposal
+reconstructs its original support without adding records retroactively. No
+existing assertion is given a newer date or replacement evidence.
 
 Affected occurrence guards and consumed-record bindings require explicit
 project migration (C3). The port never infers eligibility from `navigation`,
@@ -218,8 +236,37 @@ Preparation, immutable candidate validation and merged canonical readback use
 the same proof. Valid earlier dialogue suffixes remain preserved. An unmarked
 or evidence-bearing guard still refuses: initial C3 must separately preserve
 and justify the dated old proof, never silently remove it or turn it into proof
-of the new transaction. The helper cannot add a qualification, change a role,
-edit evidence/rationale/contexts or renew BASE/artifacts.
+of the new transaction. The helper cannot add a qualification, change an
+existing role/evidence/rationale/context or renew BASE or old artifacts. Its
+only new evidence is the already-proved canonical body receipt for its own
+new annotation; it proves preparation, not external execution or served adoption.
+
+A historical ingestion event's `consolidated_into` relation is factual context
+inherited by every log record. Isolating a new H2 does not automatically exempt
+it from that context. C3 may separately author the following v2 qualification
+(the hash placeholder must be replaced with the exact existing occurrence):
+
+```json
+"canonical_log_annotation_context": {
+  "log_path": "memories/system/log.md",
+  "bindings": [{
+    "edge_sha256": "<exact CURRENT occurrence SHA-256>",
+    "consumer_record": "reviewed-later-observation",
+    "rationale": "This exact historical write destination supplies no facts to the fixed receipt-backed preparation annotation."
+  }]
+}
+```
+
+Each entry must reference an already valid CURRENT `change_target` binding for
+an explicit H2 record in that log. The actual relation must be an ingestion
+event's frontmatter `consolidated_into` pointing to the log, with an exact source
+document guard and no evidence, effect marker or hash alias. Duplicate or
+unmatched occurrences are refused. After the canonical receipt proof, support
+derivation can add that exact qualification for its new H2, using the separately
+authored rationale. The event, its guard, the historical bindings, the remainder
+dependency and all prior evidence remain unchanged. No unlisted source or
+arbitrary new record gains this treatment. Without this explicit qualification,
+the inherited dependency remains factual and can block preparation normally.
 
 `record_support_c3_required` identifies other binding or declaration fields to
 review. This mechanism does not author the complete initial five-view C3. In

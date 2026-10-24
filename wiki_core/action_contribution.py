@@ -224,8 +224,10 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str,
         if metadata.get(field) != request[field]:
             raise ContributionError("candidate_reference_tampered")
     _review(request, material, metadata.get("review"))
-    expected_log = contribution_log_text(_blob(root, parent, log_ref), path, log_ref, material, entry["at"])
-    if _blob(root, commit, log_ref) != expected_log:
+    expected_logs = {contribution_log_text(_blob(root, parent, log_ref), path, log_ref,
+                                          material, entry["at"], legacy=legacy)
+                     for legacy in (False, True)}
+    if _blob(root, commit, log_ref) not in expected_logs:
         raise ContributionError("candidate_log_annotation_tampered")
     allowed = [path, log_ref]
     support_ref = _support_path(root, parent)

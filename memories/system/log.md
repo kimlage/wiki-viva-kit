@@ -1387,3 +1387,26 @@ Append-only record of changes in the [memories/](../index.md) layer.
   results use local Git fixtures and an explicit GitHub test double; they are
   not live CI, a merge, downstream adoption or execution evidence. Runtime
   connectivity, execution readiness and access verification remain unclaimed.
+
+## [2026-10-24] system | Isolate canonical contribution annotations
+
+- The [canonical log writer](../../wiki_core/action_transition.py) now emits a
+  material-bound heading and a producer-declared destination link. Separate
+  contributions on one day remain distinct, and the exact prior annotation
+  format remains readable for retained-proposal recovery.
+- [Documentary support](../../wiki_core/contribution_records.py) derives one
+  observation for the exact new annotation and one structured selector for its
+  canonical body receipt. Earlier log remainder and consumption hashes stay
+  intact. Existing qualifications, historical artifacts, factual dates and
+  unqualified dependencies remain governed by their approved contract.
+- A separately reviewed v2 contract can identify exact historical ingestion
+  destination occurrences for the fixed canonical annotation. The projector
+  checks each existing source binding and its unchanged event hash; the helper
+  extends only that explicit context to its receipt-proved new record.
+  Unqualified context and historical remainder dependencies stay factual.
+- [Synthetic regression coverage](../../tests/test_contribution_document_records.py)
+  exercises historical remainder consumption, consecutive preparations with
+  real local producers/gates, replay and legacy compatibility. Receipt forgery
+  remains covered by the [effect proof controls](../../tests/test_contribution_effects.py).
+  These tests do not establish an operator account, private C3, remote merge,
+  selected-checkout adoption or a served runtime.

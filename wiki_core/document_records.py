@@ -370,6 +370,31 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                     or not isinstance(review["rationale"], str) or not review["rationale"].strip()):
                 raise ValueError("invalid locator-specific historical consumption qualification")
     used = set()
+    annotation_context = contract.get("canonical_log_annotation_context")
+    context_bindings = {}
+    if "canonical_log_annotation_context" in contract:
+        if (version != "document_record.v2" or not isinstance(annotation_context, dict)
+                or set(annotation_context) != {"log_path", "bindings"}
+                or not isinstance(annotation_context["log_path"], str)
+                or modes.get(annotation_context["log_path"]) != "h2_v1"
+                or not isinstance(annotation_context["bindings"], list)
+                or not annotation_context["bindings"]):
+            raise ValueError("invalid canonical log annotation context qualification")
+        for qualification in annotation_context["bindings"]:
+            if (not isinstance(qualification, dict)
+                    or set(qualification) != {"edge_sha256", "consumer_record", "rationale"}
+                    or any(not isinstance(v, str) or not v.strip() for v in qualification.values())
+                    or qualification["consumer_record"] in {"document", "remainder"}):
+                raise ValueError("invalid canonical log annotation context qualification")
+            key = ("current", qualification["edge_sha256"], qualification["consumer_record"])
+            binding = bindings.get(key)
+            if (any(k[1] == key[1] for k in context_bindings)
+                    or binding is None or binding.get("role") != "change_target"
+                    or any(k in binding for k in ("evidence", "contribution_effect", "target_document_sha256"))
+                    or not re.fullmatch(r"[0-9a-f]{64}", str(binding.get("prerequisite_document_sha256", "")))):
+                raise ValueError("invalid canonical log annotation context qualification")
+            context_bindings[key] = qualification
+    used_context = set()
     for origin, graph in graphs.items():
         projected = []
         for raw_index, raw in enumerate(graph["edges"]):
@@ -428,6 +453,19 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                 key = (origin, edge_digest(raw), consumer)
                 binding = bindings.get(key)
                 if binding:
+                    if key in context_bindings:
+                        # An authored exception for one historical destination
+                        # occurrence is not a wildcard over the log's premises.
+                        # The port may reuse it only for its receipt-proved H2.
+                        log = annotation_context["log_path"]
+                        if (raw.get("basis") != "frontmatter" or raw.get("field") != "consolidated_into"
+                                or raw.get("type") != "impact" or raw.get("direction") != "directed"
+                                or raw.get("source") != path or raw.get("target") != log or path == log
+                                or variant[dependent] != node_id(log, consumer)
+                                or variant[prerequisite] != path
+                                or graph["nodes"].get(path, {}).get("page_type") != "ingestion_event"):
+                            raise ValueError("invalid canonical log annotation context occurrence")
+                        used_context.add(key)
                     if (modes.get(path) == "explicit_view_v2"
                             and raw.get("classification") == "reference_style_citation"):
                         raise ValueError("reference-style occurrence has no unambiguous v2 row location")
@@ -521,6 +559,8 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
     changes.update(locator_changes)
     if set(bindings) != used:
         raise ValueError("record contract has stale or unmatched consumption bindings")
+    if set(context_bindings) != used_context:
+        raise ValueError("canonical log annotation context has unmatched occurrences")
     if review_trace is not None:
         review_trace.extend(trace)
     return graphs["current"], graphs["base"], changes, evidence
