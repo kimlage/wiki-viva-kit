@@ -1,7 +1,8 @@
 """Bounded documentary support for the existing one-action contribution port.
 
-This derives hashes for a known canonical action/log delta. It does not author
-semantic declarations, refresh evidence, evaluate freshness or grant model paths.
+This derives hashes and the exact new receipt-backed log observation for a
+known canonical action/log delta. It never reclassifies existing assertions,
+refreshes old evidence, evaluates freshness or grants model-selected paths.
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 from wiki_core.config import load_config
-from wiki_core.document_records import artifact_paths, digest, project_records, sections
+from wiki_core.document_records import artifact_paths, digest, project_records, sections, structured_digest
 from wiki_core.freshness_impact import authored_graph
 
 
@@ -116,11 +117,100 @@ def _canonical_log_effect(documents: dict, final: dict, action: str, log: str, i
                        and e["contribution"].get("effect_key") == identity["effect_key"] for e in prior)):
             raise ValueError("contribution identity does not match new receipt")
         _review(identity, identity["material_sha256"], identity["review"])
-        if final["documents"][log] != contribution_log_text(
-                documents[log], action, log, identity["material_sha256"], entry["at"]):
+        annotations = {legacy: contribution_log_text(
+            documents[log], action, log, identity["material_sha256"], entry["at"], legacy=legacy)
+            for legacy in (False, True)}
+        if final["documents"][log] not in annotations.values():
             raise ValueError("canonical log annotation does not match receipt")
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
         raise ValueError("record_support_canonical_log_effect_unproved") from exc
+    return {"entry": entry, "legacy": final["documents"][log] == annotations[True]}
+
+
+def _append_canonical_record(contract: dict, documents: dict, final: dict,
+                             action: str, log: str, proof: dict) -> str | None:
+    """Derive only the freshly proved annotation; old assertions stay untouched.
+
+    No incoming occurrence is reclassified or rehashed. The new H2 and its
+    structured receipt evidence keep an earlier remainder byte-identical.
+    """
+    if proof["legacy"]:
+        return  # Reconstruct retained pre-record proposals exactly as authored.
+    entry = proof["entry"]
+    material = entry["contribution"]["material_sha256"]
+    heading = "[" + entry["at"][:10] + "] Reviewed action body " + material
+    rid = "contribution-" + material
+    declaration = next((d for d in contract["documents"] if d["path"] == log), None)
+    if declaration is None:
+        declaration = {"path": log, "records": []}
+        contract["documents"].append(declaration)
+        if contract["schema_version"] == "document_record.v2":
+            contract["document_modes"][log] = "h2_v1"
+    if contract.get("document_modes", {}).get(log, "h2_v1") != "h2_v1":
+        raise ValueError("record_support_c3_required:canonical_log_document_mode")
+    if any(r["id"] == rid or r.get("heading") == heading for r in declaration["records"]):
+        raise ValueError("record_support_canonical_log_record_collision")
+    old_body, old_sections = sections(documents[log])
+    new_body, new_sections = sections(final["documents"][log])
+    section = new_sections.get(heading)
+    if heading in old_sections or section is None:
+        raise ValueError("record_support_canonical_log_record_selector")
+    old_eof = len(old_body.splitlines(keepends=True))
+    # A selected previous final H2 owns the appended separator under v1 and is
+    # already updated by the exact blank-only rule below. Otherwise the new
+    # record owns those two blank lines, preserving the unselected remainder.
+    previous_selected = any(old_sections.get(r.get("heading"), (None, None))[1] == old_eof
+                            for r in declaration["records"])
+    padding = 0 if previous_selected else 2
+    start, end, _ = section
+    lines = new_body.splitlines(keepends=True)
+    content = "".join(lines[start - padding:end])
+    artifact = {"origin": "current", "id": rid, "document": action,
+                "field": "action_state_history", "match_key": "receipt_id",
+                "match_value": entry["receipt_id"], "sha256": structured_digest(entry)}
+    if any(a.get("origin") == "current" and a.get("id") == rid
+           for a in contract.get("artifacts", [])):
+        raise ValueError("record_support_canonical_log_evidence_collision")
+    contract.setdefault("artifacts", []).append(artifact)
+    declaration["records"].append({
+        "id": rid, "heading": heading, "base_sha256": None,
+        "current_sha256": digest(content), "leading_blank_lines": padding,
+        "independent": True, "epistemic_status": "observation",
+        "recorded_on": entry["at"][:10], "context_records": [],
+        "current_evidence": [rid],
+        "rationale": "Exact canonical annotation proved by its independent-review-bound "
+                     "body-integration receipt. It records preparation of this material only; "
+                     "it does not assert execution, served adoption or current historical facts.",
+    })
+    return rid
+
+
+def _inherit_qualified_annotation_context(contract: dict, trace: list, log: str,
+                                           record: str | None) -> None:
+    """Reuse only explicitly qualified, hash-bound historical destination context.
+
+    The projector validates the existing CURRENT event occurrence. This does
+    not broaden its historical assertion or renew the source document; it
+    records the parent author's separate qualification for the fixed new H2.
+    """
+    qualification = contract.get("canonical_log_annotation_context")
+    if qualification is None or record is None:
+        return
+    if qualification["log_path"] != log:
+        raise ValueError("record_support_context_requires_configured_log")
+    source_bindings = {(item["origin"], item["edge_sha256"], item["consumer_record"]): item["binding"]
+                       for item in trace if item.get("binding")}
+    for source in qualification["bindings"]:
+        key = ("current", source["edge_sha256"], source["consumer_record"])
+        # Syntax, actual relation, source guard and absence of historical
+        # evidence/effect fields were checked by the parent's projection.
+        original = source_bindings[key]
+        contract["bindings"].append({
+            "origin": "current", "edge_sha256": original["edge_sha256"],
+            "consumer_record": record, "role": "change_target",
+            "prerequisite_document_sha256": original["prerequisite_document_sha256"],
+            "rationale": source["rationale"],
+        })
 
 
 def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
@@ -128,8 +218,10 @@ def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
     """Validate the original pair, derive the exact subset, validate final pair.
 
     Final graph must come from the isolated proposal or immutable candidate.
-    Unqualified occurrence guards are never renewed. An explicit parent-authored
-    log-effect qualification requires the actual new canonical receipt/annotation.
+    Unqualified occurrence guards are never renewed. The new canonical log H2
+    is isolated with its actual receipt evidence; old formats are reconstructed
+    without retroactive records. A parent-authored effect qualification still
+    requires the actual new canonical receipt/annotation.
     """
     from scripts.wiki_page_graph import project_memory_at_commit, run_git
 
@@ -171,6 +263,7 @@ def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
     if (set(final["documents"]) != set(documents)
             or {p for p in documents if documents[p] != final["documents"][p]} != {action, log}):
         raise ValueError("record_support_requires_exact_action_log_delta")
+    proof = _canonical_log_effect(documents, final, action, log, contribution_identity)
     result = copy.deepcopy(contract)
     for name in (action, log):
         result["current_documents_sha256"][name] = digest(final["documents"][name])
@@ -203,6 +296,8 @@ def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
                     or record.get("current_sha256") != digest(old_content)):
                 raise ValueError("record_support_c3_required:" + pointer)
             record["current_sha256"] = digest(new_content)
+    record = _append_canonical_record(result, documents, final, action, log, proof)
+    _inherit_qualified_annotation_context(result, trace, log, record)
     from wiki_core.freshness_impact import REFERENCE
     qualified = []
     for item in trace:
@@ -219,8 +314,6 @@ def derive_support(root: Path, parent: str, action: str, log: str, final: dict,
         if documents.get(consumer) != final["documents"].get(consumer):
             raise ValueError("record_support_effect_consumer_context_changed")
         qualified.append((binding["origin"], binding["edge_sha256"], binding.get("consumer_record", "document")))
-    if qualified:
-        _canonical_log_effect(documents, final, action, log, contribution_identity)
     # Neither role names nor empty evidence infer an exemption. Only the
     # already approved exact occurrence can advance its one CURRENT hash.
     for item in trace:

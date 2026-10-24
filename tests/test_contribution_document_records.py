@@ -17,13 +17,15 @@ import yaml
 import pytest
 
 from wiki_core.config import load_config
-from wiki_core.document_records import digest, edge_digest, sections
+from wiki_core.document_records import artifact_paths, digest, edge_digest, project_records, sections
 from wiki_core.freshness_impact import authored_graph
 from wiki_core.frontmatter import FRONTMATTER_RE
+from wiki_core.markdown_link_roles import declare_link_role
 from wiki_core.web.git_workflows import run_git_workflow
 from test_action_contribution import review, fixture
 import wiki_core.action_contribution as port
 from wiki_core.contribution_records import support_path
+from scripts.wiki_page_graph import project_memory_at_commit
 
 
 SOURCE = Path(__file__).resolve().parents[1]
@@ -39,7 +41,10 @@ def command(root, *args):
     return result.stdout
 
 
-def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, effects=False, effect_consumer=False, prior_day=False):
+def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, effects=False,
+                     effect_consumer=False, prior_day=False, historical_consumer=False,
+                     unselected_tail=False, changed_consumer=False, inherited_event=False,
+                     qualified_context=False):
     root = tmp_path / 'consumer'
     command(tmp_path, 'git', 'clone', '--shared', '--quiet', str(SOURCE), str(root))
     git(root, 'switch', '-C', 'main')
@@ -87,6 +92,12 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
     if effect_consumer:
         action.write_text(action.read_text().replace('# Synthetic contract action\n',
             '# Synthetic contract action\n\nRecord this update in [the log](../system/log.md).\n'))
+    if historical_consumer:
+        consumer = action if changed_consumer else root / 'memories/index.md'
+        target = '../system/log.md' if changed_consumer else 'system/log.md'
+        consumer.write_text(consumer.read_text() + '\n## Original fictional history\n\n'
+                            'The initial fictional history remains in [the preserved log]('
+                            + target + ').\n')
     hub = root / 'memories/example/index.md'
     hub.write_text(hub.read_text() + '\n- [Synthetic contract action](../actions/contract-example.md).\n')
     if effects:
@@ -94,6 +105,40 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
                        '\nBefore completing the change, annotate [the log](../system/log.md).\n')
     log = root / 'memories/system/log.md'
     log.write_text(log.read_text() + '\n## Preserved final note\n\nAn existing fictional historical unit.\n')
+    if unselected_tail:
+        log.write_text(log.read_text() + '\n## Other preserved note\n\nAnother original fictional unit.\n')
+    if inherited_event:
+        event = root / 'memories/system/ingestion/events/retained-history-example.md'
+        # A separate fictional event/source keeps the declared occurrence clear.
+        # Minimal freshness fixtures cover stale debt; this full-kit fixture
+        # keeps other unqualified whole-document consumers operationally valid.
+        source = root / 'memories/sources/retained-history-example.md'
+        source_values = dict(page_id='source-retained-fictional-history', page_type='source',
+            title='Retained fictional source', context='system', visibility='private_self',
+            updated_at=today, stale_after_days=90, sources_policy='synthetic_only',
+            gate='github_pr', sensitive_data_policy='private_sensitive_allowed',
+            source_type='reference', refresh_policy='archival', source_refs=[],
+            actions=[], claims=[], decisions=[], evidence_refs=[], owner=[], related_holons=[],
+            responsibilities=[], roles=[],
+            moc_parent='memories/index.md')
+        source.write_text('---\n' + yaml.safe_dump(source_values, sort_keys=False) + '---\n\n'
+                          '# Retained fictional source\n\nA self-contained fictional history.\n')
+        event_values = dict(page_id='event-retained-fictional-history', page_type='ingestion_event',
+            event_id='retained-fictional-history', context='system', visibility='private_self',
+            updated_at=today, stale_after_days=90, sources_policy='retained_synthetic_observation',
+            gate='github_pr', sensitive_data_policy='private_sensitive_allowed',
+            source_refs=['source-retained-fictional-history'],
+            consolidated_into=['memories/system/log.md'], moc_parent='memories/system/ingestion/events/README.md')
+        event.write_text('---\n' + yaml.safe_dump(event_values, sort_keys=False) + '---\n\n'
+            '# Retained fictional history\n\n## Source\n\nA retained fictional observation.\n\n'
+            '## Quadrants\n\n| Quadrant | Observation |\n| --- | --- |\n'
+            '| Interior individual | No personal statement in this fixture. |\n'
+            '| Exterior individual | A historical event named its write destination. |\n'
+            '| Interior collective | No collective statement in this fixture. |\n'
+            '| Exterior collective | The exact destination relation remains archived. |\n')
+        for label, target in [('Historical event', '../system/ingestion/events/retained-history-example.md'),
+                              ('Historical source', '../sources/retained-history-example.md')]:
+            hub.write_text(hub.read_text() + '\n' + declare_link_role(f'[{label}]({target})', 'navigation') + '\n')
     for script in ('wiki_source_registry', 'wiki_input_stage', 'wiki_operation_compile', 'wiki_operational_pass'):
         command(root, sys.executable, 'scripts/' + script + '.py', '--write')
     git(root, 'add', '.')
@@ -159,6 +204,36 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
             contribution_effect='canonical_log_annotation',
             prerequisite_document_sha256=digest(graph['documents']['memories/system/log.md']),
             rationale='Parent qualification cannot survive a changed consumer context.'))
+    if inherited_event:
+        edge, = [e for e in graph['edges'] if e.get('path') == event.relative_to(root).as_posix()
+                 and e.get('field') == 'consolidated_into' and e.get('target') == 'memories/system/log.md']
+        binding = dict(origin='current', edge_sha256=edge_digest(edge), consumer_record='preserved-note',
+            role='change_target', prerequisite_document_sha256=digest(event.read_text()),
+            rationale='This event names a historical write destination; it did not supply the later preserved note.')
+        contract['bindings'].append(binding)
+        contract['bindings'].append({**binding, 'origin': 'base'})
+        if qualified_context:
+            contract['canonical_log_annotation_context'] = dict(log_path='memories/system/log.md',
+                bindings=[dict(edge_sha256=binding['edge_sha256'], consumer_record='preserved-note',
+                    rationale='This exact historical destination also supplies no facts to a future fixed '
+                              'canonical body-preparation annotation authenticated by its own receipt.')])
+    if historical_consumer:
+        consumer_ref = consumer.relative_to(root).as_posix()
+        edge, = [e for e in graph['edges'] if e.get('source') == consumer_ref
+                 and e.get('target') == 'memories/system/log.md'
+                 and e.get('section') == 'original fictional history']
+        original_log = graph['documents']['memories/system/log.md']
+        log_body, log_sections = sections(original_log)
+        start, end, _ = log_sections[heading]
+        prior_remainder = original_log[:len(original_log) - len(log_body)] + ''.join(
+            line for number, line in enumerate(log_body.splitlines(keepends=True))
+            if not start <= number < end)
+        for origin in ('base', 'current'):
+            contract['bindings'].append(dict(origin=origin, edge_sha256=edge_digest(edge),
+                consumer_record='document', role='consumption', target_record='remainder',
+                consumed_sha256=digest(prior_remainder),
+                rationale='This explicit historical assertion consumes the original fictional '
+                          'history and its context, not a future contribution annotation.'))
     records = root / 'docs/contribution-records.json'
     records.write_text(json.dumps(contract, indent=2) + '\n')
     config = yaml.safe_load(config_file.read_text())
@@ -219,7 +294,9 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
     old = json.loads(before[records])
     generated = json.loads(git(root, 'show', commit + ':' + records.relative_to(root).as_posix()))
     if effects:
-        assert generated['artifacts'] == old['artifacts']
+        assert generated['artifacts'][:-1] == old['artifacts']
+        assert generated['artifacts'][-1]['document'] == action.relative_to(root).as_posix()
+        assert generated['artifacts'][-1]['field'] == 'action_state_history'
         assert generated['documents'][0]['records'][0]['current_evidence'] == ['old-log-observation']
         assert len(generated['bindings']) == 2
         expected_log_hash = digest(subprocess.check_output(
@@ -233,6 +310,10 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
             != generated['current_documents_sha256'][p]} == {action.relative_to(root).as_posix(), log.relative_to(root).as_posix()}
     assert generated['documents'][0]['records'][0]['base_sha256'] == old['documents'][0]['records'][0]['base_sha256']
     assert generated['documents'][0]['records'][0]['current_sha256'] != old['documents'][0]['records'][0]['current_sha256']
+    annotation = generated['documents'][0]['records'][-1]
+    assert annotation['id'] == 'contribution-' + port.digest(request)
+    assert annotation['base_sha256'] is None
+    assert annotation['current_evidence'] == [generated['artifacts'][-1]['id']]
     again = run_git_workflow(root, load_config(root), 'prepare_contribution',
                             {'request': request, 'review': review(request)}, dry_run=False)
     assert again['ok'] and again['idempotent'] and again['proposal_commit'] == commit, again
@@ -340,6 +421,114 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
                             {'request': request, 'pr': 7}, dry_run=False)
     assert not drift['ok'] and drift['remote_merged'] and not drift['canonical_body_adopted'], drift
     assert drift['status'] == 'unknown'
+
+
+@pytest.mark.parametrize('unselected_tail,inherited_event', [(False, False), (True, False), (False, True)])
+def test_new_annotations_keep_historical_consumption_across_two_real_preparations(tmp_path, unselected_tail, inherited_event):
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True,
+        captured=True, effects=True, historical_consumer=True, unselected_tail=unselected_tail,
+        inherited_event=inherited_event, qualified_context=inherited_event)
+    original = json.loads(records.read_text())
+    prior_consumption = [b for b in original['bindings'] if b.get('target_record') == 'remainder']
+    assert len(prior_consumption) == 2
+    prepared = []
+    for number in (1, 2):
+        if number == 2:
+            before = action.read_text()
+            text = before + '\nA second independently reviewed fictional observation.\n'
+            request = {**request, 'effect_key': 'synthetic-contract-body-two',
+                       'run_ref': {**request['run_ref'], 'run_id': 'two'},
+                       'files': [{**request['files'][0], 'base_commit': git(root, 'rev-parse', 'HEAD'),
+                                  'base_sha256': digest(before), 'sha256': digest(text), 'text': text}]}
+        result = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                                  {'request': request, 'review': review(request)}, dry_run=False)
+        print(json.dumps({'preparation': number, **result}, sort_keys=True))
+        assert result['ok'] and result['status'] == 'prepared', result
+        assert all(g['exit_code'] == 0 for g in result['gate_receipts'])
+        generated = json.loads(git(root, 'show', result['proposal_commit'] + ':' + records.relative_to(root).as_posix()))
+        assert [b for b in generated['bindings'] if b.get('target_record') == 'remainder'] == prior_consumption
+        assert generated['base_documents_sha256'] == original['base_documents_sha256']
+        if inherited_event:
+            assert generated['canonical_log_annotation_context'] == original['canonical_log_annotation_context']
+            contexts = [b for b in generated['bindings'] if b['edge_sha256'] ==
+                        original['canonical_log_annotation_context']['bindings'][0]['edge_sha256']]
+            assert contexts[0] == next(b for b in original['bindings'] if b['consumer_record'] == 'preserved-note')
+            assert len(contexts) == 2 + number
+            assert all(b['prerequisite_document_sha256'] == contexts[0]['prerequisite_document_sha256']
+                       and 'evidence' not in b for b in contexts)
+        annotations = [r for d in generated['documents'] if d['path'] == log.relative_to(root).as_posix()
+                       for r in d['records'] if r['id'].startswith('contribution-')]
+        assert len(annotations) == number
+        assert len({r['heading'] for r in annotations}) == number
+        assert annotations[0]['leading_blank_lines'] == (2 if unselected_tail else 0)
+        again = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                                 {'request': request, 'review': review(request)}, dry_run=False)
+        assert again['ok'] and again['idempotent'] and again['receipt_id'] == result['receipt_id']
+        assert again['proposal_commit'] == result['proposal_commit']
+        prepared.append(result)
+        # Actual local Git adoption; this test makes no provider/served claim.
+        git(root, 'merge', '--ff-only', result['proposal_commit'])
+    assert prepared[0]['receipt_id'] != prepared[1]['receipt_id']
+    assert len([r for r in json.loads(records.read_text())['artifacts']
+                if r.get('field') == 'action_state_history']) == 2
+
+
+def test_new_annotation_does_not_infer_inherited_event_qualification(tmp_path):
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True,
+        captured=True, effects=True, inherited_event=True)
+    before = {p: p.read_bytes() for p in (action, log, records)}
+    result = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                              {'request': request, 'review': review(request)}, dry_run=False)
+    assert result['ok'] and result['status'] == 'prepared', result
+    generated = json.loads(git(root, 'show', result['proposal_commit'] + ':' + records.relative_to(root).as_posix()))
+    event_bindings = [b for b in generated['bindings'] if b.get('consumer_record', '').startswith('contribution-')]
+    assert not event_bindings
+    candidate = project_memory_at_commit(result['proposal_commit'], authored_graph, root=root)
+    base = project_memory_at_commit(load_config(root).audit['freshness_base'], authored_graph, root=root)
+    artifacts = {key: p.read_bytes() for key, p in artifact_paths(root, generated).items()}
+    projected, _, _, _ = project_records(candidate, base,
+        {action.relative_to(root).as_posix(), log.relative_to(root).as_posix()}, generated, artifact_inputs=artifacts)
+    assert any(e['type'] == 'impact' and e.get('field') == 'consolidated_into'
+               and e['target'].endswith('::record:contribution-' + port.digest(request)) for e in projected['edges'])
+    assert {p: p.read_bytes() for p in before} == before
+    assert git(root, 'rev-parse', 'HEAD') == request['files'][0]['base_commit']
+
+
+def test_new_annotation_does_not_requalify_changed_consumer_occurrence(tmp_path):
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True,
+        captured=True, effects=True, historical_consumer=True, changed_consumer=True)
+    before = {p: p.read_bytes() for p in (action, log, records)}
+    refs = git(root, 'for-each-ref', '--format=%(refname) %(objectname)')
+    result = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                              {'request': request, 'review': review(request)}, dry_run=False)
+    assert not result['ok'] and result['error'] == (
+        'record_support_c3_required:contract:record contract has stale or unmatched consumption bindings'), result
+    assert {p: p.read_bytes() for p in before} == before
+    assert git(root, 'for-each-ref', '--format=%(refname) %(objectname)') == refs
+
+
+def test_retained_legacy_annotation_reconstructs_without_new_records(tmp_path, monkeypatch):
+    from functools import partial
+    from wiki_core.action_transition import append_contribution_log
+
+    root, action, log, records, request = fullmap_consumer(tmp_path, support=True,
+                                                          captured=True, effects=True)
+    original = json.loads(records.read_text())
+    # Produce the prior exact canonical format using the retained real writer.
+    # Only the format selection is historical; all preparation gates still run.
+    with monkeypatch.context() as compatibility:
+        compatibility.setattr(port, 'append_contribution_log', partial(append_contribution_log, legacy=True))
+        result = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                                  {'request': request, 'review': review(request)}, dry_run=False)
+    assert result['ok'] and result['status'] == 'prepared', result
+    generated = json.loads(git(root, 'show', result['proposal_commit'] + ':' + records.relative_to(root).as_posix()))
+    assert generated['artifacts'] == original['artifacts']
+    assert len(generated['documents'][0]['records']) == len(original['documents'][0]['records'])
+    recovered = run_git_workflow(root, load_config(root), 'prepare_contribution',
+                                 {'request': request, 'review': review(request)}, dry_run=False)
+    assert recovered['ok'] and recovered['idempotent'], recovered
+    assert recovered['proposal_commit'] == result['proposal_commit']
+    assert recovered['receipt_id'] == result['receipt_id']
 
 
 @pytest.mark.parametrize('mutation', ['support', 'producer'])
