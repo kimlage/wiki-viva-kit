@@ -42,6 +42,63 @@ def test_packet_is_bound_to_profile_pages_sources_and_revisions(tmp_path):
     assert coordination_index(tmp_path, snapshot)["unmapped_action_ids"] == []
 
 
+def add_common_policy_pages(root, snapshot, policy):
+    policy_pages = []
+    for name in ("approvals", "operational-contract", "ingestion-process"):
+        raw = f"---\npage_id: {name}\npage_type: operational_rule\n---\n# {name}\nCurrent synthetic policy.\n"
+        path = f"memories/{name}.md"
+        (root / path).write_text(raw)
+        page = {"id": name, "path": path, "title": name, "page_type": "operational_rule",
+                "content_sha256": hashlib.sha256(raw.encode()).hexdigest()}
+        snapshot["pages.json"]["pages"].append(page)
+        policy["common_context"].append(path)
+        policy_pages.append(page)
+    (root / "wiki.coordination.yaml").write_text(yaml.safe_dump(policy))
+    return policy_pages
+
+
+@pytest.mark.parametrize("profile,action", [("research", "task"), ("other", None)])
+def test_common_policies_reach_each_profile_without_claiming_access(tmp_path, profile, action):
+    config, snapshot, policy = fixture(tmp_path)
+    common_pages = add_common_policy_pages(tmp_path, snapshot, policy)
+
+    packet = context_packet(tmp_path, config, snapshot, profile, action)
+
+    by_id = {page["id"]: page for page in packet["pages"]}
+    for page in common_pages:
+        assert by_id[page["id"]]["content_sha256"] == page["content_sha256"]
+        assert by_id[page["id"]]["path"] == page["path"]
+    assert packet["access_verified"] is False
+    assert packet["runtime_connected"] is False
+    assert packet["execution_ready"] is False
+    assert {a["action_id"] for a in packet["actions"]} == ({action} if action else set())
+
+
+def test_current_policy_change_requires_fresh_context_for_every_profile(tmp_path):
+    config, snapshot, policy = fixture(tmp_path)
+    common_pages = add_common_policy_pages(tmp_path, snapshot, policy)
+    routes = [("research", "task"), ("other", None)]
+    before = {profile: context_packet(tmp_path, config, snapshot, profile, action)
+              for profile, action in routes}
+    changed = common_pages[0]
+    path = tmp_path / changed["path"]
+    raw = path.read_text().replace("Current synthetic policy.", "Updated synthetic scope; preserve independent review.")
+    path.write_text(raw)
+
+    for profile, action in routes:
+        with pytest.raises(CoordinationError, match="revision changed"):
+            context_packet(tmp_path, config, snapshot, profile, action)
+
+    changed["content_sha256"] = hashlib.sha256(raw.encode()).hexdigest()
+    for profile, action in routes:
+        packet = context_packet(tmp_path, config, snapshot, profile, action)
+        assert packet["policy_sha256"] == before[profile]["policy_sha256"]
+        assert packet["context_sha256"] != before[profile]["context_sha256"]
+        current = next(page for page in packet["pages"] if page["id"] == changed["id"])
+        assert current["content_sha256"] == changed["content_sha256"]
+        assert current["body"] != next(page for page in before[profile]["pages"] if page["id"] == changed["id"])["body"]
+
+
 def test_terminal_history_is_never_reopened(tmp_path):
     config, snapshot, _ = fixture(tmp_path)
     p = context_packet(tmp_path, config, snapshot, "research", "archived")

@@ -245,12 +245,13 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str,
     return entry, text
 
 
-def _gates(root: Path, config: WikiConfig, *, record_support: bool = False) -> list[dict]:
+def _gates(root: Path, config: WikiConfig, *, record_support: bool = False,
+           committed_head: str | None = None) -> list[dict]:
     commands = [
         [sys.executable, "scripts/wiki_audit.py", "--check"],
         [sys.executable, "scripts/wiki_input_stage.py", "--check"],
         [sys.executable, "scripts/wiki_pr_summary.py"],
-        ["git", "diff", "--check"],
+        ["git", "diff", "--check", *([committed_head + "^", committed_head] if committed_head else [])],
     ]
     if record_support:
         commands.extend([[sys.executable, "scripts/" + name + ".py", "--check"] for name in
@@ -280,6 +281,93 @@ def _gates(root: Path, config: WikiConfig, *, record_support: bool = False) -> l
             raise ContributionError("proposal_gate_failed:" + Path(command[0]).name,
                                     {"gate_receipts": results})
     return results
+
+
+def _validation_policy(config: WikiConfig) -> str:
+    policy = config.approval.get("contribution_validation", "github_checks")
+    if not isinstance(policy, str) or policy not in {"github_checks", "local_gates"}:
+        raise ContributionError("invalid_contribution_validation_policy")
+    return policy
+
+
+def _local_integration_gates(root: Path, commit: str) -> list[dict]:
+    """Re-run the existing gates on the immutable reviewed head, never caller receipts.
+
+    This local clone reads retained Git objects, without fetching from GitHub or
+    switching the application's checkout. `_entry` already restricts the commit
+    delta to the action/log/support, so policy and gate code come from its
+    approved parent. Ignored caches may change; authored files and HEAD may not.
+    """
+    with tempfile.TemporaryDirectory(prefix="wiki-contribution-validation-") as temporary:
+        scratch = Path(temporary) / "proposal"
+        _run(root, "git", "clone", "--shared", "--no-checkout", str(root), str(scratch))
+        _git(scratch, "checkout", "--detach", commit)
+        config = load_config(scratch)
+        if _validation_policy(config) != "local_gates":
+            raise ContributionError("committed_validation_policy_mismatch")
+        support = _support_path(scratch, _git(scratch, "rev-parse", commit + "^"))
+        receipts = _gates(scratch, config, record_support=bool(support), committed_head=commit)
+        if (_git(scratch, "rev-parse", "HEAD") != commit
+                or _git(scratch, "status", "--porcelain", "--untracked-files=all")):
+            raise ContributionError("local_validation_modified_proposal", {"gate_receipts": receipts})
+        return receipts
+
+
+def _integration_pr_wait(root: Path, config: WikiConfig, pr: dict,
+                         commit: str, policy: str) -> dict | None:
+    """Keep remote refusals and explicit human policy in both validation modes."""
+    if (pr.get("headRefOid") != commit
+            or pr.get("baseRefName") != str(config.approval.get("default_branch") or "main")):
+        raise ContributionError("pr_identity_conflict")
+    if pr.get("isDraft") or pr.get("reviewDecision") == "CHANGES_REQUESTED":
+        return {"status": "waiting_pr_review"}
+    if not isinstance(config.approval.get("require_human_review", False), bool):
+        raise ContributionError("invalid_human_review_policy")
+    checks = pr.get("statusCheckRollup") or []
+    if not isinstance(checks, list) or any(not isinstance(check, dict) for check in checks):
+        raise ContributionError("invalid_remote_check_observation")
+    if (pr.get("state") != "OPEN" or (policy == "github_checks" and not checks)
+            or any((check.get("conclusion") or check.get("state")) != "SUCCESS" for check in checks)):
+        return {"status": "waiting_ci_or_pr",
+                "remote_check_receipts" if policy == "local_gates" else "gate_receipts": checks}
+    # A trusted adapter's independent report is never counted as human.
+    if config.approval.get("require_human_review") is True:
+        approved = [review for review in pr.get("reviews", []) if review.get("state") == "APPROVED"
+                    and review.get("commit", {}).get("oid") == commit]
+        if not approved:
+            return {"status": "waiting_human_review"}
+        if not any(_gh(root, "api", "--hostname", _repository(root).split("/")[0],
+                       "users/" + review["author"]["login"]).get("type") == "User" for review in approved):
+            return {"status": "waiting_human_review"}
+    return None
+
+
+def _integration_source_check(root: Path, config: WikiConfig, commit: str, path: str,
+                              entry: dict, *, dry_run: bool) -> None:
+    """Revalidate committed policy and overlapping source bytes before the effect."""
+    target, _ = _contained_action_path(root, path)
+    if _sha(target.read_text()) != entry["before_sha256"]:
+        raise ContributionError("source_changed_since_prepare: reconcile required")
+    base_branch = str(config.approval.get("default_branch") or "main")
+    canonical = _canonical_observation(root, base_branch, dry_run=dry_run)
+    parent = _git(root, "rev-parse", commit + "^")
+    support_ref = _support_path(root, parent)
+    if support_ref:
+        if canonical != parent:
+            raise ContributionError("record_support_canonical_parent_advanced: reconcile required")
+        _support_path(root, parent, require_worktree=True)
+        if _support_bytes(root, support_ref) != _blob(root, parent, support_ref).encode():
+            raise ContributionError("record_support_changed_since_prepare")
+    if _blob(root, canonical, "wiki.config.yaml") != _blob(root, commit, "wiki.config.yaml"):
+        raise ContributionError("canonical_policy_changed: reconcile required")
+    if _blob(root, canonical, path) != _blob(root, parent, path):
+        raise ContributionError("canonical_action_changed: reconcile required")
+    log_ref = WikiPaths(root, config).log_page.relative_to(root).as_posix()
+    if (_blob(root, canonical, log_ref) != _blob(root, parent, log_ref)
+            or (root / log_ref).read_text() != _blob(root, parent, log_ref)):
+        raise ContributionError("canonical_or_worktree_log_changed: reconcile required")
+    if (root / "wiki.config.yaml").read_text() != _blob(root, commit, "wiki.config.yaml"):
+        raise ContributionError("policy_changed_since_prepare")
 
 
 def _candidate(root: Path, branch: str) -> str | None:
@@ -780,52 +868,13 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
             raise ContributionError("unknown_contribution_operation")
         if str(config.approval.get("gate") or "") != "github_pr":
             return {**result, "ok": True, "status": "waiting_policy_adapter"}
-        if pr.get("isDraft") or pr.get("reviewDecision") == "CHANGES_REQUESTED":
-            return {**result, "ok": True, "status": "waiting_pr_review"}
-        if not isinstance(config.approval.get("require_human_review", False), bool):
-            raise ContributionError("invalid_human_review_policy")
+        validation_policy = _validation_policy(config)
+        result["validation_policy"] = validation_policy
+        waiting = _integration_pr_wait(root, config, pr, commit, validation_policy)
+        if waiting:
+            return {**result, "ok": True, **waiting}
         checks = pr.get("statusCheckRollup") or []
-        if pr.get("state") != "OPEN" or not checks or any(
-            (c.get("conclusion") or c.get("state")) != "SUCCESS" for c in checks):
-            return {**result, "ok": True, "status": "waiting_ci_or_pr", "gate_receipts": checks}
-        # Human review is required only when the actual consumer says so.
-        # A trusted adapter's independent report is never counted as human.
-        if config.approval.get("require_human_review") is True:
-            approved = [r for r in pr.get("reviews", []) if r.get("state") == "APPROVED"
-                        and r.get("commit", {}).get("oid") == commit]
-            if not approved:
-                return {**result, "ok": True, "status": "waiting_human_review"}
-            # GitHub enforces reviewer permissions and dismissal policy. Query
-            # account type explicitly rather than treating bots as humans.
-            if not any(_gh(root, "api", "--hostname", _repository(root).split("/")[0], "users/" + r["author"]["login"]).get("type") == "User" for r in approved):
-                return {**result, "ok": True, "status": "waiting_human_review"}
-        target, _ = _contained_action_path(root, path)
-        if _sha(target.read_text()) != entry["before_sha256"]:
-            raise ContributionError("source_changed_since_prepare: reconcile required")
-        # Re-read canonical policy before the effect, not only after merge.
-        # Disjoint canonical commits are fine; changes to this action or to
-        # policy require reconciliation rather than a stale promotion.
-        base_branch = str(config.approval.get("default_branch") or "main")
-        canonical = _canonical_observation(root, base_branch, dry_run=dry_run)
-        parent = _git(root, "rev-parse", commit + "^")
-        support_ref = _support_path(root, parent)
-        if support_ref:
-            if canonical != parent:
-                raise ContributionError("record_support_canonical_parent_advanced: reconcile required")
-            _support_path(root, parent, require_worktree=True)
-            if _support_bytes(root, support_ref) != _blob(root, parent, support_ref).encode():
-                raise ContributionError("record_support_changed_since_prepare")
-        if _blob(root, canonical, "wiki.config.yaml") != _blob(root, commit, "wiki.config.yaml"):
-            raise ContributionError("canonical_policy_changed: reconcile required")
-        if _blob(root, canonical, path) != _blob(root, parent, path):
-            raise ContributionError("canonical_action_changed: reconcile required")
-        log_ref = WikiPaths(root, config).log_page.relative_to(root).as_posix()
-        if (_blob(root, canonical, log_ref) != _blob(root, parent, log_ref)
-            or (root / log_ref).read_text() != _blob(root, parent, log_ref)):
-            raise ContributionError("canonical_or_worktree_log_changed: reconcile required")
-        # Gate policy must be committed, not an unreviewed local weakening.
-        if (root / "wiki.config.yaml").read_text() != _blob(root, commit, "wiki.config.yaml"):
-            raise ContributionError("policy_changed_since_prepare")
+        _integration_source_check(root, config, commit, path, entry, dry_run=dry_run)
         if entry["contribution"]["review"]["material_sha256"] != material:
             raise ContributionError("exact_material_review_required")
         head_review = _head_review(request, material, commit, payload.get("head_review"))
@@ -835,7 +884,28 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
             raise ContributionError("proposal_head_changed_after_review")
         result.update(head_review=head_review, head_review_sha256=digest(head_review), proposal_commit=commit)
         if dry_run:
-            return {**result, "ok": True, "status": "dry_run", "validation_status": "ready_to_integrate"}
+            return {**result, "ok": True, "status": "dry_run",
+                    "validation_status": "local_validation_required" if validation_policy == "local_gates" else "ready_to_integrate",
+                    **({"gates_not_run": True} if validation_policy == "local_gates" else {})}
+        if validation_policy == "local_gates":
+            result.update(validation_commit=commit,
+                          validation_policy_sha256=_sha(_blob(root, commit, "wiki.config.yaml")),
+                          remote_check_receipts=checks)
+            result["gate_receipts"] = _local_integration_gates(root, commit)
+            # Local gates can take time. Refresh all overlapping bytes, policy,
+            # PR refusals and head identity; never merge on the pre-gate snapshot.
+            _integration_source_check(root, config, commit, path, entry, dry_run=False)
+            current_pr = _pr(root, pr["number"])
+            if current_pr.get("number") != pr.get("number"):
+                raise ContributionError("pr_identity_conflict")
+            waiting = _integration_pr_wait(root, config, current_pr, commit, validation_policy)
+            if waiting:
+                return {**result, "ok": True, **waiting}
+            result["remote_check_receipts"] = current_pr.get("statusCheckRollup") or []
+            if _candidate(root, branch) != commit:
+                raise ContributionError("proposal_head_changed_after_review")
+        else:
+            result["gate_receipts"] = checks
         # GitHub's match-head CAS guards the only canonical write. Reconcile
         # first on the next invocation after any transport failure/UNKNOWN.
         _run(root, "gh", "pr", "merge", str(pr["number"]), "--repo", _repository(root), "--merge", "--match-head-commit", commit)
@@ -844,7 +914,7 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
             raise ContributionError("merge_outcome_unknown: reconcile")
         result.update(remote_merged=True, source_commit=_merge_oid(confirmed))
         return {**result, **_canonical_readback(root, config, confirmed, path, commit, request, material),
-                "ok": True, "gate_receipts": checks}
+                "ok": True}
     except (ContributionError, ActionTransitionError, ValueError, KeyError, TypeError, OSError, subprocess.TimeoutExpired) as exc:
         message = (exc.code if isinstance(exc, ActionTransitionError) else str(exc) if isinstance(exc, ContributionError)
                    else "contribution_observation_unknown" if isinstance(exc, (OSError, subprocess.TimeoutExpired))

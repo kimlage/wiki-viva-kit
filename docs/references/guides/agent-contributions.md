@@ -118,13 +118,59 @@ Publication/integration currently implements the consumer's `github_pr`
 policy. Other policies return `waiting_policy_adapter`; no GitHub account is
 created. Publication opens a draft. Mark it ready through the project's normal
 review process. Integration checks the exact proposal head, target branch,
-remote CI success, outstanding review/draft status and current committed policy
-before an exact-head merge. An explicitly configured
+the configured validation policy, outstanding review/draft status and current
+committed policy before an exact-head merge. An explicitly configured
 `approval.require_human_review: true` additionally requires a real GitHub user
 approval of that commit. The local review JSON cannot satisfy that human gate.
-No access, absent CI or a pending gate is a refusal/wait, never successful
-adoption. Local-only projects can prepare/review proposals; another integration
-policy requires its own explicit adapter.
+No access or a pending required gate is a refusal/wait, never successful adoption.
+GitHub PR remains the promotion mechanism; another integration policy requires
+its own explicit adapter.
+
+### Validation when a consumer does not use remote CI
+
+`approval.contribution_validation` defaults to `github_checks`: integration
+requires a nonempty set of successful GitHub checks, preserving the public
+kit's CI policy. A consumer that deliberately uses local verification can
+commit this explicit policy through its normal independent review:
+
+```yaml
+approval:
+  gate: github_pr
+  contribution_validation: local_gates
+  contribution_gates:
+    - [python3, scripts/project_checks.py, --check]
+```
+
+The additional command above is illustrative; each consumer lists its real
+applicable gates. Missing policy retains `github_checks`; unknown values refuse.
+The request and review cannot select this policy, supply commands or substitute
+successful gate receipts. An uncommitted policy change cannot enable it.
+
+In `local_gates` mode, real integration reruns the existing mandatory gates,
+documentary-support gates when applicable, and configured `contribution_gates`
+in a temporary detached clone of the exact reviewed `proposal_commit`. The clone
+uses retained local Git objects. Policy and gate code come from that commit's
+approved parent, never uncommitted application files. Diff hygiene compares the
+commit with its parent. A failure, unavailable command, changed HEAD, changed
+tracked file/index or unexpected untracked output refuses promotion; normal
+ignored caches remain allowed. The application checkout stays untouched.
+
+The result identifies `validation_policy: local_gates`, `validation_commit`,
+`validation_policy_sha256` and the existing `gate_receipts` with actual command,
+exit code and output hash. `remote_check_receipts` reports GitHub observations
+separately, including an honest empty list. No GitHub check or human approval is
+created. Any observed remote check that is not successful still blocks, as do
+drafts, requested changes and an explicitly required human review. Local gates
+never replace independent review of the exact generated head.
+
+After the local gates, integration rereads canonical policy and overlapping
+action/log/support bytes, the PR and proposal head before the normal
+`--match-head-commit` merge. GitHub branch protections remain authoritative; no
+administrative bypass is requested. An uncertain merge still requires
+reconciliation without repeating the effect. A local-mode dry run performs no
+gates and returns `validation_status: local_validation_required` with
+`gates_not_run: true`, rather than claiming integration readiness. Selecting
+local validation does not waive the documentary-support contract below.
 
 ## Exact documentary support (optional)
 
