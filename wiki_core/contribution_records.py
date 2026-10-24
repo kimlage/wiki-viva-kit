@@ -131,8 +131,9 @@ def _append_canonical_record(contract: dict, documents: dict, final: dict,
                              action: str, log: str, proof: dict) -> str | None:
     """Derive only the freshly proved annotation; old assertions stay untouched.
 
-    No incoming occurrence is reclassified or rehashed. The new H2 and its
-    structured receipt evidence keep an earlier remainder byte-identical.
+    No incoming occurrence is reclassified or rehashed. The new H2 selects no
+    historical content; a newly terminated EOF remains a normal remainder
+    change for the documentary projector to validate.
     """
     if proof["legacy"]:
         return  # Reconstruct retained pre-record proposals exactly as authored.
@@ -157,12 +158,14 @@ def _append_canonical_record(contract: dict, documents: dict, final: dict,
         raise ValueError("record_support_canonical_log_record_selector")
     old_eof = len(old_body.splitlines(keepends=True))
     # A selected previous final H2 owns the appended separator under v1 and is
-    # already updated by the exact blank-only rule below. Otherwise the new
-    # record owns those two blank lines, preserving the unselected remainder.
+    # already updated by the exact blank-only rule below. Otherwise count the
+    # complete blank lines added after the old EOF. Without a terminal newline,
+    # the first appended newline terminates historical text; it is not padding.
+    # That remainder change still receives the normal documentary impact check.
     previous_selected = any(old_sections.get(r.get("heading"), (None, None))[1] == old_eof
                             for r in declaration["records"])
-    padding = 0 if previous_selected else 2
     start, end, _ = section
+    padding = 0 if previous_selected else start - old_eof
     lines = new_body.splitlines(keepends=True)
     content = "".join(lines[start - padding:end])
     artifact = {"origin": "current", "id": rid, "document": action,
