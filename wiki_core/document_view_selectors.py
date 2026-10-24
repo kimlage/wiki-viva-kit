@@ -212,7 +212,7 @@ def _body(text):
 
 
 def _blocks(body):
-    tokens = MarkdownIt("commonmark").enable("table").parse(body)
+    tokens = MarkdownIt("commonmark", {"store_labels": True}).enable("table").parse(body)
     path, paths, result = [], {}, []
     for i, token in enumerate(tokens):
         if token.type == "heading_open" and token.level == 0:
@@ -226,7 +226,7 @@ def _blocks(body):
 
 
 def body_span(text, selector, *, common_ranges=None):
-    """Return a body line span or proven absent H2/row; ambiguity is an error."""
+    """Return a complete body block span; ambiguity is an error."""
     from wiki_core.document_records import digest, section_spans
     _, body = _body(text)
     lines = body.splitlines(keepends=True)
@@ -254,6 +254,41 @@ def body_span(text, selector, *, common_ranges=None):
         raise ValueError("missing or ambiguous container heading path")
     if selector.get("required_match_count") != 1:
         raise ValueError("selector requires exactly one match")
+    if kind == "markdown_list_item":
+        # Raw HTML containers may be sibling AST blocks around a level-1 item,
+        # even across headings. Do not infer enclosure/independence from level.
+        if any(token.type == "html_block" for token in tokens):
+            raise ValueError("unsupported raw HTML container in list-item document")
+        prefix = selector.get("literal_prefix")
+        if (not isinstance(prefix, str) or not prefix.strip()
+                or "\n" in prefix or "\r" in prefix):
+            raise ValueError("list item requires a nonempty literal first-line prefix")
+        matches = []
+        for i, token, path in blocks:
+            # Select only independent top-level siblings. A nested item cannot
+            # shed a qualification carried by its enclosing item or quote.
+            if (token.type != "list_item_open" or token.level != 1
+                    or path != heading_path or not token.map
+                    or not lines[token.map[0]].startswith(prefix)):
+                continue
+            end_index = next((j for j in range(i + 1, len(tokens))
+                              if tokens[j].type == "list_item_close"
+                              and tokens[j].level == token.level), None)
+            if end_index is None:
+                raise ValueError("uncertain complete list item boundary")
+            # Whole AST span includes continuation paragraphs and all subitems.
+            # References depend on definitions outside this lexeme; block code,
+            # HTML and images remain conservative. Inline code stays literal
+            # inside the whole item; it cannot introduce an AST link or item.
+            for child in tokens[i + 1:end_index]:
+                if child.type in {"fence", "code_block", "html_block"} or any(
+                        c.type in {"html_inline", "image"} or "label" in c.meta
+                        for c in child.children or []):
+                    raise ValueError("unsupported code, HTML, image or reference in list item")
+            matches.append(tuple(token.map))
+        if len(matches) > 1:
+            raise ValueError("duplicate list item prefix")
+        return matches[0] if matches else None
     if kind == "table_row":
         tables = [(i, t) for i, t, path in blocks
                   if t.type == "table_open" and t.level == 0 and path == heading_path

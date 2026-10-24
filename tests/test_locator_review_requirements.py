@@ -133,6 +133,73 @@ def test_own_unqualified_normative_premise_remains_blocking(migration):
     assert any(r["path"] == RULE for r in report["blockers"])
 
 
+@pytest.fixture
+def list_item_migration(migration, repo):
+    """Sibling history and live privacy rule require distinct complete records."""
+    from wiki_core.document_view_selectors import body_span
+    current, base, contract, inputs = migration
+    records = []
+    for rid, prefix, status, contexts in (
+        ("historical", "- Readback:", "observation", ["publication-rule"]),
+        ("publication-rule", "- Do not disclose:", "decision", []),
+    ):
+        records.append(dict(id=rid, independent=True, recorded_on="2026-01-01",
+                            epistemic_status=status, context_records=contexts,
+                            rationale="Complete independent sibling with explicit live privacy context.",
+                            selectors={o: dict(kind="markdown_list_item", container_heading_path=["Evidence"],
+                                               literal_prefix=prefix, required_match_count=1)
+                                       for o in ("base", "current")}))
+    for origin, graph, link in (("base", base, OLD), ("current", current, NEW)):
+        for path, text in graph["documents"].items():
+            (repo / path).write_bytes(text.encode())
+        page(repo, "source", stale=True, source_refs=["rule"], body=(
+            "## Evidence\n\n- Readback: captured in January: " + link + "\n"
+            "- Do not disclose: private client identity; revocation requires a new review.\n"))
+        replacement = authored_graph(repo, load_config(repo))
+        assert not replacement["errors"]
+        graph.clear()
+        graph.update(replacement)
+        contract[origin + "_documents_sha256"] = {p: digest(t) for p, t in graph["documents"].items()}
+        text = graph["documents"][SOURCE]
+        _, body = text.split("---\n", 2)[1:]
+        for record in records:
+            a, b = body_span(text, record["selectors"][origin])
+            record[origin + "_sha256"] = digest("".join(body.splitlines(keepends=True)[a:b]))
+        binding = next(b for b in contract["bindings"] if b["origin"] == origin)
+        edge = next(e for e in graph["edges"] if e["source"] == CONSUMER and e["target"] == SOURCE)
+        binding["edge_sha256"] = edge_digest(edge)
+        binding["consumed_sha256"] = records[0][origin + "_sha256"]
+    contract.update(schema_version="document_record.v2", document_modes={SOURCE: "explicit_view_v2"})
+    contract["documents"][0]["records"] = records
+    return current, base, contract, inputs
+
+
+def test_list_item_readback_can_be_qualified_but_sibling_norm_still_requires_factual_review(list_item_migration):
+    report = result(list_item_migration)
+    included = {row["path"]: row for row in report["included"]}
+    readback = included[node_id(SOURCE, "historical")]
+    norm = included[node_id(SOURCE, "publication-rule")]
+    # The narrow downstream assertion can retain R. The retained v2 raw
+    # document also consumes every component through an unqualified WHOLE
+    # route, so that separate factual requirement on the source is preserved.
+    assert included[CONSUMER]["review_requirements"]["factual"] is False
+    assert included[CONSUMER]["review_requirements"]["representation"]
+    assert readback["review_requirements"]["factual"] is True
+    assert readback["review_requirements"]["representation"]
+    assert norm["review_requirements"]["factual"] is True
+    assert node_id(SOURCE, "publication-rule") in {r["path"] for r in report["blockers"]}
+    assert not report["ok"]
+    assert SOURCE in included and RULE in included
+
+
+def test_sibling_norm_change_cannot_pass_as_only_a_custody_edit(list_item_migration):
+    current, _, contract, _ = list_item_migration
+    current["documents"][SOURCE] = current["documents"][SOURCE].replace("Do not disclose:", "May disclose:")
+    contract["current_documents_sha256"][SOURCE] = digest(current["documents"][SOURCE])
+    with pytest.raises(ValueError, match="another lexical or factual change"):
+        projected(list_item_migration)
+
+
 @pytest.mark.parametrize("fault", ["null", "missing", "bad-id", "receipt-size", "receipt-url", "duplicate-key", "naive-time"])
 def test_malformed_present_inputs_fail_as_contract_errors(migration, fault):
     contract, inputs = migration[2:]
