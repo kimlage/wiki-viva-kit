@@ -1357,3 +1357,33 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 - The [input-stage reader](../../wiki_core/input_stage.py) accepts only canonical ISO dates from an existing JSON catalog when Markdown is absent. The [CLI](../../scripts/wiki_input_stage.py) uses the current date for a JSON fallback; only a verified complete cache can retain its earlier date. [Regressions](../../tests/test_input_stage.py) cover invalid strings, integers, a divergent model and valid retained dates while preserving stored bytes.
 - The [single-page HTTP regression](../../tests/test_web_server.py) resolves the existing configured action template and overlay, with an isolated synthetic output directory. Localized consumer paths use the same creation, editing, idempotency and stale-CAS assertions.
+
+## [2026-10-23] system | Current policies and bounded agent delegation
+
+- The [memory router](../../.skills/wiki-memory-router/SKILL.md),
+  [coordination guide](../../docs/references/guides/context-coordinators.md),
+  [subagent brief](../../docs/references/templates/wiki/subagent-brief.md) and
+  [operational contract](operational-wiki-contract.md) now carry current policy
+  sources, canonical task/base references, source evidence and consolidation
+  destinations through the existing handoff. Each executing instance verifies
+  its own tools, host/session and account. Unchanged blockers have a finite
+  stopping condition and retain the same action/event/run identities.
+- The [contribution adapter](../../wiki_core/action_contribution.py) supports an
+  explicitly committed consumer policy for local validation of the exact
+  reviewed proposal. The default still requires remote GitHub checks; local
+  validation preserves independent review, configured human requirements,
+  observed remote failures, canonical revision checks and branch protections.
+  [Validation and recovery](../../docs/references/guides/agent-contributions.md)
+  distinguish real local gate receipts from remote CI and uncertain effects.
+- The [sync manifest](../../docs/references/upgrades/sync-manifest.yaml) explicitly
+  includes the portable brief and synthetic coordination/contribution tests.
+  The [public PR template](../../.github/pull_request_template.md) requires
+  synthetic fixtures and rejects private data even on a page labeled private.
+- Initial targeted checks passed 111 synthetic contribution tests across the
+  [base](../../tests/test_action_contribution.py),
+  [recovery](../../tests/test_action_contribution_recovery.py) and
+  [validation](../../tests/test_action_contribution_validation.py) suites, plus
+  21 [coordination tests](../../tests/test_coordination.py). These working-tree
+  results use local Git fixtures and an explicit GitHub test double; they are
+  not live CI, a merge, downstream adoption or execution evidence. Runtime
+  connectivity, execution readiness and access verification remain unclaimed.

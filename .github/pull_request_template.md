@@ -14,11 +14,11 @@
 
 -
 
-## Privacy (PII free in private, secrets blocked)
+## Privacy (public kit, synthetic fixtures)
 
-- [ ] Personal data/PII (values, CPF/CNPJ, counterparties, documents, relationships) were kept freely when they help operational memory, reconciliation, CRM, decision making, or context -- private personal repo, no warning.
+- [ ] Examples and fixtures are synthetic; no private personal, financial or client data was copied into this public repository.
 - [ ] No access secret (token, cookie, password, access code, credential, individualized secure link) nor full dump was copied -- nowhere.
-- [ ] If any page became public/public_candidate, I ran `wiki_audit.py --public-export` and redacted the PII.
+- [ ] I ran `wiki_audit.py --public-export --check`; a page's private visibility label does not make content private in this public repository.
 - [ ] [docs/](../docs/README.md) was not used as primary memory.
 - [ ] Local paths cited became real Markdown links.
 
@@ -64,7 +64,7 @@
 - [ ] Any head change after review received renewed independent review.
 
 - [ ] **I read the conceptual diff** (what changes in behavior), not just the list of files.
-- [ ] **Privacy checked**: PII only on a private page (ok); no access secret; public export redacted.
+- [ ] **Privacy checked**: synthetic fixtures, no private personal/financial/client data, and no access secret anywhere in this public kit.
 - [ ] **Cockpit recompiled** if the memory changed (`wiki_operation_compile.py --check` green).
 - [ ] **Honest status**: no claim of "done" without evidence of a real artifact/page (no overclaim).
 

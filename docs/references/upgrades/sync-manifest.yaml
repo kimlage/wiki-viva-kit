@@ -8,7 +8,11 @@ portable:
     - scripts/_common.py
     - scripts/_git_subject.py
     - scripts/README.md
+    - tests/test_action_contribution.py
+    - tests/test_action_contribution_recovery.py
+    - tests/test_action_contribution_validation.py
     - tests/test_build_demo.py
+    - tests/test_coordination.py
     - tests/test_source_registry_policy.py
     - tests/test_web_snapshot.py
     - apps/wiki-cockpit/**
@@ -17,6 +21,7 @@ portable:
     - docs/references/guides/**
     - docs/references/releases/hermes-integration-withdrawal-2026-10-22.md
     - docs/references/templates/deploy/**
+    - docs/references/templates/wiki/subagent-brief.md
     - docs/references/schemas/**
     - docs/references/fixtures/demo-wiki/**
   block:
