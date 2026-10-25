@@ -30,17 +30,19 @@ def _material(root, params, edit):
     params["material_sha256"] = _sha(path.read_bytes())
 
 
-def _record_manifest(artifact, kind="path"):
+def _record_manifest(artifact, kind="path", duplicate=False):
     # Only path discovery is under test, not documentary impact adjudication.
-    return json.dumps({"artifacts": [{"origin": "current", "id": "synthetic-evidence",
-                                      kind: artifact, "sha256": "a" * 64}]})
+    items = [{"origin": "current", "id": "synthetic-evidence", kind: artifact, "sha256": "a" * 64}]
+    if duplicate:
+        items.append({**items[0], kind: "memories/context.txt"})
+    return json.dumps({"artifacts": items})
 
 
-def _active_contract(srv, root, artifact, kind="path"):
+def _active_contract(srv, root, artifact, kind="path", duplicate=False):
     ref = "docs/references/synthetic-records.json"
     path = root / ref
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_record_manifest(artifact, kind))
+    path.write_text(_record_manifest(artifact, kind, duplicate))
     config = root / "wiki.config.yaml"
     value = yaml.safe_load(config.read_text())
     value.setdefault("audit", {}).update(freshness_records=ref, freshness_base="a" * 40)
@@ -139,7 +141,8 @@ def test_hidden_documentary_inputs_are_still_refused(prepared, ref):
 
 @pytest.mark.parametrize("origin", ["active", "candidate_document", "candidate_pointer"])
 @pytest.mark.parametrize("kind", ["path", "document"])
-def test_explicit_editor_artifact_is_refused_before_read(prepared, origin, kind, monkeypatch):
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_explicit_editor_artifact_is_refused_before_read(prepared, origin, kind, duplicate, monkeypatch):
     srv, root, params, _unlock, _clock = prepared
     artifact = "memories/.obsidian/app.json"
     target = root / artifact
@@ -147,14 +150,14 @@ def test_explicit_editor_artifact_is_refused_before_read(prepared, origin, kind,
     target.write_text('{"synthetic_editor_state": true}')
     safe_artifact = "memories/context.txt"
     (root / safe_artifact).write_text("Synthetic documentary evidence.\n")
-    contract_ref = _active_contract(srv, root, artifact if origin == "active" else safe_artifact, kind)
+    contract_ref = _active_contract(srv, root, artifact if origin == "active" else safe_artifact, kind, duplicate)
     _commit_inputs(root, params, contract_ref)
     if origin != "active":
         candidate_ref = contract_ref if origin == "candidate_document" else "docs/references/candidate-records.json"
         def edit(value):
             value["documents"].append({"path": candidate_ref,
                 "before_sha256": _sha((root / candidate_ref).read_bytes()) if candidate_ref == contract_ref else None,
-                "after_text": _record_manifest(artifact, kind)})
+                "after_text": _record_manifest(artifact, kind, duplicate)})
             if origin == "candidate_pointer":
                 value["freshness_pointer"] = {"before_sha256": _sha((root / "wiki.config.yaml").read_bytes()),
                     "freshness_base": "a" * 40, "freshness_records": candidate_ref}
@@ -191,4 +194,49 @@ def test_safe_contract_evidence_outside_document_roots_is_pinned_at_effect(prepa
     status, denied = _execute(srv, token, plan, confirmation=plan["plan"]["confirmation"]["text"])
     assert status == 409 and denied["error_code"] == "admin_plan_stale", denied
     assert denied["failed_preconditions"] == ["proposal_planned_readset_changed"]
+    assert _state(root) == before
+
+
+@pytest.mark.parametrize("value", [[], {"artifacts": {}}, {"artifacts": [None]},
+    {"artifacts": [{}]}, {"artifacts": [{"path": "memories/context.txt", "document": "memories/context.txt"}]},
+    {"artifacts": [{"path": 42}]}])
+@pytest.mark.parametrize("candidate", [False, True])
+def test_malformed_evidence_declarations_are_refused_before_staging(prepared, value, candidate):
+    srv, root, params, _unlock, _clock = prepared
+    artifact = "memories/context.txt"
+    (root / artifact).write_text("Synthetic documentary evidence.\n")
+    ref = _active_contract(srv, root, artifact)
+    if not candidate:
+        (root / ref).write_text(json.dumps(value))
+    _commit_inputs(root, params, ref)
+    if candidate:
+        _material(root, params, lambda material: material["documents"].append({
+            "path": ref, "before_sha256": _sha((root / ref).read_bytes()), "after_text": json.dumps(value)}))
+    before = _state(root)
+    with pytest.raises(normal_proposal.ProposalError, match="proposal_invalid_record_contract"):
+        normal_proposal.preview_proposal(root, srv.server.config, params)
+    assert _state(root) == before
+
+
+@pytest.mark.parametrize("origin", ["base", "current"])
+@pytest.mark.parametrize("proposed", [False, True])
+def test_only_historical_structured_document_may_be_absent(prepared, origin, proposed):
+    srv, root, params, _unlock, _clock = prepared
+    artifact = "memories/structured-evidence.md"
+    ref = _active_contract(srv, root, artifact, "document")
+    value = json.loads((root / ref).read_text())
+    value["artifacts"][0]["origin"] = origin
+    (root / ref).write_text(json.dumps(value))
+    _commit_inputs(root, params, ref)
+    if proposed:
+        _material(root, params, lambda material: material["documents"].append({
+            "path": artifact, "before_sha256": None, "after_text": (root / "memories/index.md").read_text().replace(
+                "page_id: root", "page_id: synthetic-structured-evidence")}))
+    before = _state(root)
+    if origin == "current" and not proposed:
+        with pytest.raises(normal_proposal.ProposalError, match="proposal_record_artifact_missing"):
+            normal_proposal.preview_proposal(root, srv.server.config, params)
+    else:
+        preview = normal_proposal.preview_proposal(root, srv.server.config, params)
+        assert artifact in preview["readset"] and preview["readset"][artifact] is None
     assert _state(root) == before

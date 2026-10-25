@@ -167,11 +167,13 @@ def _write_action(root: Path, action: dict) -> None:
 def _pin_record_artifacts(root: Path, config: WikiConfig, material: dict,
                           readset: dict[str, bytes | None]) -> None:
     """Explicit evidence stays eligible and pinned in both contract versions."""
-    from wiki_core.document_records import artifact_paths
     proposed = {doc["path"]: doc["after_text"].encode() for doc in material["documents"]}
     active = config.audit.get("freshness_records")
     candidate = (material.get("freshness_pointer") or {}).get("freshness_records")
-    for ref in sorted({ref for ref in (active, candidate) if ref}):
+    refs = [ref for ref in (active, candidate) if ref]
+    if any(not isinstance(ref, str) for ref in refs):
+        raise ProposalError("proposal_invalid_record_contract")
+    for ref in sorted(set(refs)):
         before = _bytes(root, ref)
         readset[ref] = before
         if before is None and (ref == active or ref not in proposed):
@@ -179,18 +181,22 @@ def _pin_record_artifacts(root: Path, config: WikiConfig, material: dict,
         snapshots = [data for data in (before, proposed.get(ref)) if data is not None]
         for data in snapshots:
             contract = json.loads(data)
+            if not isinstance(contract, dict) or not isinstance(contract.get("artifacts", []), list):
+                raise ProposalError("proposal_invalid_record_contract")
             for item in contract.get("artifacts", []):
-                if "document" in item:
-                    document = item["document"]
-                    # Structured BASE evidence may name a historical document
-                    # absent now; pin that absence without opening unsafe paths.
-                    readset[document] = _bytes(root, document)
-            for path in artifact_paths(root, contract, check_worktree=False).values():
-                artifact = path.relative_to(root).as_posix()
-                # Discovery may exclude editor state; an explicit dependency
-                # must still pass the exact same path and symlink guards.
-                readset[artifact] = _bytes(root, artifact)
-                if readset[artifact] is None and artifact not in proposed:
+                if (not isinstance(item, dict) or ("path" in item) == ("document" in item)):
+                    raise ProposalError("proposal_invalid_record_contract")
+                # Validate EVERY declaration, even duplicate IDs. Never reduce
+                # untrusted occurrences to a map before applying the guards.
+                key = "path" if "path" in item else "document"
+                ref = item[key]
+                if not isinstance(ref, str):
+                    raise ProposalError("proposal_invalid_record_contract")
+                readset[ref] = _bytes(root, ref)
+                # Only structured BASE evidence may name a document absent now;
+                # current evidence and immutable files must exist or be outputs.
+                historical_document = key == "document" and item.get("origin") == "base"
+                if readset[ref] is None and ref not in proposed and not historical_document:
                     raise ProposalError("proposal_record_artifact_missing")
 
 
