@@ -595,7 +595,7 @@ def publish_proposal(root: Path, config: WikiConfig, *, expected_head: str, oper
             return {**_ok_response(operation, dry_run=False, summary="Provider operation with prepared-head readback", results=[result]),
                     "ok": verified, "outcome_uncertain": not verified, "head": expected_head,
                     "remote_head_before": before_head, "remote_head_after": after_head,
-                    "pr_url": observed_pr.get("url") if observed_pr else None,
+                    "pr_url": observed_pr.get("url") if isinstance(observed_pr, dict) else None,
                     "readback_only_no_provider_lock": True, "served_adoption_verified": False}
         admitted = manager.execute_current(token, session_id, ("git.publish",), provider_effect)
         if not admitted.get("ok"):

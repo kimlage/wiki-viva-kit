@@ -252,7 +252,7 @@ def test_distinct_effective_push_url_is_refused_before_dispatch(prepared, monkey
     assert status != 200 and calls == []
 
 
-@pytest.mark.parametrize("wrong_after", [False, True])
+@pytest.mark.parametrize("wrong_after", [False, True, "malformed_shape"])
 def test_pr_edit_binds_pre_and_post_head_and_requested_content(prepared, monkeypatch, wrong_after):
     from wiki_core.web import git_workflows
     srv, root, _params, unlock, _clock = prepared
@@ -267,7 +267,8 @@ def test_pr_edit_binds_pre_and_post_head_and_requested_content(prepared, monkeyp
         if argv[2] == "edit":
             calls.append(argv)
             return {"ok":False,"returncode":1,"stdout":"","stderr":"controlled edit failure"}
-        value = [before] if argv[2] == "list" else {**before,"headRefOid":head,"title":"Old title","body":"Old body"}
+        value = [before] if argv[2] == "list" else (["not a PR object"] if wrong_after == "malformed_shape" else
+            {**before,"headRefOid":head,"title":"Old title","body":"Old body"})
         return {"ok":True,"stdout":json.dumps(value)}
     monkeypatch.setattr(git_workflows, "_run", provider)
     token = unlock()
