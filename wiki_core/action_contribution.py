@@ -248,7 +248,7 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str,
 
 
 def _gates(root: Path, config: WikiConfig, *, record_support: bool = False,
-           committed_head: str | None = None) -> list[dict]:
+           committed_head: str | None = None, effect_runner=None) -> list[dict]:
     commands = [
         [sys.executable, "scripts/wiki_audit.py", "--check"],
         [sys.executable, "scripts/wiki_input_stage.py", "--check"],
@@ -265,7 +265,8 @@ def _gates(root: Path, config: WikiConfig, *, record_support: bool = False,
     results = []
     for command in [*commands, *extra]:
         try:
-            p = subprocess.run(command, cwd=root, capture_output=True, timeout=600)
+            call = lambda: subprocess.run(command, cwd=root, capture_output=True, timeout=600)
+            p = effect_runner(call) if effect_runner else call()
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise ContributionError("gate_unavailable") from exc
         results.append({"argv": command, "exit_code": p.returncode,

@@ -36,6 +36,7 @@ from wiki_core.web.admin.commands import (
     AdminCommandSpec,
     command_capabilities_granted,
 )
+from wiki_core.web.admin.sessions import AdminSessionManager
 from wiki_core.web.commands import (
     RISK_LEVEL_DERIVE,
     RISK_LEVEL_DESTRUCTIVE,
@@ -63,6 +64,17 @@ ERROR_CAPABILITY_DENIED = "admin_capability_denied"
 ERROR_PLAN_NOT_FOUND = "admin_plan_not_found"
 ERROR_PLAN_SHA_MISMATCH = "admin_plan_sha_mismatch"
 ERROR_PLAN_STALE = "admin_plan_stale"
+
+
+def _proposal_error_code(code: str) -> str:
+    if code.startswith("admin_"):
+        return code
+    if code in {"proposal_material_digest_mismatch", "proposal_planned_readset_changed",
+                "proposal_generated_material_changed", "proposal_action_revision_mismatch",
+                "proposal_document_preimage_mismatch", "proposal_base_or_branch_mismatch",
+                "proposal_git_base_changed", "proposal_readset_changed"}:
+        return ERROR_PLAN_STALE
+    return "admin_command_failed"
 ERROR_PLAN_ALREADY_EXECUTED = "admin_plan_already_executed"
 ERROR_CONFIRMATION_REQUIRED = "admin_confirmation_required"
 ERROR_CONFIRMATION_MISMATCH = "admin_confirmation_mismatch"
@@ -513,7 +525,45 @@ def build_admin_plan(
             "error_code": ERROR_INVALID_PARAMS,
             "detail": "command does not support dry run",
         }
-    planned = _PLANNERS[spec.planner](root, config, dict(params), dry_run)
+    if spec.planner in {"proposal_publish", "proposal_promote"}:
+        code, head = _run_git(root, ["rev-parse", "HEAD"])
+        if code or params.get("expected_head") != head.strip():
+            return {"ok": False, "error_code": ERROR_PLAN_STALE, "failed_preconditions": ["expected_head"]}
+        if spec.planner == "proposal_promote":
+            from wiki_core.web.normal_proposal import promotion_review
+            try:
+                promotion_review(root, config, dict(params))
+            except (ValueError, OSError, TypeError):
+                return {"ok": False, "error_code": ERROR_INVALID_PARAMS,
+                        "detail": "promotion requires the current independent review and existing promotion policy"}
+        planned = {
+            "summary": "One exact-head provider operation" if spec.planner == "proposal_publish" else
+                       "Recheck existing policy gates, then ready/merge the independently reviewed exact head",
+            "effects": {"files_read": [], "files_write": [],
+                        "external_calls": [] if dry_run else [str(params.get("operation") or "reviewed_pr_promotion")],
+                        "snapshot_invalidated": not dry_run},
+            "targets": [], "diff": {"expected_head": params["expected_head"]},
+        }
+    elif spec.planner == "normal_proposal":
+        from wiki_core.web.normal_proposal import ProposalError, preview_proposal
+        try:
+            preview = preview_proposal(root, config, dict(params))
+        except (ValueError, OSError, TypeError) as exc:
+            return {"ok": False, "error_code": ERROR_INVALID_PARAMS,
+                    "detail": str(exc) if isinstance(exc, ProposalError) else "invalid proposal material"}
+        planned = {
+            "summary": "Prepare the exact documentary proposal; publication and approval remain separate",
+            "effects": {"files_read": sorted(preview["readset"]),
+                        "files_write": [] if dry_run else sorted(preview["outputs"]),
+                        "external_calls": [], "snapshot_invalidated": not dry_run},
+            "diff": {"output_sha256": preview["output_sha256"],
+                     "readset_sha256": preview["readset_sha256"],
+                     "paths": sorted(preview["outputs"])},
+            "targets": [],
+            "validation": {"kind": "local_proposal_only", "main_unchanged": True},
+        }
+    else:
+        planned = _PLANNERS[spec.planner](root, config, dict(params), dry_run)
     effects = planned["effects"]
     targets = [str(target) for target in planned.get("targets", ())]
     preconditions = [
@@ -525,6 +575,11 @@ def build_admin_plan(
         {"id": "targets_exist", "expected": targets},
         {"id": "checkout_lock", "expected": "available"},
     ]
+    if spec.planner in {"proposal_publish", "proposal_promote"}:
+        code, origin = _run_git(root, ["remote", "get-url", "origin"])
+        if code:
+            return {"ok": False, "error_code": ERROR_PLAN_STALE, "failed_preconditions": ["origin"]}
+        preconditions.append({"id": "origin_sha256", "expected": hashlib.sha256(origin.strip().encode()).hexdigest()})
     content = {
         "schema_version": ADMIN_PLAN_SCHEMA_VERSION,
         "command_id": spec.id,
@@ -661,6 +716,10 @@ def _failed_preconditions(
         failed.append("worktree_fingerprint")
     if expected.get("config_fingerprint") != config_fingerprint(root):
         failed.append("config_fingerprint")
+    if "origin_sha256" in expected:
+        code, origin = _run_git(root, ["remote", "get-url", "origin"])
+        if code or hashlib.sha256(origin.strip().encode()).hexdigest() != expected["origin_sha256"]:
+            failed.append("origin_sha256")
     for target in expected.get("targets_exist") or ():
         candidate = Path(str(target))
         if candidate.is_absolute() or ".." in candidate.parts:
@@ -682,6 +741,8 @@ def execute_admin_plan(
     plan_sha: str,
     confirmation: str | None,
     session: dict[str, Any],
+    session_manager: AdminSessionManager,
+    session_token: str,
 ) -> dict[str, Any]:
     """Execute one reviewed plan, revalidating EVERYTHING first (§9.3)."""
 
@@ -746,11 +807,52 @@ def execute_admin_plan(
             return {"ok": False, "error_code": ERROR_PLAN_ALREADY_EXECUTED}
         dry_run = bool(content.get("dry_run"))
         try:
-            outcome = _EXECUTORS[spec.executor](root, config, dry_run)
+            if spec.executor == "proposal_promote":
+                from wiki_core.web.normal_proposal import promote_proposal
+                result = {"ok": True, "dry_run": True} if dry_run else promote_proposal(
+                    root, config, content["params"], manager=session_manager,
+                    token=session_token, session_id=str(record["session_id"]))
+                if not result.get("ok"):
+                    return {"ok": False, "error_code": ERROR_COMMAND_FAILED, "output": _redact_output(result)}
+                outcome = {"output": result, "affected_paths": [], "snapshot_invalidated": False}
+            elif spec.executor == "proposal_publish":
+                from wiki_core.web.normal_proposal import publish_proposal
+                params = content["params"]
+                result = {"ok": True, "dry_run": True} if dry_run else publish_proposal(
+                    root, config, expected_head=params["expected_head"], operation=params["operation"],
+                    payload={key: params[key] for key in ("title", "body") if key in params},
+                    manager=session_manager, token=session_token, session_id=str(record["session_id"]))
+                if not result.get("ok"):
+                    return {"ok": False, "error_code": ERROR_COMMAND_FAILED, "output": _redact_output(result)}
+                outcome = {"output": result, "affected_paths": [], "snapshot_invalidated": False}
+            elif spec.executor == "normal_proposal":
+                from wiki_core.web.normal_proposal import prepare_proposal
+                outcome = prepare_proposal(
+                    root, config, content["params"],
+                    expected_output_sha256=content["diff"]["output_sha256"],
+                    expected_readset_sha256=content["diff"]["readset_sha256"],
+                    manager=session_manager, token=session_token,
+                    session_id=str(record["session_id"]), dry_run=dry_run,
+                )
+                if outcome.get("failed"):
+                    return {"ok": False, "error_code": _proposal_error_code(outcome["output"]["error_code"]),
+                            "status": "partial" if outcome["affected_paths"] else "refused",
+                            "output": _redact_output(outcome["output"]),
+                            "affected_paths": outcome["affected_paths"],
+                            "snapshot_invalidated": bool(outcome["affected_paths"])}
+            else:
+                admitted = session_manager.execute_current(
+                    session_token, str(record["session_id"]), spec.capability,
+                    lambda: _EXECUTORS[spec.executor](root, config, dry_run),
+                )
+                if not admitted.get("ok"):
+                    return admitted
+                outcome = admitted["result"]
         except Exception as exc:  # noqa: BLE001 - executor boundary fails closed
             return {
                 "ok": False,
-                "error_code": ERROR_COMMAND_FAILED,
+                "error_code": _proposal_error_code(getattr(exc, "code", ERROR_COMMAND_FAILED)),
+                "failed_preconditions": [getattr(exc, "code", ERROR_COMMAND_FAILED)],
                 "plan_id": plan_id,
                 "plan_sha": record["plan_sha"],
                 "command_id": spec.id,

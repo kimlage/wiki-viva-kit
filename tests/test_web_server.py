@@ -88,7 +88,8 @@ def _server_action(root: Path, state: str = "open") -> Path:
 
 class _Server:
     def __init__(self, root: Path, config: WikiConfig) -> None:
-        self.server = CockpitServer(("127.0.0.1", 0), root, config)
+        self._admin_announcements = []
+        self.server = CockpitServer(("127.0.0.1", 0), root, config, admin_announce=self._admin_announcements.append)
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -135,6 +136,20 @@ class _Server:
         origin: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> tuple[int, dict[str, Any]]:
+        # Business-operation fixtures act as the unlocked local operator.
+        # Explicit headers={} and post_response() retain the raw unauthenticated
+        # transport for authority negatives; admin/session tests are untouched.
+        if headers is None and path in {"/api/actions/create", "/api/actions/transition", "/api/actions/run", "/api/git/workflow"}:
+            from tests.test_admin_sessions import _code
+            from wiki_core.web.admin.sessions import ADMIN_SESSION_HEADER
+            current = getattr(self, "_business_test_token", "")
+            if not current or not self.server.admin_sessions.validate(current).get("ok"):
+                lines = []
+                self.server.admin_sessions.arm(lines.append)
+                challenge = self.server.admin_sessions.issue_challenge()
+                unlocked = self.server.admin_sessions.unlock(code=_code(lines), challenge=challenge["challenge"])
+                current = self._business_test_token = unlocked["token"]
+            headers = {ADMIN_SESSION_HEADER: current}
         status, body, _headers = self.post_response(
             path,
             body,
@@ -222,7 +237,7 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     status, body = server.get("/api/health")
     assert status == 200
     # The handshake lets the cockpit detect a stale operator (old process).
-    assert body["server_version"] == "wiki_web_server.v9"
+    assert body["server_version"] == "wiki_web_server.v10"
     assert "codex" in body["schema_capabilities"]
     assert "briefs" in body["schema_capabilities"]
     assert "operator_security_v2" in body["schema_capabilities"]
@@ -233,7 +248,7 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     assert "snapshot_external_freshness_v1" in body["schema_capabilities"]
     assert "admin_capabilities_v1" in body["schema_capabilities"]
     assert "admin_session_v1" in body["schema_capabilities"]
-    assert "admin_commands_v1" in body["schema_capabilities"]
+    assert "admin_commands_v1", "revocable_documentary_proposals_v1" in body["schema_capabilities"]
     assert "operator_security_v1" not in body["schema_capabilities"]
     assert body["operator_security"]["version"] == "wiki_operator_security.v2"
     assert body["operator_security"]["nonce"] == server.server.operator_nonce
@@ -321,7 +336,7 @@ def test_operator_restart_rotates_nonce_and_refuses_the_stale_process_nonce(
         assert second_status == 200
         new_nonce = second_health["operator_security"]["nonce"]
         assert new_nonce != old_nonce
-        assert second_health["server_version"] == "wiki_web_server.v9"
+        assert second_health["server_version"] == "wiki_web_server.v10"
         assert second_health["operator_security"]["version"] == (
             "wiki_operator_security.v2"
         )

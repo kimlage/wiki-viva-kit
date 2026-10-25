@@ -15,10 +15,11 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
+from functools import partial
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import parse_qs, unquote, urlparse
 
 from wiki_core.action_transition import (
@@ -49,7 +50,7 @@ from wiki_core.web.content import build_page_content
 from wiki_core.web.diff import file_diff
 from wiki_core.web.gates import run_gate
 from wiki_core.web.intake import intake_copy
-from wiki_core.web.git_workflows import run_git_workflow
+from wiki_core.web.git_workflows import CHECKOUT_LOCK, run_git_workflow
 from wiki_core.web.ingestion_plan import build_ingestion_plan, run_ingestion_step
 from wiki_core.web.schemas import (
     SCHEMA_CAPABILITIES,
@@ -217,8 +218,14 @@ def _allowed_cors_origins() -> set[str]:
     return origins
 
 
+class _AdminEffectRefused(Exception):
+    def __init__(self, result: dict[str, Any]):
+        self.result = result
+
+
 class CockpitServer(ThreadingHTTPServer):
-    def __init__(self, server_address: tuple[str, int], root: Path, config: WikiConfig) -> None:
+    def __init__(self, server_address: tuple[str, int], root: Path, config: WikiConfig,
+                 *, admin_announce: Callable[[str], None] | None = None) -> None:
         # CORS is a startup trust decision. Invalid or remote origins must fail
         # before the operator opens a listening socket, and environment changes
         # only take effect after an intentional restart.
@@ -254,7 +261,7 @@ class CockpitServer(ThreadingHTTPServer):
         # manager prints the single-use unlock code to this process's stdout;
         # the in-memory store dies with the process, so a restart revokes
         # every session structurally.
-        self.admin_sessions = AdminSessionManager(config)
+        self.admin_sessions = AdminSessionManager(config, announce=admin_announce)
         # Materialized admin plans (god-mode plan §11, PR4). In-memory and
         # process-bound like the sessions: a restart drops every reviewed
         # plan, so nothing can execute against a reality the operator no
@@ -1329,6 +1336,11 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         self._mutation_owned = False
         try:
             self._do_POST()
+        except _AdminEffectRefused as exc:
+            if self._mutation_owned:
+                self.server.end_mutation()
+                self._mutation_owned = False
+            self._send_json(exc.result, status=self._admin_command_status(exc.result))
         except Exception:  # noqa: BLE001 - operator boundary must fail closed
             key = self._attempt_key
             safe_payload: dict[str, Any] = {
@@ -1484,7 +1496,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error_code": "invalid_action_creation"}, status=HTTPStatus.BAD_REQUEST)
                 return
             try:
-                result = create_action_page(self.server.root, **payload)
+                result = self._authorized_effect(("git.propose",), partial(create_action_page, self.server.root, **payload))
             except ActionTransitionError as exc:
                 self._send_json(exc.to_dict(), status=HTTPStatus.CONFLICT if exc.code == "action_already_exists" else HTTPStatus.BAD_REQUEST)
                 return
@@ -1519,7 +1531,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     self._send_error(str(exc), status=HTTPStatus.CONFLICT)
                     return
             try:
-                receipt = transition_action_page(
+                receipt = self._authorized_effect(("git.propose",), partial(transition_action_page,
                     self.server.root,
                     page_ref,
                     next_state,
@@ -1558,7 +1570,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     dialogue_actor="operator",
                     page_edit=payload.get("page_edit"),
                     expected_sha256=expected_sha256,
-                )
+                ))
             except ActionTransitionError as exc:
                 if exc.code in {
                     "invalid_transition",
@@ -1730,7 +1742,8 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 return
             dry_run_raw = payload.get("dry_run")
             dry_run = None if dry_run_raw is None else bool(dry_run_raw)
-            result = run_action(self.server.root, self.server.config, action_id, dry_run=dry_run)
+            result = self._authorized_effect(("gates.run", "git.propose"), partial(
+                run_action, self.server.root, self.server.config, action_id, dry_run=dry_run))
             self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
             return
         if parsed.path == "/api/git/workflow":
@@ -1739,7 +1752,44 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 self._send_error("missing operation", status=HTTPStatus.BAD_REQUEST)
                 return
             dry_run = bool(payload.get("dry_run", True))
-            result = run_git_workflow(self.server.root, self.server.config, operation, payload, dry_run=dry_run)
+            capabilities = {
+                "list_proposals": "git.inspect",
+                "start_proposal": "git.propose", "switch_proposal": "git.propose",
+                "stage_paths": "git.propose", "commit_proposal": "git.propose",
+                "prepare_contribution": "git.propose", "reconcile_contribution": "git.publish",
+                "publish_proposal": "git.publish", "open_draft_pr": "git.publish",
+                "update_draft_pr": "git.publish", "sync_main": "git.publish",
+                "publish_contribution": "git.publish", "integrate_contribution": "git.publish",
+            }
+            capability = capabilities.get(operation)
+            if capability is None:
+                self._send_json({"ok": False, "error_code": "admin_unknown_command", "error": "unknown Git workflow"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            call = partial(run_git_workflow, self.server.root, self.server.config, operation, payload, dry_run=dry_run)
+            if operation in {"prepare_contribution", "publish_contribution", "integrate_contribution"}:
+                def unsupported_port_effect():
+                    raise _AdminEffectRefused({"ok": False, "error_code": "admin_plan_required",
+                        "error": "Use the revocable normal-proposal adapter; this synchronous route cannot guard every contribution effect."})
+                call = unsupported_port_effect
+            elif operation in {"publish_proposal", "open_draft_pr", "update_draft_pr"} and not dry_run:
+                from wiki_core.web.normal_proposal import publish_proposal
+                def fixed_publication():
+                    manager = self.server.admin_sessions
+                    token = (self.headers.get(ADMIN_SESSION_HEADER) or "").strip()
+                    session = manager.validate(token)
+                    if not session.get("ok"):
+                        raise _AdminEffectRefused(session)
+                    try:
+                        return publish_proposal(self.server.root, self.server.config,
+                            expected_head=str(payload.get("expected_head") or ""), operation=operation,
+                            payload={key: payload[key] for key in ("title", "body") if key in payload},
+                            manager=manager, token=token, session_id=session["session_id"])
+                    except ValueError as exc:
+                        raise _AdminEffectRefused({"ok": False, "error_code": "admin_plan_stale",
+                            "error": "Refresh and review the current proposal head before publication."}) from exc
+                call = fixed_publication
+            # Listing proposals is read-only; it is not a nonce-only write path.
+            result = call() if operation == "list_proposals" else self._authorized_effect((capability,), call)
             self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
             return
         if parsed.path in {"/api/ingestion/plan", "/api/ingestion/run"}:
@@ -1778,6 +1828,8 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             return HTTPStatus.OK
         if result.get("error_code") == "admin_rate_limited":
             return HTTPStatus.TOO_MANY_REQUESTS
+        if result.get("error_code") in {"admin_revocation_pending", "admin_effect_outcome_uncertain"}:
+            return HTTPStatus.CONFLICT
         return HTTPStatus.FORBIDDEN
 
     def _audit_session_event(
@@ -1843,6 +1895,8 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 summary = (
                     "session locked by operator"
                     if result.get("ok")
+                    else "session revocation pending; admitted effects have not finished"
+                    if result.get("error_code") == "admin_revocation_pending"
                     else f"lock rejected ({result.get('error_code')})"
                 )
             self._audit_session_event(f"session.{action}", result, summary)
@@ -1861,11 +1915,14 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         "admin_capability_denied": HTTPStatus.FORBIDDEN,
         "admin_session_invalid": HTTPStatus.FORBIDDEN,
         "admin_session_expired": HTTPStatus.FORBIDDEN,
+        "admin_revocation_pending": HTTPStatus.CONFLICT,
+        "admin_effect_outcome_uncertain": HTTPStatus.CONFLICT,
         "admin_disabled": HTTPStatus.FORBIDDEN,
         "admin_rate_limited": HTTPStatus.TOO_MANY_REQUESTS,
         "admin_plan_not_found": HTTPStatus.NOT_FOUND,
         "admin_plan_sha_mismatch": HTTPStatus.CONFLICT,
         "admin_plan_stale": HTTPStatus.CONFLICT,
+        "admin_plan_required": HTTPStatus.CONFLICT,
         "admin_plan_already_executed": HTTPStatus.CONFLICT,
         "admin_checkout_busy": HTTPStatus.CONFLICT,
         "admin_command_failed": HTTPStatus.BAD_REQUEST,
@@ -1919,6 +1976,25 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 "undo": undo if isinstance(undo, dict) else None,
             },
         )
+
+    def _authorized_effect(self, capabilities: tuple[str, ...], effect):
+        """The synchronous proposal routes share the live native authority.
+
+        This is not an ACL for arbitrary host code or asynchronous jobs.
+        No request can supply this callable or select a different dispatcher.
+        """
+        manager = self.server.admin_sessions
+        token = (self.headers.get(ADMIN_SESSION_HEADER) or "").strip()
+        with CHECKOUT_LOCK:
+            if not manager.enabled:
+                raise _AdminEffectRefused({"ok": False, "error_code": "admin_disabled"})
+            session = manager.validate(token)
+            if not session.get("ok"):
+                raise _AdminEffectRefused(session)
+            admitted = manager.execute_current(token, session["session_id"], capabilities, effect)
+            if not admitted.get("ok"):
+                raise _AdminEffectRefused(admitted)
+            return admitted["result"]
 
     def _handle_admin_command_post(self, path: str, payload: dict[str, Any]) -> None:
         manager = self.server.admin_sessions
@@ -1999,8 +2075,10 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             plan_sha=plan_sha,
             confirmation=confirmation,
             session=session,
+            session_manager=manager,
+            session_token=token,
         )
-        if self._mutation_owned and not result.get("ok"):
+        if self._mutation_owned and not result.get("ok") and not result.get("affected_paths"):
             # A refused execution mutated nothing; releasing here avoids an
             # unnecessary multi-minute snapshot rebuild on the next read.
             self.server.end_mutation()

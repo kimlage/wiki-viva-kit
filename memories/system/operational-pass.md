@@ -3,7 +3,7 @@ page_id: operational-pass-wiki-viva-kit
 page_type: dashboard
 context: system
 visibility: private_self
-updated_at: 2026-10-15
+updated_at: 2026-10-25
 stale_after_days: 1
 sources_policy: memorias_fontes_acoes_contextos
 gate: github_pr
@@ -14,7 +14,7 @@ moc_parent: memories/index.md
 
 # Operational pass - sources, actions and contexts
 
-Updated at: 2026-10-15.
+Updated at: 2026-10-25.
 
 Deterministic compilation for contexts: all. Use this page to compress next steps into actions, problems, claims, decisions and target pages; it does not replace human reading of live sources.
 

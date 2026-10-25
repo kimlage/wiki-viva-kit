@@ -13,6 +13,7 @@ export type GitState = {
   available: boolean;
   default_branch: string;
   current_branch: string;
+  head?: string;
   branch_prefix: string;
   worktree: {
     clean: boolean;

@@ -33,7 +33,7 @@ WEB_DIFF_SCHEMA_VERSION = "wiki_web_diff.v1"
 # cockpit can detect a stale operator (old process, newer code on disk) and show
 # an honest "operador desatualizado — reinicie" state instead of a raw 404. Add
 # a capability string here the moment its endpoint ships.
-WEB_SERVER_VERSION = "wiki_web_server.v9"
+WEB_SERVER_VERSION = "wiki_web_server.v10"
 WEB_OPERATOR_SECURITY_VERSION = "wiki_operator_security.v2"
 OPERATOR_SECURITY_CAPABILITY = "operator_security_v2"
 CORS_DEFAULT_DENY_CAPABILITY = "cors_default_deny_v1"
@@ -56,10 +56,12 @@ ADMIN_SESSION_CAPABILITY = "admin_session_v1"
 # the browser never sends argv. No admin_audit capability yet: the audit
 # trail still has no read endpoint (§12.7 rule: capability ships with it).
 ADMIN_COMMANDS_CAPABILITY = "admin_commands_v1"
+DOCUMENTARY_PROPOSALS_CAPABILITY = "revocable_documentary_proposals_v1"
 SOURCE_OPERATIONS_CAPABILITY = "source_operations_v1"
 SOURCE_GROUPS_CAPABILITY = "source_groups_v1"
 AGENT_ADAPTERS_CAPABILITY = "agent_adapters_v1"
 SCHEMA_CAPABILITIES = (
+    DOCUMENTARY_PROPOSALS_CAPABILITY,
     OPERATOR_SECURITY_CAPABILITY,  # nonce + bounded/idempotent POST + browser-origin policy
     CORS_DEFAULT_DENY_CAPABILITY,  # no browser CORS trust unless exact loopback origins opt in
     "codex",  # /api/codex/capability + /api/codex/jobs

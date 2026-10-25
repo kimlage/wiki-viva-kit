@@ -199,6 +199,8 @@ export type AdminSessionErrorCode =
   | "admin_unlock_code_rejected"
   | "admin_session_invalid"
   | "admin_session_expired"
+  | "admin_revocation_pending"
+  | "admin_effect_outcome_uncertain"
   | "operator_unreachable";
 
 // Command-bus refusal vocabulary mirrored from wiki_core/web/admin/plans.py.
@@ -240,6 +242,8 @@ function errorCodeOf(payload: unknown): AdminSessionErrorCode {
     case "admin_unlock_code_rejected":
     case "admin_session_invalid":
     case "admin_session_expired":
+    case "admin_revocation_pending":
+    case "admin_effect_outcome_uncertain":
       return code;
     default:
       return "operator_unreachable";
@@ -423,6 +427,8 @@ function commandErrorCodeOf(payload: unknown): AdminCommandErrorCode {
     case "admin_rate_limited":
     case "admin_session_invalid":
     case "admin_session_expired":
+    case "admin_revocation_pending":
+    case "admin_effect_outcome_uncertain":
     case "admin_unknown_command":
     case "admin_invalid_params":
     case "admin_capability_denied":

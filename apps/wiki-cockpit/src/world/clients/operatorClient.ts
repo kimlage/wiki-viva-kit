@@ -4,6 +4,7 @@ import {
   validateOperatorHandshake
 } from "../../contracts/operatorSecurity.js";
 import type { OperatorHealth } from "../../types";
+import { getAdminSessionToken } from "../../application/adminSession";
 
 type OperatorSecurity = NonNullable<OperatorHealth["operator_security"]>;
 type SecurityCache = { healthUrl: string; security: OperatorSecurity };
@@ -124,11 +125,14 @@ async function send(
   if (new TextEncoder().encode(body).byteLength > security.max_body_bytes) {
     throw new Error(`operator request exceeds the advertised ${security.max_body_bytes} byte limit`);
   }
+  const guardedProposalRoute = ["/actions/create", "/actions/transition", "/actions/run", "/git/workflow"].includes(path);
+  const sessionToken = guardedProposalRoute ? getAdminSessionToken() : null;
   return operatorRequest(path, {
     method: "POST",
     headers: {
       accept: "application/json",
       "content-type": "application/json",
+      ...(sessionToken ? { "X-Wiki-Admin-Session": sessionToken } : {}),
       ...(extraHeaders || {}),
       [security.nonce_header]: security.nonce,
       [security.attempt_header]: key

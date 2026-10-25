@@ -1,0 +1,86 @@
+# Revocable documentary proposals
+
+The existing [admin command bus](../../../wiki_core/web/admin/plans.py) can prepare
+an ordinary documentary PR through three fixed commands: `wiki.proposal.prepare`,
+`wiki.proposal.publish` and `wiki.proposal.promote`. A context packet or successful
+freshness check does not authorize these operations. The live local session,
+existing capabilities, operator nonce/attempt checks, repository policy,
+independent review and applicable gates remain separate requirements.
+
+## Material and preparation
+
+The [documentary adapter](../../../wiki_core/web/normal_proposal.py) accepts a
+bounded regular JSON file under the configured derived root and its SHA-256.
+The closed material binds the proposal branch, exact HEAD, canonical action,
+revision, run/effect IDs, document preimages, returned text and fixed C2 IDs.
+It accepts no client commands, scripts, imports, executable code, credentials,
+roles or security changes. Action bodies and lifecycle changes use the
+[canonical writers](../../../wiki_core/action_transition.py); other action pages
+cannot be smuggled through documentary replacements. Log changes are append-only.
+The optional configuration change is limited to the two existing audit pointers
+for the authored documentary contract and its base.
+
+Preparation captures every reviewed input hash, including absence and C2 output
+preimages. It stages native writer/C2 results in an isolated temporary tree,
+then checks the planned inputs and output hashes before installation. C2 uses
+the explicit material capture instant; the result separately records actual
+preparation time. Neither timestamp revalidates external facts. Only the three
+existing producers `input_stage`, `operational_pass` and `operation` are allowed.
+They retain their documented readsets; a consumer must qualify any additional
+input/generator before extending this catalog.
+
+Actual installation, stage and local commit each pass through the live effect
+guard. Index bytes/modes and HEAD/branch are checked before commit. Preparation
+never updates canonical main or publishes a PR. Later failure may leave a local
+proposal with explicit affected/uncertain paths; it does not promise rollback.
+
+## Revocation and effects
+
+[Local sessions](../../../wiki_core/web/admin/sessions.py) register each admitted
+effect while keeping their mutex available. Native lock immediately bars new
+admissions and acknowledges `locked` only when the admitted effects finish.
+A long operation returns `admin_revocation_pending`, rather than a premature
+confirmation. A reported uncertain Git/provider outcome remains uncertain and
+blocks further writes in that session; readback is required before retry.
+A process restart revokes tokens, but is not evidence that an uncertain remote
+operation did not happen. Preserve its receipt and reconcile the same PR/effect.
+
+This defines an admission and completion barrier, not cancellation or rollback.
+An already admitted operation can finish before lock is acknowledged. Separate
+publication and promotion steps revalidate authority after long gates and before
+each provider write. Promotion checks the independent final-head review, reruns
+the existing policy gates one command at a time, preserves the configured CI
+policy and merges using the provider's exact-head CAS. A local artifact is
+review evidence; its hash is not a grant or proof of the reviewer's identity.
+The trusted operator must obtain the actual independent review and run all
+additional checks required by its repository instructions. Consumers requiring
+human review need their own supported human-review adapter; this command does
+not infer that approval from a local assertion.
+
+The synchronous action create/transition/run and Git workflow routes require
+the same current session and appropriate capabilities. Proposal listing remains
+read-only. Provider writes require the exact prepared head. The older HTTP
+contribution prepare/publish/integrate dispatch is refused because wrapping its
+whole gate/provider batch would not guard each effect. The contribution library
+retains its documented one-action/log scope; it is not a multi-page bypass.
+
+This capability does not qualify asynchronous jobs, ingestion dispatchers,
+arbitrary host CLIs, an OS ACL, runtime source-account access, or autonomous
+scheduling. The controlled integrator must use these fixed operations for its
+actual effects and must not fall back to another writer after refusal. Tokens
+and startup codes stay in the operator's RAM and never enter model context,
+material, source control or receipts. Operator v10 advertises
+`revocable_documentary_proposals_v1`; restart an older selected process before
+claiming this boundary is active.
+
+## Verification
+
+[Admission tests](../../../tests/test_normal_proposal_admission.py) use real native
+challenge/unlock/lock HTTP endpoints, a real Git fixture, the action writer,
+deterministic C2 and a real local commit. They compare domain bytes, index, refs
+and state after revocation, then prepare the same material with a new session
+and plan. [Session effect tests](../../../tests/test_admin_effect_authority.py)
+cover live expiry, capability refusal and ordering. Controlled provider tests
+can verify dispatch/CAS/uncertainty semantics, but do not demonstrate an actual
+provider account, remote merge or consumer adoption. Each consumer still needs
+its own reviewed SHA adoption, full gates and served readback.

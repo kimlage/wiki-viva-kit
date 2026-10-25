@@ -101,6 +101,8 @@ def _ok_response(operation: str, *, dry_run: bool, summary: str, results: list[d
         "summary": summary,
         "results": results,
         "data": data or {},
+        "outcome_uncertain": any(not result.get("ok") and result.get("returncode") is None
+                                 and not result.get("dry_run") for result in results),
     }
 
 
