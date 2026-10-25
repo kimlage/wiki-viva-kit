@@ -11,6 +11,7 @@ import datetime as dt
 import hashlib
 import json
 import re
+from functools import lru_cache
 
 import yaml
 
@@ -28,7 +29,7 @@ def edge_digest(edge: dict) -> str:
     return digest(json.dumps(edge, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
 
 
-def section_spans(text: str) -> tuple[str, list[tuple[str, int, int, str]]]:
+def _section_spans_uncached(text: str):
     """All top-level H2 boundaries, including repeated titles.
 
     A lower-level heading is inside its H2; H1 ends it. Fenced/list headings
@@ -46,7 +47,30 @@ def section_spans(text: str) -> tuple[str, list[tuple[str, int, int, str]]]:
             continue
         end = next((line for line, depth, _ in headings[i + 1:] if depth <= 2), len(lines))
         spans.append((title, start, end, "".join(lines[start:end])))
-    return body, spans
+    return body, tuple(spans)
+
+
+def _cacheable(text: str) -> bool:
+    try:
+        return len(text) <= 1_048_576 and len(text.encode("utf-8")) <= 1_048_576
+    except UnicodeEncodeError:
+        return False
+
+
+@lru_cache(maxsize=32)
+def _section_spans_cached(text: str):
+    return _section_spans_uncached(text)
+
+
+def section_spans(text: str) -> tuple[str, list[tuple[str, int, int, str]]]:
+    """Reuse only syntax of identical bytes; callers receive a fresh container.
+
+    Per-process, bounded memoization does not cache qualifications, freshness,
+    account access or authority. Changed text always has a separate key.
+    """
+    body, spans = (_section_spans_cached(text) if _cacheable(text)
+                   else _section_spans_uncached(text))
+    return body, list(spans)
 
 
 def sections(text: str) -> tuple[str, dict[str, tuple[int, int, str]]]:
@@ -67,13 +91,24 @@ def node_id(path: str, record: str) -> str:
     return f"{path}::record:{record}"
 
 
-def reference_definitions(text: str) -> dict:
+def _reference_definitions_uncached(text: str):
     """Definitions have document-wide rendering scope, unlike H2 assertions."""
     body, _ = sections(text)
     env = {}
     MarkdownIt("commonmark").parse(body, env)
-    return {label: (value["href"], value["title"])
-            for label, value in env.get("references", {}).items()}
+    return tuple((label, (value["href"], value["title"]))
+                 for label, value in env.get("references", {}).items())
+
+
+@lru_cache(maxsize=32)
+def _reference_definitions_cached(text: str):
+    return _reference_definitions_uncached(text)
+
+
+def reference_definitions(text: str) -> dict:
+    """Return independent containers with the same document-wide scope."""
+    return dict(_reference_definitions_cached(text) if _cacheable(text)
+                else _reference_definitions_uncached(text))
 
 
 def structured_digest(value) -> str:
@@ -265,9 +300,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                     expected = record.get(f"{origin}_sha256")
                     if expected is None:
                         # Ambiguous headings must not masquerade as absent records.
-                        tokens = MarkdownIt("commonmark").parse(body)
-                        if any(t.type == "heading_open" and t.level == 0 and t.tag == "h2"
-                               and tokens[i + 1].content == record["heading"] for i, t in enumerate(tokens)):
+                        if any(title == record["heading"] for title, *_ in section_spans(text)[1]):
                             raise ValueError(f"{path}: declared absent record exists or is ambiguous")
                         continue
                     if section is None:
