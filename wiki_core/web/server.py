@@ -1091,9 +1091,10 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             # never keeps an idle session alive). Anything else is locked (or
             # unavailable when the config disables admin).
             session_token = (self.headers.get(ADMIN_SESSION_HEADER) or "").strip()
-            session = self.server.admin_sessions.session_for_capabilities(session_token)
+            session, effect_state = self.server.admin_sessions.capability_snapshot(session_token)
             self._send_json(
-                admin_capabilities_payload(self.server.config, session=session)
+                admin_capabilities_payload(self.server.config, session=session,
+                    effect_state=effect_state)
             )
             return
         if path == "/api/admin/commands":

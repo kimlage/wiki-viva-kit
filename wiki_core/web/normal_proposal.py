@@ -673,7 +673,10 @@ def promotion_review(root: Path, config: WikiConfig, params: dict) -> dict:
             or len(params["pr"]) > 12 or not re.fullmatch(r"[1-9][0-9]*", params["pr"])
             or review["repository"] != _repository(root) or review["approved_base"] != params["approved_base"]):
         raise ProposalError("proposal_independent_review_required")
-    if bool(config.approval.get("require_human_review", True)):
+    require_human = config.approval.get("require_human_review", False)
+    if not isinstance(require_human, bool):
+        raise ProposalError("proposal_invalid_human_review_policy")
+    if require_human:
         # This adapter cannot infer a human approval from a local assertion.
         raise ProposalError("proposal_human_review_policy_adapter_required")
     return review

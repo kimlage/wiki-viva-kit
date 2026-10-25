@@ -34,6 +34,7 @@ function shortExpected(value: unknown): string {
 
 export function AdminPlanReview({
   executeAdminPlan,
+  executionBlocked = false,
   plan,
   onClose,
   onExecuted,
@@ -41,6 +42,7 @@ export function AdminPlanReview({
 }: {
   // Injected from the composition root — this dialog never imports transport.
   executeAdminPlan: AdminPort["executeAdminPlan"];
+  executionBlocked?: boolean;
   plan: AdminPlan;
   onClose: () => void;
   onExecuted?: (outcome: AdminExecuteOutcome) => void;
@@ -65,6 +67,7 @@ export function AdminPlanReview({
     confirmation.kind !== "typed" || typed === (confirmation.text || "");
 
   const execute = async () => {
+    if (executionBlocked) return;
     if (executing || outcome) return;
     setExecuting(true);
     setError(null);
@@ -234,7 +237,7 @@ export function AdminPlanReview({
               <button
                 className="primaryButton"
                 type="button"
-                disabled={executing || !typedSatisfied}
+                disabled={executing || executionBlocked || !typedSatisfied}
                 onClick={() => void execute()}
               >
                 <Play size={14} aria-hidden />

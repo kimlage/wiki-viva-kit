@@ -84,3 +84,44 @@ def test_live_expiry_and_role_refuse_before_effect(tmp_path):
     manager.clock = lambda: float("inf")
     expired = manager.execute_current(token, sid, (), lambda: effects.append(2))
     assert expired["error_code"] == "admin_session_expired" and effects == []
+
+
+def test_expiry_retires_confirmation_credential_until_inflight_effect_drains(tmp_path):
+    manager, session, _lines = _session(tmp_path)
+    token, sid = session["token"], session["session"]["session_id"]
+    started, release = threading.Event(), threading.Event()
+    effects = []
+    def first():
+        started.set()
+        assert release.wait(15)
+        effects.append("admitted")
+    worker = threading.Thread(target=lambda: manager.execute_current(token, sid, ("git.propose",), first))
+    worker.start()
+    try:
+        assert started.wait(3)
+        manager.clock = lambda: float("inf")
+        assert manager.validate(token)["error_code"] == "admin_session_expired"
+        pending = manager.lock(token)
+        assert pending["error_code"] == "admin_revocation_pending", pending
+        assert not manager.execute_current(token, sid, ("git.propose",), lambda: effects.append("forbidden"))["ok"]
+    finally:
+        release.set()
+        worker.join(3)
+    assert effects == ["admitted"]
+    assert manager.lock(token)["state"] == "locked"
+
+
+def test_expired_uncertain_effect_remains_unconfirmed_with_zero_inflight(tmp_path):
+    manager, session, _lines = _session(tmp_path)
+    token, sid = session["token"], session["session"]["session_id"]
+    result = manager.execute_current(token, sid, ("git.publish",),
+                                     lambda: {"outcome_uncertain": True})
+    assert result["ok"]
+    manager.clock = lambda: float("inf")
+    observed_session, activity = manager.capability_snapshot(token)
+    assert observed_session is None
+    assert activity == {"inflight_effects":0,"revocation_pending":False,"outcome_uncertain":True}
+    refused = manager.execute_current(token,sid,("git.publish",),lambda: None)
+    assert not refused["ok"]
+    assert manager.lock(token)["error_code"] == "admin_effect_outcome_uncertain"
+    assert manager.unlock(code="not-a-code", challenge="not-a-challenge")["error_code"] == "admin_effect_outcome_uncertain"

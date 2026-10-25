@@ -11,10 +11,12 @@ from wiki_core.paths import WikiPaths
 from wiki_core.web.admin.sessions import ADMIN_SESSION_HEADER
 
 
-def _reviewed(prepared):
+def _reviewed(prepared, human_policy=False):
     srv, root, _params, unlock, _clock = prepared
     config_path = root / "wiki.config.yaml"
-    config_path.write_text(config_path.read_text() + "\napproval:\n  gate: github_pr\n  require_human_review: false\n  contribution_validation: local_gates\n")
+    config_path.write_text(config_path.read_text() + "\napproval:\n  gate: github_pr\n"
+        + ("  require_human_review: " + json.dumps(human_policy) + "\n" if human_policy is not None else "")
+        + "  contribution_validation: local_gates\n")
     _git(root, "add", "wiki.config.yaml")
     _git(root, "commit", "-m", "Declare synthetic promotion policy")
     approved = _git(root, "rev-parse", "HEAD")
@@ -44,6 +46,16 @@ def _controlled_gates(monkeypatch, after=None):
             after()
         return [{"argv": ["controlled-gate"], "exit_code": 0}]
     monkeypatch.setattr(action_contribution, "_local_integration_gates", gates)
+
+
+@pytest.mark.parametrize("human_policy", [None, False, True, "false"])
+def test_promotion_preserves_omitted_false_and_explicit_human_policy(prepared, human_policy):
+    srv, root, token, params = _reviewed(prepared, human_policy=human_policy)
+    status, result = _plan(srv, token, "wiki.proposal.promote", params=params)
+    if human_policy is None or human_policy is False:
+        assert status == 200 and result["ok"], result
+    else:
+        assert status != 200 and not result["ok"], result
 
 
 def test_revocation_after_gates_prevents_provider_write(prepared, monkeypatch):

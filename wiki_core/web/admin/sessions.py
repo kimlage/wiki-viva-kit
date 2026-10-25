@@ -305,6 +305,7 @@ class AdminSessionManager:
             # Server-side expiry (TTL or idle). The dead session is removed
             # immediately; the caller re-arms a fresh unlock code after
             # releasing the lock.
+            self._retire_locked(session)
             self._session = None
             return {
                 "ok": False,
@@ -327,6 +328,34 @@ class AdminSessionManager:
         with self._lock:
             result = self._validate_locked(token, now, touch=touch)
         return self._after_validation(result)
+
+    def _retire_locked(self, session: _Session) -> None:
+        """Keep a digest only for lock confirmation; never for admission."""
+        self._retired[session.session_id] = session
+        while len(self._retired) > 16:
+            oldest = next((sid for sid in self._retired
+                           if not self._inflight.get(sid) and sid not in self._uncertain), None)
+            if oldest is None:
+                break
+            del self._retired[oldest]
+
+    def effect_state(self) -> dict[str, Any]:
+        """Public instance activity only: no token, digest, ID or effect data."""
+        with self._lock:
+            return self._effect_state_locked()
+
+    def _effect_state_locked(self) -> dict[str, Any]:
+        return {"inflight_effects": sum(self._inflight.values()),
+                "revocation_pending": any(self._inflight.get(sid) for sid in self._retired),
+                "outcome_uncertain": bool(self._uncertain)}
+
+    def capability_snapshot(self, token: str) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+        """One touch-free observation: session and activity share one mutex."""
+        with self._lock:
+            result = self._validate_locked(token, self.clock(), touch=False) if self.enabled and token else {}
+            activity = self._effect_state_locked()
+        result = self._after_validation(result)
+        return (result if result.get("ok") else None), activity
 
     def execute_current(
         self,
@@ -431,13 +460,7 @@ class AdminSessionManager:
             else:
                 session = self._session
                 assert session is not None
-                self._retired[session.session_id] = session
-                while len(self._retired) > 16:
-                    # Never evict an unfinished revocation.
-                    oldest = next((sid for sid in self._retired if not self._inflight.get(sid)), None)
-                    if oldest is None:
-                        break
-                    del self._retired[oldest]
+                self._retire_locked(session)
                 self._session = None
                 rearm_after_lock = True
             if result.get("ok"):

@@ -47,6 +47,18 @@ blocks further writes in that session; readback is required before retry.
 A process restart revokes tokens, but is not evidence that an uncertain remote
 operation did not happen. Preserve its receipt and reconcile the same PR/effect.
 
+The cockpit removes ordinary command access immediately on lock or local expiry.
+It keeps a separate private RAM-only credential for confirmation on the same lock
+endpoint. Pending, uncertain and failed responses cannot announce completion or
+discard that credential. Strip, reopened Dock and the off command use the same
+confirmation result. Late lock, renewal, unlock, discovery and countdown responses
+cannot restore access or overwrite a newer session lifecycle. Only positive native
+lock readback for the current credential confirms that session's drain. Reload
+loses the local credential; anonymous discovery reports aggregate instance activity
+without session identities or grants, and cannot certify a lost session's lock.
+The client refuses discovery without the activity metadata; an older operator
+must be restarted with the adopted code before this interface is available.
+
 This defines an admission and completion barrier, not cancellation or rollback.
 An already admitted operation can finish before lock is acknowledged. Separate
 publication and promotion steps revalidate authority after long gates and before
@@ -62,6 +74,9 @@ The trusted operator must obtain the actual independent review and run all
 additional checks required by its repository instructions. Consumers requiring
 human review need their own supported human-review adapter; this command does
 not infer that approval from a local assertion.
+An absent `approval.require_human_review` keeps the existing false default;
+explicit true refuses promotion without that adapter, and non-boolean policy
+values are invalid. Independent review remains required when the policy is false.
 
 The synchronous action create/transition/run and Git workflow routes require
 the same current session and appropriate capabilities. Proposal listing remains

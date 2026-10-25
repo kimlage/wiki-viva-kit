@@ -7,7 +7,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureLanguage, t } from "../data/i18n";
-import { clearAdminSession, setAdminSession } from "../application/adminSession";
+import { clearAdminSession, setAdminSession, beginAdminSessionRevocation, getAdminSessionToken } from "../application/adminSession";
 
 const { lockAdminSession, renewAdminSession } = vi.hoisted(() => ({
   lockAdminSession: vi.fn(async (): Promise<unknown> => ({ ok: true })),
@@ -76,12 +76,34 @@ describe("AdminStatusStrip", () => {
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
 
-  it("clears a locally expired session instead of showing a false active (§22.2)", async () => {
+  it("local expiry removes command access but preserves confirmation until native drain", async () => {
     activate(-1000);
     const onNotice = vi.fn();
     const { container } = render(<AdminStatusStrip {...sessionPorts} onNotice={onNotice} />);
-    await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.strip.expired")));
-    expect(container.querySelector(".adminStatusStrip")).toBeNull();
+    await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.strip.expiredPending")));
+    expect(getAdminSessionToken()).toBeNull();
+    expect(container.querySelector(".adminStatusStrip")).toBeTruthy();
+    expect((screen.getByRole("button", { name: t("admin.strip.renew") }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: t("admin.strip.confirmLock") })).toBeTruthy();
+  });
+
+  it("pending revocation survives reopening and never announces a completed lock", async () => {
+    activate(10 * 60 * 1000);
+    lockAdminSession.mockImplementationOnce(async () => {
+      beginAdminSessionRevocation("pending");
+      return { ok: false, errorCode: "admin_revocation_pending" };
+    });
+    const onNotice = vi.fn();
+    const first = render(<AdminStatusStrip {...sessionPorts} onNotice={onNotice} />);
+    fireEvent.click(screen.getByRole("button", { name: t("admin.strip.lock") }));
+    await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.strip.revocationPending")));
+    expect(onNotice).not.toHaveBeenCalledWith(t("admin.strip.locked"));
+    first.unmount();
+    render(<AdminStatusStrip {...sessionPorts} onNotice={onNotice} />);
+    lockAdminSession.mockImplementationOnce(async () => { clearAdminSession(); return { ok: true }; });
+    fireEvent.click(screen.getByRole("button", { name: t("admin.strip.confirmLock") }));
+    await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.strip.locked")));
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("renews through the client and reports the rotation", async () => {
@@ -92,5 +114,15 @@ describe("AdminStatusStrip", () => {
     fireEvent.click(screen.getByText(t("admin.strip.renew")));
     await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.strip.renewed")));
     expect(renewAdminSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not announce a superseded renewal as failure of the current session", async () => {
+    activate(10 * 60 * 1000);
+    renewAdminSession.mockResolvedValueOnce({ok:false,errorCode:"admin_response_superseded"});
+    const onNotice=vi.fn();
+    render(<AdminStatusStrip {...sessionPorts} onNotice={onNotice} />);
+    fireEvent.click(screen.getByRole("button",{name:t("admin.strip.renew")}));
+    await waitFor(() => expect(renewAdminSession).toHaveBeenCalled());
+    expect(onNotice).not.toHaveBeenCalled();
   });
 });

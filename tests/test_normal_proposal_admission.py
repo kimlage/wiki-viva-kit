@@ -377,3 +377,48 @@ def test_all_c2_producers_reach_the_same_real_fixed_point(prepared):
     assert paths.operational_pass_page.read_text() == build_operational_pass_page(root, srv.server.config, updated_at=capture.date().isoformat())
     catalog = compile_input_stage(root, srv.server.config, generated_at=capture.date())
     assert matching_input_stage_catalog(catalog, srv.server.config, paths.input_stage_page.read_bytes()) is not None
+
+
+def test_native_http_pending_lock_observes_real_write_then_confirms_drain(prepared, monkeypatch):
+    import wiki_core.web.normal_proposal as native
+    srv, root, params, unlock, _clock = prepared
+    token = unlock()
+    status, plan = _plan(srv, token, "wiki.proposal.prepare", params=params)
+    assert status == 200, plan
+    before_head = _git(root, "rev-parse", "HEAD")
+    before_main = _git(root, "rev-parse", "main")
+    target = root / "memories/index.md"
+    before = target.read_bytes()
+    started, release = threading.Event(), threading.Event()
+    original = native._install
+    def delayed_install(destination, ref, preimage, output):
+        if destination == root and ref == "memories/index.md":
+            started.set()
+            assert release.wait(15)
+        return original(destination, ref, preimage, output)
+    monkeypatch.setattr(native, "_install", delayed_install)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        result = executor.submit(_execute, srv, token, plan,
+                                 confirmation=plan["plan"]["confirmation"]["text"])
+        try:
+            assert started.wait(10)
+            status, pending = srv.post("/api/admin/session/lock", {}, headers={ADMIN_SESSION_HEADER: token})
+            assert status == 409 and pending["error_code"] == "admin_revocation_pending", pending
+            status, discovery = srv.get("/api/admin/capabilities")
+            assert status == 200 and discovery["session"] is None
+            assert discovery["effect_state"] == {"inflight_effects":1,"revocation_pending":True,"outcome_uncertain":False}
+            assert not any(row["granted"] for row in discovery["capabilities"])
+            assert token not in json.dumps(discovery) and pending["session_id"] not in json.dumps(discovery)
+            assert target.read_bytes() == before
+            assert _plan(srv, token, "wiki.proposal.prepare", params=params)[0] == 403
+        finally:
+            release.set()
+        status, completed = result.result(timeout=10)
+    assert status != 200 and completed["output"]["prepared"] is False
+    assert completed["output"]["partial_paths"] == ["memories/index.md"]
+    assert target.read_bytes() != before  # The already admitted write really completed.
+    assert _git(root,"rev-parse","HEAD") == before_head and _git(root,"rev-parse","main") == before_main
+    status, locked = srv.post("/api/admin/session/lock", {}, headers={ADMIN_SESSION_HEADER: token})
+    assert status == 200 and locked["state"] == "locked"
+    assert srv.get("/api/admin/capabilities")[1]["effect_state"] == {
+        "inflight_effects":0,"revocation_pending":False,"outcome_uncertain":False}

@@ -19,7 +19,12 @@ import {
 } from "../world/clients/operatorClient";
 import {
   clearAdminSession,
+  beginAdminSessionRevocation,
+  getAdminLockConfirmationToken,
+  getAdminSessionDescription,
+  getAdminSessionGeneration,
   getAdminSessionToken,
+  retainAdminSessionForLock,
   setAdminSession
 } from "../application/adminSession";
 import type { AdminSessionDescription } from "../application/adminSession";
@@ -65,6 +70,7 @@ export type AdminCapabilities = {
   session: AdminCapabilitySession | null;
   read_only: boolean;
   capabilities: AdminCapabilityRecord[];
+  effect_state?: { inflight_effects: number; revocation_pending: boolean; outcome_uncertain: boolean };
 };
 
 // Why the dock is showing "unavailable" without a server-side state to quote.
@@ -75,6 +81,7 @@ export type AdminUnavailableReason =
   | "malformed_response"; // reachable but not speaking the capability schema
 
 export type AdminAccess =
+  | { kind: "superseded" }
   | { kind: "unavailable"; reason: AdminUnavailableReason; detail?: string }
   | { kind: "capabilities"; payload: AdminCapabilities };
 
@@ -102,6 +109,18 @@ export function parseAdminCapabilities(payload: unknown): AdminCapabilities | nu
     });
   }
   let session: AdminCapabilitySession | null = null;
+  let effectState: AdminCapabilities["effect_state"];
+  // An older operator cannot distinguish lost local access from drain after
+  // reload. Missing activity metadata is unavailable, never a locked proof.
+  if (record.effect_state === undefined) return null;
+  if (record.effect_state !== undefined) {
+    const value = record.effect_state as Record<string, unknown> | null;
+    if (!value || Array.isArray(value) || typeof value !== "object"
+      || typeof value.inflight_effects !== "number" || !Number.isInteger(value.inflight_effects) || value.inflight_effects < 0
+      || typeof value.revocation_pending !== "boolean" || typeof value.outcome_uncertain !== "boolean") return null;
+    effectState = { inflight_effects: value.inflight_effects, revocation_pending: value.revocation_pending,
+      outcome_uncertain: value.outcome_uncertain };
+  }
   const rawSession = record.session;
   if (rawSession && typeof rawSession === "object" && !Array.isArray(rawSession)) {
     const item = rawSession as Record<string, unknown>;
@@ -124,7 +143,8 @@ export function parseAdminCapabilities(payload: unknown): AdminCapabilities | nu
     session_state: record.session_state,
     session,
     read_only: record.read_only !== false,
-    capabilities
+    capabilities,
+    ...(effectState ? { effect_state: effectState } : {})
   };
 }
 
@@ -137,10 +157,14 @@ export function parseAdminCapabilities(payload: unknown): AdminCapabilities | nu
  * discovery request. Nothing here retries or stores anything.
  */
 export async function loadAdminAccess(options: { signal?: AbortSignal } = {}): Promise<AdminAccess> {
+  const generation = getAdminSessionGeneration();
+  const token = getAdminSessionToken();
+  const current = () => getAdminSessionGeneration() === generation && getAdminSessionToken() === token;
   if (demoRouteRequested()) {
     return { kind: "unavailable", reason: "demo" };
   }
   const health = await fetchOperatorHealth(options);
+  if (!current()) return { kind: "superseded" };
   if (!health) {
     return { kind: "unavailable", reason: "operator_unreachable" };
   }
@@ -157,7 +181,6 @@ export async function loadAdminAccess(options: { signal?: AbortSignal } = {}): P
     // the session's real granted state. Sending it never authorizes — the
     // server validates it against its own store and answers "locked" for
     // anything stale (remote revocation reflects on the next request, §22.2).
-    const token = getAdminSessionToken();
     const response = await operatorRequest("/admin/capabilities", {
       method: "GET",
       headers: {
@@ -167,21 +190,26 @@ export async function loadAdminAccess(options: { signal?: AbortSignal } = {}): P
       cache: "no-store",
       signal: options.signal
     });
+    if (!current()) return { kind: "superseded" };
     if (!response.ok) {
       return { kind: "unavailable", reason: "malformed_response" };
     }
     const payload = parseAdminCapabilities(await response.json());
+    if (!current()) return { kind: "superseded" };
     if (!payload) {
       return { kind: "unavailable", reason: "malformed_response" };
     }
-    if (token && payload.session === null) {
+    if (token && payload.session === null && getAdminSessionGeneration() === generation
+      && getAdminSessionToken() === token) {
       // We believed we had a session; the server says otherwise (restart,
       // expiry, revocation). Never keep a falsely "active" UI (§22.2).
-      clearAdminSession();
+      beginAdminSessionRevocation(payload.effect_state?.outcome_uncertain ? "uncertain"
+        : payload.effect_state?.inflight_effects ? "pending" : "unconfirmed");
     }
     return { kind: "capabilities", payload };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error;
+    if (!current()) return { kind: "superseded" };
     return { kind: "unavailable", reason: "operator_unreachable" };
   }
 }
@@ -201,6 +229,7 @@ export type AdminSessionErrorCode =
   | "admin_session_expired"
   | "admin_revocation_pending"
   | "admin_effect_outcome_uncertain"
+  | "admin_response_superseded"
   | "operator_unreachable";
 
 // Command-bus refusal vocabulary mirrored from wiki_core/web/admin/plans.py.
@@ -270,6 +299,7 @@ function describeSession(payload: Record<string, unknown>): AdminSessionDescript
 }
 
 export async function requestAdminChallenge(): Promise<AdminChallengeResult> {
+  if (getAdminSessionDescription()?.revocationState) return { ok: false, errorCode: "admin_revocation_pending" };
   try {
     const response = await operatorPost("/admin/session/challenge", {});
     const payload = (await response.json()) as Record<string, unknown>;
@@ -287,28 +317,48 @@ export async function requestAdminChallenge(): Promise<AdminChallengeResult> {
  * On success the token goes STRAIGHT into the in-memory store; it is not
  * returned to the caller — components never touch it.
  */
+let unlockInFlight = false;
+
 export async function unlockAdminSession(
   challenge: string,
   code: string
 ): Promise<AdminSessionResult> {
+  if (getAdminSessionDescription()?.revocationState) return { ok: false, errorCode: "admin_revocation_pending" };
+  if (unlockInFlight || getAdminSessionToken()) return { ok: false, errorCode: "admin_session_invalid" };
+  unlockInFlight = true;
+  const generation = getAdminSessionGeneration();
   try {
     const response = await operatorPost("/admin/session/unlock", { challenge, code });
     const payload = (await response.json()) as Record<string, unknown>;
     const description = describeSession(payload);
     if (response.ok && payload.ok === true && typeof payload.token === "string" && description) {
+      if (getAdminSessionGeneration() !== generation) {
+        if (!getAdminSessionToken()) {
+          retainAdminSessionForLock(payload.token, description);
+          await lockAdminSession();
+        }
+        return { ok: false, errorCode: "admin_response_superseded" };
+      }
       setAdminSession(payload.token, description);
       return { ok: true, session: description };
     }
+    if (getAdminSessionGeneration() !== generation) return { ok: false, errorCode: "admin_response_superseded" };
     return { ok: false, errorCode: errorCodeOf(payload) };
   } catch {
+    if (getAdminSessionGeneration() !== generation) return { ok: false, errorCode: "admin_response_superseded" };
     return { ok: false, errorCode: "operator_unreachable" };
+  } finally {
+    unlockInFlight = false;
   }
 }
 
 /** Rotate the token and extend the TTL (plan §13.2). */
 export async function renewAdminSession(): Promise<AdminSessionResult> {
+  if (getAdminSessionDescription()?.revocationState) return { ok: false, errorCode: "admin_revocation_pending" };
   const token = getAdminSessionToken();
   if (!token) return { ok: false, errorCode: "admin_session_invalid" };
+  const generation = getAdminSessionGeneration();
+  const sourceSessionId = getAdminSessionDescription()?.sessionId;
   try {
     const response = await operatorPost("/admin/session/renew", {}, {
       headers: { [ADMIN_SESSION_HEADER]: token }
@@ -316,22 +366,39 @@ export async function renewAdminSession(): Promise<AdminSessionResult> {
     const payload = (await response.json()) as Record<string, unknown>;
     const description = describeSession(payload);
     if (response.ok && payload.ok === true && typeof payload.token === "string" && description) {
+      if (getAdminSessionGeneration() !== generation || getAdminSessionToken() !== token) {
+        if (getAdminLockConfirmationToken() === token ||
+          (getAdminSessionDescription()?.revocationState && getAdminSessionDescription()?.sessionId === sourceSessionId)) {
+          retainAdminSessionForLock(payload.token, description);
+          await lockAdminSession();
+        }
+        return { ok: false, errorCode: "admin_response_superseded" };
+      }
       setAdminSession(payload.token, description);
       return { ok: true, session: description };
     }
     // A failed renew means the session is gone server-side (expired,
     // revoked, restarted). The UI must never stay "active" on hope (§22.2).
-    clearAdminSession();
-    return { ok: false, errorCode: errorCodeOf(payload) };
+    if (getAdminSessionGeneration() !== generation || getAdminSessionToken() !== token) {
+      return { ok: false, errorCode: "admin_response_superseded" };
+    }
+    const errorCode = errorCodeOf(payload);
+    if (getAdminSessionGeneration() === generation && errorCode !== "admin_rate_limited") {
+      beginAdminSessionRevocation(errorCode === "admin_effect_outcome_uncertain" ? "uncertain" : "unconfirmed");
+    }
+    return { ok: false, errorCode };
   } catch {
+    if (getAdminSessionGeneration() !== generation || getAdminSessionToken() !== token) {
+      return { ok: false, errorCode: "admin_response_superseded" };
+    }
+    if (getAdminSessionGeneration() === generation) beginAdminSessionRevocation("unconfirmed");
     return { ok: false, errorCode: "operator_unreachable" };
   }
 }
 
 /**
- * Lock now (§5.4): ask the server to revoke, then always forget the token
- * locally — even when the request fails, the client side of the session is
- * gone, and the server's own TTL/idle lock is the backstop.
+ * Lock removes local command access immediately. A private RAM-only token
+ * can subsequently confirm native drain; reload is not a completion proof.
  */
 // ---------------------------------------------------------------------------
 // Command bus (god-mode plan §11, §12.2): catalog -> plan -> review -> execute
@@ -652,20 +719,31 @@ export async function executeAdminPlan(
 }
 
 export async function lockAdminSession(): Promise<AdminLockResult> {
-  const token = getAdminSessionToken();
+  const token = getAdminSessionToken() || getAdminLockConfirmationToken();
+  beginAdminSessionRevocation("pending");
   if (!token) return { ok: false, errorCode: "admin_session_invalid" };
+  const generation = getAdminSessionGeneration();
+  const current = () => getAdminSessionGeneration() === generation
+    && getAdminLockConfirmationToken() === token;
   try {
     const response = await operatorPost("/admin/session/lock", {}, {
       headers: { [ADMIN_SESSION_HEADER]: token }
     });
     const payload = (await response.json()) as Record<string, unknown>;
-    if (response.ok && payload.ok === true) {
+    if (!current()) return { ok: false, errorCode: "admin_response_superseded" };
+    if (response.ok && payload.ok === true && payload.state === "locked") {
+      clearAdminSession();
       return { ok: true };
     }
-    return { ok: false, errorCode: errorCodeOf(payload) };
+    const errorCode = errorCodeOf(payload);
+    if (getAdminLockConfirmationToken() === token) {
+      beginAdminSessionRevocation(errorCode === "admin_effect_outcome_uncertain" ? "uncertain"
+        : errorCode === "admin_revocation_pending" ? "pending" : "unconfirmed");
+    }
+    return { ok: false, errorCode };
   } catch {
+    if (!current()) return { ok: false, errorCode: "admin_response_superseded" };
+    beginAdminSessionRevocation("unconfirmed");
     return { ok: false, errorCode: "operator_unreachable" };
-  } finally {
-    clearAdminSession();
   }
 }
