@@ -322,6 +322,15 @@ epistemic status, recorded date, contexts and evidence. Replace `heading` with
 
 - `kind: h2`, `heading`, optional `leading_blank_lines`: the existing unique
   top-level H2 section, including its full content.
+- `kind: markdown_preamble` with no other keys: the complete Markdown body
+  prefix, including H1, introduction and separators, up to the first parser-proven
+  top-level H2. Frontmatter stays common context. A missing H2 boundary refuses
+  selection; nested, quoted and fenced headings cannot provide it. The prefix
+  has a stable record ID and independent exact hashes in BASE and CURRENT.
+  This is a factual record, never an ignored span or publication envelope.
+  References from it remain prerequisites; records whose validity relies on the
+  introduction must declare that context. WHOLE consumers retain its impact,
+  invalid/uncovered deltas stay conservative and page freshness is unchanged.
 - `kind: table_row`, `container_heading_path` (complete heading titles),
   `header_sha256` (both raw header/separator lines), `key_column` (zero based),
   `key: {kind: link_destination, value: ...}` or a plain `text` key, and

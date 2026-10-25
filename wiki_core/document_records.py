@@ -253,9 +253,9 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                             raise ValueError("envelope claim/value shape mismatch")
                     elif kind != "markdown_generation_paragraph" or slot["claim"] != "artifact_publication_date":
                         raise ValueError("unsupported envelope selector/claim")
-            if any(r.get("selectors", {}).get(o, {}).get("kind") not in {"h2", "table_row"}
+            if any(r.get("selectors", {}).get(o, {}).get("kind") not in {"h2", "table_row", "markdown_preamble"}
                    for r in records for o in ("base", "current") if r.get("selectors", {}).get(o) is not None):
-                raise ValueError("records require H2 or table-row selectors")
+                raise ValueError("records require H2, whole-preamble or table-row selectors")
         entries = records + envelope
         ids = set()
         selectors = set()
