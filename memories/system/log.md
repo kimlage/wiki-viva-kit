@@ -1420,3 +1420,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - Synchronous proposal routes require the live session. Unsupported contribution batches and asynchronous routes do not become alternatives for this integration. Consumers adopt the reviewed kit SHA and qualify the actual selected operator independently.
 - Review corrections preserve the absent human-review policy's false default and keep a private RAM-only credential exclusively for native lock confirmation. The cockpit distinguishes removed local access, admitted effects draining and uncertain remote outcomes; late responses cannot announce an obsolete completion or reactivate access.
 - The [audit regression](../../tests/test_wiki_audit.py) rejects historical impact acknowledgments introduced only relative to a stale local main. Current impact evidence is evaluated against the single selected PR base, including in local validation.
+
+## [2026-10-25] Explicit documentary introductions
+
+- The [documentary view selector](../../wiki_core/document_view_selectors.py) can select a whole parser-delimited Markdown introduction as an explicitly reviewed factual record. The [contract](../../docs/references/freshness-impact.md#explicit-view-entries-opt-in-v2) keeps frontmatter common, exact BASE/CURRENT hashes, real context dependencies, WHOLE fallback and page freshness unchanged.
+- [Synthetic regressions](../../tests/test_document_preamble.py) distinguish an independent introduction from necessary approval context, retain whole-document consumers and stale factual prerequisites, and reject invalid or uncovered selections. This capability does not qualify any consumer's actual independence or source freshness.

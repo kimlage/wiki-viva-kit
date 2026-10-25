@@ -231,6 +231,14 @@ def body_span(text, selector, *, common_ranges=None):
     _, body = _body(text)
     lines = body.splitlines(keepends=True)
     kind = selector.get("kind")
+    if kind == "markdown_preamble":
+        if set(selector) != {"kind"}:
+            raise ValueError("preamble selector accepts no free boundaries")
+        spans = section_spans(text)[1]
+        boundary = spans[0][1] if spans else None
+        if boundary is None:
+            raise ValueError("preamble requires a proven top-level H2 boundary")
+        return (0, boundary) if boundary else None
     if kind == "h2":
         candidates = [(a, b) for title, a, b, _ in section_spans(text)[1]
                       if title == selector.get("heading")]
