@@ -57,6 +57,7 @@ def test_tracked_obsidian_state_is_not_read_or_copied_into_preview(prepared, mon
         (editor / (name + ".json")).write_text('{"synthetic_editor_state": true}')
     _commit_inputs(root, params)
     before = _state(root)
+    approved_main = _git(root, "rev-parse", "main")
     original_bytes = normal_proposal._bytes
     original_render = normal_proposal._render_c2
     reads = []
@@ -82,7 +83,8 @@ def test_tracked_obsidian_state_is_not_read_or_copied_into_preview(prepared, mon
     status, executed = _execute(srv, token, plan, confirmation=plan["plan"]["confirmation"]["text"])
     assert status == 200 and executed["output"]["prepared"], executed
     assert not executed["output"]["published"]
-    assert _git(root, "rev-parse", "main") == before["head"]
+    assert _git(root, "rev-parse", "main") == approved_main
+    assert _git(root, "rev-parse", "HEAD") != before["head"]
     assert {ref: value for ref, value in _state(root)["files"].items() if ".obsidian/" in ref} == {
         ref: value for ref, value in before["files"].items() if ".obsidian/" in ref}
     assert all(".obsidian" not in ref.split("/") for ref in reads)
