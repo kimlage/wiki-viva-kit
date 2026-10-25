@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from wiki_core.config import WikiConfig
+from wiki_core.web.admin.capabilities import ROLE_CAPABILITIES
 
 # The session header composes with (never replaces) the operator nonce and
 # attempt-key headers on every admin mutation.
@@ -61,6 +62,9 @@ ERROR_CHALLENGE_REJECTED = "admin_challenge_rejected"
 ERROR_CODE_REJECTED = "admin_unlock_code_rejected"
 ERROR_SESSION_INVALID = "admin_session_invalid"
 ERROR_SESSION_EXPIRED = "admin_session_expired"
+ERROR_CAPABILITY_DENIED = "admin_capability_denied"
+ERROR_REVOCATION_PENDING = "admin_revocation_pending"
+ERROR_OUTCOME_UNCERTAIN = "admin_effect_outcome_uncertain"
 
 # Role -> base visual state (plan §6.3, §8.3). The full-role labels only ever
 # come from the server; the frontend renders what it is told.
@@ -150,6 +154,10 @@ class AdminSessionManager:
         # Test seam: a monotonic clock the suite can replace to step time.
         self.clock: Callable[[], float] = time.monotonic
         self._lock = threading.Lock()
+        self._effects_changed = threading.Condition(self._lock)
+        self._inflight: dict[str, int] = {}
+        self._uncertain: set[str] = set()
+        self._retired: OrderedDict[str, _Session] = OrderedDict()
         self._announce = announce or _print_stdout
         self._code_digest: bytes | None = None
         self._code_issued: float | None = None
@@ -217,6 +225,10 @@ class AdminSessionManager:
             return {"ok": False, "error_code": ERROR_ADMIN_DISABLED}
         now = self.clock()
         with self._lock:
+            if self._uncertain:
+                return {"ok": False, "error_code": ERROR_OUTCOME_UNCERTAIN}
+            if any(self._inflight.values()):
+                return {"ok": False, "error_code": ERROR_REVOCATION_PENDING}
             # Every attempt (right or wrong) consumes rate budget, so a guess
             # stream cannot ride along with legitimate retries (§13.4).
             if not self._unlock_rate.allow(now):
@@ -293,6 +305,7 @@ class AdminSessionManager:
             # Server-side expiry (TTL or idle). The dead session is removed
             # immediately; the caller re-arms a fresh unlock code after
             # releasing the lock.
+            self._retire_locked(session)
             self._session = None
             return {
                 "ok": False,
@@ -315,6 +328,82 @@ class AdminSessionManager:
         with self._lock:
             result = self._validate_locked(token, now, touch=touch)
         return self._after_validation(result)
+
+    def _retire_locked(self, session: _Session) -> None:
+        """Keep a digest only for lock confirmation; never for admission."""
+        self._retired[session.session_id] = session
+        while len(self._retired) > 16:
+            oldest = next((sid for sid in self._retired
+                           if not self._inflight.get(sid) and sid not in self._uncertain), None)
+            if oldest is None:
+                break
+            del self._retired[oldest]
+
+    def effect_state(self) -> dict[str, Any]:
+        """Public instance activity only: no token, digest, ID or effect data."""
+        with self._lock:
+            return self._effect_state_locked()
+
+    def _effect_state_locked(self) -> dict[str, Any]:
+        return {"inflight_effects": sum(self._inflight.values()),
+                "revocation_pending": any(self._inflight.get(sid) for sid in self._retired),
+                "outcome_uncertain": bool(self._uncertain)}
+
+    def capability_snapshot(self, token: str) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+        """One touch-free observation: session and activity share one mutex."""
+        with self._lock:
+            result = self._validate_locked(token, self.clock(), touch=False) if self.enabled and token else {}
+            activity = self._effect_state_locked()
+        result = self._after_validation(result)
+        return (result if result.get("ok") else None), activity
+
+    def execute_current(
+        self,
+        token: str,
+        expected_session_id: str,
+        capabilities: tuple[str, ...],
+        effect: Callable[[], Any],
+    ) -> dict[str, Any]:
+        """Order one bounded effect against native lock/expiry/rotation.
+
+        ``effect`` is an internal callable, never request-provided code. The
+        caller acquires the checkout lock first. In-flight registration keeps
+        the session mutex available during long preparation. lock() refuses
+        new admissions immediately and acknowledges completion only after
+        admitted effects finish. A copied description is insufficient.
+        """
+        if not self.enabled:
+            return {"ok": False, "error_code": ERROR_ADMIN_DISABLED}
+        with self._effects_changed:
+            result = self._validate_locked(token, self.clock(), touch=True)
+            if result.get("ok"):
+                if result["session_id"] != expected_session_id:
+                    result = {"ok": False, "error_code": ERROR_SESSION_INVALID}
+                elif not set(capabilities).issubset(
+                    ROLE_CAPABILITIES.get(result["role"], ())
+                ):
+                    result = {"ok": False, "error_code": ERROR_CAPABILITY_DENIED,
+                              "reason": "role_not_authorized"}
+                elif expected_session_id in self._uncertain and not set(capabilities).issubset({
+                    "system.inspect", "config.inspect", "git.inspect", "audit.inspect",
+                }):
+                    result = {"ok": False, "error_code": ERROR_OUTCOME_UNCERTAIN}
+                else:
+                    self._inflight[expected_session_id] = self._inflight.get(expected_session_id, 0) + 1
+        if not result.get("ok"):
+            return self._after_validation(result)
+        try:
+            value = effect()
+            if isinstance(value, dict) and value.get("outcome_uncertain"):
+                with self._effects_changed:
+                    self._uncertain.add(expected_session_id)
+            return {"ok": True, "result": value}
+        finally:
+            with self._effects_changed:
+                self._inflight[expected_session_id] -= 1
+                if not self._inflight[expected_session_id]:
+                    del self._inflight[expected_session_id]
+                self._effects_changed.notify_all()
 
     def session_for_capabilities(self, token: str) -> dict[str, Any] | None:
         """Session description for GET discovery, or None when locked.
@@ -359,18 +448,29 @@ class AdminSessionManager:
             return {"ok": False, "error_code": ERROR_ADMIN_DISABLED}
         now = self.clock()
         rearm_after_lock = False
-        with self._lock:
+        with self._effects_changed:
             result = self._validate_locked(token, now, touch=False)
             if not result.get("ok"):
-                out = result
+                retired = next((s for s in self._retired.values()
+                                if hmac.compare_digest(_digest(str(token or "")), s.token_digest)), None)
+                if retired is None:
+                    out = result
+                else:
+                    result = {"ok": True, "session_id": retired.session_id}
             else:
+                session = self._session
+                assert session is not None
+                self._retire_locked(session)
                 self._session = None
                 rearm_after_lock = True
-                out = {
-                    "ok": True,
-                    "session_id": result["session_id"],
-                    "state": "locked",
-                }
+            if result.get("ok"):
+                sid = result["session_id"]
+                complete = self._effects_changed.wait_for(lambda: not self._inflight.get(sid), timeout=1)
+                out = ({"ok": False, "error_code": ERROR_OUTCOME_UNCERTAIN,
+                        "session_id": sid, "state": "revocation_pending"} if sid in self._uncertain else
+                       {"ok": True, "session_id": sid, "state": "locked"} if complete else
+                       {"ok": False, "error_code": ERROR_REVOCATION_PENDING,
+                        "session_id": sid, "state": "revocation_pending"})
         out = self._after_validation(out)
         if rearm_after_lock:
             # A deliberate lock re-arms a fresh code so the owner can come

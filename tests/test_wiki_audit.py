@@ -179,6 +179,37 @@ def test_impact_ack_uses_configured_ledger_path(tmp_path, monkeypatch, audit):
     assert audit._impact_ack_added(config, "memorias/b.md") is True
 
 
+def test_impact_ack_uses_current_remote_base_instead_of_stale_local_main(tmp_path, monkeypatch):
+    audit = _load_wiki_audit()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    def git(*args):
+        return subprocess.check_output(["git", *args], cwd=tmp_path, text=True).strip()
+    git("init", "-b", "main")
+    git("config", "user.name", "Synthetic reviewer")
+    git("config", "user.email", "synthetic@example.invalid")
+    ledger = tmp_path / "memories/system/ingestion/impact-acks.md"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text("# Impact ACKs\n")
+    git("add", ".")
+    git("commit", "-m", "Before historical ACK")
+    git("switch", "-c", "wiki/proposal")
+    historical = "- 2026-10-19 | changed: memories/a.md | affected: memories/b.md | reason: Earlier delta reviewed\n"
+    ledger.write_text(ledger.read_text() + historical)
+    git("add", ".")
+    git("commit", "-m", "Approved historical ACK")
+    git("update-ref", "refs/remotes/origin/main", "HEAD")
+    # This ACK is new relative to local main, but already in the actual base.
+    config = WikiConfig()
+    assert not audit._impact_ack_added(config, "memories/b.md")
+    current = "- 2026-10-25 | changed: memories/a.md | affected: memories/b.md | reason: Current delta reviewed\n"
+    ledger.write_text(ledger.read_text() + current)
+    assert audit._impact_ack_added(config, "memories/b.md")  # unstaged
+    git("add", ".")
+    assert audit._impact_ack_added(config, "memories/b.md")  # staged
+    git("commit", "-m", "New proposal ACK")
+    assert audit._impact_ack_added(config, "memories/b.md")  # committed proposal
+
+
 def test_semantic_impact_text_ignores_link_targets_dates_and_reflow(audit):
     old = """---
 page_id: example-person

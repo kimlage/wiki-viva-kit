@@ -1628,7 +1628,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     setBusyAction(title);
     setNotice(null);
     try {
-      const result = await runGitWorkflow(operation, payload, dryRun);
+      const expectedHead = loadState.status === "ready" ? loadState.bundle.git.head : undefined;
+      const result = await runGitWorkflow(operation, { expected_head: expectedHead, ...payload }, dryRun);
       setCommandResult(result);
       announceResult(title, result.ok);
     } catch (error) {

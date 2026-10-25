@@ -19,6 +19,7 @@ from wiki_core.web.admin.capabilities import ROLE_CAPABILITIES
 from wiki_core.web.commands import (
     RISK_LEVEL_DERIVE,
     RISK_LEVEL_READ,
+    RISK_LEVEL_PROPOSAL_WRITE,
     RISK_LEVELS,
 )
 from wiki_core.web.schemas import WEB_ACTION_SCHEMA_VERSION
@@ -90,6 +91,41 @@ ADMIN_COMMAND_SPECS: tuple[AdminCommandSpec, ...] = (
         planner="snapshot_rebuild",
         executor="snapshot_rebuild",
         undo_strategy="restore_previous_snapshot_revision",
+    ),
+    AdminCommandSpec(
+        id="wiki.proposal.prepare",
+        title="Prepare a documentary proposal",
+        capability=("git.propose", "gates.run"),
+        risk_level=RISK_LEVEL_PROPOSAL_WRITE,
+        supports_dry_run=True,
+        parameter_schema={"material_path": {"required": True},
+                          "material_sha256": {"required": True}},
+        planner="normal_proposal",
+        executor="normal_proposal",
+        undo_strategy="review_or_discard_isolated_proposal",
+    ),
+    AdminCommandSpec(
+        id="wiki.proposal.publish",
+        title="Publish the exact prepared proposal",
+        capability=("git.publish",),
+        risk_level="external_write",
+        supports_dry_run=True,
+        parameter_schema={"expected_head": {"required": True},
+                          "operation": {"required": True, "values": ["publish_proposal", "open_draft_pr", "update_draft_pr"]},
+                          "title": {}, "body": {}},
+        planner="proposal_publish",
+        executor="proposal_publish",
+        undo_strategy=None,
+    ),
+    AdminCommandSpec(
+        id="wiki.proposal.promote",
+        title="Promote the independently reviewed exact head",
+        capability=("git.publish", "gates.run"),
+        risk_level="external_write",
+        supports_dry_run=True,
+        parameter_schema={"expected_head": {"required": True}, "approved_base": {"required": True}, "pr": {"required": True},
+                          "review_path": {"required": True}, "review_sha256": {"required": True}},
+        planner="proposal_promote", executor="proposal_promote", undo_strategy=None,
     ),
 )
 

@@ -1722,12 +1722,16 @@ def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig)
 
 def _added_lines_for_path(rel: str) -> list[str]:
     lines: list[str] = []
-    for args in (
+    diffs = [
         ["diff", "--unified=0", "--", rel],
         ["diff", "--cached", "--unified=0", "--", rel],
-        ["diff", "--unified=0", "main...HEAD", "--", rel],
-        ["diff", "--unified=0", "origin/main...HEAD", "--", rel],
-    ):
+    ]
+    # Use the same single PR base as changed_paths_for_audit. Unioning an
+    # older local main would count an already-approved ACK as newly authored.
+    base = _audit_base_ref()
+    if base:
+        diffs.append(["diff", "--unified=0", f"{base}...HEAD", "--", rel])
+    for args in diffs:
         for line in run_git(args).splitlines():
             if line.startswith("+") and not line.startswith("+++"):
                 lines.append(line[1:])

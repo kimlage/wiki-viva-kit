@@ -37,13 +37,16 @@ import {
 import {
   adminSessionActive,
   clearAdminSession,
-  getAdminSessionToken
+  getAdminSessionDescription,
+  getAdminSessionToken,
+  setAdminSession,
+  adminLockNoticeKey
 } from "../application/adminSession";
 
 function v7Health() {
   return {
     ok: true,
-    server_version: "wiki_web_server.v9",
+    server_version: "wiki_web_server.v10",
     schema_capabilities: [
       "operator_security_v2",
       "cors_default_deny_v1",
@@ -51,7 +54,7 @@ function v7Health() {
       "action_page_authoring_v1",
       "admin_capabilities_v1",
       "admin_session_v1",
-      "admin_commands_v1"
+      "admin_commands_v1", "revocable_documentary_proposals_v1"
     ],
     operator_security: {
       version: "wiki_operator_security.v2",
@@ -75,6 +78,7 @@ function lockedPayload() {
     session_state: "locked",
     session: null,
     read_only: true,
+    effect_state: { inflight_effects:0, revocation_pending:false, outcome_uncertain:false },
     capabilities: [
       { id: "system.inspect", granted: false, reason: "session_not_authorized" },
       { id: "break_glass.local", granted: false, reason: "disabled_by_config" }
@@ -118,6 +122,8 @@ describe("parseAdminCapabilities", () => {
   });
 
   it("rejects payloads that are not an honest capability schema", () => {
+    const {effect_state: _activity, ...oldOperator} = lockedPayload();
+    expect(parseAdminCapabilities(oldOperator)).toBeNull();
     expect(parseAdminCapabilities(null)).toBeNull();
     expect(parseAdminCapabilities({ ...lockedPayload(), ok: false })).toBeNull();
     expect(parseAdminCapabilities({ ...lockedPayload(), session_state: "root" })).toBeNull();
@@ -254,6 +260,152 @@ describe("admin session lifecycle (§13, §22.2)", () => {
     expect(result).toEqual({ ok: false, errorCode: "operator_unreachable" });
     expect(adminSessionActive()).toBe(false);
     expect(getAdminSessionToken()).toBeNull();
+  });
+
+  it("retains only a lock-confirmation credential while revocation drains", async () => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-draining"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    operatorPost.mockResolvedValueOnce(jsonResponse(409, { ok: false, error_code: "admin_revocation_pending", state: "revocation_pending" }));
+    operatorPost.mockResolvedValueOnce(jsonResponse(200, { ok: true, state: "locked" }));
+    expect(await lockAdminSession()).toEqual({ ok: false, errorCode: "admin_revocation_pending" });
+    expect(adminSessionActive()).toBe(false);
+    expect(getAdminSessionToken()).toBeNull();
+    expect(getAdminSessionDescription()?.revocationState).toBe("pending");
+    const calls = operatorPost.mock.calls.length;
+    expect((await planAdminCommand("system.inspect")).ok).toBe(false);
+    expect(operatorPost.mock.calls.length).toBe(calls);
+    expect(await lockAdminSession()).toEqual({ ok: true });
+    expect(operatorPost).toHaveBeenLastCalledWith("/admin/session/lock", {}, {
+      headers: { [ADMIN_SESSION_HEADER]: "tok-draining" }
+    });
+  });
+
+  it("retains confirmation through discovery, transport failure and uncertainty", async () => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-reconcile"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    operatorPost.mockRejectedValueOnce(new Error("controlled transport failure"));
+    expect((await lockAdminSession()).ok).toBe(false);
+    expect(getAdminSessionDescription()?.revocationState).toBe("unconfirmed");
+    fetchOperatorHealth.mockResolvedValue(v7Health());
+    operatorRequest.mockResolvedValueOnce(jsonResponse(200, { ...lockedPayload(),
+      effect_state: { inflight_effects: 1, revocation_pending: true, outcome_uncertain: false } }));
+    await loadAdminAccess();
+    expect(getAdminSessionDescription()?.revocationState).toBe("unconfirmed");
+    operatorPost.mockResolvedValueOnce(jsonResponse(409, { ok: false, error_code: "admin_effect_outcome_uncertain" }));
+    expect(await lockAdminSession()).toEqual({ ok: false, errorCode: "admin_effect_outcome_uncertain" });
+    expect(getAdminSessionDescription()?.revocationState).toBe("uncertain");
+    expect(operatorPost).toHaveBeenLastCalledWith("/admin/session/lock", {}, { headers: { [ADMIN_SESSION_HEADER]: "tok-reconcile" } });
+    const count = operatorPost.mock.calls.length;
+    expect((await renewAdminSession()).ok).toBe(false);
+    expect((await unlockAdminSession("new", "EXAMPLE")).ok).toBe(false);
+    expect(operatorPost.mock.calls.length).toBe(count);
+  });
+
+  it("a delayed renew can only confirm revocation, never reactivate after lock", async () => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-racing"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    let finishRenew!: (value: unknown) => void;
+    operatorPost.mockImplementationOnce(() => new Promise((resolve) => { finishRenew = resolve; }));
+    const renewal = renewAdminSession();
+    operatorPost.mockResolvedValueOnce(jsonResponse(409, { ok: false, error_code: "admin_revocation_pending" }));
+    await lockAdminSession();
+    operatorPost.mockResolvedValueOnce(jsonResponse(200, { ok: true, state: "locked" }));
+    finishRenew(unlockedResponse("tok-late-rotation"));
+    expect((await renewal).ok).toBe(false);
+    expect(getAdminSessionToken()).toBeNull();
+    expect(getAdminSessionDescription()).toBeNull();
+    expect(operatorPost).toHaveBeenLastCalledWith("/admin/session/lock", {}, { headers: { [ADMIN_SESSION_HEADER]: "tok-late-rotation" } });
+  });
+
+  it("a known renew rate limit does not falsely announce or erase a session", async () => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-limited"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    operatorPost.mockResolvedValueOnce(jsonResponse(429, { ok: false, error_code: "admin_rate_limited" }));
+    expect(await renewAdminSession()).toEqual({ ok: false, errorCode: "admin_rate_limited" });
+    expect(adminSessionActive()).toBe(true);
+    expect(getAdminSessionToken()).toBe("tok-limited");
+  });
+
+  it.each(["pending", "transport"])("an older lock %s cannot undo newer completion or emit a stale notice", async (outcome) => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-concurrent-lock"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    let finish!: (value: unknown) => void;
+    let fail!: (reason: Error) => void;
+    operatorPost.mockImplementationOnce(() => new Promise((resolve, reject) => { finish = resolve; fail = reject; }));
+    const first = lockAdminSession();
+    operatorPost.mockResolvedValueOnce(jsonResponse(200, { ok: true, state: "locked" }));
+    expect(await lockAdminSession()).toEqual({ ok: true });
+    if (outcome === "pending") finish(jsonResponse(409, { ok: false, error_code: "admin_revocation_pending" }));
+    else fail(new Error("controlled late transport error"));
+    const old = await first;
+    expect(old).toEqual({ ok: false, errorCode: "admin_response_superseded" });
+    expect(adminLockNoticeKey(old)).toBeNull();
+    expect(getAdminSessionDescription()).toBeNull();
+    expect(getAdminSessionToken()).toBeNull();
+  });
+
+  it("an old successful lock cannot announce completion for a newer session", async () => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-old-session"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    let finish!: (value: unknown) => void;
+    operatorPost.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const pending = lockAdminSession();
+    setAdminSession("tok-new-session", { sessionId: "new-session", role: "admin", state: "active_full",
+      expiresAtMs: Date.now()+900000, ttlS:900, idleLockS:300 });
+    finish(jsonResponse(200, { ok:true, state:"locked" }));
+    const old = await pending;
+    expect(adminLockNoticeKey(old)).toBeNull();
+    expect(getAdminSessionToken()).toBe("tok-new-session");
+  });
+
+  it.each(["refusal", "transport"])("a late renew %s is superseded for both state and notice", async (outcome) => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-renew-old"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    let finish!: (value: unknown) => void;
+    let fail!: (reason: Error) => void;
+    operatorPost.mockImplementationOnce(() => new Promise((resolve,reject) => { finish=resolve; fail=reject; }));
+    const renewal=renewAdminSession();
+    clearAdminSession();
+    setAdminSession("tok-renew-new", {sessionId:"new-session",role:"admin",state:"active_full",
+      expiresAtMs:Date.now()+900000,ttlS:900,idleLockS:300});
+    if (outcome === "refusal") finish(jsonResponse(403,{ok:false,error_code:"admin_session_invalid"}));
+    else fail(new Error("controlled late transport error"));
+    expect(await renewal).toEqual({ok:false,errorCode:"admin_response_superseded"});
+    expect(getAdminSessionToken()).toBe("tok-renew-new");
+  });
+
+  it("late discovery cannot quarantine a newer session", async () => {
+    operatorPost.mockResolvedValueOnce(unlockedResponse("tok-old-discovery"));
+    await unlockAdminSession("ch-1", "AAAA-2222");
+    fetchOperatorHealth.mockResolvedValue(v7Health());
+    let finish!: (value: unknown) => void;
+    operatorRequest.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const discovery = loadAdminAccess();
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    setAdminSession("tok-new-discovery", { sessionId: "new-session", role: "admin", state: "active_full",
+      expiresAtMs: Date.now()+900000, ttlS:900, idleLockS:300 });
+    finish(jsonResponse(200, lockedPayload()));
+    expect(await discovery).toEqual({ kind: "superseded" });
+    expect(getAdminSessionToken()).toBe("tok-new-discovery");
+    expect(getAdminSessionDescription()?.revocationState).toBeUndefined();
+  });
+
+  it("a delayed unlock after off is retained only to confirm native revocation", async () => {
+    let finish!: (value: unknown) => void;
+    operatorPost.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const unlocking = unlockAdminSession("ch-late", "AAAA-2222");
+    expect((await lockAdminSession()).ok).toBe(false); // off invalidates the pending lifecycle
+    const calls = operatorPost.mock.calls.length;
+    expect((await unlockAdminSession("second", "AAAA-2222")).ok).toBe(false);
+    expect(operatorPost.mock.calls.length).toBe(calls); // a second unlock cannot replace pending identity
+    operatorPost.mockResolvedValueOnce(jsonResponse(200, { ok:true, state:"locked" }));
+    finish(unlockedResponse("tok-late-unlock"));
+    expect((await unlocking).ok).toBe(false);
+    expect(getAdminSessionToken()).toBeNull();
+    expect(getAdminSessionDescription()).toBeNull();
+    expect(operatorPost).toHaveBeenLastCalledWith("/admin/session/lock", {}, {
+      headers:{[ADMIN_SESSION_HEADER]:"tok-late-unlock"}
+    });
   });
 
   it("maps rate limiting to its typed error", async () => {
@@ -431,6 +583,7 @@ describe("command bus client (§11, §12.2)", () => {
             capability: ["system.inspect"],
             risk_level: "read",
             supports_dry_run: false,
+            parameter_schema: { reviewed_input: { required: true } },
             undo_strategy: null,
             granted: true
           }
@@ -453,6 +606,7 @@ describe("command bus client (§11, §12.2)", () => {
           capability: ["system.inspect"],
           riskLevel: "read",
           supportsDryRun: false,
+          requiresParameters: true,
           undoStrategy: null,
           granted: true,
           reason: undefined

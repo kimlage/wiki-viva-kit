@@ -1410,3 +1410,13 @@ Append-only record of changes in the [memories/](../index.md) layer.
   remains covered by the [effect proof controls](../../tests/test_contribution_effects.py).
   These tests do not establish an operator account, private C3, remote merge,
   selected-checkout adoption or a served runtime.
+
+
+## [2026-10-25] Revocable documentary proposal effects
+
+- The existing [admin command bus](../../wiki_core/web/admin/plans.py) now has fixed documentary prepare, publish and promote operations. The [adapter guide](../../docs/references/guides/revocable-documentary-proposals.md) distinguishes material integrity, live session authority, independent review, repository gates and served adoption.
+- The [native session guard](../../wiki_core/web/admin/sessions.py) registers in-flight effects and bars new admissions after lock. Pending or uncertain outcomes are explicit; revocation is not rollback. Model tools and existing role capabilities are unchanged.
+- [Local admission coverage](../../tests/test_normal_proposal_admission.py) exercises real writer/C2/local Git preparation, unchanged-material revocation, current-session resumption and byte-bound inputs. Controlled provider behavior does not prove a live account or consumer adoption.
+- Synchronous proposal routes require the live session. Unsupported contribution batches and asynchronous routes do not become alternatives for this integration. Consumers adopt the reviewed kit SHA and qualify the actual selected operator independently.
+- Review corrections preserve the absent human-review policy's false default and keep a private RAM-only credential exclusively for native lock confirmation. The cockpit distinguishes removed local access, admitted effects draining and uncertain remote outcomes; late responses cannot announce an obsolete completion or reactivate access.
+- The [audit regression](../../tests/test_wiki_audit.py) rejects historical impact acknowledgments introduced only relative to a stale local main. Current impact evidence is evaluated against the single selected PR base, including in local validation.

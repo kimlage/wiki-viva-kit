@@ -2,8 +2,8 @@
 //
 // The token lives EXCLUSIVELY in this module's closure: never in the URL,
 // never in localStorage/sessionStorage/IndexedDB/cookies, never in the
-// snapshot. A page reload therefore locks by construction — there is
-// nothing to rehydrate from. The token itself is deliberately NOT part of
+// snapshot. Reload removes local access; it does not prove an admitted
+// operation finished. The token itself is deliberately NOT part of
 // the observable snapshot; UI components subscribe to the public
 // description only, and transport code asks for the token through one
 // narrow accessor at send time.
@@ -18,11 +18,14 @@ export type AdminSessionDescription = {
   expiresAtMs: number;
   ttlS: number;
   idleLockS: number;
+  revocationState?: "pending" | "unconfirmed" | "uncertain";
 };
 
 type Listener = () => void;
 
 let sessionToken: string | null = null;
+let lockConfirmationToken: string | null = null;
+let lifecycleGeneration = 0;
 let sessionDescription: AdminSessionDescription | null = null;
 const listeners = new Set<Listener>();
 
@@ -36,21 +39,67 @@ export function setAdminSession(
   description: AdminSessionDescription
 ): void {
   sessionToken = token;
+  lockConfirmationToken = null;
   sessionDescription = description;
+  lifecycleGeneration += 1;
   emit();
 }
 
 /** Forget everything (lock, expiry, server-side revocation, failure). */
 export function clearAdminSession(): void {
-  const hadSession = sessionToken !== null || sessionDescription !== null;
+  const hadSession = sessionToken !== null || lockConfirmationToken !== null || sessionDescription !== null;
   sessionToken = null;
+  lockConfirmationToken = null;
   sessionDescription = null;
+  lifecycleGeneration += 1;
   if (hadSession) emit();
 }
 
 /** Transport-only accessor: the header value for the next admin request. */
 export function getAdminSessionToken(): string | null {
   return sessionToken;
+}
+
+/** Immediately bar ordinary requests. Retain the credential only for lock. */
+export function beginAdminSessionRevocation(
+  state: NonNullable<AdminSessionDescription["revocationState"]> = "pending"
+): void {
+  if (sessionToken) lockConfirmationToken = sessionToken;
+  sessionToken = null;
+  lifecycleGeneration += 1;
+  if (sessionDescription) {
+    sessionDescription = { ...sessionDescription, revocationState: state };
+    emit();
+  }
+}
+
+/** Transport-only: this credential must never be used by command dispatch. */
+export function getAdminLockConfirmationToken(): string | null {
+  return lockConfirmationToken;
+}
+
+export function getAdminSessionGeneration(): number {
+  return lifecycleGeneration;
+}
+
+/** A late authentication/rotation response cannot undo a requested lock. */
+export function retainAdminSessionForLock(token: string, description: AdminSessionDescription): void {
+  sessionToken = null;
+  lockConfirmationToken = token;
+  sessionDescription = { ...description, revocationState: "unconfirmed" };
+  lifecycleGeneration += 1;
+  emit();
+}
+
+/** Pure presentation; completion is announced only after positive readback. */
+export function adminLockNoticeKey(
+  result: { ok: boolean; errorCode?: string }, success = "admin.strip.locked"
+): string | null {
+  if (result.errorCode === "admin_response_superseded") return null;
+  if (result.ok) return success;
+  if (result.errorCode === "admin_revocation_pending") return "admin.strip.revocationPending";
+  if (result.errorCode === "admin_effect_outcome_uncertain") return "admin.strip.effectUncertain";
+  return "admin.strip.lockUnconfirmed";
 }
 
 /** Public, token-free description for UI (status strip, dock). */

@@ -1,21 +1,22 @@
 // AdminStatusStrip (god-mode plan §14.4, §5.4): the persistent, text-first
 // indicator that an administrative session exists. Never color-only — the
 // state and the remaining time are words, with ARIA labels, plus an
-// ever-visible "Lock now" button. It renders nothing while locked: absence
-// of the strip IS the locked indicator, and Takezo is never the only signal
+// ever-visible "Lock now" button. Absence means no local credential; only
+// positive native readback proves admitted effects drained. Takezo is never the only signal
 // (anti-pattern 13).
 //
 // The countdown is presentation math over one wall-clock deadline captured
 // at unlock/renew; the server's own TTL/idle lock stays authoritative. When
-// the local countdown reaches zero the strip clears the in-memory session
-// (the server already considers it dead) instead of showing a false active.
+// the local countdown reaches zero the strip removes command access and
+// retains RAM-only confirmation instead of assuming admitted effects ended.
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { KeyRound, Lock, RefreshCw } from "lucide-react";
 import { t } from "../data/i18n";
 import {
   adminSessionRemainingS,
-  clearAdminSession,
+  adminLockNoticeKey,
+  beginAdminSessionRevocation,
   getAdminSessionDescription,
   subscribeAdminSession
 } from "../application/adminSession";
@@ -54,23 +55,25 @@ export function AdminStatusStrip({
   }, [session]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || session.revocationState) return;
+    if (getAdminSessionDescription() !== session) return;
     if (adminSessionRemainingS(nowMs) > 0) return;
-    // The deadline passed: the server already expired this session. Clear
-    // the client side and say so — never a silently "active" chip (§22.2).
-    clearAdminSession();
-    onNotice?.(t("admin.strip.expired"));
+    // Local time is not proof of native drain. A stale timer cannot revoke
+    // a newer session installed since this render.
+    beginAdminSessionRevocation("unconfirmed");
+    onNotice?.(t("admin.strip.expiredPending"));
   }, [session, nowMs, onNotice]);
 
   if (!session) return null;
 
   const remainingS = adminSessionRemainingS(nowMs);
-  if (remainingS <= 0) return null;
+  if (remainingS <= 0 && !session.revocationState) return null;
   const remainingMin = Math.ceil(remainingS / 60);
-  const displayState = remainingS <= 120 ? "expiring" : session.state;
-  const stateLabel = t(STATE_LABEL_KEYS[displayState] || "admin.state.active_partial");
+  const displayState = session.revocationState ? "revocation_pending" : remainingS <= 120 ? "expiring" : session.state;
+  const stateLabel = t(session.revocationState ? "admin.state.revocationPending"
+    : STATE_LABEL_KEYS[displayState] || "admin.state.active_partial");
   const timeLabel =
-    remainingS < 60
+    session.revocationState ? t("admin.strip.completionUnconfirmed") : remainingS < 60
       ? t("admin.strip.timeLeftUnderMinute")
       : t("admin.strip.timeLeft", { m: remainingMin });
 
@@ -79,6 +82,7 @@ export function AdminStatusStrip({
     setBusy(true);
     try {
       const result = await renewAdminSession();
+      if (!result.ok && result.errorCode === "admin_response_superseded") return;
       onNotice?.(result.ok ? t("admin.strip.renewed") : t("admin.strip.renewFailed"));
     } finally {
       setBusy(false);
@@ -89,10 +93,9 @@ export function AdminStatusStrip({
     if (busy) return;
     setBusy(true);
     try {
-      await lockAdminSession();
-      // lockAdminSession always clears the in-memory token (§5.4); the strip
-      // unmounts via the store subscription right after this notice.
-      onNotice?.(t("admin.strip.locked"));
+      const result = await lockAdminSession();
+      const notice = adminLockNoticeKey(result);
+      if (notice) onNotice?.(t(notice));
     } finally {
       setBusy(false);
     }
@@ -125,7 +128,7 @@ export function AdminStatusStrip({
         className="adminStripAction"
         type="button"
         onClick={() => void renew()}
-        disabled={busy}
+        disabled={busy || !!session.revocationState}
         title={t("admin.strip.renew")}
       >
         <RefreshCw size={13} aria-hidden />
@@ -136,10 +139,10 @@ export function AdminStatusStrip({
         type="button"
         onClick={() => void lock()}
         disabled={busy}
-        title={t("admin.strip.lock")}
+        title={t(session.revocationState ? "admin.strip.confirmLock" : "admin.strip.lock")}
       >
         <Lock size={13} aria-hidden />
-        <span>{t("admin.strip.lock")}</span>
+        <span>{t(session.revocationState ? "admin.strip.confirmLock" : "admin.strip.lock")}</span>
       </button>
     </div>
   );

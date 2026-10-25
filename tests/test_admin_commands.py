@@ -125,6 +125,9 @@ def test_catalog_grants_follow_session_role(server: _Server) -> None:
     assert denied == {
         "config.validate": "role_not_authorized",
         "snapshot.rebuild": "role_not_authorized",
+        "wiki.proposal.prepare": "role_not_authorized",
+        "wiki.proposal.publish": "role_not_authorized",
+        "wiki.proposal.promote": "role_not_authorized",
     }
 
 
@@ -149,7 +152,7 @@ def test_plan_without_session_is_a_typed_refusal(
     assert body["error_code"] == "admin_session_invalid"
 
 
-@pytest.mark.parametrize("command_id", COMMAND_IDS)
+@pytest.mark.parametrize("command_id", [c for c in COMMAND_IDS if not c.startswith("wiki.proposal.")])
 def test_plan_with_admin_session_materializes(server: _Server, command_id: str) -> None:
     token = _unlock_admin(server)
     status, body = _plan(server, token, command_id)

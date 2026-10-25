@@ -19,6 +19,7 @@ import type {
 } from "../data/admin";
 import {
   getAdminSessionDescription,
+  adminLockNoticeKey,
   subscribeAdminSession
 } from "../application/adminSession";
 import {
@@ -103,7 +104,10 @@ export function AdminDock({
     setAccess(null);
     admin.loadAdminAccess()
       .then((result) => {
-        if (!cancelled) setAccess(result);
+        if (!cancelled) {
+          if (result.kind === "superseded") setProbe((value) => value + 1);
+          else setAccess(result);
+        }
       })
       .catch(() => {
         if (!cancelled) setAccess({ kind: "unavailable", reason: "operator_unreachable" });
@@ -111,14 +115,29 @@ export function AdminDock({
     return () => {
       cancelled = true;
     };
-  }, [demo, probe, localSession?.sessionId]);
+  }, [demo, probe, localSession?.sessionId, localSession?.revocationState]);
 
   const payload = access?.kind === "capabilities" ? access.payload : null;
   const state: AdminSessionState = payload ? payload.session_state : "unavailable";
-  const stateLabel = access === null ? t("admin.state.loading") : t(STATE_LABEL_KEYS[state]);
+  const localRevoking = !!localSession?.revocationState;
+  const effectsUnsettled = !!(payload?.effect_state?.inflight_effects
+    || payload?.effect_state?.revocation_pending || payload?.effect_state?.outcome_uncertain);
+  const revocationBlocked = localRevoking || !!payload?.effect_state?.outcome_uncertain
+    || !!payload?.effect_state?.revocation_pending
+    || (!payload?.session && effectsUnsettled);
+  const stateLabel = revocationBlocked ? t("admin.state.revocationPending")
+    : access === null ? t("admin.state.loading") : t(STATE_LABEL_KEYS[state]);
   const granted = payload ? payload.capabilities.filter((entry) => entry.granted).length : 0;
   const total = payload ? payload.capabilities.length : 0;
-  const sessionActive = Boolean(payload?.session);
+  const sessionActive = Boolean(payload?.session) && !revocationBlocked;
+
+  const confirmLock = () => {
+    void admin.lockAdminSession().then((result) => {
+      const notice = adminLockNoticeKey(result);
+      if (notice) onNotice?.(t(notice));
+      setProbe((value) => value + 1);
+    });
+  };
 
   // Load the command catalog only for an active session: locked/unavailable
   // states have nothing plannable, and the section must not imply otherwise.
@@ -137,6 +156,10 @@ export function AdminDock({
   }, [sessionActive, demo, probe]);
 
   const startPlan = (entry: AdminCommandCatalogEntry, dryRun: boolean) => {
+    if (entry.requiresParameters) {
+      onNotice?.(t("admin.commands.parametersRequired"));
+      return;
+    }
     if (planningId !== null) return;
     setPlanningId(entry.id);
     void admin.planAdminCommand(entry.id, {}, { dryRun }).then((result) => {
@@ -208,11 +231,11 @@ export function AdminDock({
           {payload && (
             <>
               <p>
-                {state === "locked" && t("admin.locked.note")}
+                {state === "locked" && !revocationBlocked && t("admin.locked.note")}
                 {state === "active_readonly" && t("admin.readonly.note")}
                 {state !== "locked" && state !== "active_readonly" && t("admin.overview.sessionState", { state: stateLabel })}
               </p>
-              {state === "locked" && !demo && payload.adapter === "local_startup_code" && (
+              {state === "locked" && !revocationBlocked && !demo && payload.adapter === "local_startup_code" && (
                 <div className="dockActions">
                   <button
                     className="primaryButton"
@@ -248,12 +271,7 @@ export function AdminDock({
                     <button
                       className="secondaryButton"
                       type="button"
-                      onClick={() => {
-                        void admin.lockAdminSession().then(() => {
-                          onNotice?.(t("admin.strip.locked"));
-                          setProbe((value) => value + 1);
-                        });
-                      }}
+                      onClick={confirmLock}
                     >
                       <Lock size={14} aria-hidden />
                       <span>{t("admin.dock.lock")}</span>
@@ -281,6 +299,18 @@ export function AdminDock({
                 })}
               </ul>
             </>
+          )}
+          {revocationBlocked && (
+            <p role="status">{t(payload?.effect_state?.outcome_uncertain || localSession?.revocationState === "uncertain"
+              ? "admin.strip.effectUncertain" : "admin.strip.completionUnconfirmed")}</p>
+          )}
+          {localRevoking && !demo && (
+            <button className="secondaryButton" type="button" onClick={confirmLock}>
+              <Lock size={14} aria-hidden /><span>{t("admin.strip.confirmLock")}</span>
+            </button>
+          )}
+          {!localRevoking && !payload?.session && effectsUnsettled && (
+            <p>{t("admin.dock.confirmationUnavailable")}</p>
           )}
           <dl className="adminFacts">
             <div>
@@ -339,7 +369,7 @@ export function AdminDock({
                           <button
                             className="secondaryButton"
                             type="button"
-                            disabled={planningId !== null}
+                            disabled={planningId !== null || entry.requiresParameters}
                             onClick={() => startPlan(entry, dryRunIds.has(entry.id))}
                           >
                             <ListChecks size={14} aria-hidden />
@@ -349,6 +379,7 @@ export function AdminDock({
                                 : t("admin.commands.plan")}
                             </span>
                           </button>
+                          {entry.requiresParameters && <small>{t("admin.commands.parametersRequired")}</small>}
                         </div>
                       ) : (
                         <small>{reason ?? t("admin.capability.notGranted")}</small>
@@ -427,6 +458,7 @@ export function AdminDock({
           <AdminPlanReview
             executeAdminPlan={admin.executeAdminPlan}
             plan={activePlan}
+            executionBlocked={revocationBlocked}
             onClose={() => setActivePlan(null)}
             // A successful execution may have invalidated the snapshot or
             // consumed session time — re-probe so the dock shows the server's
@@ -435,7 +467,7 @@ export function AdminDock({
             onNotice={onNotice}
           />
         )}
-        {unlockOpen && !demo && (
+        {unlockOpen && !demo && !revocationBlocked && (
           <AdminUnlockDialog
             requestAdminChallenge={admin.requestAdminChallenge}
             unlockAdminSession={admin.unlockAdminSession}

@@ -133,7 +133,7 @@ def admin_health_summary(config: WikiConfig) -> dict[str, Any]:
 
 
 def admin_capabilities_payload(
-    config: WikiConfig, session: dict[str, Any] | None = None
+    config: WikiConfig, session: dict[str, Any] | None = None, *, effect_state: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """GET /api/admin/capabilities (plan §12.1) — session-state aware.
 
@@ -198,4 +198,6 @@ def admin_capabilities_payload(
         "read_only": session_block is None or role == "observer",
         "session_states": list(ADMIN_SESSION_STATES),
         "capabilities": capabilities,
+        "effect_state": effect_state or {"inflight_effects": 0, "revocation_pending": False,
+                                         "outcome_uncertain": False},
     }

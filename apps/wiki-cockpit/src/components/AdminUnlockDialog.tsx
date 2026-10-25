@@ -74,6 +74,11 @@ export function AdminUnlockDialog({
     setPhase("verifying");
     setErrorCode(null);
     const result = await unlockAdminSession(challenge, code.trim());
+    if (!result.ok && result.errorCode === "admin_response_superseded") {
+      setCode("");
+      onClose();
+      return;
+    }
     if (result.ok) {
       setCode("");
       onUnlocked(result.session);

@@ -14,6 +14,7 @@ import type {
 } from "../data/admin";
 import { configureLanguage, t } from "../data/i18n";
 import { setAdminCommandIntent } from "../application/adminCommandIntent";
+import { beginAdminSessionRevocation, setAdminSession, clearAdminSession } from "../application/adminSession";
 
 const { loadAdminAccess, fetchAdminCommandCatalog, planAdminCommand } = vi.hoisted(() => ({
   loadAdminAccess: vi.fn(async (): Promise<AdminAccess> => ({ kind: "unavailable", reason: "operator_unreachable" })),
@@ -163,6 +164,7 @@ function plannedResult(): AdminPlanResult {
 }
 
 afterEach(() => {
+  clearAdminSession();
   cleanup();
   vi.clearAllMocks();
   configureLanguage("en");
@@ -229,12 +231,61 @@ describe("AdminDock — §6.3 states, read-only", () => {
     expect(screen.getByText("wiki/topic")).toBeTruthy();
     expect(screen.getByText("kit-test")).toBeTruthy();
     expect(
-      screen.getByText(t("admin.system.frontendRequires", { version: "wiki_web_server.v9" }))
+      screen.getByText(t("admin.system.frontendRequires", { version: "wiki_web_server.v10" }))
     ).toBeTruthy();
   });
 });
 
 describe("AdminDock — command bus section (plan §11/§14, PR4)", () => {
+  it("reopens a pending lock for confirmation without offering commands or unlock", async () => {
+    setAdminSession("synthetic-confirmation-only", { sessionId:"pending-session", role:"admin", state:"active_full",
+      expiresAtMs:Date.now()-1000, ttlS:900, idleLockS:300 });
+    beginAdminSessionRevocation("pending");
+    const access = lockedAccess();
+    if (access.kind !== "capabilities") throw new Error("synthetic discovery unavailable");
+    access.payload.effect_state = { inflight_effects:1, revocation_pending:true, outcome_uncertain:false };
+    loadAdminAccess.mockResolvedValue(access);
+    const port: AdminPort = adminPort();
+    const notice = vi.fn();
+    const first = render(<AdminDock admin={port} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} onNotice={notice} />);
+    expect(await screen.findByRole("button", { name:t("admin.strip.confirmLock") })).toBeTruthy();
+    expect(screen.queryByRole("button",{name:t("admin.dock.unlock")})).toBeNull();
+    expect(fetchAdminCommandCatalog).not.toHaveBeenCalled();
+    first.unmount();
+    port.lockAdminSession = vi.fn(async () => {
+      clearAdminSession(); loadAdminAccess.mockResolvedValue(lockedAccess()); return {ok:true as const};
+    });
+    render(<AdminDock admin={port} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} onNotice={notice} />);
+    fireEvent.click(await screen.findByRole("button",{name:t("admin.strip.confirmLock")}));
+    await waitFor(() => expect(notice).toHaveBeenCalledWith(t("admin.strip.locked")));
+  });
+
+  it("reload without a token observes pending instance effects without claiming completion", async () => {
+    const access = lockedAccess();
+    if (access.kind !== "capabilities") throw new Error("synthetic discovery unavailable");
+    access.payload.effect_state = { inflight_effects:1, revocation_pending:true, outcome_uncertain:false };
+    loadAdminAccess.mockResolvedValue(access);
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);
+    expect(await screen.findByText(t("admin.dock.confirmationUnavailable"))).toBeTruthy();
+    expect(screen.queryByRole("button",{name:t("admin.dock.unlock")})).toBeNull();
+    expect(screen.queryByRole("button",{name:t("admin.strip.confirmLock")})).toBeNull();
+    expect(fetchAdminCommandCatalog).not.toHaveBeenCalled();
+  });
+  it("does not submit empty parameters for commands requiring reviewed inputs", async () => {
+    loadAdminAccess.mockResolvedValue(activeAccess());
+    const result = catalogResult();
+    if (!result.ok) throw new Error("synthetic catalog unavailable");
+    result.commands[0].requiresParameters = true;
+    fetchAdminCommandCatalog.mockResolvedValue(result);
+    const onNotice = vi.fn();
+    setAdminCommandIntent("system.inspect");
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} onNotice={onNotice} />);
+    await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.commands.parametersRequired")));
+    const button = screen.getByRole("button", { name: t("admin.commands.plan") }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(planAdminCommand).not.toHaveBeenCalled();
+  });
   it("locked dock has no commands section and never fetches the catalog", async () => {
     loadAdminAccess.mockResolvedValue(lockedAccess());
     render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);

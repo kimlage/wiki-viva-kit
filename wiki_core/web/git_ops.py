@@ -191,6 +191,7 @@ def build_git_state(root: Path, config: WikiConfig) -> dict[str, Any]:
         "available": True,
         "default_branch": default_branch,
         "current_branch": current_branch,
+        "head": _git_output(root, ["rev-parse", "HEAD"]),
         "branch_prefix": branch_prefix,
         "worktree": {"clean": clean, "changed_files": changed},
         "upstream": {

@@ -642,14 +642,14 @@ def _closure_section_lines(
     return lines
 
 
-def build_page(root: Path, config: WikiConfig) -> str:
+def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | None = None) -> str:
     """Compile the cockpit Markdown for ``root`` using ``config``.
 
     ``root`` is injectable so this can run against a minimal repo in tests.
     """
     paths = WikiPaths(root, config)
-    now = dt.datetime.now().replace(microsecond=0)
-    today = dt.date.today()
+    now = (generated_at or dt.datetime.now()).replace(microsecond=0)
+    today = now.date()
     owner_label = config.owner_label
     repo_id = config.repo_id
 

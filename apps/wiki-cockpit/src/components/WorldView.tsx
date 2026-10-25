@@ -10,7 +10,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } fr
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { ADMIN_COMMAND_REGISTRY, GOD_MODE_COMMAND_ID } from "../commands/adminCommands";
 import { setAdminCommandIntent } from "../application/adminCommandIntent";
-import { adminSessionActive } from "../application/adminSession";
+import { adminSessionActive, adminLockNoticeKey } from "../application/adminSession";
 import type { CommandInvocation } from "../commands/types";
 import { t } from "../data/i18n";
 import { experiencePackView } from "../data/experiencePacks";
@@ -1439,11 +1439,10 @@ export function WorldView({
       return;
     }
     if (input.commandId === GOD_MODE_COMMAND_ID && input.args.subcommand === "off") {
-      if (adminSessionActive()) {
-        void lockAdminSession().then(() => onNotice?.(t("command.godMode.lockedNow")));
-      } else {
-        onNotice?.(t("command.godMode.alreadyLocked"));
-      }
+      void lockAdminSession().then((result) => {
+        const notice = adminLockNoticeKey(result, "command.godMode.lockedNow");
+        if (notice) onNotice?.(t(notice));
+      });
       return;
     }
     if (input.commandId === GOD_MODE_COMMAND_ID) {

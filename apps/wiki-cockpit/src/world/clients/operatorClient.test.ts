@@ -5,6 +5,7 @@ vi.mock("../../data/runtimeConfig", () => ({
 }));
 
 import { apiUrl } from "../../data/runtimeConfig";
+import { clearAdminSession, setAdminSession } from "../../application/adminSession";
 import { fetchOperatorHealth, operatorPost, operatorRequest, resetOperatorSecurityForTests } from "./operatorClient";
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -17,7 +18,7 @@ function jsonResponse(payload: unknown, status = 200): Response {
 function health(nonce: string) {
   return {
     ok: true,
-    server_version: "wiki_web_server.v9",
+    server_version: "wiki_web_server.v10",
     schema_capabilities: [
       "operator_security_v2",
       "cors_default_deny_v1",
@@ -25,7 +26,7 @@ function health(nonce: string) {
       "action_page_authoring_v1",
       "admin_capabilities_v1",
       "admin_session_v1",
-      "admin_commands_v1"
+      "admin_commands_v1", "revocable_documentary_proposals_v1"
     ],
     operator_security: {
       version: "wiki_operator_security.v2",
@@ -41,6 +42,7 @@ function health(nonce: string) {
 }
 
 beforeEach(() => {
+  clearAdminSession();
   resetOperatorSecurityForTests();
   vi.mocked(apiUrl).mockReset();
   vi.mocked(apiUrl).mockImplementation(async (path: string) => `http://127.0.0.1:8765/api${path}`);
@@ -51,6 +53,18 @@ afterEach(() => {
 });
 
 describe("operatorPost", () => {
+  it("adds the current in-memory session only to synchronous proposal mutations", async () => {
+    setAdminSession("synthetic-ephemeral-token", { sessionId: "s", role: "maintainer", state: "active_partial", expiresAtMs: Date.now() + 1000, ttlS: 60, idleLockS: 60 });
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(health("nonce")))
+      .mockResolvedValue(jsonResponse({ ok: true }));
+    vi.stubGlobal("location", { pathname: "/w/radar" });
+    vi.stubGlobal("fetch", fetchMock);
+    await operatorPost("/actions/transition", {});
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get("X-Wiki-Admin-Session")).toBe("synthetic-ephemeral-token");
+    await operatorPost("/briefs", {});
+    expect(new Headers(fetchMock.mock.calls[2][1].headers).has("X-Wiki-Admin-Session")).toBe(false);
+    clearAdminSession();
+  });
   it("blocks every demo read before config resolution or transport", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("location", { pathname: "/demo/world" });
