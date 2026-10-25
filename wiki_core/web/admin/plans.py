@@ -526,6 +526,15 @@ def build_admin_plan(
             "detail": "command does not support dry run",
         }
     if spec.planner in {"proposal_publish", "proposal_promote"}:
+        if spec.planner == "proposal_publish":
+            from wiki_core.action_transition import _assert_no_secrets
+            try:
+                _, branch = _run_git(root, ["branch", "--show-current"])
+                for value in (params.get("title", ""), params.get("body", ""), branch):
+                    _assert_no_secrets(value)
+            except ValueError:
+                return {"ok": False, "error_code": ERROR_INVALID_PARAMS,
+                        "detail": "publication inputs contain an access-secret finding"}
         code, head = _run_git(root, ["rev-parse", "HEAD"])
         if code or params.get("expected_head") != head.strip():
             return {"ok": False, "error_code": ERROR_PLAN_STALE, "failed_preconditions": ["expected_head"]}
@@ -580,6 +589,10 @@ def build_admin_plan(
         if code:
             return {"ok": False, "error_code": ERROR_PLAN_STALE, "failed_preconditions": ["origin"]}
         preconditions.append({"id": "origin_sha256", "expected": hashlib.sha256(origin.strip().encode()).hexdigest()})
+        code, push = _run_git(root, ["remote", "get-url", "--push", "--all", "origin"])
+        if code or push.strip() != origin.strip():
+            return {"ok": False, "error_code": ERROR_INVALID_PARAMS, "detail": "effective push destination must match the reviewed repository"}
+        preconditions.append({"id": "push_origin_sha256", "expected": hashlib.sha256(push.strip().encode()).hexdigest()})
     content = {
         "schema_version": ADMIN_PLAN_SCHEMA_VERSION,
         "command_id": spec.id,
@@ -720,6 +733,10 @@ def _failed_preconditions(
         code, origin = _run_git(root, ["remote", "get-url", "origin"])
         if code or hashlib.sha256(origin.strip().encode()).hexdigest() != expected["origin_sha256"]:
             failed.append("origin_sha256")
+    if "push_origin_sha256" in expected:
+        code, push = _run_git(root, ["remote", "get-url", "--push", "--all", "origin"])
+        if code or hashlib.sha256(push.strip().encode()).hexdigest() != expected["push_origin_sha256"]:
+            failed.append("push_origin_sha256")
     for target in expected.get("targets_exist") or ():
         candidate = Path(str(target))
         if candidate.is_absolute() or ".." in candidate.parts:
@@ -813,7 +830,7 @@ def execute_admin_plan(
                     root, config, content["params"], manager=session_manager,
                     token=session_token, session_id=str(record["session_id"]))
                 if not result.get("ok"):
-                    return {"ok": False, "error_code": ERROR_COMMAND_FAILED, "output": _redact_output(result)}
+                    return {"ok": False, "error_code": _proposal_error_code(result.get("error_code", ERROR_COMMAND_FAILED)), "output": _redact_output(result)}
                 outcome = {"output": result, "affected_paths": [], "snapshot_invalidated": False}
             elif spec.executor == "proposal_publish":
                 from wiki_core.web.normal_proposal import publish_proposal

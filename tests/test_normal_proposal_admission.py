@@ -353,3 +353,27 @@ def test_real_c2_reads_and_pins_its_local_cache_inputs(prepared, changed_after_p
         assert status == 200 and result["output"]["prepared"], result
         capture = dt.datetime.fromisoformat(result["output"]["c2_captured_at"].replace("Z", "+00:00"))
         assert paths.operation_page.read_text() == build_page(root, srv.server.config, generated_at=capture)
+
+
+def test_all_c2_producers_reach_the_same_real_fixed_point(prepared):
+    import datetime as dt
+    from scripts.wiki_operation_compile import build_page
+    from wiki_core.operational_pass import build_operational_pass_page
+    from wiki_core.input_stage import compile_input_stage, matching_input_stage_catalog
+    srv, root, params, unlock, _clock = prepared
+    path = root / params["material_path"]
+    material = json.loads(path.read_text())
+    material["c2"] = ["input_stage", "operational_pass", "operation"]
+    path.write_text(json.dumps(material))
+    params["material_sha256"] = _sha(path.read_bytes())
+    token = unlock()
+    status, plan = _plan(srv, token, "wiki.proposal.prepare", params=params)
+    assert status == 200, plan
+    status, result = _execute(srv, token, plan, confirmation=plan["plan"]["confirmation"]["text"])
+    assert status == 200 and result["output"]["prepared"], json.dumps(result, indent=2)
+    paths = WikiPaths(root, srv.server.config)
+    capture = dt.datetime.fromisoformat(material["generated_at"].replace("Z", "+00:00"))
+    assert paths.operation_page.read_text() == build_page(root, srv.server.config, generated_at=capture)
+    assert paths.operational_pass_page.read_text() == build_operational_pass_page(root, srv.server.config, updated_at=capture.date().isoformat())
+    catalog = compile_input_stage(root, srv.server.config, generated_at=capture.date())
+    assert matching_input_stage_catalog(catalog, srv.server.config, paths.input_stage_page.read_bytes()) is not None

@@ -80,7 +80,10 @@ def _local_branches(root: Path) -> list[str]:
 
 def _changed_paths(root: Path, config: WikiConfig) -> set[str]:
     state = build_git_state(root, config)
-    return {str(row.get("path")) for row in state["worktree"]["changed_files"]}
+    # Porcelain may collapse a new directory to one row. Native writers select
+    # individual new files, so include their exact non-ignored paths as well.
+    return ({str(row.get("path")) for row in state["worktree"]["changed_files"]}
+            | set(_git_lines(root, ["ls-files", "--others", "--exclude-standard"])))
 
 
 def _safe_path(path: str) -> str | None:

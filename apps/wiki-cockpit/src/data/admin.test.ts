@@ -431,6 +431,7 @@ describe("command bus client (§11, §12.2)", () => {
             capability: ["system.inspect"],
             risk_level: "read",
             supports_dry_run: false,
+            parameter_schema: { reviewed_input: { required: true } },
             undo_strategy: null,
             granted: true
           }
@@ -453,6 +454,7 @@ describe("command bus client (§11, §12.2)", () => {
           capability: ["system.inspect"],
           riskLevel: "read",
           supportsDryRun: false,
+          requiresParameters: true,
           undoStrategy: null,
           granted: true,
           reason: undefined

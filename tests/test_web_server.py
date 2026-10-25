@@ -248,7 +248,8 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     assert "snapshot_external_freshness_v1" in body["schema_capabilities"]
     assert "admin_capabilities_v1" in body["schema_capabilities"]
     assert "admin_session_v1" in body["schema_capabilities"]
-    assert "admin_commands_v1", "revocable_documentary_proposals_v1" in body["schema_capabilities"]
+    assert "admin_commands_v1" in body["schema_capabilities"]
+    assert "revocable_documentary_proposals_v1" in body["schema_capabilities"]
     assert "operator_security_v1" not in body["schema_capabilities"]
     assert body["operator_security"]["version"] == "wiki_operator_security.v2"
     assert body["operator_security"]["nonce"] == server.server.operator_nonce

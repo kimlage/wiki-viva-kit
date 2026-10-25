@@ -235,6 +235,21 @@ describe("AdminDock — §6.3 states, read-only", () => {
 });
 
 describe("AdminDock — command bus section (plan §11/§14, PR4)", () => {
+  it("does not submit empty parameters for commands requiring reviewed inputs", async () => {
+    loadAdminAccess.mockResolvedValue(activeAccess());
+    const result = catalogResult();
+    if (!result.ok) throw new Error("synthetic catalog unavailable");
+    result.commands[0].requiresParameters = true;
+    fetchAdminCommandCatalog.mockResolvedValue(result);
+    const onNotice = vi.fn();
+    setAdminCommandIntent("system.inspect");
+    render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} onNotice={onNotice} />);
+    await waitFor(() => expect(onNotice).toHaveBeenCalledWith(t("admin.commands.parametersRequired")));
+    const button = screen.getByRole("button", { name: t("admin.commands.plan") }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(planAdminCommand).not.toHaveBeenCalled();
+  });
   it("locked dock has no commands section and never fetches the catalog", async () => {
     loadAdminAccess.mockResolvedValue(lockedAccess());
     render(<AdminDock admin={adminPort()} bundle={bundle()} demo={false} runtimeMode="local_operator" onClose={() => {}} />);

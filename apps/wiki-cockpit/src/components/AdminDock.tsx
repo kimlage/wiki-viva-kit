@@ -137,6 +137,10 @@ export function AdminDock({
   }, [sessionActive, demo, probe]);
 
   const startPlan = (entry: AdminCommandCatalogEntry, dryRun: boolean) => {
+    if (entry.requiresParameters) {
+      onNotice?.(t("admin.commands.parametersRequired"));
+      return;
+    }
     if (planningId !== null) return;
     setPlanningId(entry.id);
     void admin.planAdminCommand(entry.id, {}, { dryRun }).then((result) => {
@@ -339,7 +343,7 @@ export function AdminDock({
                           <button
                             className="secondaryButton"
                             type="button"
-                            disabled={planningId !== null}
+                            disabled={planningId !== null || entry.requiresParameters}
                             onClick={() => startPlan(entry, dryRunIds.has(entry.id))}
                           >
                             <ListChecks size={14} aria-hidden />
@@ -349,6 +353,7 @@ export function AdminDock({
                                 : t("admin.commands.plan")}
                             </span>
                           </button>
+                          {entry.requiresParameters && <small>{t("admin.commands.parametersRequired")}</small>}
                         </div>
                       ) : (
                         <small>{reason ?? t("admin.capability.notGranted")}</small>

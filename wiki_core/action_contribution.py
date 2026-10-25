@@ -293,7 +293,9 @@ def _validation_policy(config: WikiConfig) -> str:
     return policy
 
 
-def _local_integration_gates(root: Path, commit: str) -> list[dict]:
+def _local_integration_gates(root: Path, commit: str, *, effect_runner=None,
+                             required_policy: str = "local_gates",
+                             record_support_override: bool | None = None) -> list[dict]:
     """Re-run the existing gates on the immutable reviewed head, never caller receipts.
 
     This local clone reads retained Git objects, without fetching from GitHub or
@@ -306,10 +308,12 @@ def _local_integration_gates(root: Path, commit: str) -> list[dict]:
         _run(root, "git", "clone", "--shared", "--no-checkout", str(root), str(scratch))
         _git(scratch, "checkout", "--detach", commit)
         config = load_config(scratch)
-        if _validation_policy(config) != "local_gates":
+        if _validation_policy(config) != required_policy:
             raise ContributionError("committed_validation_policy_mismatch")
         support = _support_path(scratch, _git(scratch, "rev-parse", commit + "^"))
-        receipts = _gates(scratch, config, record_support=bool(support), committed_head=commit)
+        receipts = _gates(scratch, config,
+                          record_support=bool(support) if record_support_override is None else record_support_override,
+                          committed_head=commit, effect_runner=effect_runner)
         if (_git(scratch, "rev-parse", "HEAD") != commit
                 or _git(scratch, "status", "--porcelain", "--untracked-files=all")):
             raise ContributionError("local_validation_modified_proposal", {"gate_receipts": receipts})

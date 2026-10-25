@@ -31,7 +31,7 @@ from wiki_core.web.git_workflows import CHECKOUT_LOCK, run_git_workflow
 SCHEMA = "wiki_normal_proposal.v1"
 MAX_MATERIAL_BYTES = 8 * 1024 * 1024
 MAX_STAGING_BYTES = 128 * 1024 * 1024
-C2_IDS = ("input_stage", "operational_pass", "operation")
+C2_IDS = ("input_stage", "operation", "operational_pass")
 
 
 class ProposalError(ValueError):
@@ -416,9 +416,12 @@ def prepare_proposal(root: Path, config: WikiConfig, params: dict, *, expected_o
         applied: list[str] = []
         started_paths: list[str] = []
         uncertain_git = False
+        last_git_result = None
 
         try:
             for ref, after in preview["outputs"].items():
+                if after == preview["readset"].get(ref):
+                    continue  # A fixed C2 output can already be current.
                 started_paths.append(ref)
                 if ref == preview["material"]["action"]["page_ref"]:
                     effect(lambda: _write_action(root, preview["material"]["action"]))
@@ -445,6 +448,7 @@ def prepare_proposal(root: Path, config: WikiConfig, params: dict, *, expected_o
                         _git(root, "branch", "--show-current") != preview["material"]["branch"]):
                     raise ProposalError("proposal_git_base_changed")
                 result = effect(lambda: run_git_workflow(root, config, operation, payload, dry_run=False))
+                last_git_result = result
                 if not result.get("ok"):
                     uncertain_git = bool(result.get("outcome_uncertain"))
                     raise ProposalError("proposal_git_effect_failed")
@@ -459,6 +463,7 @@ def prepare_proposal(root: Path, config: WikiConfig, params: dict, *, expected_o
             return {"output": {"prepared": False, "error_code": getattr(exc, "code", "proposal_effect_failed"),
                                "partial_paths": applied, "uncertain_paths": uncertain,
                                "outcome_uncertain": uncertain_git,
+                               "last_git_result": last_git_result,
                                "canonical_main_changed": False}, "affected_paths": list(dict.fromkeys(applied + uncertain)),
                     "failed": True}
         return {"output": {"prepared": True, "head": _git(root, "rev-parse", "HEAD"),
@@ -485,22 +490,83 @@ def publish_proposal(root: Path, config: WikiConfig, *, expected_head: str, oper
         raise ProposalError("proposal_unsupported_provider_operation")
     allowed = set() if operation == "publish_proposal" else {"title", "body"}
     _closed(payload, set(), allowed)
+    from wiki_core.action_transition import _assert_no_secrets
+    for value in payload.values():
+        if not isinstance(value, str):
+            raise ProposalError("proposal_provider_text_required")
+        _assert_no_secrets(value)
     with CHECKOUT_LOCK:
         from wiki_core.action_contribution import _repository
         from wiki_core.web.git_workflows import _run, _ok_response
         repository = _repository(root)
+        fetch_url = _git(root, "remote", "get-url", "origin")
+        push_urls = _git(root, "remote", "get-url", "--push", "--all", "origin").splitlines()
+        if push_urls != [fetch_url]:
+            raise ProposalError("proposal_push_destination_mismatch")
         branch = _git(root, "branch", "--show-current")
+        _assert_no_secrets(branch)
         if (not isinstance(expected_head, str) or not re.fullmatch(r"[0-9a-f]{40,64}", expected_head)
                 or _git(root, "rev-parse", "HEAD") != expected_head
                 or branch == str(config.approval.get("default_branch") or "main")
                 or not branch.startswith(str(config.approval.get("branch_prefix") or "wiki/"))):
             raise ProposalError("proposal_git_base_changed")
         def provider_effect():
-            if _repository(root) != repository or _git(root, "rev-parse", "HEAD") != expected_head:
+            if (_repository(root) != repository or _git(root, "rev-parse", "HEAD") != expected_head
+                    or _git(root, "remote", "get-url", "--push", "--all", "origin").splitlines() != [fetch_url]):
                 raise ProposalError("proposal_git_base_changed")
+            def remote_head():
+                result = _run(root, ["git", "ls-remote", "--heads", "origin", "refs/heads/" + branch], timeout_seconds=60)
+                rows = result.get("stdout", "").splitlines()
+                if not result.get("ok") or len(rows) > 1:
+                    raise ProposalError("proposal_remote_head_unavailable")
+                if rows and (len(rows[0].split()) != 2 or rows[0].split()[1] != "refs/heads/" + branch
+                             or not re.fullmatch(r"[0-9a-f]{40,64}", rows[0].split()[0])):
+                    raise ProposalError("proposal_remote_head_unavailable")
+                return rows[0].split()[0] if rows else None
+            def valid_pr(pr):
+                return bool(isinstance(pr, dict) and pr.get("headRefOid") == expected_head
+                    and pr.get("headRefName") == branch and pr.get("state") == "OPEN"
+                    and pr.get("baseRefName") == str(config.approval.get("default_branch") or "main"))
+            def dispatch(argv, timeout_seconds):
+                try:
+                    return _run(root, argv, timeout_seconds=timeout_seconds)
+                except Exception:
+                    # A process may already have run before decoding fails.
+                    # Observation below must reconcile its effect, not retry.
+                    return {"ok": False, "returncode": None, "argv": argv,
+                            "stderr": "provider outcome requires readback"}
+            def prior_pr():
+                observation = _run(root, ["gh", "pr", "list", "--repo", repository,
+                    "--head", branch, "--base", str(config.approval.get("default_branch") or "main"),
+                    "--state", "open", "--json", "url,headRefOid,headRefName,baseRefName,state,title,body"], timeout_seconds=60)
+                try:
+                    values = json.loads(observation.get("stdout") or "null")
+                    if not observation.get("ok") or not isinstance(values, list) or len(values) > 1:
+                        raise ValueError()
+                    if values and not valid_pr(values[0]):
+                        raise ProposalError("proposal_provider_head_mismatch")
+                    return values[0] if values else None
+                except (ValueError, TypeError) as exc:
+                    raise ProposalError("proposal_provider_observation_unavailable") from exc
+            before_head = remote_head()
             if operation == "publish_proposal":
-                result = _run(root, ["git", "push", "-u", "origin", branch], timeout_seconds=180)
+                if before_head == expected_head:
+                    return {"ok": True, "status": "observed_published", "head": expected_head,
+                            "outcome_uncertain": False, "new_provider_effect": False}
+                result = dispatch(["git", "push", "origin", expected_head + ":refs/heads/" + branch], 180)
             else:
+                if before_head != expected_head:
+                    raise ProposalError("proposal_remote_head_mismatch")
+                before_pr = prior_pr()
+                if operation == "update_draft_pr" and before_pr is None:
+                    raise ProposalError("proposal_provider_pr_missing")
+                if operation == "open_draft_pr" and before_pr:
+                    if (before_pr.get("title") != str(payload.get("title") or branch)
+                            or before_pr.get("body") != str(payload.get("body") or "Prepared documentary proposal.")):
+                        raise ProposalError("proposal_existing_pr_requires_reconciliation")
+                    return {"ok": True, "status": "observed_pr", "head": expected_head,
+                            "pr_url": before_pr.get("url"), "outcome_uncertain": False,
+                            "new_provider_effect": False, "served_adoption_verified": False}
                 body = str(payload.get("body") or "Prepared documentary proposal.")
                 from wiki_core.action_transition import _assert_no_secrets
                 _assert_no_secrets(body)
@@ -512,17 +578,83 @@ def publish_proposal(root: Path, config: WikiConfig, *, expected_head: str, oper
                             "--repo", repository, "--title", str(payload.get("title") or branch), "--body-file", file.name]
                     if operation == "open_draft_pr":
                         argv.extend(["--draft", "--base", str(config.approval.get("default_branch") or "main"), "--head", branch])
-                    result = _run(root, argv, timeout_seconds=180)
-            return _ok_response(operation, dry_run=False, summary="Exact prepared-head provider operation", results=[result])
+                    result = dispatch(argv, 180)
+            try:
+                after_head = remote_head()
+                verified = after_head == expected_head
+                observed_pr = None
+                if operation != "publish_proposal":
+                    readback = _run(root, ["gh", "pr", "view", branch, "--repo", repository,
+                        "--json", "url,headRefOid,headRefName,baseRefName,state,title,body"], timeout_seconds=60)
+                    observed_pr = json.loads(readback.get("stdout") or "null") if readback.get("ok") else None
+                    verified = bool(verified and valid_pr(observed_pr)
+                        and observed_pr.get("title") == str(payload.get("title") or branch)
+                        and observed_pr.get("body") == str(payload.get("body") or "Prepared documentary proposal."))
+            except Exception:
+                after_head, observed_pr, verified = None, None, False
+            return {**_ok_response(operation, dry_run=False, summary="Provider operation with prepared-head readback", results=[result]),
+                    "ok": verified, "outcome_uncertain": not verified, "head": expected_head,
+                    "remote_head_before": before_head, "remote_head_after": after_head,
+                    "pr_url": observed_pr.get("url") if observed_pr else None,
+                    "readback_only_no_provider_lock": True, "served_adoption_verified": False}
         admitted = manager.execute_current(token, session_id, ("git.publish",), provider_effect)
         if not admitted.get("ok"):
             raise ProposalError(admitted["error_code"])
         return admitted["result"]
 
 
+def committed_config(root: Path, revision: str) -> WikiConfig:
+    if not re.fullmatch(r"[0-9a-f]{40,64}", str(revision)):
+        raise ProposalError("proposal_invalid_git_revision")
+    with tempfile.TemporaryDirectory(prefix="wiki-proposal-policy-") as folder:
+        target = Path(folder)
+        for ref in _git(root, "ls-tree", "--name-only", revision).splitlines():
+            if len(Path(ref).parts) == 1 and ref.startswith("wiki") and ref.endswith(".yaml"):
+                (target / ref).write_bytes(subprocess.check_output(["git", "show", revision + ":" + ref], cwd=root))
+        return load_config(target)
+
+
+def promotion_policy(root: Path, params: dict) -> WikiConfig:
+    """Only approved code/policy can validate this documentary proposal."""
+    approved = params["approved_base"]
+    config = committed_config(root, params["expected_head"])
+    base_config = committed_config(root, approved)
+    default = str(base_config.approval.get("default_branch") or "main")
+    if (_git(root, "rev-parse", default) != approved or config.approval != base_config.approval
+            or config.paths != base_config.paths):
+        raise ProposalError("proposal_approved_policy_mismatch")
+    if subprocess.run(["git", "merge-base", "--is-ancestor", approved, params["expected_head"]], cwd=root,
+                      capture_output=True).returncode:
+        raise ProposalError("proposal_approved_base_mismatch")
+    changed = _git(root, "diff", "--name-only", approved, params["expected_head"]).splitlines()
+    if not changed:
+        raise ProposalError("proposal_empty_delta")
+    for ref in changed:
+        if ref == "wiki.config.yaml":
+            before = subprocess.check_output(["git", "show", approved + ":" + ref], cwd=root).decode()
+            after = subprocess.check_output(["git", "show", params["expected_head"] + ":" + ref], cwd=root).decode()
+            for key in ("freshness_base", "freshness_records"):
+                value = str(config.audit.get(key) or "")
+                if key == "freshness_base" and not re.fullmatch(r"[0-9a-f]{40,64}", value):
+                    raise ProposalError("proposal_invalid_freshness_base")
+                if key == "freshness_records":
+                    _document_target(root, base_config, value)
+                before, count = re.subn(r"(?m)^  " + key + r":.*$", "  " + key + ": " + value, before)
+                if count != 1:
+                    raise ProposalError("proposal_freshness_pointer_not_unique")
+            if before != after:
+                raise ProposalError("proposal_config_change_outside_pointer")
+        else:
+            _document_target(root, base_config, ref)
+            if not _git(root, "ls-tree", params["expected_head"], "--", ref).startswith("100644 blob "):
+                raise ProposalError("proposal_requires_committed_regular_document")
+    return config
+
+
 def promotion_review(root: Path, config: WikiConfig, params: dict) -> dict:
     """Integrity/policy condition only; the live session grants no review."""
-    _closed(params, {"expected_head", "pr", "review_path", "review_sha256"})
+    _closed(params, {"expected_head", "approved_base", "pr", "review_path", "review_sha256"})
+    config = promotion_policy(root, params)
     path = _safe(root, params["review_path"])
     if not path.is_relative_to(WikiPaths(root, config).derived_root):
         raise ProposalError("proposal_review_must_be_derived")
@@ -532,14 +664,14 @@ def promotion_review(root: Path, config: WikiConfig, params: dict) -> dict:
     from wiki_core.action_transition import _assert_no_secrets
     _assert_no_secrets(raw.decode())
     review = json.loads(raw)
-    _closed(review, {"schema_version", "head", "repository", "author", "reviewer", "decision", "unresolved_findings", "evidence"})
+    _closed(review, {"schema_version", "head", "approved_base", "repository", "author", "reviewer", "decision", "unresolved_findings", "evidence"})
     from wiki_core.action_contribution import _repository
     if (review["schema_version"] != "wiki_normal_review.v1" or review["head"] != params["expected_head"]
             or review["decision"] != "approved" or review["unresolved_findings"] != []
             or not all(isinstance(review[k], str) and review[k].strip() for k in ("author", "reviewer", "evidence"))
             or review["author"].strip() == review["reviewer"].strip()
             or len(params["pr"]) > 12 or not re.fullmatch(r"[1-9][0-9]*", params["pr"])
-            or review["repository"] != _repository(root)):
+            or review["repository"] != _repository(root) or review["approved_base"] != params["approved_base"]):
         raise ProposalError("proposal_independent_review_required")
     if bool(config.approval.get("require_human_review", True)):
         # This adapter cannot infer a human approval from a local assertion.
@@ -549,76 +681,123 @@ def promotion_review(root: Path, config: WikiConfig, params: dict) -> dict:
 
 def promote_proposal(root: Path, config: WikiConfig, params: dict, *, manager: AdminSessionManager,
                      token: str, session_id: str) -> dict:
-    """Normal PR promotion with existing gates, live admission and exact-head CAS.
-
-    It does not call the contribution port or infer a grant from freshness.
-    Full repository checks and an actual independent review remain mandatory;
-    the existing policy gates are rechecked here, one admitted command at a time.
-    """
-    from wiki_core.action_contribution import _gates, _validation_policy, _repository
+    """Validate immutable approved code/policy, then guard each provider effect."""
+    from wiki_core.action_contribution import (_local_integration_gates, _validation_policy,
+                                               _integration_pr_wait, _repository, ContributionError)
     from wiki_core.web.git_workflows import _run
     with CHECKOUT_LOCK:
         review = promotion_review(root, config, params)
-        expected_head = params["expected_head"]
+        config = promotion_policy(root, params)
+        expected_head, approved = params['expected_head'], params['approved_base']
         repository = _repository(root)
-        branch = _git(root, "branch", "--show-current")
-        default = str(config.approval.get("default_branch") or "main")
-        if (config.approval.get("gate") != "github_pr" or _git(root, "rev-parse", "HEAD") != expected_head
-                or branch == default or not branch.startswith(str(config.approval.get("branch_prefix") or "wiki/"))):
-            raise ProposalError("proposal_git_base_changed")
+        _, owner, name = repository.split('/')
+        branch = _git(root, 'branch', '--show-current')
+        default = str(config.approval.get('default_branch') or 'main')
+        if (_git(root, 'rev-parse', 'HEAD') != expected_head or branch == default
+                or not branch.startswith(str(config.approval.get('branch_prefix') or 'wiki/'))):
+            raise ProposalError('proposal_git_base_changed')
+        results, gates = [], []
 
         def admitted(call, capabilities):
             outcome = manager.execute_current(token, session_id, capabilities, call)
-            if not outcome.get("ok"):
-                raise ProposalError(outcome["error_code"])
-            return outcome["result"]
-
-        gates = _gates(root, config, committed_head=expected_head,
-                       effect_runner=lambda call: admitted(call, ("gates.run",)))
-        # A long gate batch never carries authority forward by itself.
-        promotion_review(root, config, params)
-        if (_git(root, "rev-parse", "HEAD") != expected_head or _git(root, "branch", "--show-current") != branch
-                or _repository(root) != repository):
-            raise ProposalError("proposal_git_base_changed")
+            if not outcome.get('ok'):
+                raise ProposalError(outcome['error_code'])
+            return outcome['result']
 
         def observe():
-            data = _run(root, ["gh", "pr", "view", params["pr"], "--repo", repository, "--json",
-                       "headRefOid,baseRefName,state,isDraft,statusCheckRollup,mergeCommit"], timeout_seconds=60)
-            if not data["ok"]:
-                raise ProposalError("proposal_provider_observation_unavailable")
-            return json.loads(data["stdout"])
-
-        pr = observe()
-        if pr.get("headRefOid") != expected_head or pr.get("baseRefName") != default or pr.get("state") != "OPEN":
-            raise ProposalError("proposal_provider_head_mismatch")
-        if _validation_policy(config) == "github_checks":
-            checks = pr.get("statusCheckRollup")
-            if not checks or any((c.get("conclusion") or c.get("state")) != "SUCCESS" for c in checks):
-                raise ProposalError("proposal_provider_checks_required")
-        results = []
-        if pr.get("isDraft"):
-            def ready_effect():
-                result = _run(root, ["gh", "pr", "ready", params["pr"], "--repo", repository], timeout_seconds=60)
-                return {**result, "outcome_uncertain": result["returncode"] is None}
-            ready = admitted(ready_effect, ("git.publish",))
-            results.append(ready)
-            if not ready["ok"]:
-                return {"ok": False, "status": "provider_result_uncertain" if ready["returncode"] is None else "failed",
-                        "outcome_uncertain": ready["returncode"] is None, "results": results}
-
-        def merge_and_observe():
-            result = _run(root, ["gh", "pr", "merge", params["pr"], "--repo", repository,
-                         "--squash", "--match-head-commit", expected_head], timeout_seconds=180)
+            data = _run(root, ['gh', 'pr', 'view', params['pr'], '--repo', repository, '--json',
+                'number,headRefOid,headRefName,baseRefOid,baseRefName,state,isDraft,isCrossRepository,'
+                'headRepository,headRepositoryOwner,statusCheckRollup,reviewDecision,reviews,mergeCommit'], timeout_seconds=60)
             try:
-                after = observe()
-            except ProposalError:
-                after = None
-            verified = bool(after and after.get("state") == "MERGED" and after.get("headRefOid") == expected_head
-                            and (after.get("mergeCommit") or {}).get("oid"))
-            return {"ok": verified, "status": "merged" if verified else "provider_result_uncertain",
-                    "outcome_uncertain": not verified, "result": result,
-                    "merge_commit": (after.get("mergeCommit") or {}).get("oid") if after else None}
+                if not data['ok']:
+                    raise ValueError()
+                value = json.loads(data['stdout'])
+                if not isinstance(value, dict):
+                    raise ValueError()
+                return value
+            except (ValueError, TypeError, KeyError) as exc:
+                raise ProposalError('proposal_provider_observation_unavailable') from exc
 
-        result = admitted(merge_and_observe, ("git.publish",))
-        return {**result, "head": expected_head, "gate_receipts": gates,
-                "reviewer": review["reviewer"], "served_adoption_verified": False}
+        def identity(pr, *, merged=False):
+            if (not isinstance(pr.get('headRepository'), dict)
+                    or not isinstance(pr.get('headRepositoryOwner'), dict)
+                    or not isinstance(pr.get('isDraft'), bool)
+                    or pr.get('number') != int(params['pr']) or pr.get('headRefOid') != expected_head
+                    or pr.get('headRefName') != branch or pr.get('baseRefName') != default
+                    or pr.get('isCrossRepository') is not False
+                    or (pr.get('headRepository') or {}).get('name', '').lower() != name.lower()
+                    or (pr.get('headRepositoryOwner') or {}).get('login', '').lower() != owner.lower()
+                    or (not merged and pr.get('baseRefOid') != approved)):
+                raise ProposalError('proposal_provider_head_mismatch')
+
+        def ready_for_effect(pr, *, allow_draft=False):
+            identity(pr)
+            waiting = _integration_pr_wait(root, config, {**pr, **({'isDraft': False} if allow_draft else {})},
+                                           expected_head, _validation_policy(config))
+            if waiting:
+                raise ProposalError('proposal_' + waiting['status'])
+            promotion_review(root, config, params)
+            if (_git(root, 'rev-parse', 'HEAD') != expected_head
+                    or _git(root, 'branch', '--show-current') != branch or _repository(root) != repository):
+                raise ProposalError('proposal_git_base_changed')
+
+        try:
+            pr = observe()
+            if pr.get('state') == 'MERGED':
+                identity(pr, merged=True)
+                if (not isinstance(pr.get('mergeCommit'), dict)
+                        or not re.fullmatch(r'[0-9a-f]{40,64}', str(pr['mergeCommit'].get('oid')))):
+                    raise ProposalError('proposal_merge_readback_unavailable')
+                return {'ok': True, 'status': 'observed_merged', 'head': expected_head,
+                        'merge_commit': pr['mergeCommit']['oid'], 'new_provider_effect': False,
+                        'served_adoption_verified': False}
+            ready_for_effect(pr, allow_draft=True)
+            gates = admitted(lambda: _local_integration_gates(root, expected_head,
+                effect_runner=lambda call: admitted(call, ('gates.run',)),
+                required_policy=_validation_policy(config), record_support_override=True), ('gates.run',))
+            pr = observe()
+            ready_for_effect(pr, allow_draft=True)
+            if pr.get('isDraft'):
+                def ready_effect():
+                    ready_for_effect(observe(), allow_draft=True)
+                    result = None
+                    try:
+                        result = _run(root, ['gh', 'pr', 'ready', params['pr'], '--repo', repository], timeout_seconds=60)
+                        after = observe()
+                        identity(after)
+                        verified = after.get('state') == 'OPEN' and after.get('isDraft') is False
+                    except Exception:
+                        verified = False
+                    return {'ok': verified, 'stage': 'pr.ready', 'result': result,
+                            'outcome_uncertain': not verified}
+                ready = admitted(ready_effect, ('git.publish',))
+                results.append(ready)
+                if not ready['ok']:
+                    return {'ok': False, 'status': 'provider_result_uncertain', 'outcome_uncertain': True,
+                            'results': results, 'gate_receipts': gates, 'served_adoption_verified': False}
+
+            def merge_effect():
+                ready_for_effect(observe())
+                result = after = None
+                merge_oid = None
+                try:
+                    result = _run(root, ['gh', 'pr', 'merge', params['pr'], '--repo', repository,
+                        '--squash', '--match-head-commit', expected_head], timeout_seconds=180)
+                    after = observe()
+                    identity(after, merged=True)
+                    merge_oid = (after.get('mergeCommit') or {}).get('oid')
+                    verified = after.get('state') == 'MERGED' and bool(re.fullmatch(r'[0-9a-f]{40,64}', str(merge_oid)))
+                except Exception:
+                    verified = False
+                return {'ok': verified, 'stage': 'pr.merge', 'status': 'merged' if verified else 'provider_result_uncertain',
+                        'outcome_uncertain': not verified, 'result': result,
+                        'merge_commit': merge_oid if verified else None}
+            merged = admitted(merge_effect, ('git.publish',))
+            results.append(merged)
+            return {**merged, 'head': expected_head, 'results': results, 'gate_receipts': gates,
+                    'reviewer': review['reviewer'], 'served_adoption_verified': False}
+        except Exception as exc:
+            code = getattr(exc, 'code', str(exc) if isinstance(exc, ContributionError) else 'proposal_effect_failed')
+            return {'ok': False, 'error_code': code, 'status': 'partial' if results else 'refused',
+                    'results': results, 'gate_receipts': getattr(exc, 'details', {}).get('gate_receipts', gates), 'outcome_uncertain': False,
+                    'served_adoption_verified': False}

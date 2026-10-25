@@ -36,11 +36,11 @@ Read this first: a compact daily state of items that still need review, decision
 
 ### Latest updates
 
+- **system:** [Operations - wiki-viva-kit](../operations.md) (2026-10-25)
+- **system:** [Input stage](input-stage.md) (2026-10-25)
 - **system:** [Operational wiki contract](operational-wiki-contract.md) (2026-10-23)
 - **system:** [Memory log](log.md) (2026-10-15)
 - **system:** [Wiki Viva Kit](wiki-viva-kit.md) (2026-10-06)
-- **system:** [Wiki methodology maintenance](processes/wiki-methodology-maintenance.md) (2026-10-06)
-- **system:** [Perceptive layer and Information -> Insight cycle](wiki/perceptual-layer-insight.md) (2026-10-06)
 
 
 ## Context summary

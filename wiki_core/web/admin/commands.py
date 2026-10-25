@@ -123,7 +123,7 @@ ADMIN_COMMAND_SPECS: tuple[AdminCommandSpec, ...] = (
         capability=("git.publish", "gates.run"),
         risk_level="external_write",
         supports_dry_run=True,
-        parameter_schema={"expected_head": {"required": True}, "pr": {"required": True},
+        parameter_schema={"expected_head": {"required": True}, "approved_base": {"required": True}, "pr": {"required": True},
                           "review_path": {"required": True}, "review_sha256": {"required": True}},
         planner="proposal_promote", executor="proposal_promote", undo_strategy=None,
     ),

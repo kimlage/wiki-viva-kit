@@ -25,7 +25,9 @@ preimages. It stages native writer/C2 results in an isolated temporary tree,
 then checks the planned inputs and output hashes before installation. C2 uses
 the explicit material capture instant; the result separately records actual
 preparation time. Neither timestamp revalidates external facts. Only the three
-existing producers `input_stage`, `operational_pass` and `operation` are allowed.
+existing producers `input_stage`, `operation` and `operational_pass` are allowed,
+in that dependency order. Unchanged outputs are not staged; exact new files in
+an untracked directory remain selectable through the native Git workflow.
 They retain their documented readsets; a consumer must qualify any additional
 input/generator before extending this catalog.
 
@@ -48,9 +50,13 @@ operation did not happen. Preserve its receipt and reconcile the same PR/effect.
 This defines an admission and completion barrier, not cancellation or rollback.
 An already admitted operation can finish before lock is acknowledged. Separate
 publication and promotion steps revalidate authority after long gates and before
-each provider write. Promotion checks the independent final-head review, reruns
-the existing policy gates one command at a time, preserves the configured CI
-policy and merges using the provider's exact-head CAS. A local artifact is
+each provider write. Promotion binds `approved_base` to the approved main ref,
+permits only a documentary delta and reads policy from committed configuration.
+It checks the independent final-head review and runs the existing policy gates
+one command at a time in a detached temporary checkout of that immutable head.
+Caller worktree scripts, uncommitted policy and gate receipts cannot replace
+those inputs. Remote failed checks or requested changes still refuse promotion
+in local validation mode. Promotion uses the provider's exact-head CAS. A local artifact is
 review evidence; its hash is not a grant or proof of the reviewer's identity.
 The trusted operator must obtain the actual independent review and run all
 additional checks required by its repository instructions. Consumers requiring
@@ -59,7 +65,12 @@ not infer that approval from a local assertion.
 
 The synchronous action create/transition/run and Git workflow routes require
 the same current session and appropriate capabilities. Proposal listing remains
-read-only. Provider writes require the exact prepared head. The older HTTP
+read-only. Provider writes require the exact prepared head, effective push
+destination and PR identity. PR publication also reads back the requested
+title/body. A completed ready effect remains in the receipt if merge is later
+refused; unavailable or malformed post-effect observations remain uncertain.
+Provider readback is an observation, not a remote lock or evidence of served
+consumer adoption. The older HTTP
 contribution prepare/publish/integrate dispatch is refused because wrapping its
 whole gate/provider batch would not guard each effect. The contribution library
 retains its documented one-action/log scope; it is not a multi-page bypass.

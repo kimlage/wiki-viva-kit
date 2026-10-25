@@ -346,6 +346,7 @@ export type AdminCommandCatalogEntry = {
   capability: string[];
   riskLevel: string;
   supportsDryRun: boolean;
+  requiresParameters?: boolean;
   undoStrategy: string | null;
   granted: boolean;
   reason?: string;
@@ -574,6 +575,9 @@ export async function fetchAdminCommandCatalog(): Promise<AdminCatalogResult> {
         capability: stringList(item.capability),
         riskLevel: String(item.risk_level || "read"),
         supportsDryRun: item.supports_dry_run === true,
+        requiresParameters: !!item.parameter_schema && typeof item.parameter_schema === "object"
+          && Object.values(item.parameter_schema).some((field) =>
+            !!field && typeof field === "object" && (field as Record<string, unknown>).required === true),
         undoStrategy:
           typeof item.undo_strategy === "string" && item.undo_strategy
             ? item.undo_strategy

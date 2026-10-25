@@ -1661,6 +1661,7 @@ export const ES: Record<string, string> = {
   "admin.commands.loading": "Consultando al operador qué comandos puede planificar esta sesión…",
   "admin.commands.unavailable": "El operador no respondió con un catálogo de comandos.",
   "admin.commands.plan": "Revisar el plan",
+  "admin.commands.parametersRequired": "Este comando requiere entradas revisadas. Utilice la API de comandos admitida para proporcionarlas.",
   "admin.commands.planning": "Planificando…",
   "admin.commands.dryRun": "Simulación",
   "admin.commands.unknown": "El operador no conoce ese comando.",
