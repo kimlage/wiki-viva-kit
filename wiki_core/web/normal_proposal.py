@@ -164,6 +164,36 @@ def _write_action(root: Path, action: dict) -> None:
         transition_action_page(root, ref, expected_sha256=_sha((root / ref).read_bytes()), **action["transition"])
 
 
+def _pin_record_artifacts(root: Path, config: WikiConfig, material: dict,
+                          readset: dict[str, bytes | None]) -> None:
+    """Explicit evidence stays eligible and pinned in both contract versions."""
+    from wiki_core.document_records import artifact_paths
+    proposed = {doc["path"]: doc["after_text"].encode() for doc in material["documents"]}
+    active = config.audit.get("freshness_records")
+    candidate = (material.get("freshness_pointer") or {}).get("freshness_records")
+    for ref in sorted({ref for ref in (active, candidate) if ref}):
+        before = _bytes(root, ref)
+        readset[ref] = before
+        if before is None and (ref == active or ref not in proposed):
+            raise ProposalError("proposal_record_contract_missing")
+        snapshots = [data for data in (before, proposed.get(ref)) if data is not None]
+        for data in snapshots:
+            contract = json.loads(data)
+            for item in contract.get("artifacts", []):
+                if "document" in item:
+                    document = item["document"]
+                    # Structured BASE evidence may name a historical document
+                    # absent now; pin that absence without opening unsafe paths.
+                    readset[document] = _bytes(root, document)
+            for path in artifact_paths(root, contract, check_worktree=False).values():
+                artifact = path.relative_to(root).as_posix()
+                # Discovery may exclude editor state; an explicit dependency
+                # must still pass the exact same path and symlink guards.
+                readset[artifact] = _bytes(root, artifact)
+                if readset[artifact] is None and artifact not in proposed:
+                    raise ProposalError("proposal_record_artifact_missing")
+
+
 def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_runner=None,
                      expected_readset_sha256: str | None = None) -> dict:
     material, material_sha = load_material(root, config, params)
@@ -172,6 +202,11 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
     names = subprocess.check_output(["git", "ls-files", "-z"], cwd=root).decode().split("\0")
     for ref in filter(None, names):
         candidate = root / ref
+        # Obsidian's non-Markdown control files are not native documentary/C2
+        # inputs. This only filters automatic discovery; explicit dependencies
+        # and targets below retain _safe, including the hidden-path refusal.
+        if candidate.is_relative_to(paths.memory_root / ".obsidian") and candidate.suffix != ".md":
+            continue
         if (candidate.is_relative_to(paths.memory_root) or candidate.is_relative_to(paths.references_root)
                 or (len(Path(ref).parts) == 1 and ref.startswith("wiki") and ref.endswith(".yaml"))):
             readset[ref] = _bytes(root, ref)
@@ -280,6 +315,7 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
         if not re.fullmatch(r"[0-9a-f]{40,64}", pointer["freshness_base"]):
             raise ProposalError("proposal_invalid_freshness_base")
         _document_target(root, config, pointer["freshness_records"])
+    _pin_record_artifacts(root, config, material, readset)
     if sum(len(v) for v in readset.values() if v is not None) > MAX_STAGING_BYTES:
         raise ProposalError("proposal_staging_budget_exceeded")
     for target in c2_targets:
