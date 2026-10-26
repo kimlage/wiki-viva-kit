@@ -123,9 +123,16 @@ def normative_revalidations(plan, contract, artifact_inputs, base, current):
         # A second artifact ID does not turn the reviewed object into an
         # independent authority. Semantic independence still requires review.
         subject_hashes = {digest(g['documents'][path]) for g in (base, current)}
-        subject_hashes.update(current['nodes'][n]['record_sha256'] for n in {consumer, *required})
+        subject_hashes.update(g['nodes'][n]['record_sha256']
+                              for g in (base, current) for n in {consumer, *required})
         proof_ids = {claim['evidence_id'] for claim in items
                      if isinstance(claim, dict) and isinstance(claim.get('evidence_id'), str)}
+        proof_hashes = {claim['evidence_sha256'] for claim in items
+                        if isinstance(claim, dict) and isinstance(claim.get('evidence_sha256'), str)}
+        proof_hashes.update(a['sha256'] for a in contract.get('artifacts', [])
+                            if a.get('origin') == 'current' and a.get('id') == plan['review_evidence']
+                            and isinstance(a.get('sha256'), str))
+        subject_hashes.update(proof_hashes)
         seen_sources = set()
         for source in sources:
             fields = {'evidence_id', 'sha256', 'purpose'}

@@ -649,6 +649,10 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                            "".join(selection_lines[part["start"]:part["end"]]))
                 graph["verified_record_substantive_sha256"][nid] = substantive_digest(
                     content, selector=shapes[rid].get("selector"), claim=shapes[rid].get("claim"))
+    from wiki_core.causal_reconciliation import append_only_partitions
+    append_proofs = append_only_partitions(graphs, partitions, declarations, modes)
+    for graph in graphs.values():
+        graph['verified_append_only_partitions'] = copy.deepcopy(append_proofs)
     # A precise v2 edit retains its raw identity for WHOLE consumers. Record
     # separately that this raw seed is a representation carrier, not a request
     # to revalidate independent, untouched siblings. Only the projector may

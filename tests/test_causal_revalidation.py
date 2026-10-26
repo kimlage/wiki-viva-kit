@@ -10,7 +10,8 @@ from wiki_core.document_records import digest, project_records, sections, struct
 
 
 def revalidated_pair(*, mutation=None, context=False, support=True, disposition='revalidated',
-                     base_date='2026-01-01', current_date='2026-10-26', select=None, source_kind=None):
+                     base_date='2026-01-01', current_date='2026-10-26', select=None, source_kind=None,
+                     changed_context=False):
     b,c,changed,spec = unchanged_unit_sibling_repair('h2_v1')
     b['nodes']['consumer']['updated_at']=base_date
     c['nodes']['consumer']['updated_at']=current_date
@@ -19,11 +20,13 @@ def revalidated_pair(*, mutation=None, context=False, support=True, disposition=
     decl=next(d for d in spec['documents'] if d['path']=='consumer')
     if context:
         text='## Limits\n\nAccount and effect permissions are independent of this local rule.\n'
-        for g in (b,c):g['documents']['consumer']+='\n'+text
+        old_text=text.replace('Account and effect permissions', 'Existing effect permissions') if changed_context else text
+        b['documents']['consumer']+='\n'+old_text
+        c['documents']['consumer']+='\n'+text
         decl['records'][0]['context_records']=['limits']
         decl['records'].append(dict(id='limits',heading='Limits',independent=True,
             rationale='Complete mandatory limit.',epistemic_status='decision',recorded_on='2026-10-26',
-            context_records=[],base_sha256=digest(text),current_sha256=digest(text)))
+            context_records=[],base_sha256=digest(old_text),current_sha256=digest(text)))
     for origin,g in (('base',b),('current',c)):
         spec[origin+'_documents_sha256']['consumer']=digest(g['documents']['consumer'])
         decl['records'][0][origin+'_sha256']=digest(sections(g['documents']['consumer'])[1]['Specific'][2])
@@ -39,6 +42,7 @@ def revalidated_pair(*, mutation=None, context=False, support=True, disposition=
     if source_kind=='document':source=c['documents']['consumer'].encode()
     if source_kind=='base_document':source=b['documents']['consumer'].encode()
     if source_kind=='context':source=text.encode()
+    if source_kind=='base_context':source=old_text.encode()
     proof['sources'].append(dict(evidence_id='checked-local-policy',sha256=digest(source.decode()),purpose='Actual normative authority and conditions.'))
     if mutation:mutation(b,c,changed,spec,proof)
     data=(json.dumps(proof,sort_keys=True)+'\n').encode()
@@ -228,3 +232,34 @@ def test_second_cause_and_cycle_need_their_own_dispositions():
     result=run(*args)
     assert any(r['seed']=='other' and r['reason']=='causal_missing' for r in result['blockers'])
     assert not result['ok']
+
+
+def test_old_context_alias_is_not_independent_authority():
+    with pytest.raises(ValueError,match='circular normative source evidence'):
+        run(*revalidated_pair(context=True,changed_context=True,source_kind='base_context'))
+
+
+def test_other_revalidation_proof_alias_is_not_source_evidence():
+    b,c,s,n,i=revalidated_pair(context=True,
+        select=lambda e,o:e['consumer'] in {'consumer::record:specific','consumer::record:limits'})
+    first=json.loads(i['current','normative-revalidation'])
+    context=first['contexts'][0]
+    second=dict(first,consumer=context['node'],base_sha256=context['sha256'],
+                current_sha256=context['sha256'],complete_text=context['complete_text'],contexts=[])
+    second_bytes=(json.dumps(second,sort_keys=True)+'\n').encode()
+    second_hash=digest(second_bytes.decode())
+    for aid in ('context-revalidation','alias-of-context-revalidation'):
+        n['artifacts'].append(dict(origin='current',id=aid,path=aid+'.json',sha256=second_hash))
+        i['current',aid]=second_bytes
+    first['sources']=[dict(evidence_id='alias-of-context-revalidation',sha256=second_hash,
+                           purpose='Claimed authority that is actually another review proof.')]
+    first_bytes=(json.dumps(first,sort_keys=True)+'\n').encode()
+    i['current','normative-revalidation']=first_bytes
+    next(a for a in n['artifacts'] if a['id']=='normative-revalidation')['sha256']=digest(first_bytes.decode())
+    claims=n['causal_review']['normative_revalidations']
+    claims[0]['evidence_sha256']=digest(first_bytes.decode())
+    claims.append(dict(consumer=context['node'],evidence_id='context-revalidation',
+                       evidence_sha256=second_hash,reason='Actual current review of the complete limits.'))
+    reseal_review(n,i)
+    with pytest.raises(ValueError,match='circular normative source evidence'):
+        run(b,c,s,n,i)

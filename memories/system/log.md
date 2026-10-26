@@ -1454,3 +1454,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 - The existing [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) can record an actual sourced review of a complete intact normative rule through the `revalidated` disposition. It requires a stale BASE, fresh CURRENT, unchanged cadence, complete normative contexts and independent review of the exact pair.
 - The [revalidation verifier](../../wiki_core/causal_revalidation.py) preserves real prerequisites and competing causes. [Synthetic regressions](../../tests/test_causal_revalidation.py) reject inherited dates without proof, factual contexts, future verification, missing current evidence and replayed reviews. This mechanism does not revalidate external facts, change action/source states, or grant operational permissions.
+
+## [2026-10-26] Occurrence-bound reconciliation of repaired premises
+
+- The [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) can explicitly reconcile an intact consumer with a substantively repaired premise on that same arrival and seed. Complete scope, retained factual relations, freshness, other causes and independent review remain required.
+- The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) also proves exact append-only remainder equivalence without clearing WHOLE consumers or new records. [Arrival regressions](../../tests/test_causal_upstream_repairs.py) and [append regressions](../../tests/test_causal_append_partition.py) distinguish supported reconciliation from branch borrowing, scope loss, source aliases and stale replay. No account, credential or operational authority changes.

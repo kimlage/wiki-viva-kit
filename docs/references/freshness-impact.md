@@ -290,6 +290,45 @@ Reviewing a migration must additionally compare the prior approved contract:
 narrowing both origins is not justified by their mutual equality. No legacy
 `impact_closure` statement becomes a freshness waiver.
 
+A `no_change` or `revalidated` disposition may explicitly declare
+`reviewed_upstream_repairs`, a nonempty list of unique prerequisite node IDs.
+This is an occurrence-specific causal judgment, not a general flag that an
+upstream page was reviewed. Each node must have a substantive repair in the
+same complete unit, preserve scope, mandatory contexts and all old factual
+relations, and lie in this arrival's factual prerequisite branch. Reachability
+requires an uninterrupted path of validated `updated` dispositions from the
+same seed. A direct repaired seed can qualify only when it is this arrival's
+prerequisite; its complete delta still requires the disposition's substantive
+reason and independent review. Another seed, branch, sibling repair or cycle
+cannot supply that support.
+
+The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) compares
+the intact consumer's interpretation up to the declared repaired premises.
+Every declared premise must be actually necessary for this arrival: removing
+it must break the proved equivalence. All previously consumed prerequisite
+scopes must remain intact even behind a repaired premise. Missing, unknown,
+duplicate, unnecessary or misplaced declarations fail closed. The old relation
+multiset must be retained; a reviewed section relocation requires an unambiguous
+one-to-one occurrence correspondence with all other semantics unchanged.
+Global section/role/target/scope checks are not relaxed. Added citations remain
+real prerequisites. The full BASE/CURRENT union, freshness checks, other
+arrivals and downstream debt are still evaluated. Without this explicit field,
+repaired upstream premises do not excuse a changed interpretation. The existing
+pair, census and independent-review receipt seal the declaration and proof path.
+[Synthetic arrival tests](../../tests/test_causal_upstream_repairs.py) cover the
+positive path and competing causes, branch borrowing, stale evidence and replay.
+
+Separately, the projector can prove that new independent records are appended
+entirely after the original document. This requires a literal BASE prefix,
+identical old record selections, bytes, ordering and anchors, an identical
+remainder and reference definitions, and complete contiguous coverage of only
+the appended bytes. Only that proved remainder exclusion change is equivalent
+for an otherwise valid causal disposition. It does not make an addition a
+precise carrier, remove a WHOLE obligation, erase the new record's seed or waive
+its independence review. Authored markers and post-projection mutations cannot
+supply the proof. [Append regressions](../../tests/test_causal_append_partition.py)
+retain uncovered edits, old-byte repartition and WHOLE consumers.
+
 An optional `base_authority_citations` list can qualify a newly explicit
 documentary citation inside an already-consumed premise. It applies only when
 the complete consumer stays byte-identical, the entire factual scope is already
@@ -330,8 +369,10 @@ substantive `reason`. The sealed CURRENT proof uses
 `node`, `sha256` and `complete_text`; each checked source has `evidence_id`,
 `sha256` and `purpose` and must be a separate sealed CURRENT file artifact.
 The unit, its containing document and mandatory context cannot become their
-own authority by being duplicated under another artifact ID; evidence must
-include actual independent policy or implementation sources.
+own authority by being duplicated under another artifact ID. This applies to
+both BASE and CURRENT content, every revalidation proof and the independent
+review receipt. Evidence must include actual independent policy or
+implementation sources; hashes cannot establish semantic independence.
 
 The [revalidation verifier](../../wiki_core/causal_revalidation.py) requires a
 preexisting complete contiguous record explicitly classified as `decision`,
