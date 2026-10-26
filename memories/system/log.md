@@ -1432,3 +1432,9 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - [Synthetic coverage](../../tests/test_causal_review.py) preserves competing causes, historical selection scope, trust markers and stale-source blockers. No source date, account permission or promotion authority is granted by the new record.
 - Corrected [ingestion guidance](ingestion-process.md) against the existing producer: secret screening precedes persistence, dry-run and score conditions are explicit, and consolidation presence checks remain distinct from source-backlink and synthesis audits. Historical update labels are retained; this is a normative review, not external factual revalidation.
 - Reconciled the complete [gates guide](wiki/gates-and-audit.md) and [PR governance](wiki/pr-governance.md) against the current verifier: freshness errors remain distinct from warnings, source targets have explicit backlink semantics, legacy-event skips do not waive other gates, and transition validation does not claim retrospective history validation. Normative review dates identify this check without renewing external facts.
+
+## [2026-10-26] Operating-cost guidance with explicit evidence limits
+
+- Reviewed the [operating-cost guide](wiki/operation-costs.md) against the existing exporter, result writer and independent review policy. June estimates remain historical; no current billing, discount, quality guarantee or CI allowance is inferred.
+- Clarified that [batch export](../../scripts/wiki_export_batch.py) prepares JSONL without submission or authentication, and that [result recording](../../scripts/wiki_llm_context_pass.py) requires the result argument and valid provenance. Runtime behavior and model defaults are unchanged.
+- Consumer CI policy remains explicit. Local deterministic checks use computation even though they do not call a model; their mandatory gates are preserved.
