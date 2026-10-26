@@ -81,7 +81,21 @@ def _document(graph, node):
     return path
 
 
-def _interpretation(graph, node):
+def _normalized_interpretation_edge(raw):
+    edge = copy.deepcopy(raw)
+    for key in ("body_line", "body_offset"):
+        edge.pop(key, None)
+    for field in ("consumption_binding", "locator_review"):
+        binding = edge.get(field)
+        if isinstance(binding, dict):
+            for key in ("origin", "consumed_sha256", "prerequisite_document_sha256", "rationale"):
+                binding.pop(key, None)
+            if field == "consumption_binding":
+                binding.pop("edge_sha256", None)
+    return edge
+
+
+def _interpretation_state(graph, node):
     """Scope must be identical; different consumed hashes alone are expected.
 
     A newly shrunken remainder, changed partitions, contexts or dependency roles
@@ -102,24 +116,18 @@ def _interpretation(graph, node):
             selection=graph.get("verified_record_shapes", {}).get(parent, "whole_document"),
             evidence=graph["nodes"][parent].get("evidence_source"))
         for prerequisite, raw in upstream[parent]:
-            edge = copy.deepcopy(raw)
             # Coordinates identify the exact occurrence in the pair/census,
             # but a reviewed text insertion may move the same semantic use.
             # Keep section, role, target, scope and occurrence multiplicity.
-            for key in ("body_line", "body_offset"):
-                edge.pop(key, None)
-            for field in ("consumption_binding", "locator_review"):
-                binding = edge.get(field)
-                if isinstance(binding, dict):
-                    for key in ("origin", "consumed_sha256", "prerequisite_document_sha256", "rationale"):
-                        binding.pop(key, None)
-                    if field == "consumption_binding":
-                        binding.pop("edge_sha256", None)
-            related.append(edge)
+            related.append(_normalized_interpretation_edge(raw))
             if prerequisite not in seen:
                 seen.add(prerequisite); queue.append(prerequisite)
-    return structured_digest(dict(record_sha256=graph["nodes"][node].get("record_sha256"),
-        scopes=scopes, dependencies=sorted(related, key=structured_digest)))
+    return dict(record_sha256=graph["nodes"][node].get("record_sha256"),
+        scopes=scopes, dependencies=sorted(related, key=structured_digest))
+
+
+def _interpretation(graph, node):
+    return structured_digest(_interpretation_state(graph, node))
 
 
 def verify(current, base, changed, contract, artifact_inputs):
@@ -129,7 +137,9 @@ def verify(current, base, changed, contract, artifact_inputs):
     if contract.get("schema_version") != "document_record.v2":
         raise ValueError("causal review requires document_record.v2")
     required = {"schema_version", "author", "pair_sha256", "census_sha256", "dispositions", "review_evidence"}
-    if not isinstance(plan, dict) or set(plan) != required or plan["schema_version"] != "wiki_causal_review.v1":
+    if (not isinstance(plan, dict) or not required <= set(plan)
+            or set(plan) - required - {"base_authority_citations"}
+            or plan["schema_version"] != "wiki_causal_review.v1"):
         raise ValueError("invalid causal review schema")
     if contract.get("locator_changes"):
         raise ValueError("causal review with locator changes is not supported in v1")
@@ -141,6 +151,9 @@ def verify(current, base, changed, contract, artifact_inputs):
         raise ValueError("invalid causal review author/dispositions")
     decisions = {}
     unchanged_interpretations = {}
+    from wiki_core.causal_authority import citation_qualifications, reviewed_citation_extension
+    citations = citation_qualifications(plan, contract, artifact_inputs, inventory, base, current)
+    used_citations = set()
     for item in plan["dispositions"]:
         if (not isinstance(item, dict) or set(item) != {"obligation_id", "disposition", "reason"}
                 or not isinstance(item["obligation_id"], str) or not isinstance(item["disposition"], str)
@@ -170,8 +183,13 @@ def verify(current, base, changed, contract, artifact_inputs):
                         old_hash = base["nodes"][consumer].get("record_sha256")
                         new_hash = current["nodes"][consumer].get("record_sha256")
                         same_content = old_hash is not None and old_hash == new_hash
-                    unchanged_interpretations[consumer] = (
-                        same_content and _interpretation(base, consumer) == _interpretation(current, consumer))
+                    equivalent = _interpretation(base, consumer) == _interpretation(current, consumer)
+                    if same_content and not equivalent and citations:
+                        matched = reviewed_citation_extension(base, current, consumer, citations)
+                        equivalent = matched is not None
+                        if matched is not None:
+                            used_citations.update(matched)
+                    unchanged_interpretations[consumer] = same_content and equivalent
                 if not unchanged_interpretations[consumer]:
                     raise ValueError("no_change requires identical complete consumer unit and interpretation")
             else:
@@ -183,6 +201,8 @@ def verify(current, base, changed, contract, artifact_inputs):
                     if before_part is None or after_part is None or before_part == after_part:
                         raise ValueError("updated requires substantive repair in the affected record")
         decisions[item["obligation_id"]] = copy.deepcopy(item)
+    if used_citations != set(citations):
+        raise ValueError("base authority citation qualification is unused")
     evidence = plan["review_evidence"]
     candidates = [a for a in contract.get("artifacts", []) if a.get("origin") == "current" and a.get("id") == evidence and "path" in a]
     raw = artifact_inputs.get(("current", evidence)) if isinstance(evidence, str) else None

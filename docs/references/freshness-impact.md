@@ -286,6 +286,37 @@ Reviewing a migration must additionally compare the prior approved contract:
 narrowing both origins is not justified by their mutual equality. No legacy
 `impact_closure` statement becomes a freshness waiver.
 
+An optional `base_authority_citations` list can qualify a newly explicit
+documentary citation inside an already-consumed premise. It applies only when
+the complete consumer stays byte-identical, the entire factual scope is already
+reachable in BASE, and the only additional relations are the exact qualified
+CURRENT body citations. It does not infer that an authority was applicable from
+reachability alone. New scopes, changed roles/selections, removed relations,
+ambiguous duplicate occurrences and citations added in the consumer itself
+remain ineligible for `no_change`.
+
+Each qualification contains `edge_id`, `evidence_id`, `evidence_sha256` and a
+substantive `reason`. The evidence is a sealed BASE file artifact with schema
+`wiki_base_authority_applicability.v1`: `unit`, `unit_base_sha256`, `authority`,
+`authority_base_sha256`, `authority_document`, `authority_document_sha256`,
+`supporting_units` and `applicability_reason`. Each supporting unit supplies its
+`node`, `sha256` and `complete_text`. This narrow format requires the exact
+complete local closure of the authority, including its mandatory contexts in
+the same document. Discontiguous remainders or proofs that require excerpts from
+other documents are unsupported. Other factual prerequisites remain present
+and evaluated; this format does not certify their current truth.
+
+The [applicability verifier](../../wiki_core/causal_authority.py) checks the prior
+unit identities, complete unchanged authority document, exact support set and
+non-narrowing relation delta. Independent review must establish that the prior
+text actually applied to the receiving unit, including conditions and limits;
+a historical example or an unmet condition is insufficient. The existing review
+receipt binds every qualification and evidence hash to the complete pair and
+census. Missing, altered or unused qualifications fail closed. No relation is
+inserted into BASE, no freshness is renewed, and no execution/account permission
+is granted. [Synthetic regressions](../../tests/test_causal_authority.py) exercise
+these guards separately from real consumer authorship and operational admission.
+
 `review_evidence` names one CURRENT immutable JSON file artifact. Its
 `wiki_causal_review_receipt.v1` receipt has `author`, a distinct `reviewer`,
 `decision: approved`, an empty `unresolved_findings` list and `plan_sha256`
