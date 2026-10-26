@@ -10,7 +10,7 @@ import copy
 import json
 from collections import defaultdict, deque
 
-from wiki_core.document_records import digest, structured_digest
+from wiki_core.document_records import digest, structured_digest, substantive_digest
 from wiki_core.freshness import freshness_state, is_stale_exempt
 
 
@@ -64,6 +64,7 @@ def pair_digest(current, base, changed):
                      verified_evidence_nodes=relevant_evidence(g),
                      record_documents=g.get("verified_record_documents", {}),
                      record_shapes=g.get("verified_record_shapes", {}),
+                     record_substantive_sha256=g.get("verified_record_substantive_sha256", {}),
                      locator_changes=g.get("verified_locator_changes", {}),
                      locator_record_documents=g.get("verified_locator_record_documents", {}))
         for origin, g in (("base", base), ("current", current))}))
@@ -120,19 +121,6 @@ def _interpretation(graph, node):
         scopes=scopes, dependencies=sorted(related, key=structured_digest)))
 
 
-def _substantive(text):
-    """A freshness-date/threshold edit alone is not a repaired assertion."""
-    import yaml
-    from wiki_core.frontmatter import FRONTMATTER_RE
-    fm = FRONTMATTER_RE.match(text)
-    if not fm:
-        return text
-    values = yaml.safe_load(fm.group(1)) or {}
-    for field in ("updated_at", "stale_after_days", "refresh_cadence_days", "stale_exempt"):
-        values.pop(field, None)
-    return structured_digest(dict(frontmatter=values, body=text[fm.end():]))
-
-
 def verify(current, base, changed, contract, artifact_inputs):
     plan = contract.get("causal_review")
     if plan is None:
@@ -176,11 +164,13 @@ def verify(current, base, changed, contract, artifact_inputs):
                 if not unchanged_interpretations[consumer]:
                     raise ValueError("no_change requires identical full consumer and interpretation")
             else:
-                if _substantive(before) == _substantive(after):
+                if substantive_digest(before) == substantive_digest(after):
                     raise ValueError("updated requires substantive consumer repair")
-                if (consumer not in current["documents"] and
-                        base["nodes"][consumer].get("record_sha256") == current["nodes"][consumer].get("record_sha256")):
-                    raise ValueError("updated requires repair in the affected record")
+                if consumer not in current["documents"]:
+                    before_part = base.get("verified_record_substantive_sha256", {}).get(consumer)
+                    after_part = current.get("verified_record_substantive_sha256", {}).get(consumer)
+                    if before_part is None or after_part is None or before_part == after_part:
+                        raise ValueError("updated requires substantive repair in the affected record")
         decisions[item["obligation_id"]] = copy.deepcopy(item)
     evidence = plan["review_evidence"]
     candidates = [a for a in contract.get("artifacts", []) if a.get("origin") == "current" and a.get("id") == evidence and "path" in a]

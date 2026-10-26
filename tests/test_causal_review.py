@@ -234,7 +234,8 @@ def test_transitive_context_reclassification_is_not_equal_interpretation():
         run(b, c, changed, spec, inputs)
 
 
-@pytest.mark.parametrize('key', ['verified_evidence_nodes', 'verified_record_documents', 'verified_record_shapes'])
+@pytest.mark.parametrize('key', ['verified_evidence_nodes', 'verified_record_documents', 'verified_record_shapes',
+                               'verified_record_substantive_sha256'])
 def test_trusted_projection_marker_mutation_invalidates_pair(key):
     b, c, changed = make(old_prerequisite=True)
     spec, inputs = authored(b, c, changed)
@@ -458,3 +459,116 @@ def test_position_normalization_does_not_hide_semantic_dependency_change(tmp_pat
     spec,inputs = authored(b,c,changed,spec=spec,select=lambda e,o:e['consumer']=='memories/consumer.md')
     with pytest.raises(ValueError, match='identical full consumer and interpretation'):
         run(b,c,changed,spec,inputs)
+
+
+def partitioned_repair_pair(mode, *, field='updated_at', relevant_repair=False, envelope=False):
+    """A real repair in one H2 cannot repair freshness-only sibling metadata."""
+    b, c, changed = make()
+    old, new = {'updated_at': ('2026-10-25', '2026-10-26'), 'published_on': ('2026-10-25', '2026-10-26'),
+                'stale_after_days': ('30', '60'), 'refresh_cadence_days': ('7', '14'),
+                'stale_exempt': ('false', 'true')}[field]
+    b['documents']['consumer'] = (f'---\n{field}: {old}\n---\n# Consumer\n\n'
+        'Common duty remains.\n\n## Specific\n\nA separate duty.\n')
+    c['documents']['consumer'] = b['documents']['consumer'].replace(
+        f'{field}: {old}', f'{field}: {new}').replace('A separate duty.', 'A separate duty was repaired.')
+    if relevant_repair:
+        c['documents']['consumer'] = c['documents']['consumer'].replace(
+            'Common duty remains.', 'Common duty now requires independent review.')
+    changed.add('consumer')
+    spec = contract(b, c)
+    record = dict(id='specific', independent=True, rationale='Complete separate synthetic duty.',
+                  epistemic_status='decision', recorded_on='2026-10-26', context_records=[])
+    for origin, graph in (('base', b), ('current', c)):
+        record[origin + '_sha256'] = digest(sections(graph['documents']['consumer'])[1]['Specific'][2])
+    if mode == 'h2_v1':
+        record['heading'] = 'Specific'
+    else:
+        record['selectors'] = {origin: dict(kind='h2', heading='Specific') for origin in ('base', 'current')}
+    declaration = dict(path='consumer', records=[record])
+    if envelope:
+        declaration['envelope'] = [dict(id='publication', rationale='Declared publication metadata.',
+            context_records=[], claim='artifact_publication_date', value_shape='canonical_iso_date',
+            selectors={origin: dict(kind='frontmatter_field', path=[field]) for origin in ('base', 'current')},
+            base_sha256=digest(f'{field}: {old}\n'), current_sha256=digest(f'{field}: {new}\n'))]
+    spec['documents'].append(declaration)
+    spec['document_modes']['consumer'] = mode
+    return b, c, changed, spec
+
+
+@pytest.mark.parametrize('mode', ['h2_v1', 'explicit_view_v2'])
+@pytest.mark.parametrize('field', ['updated_at', 'stale_after_days', 'refresh_cadence_days', 'stale_exempt'])
+def test_other_h2_repair_cannot_validate_freshness_only_remainder(mode, field):
+    from wiki_core.document_records import node_id
+    b, c, changed, spec = partitioned_repair_pair(mode, field=field)
+    spec, inputs = authored(b, c, changed, spec=spec, disposition='updated',
+        select=lambda e, o: e['consumer'] == node_id('consumer', 'remainder'))
+    assert spec['causal_review']['dispositions']
+    with pytest.raises(ValueError, match='affected record'):
+        run(b, c, changed, spec, inputs)
+
+
+@pytest.mark.parametrize('field', ['updated_at', 'published_on'])
+def test_other_h2_repair_cannot_validate_freshness_only_envelope_field(field):
+    from wiki_core.document_records import node_id
+    b, c, changed, spec = partitioned_repair_pair('explicit_view_v2', field=field, envelope=True)
+    spec, inputs = authored(b, c, changed, spec=spec, disposition='updated',
+        select=lambda e, o: e['consumer'] == node_id('consumer', 'publication'))
+    assert spec['causal_review']['dispositions']
+    with pytest.raises(ValueError, match='affected record'):
+        run(b, c, changed, spec, inputs)
+
+
+@pytest.mark.parametrize('mode', ['h2_v1', 'explicit_view_v2'])
+@pytest.mark.parametrize('record', ['specific', 'remainder'])
+def test_substantive_repair_in_exact_affected_record_is_accepted(mode, record):
+    from wiki_core.document_records import node_id
+    b, c, changed, spec = partitioned_repair_pair(mode, relevant_repair=True)
+    spec, inputs = authored(b, c, changed, spec=spec, disposition='updated',
+        select=lambda e, o: e['consumer'] == node_id('consumer', record))
+    assert spec['causal_review']['dispositions']
+    pc, pb, seeds, _ = project_records(c, b, changed, spec, artifact_inputs=inputs)
+    assert pc['verified_causal_review']['dispositions']
+
+
+@pytest.mark.parametrize('kind', ['generation', 'membership'])
+def test_selected_envelope_distinguishes_publication_date_from_membership(kind):
+    from wiki_core.document_records import node_id
+    from wiki_core.document_view_selectors import body_span, frontmatter_span
+    b, c, changed, _ = partitioned_repair_pair('explicit_view_v2')
+    selector = (dict(kind='markdown_generation_paragraph', container_heading_path=['Consumer'], required_match_count=1,
+                     template=dict(prefix='Generated on ', suffix='.', value_format='iso_date'))
+                if kind == 'generation' else dict(kind='frontmatter_field', path=['members']))
+    slot = dict(id='envelope', rationale='Exact declared synthetic metadata.', context_records=[],
+                claim='artifact_publication_date' if kind == 'generation' else 'declared_view_membership',
+                value_shape='canonical_iso_date' if kind == 'generation' else 'unique_string_sequence',
+                selectors={origin: copy.deepcopy(selector) for origin in ('base', 'current')})
+    for origin, graph, date, members in (('base', b, '2026-10-25', 'one'),
+                                        ('current', c, '2026-10-26', 'two')):
+        text = graph['documents']['consumer']
+        text = (text.replace('# Consumer\n', f'# Consumer\n\nGenerated on {date}.\n') if kind == 'generation'
+                else text.replace('\n---\n', f'\nmembers:\n  - {members}\n---\n'))
+        graph['documents']['consumer'] = text
+        if kind == 'generation':
+            start, end = body_span(text, selector)
+            lines = sections(text)[0].splitlines(keepends=True)
+        else:
+            start, end = frontmatter_span(text, selector, slot['value_shape'])
+            lines = text.splitlines(keepends=True)
+        slot[origin + '_sha256'] = digest(''.join(lines[start:end]))
+    spec = contract(b, c)
+    record = dict(id='specific', independent=True, rationale='Complete separate duty.', epistemic_status='decision',
+                  recorded_on='2026-10-26', context_records=[],
+                  selectors={o: dict(kind='h2', heading='Specific') for o in ('base', 'current')})
+    for origin, graph in (('base', b), ('current', c)):
+        record[origin + '_sha256'] = digest(sections(graph['documents']['consumer'])[1]['Specific'][2])
+    spec['documents'].append(dict(path='consumer', records=[record], envelope=[slot]))
+    spec['document_modes']['consumer'] = 'explicit_view_v2'
+    spec, inputs = authored(b, c, changed, spec=spec, disposition='updated',
+        select=lambda e, o: e['consumer'] == node_id('consumer', 'envelope'))
+    assert spec['causal_review']['dispositions']
+    if kind == 'generation':
+        with pytest.raises(ValueError, match='affected record'):
+            run(b, c, changed, spec, inputs)
+    else:
+        pc, _, _, _ = project_records(c, b, changed, spec, artifact_inputs=inputs)
+        assert pc['verified_causal_review']['dispositions']
