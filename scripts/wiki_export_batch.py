@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Exports the pending LLM context packets in the Batches API format.
 
-A COST lever (-50%) that RESPECTS the architecture: this script does NOT call
-any model. It only TRANSFORMS, deterministically, the
+A deterministic preparation step: this script does NOT call any model or
+verify current provider pricing. It only TRANSFORMS the
 `*-llm-context-request.json` files already emitted by the pipeline into a JSONL of
 Anthropic Message Batches API requests. Whoever runs the repo (agent/human) submits
 the JSONL, then writes the results back with
-`scripts/wiki_llm_context_pass.py --record-result` (provenance flows through
+`scripts/wiki_llm_context_pass.py --record-result result.json --context system` (provenance flows through
 custom_id = chunk cache_key).
 
 The intelligence stays outside Python: here there is only JSON reading + assembly of
@@ -33,8 +33,8 @@ except ModuleNotFoundError:
 from wiki_core.config import load_config
 from wiki_core.paths import WikiPaths
 
-# Conservative default (most capable model). The cost analysis recommends Sonnet/
-# Haiku + Batches for the chunks; switch with --model when the source is simple.
+# Preserved compatibility default; --model selects the request identifier.
+# This exporter does not validate provider availability, price or model quality.
 _DEFAULT_MODEL = "claude-opus-4-8"
 
 
