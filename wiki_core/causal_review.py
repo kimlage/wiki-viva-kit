@@ -65,6 +65,7 @@ def pair_digest(current, base, changed):
                      record_documents=g.get("verified_record_documents", {}),
                      record_shapes=g.get("verified_record_shapes", {}),
                      record_substantive_sha256=g.get("verified_record_substantive_sha256", {}),
+                     precise_component_seeds=g.get("verified_precise_component_seeds", {}),
                      locator_changes=g.get("verified_locator_changes", {}),
                      locator_record_documents=g.get("verified_locator_record_documents", {}))
         for origin, g in (("base", base), ("current", current))}))
@@ -159,10 +160,20 @@ def verify(current, base, changed, contract, artifact_inputs):
                 raise ValueError("consumer identity changed")
             if item["disposition"] == "no_change":
                 if consumer not in unchanged_interpretations:
+                    # Raw WHOLE still means every byte. A verified complete
+                    # record is its own consumer: an independent sibling edit
+                    # must not require fictional changes to this intact unit.
+                    # Transitive scope, contexts, roles and multiplicity remain
+                    # guarded by _interpretation, including remainder shape.
+                    same_content = before == after
+                    if consumer not in current["documents"]:
+                        old_hash = base["nodes"][consumer].get("record_sha256")
+                        new_hash = current["nodes"][consumer].get("record_sha256")
+                        same_content = old_hash is not None and old_hash == new_hash
                     unchanged_interpretations[consumer] = (
-                        before == after and _interpretation(base, consumer) == _interpretation(current, consumer))
+                        same_content and _interpretation(base, consumer) == _interpretation(current, consumer))
                 if not unchanged_interpretations[consumer]:
-                    raise ValueError("no_change requires identical full consumer and interpretation")
+                    raise ValueError("no_change requires identical complete consumer unit and interpretation")
             else:
                 if substantive_digest(before) == substantive_digest(after):
                     raise ValueError("updated requires substantive consumer repair")
@@ -201,7 +212,7 @@ def verify(current, base, changed, contract, artifact_inputs):
     return verified
 
 
-def decision(review, seed, edge, current, today):
+def decision(review, seed, edge, current, base, today):
     """Resolve one actual arrival, without clearing another path or seed."""
     row = dict(origin=edge["origin"], edge={k: v for k, v in edge.items()
                if k not in {"origin", "prerequisite", "dependent"}},
@@ -214,10 +225,14 @@ def decision(review, seed, edge, current, today):
         return oid, "missing"
     state = item["disposition"]
     if state == "no_change":
-        values = current["nodes"].get(edge["dependent"], {})
-        if freshness_state(values.get("updated_at"), values.get("stale_after_days"), today,
-                           stale_exempt=is_stale_exempt(values.get("stale_exempt"))) != "fresh":
-            state = "no_change_consumer_not_fresh"
+        # An intact unit cannot borrow a new freshness date from a sibling's
+        # substantive repair. Both snapshots must already support this cut.
+        for graph in (base, current):
+            values = graph["nodes"].get(edge["dependent"], {})
+            if freshness_state(values.get("updated_at"), values.get("stale_after_days"), today,
+                               stale_exempt=is_stale_exempt(values.get("stale_exempt"))) != "fresh":
+                state = "no_change_consumer_not_fresh"
+                break
     return oid, state
 
 
@@ -253,11 +268,19 @@ def evaluate(current, base, changed, *, today):
         witnesses[seed, seed] = reasons[seed]
         visited.add((seed, seed)); queue.append((seed, seed))
     arrivals, unresolved, boundaries = {}, {}, {}
+    factual_raw_arrivals = set()
     while queue:
         seed, parent = queue.popleft()
         for eid, edge in downstream[parent]:
             target = edge["dependent"]
-            oid, status = decision(review, seed, edge, current, today)
+            # A projector-owned component -> raw edge is representational.
+            # Any other causal arrival still imposes a real raw obligation.
+            if not (edge.get("basis") == "document_record.v2"
+                    and edge.get("field") == "document_components"
+                    and edge.get("path") == target
+                    and current.get("verified_record_documents", {}).get(parent) == target):
+                factual_raw_arrivals.add((seed, target))
+            oid, status = decision(review, seed, edge, current, base, today)
             reason = dict(reason="affected_dependent", seed=seed, via=parent,
                           chain=[*witnesses[seed, parent]["chain"], edge])
             arrivals[oid] = dict(seed=seed, consumer=target, edge_id=eid, disposition=status)
@@ -271,9 +294,13 @@ def evaluate(current, base, changed, *, today):
                     reason="causal_" + status, seed=seed, via=parent, chain=reason["chain"], obligation_id=oid)
             if (seed, target) not in visited:
                 visited.add((seed, target)); queue.append((seed, target))
-    # All real prerequisites of every included consumer remain checked. Never
-    # cut this phase or start a fresh downstream fan-out from shared sources.
-    queue = deque(witnesses)
+    # Start from actual semantic demands, not the redundant raw carrier of an
+    # exact independently partitioned edit. Keep raw seeds, all edges, census
+    # and downstream arrivals. A WHOLE consumer reaching raw in this phase must
+    # enqueue it and traverse ALL its parts, even if a carrier was seen earlier.
+    carriers = current.get("verified_precise_component_seeds", {})
+    queue = deque(key for key in witnesses
+                  if key[1] not in carriers or key in factual_raw_arrivals)
     seen = set(queue)
     while queue:
         seed, parent = queue.popleft()
@@ -295,5 +322,6 @@ def evaluate(current, base, changed, *, today):
         approved_boundaries=list(boundaries.values()), unresolved=list(unresolved.values()),
         beyond_boundaries=beyond, review_evidence=review["review_evidence"], review_sha256=review["review_sha256"],
         factual_relations_preserved=True, final_head_independent_promotion_review_still_required=True)
+    result["causal_review"]["precise_representation_carriers"] = sorted(carriers)
     result["ok"] = not result["blockers"] and not result["relation_errors"]
     return result

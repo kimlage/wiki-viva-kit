@@ -241,8 +241,8 @@ BASE/CURRENT occurrence census. Its schema is `wiki_causal_review.v1`, with
 `author`, `pair_sha256`, `census_sha256`, `dispositions` and `review_evidence`.
 Each disposition has an exact `obligation_id`, substantive `reason` and one of:
 
-- `no_change`: the complete consumer bytes and documentary interpretation are
-  identical, its own freshness is valid, and independent content review explains
+- `no_change`: the complete consumer unit and documentary interpretation are
+  identical, its own freshness is valid in BASE and CURRENT, and independent content review explains
   why this exact delta does not change the consumed conclusion or duty. Only
   this causal arrival stops propagating downstream. The consumer and all its
   actual prerequisites remain evaluated.
@@ -257,6 +257,23 @@ another path or BASE occurrence cannot be cleared by the first review. Cycles
 terminate without discarding pending causes. The full census and downstream
 debt beyond reviewed boundaries stay in the report. Such debt has not been
 individually reviewed or factually updated.
+
+For a verified record, the complete unit is its exact selected bytes; a repair
+to an independent sibling does not require editing that intact unit. Raw WHOLE
+consumption still compares the entire document. A sibling's new publication
+date cannot renew an unchanged unit whose BASE freshness has expired.
+
+An exact `explicit_view_v2` edit retains its raw document seed for WHOLE
+downstream consumers. When the projector proves stable selection/context
+shapes, preserved remainder, reference definitions, ordering and anchors, its
+changed components supply the semantic upstream roots. The redundant raw
+representation alone does not request revalidation of untouched independent
+siblings. Raw seeds, component edges, the complete occurrence census and causal
+review remain present. If an actual WHOLE consumer or a real context reaches
+those siblings, their factual prerequisites are still required and can block.
+Uncovered edits, changed shapes and unverified authored markers get no such
+qualification. This behavior requires the existing reviewed causal contract;
+ordinary unreviewed impact evaluation remains conservative.
 
 The pair digest binds full input documents, projected relations, record lineage
 and verified evidence classifications. Interpretation checks include the

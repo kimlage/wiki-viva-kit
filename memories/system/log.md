@@ -1438,3 +1438,9 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - Reviewed the [operating-cost guide](wiki/operation-costs.md) against the existing exporter, result writer and independent review policy. June estimates remain historical; no current billing, discount, quality guarantee or CI allowance is inferred.
 - Clarified that [batch export](../../scripts/wiki_export_batch.py) prepares JSONL without submission or authentication, and that [result recording](../../scripts/wiki_llm_context_pass.py) requires the result argument and valid provenance. Runtime behavior and model defaults are unchanged.
 - Consumer CI policy remains explicit. Local deterministic checks use computation even though they do not call a model; their mandatory gates are preserved.
+
+## [2026-10-26] Complete units in reviewed causal updates
+
+- The [causal verifier](../../wiki_core/causal_review.py) compares the exact complete record when reviewing an unchanged unit beside a repaired sibling. Freshness must hold in both snapshots; a sibling's date cannot renew an old assertion.
+- The [document projector](../../wiki_core/document_records.py) identifies exact representation carriers only after checking coverage, selectors, contexts and the interpretation of every preserved component. Raw identities and all factual edges remain available to WHOLE consumers.
+- [Synthetic regressions](../../tests/test_causal_review.py) retain real stale prerequisites, common premises, WHOLE demand, changing scope and evidence, competing causes and independent review. The [contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) distinguishes untouched historical debt from the factual requirements of the actual change. No factual date, credential, permission or runtime configuration is altered.
