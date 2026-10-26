@@ -250,6 +250,10 @@ Each disposition has an exact `obligation_id`, substantive `reason` and one of:
   intervals or exemption flags alone cannot constitute that repair. Content
   review must establish pertinence to the exact obligation; a lateral edit is
   not enough. Impact continues to the repaired consumer's dependents.
+- `revalidated`: an intact complete local normative rule was actually checked
+  against retained sources, with the specific evidence described below. Its
+  freshness moves from stale BASE to fresh CURRENT without a fictitious body
+  edit. Only the reviewed arrival stops; real prerequisites remain evaluated.
 - `blocked`: the obligation remains unresolved, even when the consumer is fresh.
 
 Missing dispositions also block. Every reached seed/occurrence is checked;
@@ -316,6 +320,43 @@ census. Missing, altered or unused qualifications fail closed. No relation is
 inserted into BASE, no freshness is renewed, and no execution/account permission
 is granted. [Synthetic regressions](../../tests/test_causal_authority.py) exercise
 these guards separately from real consumer authorship and operational admission.
+
+An optional `normative_revalidations` list supports the narrow `revalidated`
+disposition. Each item has `consumer`, `evidence_id`, `evidence_sha256` and a
+substantive `reason`. The sealed CURRENT proof uses
+`wiki_normative_revalidation.v1`: `assertion_kind: normative_rule`, `consumer`,
+`base_sha256`, `current_sha256`, `complete_text`, `current_document_sha256`,
+`checked_on`, `contexts`, `sources` and `revalidation_reason`. Each context has
+`node`, `sha256` and `complete_text`; each checked source has `evidence_id`,
+`sha256` and `purpose` and must be a separate sealed CURRENT file artifact.
+The unit, its containing document and mandatory context cannot become their
+own authority by being duplicated under another artifact ID; evidence must
+include actual independent policy or implementation sources.
+
+The [revalidation verifier](../../wiki_core/causal_revalidation.py) requires a
+preexisting complete contiguous record explicitly classified as `decision`,
+identical consumer bytes and interpretation, and every mandatory local context
+as a complete `decision` record. A qualified prior-authority citation may
+reconcile interpretation under the same guards above. Raw documents,
+observations, discontiguous remainders and mixed factual contexts cannot use
+this version. Cadence and exemption flags must remain unchanged. The actual
+verification date must equal CURRENT's date, exceed BASE's date and not be in
+the future at evaluation. Unknown BASE freshness, already-fresh BASE and stale
+CURRENT do not qualify. Ordinary `no_change` still requires both snapshots fresh.
+
+Content review must establish that these are normative rules, that the complete
+sources support the current verification, and that no current external facts
+borrow the new date. A label, CURRENT artifact origin or hash does not establish
+those semantic claims. Continued validity alone does not establish absence of
+causal impact: each occurrence's disposition reason and independent review
+must also explain why that exact seed/delta leaves the consumer's conclusion
+or duty unchanged. The unit proof supplies the sourced current verification;
+it cannot replace this per-arrival causal judgment.
+The proof is bound through the causal plan, not added as
+new factual evidence of the rule itself. Missing, duplicate or unused proofs
+fail closed. Revalidation does not clear another seed, cycle, stale authority
+or factual prerequisite, nor change action/source states. The
+[synthetic tests](../../tests/test_causal_revalidation.py) cover these boundaries.
 
 `review_evidence` names one CURRENT immutable JSON file artifact. Its
 `wiki_causal_review_receipt.v1` receipt has `author`, a distinct `reviewer`,

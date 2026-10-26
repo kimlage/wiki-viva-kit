@@ -138,7 +138,7 @@ def verify(current, base, changed, contract, artifact_inputs):
         raise ValueError("causal review requires document_record.v2")
     required = {"schema_version", "author", "pair_sha256", "census_sha256", "dispositions", "review_evidence"}
     if (not isinstance(plan, dict) or not required <= set(plan)
-            or set(plan) - required - {"base_authority_citations"}
+            or set(plan) - required - {"base_authority_citations", "normative_revalidations"}
             or plan["schema_version"] != "wiki_causal_review.v1"):
         raise ValueError("invalid causal review schema")
     if contract.get("locator_changes"):
@@ -154,11 +154,14 @@ def verify(current, base, changed, contract, artifact_inputs):
     from wiki_core.causal_authority import citation_qualifications, reviewed_citation_extension
     citations = citation_qualifications(plan, contract, artifact_inputs, inventory, base, current)
     used_citations = set()
+    from wiki_core.causal_revalidation import normative_revalidations
+    revalidations = normative_revalidations(plan, contract, artifact_inputs, base, current)
+    used_revalidations = set()
     for item in plan["dispositions"]:
         if (not isinstance(item, dict) or set(item) != {"obligation_id", "disposition", "reason"}
                 or not isinstance(item["obligation_id"], str) or not isinstance(item["disposition"], str)
                 or item["obligation_id"] not in inventory["obligations"]
-                or item["obligation_id"] in decisions or item["disposition"] not in {"updated", "no_change", "blocked"}
+                or item["obligation_id"] in decisions or item["disposition"] not in {"updated", "no_change", "revalidated", "blocked"}
                 or not isinstance(item["reason"], str) or not item["reason"].strip()):
             raise ValueError("invalid/duplicate/unknown causal disposition")
         obligation = inventory["obligations"][item["obligation_id"]]
@@ -171,7 +174,7 @@ def verify(current, base, changed, contract, artifact_inputs):
             before, after = base["documents"][before_path], current["documents"][after_path]
             if before_path != after_path:
                 raise ValueError("consumer identity changed")
-            if item["disposition"] == "no_change":
+            if item["disposition"] in {"no_change", "revalidated"}:
                 if consumer not in unchanged_interpretations:
                     # Raw WHOLE still means every byte. A verified complete
                     # record is its own consumer: an independent sibling edit
@@ -191,7 +194,11 @@ def verify(current, base, changed, contract, artifact_inputs):
                             used_citations.update(matched)
                     unchanged_interpretations[consumer] = same_content and equivalent
                 if not unchanged_interpretations[consumer]:
-                    raise ValueError("no_change requires identical complete consumer unit and interpretation")
+                    raise ValueError("no_change/revalidated requires identical complete consumer unit and interpretation")
+                if item["disposition"] == "revalidated":
+                    if consumer not in revalidations:
+                        raise ValueError("revalidated requires exact normative revalidation evidence")
+                    used_revalidations.add(consumer)
             else:
                 if substantive_digest(before) == substantive_digest(after):
                     raise ValueError("updated requires substantive consumer repair")
@@ -203,6 +210,8 @@ def verify(current, base, changed, contract, artifact_inputs):
         decisions[item["obligation_id"]] = copy.deepcopy(item)
     if used_citations != set(citations):
         raise ValueError("base authority citation qualification is unused")
+    if used_revalidations != set(revalidations):
+        raise ValueError("normative revalidation qualification is unused")
     evidence = plan["review_evidence"]
     candidates = [a for a in contract.get("artifacts", []) if a.get("origin") == "current" and a.get("id") == evidence and "path" in a]
     raw = artifact_inputs.get(("current", evidence)) if isinstance(evidence, str) else None
@@ -227,7 +236,8 @@ def verify(current, base, changed, contract, artifact_inputs):
     # existing final-HEAD independent PR promotion gate remains mandatory.
     verified = dict(pair_sha256=pair, census_sha256=structured_digest(inventory),
                 census=inventory, dispositions=decisions, review_evidence=evidence,
-                review_sha256=candidates[0]["sha256"], plan_sha256=receipt["plan_sha256"])
+                review_sha256=candidates[0]["sha256"], plan_sha256=receipt["plan_sha256"],
+                normative_revalidations=revalidations)
     verified["payload_sha256"] = structured_digest(verified)
     return verified
 
@@ -253,6 +263,17 @@ def decision(review, seed, edge, current, base, today):
                                stale_exempt=is_stale_exempt(values.get("stale_exempt"))) != "fresh":
                 state = "no_change_consumer_not_fresh"
                 break
+    elif state == "revalidated":
+        # This is a reviewed normative revision, not inherited page freshness.
+        # Unknown/added units and already-fresh BASE units cannot use this path.
+        from datetime import date
+        states = [freshness_state(g["nodes"][edge["dependent"]].get("updated_at"),
+                    g["nodes"][edge["dependent"]].get("stale_after_days"), today,
+                    stale_exempt=is_stale_exempt(g["nodes"][edge["dependent"]].get("stale_exempt")))
+                  for g in (base, current)]
+        proof = review["normative_revalidations"][edge["dependent"]]
+        if states != ["stale", "fresh"] or date.fromisoformat(proof["checked_on"]) > today:
+            state = "revalidated_consumer_not_fresh"
     return oid, state
 
 
@@ -306,7 +327,7 @@ def evaluate(current, base, changed, *, today):
             arrivals[oid] = dict(seed=seed, consumer=target, edge_id=eid, disposition=status)
             reasons.setdefault(target, reason)
             witnesses.setdefault((seed, target), reason)
-            if status == "no_change":
+            if status in {"no_change", "revalidated"}:
                 boundaries[oid] = arrivals[oid]
                 continue
             if status != "updated":

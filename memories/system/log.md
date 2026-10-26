@@ -1449,3 +1449,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 - The existing [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) accepts independently reviewed BASE evidence for an exact new citation between already-consumed units. Complete scope, consumer bytes, authority text and local mandatory context remain guarded; factual prerequisites retain their freshness checks.
 - The [applicability verifier](../../wiki_core/causal_authority.py) refuses new scopes, incomplete proofs, ambiguous occurrences, removed or reclassified relations and unreviewed meaning. [Synthetic tests](../../tests/test_causal_authority.py) distinguish documentary applicability from account authorization and retain competing causes. No historical relation, source date, permission or runtime setting is rewritten.
+
+## [2026-10-26] Reviewed revalidation of intact normative rules
+
+- The existing [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) can record an actual sourced review of a complete intact normative rule through the `revalidated` disposition. It requires a stale BASE, fresh CURRENT, unchanged cadence, complete normative contexts and independent review of the exact pair.
+- The [revalidation verifier](../../wiki_core/causal_revalidation.py) preserves real prerequisites and competing causes. [Synthetic regressions](../../tests/test_causal_revalidation.py) reject inherited dates without proof, factual contexts, future verification, missing current evidence and replayed reviews. This mechanism does not revalidate external facts, change action/source states, or grant operational permissions.
