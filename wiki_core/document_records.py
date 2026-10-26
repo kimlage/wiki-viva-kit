@@ -24,6 +24,27 @@ def digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def substantive_digest(text: str, *, selector=None, claim=None) -> str:
+    """Fingerprint actual assertions, never freshness/publication metadata.
+
+    Selectors and claims here must come from the validated projector. Selected
+    YAML fields lack document delimiters, so their meaning cannot be inferred
+    by parsing the fragment as a complete Markdown document.
+    """
+    freshness_fields = {"updated_at", "stale_after_days", "refresh_cadence_days", "stale_exempt"}
+    if (claim == "artifact_publication_date" or
+            selector and selector.get("kind") == "frontmatter_field" and
+            selector.get("path", [None])[0] in freshness_fields):
+        return digest("")
+    fm = FRONTMATTER_RE.match(text)
+    if not fm:
+        return digest(text)
+    values = yaml.safe_load(fm.group(1)) or {}
+    for field in freshness_fields:
+        values.pop(field, None)
+    return structured_digest(dict(frontmatter=values, body=text[fm.end():]))
+
+
 def edge_digest(edge: dict) -> str:
     """Identity includes occurrence offset, direction, field and classification."""
     return digest(json.dumps(edge, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
@@ -594,6 +615,45 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
         raise ValueError("record contract has stale or unmatched consumption bindings")
     if set(context_bindings) != used_context:
         raise ValueError("canonical log annotation context has unmatched occurrences")
+    # Projector-owned scope, independent of content bytes. A remainder with a
+    # newly excluded record is a different interpretation even if its name and
+    # incoming binding are unchanged. Never trust equivalent frontmatter keys.
+    for origin, graph in graphs.items():
+        graph["verified_record_documents"] = {}
+        graph["verified_record_shapes"] = {}
+        graph["verified_record_substantive_sha256"] = {}
+        for declaration in declarations:
+            path = declaration["path"]
+            partition = partitions[origin][path]
+            text = graph["documents"][path]
+            selection_lines = (text if modes.get(path) == "explicit_view_v2" else
+                               sections(text)[0]).splitlines(keepends=True)
+            shapes = {}
+            for record in declaration["records"] + declaration.get("envelope", []):
+                rid = record["id"]
+                if rid not in partition["parts"]:
+                    continue
+                shapes[rid] = dict(
+                    selector=copy.deepcopy(record["selectors"][origin]) if "selectors" in record else
+                        dict(kind="h2", heading=record["heading"], leading_blank_lines=record.get("leading_blank_lines", 0)),
+                    context_records=record["context_records"],
+                    epistemic_status=record.get("epistemic_status"), claim=record.get("claim"),
+                    value_shape=record.get("value_shape"))
+            shapes["remainder"] = dict(excluded=copy.deepcopy(shapes))
+            for rid in partition["parts"]:
+                nid = node_id(path, rid)
+                graph["verified_record_documents"][nid] = path
+                graph["verified_record_shapes"][nid] = copy.deepcopy(shapes[rid])
+                part = partition["parts"][rid]
+                content = (partition["remainder"] if rid == "remainder" else
+                           "".join(selection_lines[part["start"]:part["end"]]))
+                graph["verified_record_substantive_sha256"][nid] = substantive_digest(
+                    content, selector=shapes[rid].get("selector"), claim=shapes[rid].get("claim"))
+    if contract.get("causal_review") is not None:
+        from wiki_core.causal_review import verify
+        causal = verify(graphs["current"], graphs["base"], changes, contract, artifact_inputs or {})
+        for graph in graphs.values():
+            graph["verified_causal_review"] = copy.deepcopy(causal)
     if review_trace is not None:
         review_trace.extend(trace)
     return graphs["current"], graphs["base"], changes, evidence

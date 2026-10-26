@@ -204,6 +204,9 @@ def evaluate_impact(
     current: dict[str, Any], base: dict[str, Any], changed: set[str], *, today: dt.date,
 ) -> dict[str, Any]:
     """Dependents of changes, then prerequisites; never fan out from shared sources."""
+    if current.get("verified_causal_review") is not None or base.get("verified_causal_review") is not None:
+        from wiki_core.causal_review import evaluate
+        return evaluate(current, base, changed, today=today)
     nodes = current["nodes"]
     all_paths = set(nodes) | set(base["nodes"])
     seeds = sorted((changed & all_paths) | (set(base["nodes"]) - set(nodes)))
