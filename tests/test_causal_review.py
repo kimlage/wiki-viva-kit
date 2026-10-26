@@ -384,3 +384,77 @@ def test_git_repository_report_two_successive_reviews_and_stale_replay(tmp_path)
         previous_spec = spec
         git('add', '.'); git('commit', '-qm', f'Reviewed synthetic clarification {round_no}')
     assert (refs / 'review-1.json').exists() and (refs / 'review-2.json').exists()
+
+
+def markdown_position_pair(tmp_path, *, explicit_binding=False, semantic_change=None):
+    """Real Markdown occurrences, including a transitively consumed source."""
+    import yaml
+    from wiki_core.config import load_config
+    from wiki_core.freshness_impact import authored_graph
+    (tmp_path / 'wiki.config.yaml').write_text('audit:\n  freshness_scope: impact\n')
+    memory = tmp_path / 'memories'; memory.mkdir()
+    bodies = {'policy': '# Policy\n\n## Scope\n\nUse [required](required.md).\n',
+              'consumer': '# Consumer\n\nUse [policy](policy.md).\n',
+              'tail': '# Tail\n\nUse [consumer](consumer.md).\n',
+              'required': '# Required\n\n## Fact\n\nStable required duty.\n',
+              'other': '# Other\n\nAnother required duty.\n'}
+    for name, body in bodies.items():
+        fields = dict(page_id=name, page_type='project', updated_at='2026-01-01' if name == 'tail' else '2026-10-26',
+                      stale_after_days=30)
+        (memory / (name + '.md')).write_text('---\n' + yaml.safe_dump(fields) + '---\n' + body)
+    base = authored_graph(tmp_path, load_config(tmp_path))
+    path = memory / 'policy.md'
+    text = path.read_text().replace('Use [required]', 'Clarified applicable review.\n\nUse [required]')
+    if semantic_change == 'section': text = text.replace('## Scope', '## Different duty')
+    if semantic_change == 'target': text = text.replace('(required.md)', '(other.md)')
+    if semantic_change == 'multiplicity': text += '\nAlso use [required](required.md).\n'
+    path.write_text(text)
+    current = authored_graph(tmp_path, load_config(tmp_path))
+    if semantic_change in {'field', 'classification'}:
+        edge = next(e for e in current['edges'] if e['source'] == 'memories/policy.md')
+        edge[semantic_change] = 'different-semantic-role'
+    content = '## Fact\n\nStable required duty.\n'
+    spec = dict(schema_version='document_record.v2',
+        base_documents_sha256={p: digest(t) for p,t in base['documents'].items()},
+        current_documents_sha256={p: digest(t) for p,t in current['documents'].items()},
+        documents=[dict(path='memories/required.md', records=[dict(id='fact', heading='Fact', independent=True,
+            rationale='Complete stable prerequisite.', epistemic_status='decision', recorded_on='2026-10-26',
+            context_records=[], base_sha256=digest(content), current_sha256=digest(content))])],
+        document_modes={'memories/required.md':'h2_v1'}, bindings=[], artifacts=[])
+    if explicit_binding:
+        for origin, graph in (('base',base),('current',current)):
+            edge = next(e for e in graph['edges'] if e['source']=='memories/policy.md')
+            spec['bindings'].append(dict(origin=origin, edge_sha256=edge_digest(edge),
+                consumer_record='document', role='consumption', target_record='fact',
+                consumed_sha256=digest(content), rationale='This occurrence consumes the complete duty.'))
+    return base,current,{'memories/policy.md'},spec
+
+
+@pytest.mark.parametrize('explicit_binding', [False, True])
+def test_transitive_markdown_position_shift_keeps_semantics_but_rebinds_review(tmp_path, explicit_binding):
+    b,c,changed,spec = markdown_position_pair(tmp_path, explicit_binding=explicit_binding)
+    be = next(e for e in b['edges'] if e['source']=='memories/policy.md')
+    ce = next(e for e in c['edges'] if e['source']=='memories/policy.md')
+    assert be['body_line'] != ce['body_line'] and be['body_offset'] != ce['body_offset']
+    assert edge_digest(be) != edge_digest(ce)
+    spec,inputs = authored(b,c,changed,spec=spec,select=lambda e,o:e['consumer']=='memories/consumer.md')
+    result = run(b,c,changed,spec,inputs)
+    assert result['ok']
+    assert any(r['path']=='memories/tail.md' for r in result['unrelated_debt'])
+    # New coordinates remain bound by the full pair/census, never normalized there.
+    moved = copy.deepcopy(c)
+    edge = next(e for e in moved['edges'] if e['source']=='memories/policy.md')
+    edge['body_offset'] += 1
+    if explicit_binding:
+        for binding in spec['bindings']:
+            if binding['origin']=='current': binding['edge_sha256']=edge_digest(edge)
+    with pytest.raises(ValueError, match='pair/census'):
+        run(b,moved,changed,spec,inputs)
+
+
+@pytest.mark.parametrize('semantic_change', ['section','target','multiplicity','field','classification'])
+def test_position_normalization_does_not_hide_semantic_dependency_change(tmp_path, semantic_change):
+    b,c,changed,spec = markdown_position_pair(tmp_path, semantic_change=semantic_change)
+    spec,inputs = authored(b,c,changed,spec=spec,select=lambda e,o:e['consumer']=='memories/consumer.md')
+    with pytest.raises(ValueError, match='identical full consumer and interpretation'):
+        run(b,c,changed,spec,inputs)

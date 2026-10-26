@@ -101,11 +101,18 @@ def _interpretation(graph, node):
             evidence=graph["nodes"][parent].get("evidence_source"))
         for prerequisite, raw in upstream[parent]:
             edge = copy.deepcopy(raw)
+            # Coordinates identify the exact occurrence in the pair/census,
+            # but a reviewed text insertion may move the same semantic use.
+            # Keep section, role, target, scope and occurrence multiplicity.
+            for key in ("body_line", "body_offset"):
+                edge.pop(key, None)
             for field in ("consumption_binding", "locator_review"):
                 binding = edge.get(field)
                 if isinstance(binding, dict):
                     for key in ("origin", "consumed_sha256", "prerequisite_document_sha256", "rationale"):
                         binding.pop(key, None)
+                    if field == "consumption_binding":
+                        binding.pop("edge_sha256", None)
             related.append(edge)
             if prerequisite not in seen:
                 seen.add(prerequisite); queue.append(prerequisite)

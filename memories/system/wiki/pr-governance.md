@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-10-06
+updated_at: 2026-10-26
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -23,10 +23,10 @@ related_pages:
 
 # Governance and PR flow
 
-Last updated: 2026-10-06.
+Previous revision: 2026-10-06. Normative review against the current implementation: 2026-10-26.
 
-The living wiki has no server, nor an approval queue of its own: the **gate** is the
-Git pull request. The underlying rule is simple and has a strong consequence:
+The living wiki can serve an operator interface, while the **publication gate** remains
+the Git pull request. The interface projects the canonical pages and their proposals. The underlying rule is simple and has a strong consequence:
 
 - `main` **is the approved wiki**. Promotion follows the repository's PR review
   policy and applicable gates; agent review must not be described as human review.
@@ -106,8 +106,7 @@ open-source version, without tying the history to whoever operated it.
 The model separates **two roles**. The CI validates the mechanical; an independent
 reviewer validates the conceptual. The author cannot self-approve. The reviewer
 marks, in the
-[pull_request_template.md](../../../.github/pull_request_template.md), four items
-that no script can judge:
+[pull_request_template.md](../../../.github/pull_request_template.md), four items combining mechanical checks with independent conceptual judgment:
 
 - **I read the conceptual diff** — what changes in the wiki's behavior, not just which
   files were touched. A green diff in CI can still be conceptually
@@ -174,10 +173,11 @@ on references that only exist on the writer's machine.
 
 Practical consequences:
 
-- The PR is only really "ready" if the validations pass in a fresh checkout,
-  without relying on local caches.
-- Links to versioned artifacts need to exist in the repo; links to derived/raw
-  caches may point to the original (e.g.: Drive) without breaking the gate.
+- Versioned gates must be reproducible in a clean checkout. This does not
+  prove that a particular source was read, integrated or used in a live runtime.
+- Versioned artifact targets must exist. Tolerated absent caches do not
+  authorize broken delivered links: preserve accessible original/artifact custody
+  according to the consumer's policy and verify the delivered reference.
 - A strict local mode exists to, on a real machine, require that even the
   derived artifacts exist — useful to catch a dangling reference before opening the PR.
 

@@ -261,6 +261,10 @@ individually reviewed or factually updated.
 The pair digest binds full input documents, projected relations, record lineage
 and verified evidence classifications. Interpretation checks include the
 consumed selections, remainder exclusions and transitive factual contexts.
+Positions of already projected occurrences are compared semantically without
+their line/offset or binding locator hash; section, roles, targets, selections
+and multiplicity remain significant. The complete pair and occurrence census
+still bind those exact positions, so shifting a link invalidates an old receipt.
 Reviewing a migration must additionally compare the prior approved contract:
 narrowing both origins is not justified by their mutual equality. No legacy
 `impact_closure` statement becomes a freshness waiver.

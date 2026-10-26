@@ -37,10 +37,10 @@ Read this first: a compact daily state of items that still need review, decision
 ### Latest updates
 
 - **system:** [Ingestion process](ingestion-process.md) (2026-10-26)
+- **system:** [Governance and PR flow](wiki/pr-governance.md) (2026-10-26)
+- **system:** [Gates and auditing](wiki/gates-and-audit.md) (2026-10-26)
 - **system:** [Operations - wiki-viva-kit](../operations.md) (2026-10-25)
 - **system:** [Input stage](input-stage.md) (2026-10-25)
-- **system:** [Operational wiki contract](operational-wiki-contract.md) (2026-10-23)
-- **system:** [Memory log](log.md) (2026-10-15)
 
 
 ## Context summary
