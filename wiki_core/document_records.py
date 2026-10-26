@@ -594,6 +594,36 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
         raise ValueError("record contract has stale or unmatched consumption bindings")
     if set(context_bindings) != used_context:
         raise ValueError("canonical log annotation context has unmatched occurrences")
+    # Projector-owned scope, independent of content bytes. A remainder with a
+    # newly excluded record is a different interpretation even if its name and
+    # incoming binding are unchanged. Never trust equivalent frontmatter keys.
+    for origin, graph in graphs.items():
+        graph["verified_record_documents"] = {}
+        graph["verified_record_shapes"] = {}
+        for declaration in declarations:
+            path = declaration["path"]
+            partition = partitions[origin][path]
+            shapes = {}
+            for record in declaration["records"] + declaration.get("envelope", []):
+                rid = record["id"]
+                if rid not in partition["parts"]:
+                    continue
+                shapes[rid] = dict(
+                    selector=copy.deepcopy(record["selectors"][origin]) if "selectors" in record else
+                        dict(kind="h2", heading=record["heading"], leading_blank_lines=record.get("leading_blank_lines", 0)),
+                    context_records=record["context_records"],
+                    epistemic_status=record.get("epistemic_status"), claim=record.get("claim"),
+                    value_shape=record.get("value_shape"))
+            shapes["remainder"] = dict(excluded=copy.deepcopy(shapes))
+            for rid in partition["parts"]:
+                nid = node_id(path, rid)
+                graph["verified_record_documents"][nid] = path
+                graph["verified_record_shapes"][nid] = copy.deepcopy(shapes[rid])
+    if contract.get("causal_review") is not None:
+        from wiki_core.causal_review import verify
+        causal = verify(graphs["current"], graphs["base"], changes, contract, artifact_inputs or {})
+        for graph in graphs.values():
+            graph["verified_causal_review"] = copy.deepcopy(causal)
     if review_trace is not None:
         review_trace.extend(trace)
     return graphs["current"], graphs["base"], changes, evidence

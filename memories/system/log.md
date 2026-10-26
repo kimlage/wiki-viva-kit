@@ -1425,3 +1425,9 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 - The [documentary view selector](../../wiki_core/document_view_selectors.py) can select a whole parser-delimited Markdown introduction as an explicitly reviewed factual record. The [contract](../../docs/references/freshness-impact.md#explicit-view-entries-opt-in-v2) keeps frontmatter common, exact BASE/CURRENT hashes, real context dependencies, WHOLE fallback and page freshness unchanged.
 - [Synthetic regressions](../../tests/test_document_preamble.py) distinguish an independent introduction from necessary approval context, retain whole-document consumers and stale factual prerequisites, and reject invalid or uncovered selections. This capability does not qualify any consumer's actual independence or source freshness.
+
+## [2026-10-26] Reviewed causal boundaries and precise ingestion guidance
+
+- The optional [causal review contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) binds complete BASE/CURRENT inputs, occurrence obligations and independent review evidence. It distinguishes an unchanged, fresh, causally reviewed consumer from an unexamined fresh page while retaining real prerequisites and downstream debt.
+- [Synthetic coverage](../../tests/test_causal_review.py) preserves competing causes, historical selection scope, trust markers and stale-source blockers. No source date, account permission or promotion authority is granted by the new record.
+- Corrected [ingestion guidance](ingestion-process.md) against the existing producer: secret screening precedes persistence, dry-run and score conditions are explicit, and consolidation presence checks remain distinct from source-backlink and synthesis audits. Historical update labels are retained; this is a normative review, not external factual revalidation.

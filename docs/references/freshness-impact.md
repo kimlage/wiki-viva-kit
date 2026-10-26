@@ -228,6 +228,60 @@ review, secrets and publication gates.
 
 ## Conservative boundary
 
+### Reviewed causal boundaries (opt-in v2)
+
+A localized policy change can reach unchanged intermediate consumers and then
+stale assertions whose meaning it does not affect. Freshness alone does not
+prove that absence of impact. The optional `causal_review` object in the existing
+`document_record.v2` contract records a separately reviewed causal disposition;
+it never changes source dates, factual relations or access authority.
+
+The [causal verifier](../../wiki_core/causal_review.py) first computes the full
+BASE/CURRENT occurrence census. Its schema is `wiki_causal_review.v1`, with
+`author`, `pair_sha256`, `census_sha256`, `dispositions` and `review_evidence`.
+Each disposition has an exact `obligation_id`, substantive `reason` and one of:
+
+- `no_change`: the complete consumer bytes and documentary interpretation are
+  identical, its own freshness is valid, and independent content review explains
+  why this exact delta does not change the consumed conclusion or duty. Only
+  this causal arrival stops propagating downstream. The consumer and all its
+  actual prerequisites remain evaluated.
+- `updated`: the affected record has a substantive repair. Dates, freshness
+  intervals or exemption flags alone cannot constitute that repair. Content
+  review must establish pertinence to the exact obligation; a lateral edit is
+  not enough. Impact continues to the repaired consumer's dependents.
+- `blocked`: the obligation remains unresolved, even when the consumer is fresh.
+
+Missing dispositions also block. Every reached seed/occurrence is checked;
+another path or BASE occurrence cannot be cleared by the first review. Cycles
+terminate without discarding pending causes. The full census and downstream
+debt beyond reviewed boundaries stay in the report. Such debt has not been
+individually reviewed or factually updated.
+
+The pair digest binds full input documents, projected relations, record lineage
+and verified evidence classifications. Interpretation checks include the
+consumed selections, remainder exclusions and transitive factual contexts.
+Reviewing a migration must additionally compare the prior approved contract:
+narrowing both origins is not justified by their mutual equality. No legacy
+`impact_closure` statement becomes a freshness waiver.
+
+`review_evidence` names one CURRENT immutable JSON file artifact. Its
+`wiki_causal_review_receipt.v1` receipt has `author`, a distinct `reviewer`,
+`decision: approved`, an empty `unresolved_findings` list and `plan_sha256`
+(the structured digest of the complete plan except `review_evidence`). This
+binds review content; it does **not** authenticate the claimed reviewer or
+approve publication. The existing independent review on the final PR HEAD,
+native effect admission and all other gates remain mandatory. Changing any
+bound input invalidates the review.
+
+This initial scope refuses added/removed consumers and combinations with
+`locator_changes`. Removed seeds retain their BASE obligations. Contracts
+without `causal_review` preserve previous behavior. Consumers author and review
+the optional C3 input after adopting the public kit SHA; no automatic private
+migration or source revalidation occurs. The
+[synthetic regressions](../../tests/test_causal_review.py) cover causal cuts,
+alternate causes, preserved prerequisites, scope reduction and stale receipts.
+
 ### Reviewed custody locator changes (opt-in)
 
 An optional `locator_changes` list in the existing record contract distinguishes

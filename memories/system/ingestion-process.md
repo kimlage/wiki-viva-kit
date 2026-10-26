@@ -3,7 +3,7 @@ page_id: system-ingestion-process
 page_type: operational_rule
 context: system
 visibility: private_self
-updated_at: 2026-10-06
+updated_at: 2026-10-26
 stale_after_days: 90
 sources_policy: contrato_wiki_operacional
 gate: github_pr
@@ -21,20 +21,23 @@ or a decision not to ingest.
 
 ## Automated flow (orchestrator)
 
-The deterministic steps 4-7 stopped being standalone CLIs: the orchestrator
-[scripts/wiki_ingest.py](../../scripts/wiki_ingest.py) chains, in a single command,
-**manifest -> text/chunks -> index -> pre-scan (secret blocks; PII only informs)
--> LLM context package (emits the `-request.json` that the auditor requires)
--> score-event `ingestar_fonte_valida`**. The proposal is born with `gate_state:
-created`. The LLM pass remains delegated to the agent that runs the repo (the skill
-reads the package and writes the result to the cache); the auditor only releases
-the merge when the deep reading is recorded (`required_context_pass`). And the
-ingestion only ends when what was read is INTEGRATED into the wiki:
-[scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) generates the
-normalized event and the integration packet from the cache, and its `--check`
-(in CI) blocks while there is a read source without integration — ingesting =
-integrating. The manual
-steps below are the breakdown of that flow, useful when running it step by step.
+The [orchestrator](../../scripts/wiki_ingest.py) extracts text and chunks in
+memory, performs **pre-scan before persistence** (secret blocks; PII informs),
+then writes the manifest/text/chunks and updates the index. The
+[pipeline](../../wiki_core/ingest/pipeline.py) prepares the LLM request when
+chunks exist without secrets, persisting it only in write mode. The
+`ingestar_fonte_valida` score event requires persistence, chunks and enabled
+scoring. `--dry-run` writes no artifacts, index or score; `--no-score` disables
+scoring. The standalone CLIs still exist, with their own boundaries below.
+
+The LLM pass remains delegated to the operating agent, which reads the package
+and records its result. Required deep reading (`required_context_pass`) remains
+a gate. Reading does not finish ingestion: the
+[consolidator](../../scripts/wiki_consolidate.py) emits the event and integration
+packet; `--check` detects a missing event or empty `consolidated_into`. The
+[auditor](../../scripts/wiki_audit.py) separately verifies valid destinations,
+source backlinks and synthesis beyond the source catalogue. Normal independent
+PR review, applicable gates and privacy remain required.
 
 To close the **Information -> Insight** cycle, [scripts/wiki_insight_job.py](../../scripts/wiki_insight_job.py)
 gathers events+chunks+pages by theme and emits a PROPOSAL of an insight (candidate)
@@ -44,15 +47,14 @@ The orchestrated path, end to end:
 
 ```mermaid
 flowchart LR
-    Source["Source"] --> Manifest["Manifest"]
-    Manifest --> Chunks["Text and chunks"]
-    Chunks --> Index["Index"]
-    Index --> Prescan["Pre-scan"]
-    Prescan --> Package["LLM context package"]
+    Source["Source"] --> Extract["Extract text and chunks in memory"]
+    Extract --> Prescan["Pre-scan"]
+    Prescan --> Persist["Write artifacts and index when enabled"]
+    Persist --> Package["LLM context package when chunks exist"]
+    Persist --> Score["Optional ingestion score"]
     Package --> DeepRead(["Deep read by the agent"])
     DeepRead --> Integrate["Consolidate + integrate"]
-    Integrate --> Score["Score event"]
-    Score --> Proposal["Proposal"]
+    Integrate --> Proposal["Proposal"]
     Proposal --> Gate{"PR gate"}
     Gate -->|approved| Memory[("Memory")]
 ```
@@ -61,13 +63,13 @@ The deterministic stages, the command that runs each, and what gates it:
 
 | Stage | Command | Gate |
 | --- | --- | --- |
-| Manifest | [wiki_extract_source_manifest.py](../../scripts/wiki_extract_source_manifest.py) | none |
-| Text + chunks | [wiki_extract_text.py](../../scripts/wiki_extract_text.py) | none |
+| Standalone manifest | [wiki_extract_source_manifest.py](../../scripts/wiki_extract_source_manifest.py) | no pre-scan; do not persist ahead of secret screening |
+| Text + chunks | [wiki_extract_text.py](../../scripts/wiki_extract_text.py) | secret pre-scan before writing manifest/text/chunks |
 | Index | [wiki_build_index.py](../../scripts/wiki_build_index.py) | none |
-| Pre-scan + context package | [wiki_ingest.py](../../scripts/wiki_ingest.py) | secret blocks (exit 2); emits the `-request.json` |
+| Orchestrated extraction + context package | [wiki_ingest.py](../../scripts/wiki_ingest.py) | pre-scan before persistence; request requires chunks and is written only in write mode |
 | Deep read | [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) | `required_context_pass` requires a recorded result |
 | Consolidate + integrate | [wiki_consolidate.py](../../scripts/wiki_consolidate.py) | new event needs `consolidated_into`; `--check` fails a read source without integration (CI) |
-| Consolidation + audit | [wiki_audit.py](../../scripts/wiki_audit.py) | contract/links/secrets; repository review policy on the PR |
+| Consolidation + audit | [wiki_audit.py](../../scripts/wiki_audit.py) | destinations, source backlinks, synthesis, contract/links/secrets; repository review policy on the PR |
 
 ## Flow
 
@@ -76,16 +78,21 @@ The deterministic stages, the command that runs each, and what gates it:
    `no_ingest`.
 3. Define the target context among those declared in [wiki.config.yaml](../../wiki.config.yaml)
    (`contexts`); `system` is always valid.
-4. Generate a manifest with [scripts/wiki_extract_source_manifest.py](../../scripts/wiki_extract_source_manifest.py)
-   when the source is a file, URL, or traceable artifact.
-5. Extract text and chunks with [scripts/wiki_extract_text.py](../../scripts/wiki_extract_text.py)
-   when there is new semantic content.
+4. Use the [orchestrator](../../scripts/wiki_ingest.py) for extraction and
+   screening before persistence. In a manual flow, the
+   [text extractor](../../scripts/wiki_extract_text.py) screens before writing
+   the manifest, text and chunks; do not preempt it with the
+   [standalone manifest command](../../scripts/wiki_extract_source_manifest.py),
+   which does not screen secrets. Metadata alone does not prove reading.
+5. Verify extracted text and chunks when new semantic content exists; preserve
+   source identity and distinguish extraction from consolidated synthesis.
 6. Record a normalized event in [memories/system/ingestion/events/](ingestion/events/README.md)
    with four quadrants or an explicit absence.
 7. Plan the contextual LLM pass with [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py)
    and record the cache/plan or a skip justification.
 8. Consolidate and INTEGRATE with [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
-   `--source <source_id> --emit-event --packet` generates the normalized event
+   `--source <source_id> --emit-event --packet`, with either `--source-page` or
+   `--source-ref` identifying the canonical source, generates the normalized event
    from the recorded deep read (quadrants filled, candidate claims/decisions/
    actions, `consolidated_into: []` to close) and the integration packet
    (gitignored, with related pages, overlapping claims and potential conflicts).
@@ -93,8 +100,10 @@ The deterministic stages, the command that runs each, and what gates it:
    create/update load-bearing claim pages (fields `supersedes`/`superseded_by`/
    `conflicts_with`/`conflict_resolution` when claims collide); resolve or
    record every conflict and ambiguity; fill in the event's `consolidated_into`
-   (each target page references the source in `source_refs`). The `--check`
-   blocks CI while there is a read source without integration.
+   (each target references the source in `source_refs`; the source identity page
+   must not reference itself). `--check` detects a missing event or empty
+   destination list; the [auditor](../../scripts/wiki_audit.py) verifies actual
+   destinations, backlinks and synthesis beyond the source catalogue.
 9. If the decision is not trivial, generate a proposal in
    [memories/system/ingestion/YYYY-MM-DD-<topic>.md](ingestion/README.md).
 10. Open or update a `wiki/*` branch.
@@ -147,8 +156,8 @@ restriction is against full copying without criteria and against access secrets.
   but the target must point to the nearest real directory or to the current page
   that replaced the original.
 - Commands remain in inline code when they are commands; if the command cites a
-  script as an operational source, also cite the script as a link on a separate
-  line or in the sources section.
+  script as an operational source, include its Markdown link on the same line.
+  A link only in a separate line or sources section does not satisfy the check.
 - [scripts/wiki_audit.py](../../scripts/wiki_audit.py) `--check` must fail when it
   finds an existing local path written without a link in the wiki/process pages.
 
@@ -161,7 +170,8 @@ restriction is against full copying without criteria and against access secrets.
 - Live system vs. spreadsheet/app: do not resolve automatically without a current
   readback and an explicit rule.
 - External source (Drive, etc.) vs. [data/raw](../../data/raw): trust the external
-  source first and record the divergence before reorganizing.
+  source first and record the divergence. That precedence does not authorize
+  reorganization; apply the consumer's existing authorization and conflict rules.
 
 ## Expected result
 
