@@ -42,9 +42,12 @@ def repaired_boundary(base, current, node):
     new_scopes = _interpretation_state(current, node, append_equivalence=True)['scopes']
     if any(new_scopes.get(prerequisite) != scope for prerequisite, scope in old_scopes.items()):
         return False
-    # A repaired upstream unit does not authorize loss/reclassification of its
-    # old premises or changed mandatory context. Exact relocation is reviewed
-    # by the arrival declaration; additional references remain real premises.
+    # A repaired upstream unit does not authorize loss/reclassification of any
+    # already-consumed transitive relation or changed mandatory context. Scope
+    # equality alone misses removal when another path still reaches the same
+    # prerequisite. Freeze the BASE consumer closure for both sides; genuinely
+    # new nodes remain additional factual premises, without inventing BASE uses.
+    # Exact unique relocation remains reviewed by the arrival declaration.
     from wiki_core.causal_review import _normalized_interpretation_edge
     from wiki_core.document_records import structured_digest
     from wiki_core.freshness_impact import REFERENCE, STRUCTURAL, ASSOCIATION
@@ -55,7 +58,7 @@ def repaired_boundary(base, current, node):
             if raw['type'] in STRUCTURAL | ASSOCIATION:
                 continue
             consumer = raw['source'] if raw['type'] in REFERENCE else raw['target']
-            if consumer != node:
+            if consumer not in old_scopes:
                 continue
             edge = _normalized_interpretation_edge(raw)
             full = structured_digest(edge)

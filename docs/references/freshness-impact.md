@@ -306,7 +306,9 @@ The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) compares
 the intact consumer's interpretation up to the declared repaired premises.
 Every declared premise must be actually necessary for this arrival: removing
 it must break the proved equivalence. All previously consumed prerequisite
-scopes must remain intact even behind a repaired premise. Missing, unknown,
+scopes, relation occurrences and mandatory contexts must remain intact through
+the full BASE factual closure, even behind a repaired premise. An alternate
+path to the same authority does not justify removing an old relation. Missing, unknown,
 duplicate, unnecessary or misplaced declarations fail closed. The old relation
 multiset must be retained; a reviewed section relocation requires an unambiguous
 one-to-one occurrence correspondence with all other semantics unchanged.

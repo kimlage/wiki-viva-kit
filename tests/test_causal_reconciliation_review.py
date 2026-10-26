@@ -93,3 +93,97 @@ def test_reachable_but_unnecessary_repair_request_is_rejected():
     # interpretation is already equal, so including it must not count as use.
     with pytest.raises(ValueError, match='unused'):
         project_records(c,b,changed,spec,artifact_inputs=inputs)
+
+
+def transitive_pair(depth, cycle=False):
+    b, c, _ = make()
+    c['documents']['policy'] = b['documents']['policy']
+    nodes = ['r', *['q' + str(i) for i in range(depth)]]
+    for node in nodes:
+        add_node(b, c, node, new='# ' + node + '\n\nSubstantively repaired local duty.\n')
+    add_node(b, c, 'authority')
+    add_node(b, c, 'alternate')
+    leaf = nodes[-1]
+    for graph in (b, c):
+        graph['edges'] = [ref('consumer', 'r'), ref('tail', 'consumer'),
+                          ref('r', 'authority'), ref('r', 'alternate'), ref(leaf, 'authority')]
+        graph['edges'].extend(ref(parent, child) for parent, child in zip(nodes, nodes[1:]))
+        if cycle:
+            graph['edges'].append(ref(leaf, 'r'))
+    return b, c, set(nodes), leaf
+
+
+@pytest.mark.parametrize('depth', [1, 3])
+@pytest.mark.parametrize('cycle', [False, True])
+@pytest.mark.parametrize('mutation', ['remove', 'multiplicity', 'reclassify', 'retarget',
+                                     'direction', 'context_add', 'context_remove', 'ambiguous_relocation'])
+def test_repaired_frontier_preserves_transitive_relations_not_only_reachable_scopes(depth, cycle, mutation):
+    b, c, changed, leaf = transitive_pair(depth, cycle)
+    for graph in (b, c):
+        if mutation in {'multiplicity', 'ambiguous_relocation'}:
+            old = next(e for e in graph['edges'] if e['source'] == leaf and e['target'] == 'authority')
+            old.update(type='markdown_link', basis='markdown_body', field='body',
+                       section='Original', body_line=3, body_offset=0)
+            graph['edges'].append(dict(old, body_line=4))
+        elif mutation == 'context_remove':
+            graph['edges'].append(dict(ref(leaf, 'authority'), field='context_records'))
+    target = next(e for e in c['edges'] if e['source'] == leaf and e['target'] == 'authority')
+    if mutation in {'remove', 'multiplicity'}:
+        c['edges'].remove(target)
+    elif mutation == 'reclassify':
+        target['type'] = 'navigation_link'
+    elif mutation == 'retarget':
+        target['target'] = 'alternate'
+    elif mutation == 'direction':
+        target['direction'] = 'undirected'
+    elif mutation == 'context_remove':
+        c['edges'] = [e for e in c['edges'] if e.get('field') != 'context_records']
+    elif mutation == 'ambiguous_relocation':
+        for edge in c['edges']:
+            if edge['source'] == leaf and edge['target'] == 'authority':
+                edge['section'] = 'Reworded'
+    else:
+        # Even adding a mandatory context to an old consumed unit changes the
+        # inherited contract; the alternate r->authority path retains scopes.
+        c['edges'].append(dict(ref(leaf, 'authority'), field='context_records'))
+    spec, inputs = authored(b, c, changed,
+        select=lambda e, o: e['consumer'] in changed | {'consumer'},
+        disposition=lambda e: 'no_change' if e['consumer'] == 'consumer' else 'updated',
+        mutate=lambda plan: request(plan, ['r']))
+    with pytest.raises(ValueError, match='same-seed substantive support'):
+        project_records(c, b, changed, spec, artifact_inputs=inputs)
+
+
+@pytest.mark.parametrize('cycle', [False, True])
+@pytest.mark.parametrize('kind', ['citation', 'relocation', 'stale_new_context'])
+def test_transitive_preservation_keeps_reviewed_additions_and_unique_relocations(cycle, kind):
+    from test_causal_review import run
+    b, c, changed, leaf = transitive_pair(3, cycle)
+    if kind == 'relocation':
+        for graph, section in ((b, 'Original'), (c, 'Reworded')):
+            edge = next(e for e in graph['edges'] if e['source'] == leaf and e['target'] == 'authority')
+            edge.update(type='markdown_link', basis='markdown_body', field='body',
+                        section=section, body_line=3, body_offset=0)
+    else:
+        for node in ('new-authority', 'new-context'):
+            add_node(b, c, node, old='# ' + node + '\n\nComplete additional premise.\n')
+        # These documents already exist, but their factual context was not
+        # consumed by the repaired frontier in BASE.
+        for graph in (b, c):
+            graph['edges'].append(dict(ref('new-authority', 'new-context'), field='context_records'))
+        c['edges'].append(ref(leaf, 'new-authority'))
+        if kind == 'stale_new_context':
+            for graph in (b, c):
+                graph['nodes']['new-context']['updated_at'] = '2026-01-01'
+    spec, inputs = authored(b, c, changed,
+        select=lambda e, o: e['consumer'] in changed | {'consumer'},
+        disposition=lambda e: 'no_change' if e['consumer'] == 'consumer' else 'updated',
+        mutate=lambda plan: request(plan, ['r']))
+    result = run(b, c, changed, spec, inputs)
+    if kind == 'stale_new_context':
+        assert not result['ok']
+        assert any(row['path'] == 'new-context' and row['reason'] == 'required_dependency'
+                   for row in result['blockers'])
+    else:
+        assert result['ok']
+    assert any(row['path'] == 'tail' for row in result['unrelated_debt'])

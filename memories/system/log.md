@@ -1459,3 +1459,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 - The [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) can explicitly reconcile an intact consumer with a substantively repaired premise on that same arrival and seed. Complete scope, retained factual relations, freshness, other causes and independent review remain required.
 - The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) also proves exact append-only remainder equivalence without clearing WHOLE consumers or new records. [Arrival regressions](../../tests/test_causal_upstream_repairs.py) and [append regressions](../../tests/test_causal_append_partition.py) distinguish supported reconciliation from branch borrowing, scope loss, source aliases and stale replay. No account, credential or operational authority changes.
+
+## [2026-10-26] Preserve relations throughout repaired factual context
+
+- The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) now checks retained relations and mandatory contexts throughout the already-consumed BASE closure. A second path to the same authority cannot hide a removed, retargeted or reclassified relation behind a repaired premise.
+- [Synthetic counterexamples](../../tests/test_causal_reconciliation_review.py) cover deeper chains, cycles, multiplicity and changed contexts. Supported additions and unique relocations retain their existing limits; newly added prerequisites remain subject to factual freshness. This corrects the [PR141 review finding](https://github.com/kimlage/wiki-viva-kit/pull/141#discussion_r4383669406) without granting operational authority or reclassifying consumer data.
