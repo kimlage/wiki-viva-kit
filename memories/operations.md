@@ -15,7 +15,7 @@ moc_parent: memories/index.md
 # Operations - wiki-viva-kit
 
 Owner: Wiki Owner.
-Updated at: 2026-10-26 16:32.
+Updated at: 2026-10-26 17:39.
 
 ## Current state
 
@@ -68,11 +68,11 @@ Honest signal: an ingested source only counts once its event is closed (consolid
 
 ## Karma and vitality (gamification)
 
-Score events: 1 | total karma (with decay): 2.98.
+Score events: 2 | total karma (with decay): 5.98.
 
 | Dimension | Points |
 | --- | --- |
-| stewardship | 2.98 |
+| stewardship | 5.98 |
 
 ## Resume links
 

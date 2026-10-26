@@ -152,7 +152,7 @@ def test_other_seed_and_cycle_cannot_be_cleared_by_first_review():
 def test_changed_consumer_cannot_be_no_change():
     b, c, changed = make(); c['documents']['consumer'] += 'Changed assertion.\n'; changed.add('consumer')
     spec, inputs = authored(b, c, changed)
-    with pytest.raises(ValueError, match='identical full consumer'): run(b, c, changed, spec, inputs)
+    with pytest.raises(ValueError, match='identical complete consumer unit'): run(b, c, changed, spec, inputs)
 
 
 def test_date_only_is_not_substantive_updated():
@@ -235,7 +235,7 @@ def test_transitive_context_reclassification_is_not_equal_interpretation():
 
 
 @pytest.mark.parametrize('key', ['verified_evidence_nodes', 'verified_record_documents', 'verified_record_shapes',
-                               'verified_record_substantive_sha256'])
+                               'verified_record_substantive_sha256', 'verified_precise_component_seeds'])
 def test_trusted_projection_marker_mutation_invalidates_pair(key):
     b, c, changed = make(old_prerequisite=True)
     spec, inputs = authored(b, c, changed)
@@ -457,7 +457,7 @@ def test_transitive_markdown_position_shift_keeps_semantics_but_rebinds_review(t
 def test_position_normalization_does_not_hide_semantic_dependency_change(tmp_path, semantic_change):
     b,c,changed,spec = markdown_position_pair(tmp_path, semantic_change=semantic_change)
     spec,inputs = authored(b,c,changed,spec=spec,select=lambda e,o:e['consumer']=='memories/consumer.md')
-    with pytest.raises(ValueError, match='identical full consumer and interpretation'):
+    with pytest.raises(ValueError, match='identical complete consumer unit and interpretation'):
         run(b,c,changed,spec,inputs)
 
 
@@ -528,6 +528,202 @@ def test_substantive_repair_in_exact_affected_record_is_accepted(mode, record):
     assert spec['causal_review']['dispositions']
     pc, pb, seeds, _ = project_records(c, b, changed, spec, artifact_inputs=inputs)
     assert pc['verified_causal_review']['dispositions']
+
+
+def unchanged_unit_sibling_repair(mode):
+    b, c, changed, spec = partitioned_repair_pair(mode)
+    c['documents']['consumer'] = b['documents']['consumer'].replace(
+        'Common duty remains.', 'Common duty now requires independent review.')
+    spec['current_documents_sha256']['consumer'] = digest(c['documents']['consumer'])
+    declaration = next(d for d in spec['documents'] if d['path'] == 'consumer')
+    declaration['records'][0]['current_sha256'] = declaration['records'][0]['base_sha256']
+    return b, c, changed, spec
+
+
+@pytest.mark.parametrize('mode', ['h2_v1', 'explicit_view_v2'])
+def test_unchanged_complete_record_can_be_reviewed_when_its_sibling_changes(mode):
+    """A sibling repair does not force fictional edits to an intact duty."""
+    from wiki_core.document_records import node_id
+    b, c, changed, spec = unchanged_unit_sibling_repair(mode)
+    spec, inputs = authored(b, c, changed, spec=spec,
+        select=lambda e, o: e['consumer'] == node_id('consumer', 'specific'))
+    assert spec['causal_review']['dispositions']
+    pc, pb, seeds, _ = project_records(c, b, changed, spec, artifact_inputs=inputs)
+    assert pc['verified_causal_review']['dispositions']
+    result = evaluate_impact(pc, pb, seeds, today=TODAY)
+    assert not any(r.get('path') == node_id('consumer', 'specific')
+                   and r.get('reason') == 'causal_missing' for r in result['blockers'])
+    # This unit's review does not clear raw WHOLE consumers or sibling causes.
+    assert not result['ok']
+
+
+@pytest.mark.parametrize('mode', ['h2_v1', 'explicit_view_v2'])
+def test_unchanged_unit_cannot_borrow_renewed_freshness_from_sibling(mode):
+    from wiki_core.document_records import node_id
+    b, c, changed, spec = unchanged_unit_sibling_repair(mode)
+    b['nodes']['consumer']['updated_at'] = '2026-01-01'
+    b['documents']['consumer'] = b['documents']['consumer'].replace('2026-10-25', '2026-01-01')
+    c['documents']['consumer'] = c['documents']['consumer'].replace('2026-10-25', '2026-10-26')
+    for origin, graph in (('base', b), ('current', c)):
+        spec[origin + '_documents_sha256']['consumer'] = digest(graph['documents']['consumer'])
+    spec, inputs = authored(b, c, changed, spec=spec,
+        select=lambda e, o: e['consumer'] == node_id('consumer', 'specific'))
+    result = run(b, c, changed, spec, inputs)
+    assert any(r.get('path') == node_id('consumer', 'specific')
+               and r.get('reason') == 'causal_no_change_consumer_not_fresh' for r in result['blockers'])
+    assert any(r.get('path') == 'tail' for r in result['blockers'])
+    assert not result['ok']
+
+
+def precise_component_pair(*, whole=False, context=False, premise='historical', mutation=None):
+    """An exact procedure edit has no claim about an independent old source."""
+    b, c, changed = make()
+    before = ('# Policy\n\n## Procedure\n\nApply the local review rule.\n\n'
+              '## Historical\n\nHistorical observation.\n')
+    if premise == 'historical':
+        before = before.replace('Historical observation.', 'Historical [observation](required).')
+    elif premise == 'procedure':
+        before = before.replace('Apply the local review rule.', 'Apply the local [review rule](required).')
+    elif premise == 'common':
+        before = before.replace('# Policy\n', '# Policy\n\nCommon [premise](required).\n')
+    for g in (b, c):
+        g['nodes']['required'] = dict(updated_at='2026-01-01', stale_after_days=30)
+        g['documents']['required'] = '# Historical source, still stale\n'
+        g['documents']['policy'] = before
+        line = next(i for i, v in enumerate(before.splitlines(), 1) if '(required)' in v)
+        g['edges'].append(dict(source='policy', target='required', type='markdown_link',
+            direction='directed', basis='markdown_body', path='policy', field='body', body_line=line))
+    c['documents']['policy'] = before.replace('Apply the local', 'Apply the independently approved local')
+    if mutation == 'remainder':
+        c['documents']['policy'] = c['documents']['policy'].replace('# Policy\n', '# Policy revised\n')
+    if mutation == 'references':
+        for g in (b, c): g['documents']['policy'] += '\n[guide]: /original\n'
+        c['documents']['policy'] = c['documents']['policy'].replace('/original', '/different')
+    if mutation == 'order':
+        text = c['documents']['policy']; a = sections(text)[1]
+        c['documents']['policy'] = '# Policy\n\n' + a['Historical'][2] + '\n' + a['Procedure'][2]
+        # Keep the factual occurrence attached to its actual text after reorder.
+        c['edges'][-1]['body_line'] = next(i for i,v in enumerate(c['documents']['policy'].splitlines(),1) if '(required)' in v)
+    if mutation == 'shape':
+        c['documents']['policy'] = c['documents']['policy'].replace('## Historical', '## Archive')
+    spec = contract(b, c)
+    records = []
+    for rid, heading in [('procedure', 'Procedure'), ('historical', 'Historical')]:
+        record = dict(id=rid, independent=True, rationale='Complete independent synthetic unit.',
+            epistemic_status='decision', recorded_on='2026-10-26',
+            context_records=['historical'] if context and rid == 'procedure' else [],
+            selectors={o: dict(kind='h2', heading=heading) for o in ('base','current')})
+        for o,g in [('base',b),('current',c)]:
+            selected_heading = 'Archive' if mutation == 'shape' and o == 'current' and rid == 'historical' else heading
+            record['selectors'][o]['heading'] = selected_heading
+            record[o+'_sha256'] = digest(sections(g['documents']['policy'])[1][selected_heading][2])
+        records.append(record)
+    spec['documents'].append(dict(path='policy', records=records))
+    spec['document_modes']['policy'] = 'explicit_view_v2'
+    if not whole:
+        for o,g in [('base',b),('current',c)]:
+            edge=next(e for e in g['edges'] if e['source']=='consumer' and e['target']=='policy')
+            spec['bindings'].append(dict(origin=o,edge_sha256=edge_digest(edge),consumer_record='document',
+                target_record='procedure',consumed_sha256=records[0][o+'_sha256'],
+                rationale='This complete consumer duty consumes Procedure, not the independent historical assertion.'))
+    return b,c,changed,spec
+
+
+def authored_precise_pair(**kwargs):
+    b,c,changed,spec = precise_component_pair(**kwargs)
+    spec,inputs = authored(b,c,changed,spec=spec,
+        select=lambda e,o:e['consumer'] in {'policy','consumer'},
+        disposition=lambda e:'updated' if e['consumer']=='policy' else 'no_change')
+    return b,c,changed,spec,inputs
+
+
+def test_precise_raw_carrier_preserves_history_without_requesting_its_revalidation():
+    b,c,changed,spec,inputs = authored_precise_pair()
+    result = run(b,c,changed,spec,inputs)
+    assert result['ok']
+    assert 'policy' in result['seeds']  # WHOLE downstream identity was retained.
+    assert result['causal_review']['precise_representation_carriers'] == ['policy']
+    assert any(r['path']=='required' and r['state']=='stale' for r in result['unrelated_debt'])
+    assert not any(r['path']=='required' for r in result['included'])
+
+
+@pytest.mark.parametrize('kwargs', [dict(whole=True),dict(context=True),
+    dict(premise='procedure'),dict(premise='common')])
+def test_real_factual_demand_still_expands_all_required_components(kwargs):
+    b,c,changed,spec,inputs = authored_precise_pair(**kwargs)
+    result = run(b,c,changed,spec,inputs)
+    assert not result['ok']
+    assert any(r['path']=='required' and r['state']=='stale' for r in result['blockers'])
+    if kwargs.get('whole'):
+        assert result['causal_review']['approved_boundaries']  # no_change is no freshness waiver.
+
+
+@pytest.mark.parametrize('mutation', ['remainder','references','order','shape'])
+def test_uncovered_delta_never_becomes_a_precise_representation_carrier(mutation):
+    b,c,changed,spec = precise_component_pair(mutation=mutation)
+    pc,pb,_,_ = project_records(c,b,changed,spec)
+    assert pc['verified_precise_component_seeds'] == pb['verified_precise_component_seeds'] == {}
+
+
+def test_authored_marker_cannot_make_uncovered_delta_precise():
+    b,c,changed,spec = precise_component_pair(mutation='remainder')
+    for graph in (b,c):
+        graph['verified_precise_component_seeds'] = {'policy':['policy::record:procedure']}
+        graph['nodes']['policy']['verified_precise_component_seeds'] = ['policy::record:procedure']
+    pc,pb,_,_ = project_records(c,b,changed,spec)
+    assert pc['verified_precise_component_seeds'] == pb['verified_precise_component_seeds'] == {}
+
+
+@pytest.mark.parametrize('change', ['role-to-fact','role-to-navigation','evidence'])
+def test_unchanged_sibling_interpretation_change_preserves_full_raw_demand(change):
+    b,c,changed,spec = precise_component_pair()
+    inputs = {}
+    if change.startswith('role-'):
+        edge = next(e for e in c['edges'] if e['source']=='policy' and e['target']=='required')
+        spec['bindings'].append(dict(origin='base' if change == 'role-to-fact' else 'current',edge_sha256=edge_digest(edge),
+            consumer_record='historical',role='navigation',
+            prerequisite_document_sha256=digest(c['documents']['required']),
+            rationale='Adversarial reinterpretation of identical historical text.'))
+    else:
+        data=b'Historical observation evidence.\n'
+        for origin in ('base','current'):
+            spec['artifacts'].append(dict(origin=origin,id='additional-proof',path='proof.txt',sha256=digest(data.decode())))
+            inputs[origin,'additional-proof']=data
+        declaration=next(d for d in spec['documents'] if d['path']=='policy')
+        next(r for r in declaration['records'] if r['id']=='historical')['current_evidence']=['additional-proof']
+    pc,pb,_,_=project_records(c,b,changed,spec,artifact_inputs=inputs)
+    assert pc['verified_precise_component_seeds'] == pb['verified_precise_component_seeds'] == {}
+
+
+@pytest.mark.parametrize('route', ['whole-cycle','second-seed'])
+def test_precise_carrier_does_not_clear_cycle_or_independent_cause(route):
+    from wiki_core.document_records import node_id
+    b,c,changed,spec = precise_component_pair()
+    target = 'policy' if route == 'whole-cycle' else 'other'
+    for origin,graph in [('base',b),('current',c)]:
+        if route == 'second-seed':
+            graph['nodes']['other'] = dict(updated_at='2026-10-26',stale_after_days=30)
+            graph['documents']['other'] = '# Other independent policy\n' + ('Changed duty.\n' if origin=='current' else '')
+        text=graph['documents']['policy'].replace('Historical [observation](required).',
+            'Historical [observation](required) and [complete premise]('+target+').')
+        graph['documents']['policy']=text
+        line=next(i for i,v in enumerate(text.splitlines(),1) if 'complete premise' in v)
+        graph['edges'].append(dict(source='policy',target=target,type='markdown_link',
+            direction='directed',basis='markdown_body',path='policy',field='body',body_line=line))
+        spec[origin+'_documents_sha256']={p:digest(t) for p,t in graph['documents'].items()}
+        declaration=next(d for d in spec['documents'] if d['path']=='policy')
+        next(r for r in declaration['records'] if r['id']=='historical')[origin+'_sha256']=digest(sections(text)[1]['Historical'][2])
+    if route=='second-seed': changed.add('other')
+    historical=node_id('policy','historical')
+    spec,inputs=authored(b,c,changed,spec=spec,
+        select=lambda e,o:e['consumer'] in {'policy','consumer',historical},
+        disposition=lambda e:'updated' if e['consumer']=='policy' else 'no_change')
+    result=run(b,c,changed,spec,inputs)
+    assert result['causal_review']['precise_representation_carriers']==['policy']
+    assert any(r['consumer']==historical and r['seed']==target
+               for r in result['causal_review']['approved_boundaries'])
+    assert any(r['path']=='required' and r['state']=='stale' for r in result['blockers'])
+    assert not result['ok']
 
 
 @pytest.mark.parametrize('kind', ['generation', 'membership'])
