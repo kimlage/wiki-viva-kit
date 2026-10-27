@@ -1,9 +1,11 @@
 # Wiki command-line tools
 
-Every `wiki_*.py` command is deterministic and local. Contextual LLM reading is
-performed by the operating agent, never by an embedded client. See the
-[command reference](../memories/system/wiki/command-reference.md) and use
-`--help` for exact flags.
+The tools provide deterministic orchestration; contextual reading is delegated
+to the operating agent. Effect scope is command-specific: local lookup and
+inspection differ from source refresh and artifact publication, which can
+contact external services. Use the [existing task entry points](../memories/system/wiki/command-reference.md#common-flows)
+to choose a read or write route, and `--help` for exact flags. A command name
+does not grant account access or permission to apply its effects.
 
 ## Primary lifecycle
 

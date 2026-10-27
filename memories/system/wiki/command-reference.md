@@ -18,8 +18,10 @@ related_pages: [memories/system/wiki/index.md]
 
 # Command reference
 
-All commands are deterministic and local. Run `python3 scripts/<command>
---help` for exact options.
+Commands provide deterministic orchestration with different effect scopes.
+Local lookup and inspection do not imply permission to refresh a source or
+publish an artifact externally. Run `python3 scripts/<command> --help` for
+exact options; only use preview/apply modes actually exposed by that command.
 
 | Command | Purpose |
 | --- | --- |
@@ -77,6 +79,24 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 The cancelled host integration is retained in the [withdrawal record](../../../docs/references/releases/hermes-integration-withdrawal-2026-10-22.md) and Git history, outside this active CLI catalogue.
 
 ## Common flows
+
+Choose the existing entry point by the intended task. The labels below are
+not new commands or services. Read the checkout instructions and configured
+memory index first; retain any stronger consumer context requirement.
+
+| Task | Existing entry | Scope and next step |
+| --- | --- | --- |
+| Find | [wiki_find.py](../../../scripts/wiki_find.py) | Search the existing lexical index. Read each result's origin and coverage gaps before treating it as evidence. No index or model is started. |
+| Context | Read a known Markdown page, or use the existing [page reader](../../../wiki_core/web/content.py) through `GET /api/pages/{page_id}/content` on an already-running cockpit. For an assigned action, [wiki_coordination.py](../../../scripts/wiki_coordination.py) prepares its packet. | Follow relevant relations and original evidence for the claim. Packet preparation intentionally builds a snapshot; it is not a universal cheap lookup or automatic dispatch. Do not start a service merely to read a known local page. |
+| Source | Use the existing source workspace, `GET /api/sources` for identity/location and `GET /api/sources/{source_id}/operations` for receipts, described in [source access](../../../docs/references/guides/source-access-and-ingestion.md). | Inspect retained identity, location and receipts first. [Refresh preview/run](../../../docs/references/guides/source-refresh-cadence.md) may contact external systems and requires the existing account and authorized scope; an unavailable original is an explicit gap. |
+| Action | Open the same [board card](../../../docs/references/guides/native-action-board.md). Use its existing transition/dialogue writer for allowed local changes; reconcile retained agent results through [contributions](../../../docs/references/guides/agent-contributions.md). | Keep the same action and origin run/effect references; revalidate its current revision before writing. A received-result comment has its own event identity, does not consume the contribution effect, and does not incorporate its factual proposal. Other documents, rules or required generators use the existing normal multipage proposal with review and gates. |
+
+A lookup reports candidates, not current truth or absence. Claims about current
+state need relevant source verification; absence and totals need explicit
+coverage. Local writers retain authorization, live admission where applicable,
+revision checks, STOP/terminal rules, idempotency and review. A local change is
+not an integrated or served result. See [coordination](../../../docs/references/guides/context-coordinators.md)
+for handoff and recovery; inspecting a result does not require redispatch.
 
 Use [wiki_find.py](../../../scripts/wiki_find.py) for direct lookup before
 preparing a reading request. `--context` filters observed local metadata before

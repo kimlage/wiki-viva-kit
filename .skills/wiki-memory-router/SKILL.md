@@ -5,7 +5,23 @@ description: Route reading, editing and delegation in Markdown/Git living-wiki r
 
 # Wiki Memory Router
 
-## Workflow
+## Choose the task first
+
+Identify the authorized checkout, read its AGENTS instructions and configured
+memory index, then use the [existing task entry points](../../memories/system/wiki/command-reference.md#common-flows).
+Consumer-specific context requirements continue to apply.
+
+- For locating or reading a candidate, use direct lookup or the known page.
+  Report origin and coverage limits. This alone does not require ingestion,
+  a new model run, a server startup or global maintenance.
+- For a consolidated factual claim, current-state assertion, absence or total,
+  load the relevant domain/relations and original evidence. State incomplete
+  coverage explicitly; search hits alone do not prove completeness or freshness.
+- For resumed ingestion, canonical changes or delegation, follow the workflow
+  below and its applicable gates. A read-only lookup must not silently turn
+  into refresh, publication or a write.
+
+## Workflow for synthesis, ingestion, changes and delegation
 
 1. Identify the authorized checkout root, using `git rev-parse --show-toplevel`
    when available. Read that root's [AGENTS.md](../../AGENTS.md) and applicable
@@ -27,7 +43,7 @@ description: Route reading, editing and delegation in Markdown/Git living-wiki r
 6. Open the operational-pass page resolved by `WikiPaths.operational_pass_page`
    when it exists and read the top "Short-term memory" section before older
    execution/event pages.
-7. Run `python3 scripts/wiki_consolidate.py --check` ([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py)) when resuming: sources stuck mid-flow (deep read without integration) show up immediately.
+7. When resuming ingestion or integration, run `python3 scripts/wiki_consolidate.py --check` ([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py)): sources stuck mid-flow (deep read without integration) show up immediately.
 8. Select the context-specific local skill only after the root memory explains the context.
 9. Treat configured `paths.references_root` as references, templates and audit
    history, not as live memory.
@@ -38,7 +54,7 @@ description: Route reading, editing and delegation in Markdown/Git living-wiki r
     Verify tools, host/session and account in the executing instance; do not
     assume the parent's capabilities transfer. Record an exact blocker and a
     bounded condition for resuming the same IDs, preserving independent work.
-12. Before finalizing, run [scripts/wiki_audit.py](../../scripts/wiki_audit.py), [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) with `--check`, [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py) with `--check`, [scripts/wiki_input_stage.py](../../scripts/wiki_input_stage.py) with `--check`, [scripts/wiki_check_methodology_coverage.py](../../scripts/wiki_check_methodology_coverage.py) when methodology files changed, [scripts/wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) and [scripts/wiki_pr_summary.py](../../scripts/wiki_pr_summary.py).
+12. Before finalizing a canonical change, run [scripts/wiki_audit.py](../../scripts/wiki_audit.py), [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) with `--check`, [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py) with `--check`, [scripts/wiki_input_stage.py](../../scripts/wiki_input_stage.py) with `--check`, [scripts/wiki_check_methodology_coverage.py](../../scripts/wiki_check_methodology_coverage.py) when methodology files changed, [scripts/wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) and [scripts/wiki_pr_summary.py](../../scripts/wiki_pr_summary.py).
 
 ## Rules
 
