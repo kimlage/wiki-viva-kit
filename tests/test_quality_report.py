@@ -116,8 +116,9 @@ def test_quality_report_tracks_cost_telemetry_without_budget_gate(tmp_path: Path
 
     assert report["summary"]["chunks_total"] == 1
     assert report["summary"]["estimated_context_tokens"] == 42
-    assert report["summary"]["cached_calls"] == 1
-    assert report["summary"]["pending_calls"] == 0
+    # An unbound empty JSON is not proof of contextual reading.
+    assert report["summary"]["cached_calls"] == 0
+    assert report["summary"]["pending_calls"] == 1
     assert report["cost_telemetry"]["note"].endswith("does not enforce a hard budget.")
 
 

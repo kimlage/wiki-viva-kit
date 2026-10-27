@@ -14,8 +14,7 @@ from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.graph import build_page_graph
 from wiki_core.graph.page_graph import DEFAULT_ORPHAN_EXEMPT_TYPES, PageGraph
-from wiki_core.llm.cache import cache_key
-from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION
+from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, read_matching_result
 from wiki_core.paths import WikiPaths
 
 QUALITY_REPORT_SCHEMA_VERSION = "wiki_quality_report.v1"
@@ -352,13 +351,18 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
                 )
 
     chunk_payloads = _chunk_payloads(paths)
-    prompt_version = str(
-        dict(config.llm.get("prompt_versions", {})).get(
-            "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION
-        )
-    )
+    prompt_version = str(dict(config.llm.get("prompt_versions", {})).get(
+        "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
     schema_version = CONTEXT_PASS_SCHEMA_VERSION
     model_profile = str(config.llm.get("default_model_profile", "deep_context"))
+    requests = {}
+    for request_path in sorted(paths.extraction_events.glob("*-llm-context-request.json")):
+        try:
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(request, dict) and isinstance(request.get("chunks"), list):
+            requests[str(request.get("source_id") or "")] = request
     source_costs: list[dict[str, Any]] = []
     total_chunks = 0
     total_tokens = 0
@@ -366,6 +370,12 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
     pending_calls = 0
     for payload in chunk_payloads:
         source_chunks = [c for c in payload["chunks"] if isinstance(c, dict)]
+        request = requests.get(str(payload.get("source_id") or ""), {})
+        if any(request.get(field) != expected for field, expected in (
+                ("prompt_version", prompt_version), ("schema_version", schema_version),
+                ("model_profile", model_profile))):
+            request = {}
+        rows = {row.get("chunk_id"): row for row in request.get("chunks", []) if isinstance(row, dict)}
         source_tokens = 0
         source_cached = 0
         source_pending = 0
@@ -376,9 +386,10 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
             except (TypeError, ValueError):
                 token_estimate = estimate_tokens(str(chunk.get("text") or ""))
             source_tokens += token_estimate
-            chunk_hash = str(chunk.get("hash_sha256") or "")
-            key = cache_key(chunk_hash, prompt_version, schema_version, model_profile) if chunk_hash else ""
-            if key and (paths.llm_cache / f"{key}.json").exists():
+            row = rows.get(chunk.get("chunk_id"))
+            if (row is not None
+                    and row.get("chunk_hash_sha256", chunk.get("hash_sha256")) == chunk.get("hash_sha256")
+                    and read_matching_result(paths.llm_cache, request, row) is not None):
                 source_cached += 1
             else:
                 source_pending += 1

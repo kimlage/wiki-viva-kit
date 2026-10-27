@@ -97,3 +97,21 @@ for Git policy gates, conflict handling and adoption coverage.
 mode for the configured documentary pair, using the projector's own trace.
 It emits private authoring context, never inferred bindings or freshness approval.
 See [documentary authoring](../docs/references/guides/software-change-records.md#authoring-the-complete-consumption-frontier).
+
+
+## Context-bound reading and directory captures
+
+Contextual reading reuses a recorded result only when the chunk bytes, prompt,
+model/schema, supplied semantic context and source origin match. The same
+validation is used by request generation, checks, recording, audits and
+consolidation. A cache file's existence alone is not evidence of reading.
+New result packets echo each row's `context_sha256` and `chunk_hash_sha256`;
+batch export includes the same contextual envelope. Legacy results stay on disk
+as history and do not satisfy a newly bound request. No cache migration, source
+refresh or model call happens implicitly. The binding covers the supplied
+packet, not source freshness or independently verified account permissions.
+
+Directory source identities hash visible regular-file paths and content, not
+file sizes or checkout timestamps. Dotfiles remain excluded; unreadable entries
+and symbolic links fail explicitly. New captures can receive a different ID;
+existing manifests and references are preserved.

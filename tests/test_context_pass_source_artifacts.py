@@ -370,8 +370,18 @@ def test_valid_ingestion_pending_then_recorded_and_optional(source_check, capsys
     request = json.loads((paths.root / result.request_path).read_text())
     template = json.loads((ROOT / "tests/fixtures/e2e/context_pass_result.sample.json").read_text())
     for chunk in request["chunks"]:
-        recorded = dict(template, cache_key=chunk["cache_key"], source_id=result.source_id, chunk_id=chunk["chunk_id"])
-        write_result(paths.llm_cache, recorded)
+        recorded = dict(template, cache_key=chunk["cache_key"], source_id=result.source_id, chunk_id=chunk["chunk_id"], context_sha256=chunk["context_sha256"], chunk_hash_sha256=chunk["chunk_hash_sha256"])
+        recorded.update({field: request[field] for field in ("prompt_version", "schema_version", "model_profile")})
+        recorded.update(perspectives={}, perspectives_required=request.get("perspectives_required", []))
+        payload = paths.root / "recorded-result.json"
+        payload.write_text(json.dumps(recorded))
+        assert check("--record-result", str(payload)) == 0
+        capsys.readouterr()
+        retained = (paths.llm_cache / (chunk["cache_key"] + ".json")).read_bytes()
+        payload.write_text(json.dumps({**recorded, "context_sha256": "b" * 64}))
+        assert check("--record-result", str(payload)) == 2
+        capsys.readouterr()
+        assert (paths.llm_cache / (chunk["cache_key"] + ".json")).read_bytes() == retained
     assert check("--check") == 0
     assert json.loads(capsys.readouterr().out)["pending_llm_calls"] == 0
 

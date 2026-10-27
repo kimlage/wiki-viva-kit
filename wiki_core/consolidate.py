@@ -31,7 +31,7 @@ from pathlib import Path
 from wiki_core.config import WikiConfig, freshness_for
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.index.sqlite import sanitize_fts_query, search
-from wiki_core.llm.context_pass import read_result
+from wiki_core.llm.context_pass import read_matching_result
 from wiki_core.paths import WikiPaths
 
 REQUEST_SUFFIX = "-llm-context-request.json"
@@ -166,7 +166,7 @@ def deep_read_complete(request: dict[str, object], cache_dir: Path) -> bool:
         return False
     for row in chunks:
         key = str(row.get("cache_key") or "")
-        if not key or read_result(cache_dir, key) is None:
+        if not key or read_matching_result(cache_dir, request, row) is None:
             return False
     return True
 
@@ -204,7 +204,7 @@ def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, 
     }
     rank = {"low": 0, "medium": 1, "high": 2}
     for row in request.get("chunks") or []:
-        result = read_result(cache_dir, str(row.get("cache_key") or ""))
+        result = read_matching_result(cache_dir, request, row)
         if not result:
             continue
         q = result.get("quadrants")

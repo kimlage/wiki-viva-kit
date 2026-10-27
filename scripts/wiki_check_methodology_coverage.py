@@ -29,6 +29,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from wiki_core.llm.context_pass import read_matching_result
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.frontmatter import parse_frontmatter as canonical_parse_frontmatter
 from wiki_core.paths import WikiPaths
@@ -388,7 +389,7 @@ def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[st
         pending = [
             chunk
             for chunk in chunks
-            if not (cache_dir / f"{chunk.get('cache_key')}.json").exists()
+            if read_matching_result(cache_dir, data, chunk) is None
         ]
         if pending:
             results.append(

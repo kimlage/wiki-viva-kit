@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import pytest
 
 from wiki_core.chunking import chunk_text
 from wiki_core.ids import slugify
@@ -54,7 +55,40 @@ def test_dir_hash_changes_with_content(tmp_path: Path):
     h1, _ = sha256_directory_listing(tmp_path)
     (tmp_path / "a.txt").write_text("um texto bem maior", encoding="utf-8")
     h2, _ = sha256_directory_listing(tmp_path)
-    assert h1 != h2  # size changed
+    assert h1 != h2
+
+
+def test_dir_hash_changes_with_same_size_bytes_and_paths(tmp_path: Path):
+    source = tmp_path / "a.txt"
+    source.write_bytes(b"alpha")
+    before, count = sha256_directory_listing(tmp_path)
+    source.write_bytes(b"bravo")
+    after, _ = sha256_directory_listing(tmp_path)
+    assert before != after and count == 1
+    source.rename(tmp_path / "b.txt")
+    renamed, _ = sha256_directory_listing(tmp_path)
+    assert renamed != after
+
+
+def test_dir_hash_matches_relocated_tree_and_rejects_symlinks(tmp_path: Path):
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    for folder in (first, second):
+        (folder / "one.txt").write_bytes(b"same bytes")
+    assert sha256_directory_listing(first) == sha256_directory_listing(second)
+    (second / "link.txt").symlink_to(first / "one.txt")
+    with pytest.raises(ValueError, match="source_directory_symlink"):
+        sha256_directory_listing(second)
+
+
+def test_dir_hash_does_not_hide_read_errors(tmp_path: Path, monkeypatch):
+    (tmp_path / "one.txt").write_bytes(b"content")
+    def unavailable(_path):
+        raise PermissionError("synthetic unreadable source")
+    monkeypatch.setattr("wiki_core.source_manifest.sha256_file", unavailable)
+    with pytest.raises(PermissionError, match="unreadable"):
+        sha256_directory_listing(tmp_path)
 
 
 # --------------------------------------------------------------------------- #
@@ -113,3 +147,15 @@ def test_cache_key_dedupes_identical_chunk_across_sources():
     # Same chunk content -> same key (independent of source).
     k = cache_key("samehash", "v1", "schema.v2", "deep_context")
     assert k == cache_key("samehash", "v1", "schema.v2", "deep_context")
+
+
+def test_dir_hash_does_not_hide_subdirectory_enumeration_errors(tmp_path, monkeypatch):
+    (tmp_path / "restricted").mkdir()
+    original = os.scandir
+    def guarded(path):
+        if Path(path).name == "restricted":
+            raise PermissionError("synthetic enumeration denied")
+        return original(path)
+    monkeypatch.setattr(os, "scandir", guarded)
+    with pytest.raises(PermissionError, match="enumeration"):
+        sha256_directory_listing(tmp_path)

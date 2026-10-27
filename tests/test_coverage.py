@@ -14,6 +14,7 @@ wiki.config.yaml to prove localized-layout compatibility.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -448,11 +449,12 @@ def test_llm_request_without_cache_pending(tmp_path: Path) -> None:
 
 def test_llm_request_with_cache_passes(tmp_path: Path) -> None:
     _scaffold_valid_repo(tmp_path)
-    _write(
-        tmp_path / "data/derived/wiki/extraction-events/source-x-llm-context-request.json",
-        '{"chunks": [{"cache_key": "present-key"}]}\n',
-    )
-    _write(tmp_path / "data/derived/wiki/llm-cache/present-key.json", '{"ok": true}\n')
+    template = json.loads((ROOT / "tests/fixtures/e2e/context_pass_result.sample.json").read_text())
+    key = "a" * 64
+    template.update(cache_key=key, source_id="source-x")
+    _write(tmp_path / "data/derived/wiki/extraction-events/source-x-llm-context-request.json",
+           json.dumps({"source_id": "source-x", "chunks": [{"cache_key": key}]}))
+    _write(tmp_path / f"data/derived/wiki/llm-cache/{key}.json", json.dumps(template))
     result = cov.run_checks(tmp_path)
     assert result["complete"] is True
     assert any(

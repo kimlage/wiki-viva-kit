@@ -5,6 +5,7 @@ import hashlib
 import json
 import mimetypes
 import os
+import stat
 import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
@@ -56,28 +57,29 @@ def source_id_for(source: str, digest: str | None, *, root: Path | None = None) 
 
 
 def sha256_directory_listing(path: Path) -> tuple[str, int]:
-    """DETERMINISTIC hash of a directory's content (finding 3).
+    """Hash visible regular-file paths and bytes, independent of checkout times.
 
-    It used to include `int(st_mtime)`: since git clone/checkout rewrites mtimes,
-    a directory source's source_id differed between the local machine and a clean
-    clone/CI (orphan manifests/chunks, source seemed "changed" without changing).
-    Now the hash uses only kind + relative path + size of the FILES, ignores
-    dotfiles (.DS_Store, .git) and depends on neither mtime nor directory size
-    (platform-dependent).
+    This is a content identity, not just a size inventory. Unreadable entries
+    and symbolic links cannot silently become a complete capture of a folder.
+    Dotfiles/directories remain excluded by the existing collection contract.
     """
     entries: list[str] = []
-    for child in sorted(path.rglob("*")):
-        rel_parts = child.relative_to(path).parts
-        if any(part.startswith(".") for part in rel_parts):
-            continue  # ignore dotfiles/dotdirs (.DS_Store, .git, ...)
-        if not child.is_file():
-            continue
-        try:
+    def propagate(error: OSError) -> None:
+        raise error
+    for directory, directories, files in os.walk(path, onerror=propagate, followlinks=False):
+        directories[:] = sorted(name for name in directories if not name.startswith("."))
+        for name in [*directories, *files]:
+            if not name.startswith(".") and (Path(directory) / name).is_symlink():
+                raise ValueError("source_directory_symlink: select regular source files")
+        for name in sorted(files):
+            if name.startswith("."):
+                continue
+            child = Path(directory) / name
+            if not stat.S_ISREG(child.stat().st_mode):
+                continue
             rel = child.relative_to(path).as_posix()
-            size = child.stat().st_size
-        except OSError:
-            continue
-        entries.append(f"file\t{rel}\t{size}")
+            entries.append(json.dumps(["file", rel, sha256_file(child)], ensure_ascii=False))
+    entries.sort()
     payload = "\n".join(entries)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest(), len(entries)
 

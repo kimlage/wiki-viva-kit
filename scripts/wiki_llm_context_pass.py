@@ -29,7 +29,8 @@ from wiki_core.config import DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION, load_conf
 from wiki_core.ids import sha256_text
 from wiki_core.index.sqlite import search
 from wiki_core.input_stage import input_context_for_source
-from wiki_core.llm import CONTEXT_PASS_SCHEMA_VERSION, build_context_request, source_pending, write_result
+from wiki_core.llm import CONTEXT_PASS_SCHEMA_VERSION, build_context_request, write_result
+from wiki_core.llm.context_pass import result_matches_request
 from wiki_core.paths import WikiPaths
 from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest, resolve_source_manifest
@@ -108,6 +109,9 @@ def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], 
         {
             "chunk_id": hit["chunk_id"],
             "source_id": hit["source_id"],
+            "context": hit.get("metadata", {}).get("context"),
+            "source_origin": ({"id": hit["metadata"]["source_origin_id"]}
+                              if hit.get("metadata", {}).get("source_origin_id") else None),
             "hash_sha256": sha256_text(str(hit["text"])),
             "text": hit["text"],
             "token_estimate": max(1, len(str(hit["text"]).split())),
@@ -121,17 +125,11 @@ def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], 
     return manifest, chunks
 
 
-def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
-    """cache_keys of ALL context requests already emitted on disk.
-
-    Used to validate PROVENANCE: a result can only be recorded if its cache_key
-    matches a chunk of an emitted request. Without this, any JSON with the right
-    keys and a made-up cache_key would close the required_context_pass gate
-    (forgeable gate — finding 17).
-    """
-    keys: set[str] = set()
+def _emitted_requests(paths: WikiPaths) -> list[dict]:
+    """Read emitted semantic packets for exact result provenance validation."""
+    requests: list[dict] = []
     if not paths.extraction_events.exists():
-        return keys
+        return requests
     for path in paths.extraction_events.glob("*-llm-context-request.json"):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -144,21 +142,25 @@ def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
                 file=sys.stderr,
             )
             continue
-        for chunk in data.get("chunks", []):
-            key = chunk.get("cache_key")
-            if key:
-                keys.add(str(key))
-    return keys
+        if isinstance(data, dict) and isinstance(data.get("chunks"), list):
+            requests.append(data)
+    return requests
+
+
+def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
+    return {str(row["cache_key"]) for request in _emitted_requests(paths)
+            for row in request["chunks"] if isinstance(row, dict) and row.get("cache_key")}
 
 
 def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: bool = False) -> int:
     raw = sys.stdin.read() if payload_path == "-" else Path(payload_path).read_text(encoding="utf-8")
     data = json.loads(raw)
     results = data if isinstance(data, list) else [data]
-    known = set() if allow_unrequested else _emitted_cache_keys(paths)
+    requests = [] if allow_unrequested else _emitted_requests(paths)
+    known = {str(row.get("cache_key")) for request in requests for row in request["chunks"] if isinstance(row, dict)}
     written = []
     for result in results:
-        key = str(result.get("cache_key", ""))
+        key = str(result.get("cache_key", "")) if isinstance(result, dict) else ""
         if not allow_unrequested and key not in known:
             # No silent escape: ZERO requests on disk also rejects (the old
             # `and known` guard let any result through when extraction-events
@@ -175,6 +177,12 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
                 "request on disk.",
                 file=sys.stderr,
             )
+            return 2
+        if not allow_unrequested and not any(
+                result_matches_request(result, request, row, recording=True)
+                for request in requests for row in request["chunks"]
+                if isinstance(row, dict) and row.get("cache_key") == key):
+            print("ERROR: result does not match the emitted context, source, chunk or schema", file=sys.stderr)
             return 2
         try:
             out = write_result(paths.llm_cache, result)
@@ -269,19 +277,7 @@ def main() -> int:
             "input_stage_status": "query",
         }
 
-    pending = source_pending(manifest, chunks, paths.llm_cache, prompt_version, schema_version, model_profile)
-
-    if args.check:
-        report = {
-            "source_id": manifest.get("source_id"),
-            "chunks": len(chunks),
-            "pending_llm_calls": pending,
-            "required_context_pass": required,
-            "ok": not (required and pending > 0),
-        }
-        print(json.dumps(report, ensure_ascii=False, indent=2))
-        return 1 if (required and pending > 0) else 0
-
+    manifest["context"] = args.context
     perspectives_required, perspectives_optional = merge_perspectives(
         source_config,
         required=args.required_perspective,
@@ -308,6 +304,17 @@ def main() -> int:
         target_pages=list(input_context.get("target_pages") or []),
         input_stage_status=str(input_context.get("input_stage_status") or ""),
     )
+    if args.check:
+        report = {
+            "source_id": manifest.get("source_id"),
+            "chunks": len(chunks),
+            "pending_llm_calls": request["pending_llm_calls"],
+            "required_context_pass": required,
+            "ok": not (required and request["pending_llm_calls"] > 0),
+        }
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 1 if (required and request["pending_llm_calls"] > 0) else 0
+
     if source_config:
         request["source_config_ref"] = source_config["path"]
         request["source_config_perspectives_applied"] = True

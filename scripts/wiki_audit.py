@@ -28,6 +28,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from wiki_core.llm.context_pass import read_matching_result
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.action_adoption import (
     ACTION_ADOPTION_RECEIPT_PATH,
@@ -2150,7 +2151,7 @@ def audit_context_pass_gate(
             continue
         pending = [
             chunk for chunk in data.get("chunks", [])
-            if not (cache_dir / f"{chunk.get('cache_key')}.json").exists()
+            if read_matching_result(cache_dir, data, chunk) is None
         ]
         if pending:
             errors.append(

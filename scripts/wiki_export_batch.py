@@ -56,7 +56,6 @@ def build_batch_requests(
             # out of the batch hides a pipeline bug), but must not abort the rest.
             print(f"WARNING: invalid request JSON skipped: {path.name} ({exc})", file=sys.stderr)
             continue
-        prompt = str(packet.get("prompt", ""))
         for chunk in packet.get("chunks", []):
             if not include_cached and chunk.get("result_exists"):
                 continue
@@ -64,7 +63,10 @@ def build_batch_requests(
             if not cache_key or cache_key in seen:
                 continue
             seen.add(cache_key)
-            content = f"{prompt}\n\n--- CHUNK ({chunk.get('chunk_id')}) ---\n{chunk.get('text', '')}"
+            envelope = {key: value for key, value in packet.items()
+                        if key not in {"chunks", "pending_llm_calls", "cached_calls"}}
+            envelope["chunks"] = [chunk]
+            content = json.dumps(envelope, ensure_ascii=False, sort_keys=True)
             requests.append(
                 {
                     "custom_id": cache_key,
