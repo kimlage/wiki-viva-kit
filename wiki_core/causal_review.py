@@ -172,7 +172,7 @@ def verify(current, base, changed, contract, artifact_inputs):
         raise ValueError("causal review requires document_record.v2")
     required = {"schema_version", "author", "pair_sha256", "census_sha256", "dispositions", "review_evidence"}
     if (not isinstance(plan, dict) or not required <= set(plan)
-            or set(plan) - required - {"base_authority_citations", "normative_revalidations"}
+            or set(plan) - required - {"base_authority_citations", "normative_revalidations", "documentary_edits"}
             or plan["schema_version"] != "wiki_causal_review.v1"):
         raise ValueError("invalid causal review schema")
     if contract.get("locator_changes"):
@@ -193,6 +193,8 @@ def verify(current, base, changed, contract, artifact_inputs):
     from wiki_core.causal_revalidation import normative_revalidations
     revalidations = normative_revalidations(plan, contract, artifact_inputs, base, current)
     used_revalidations = set()
+    from wiki_core.documentary_edits import qualifications
+    documentary_edits = qualifications(plan, contract, artifact_inputs, base, current, inventory['seeds'])
     # Validate every proposed repair before deriving any same-seed frontier.
     for item in plan["dispositions"]:
         if (not isinstance(item, dict) or not {"obligation_id", "disposition", "reason"} <= set(item)
@@ -488,7 +490,7 @@ def verify(current, base, changed, contract, artifact_inputs):
                 census=inventory, dispositions=decisions, review_evidence=evidence,
                 review_sha256=review_sha, plan_sha256=receipt["plan_sha256"],
                 normative_revalidations=revalidations, reconciled_interpretations=reconciled_interpretations,
-                composed_interpretations=compositions)
+                composed_interpretations=compositions, documentary_edits=documentary_edits)
     verified["payload_sha256"] = structured_digest(verified)
     return verified
 
@@ -561,6 +563,7 @@ def evaluate(current, base, changed, *, today):
         visited.add((seed, seed)); queue.append((seed, seed))
     arrivals, unresolved, boundaries = {}, {}, {}
     factual_raw_arrivals = set()
+    factual_demands = set()
     while queue:
         seed, parent = queue.popleft()
         for eid, edge in downstream[parent]:
@@ -572,6 +575,7 @@ def evaluate(current, base, changed, *, today):
                     and edge.get("path") == target
                     and current.get("verified_record_documents", {}).get(parent) == target):
                 factual_raw_arrivals.add((seed, target))
+                factual_demands.add(target)
             oid, status = decision(review, seed, edge, current, base, today)
             reason = dict(reason="affected_dependent", seed=seed, via=parent,
                           chain=[*witnesses[seed, parent]["chain"], edge])
@@ -598,6 +602,7 @@ def evaluate(current, base, changed, *, today):
         seed, parent = queue.popleft()
         for eid, edge in upstream[parent]:
             target = edge["prerequisite"]
+            factual_demands.add(target)
             reason = dict(reason="required_dependency", seed=seed, via=parent,
                           chain=[*witnesses[seed, parent]["chain"], edge])
             reasons.setdefault(target, reason)
@@ -605,7 +610,17 @@ def evaluate(current, base, changed, *, today):
             if (seed, target) not in seen:
                 seen.add((seed, target)); queue.append((seed, target))
     included = [dict(path=p, state=original_rows[p]["state"], **reasons[p]) for p in sorted(reasons)]
-    stale = [r for r in included if r["state"] in {"stale", "unknown"}]
+    from datetime import date
+    satisfied = []
+    for row in included:
+        proof = review['documentary_edits'].get(row['path'])
+        if (proof and row['reason'] == 'changed_page' and row['state'] == 'stale'
+                and row['path'] not in factual_demands
+                and date.fromisoformat(proof['reviewed_on']) <= today):
+            row['documentary_edit_satisfied'] = proof
+            satisfied.append(row['path'])
+    stale = [r for r in included if r["state"] in {"stale", "unknown"}
+             and 'documentary_edit_satisfied' not in r]
     beyond = [dict(r, reason="beyond_reviewed_causal_boundary") for r in original["included"] if r["path"] not in reasons]
     result = dict(original, included=included, blockers=[*stale, *unresolved.values()],
                   unrelated_debt=[*original["unrelated_debt"], *(r for r in beyond if r["state"] in {"stale", "unknown"})])
@@ -615,5 +630,7 @@ def evaluate(current, base, changed, *, today):
         beyond_boundaries=beyond, review_evidence=review["review_evidence"], review_sha256=review["review_sha256"],
         factual_relations_preserved=True, final_head_independent_promotion_review_still_required=True)
     result["causal_review"]["precise_representation_carriers"] = sorted(carriers)
+    result["causal_review"]["documentary_edits_satisfied"] = satisfied
+    result["causal_review"]["documentary_edit_factual_demands"] = sorted(set(review['documentary_edits']) & factual_demands)
     result["ok"] = not result["blockers"] and not result["relation_errors"]
     return result
