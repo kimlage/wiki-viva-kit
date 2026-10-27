@@ -31,6 +31,8 @@ def factual_edges(current, base):
 
 def census(current, base, changed):
     """Finite union of every seed/occurrence before any proposed cut."""
+    from wiki_core.freshness_impact import factual_changes
+    changed, _comments = factual_changes(current, base, changed)
     nodes = set(current["nodes"]) | set(base["nodes"])
     seeds = sorted((set(changed) & nodes) | (set(base["nodes"]) - set(current["nodes"])))
     edges = factual_edges(current, base)

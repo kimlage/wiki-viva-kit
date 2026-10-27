@@ -641,3 +641,28 @@ The [synthetic tests](../../tests/test_freshness_impact.py) cover transitive
 dependencies, shared sources, structural navigation, removed links, renames,
 unknown freshness, invalid unrelated relations, concurrent edits and multiline
 card dialogue. No private consumer content is used as public test data.
+
+## Receiving operational communication
+
+A native action `comment` can record a retained result before its proposed
+documentary changes are incorporated. Factual impact recognizes only one exact
+preimage-bound append with a valid event and receipt, unchanged body and all
+other fields, including the original factual `updated_at`. Its real timestamp
+is recorded in the event and receipt. A title, path, free flag or comment text
+cannot establish this classification. Mixed changes, altered receipts, batch
+comments and partitioned actions retain conservative documentary treatment.
+
+This explicitly separates communication history from the action's factual
+content. WHOLE factual consumers still consume every assertion and dependency;
+an unincorporated comment is not a new assertion in that content. No relation
+is removed. Another factual seed reaching the same action still encounters its
+original freshness and all of its prerequisites, including after the comment
+is committed and becomes part of a later base.
+
+The action remains in the physical Git diff, full BASE/CURRENT snapshot hashes,
+CAS checks, action audit and independent review. Record contracts must still
+match both complete snapshots. Reports expose `operational_comments` separately
+from factual seeds and retain existing debt. Generated outputs and log records
+need their own exact checks; they do not inherit the comment's classification.
+See the [operational comment regressions](../../tests/test_operational_comment_freshness.py)
+and [native proposal tests](../../tests/test_normal_proposal_dialogue.py).

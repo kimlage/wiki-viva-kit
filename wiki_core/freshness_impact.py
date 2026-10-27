@@ -200,6 +200,31 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
             "errors": sorted(set(errors))}
 
 
+def factual_changes(current: dict, base: dict, changed: set[str]) -> tuple[set[str], list[dict]]:
+    """Separate native communication from incorporation of factual content.
+
+    WHOLE continues to consume every factual assertion and dependency of an
+    action. A received, unincorporated comment does not change those assertions.
+    Complete document bytes remain in the record contract, readset and Git diff.
+    No edge is removed: another factual seed still reaches the old content and
+    its original freshness date. Partitioned actions remain conservative until
+    their independently authored interpretation has been reconciled.
+    """
+    from wiki_core.action_transition import operational_comment_receipt
+    factual = set(changed)
+    comments = []
+    partitioned = set(base.get("verified_record_documents", {}).values()) | set(
+        current.get("verified_record_documents", {}).values())
+    for path in sorted(set(changed) & base["documents"].keys() & current["documents"].keys()):
+        if path in partitioned:
+            continue
+        receipt = operational_comment_receipt(base["documents"][path], current["documents"][path])
+        if receipt is not None:
+            factual.remove(path)
+            comments.append({"path": path, **receipt})
+    return factual, comments
+
+
 def evaluate_impact(
     current: dict[str, Any], base: dict[str, Any], changed: set[str], *, today: dt.date,
 ) -> dict[str, Any]:
@@ -207,6 +232,7 @@ def evaluate_impact(
     if current.get("verified_causal_review") is not None or base.get("verified_causal_review") is not None:
         from wiki_core.causal_review import evaluate
         return evaluate(current, base, changed, today=today)
+    changed, comments = factual_changes(current, base, changed)
     nodes = current["nodes"]
     all_paths = set(nodes) | set(base["nodes"])
     seeds = sorted((changed & all_paths) | (set(base["nodes"]) - set(nodes)))
@@ -318,6 +344,8 @@ def evaluate_impact(
                 nonpropagating_relations=nonpropagating,
                 relation_errors=current["errors"], base_relation_diagnostics=base["errors"],
                 ok=not blockers and not current["errors"])
+    if comments:
+        result["operational_comments"] = comments
     if locators:
         result["locator_changes"] = list(locators.values())
         result["preserved_content_debt"] = [r for r in included

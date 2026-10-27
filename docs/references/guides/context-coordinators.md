@@ -116,6 +116,20 @@ the JSON event. Receipt v4 binds the complete dialogue and retains v1/v2/v3 read
 compatibility. CAS, atomic write, append-only history, secrets checks and existing
 origin/nonce/attempt guards apply. Unknown routes and stale revisions fail.
 
+A pure `comment` is receipt of a communication, not incorporation of its text
+as a factual conclusion. The native writer preserves the action body, state,
+owner, next step, blockers and factual `updated_at`; the real arrival time lives
+in the event and its `comment` receipt. Other event kinds and mixed changes use
+the ordinary documentary lifecycle. Existing v4 `contract_update` receipts
+remain readable with their original timestamp semantics.
+
+The ordinary proposal command also accepts this typed dialogue event, using
+the same coordinator/action route and fixed operator identity. It preserves
+revision checks, live session admission, independent review and publication
+gates. A received run ID or effect reference is not a new execution or a claim
+that its proposed documents have been integrated. Keep that pending work
+explicit in the comment and reuse the existing action.
+
 A trusted local agent adapter can invoke [wiki_coordination.py](../../../scripts/wiki_coordination.py)
 with `--profile research --action-id action-review-evidence --event-file event.json
 --expected-sha256 REVISION`. It validates the route and records the selected

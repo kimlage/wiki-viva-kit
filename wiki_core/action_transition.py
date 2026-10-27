@@ -838,6 +838,17 @@ def _transition_action_page_locked(
     )
     support_changed = bool(support_fields)
     changed = state_changed or support_changed or edit_binding is not None
+    # Communication is not incorporation of a fact. Keep its real timestamp
+    # in the event/receipt without refreshing the action's factual content.
+    # Compare every other field: lifecycle cleanup or a simultaneous edit must
+    # take the ordinary documentary path.
+    comment_only = (
+        not state_changed and edit_binding is None
+        and dialogue_event is not None and dialogue_event.get("kind") == "comment"
+        and support_fields == ["action_dialogue"]
+        and {k: v for k, v in updated.items() if k != "action_dialogue"}
+        == {k: v for k, v in frontmatter.items() if k != "action_dialogue"}
+    )
 
     if changed:
         if last_history_instant is not None and parsed_at <= last_history_instant:
@@ -895,7 +906,9 @@ def _transition_action_page_locked(
             warnings=resolution.warnings,
         )
 
-    if current != target:
+    if comment_only:
+        kind = "comment"
+    elif current != target:
         kind = "transition"
     elif canonicalized_legacy:
         kind = "legacy_canonicalization"
@@ -937,7 +950,8 @@ def _transition_action_page_locked(
         entry["receipt_id"] = _receipt_id(entry)
     history.append(entry)
     updated[_HISTORY_FIELD] = history
-    updated["updated_at"] = parsed_at.astimezone(timezone.utc).date().isoformat()
+    if not comment_only:
+        updated["updated_at"] = parsed_at.astimezone(timezone.utc).date().isoformat()
     after_text = _render_document(updated, edited_body)
     _assert_no_secrets(after_text)
     directory_synced = _atomic_write(path, after_text)
@@ -1126,6 +1140,87 @@ def _document_for_audit(text: str) -> tuple[dict[str, Any], str] | None:
         return None
 
 
+def _comment_suffix_preserves_content(previous: dict, current: dict,
+                                     previous_body: str, current_body: str) -> bool:
+    """Shape check only; callers must also validate the native receipt chain.
+
+    Multiple comments may be audited together, but factual delta qualification
+    below deliberately recognizes only one exact preimage-bound append.
+    """
+    from wiki_core.action_dialogue import validate_history
+    if (previous.get("page_type") != "action"
+            or previous.get("action_state") not in NON_TERMINAL_ACTION_STATES
+            or previous_body != current_body):
+        return False
+    ignored = {_HISTORY_FIELD, "action_dialogue"}
+    if ({k: v for k, v in previous.items() if k not in ignored}
+            != {k: v for k, v in current.items() if k not in ignored}):
+        return False
+    old_events = previous.get("action_dialogue") or []
+    new_events = current.get("action_dialogue") or []
+    old_history = previous.get(_HISTORY_FIELD) or []
+    new_history = current.get(_HISTORY_FIELD) or []
+    try:
+        validate_history(old_events)
+        validate_history(new_events)
+    except ValueError:
+        return False
+    if (not isinstance(old_history, list) or not isinstance(new_history, list)
+            or new_history[:len(old_history)] != old_history
+            or new_events[:len(old_events)] != old_events):
+        return False
+    events, receipts = new_events[len(old_events):], new_history[len(old_history):]
+    if not events or len(events) != len(receipts):
+        return False
+    state = previous["action_state"]
+    return all(isinstance(receipt, dict)
+        and receipt.get("schema_version") == ACTION_TRANSITION_RECEIPT_VERSION
+        and receipt.get("kind") == "comment"
+        and receipt.get("from") == receipt.get("to") == state
+        and receipt.get("state_source") == "action_state"
+        and receipt.get("support_fields") == ["action_dialogue"]
+        and "page_edit" not in receipt and "contribution" not in receipt
+        and event["kind"] == "comment"
+        and event["at"] == receipt.get("at")
+        and event["before_sha256"] == receipt.get("before_sha256")
+        for event, receipt in zip(events, receipts))
+
+
+def operational_comment_receipt(previous_text: str, current_text: str) -> dict | None:
+    """Prove a single native communication append, without factual renewal.
+
+    This is derived from complete input bytes, never a caller-provided flag.
+    The returned identity records a received comment, not execution authority
+    or incorporation of the result described by its text.
+    """
+    before = _document_for_audit(previous_text)
+    after = _document_for_audit(current_text)
+    if before is None or after is None:
+        return None
+    previous, body = before
+    current, new_body = after
+    if not _comment_suffix_preserves_content(previous, current, body, new_body):
+        return None
+    old_history = previous.get(_HISTORY_FIELD) or []
+    additions = current[_HISTORY_FIELD][len(old_history):]
+    if len(additions) != 1 or action_transition_diagnostics(previous_text, current_text):
+        return None
+    receipt = additions[0]
+    if (receipt["before_sha256"] != _sha256_text(previous_text)
+            or _render_document(current, new_body) != current_text):
+        return None
+    payload = {"reason": receipt.get("reason", ""),
+               "support": {"action_dialogue": current["action_dialogue"]}}
+    expected = _sha256_text(json.dumps(payload, ensure_ascii=False,
+                                     separators=(",", ":"), sort_keys=True))
+    if receipt["payload_sha256"] != expected:
+        return None
+    return {"receipt_id": receipt["receipt_id"],
+            "event_id": current["action_dialogue"][-1]["event_id"],
+            "before_sha256": receipt["before_sha256"],
+            "after_sha256": _sha256_text(current_text), "recorded_at": receipt["at"]}
+
+
 def _receipt_entry_error(
     entry: Mapping[str, Any],
     *,
@@ -1157,7 +1252,7 @@ def _receipt_entry_error(
         return "receipt chain starts from a state different from the prior action"
     kind = str(entry.get("kind") or "")
     if previous == target:
-        if kind not in {"legacy_canonicalization", "contract_update", "body_integration"}:
+        if kind not in {"legacy_canonicalization", "contract_update", "body_integration", "comment"}:
             return "state-preserving receipt has an invalid kind"
     else:
         if not valid_action_transition(previous, target):
@@ -1209,6 +1304,14 @@ def _receipt_entry_error(
         return "receipt governed support fields are invalid"
     if kind == "contract_update" and not support_fields and not entry.get("page_edit"):
         return "contract-update receipt must bind at least one governed support field"
+    if kind == "comment" and (
+        schema_version != ACTION_TRANSITION_RECEIPT_VERSION
+        or previous != target or target not in NON_TERMINAL_ACTION_STATES
+        or entry.get("state_source") != "action_state"
+        or support_fields != ["action_dialogue"]
+        or "page_edit" in entry or "contribution" in entry
+    ):
+        return "comment receipt must preserve lifecycle and bind only dialogue"
     if schema_version == _PAGE_EDIT_RECEIPT_VERSION:
         edit = entry.get("page_edit")
         required = {"fields", "before", "after"}
@@ -1499,8 +1602,18 @@ def action_transition_diagnostics(
                 "action updated_at regressed across an audited lifecycle change",
             ),
         )
+    comments = [entry for entry in additions if entry.get("kind") == "comment"]
+    for entry in comments:
+        matches = [event for event in new_dialogue[len(old_dialogue):]
+                   if isinstance(event, dict) and event.get("at") == entry.get("at")
+                   and event.get("before_sha256") == entry.get("before_sha256")]
+        if len(matches) != 1 or matches[0].get("kind") != "comment":
+            return (ActionTransitionDiagnostic("invalid_action_transition_receipt",
+                    "comment receipt requires its exact appended comment"),)
     if additions and expected_prior_at is not None:
-        receipt_date = expected_prior_at.astimezone(timezone.utc).date()
+        factual = [entry for entry in additions if entry.get("kind") != "comment"]
+        receipt_date = (_parsed_transition_instant(factual[-1]["at"]).astimezone(timezone.utc).date()
+                        if factual else previous_updated_at)
         if current_updated_at != receipt_date:
             return (
                 ActionTransitionDiagnostic(
