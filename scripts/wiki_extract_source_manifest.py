@@ -26,7 +26,7 @@ def main() -> int:
 
     paths = WikiPaths(ROOT, load_config(ROOT))
     paths.ensure()
-    manifest = build_manifest(args.source, args.context)
+    manifest = build_manifest(args.source, args.context, root=ROOT)
     if args.dry_run:
         print(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True))
         return 0

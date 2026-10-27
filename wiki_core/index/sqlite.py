@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import json
+import datetime as dt
 import re
 import sqlite3
 from pathlib import Path
 
-# Last '-'-segment of a versioned source_id: the short content digest appended by
-# source_id_for (12 hex chars today; tolerant range for older/full digests).
-_DIGEST_RE = re.compile(r"^[0-9a-f]{8,64}$")
+_ORIGIN_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 # Wiki pages are indexed under this source_id prefix so retrieval (integration
@@ -15,18 +14,76 @@ _DIGEST_RE = re.compile(r"^[0-9a-f]{8,64}$")
 PAGE_SOURCE_PREFIX = "page:"
 
 
-def _source_prefix(source_id: str) -> str | None:
-    """Versionless prefix of a source_id ('source-<slug>' for 'source-<slug>-<digest>').
+def _load_chunks(path: Path) -> dict:
+    """Validate complete inputs before opening the index write transaction."""
+    if path.is_symlink():
+        raise ValueError("chunk artifact must not be a symbolic link")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("chunks"), list):
+        raise ValueError("invalid chunk artifact")
+    source_id = data.setdefault("source_id", path.stem)
+    if not isinstance(source_id, str) or not source_id:
+        raise ValueError("invalid source identity")
+    origin = data.get("source_origin_id")
+    if origin is not None and (not isinstance(origin, str) or not _ORIGIN_RE.fullmatch(origin)
+                               or not source_id.startswith(f"source-v2-{origin}-")
+                               or path.stem != source_id):
+        raise ValueError("source origin does not match chunk artifact identity")
+    for chunk in data["chunks"]:
+        if not isinstance(chunk, dict) or not all(isinstance(chunk.get(k), str)
+                for k in ("chunk_id", "hash_sha256", "text")):
+            raise ValueError("invalid chunk row")
+        int(chunk["ordinal"])
+        int(chunk["token_estimate"])
+    return data
 
-    Derived by cutting the last segment after the last '-'. Returns None when that
-    segment does not look like a content digest (the id is not versioned), so
-    arbitrary ids such as 'src-a'/'src-b' are never treated as versions of each
-    other.
-    """
-    base, sep, digest = source_id.rpartition("-")
-    if not sep or not _DIGEST_RE.fullmatch(digest):
+
+def _observation_time(data: dict) -> dt.datetime | None:
+    value = data.get("observed_at")
+    if not isinstance(value, str) or data.get("extraction_complete") is not True:
         return None
-    return base
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.astimezone(dt.timezone.utc) if parsed.tzinfo is not None else None
+
+
+def _select_observations(documents: list[dict]) -> tuple[list[dict], int]:
+    """Newest observed version per proven origin; unordered/tied versions survive.
+
+    Observed time is not a provider revision or factual freshness. Legacy IDs
+    without origin evidence stay independent, even when their basenames match.
+    """
+    from collections import defaultdict
+    groups = defaultdict(list)
+    identities = set()
+    for data in documents:
+        if data["source_id"] in identities:
+            raise ValueError("duplicate source identity in chunk artifacts")
+        identities.add(data["source_id"])
+        groups[("origin", data["source_origin_id"]) if data.get("source_origin_id")
+               else ("legacy", data["source_id"])].append(data)
+    selected, ambiguous = [], 0
+    for key, versions in groups.items():
+        if key[0] == "legacy":
+            selected.extend(versions)
+            continue
+        ordered = [(date, data) for data in versions if (date := _observation_time(data)) is not None]
+        latest = max((date for date, _ in ordered), default=None)
+        winners = [data for date, data in ordered if date == latest]
+        unordered = [data for data in versions if _observation_time(data) is None]
+        # Failed empty extraction is evidence of a gap, never deletion of a
+        # previously read version. Nonempty partial content stays explicit.
+        winners.extend(data for data in unordered if data["chunks"])
+        ambiguous += int(bool(unordered) or len(winners) > 1)
+        selected.extend(winners)
+    return selected, ambiguous
+
+
+def _incomplete_ids(documents: list[dict]) -> set[str]:
+    return {item["source_id"] for item in documents
+            if item.get("source_origin_id") and _observation_time(item) is None}
 
 
 def _connect(path: Path) -> sqlite3.Connection:
@@ -63,50 +120,41 @@ def _insert_chunks(conn: sqlite3.Connection, source_id: str, chunks: list[dict[s
     return total
 
 
-def _prune_previous_versions(conn: sqlite3.Connection, source_id: str) -> int:
-    """Remove indexed rows from PREVIOUS versions of the same source.
-
-    A re-ingested edited source gets a new digest, hence a new source_id with the
-    same versionless prefix ('source-<slug>-<digest>'). Without this prune, the
-    old version kept answering searches forever. Two ids are versions of the same
-    source only when both end in a digest-looking segment AND share the prefix up
-    to the last '-' — distinct slugs (even ones that are textual prefixes of each
-    other, e.g. 'source-notes-*' vs 'source-notes-md-*') are never affected.
-    """
-    prefix = _source_prefix(source_id)
-    if prefix is None:
-        return 0
-    pruned = 0
-    rows = conn.execute(
-        "SELECT DISTINCT source_id FROM chunks WHERE source_id != ?", (source_id,)
-    ).fetchall()
-    for (other,) in rows:
-        if _source_prefix(other) == prefix:
-            _delete_source(conn, other)
-            pruned += 1
-    return pruned
-
-
 def index_source(db_path: Path, chunks_file: Path) -> dict[str, int]:
-    """Index (or reindex) ONE source incrementally.
-
-    Replaces the full rebuild on every ingestion (finding 13): only that source's
-    rows are deleted and reinserted — O(source's chunks), not O(whole index).
-    Also prunes previous DIGESTS of the same source (same versionless prefix),
-    so re-ingesting an edited source stops the stale version from answering
-    searches.
-    """
-    data = json.loads(chunks_file.read_text(encoding="utf-8"))
-    source_id = str(data.get("source_id", chunks_file.stem))
+    """Reconcile only the incoming origin using the rebuild selection rule."""
+    data = _load_chunks(chunks_file)
+    origin = data.get("source_origin_id")
+    documents = [data]
+    if origin:
+        documents = [_load_chunks(path) for path in sorted(chunks_file.parent.glob(f"source-v2-{origin}-*.json"))]
+        if any(item.get("source_origin_id") != origin for item in documents):
+            raise ValueError("origin candidate lacks matching metadata")
+    selected, ambiguous = _select_observations(documents)
+    candidate_ids = {item["source_id"] for item in documents}
+    selected_ids = {item["source_id"] for item in selected}
     conn = _connect(db_path)
     try:
-        _delete_source(conn, source_id)
-        pruned = _prune_previous_versions(conn, source_id)
-        total = _insert_chunks(conn, source_id, data.get("chunks", []))
-        conn.commit()
+        with conn:
+            indexed = {row[0] for row in conn.execute("SELECT DISTINCT source_id FROM chunks")}
+            preserved = indexed & _incomplete_ids(documents)
+            unresolved = {sid for sid in indexed - candidate_ids
+                          if origin and sid.startswith(f"source-v2-{origin}-")}
+            pruned = len((indexed & candidate_ids) - selected_ids)
+            for source_id in candidate_ids - preserved:
+                _delete_source(conn, source_id)
+            total = sum(_insert_chunks(conn, item["source_id"], item["chunks"])
+                        for item in selected if item["source_id"] not in preserved)
     finally:
         conn.close()
-    return {"sources_indexed": 1, "chunks_indexed": total, "pruned_versions": pruned}
+    result = {"sources_indexed": len(selected), "chunks_indexed": total, "pruned_versions": pruned}
+    if ambiguous:
+        result["ambiguous_origins"] = ambiguous
+    if preserved:
+        result["preserved_incomplete_sources"] = len(preserved)
+        result["pruned_versions"] -= len(preserved - selected_ids)
+    if unresolved:
+        result["unresolved_indexed_sources"] = len(unresolved)
+    return result
 
 
 def build_index(chunks_dir: Path, db_path: Path) -> dict[str, int]:
@@ -116,25 +164,26 @@ def build_index(chunks_dir: Path, db_path: Path) -> dict[str, int]:
     (incremental). Here we also PRUNE sources whose chunks file no longer exists,
     so the index does not retain orphans.
     """
+    documents = [_load_chunks(path) for path in sorted(chunks_dir.glob("*.json"))]
+    selected, ambiguous = _select_observations(documents)
     conn = _connect(db_path)
-    total = 0
-    sources = 0
-    present: set[str] = set()
-    for path in sorted(chunks_dir.glob("*.json")):
-        data = json.loads(path.read_text(encoding="utf-8"))
-        source_id = str(data.get("source_id", path.stem))
-        present.add(source_id)
-        sources += 1
-        _delete_source(conn, source_id)
-        total += _insert_chunks(conn, source_id, data.get("chunks", []))
-    indexed = {row[0] for row in conn.execute("SELECT DISTINCT source_id FROM chunks").fetchall()}
-    for orphan in indexed - present:
-        if orphan.startswith(PAGE_SOURCE_PREFIX):
-            continue  # wiki-page entries are managed by index_pages(), not chunks/
-        _delete_source(conn, orphan)
-    conn.commit()
-    conn.close()
-    return {"sources_indexed": sources, "chunks_indexed": total}
+    try:
+        with conn:
+            indexed = {row[0] for row in conn.execute("SELECT DISTINCT source_id FROM chunks")}
+            preserved = indexed & _incomplete_ids(documents)
+            for source_id in indexed - preserved:
+                if not source_id.startswith(PAGE_SOURCE_PREFIX):
+                    _delete_source(conn, source_id)
+            total = sum(_insert_chunks(conn, item["source_id"], item["chunks"])
+                        for item in selected if item["source_id"] not in preserved)
+    finally:
+        conn.close()
+    result = {"sources_indexed": len(selected), "chunks_indexed": total}
+    if ambiguous:
+        result["ambiguous_origins"] = ambiguous
+    if preserved:
+        result["preserved_incomplete_sources"] = len(preserved)
+    return result
 
 
 def index_pages(db_path: Path, pages: list[tuple[str, list[dict[str, object]]]]) -> dict[str, int]:

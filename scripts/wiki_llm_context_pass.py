@@ -32,7 +32,7 @@ from wiki_core.input_stage import input_context_for_source
 from wiki_core.llm import CONTEXT_PASS_SCHEMA_VERSION, build_context_request, source_pending, write_result
 from wiki_core.paths import WikiPaths
 from wiki_core.source_config import find_source_config, merge_perspectives
-from wiki_core.source_manifest import build_manifest
+from wiki_core.source_manifest import build_manifest, resolve_source_manifest
 
 
 def _source_artifact(path: Path, schema: str, source_id: str) -> dict[str, object]:
@@ -233,8 +233,9 @@ def main() -> int:
     required = bool(config.llm.get("required_context_pass", True))
 
     if args.source:
-        manifest = build_manifest(args.source, args.context)
+        manifest = build_manifest(args.source, args.context, root=ROOT)
         try:
+            manifest = resolve_source_manifest(manifest, paths.source_manifests, paths.chunks, root=ROOT)
             chunks = _chunks_for_source(paths, manifest)
         except ValueError as exc:
             if args.check:

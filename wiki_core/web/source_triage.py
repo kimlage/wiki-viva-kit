@@ -94,7 +94,7 @@ def triage_source(root: Path, config: WikiConfig, source: str, *, context: str |
 
     local_path = _safe_repo_path(root, source)
     manifest_source = str(local_path) if local_path is not None else source
-    manifest = build_manifest(manifest_source, selected_context)
+    manifest = build_manifest(manifest_source, selected_context, root=root)
     findings: list[Finding] = []
     if local_path is not None and local_path.exists() and local_path.is_file():
         findings = scan_file(local_path)

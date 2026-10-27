@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -19,9 +20,10 @@ if str(ROOT) not in sys.path:
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.index.sqlite import build_index, check_index, index_source, prune_index, search
 from wiki_core.paths import WikiPaths
+from wiki_core.source_manifest import source_id_for, source_origin
 
 
-def _write_chunks(directory: Path, source_id: str, texts: list[str]) -> Path:
+def _write_chunks(directory: Path, source_id: str, texts: list[str], **metadata) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{source_id}.json"
     chunks = [
@@ -35,10 +37,18 @@ def _write_chunks(directory: Path, source_id: str, texts: list[str]) -> Path:
         for i, t in enumerate(texts)
     ]
     path.write_text(
-        json.dumps({"source_id": source_id, "chunks": chunks}, ensure_ascii=False),
+        json.dumps({"source_id": source_id, "chunks": chunks, **metadata}, ensure_ascii=False),
         encoding="utf-8",
     )
     return path
+
+
+def _observation(directory, source, texts, at, **metadata):
+    digest = hashlib.sha256("\n".join(texts).encode()).hexdigest()
+    origin = source_origin(str(source), directory.parent)
+    source_id = source_id_for(str(source), digest, root=directory.parent)
+    return _write_chunks(directory, source_id, texts, source_origin_id=origin["id"],
+                         observed_at=at, extraction_complete=True, **metadata)
 
 
 def test_index_source_incremental(tmp_path: Path) -> None:
@@ -64,22 +74,27 @@ def test_index_source_incremental(tmp_path: Path) -> None:
 def test_index_source_prunes_previous_digests_of_same_source(tmp_path: Path) -> None:
     chunks_dir = tmp_path / "chunks"
     db = tmp_path / "wiki.sqlite"
-    old = _write_chunks(chunks_dir, "source-notes-md-aaaaaaaaaaaa", ["stale content about gates"])
+    old = _observation(chunks_dir, tmp_path / "notes.md", ["stale content about gates"], "2026-01-01T00:00:00Z")
     index_source(db, old)
     assert search(db, "stale"), "sanity: the old version answers searches"
 
     # Re-ingestion of the edited source: same slug, new digest.
-    new = _write_chunks(chunks_dir, "source-notes-md-bbbbbbbbbbbb", ["fresh content about gates"])
+    new = _observation(chunks_dir, tmp_path / "notes.md", ["fresh content about gates"], "2026-01-02T00:00:00Z")
     res = index_source(db, new)
     assert res["pruned_versions"] == 1
 
     info = check_index(db)
     assert info["sources"] == 1
-    assert {h["source_id"] for h in search(db, "gates")} == {"source-notes-md-bbbbbbbbbbbb"}
+    assert {h["source_id"] for h in search(db, "gates")} == {new.stem}
     assert search(db, "stale") == []
+    index_source(db, old)  # receiving an older observation cannot restore it
+    assert search(db, "stale") == []
+    build_index(chunks_dir, db)
+    assert search(db, "stale") == []
+    assert {h["source_id"] for h in search(db, "gates")} == {new.stem}
 
 
-def test_index_source_prune_does_not_cross_distinct_slugs(tmp_path: Path) -> None:
+def test_legacy_ids_without_origin_are_not_pruned_by_slug(tmp_path: Path) -> None:
     chunks_dir = tmp_path / "chunks"
     db = tmp_path / "wiki.sqlite"
     index_source(db, _write_chunks(chunks_dir, "source-notes-aaaaaaaaaaaa", ["alfa notes"]))
@@ -87,16 +102,70 @@ def test_index_source_prune_does_not_cross_distinct_slugs(tmp_path: Path) -> Non
     index_source(db, _write_chunks(chunks_dir, "source-notes-md-bbbbbbbbbbbb", ["beta manual"]))
     index_source(db, _write_chunks(chunks_dir, "source-other-dddddddddddd", ["gamma other"]))
 
-    # Re-ingesting 'notes' with a new digest prunes only its own old version.
+    # A digest-looking suffix and matching name do not prove common origin.
     res = index_source(db, _write_chunks(chunks_dir, "source-notes-cccccccccccc", ["alfa notes v2"]))
-    assert res["pruned_versions"] == 1
+    assert res["pruned_versions"] == 0
 
-    assert check_index(db)["sources"] == 3
+    assert check_index(db)["sources"] == 4
     hits = {h["source_id"] for h in search(db, "notes") + search(db, "beta") + search(db, "gamma")}
     assert "source-notes-cccccccccccc" in hits
     assert "source-notes-md-bbbbbbbbbbbb" in hits
     assert "source-other-dddddddddddd" in hits
-    assert "source-notes-aaaaaaaaaaaa" not in hits
+    assert "source-notes-aaaaaaaaaaaa" in hits
+
+
+def test_same_named_origins_and_same_content_stay_distinct(tmp_path):
+    folder, db = tmp_path / "chunks", tmp_path / "wiki.sqlite"
+    a = _observation(folder, tmp_path / "north/report.md", ["identical content"], "2026-01-01T00:00:00Z")
+    b = _observation(folder, tmp_path / "south/report.md", ["identical content"], "2026-01-02T00:00:00Z")
+    assert a != b
+    index_source(db, a)
+    index_source(db, b)
+    assert {hit["source_id"] for hit in search(db, "identical")} == {a.stem, b.stem}
+    build_index(folder, db)
+    assert {hit["source_id"] for hit in search(db, "identical")} == {a.stem, b.stem}
+
+
+def test_empty_observation_removes_previous_text_on_both_paths(tmp_path):
+    folder, db = tmp_path / "chunks", tmp_path / "wiki.sqlite"
+    old = _observation(folder, tmp_path / "report.md", ["historical token"], "2026-01-01T00:00:00Z")
+    index_source(db, old)
+    empty = _observation(folder, tmp_path / "report.md", [], "2026-01-02T00:00:00Z")
+    index_source(db, empty)
+    assert search(db, "historical") == []
+    index_source(db, old)
+    assert search(db, "historical") == []
+    build_index(folder, db)
+    assert search(db, "historical") == []
+
+
+def test_tied_or_unordered_observations_are_retained_explicitly(tmp_path):
+    for timestamp in ["2026-01-02T00:00:00Z", "2026-01-03T00:00:00", None, "bad"]:
+        case = tmp_path / str(timestamp).replace(":", "-")
+        folder, db = case / "chunks", case / "wiki.sqlite"
+        a = _observation(folder, case / "notes.md", ["first token"], "2026-01-02T00:00:00Z")
+        b = _observation(folder, case / "notes.md", ["second token"], timestamp)
+        result = index_source(db, b)
+        assert result["ambiguous_origins"] == 1
+        expected = {a.stem, b.stem}
+        assert {hit["source_id"] for hit in search(db, "token")} == expected
+        assert build_index(folder, db)["ambiguous_origins"] == 1
+        assert {hit["source_id"] for hit in search(db, "token")} == expected
+
+
+def test_bad_origin_neighbor_does_not_partially_prune_index(tmp_path):
+    import pytest
+    folder, db = tmp_path / "chunks", tmp_path / "wiki.sqlite"
+    old = _observation(folder, tmp_path / "notes.md", ["retained token"], "2026-01-01T00:00:00Z")
+    index_source(db, old)
+    newer = _observation(folder, tmp_path / "notes.md", ["new token"], "2026-01-02T00:00:00Z")
+    newer.write_text('{"truncated":')
+    with pytest.raises(ValueError):
+        index_source(db, old)
+    assert {hit["source_id"] for hit in search(db, "retained")} == {old.stem}
+    with pytest.raises(ValueError):
+        build_index(folder, db)
+    assert {hit["source_id"] for hit in search(db, "retained")} == {old.stem}
 
 
 def test_index_source_keeps_ids_without_digest_suffix(tmp_path: Path) -> None:

@@ -4,6 +4,8 @@ import datetime as dt
 import hashlib
 import json
 import mimetypes
+import os
+import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -30,11 +32,27 @@ def classify_source(source: str) -> str:
     return "file"
 
 
-def source_id_for(source: str, digest: str | None) -> str:
+def source_origin(source: str, root: Path | None = None) -> dict[str, str]:
+    """Identify a locator, not an authenticated account or its permissions."""
+    parsed = urlparse(source)
+    if parsed.scheme in {"http", "https"}:
+        identity = {"kind": "url", "locator": source}
+    else:
+        path = Path(source).expanduser().resolve()
+        if root is not None and path.is_relative_to(root.resolve()):
+            identity = {"kind": "repository_path", "locator": path.relative_to(root.resolve()).as_posix()}
+        else:
+            identity = {"kind": "file_uri", "locator": path.as_uri()}
+    raw = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+    return {**identity, "id": hashlib.sha256(raw.encode("utf-8")).hexdigest()}
+
+
+def source_id_for(source: str, digest: str | None, *, root: Path | None = None) -> str:
     parsed = urlparse(source)
     name = Path(parsed.path).name or parsed.netloc or "source"
-    short = digest[:12] if digest else hashlib.sha256(source.encode("utf-8")).hexdigest()[:12]
-    return f"source-{slugify(name)}-{short}"
+    origin = source_origin(source, root)["id"]
+    version = digest[:16] if digest else "unobserved"
+    return f"source-v2-{origin}-{slugify(name)[:48]}-{version}"
 
 
 def sha256_directory_listing(path: Path) -> tuple[str, int]:
@@ -64,13 +82,14 @@ def sha256_directory_listing(path: Path) -> tuple[str, int]:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest(), len(entries)
 
 
-def build_manifest(source: str, context: str) -> dict[str, object]:
+def build_manifest(source: str, context: str, *, root: Path | None = None) -> dict[str, object]:
     parsed = urlparse(source)
-    now = dt.datetime.now().replace(microsecond=0).isoformat()
+    now = dt.datetime.now(dt.timezone.utc).isoformat()
     source_type = classify_source(source)
     manifest: dict[str, object] = {
         "schema_version": "wiki_source_manifest.v1",
         "source_uri": source,
+        "source_origin": source_origin(source, root),
         "source_type": source_type,
         "context": context,
         "captured_at": now,
@@ -81,7 +100,7 @@ def build_manifest(source: str, context: str) -> dict[str, object]:
     if parsed.scheme in {"http", "https"}:
         manifest.update(
             {
-                "source_id": source_id_for(source, None),
+                "source_id": source_id_for(source, None, root=root),
                 "exists": None,
                 "hash_sha256": None,
                 "size_bytes": None,
@@ -103,7 +122,7 @@ def build_manifest(source: str, context: str) -> dict[str, object]:
             entry_count = None
         manifest.update(
             {
-                "source_id": source_id_for(source, digest),
+                "source_id": source_id_for(source, digest, root=root),
                 "hash_sha256": digest,
                 "size_bytes": stat.st_size,
                 "modified_at": dt.datetime.fromtimestamp(stat.st_mtime).replace(microsecond=0).isoformat(),
@@ -112,12 +131,91 @@ def build_manifest(source: str, context: str) -> dict[str, object]:
         if entry_count is not None:
             manifest["entry_count"] = entry_count
     else:
-        manifest.update({"source_id": source_id_for(source, None), "hash_sha256": None, "size_bytes": None})
+        manifest.update({"source_id": source_id_for(source, None, root=root), "hash_sha256": None, "size_bytes": None})
     return manifest
 
 
 def write_manifest(manifest: dict[str, object], directory: Path) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{manifest['source_id']}.json"
-    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_source_artifact(path, manifest)
     return path
+
+
+def chunk_document(manifest: dict, chunks: list[dict], *, warnings=()) -> dict:
+    """The pipeline and extraction CLI persist the same origin/version evidence."""
+    return dict(schema_version="wiki_chunks.v1", source_id=manifest["source_id"],
+                source_hash_sha256=manifest.get("hash_sha256"),
+                source_origin_id=manifest["source_origin"]["id"],
+                observed_at=manifest["captured_at"], extraction_complete=not bool(warnings), chunks=chunks)
+
+
+def require_capture_not_regressed(path: Path, payload: dict) -> None:
+    """An unsuccessful retry must not destroy a complete capture of these bytes."""
+    if (payload.get("schema_version") != "wiki_chunks.v1"
+            or payload.get("extraction_complete") is True or not path.exists()):
+        return
+    previous = json.loads(path.read_text(encoding="utf-8"))
+    if (isinstance(previous, dict) and previous.get("extraction_complete") is True
+            and previous.get("schema_version") == "wiki_chunks.v1"
+            and isinstance(previous.get("chunks"), list)
+            and all(previous.get(key) == payload.get(key) for key in
+                    ("source_id", "source_hash_sha256", "source_origin_id"))):
+        raise ValueError("source_capture_incomplete: complete capture retained; retry extraction")
+
+
+def resolve_source_manifest(manifest: dict, manifests: Path, chunks: Path, *, root: Path) -> dict:
+    """Resolve old captures without changing their IDs or guessing from a basename.
+
+    New captures take precedence. A legacy filename only locates a candidate;
+    its manifest must independently prove the exact origin and content digest.
+    This does not transfer context-read results to a different source identity.
+    """
+    source_id = str(manifest["source_id"])
+    if (chunks / f"{source_id}.json").exists():
+        return manifest
+    source = str(manifest["source_uri"])
+    parsed = urlparse(source)
+    name = Path(parsed.path).name or parsed.netloc or "source"
+    digest = manifest.get("hash_sha256")
+    short = str(digest)[:12] if digest else hashlib.sha256(source.encode()).hexdigest()[:12]
+    legacy_id = f"source-{slugify(name)}-{short}"
+    candidate = manifests / f"{legacy_id}.json"
+    if not candidate.exists() and not (chunks / f"{legacy_id}.json").exists():
+        return manifest
+    try:
+        if candidate.is_symlink():
+            raise ValueError("symbolic manifest")
+        old = json.loads(candidate.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError("source_legacy_origin_unverified: restore the original manifest") from exc
+    if (not isinstance(old, dict) or old.get("schema_version") != "wiki_source_manifest.v1"
+            or old.get("source_id") != legacy_id or old.get("hash_sha256") != digest):
+        raise ValueError("source_legacy_identity_conflict: manifest does not match this source")
+    locators = [old[k] for k in ("source_uri", "absolute_path") if old.get(k)]
+    if not locators or any(not isinstance(value, str) for value in locators):
+        raise ValueError("source_legacy_origin_unverified: manifest has no source locator")
+    for value in locators:
+        if urlparse(value).scheme not in {"http", "https"} and not Path(value).is_absolute():
+            value = str(root / value)
+        if source_origin(value, root) != manifest["source_origin"]:
+            raise ValueError("source_legacy_origin_conflict: matching name and bytes do not prove origin")
+    return {**manifest, "source_id": legacy_id, "identity_resolution": "verified_legacy_manifest"}
+
+
+def write_source_artifact(path: Path, payload: dict) -> None:
+    """Publish one complete derived JSON; readers never see a truncated write."""
+    require_capture_not_regressed(path, payload)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=".source-", suffix=".tmp", delete=False) as out:
+            temporary = Path(out.name)
+            out.write(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)

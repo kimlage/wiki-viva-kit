@@ -14,7 +14,7 @@ except ModuleNotFoundError:
 from wiki_core.config import load_config
 from wiki_core.llm import cache_summary
 from wiki_core.paths import WikiPaths
-from wiki_core.source_manifest import build_manifest
+from wiki_core.source_manifest import build_manifest, resolve_source_manifest
 
 
 def main() -> int:
@@ -26,17 +26,23 @@ def main() -> int:
     args = parser.parse_args()
 
     paths = WikiPaths(ROOT, config)
-    paths.ensure()
     summary = cache_summary(paths.llm_cache)
     summary["manifests"] = len(list(paths.source_manifests.glob("*.json")))
     summary["text_sources"] = len(list(paths.source_text.glob("*.json")))
     summary["chunk_sources"] = len(list(paths.chunks.glob("*.json")))
     summary["context_plans"] = len(list(paths.extraction_events.glob("*llm-context-plan.json")))
     if args.source:
-        manifest = build_manifest(args.source, args.context)
+        manifest = build_manifest(args.source, args.context, root=ROOT)
+        try:
+            manifest = resolve_source_manifest(manifest, paths.source_manifests, paths.chunks, root=ROOT)
+        except ValueError as exc:
+            summary["source"] = {"source_id": manifest["source_id"], "status": "identity_unverified", "error": str(exc)}
+            print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
+            return 2
         source_id = str(manifest["source_id"])
         summary["source"] = {
             "source_id": source_id,
+            "identity_resolution": manifest.get("identity_resolution", "current"),
             "manifest_exists": (paths.source_manifests / f"{source_id}.json").exists(),
             "text_exists": (paths.source_text / f"{source_id}.json").exists(),
             "chunks_exist": (paths.chunks / f"{source_id}.json").exists(),

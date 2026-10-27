@@ -1469,3 +1469,9 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 - The [local lookup command](../../scripts/wiki_find.py) reuses the existing FTS index and returns source identity, location and available provenance for each match. The [command reference](wiki/command-reference.md) distinguishes index unavailability, invalid indexes and a successful search without matches.
 - [Lookup regressions](../../tests/test_wiki_core.py) cover read-only access, context filtering before result limits, unsafe catalog paths and WAL handling. [Indexed-page coverage](../../tests/test_consolidate.py) preserves local page identity. Context filters select results; they do not grant access or prove source freshness.
+
+## [2026-10-27] Origin-qualified source captures and conservative index reconciliation
+
+- [Source identity](../../wiki_core/source_manifest.py) distinguishes equal basenames and bytes at different locations. New captures carry explicit origin and observed-time metadata; legacy captures remain discoverable through verified original manifests without rewriting their identities.
+- [Incremental indexing and rebuild](../../wiki_core/index/sqlite.py) share the same selection rule. Unknown ordering, incomplete extraction and missing prior artifacts remain explicit diagnostics; no timestamp grants factual freshness or account authority.
+- [Synthetic ingestion regressions](../../tests/test_source_origin_index.py) and [source-check regressions](../../tests/test_context_pass_source_artifacts.py) preserve complete captures after failed retries, reject ambiguous origin and keep read-only legacy discovery available. The [CLI guide](../../scripts/README.md#source-identity-and-index-reconciliation) documents the upgrade and limits. No raw files or consumer indexes are migrated automatically.
