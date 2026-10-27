@@ -472,6 +472,45 @@ fail closed. Revalidation does not clear another seed, cycle, stale authority
 or factual prerequisite, nor change action/source states. The
 [synthetic tests](../../tests/test_causal_revalidation.py) cover these boundaries.
 
+An optional `documentary_edits` list separates a reviewed historical edit from
+an assertion of current truth. It satisfies only the changed unit's editing
+obligation. The unit keeps its original freshness date and stale state. Any
+actual factual demand for that unit, including WHOLE use, a second seed or a
+cycle, still requires freshness. Required sources, contexts, unresolved causal
+dispositions and other stale units remain blockers.
+
+Each item has `subject`, `evidence_id`, `evidence_sha256` and a substantive
+`reason`. Its sealed CURRENT file uses `wiki_documentary_edit.v1` with `subject`,
+`base_text`, `current_text`, `base_document_sha256`, `current_document_sha256`,
+`declaration_sha256`, `edit_kind`, `historical_as_of`, `reviewed_on`, `scope`,
+`contexts` and `sources`. The declaration digest seals the complete record.
+Contexts map every mandatory local record ID to its `base` and `current` hashes;
+all must remain unchanged. Sources contain `id`, `sha256` and `purpose`, must be
+independent retained file artifacts and exactly match the record's
+`current_evidence`. They remain factual prerequisites. Duplicating the subject,
+its context, proof or review under another ID does not create independent
+evidence.
+
+The [documentary verifier](../../wiki_core/documentary_edits.py) permits only a
+preexisting, substantively changed, complete contiguous H2 record explicitly
+classified as `observation` under `h2_v1`. Raw pages, remainders, normative
+decisions, hypotheses and simultaneous `current_observation` claims are outside
+this scope. Page and record freshness dates, cadences and exemptions must stay
+unchanged. The historical cut precedes the actual review date; review cannot be
+future-dated at evaluation or later than the record's declared observation.
+
+`edit_kind` is `authorized_removal` or `historical_correction`. Removal permits
+only deletions; a correction may replace historical assertions against retained
+sources. Neither classification proves semantic safety or user authority. Even
+deleting a negation can change meaning. Independent review must establish the
+exact authorized scope, the complete historical assertion and evidence, and
+that no present fact or normative change is being described as a historical
+observation. The pair, census and plan receipt below seal that assessment;
+final publication and runtime authority remain separate. A later factual
+arrival cannot borrow an earlier documentary qualification. The
+[regressions](../../tests/test_documentary_edits.py) cover isolated edits, real
+factual demands, mandatory context, cycles, multiple seeds and replay.
+
 `review_evidence` names one CURRENT immutable JSON file artifact. Its
 `wiki_causal_review_receipt.v1` receipt has `author`, a distinct `reviewer`,
 `decision: approved`, an empty `unresolved_findings` list and `plan_sha256`
