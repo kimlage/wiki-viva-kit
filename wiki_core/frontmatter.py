@@ -309,7 +309,12 @@ def parse_frontmatter_flat_with_errors(
             continue
         key, value = raw.split(":", 1)
         current_key = key.strip()
-        value = unquote(value.strip())
+        value = value.strip()
+        # Recognize the template's empty sequence followed by a YAML comment
+        # before unquoting, so a quoted "[] # literal" stays scalar text.
+        if re.fullmatch(r"\[\][ \t]+#.*", value):
+            value = "[]"
+        value = unquote(value)
         if value == "[]":
             values[current_key] = []
         elif value:
