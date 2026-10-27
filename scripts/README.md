@@ -99,6 +99,8 @@ It emits private authoring context, never inferred bindings or freshness approva
 See [documentary authoring](../docs/references/guides/software-change-records.md#authoring-the-complete-consumption-frontier).
 
 
+## Context-bound reading and directory captures
+
 Contextual reading reuses a recorded result only when the chunk bytes, prompt,
 model/schema, supplied semantic context and source origin match. The same
 validation is used by request generation, checks, recording, audits and
