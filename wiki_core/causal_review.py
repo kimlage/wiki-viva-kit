@@ -575,7 +575,8 @@ def evaluate(current, base, changed, *, today):
             if not (edge.get("basis") == "document_record.v2"
                     and edge.get("field") == "document_components"
                     and edge.get("path") == target
-                    and current.get("verified_record_documents", {}).get(parent) == target):
+                    and (base if edge['origin'] == 'base' else current)
+                        .get("verified_record_documents", {}).get(parent) == target):
                 factual_raw_arrivals.add((seed, target))
                 factual_demands.add(target)
             oid, status = decision(review, seed, edge, current, base, today)

@@ -153,14 +153,18 @@ def test_receipt_cannot_be_replayed_or_replace_its_source(repo, fault):
         project_records(c, b, {'memories/log.md'}, contract, artifact_inputs=inputs)
 
 
-def test_explicit_view_observation_is_rejected(repo):
+def test_explicit_view_observation_keeps_raw_obligation_without_causal_review(repo):
     b, c, contract, inputs, receipt = prepared(repo)
     record = contract['documents'][0]['records'][0]
     record.pop('heading')
     record['selectors'] = {'base': None, 'current': {'kind': 'h2', 'heading': 'New record'}}
     contract['document_modes']['memories/log.md'] = 'explicit_view_v2'
-    with pytest.raises(ValueError, match='complete independent H2 delta'):
-        run((b, c, contract, inputs, receipt))
+    current, base, result = run((b, c, contract, inputs, receipt))
+    nid = node_id('memories/log.md', 'entry-0')
+    assert nid in current['verified_record_observations']
+    assert nid not in base['nodes']
+    assert not result['ok']
+    assert any(row['path'] == 'memories/log.md' for row in result['blockers'])
 
 
 def test_frontmatter_cannot_forge_observation_freshness(repo):

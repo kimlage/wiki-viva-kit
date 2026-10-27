@@ -402,10 +402,11 @@ def frontmatter_span(text, selector, shape):
     return start + offset, end + offset
 
 
-def complete_h2_record(contract, declaration, record):
+def complete_h2_record(contract, declaration, record, *, allow_introduced=False):
     """Recognize an already projected whole H2, never a row or envelope.
 
-    V2 origin selectors may name a renamed, preexisting H2. Their exact spans,
+    V2 origin selectors may name a renamed, preexisting H2. Only the bounded
+    observation route may request an introduced H2. Exact presence, spans,
     hashes and ambiguity checks remain the partitioner's responsibility.
     """
     if record not in declaration['records'] or record['id'] in {'remainder', 'preamble'}:
@@ -418,24 +419,34 @@ def complete_h2_record(contract, declaration, record):
     selectors = record.get('selectors', {})
     if set(selectors) != {'base', 'current'}:
         return False
-    for selector in selectors.values():
+    candidates = selectors.values()
+    if allow_introduced and selectors['base'] is None and record.get('base_sha256') is None:
+        candidates = [selectors['current']]
+    for selector in candidates:
         if (not isinstance(selector, dict) or selector.get('kind') != 'h2'
                 or set(selector) - {'kind', 'heading', 'leading_blank_lines'}
                 or not isinstance(selector.get('heading'), str) or not selector['heading']):
             return False
-    return selectors['base'].get('leading_blank_lines', 0) == selectors['current'].get('leading_blank_lines', 0)
+    return selectors['base'] is None or selectors['base'].get('leading_blank_lines', 0) == selectors['current'].get('leading_blank_lines', 0)
 
 
 def corresponding_h2_shapes(before, after):
     """Local partition correspondence; does not change causal interpretations.
 
     The caller must first prove complete coverage, preserved remainder,
-    references, common-record order and anchors. Only a whole H2 title may
-    differ here. Keep the real origin shapes in both projected graphs.
+    references, common-record order and anchors. Common H2s may change title;
+    added/removed units must be complete H2s. Their factual obligations and
+    the real origin shapes remain in both projected graphs.
     """
-    if before.keys() != after.keys():
-        return False
-    for node, old in before.items():
+    for node in before.keys() ^ after.keys():
+        shape = before.get(node, after.get(node))
+        selector = shape.get('selector')
+        if (not isinstance(selector, dict) or selector.get('kind') != 'h2'
+                or set(selector) - {'kind', 'heading', 'leading_blank_lines'}
+                or not isinstance(selector.get('heading'), str) or not selector['heading']):
+            return False
+    for node in before.keys() & after.keys():
+        old = before[node]
         new = after[node]
         if old == new or 'excluded' in old and 'excluded' in new:
             continue

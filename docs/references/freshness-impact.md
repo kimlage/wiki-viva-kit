@@ -196,9 +196,11 @@ receipt. This is an opt-in semantic declaration, implemented by
 
 The ordinary partition guards must first prove a complete independent H2 delta:
 unchanged remainder, order, anchors and document-wide reference definitions,
-with no raw-document seed left. The record must be new or substantively changed.
-Unchanged content, mixed/uncovered deltas, remainder/envelope slots, decisions,
-hypotheses and `explicit_view_v2` cannot use this option. Existing declarations
+with no raw-document seed left, or by the exact whole-H2 composition proof below
+for `explicit_view_v2`, which retains the raw seed for WHOLE consumers.
+The record must be new or substantively changed. Unchanged content,
+uncovered deltas, partial selections, remainder/envelope slots, decisions
+and hypotheses cannot use this option. Existing declarations
 without it keep their original behavior; `recorded_on` alone grants no freshness.
 
 The receipt has schema `wiki_record_observation.v1` and exactly these fields:
@@ -251,6 +253,18 @@ record order, anchors, padding, type and contexts are still required for the
 precise partition. Tables, preambles, envelopes and absent BASE selectors do
 not qualify through this route. The real origin selectors remain in the graph;
 local partition correspondence does not make causal interpretations equal.
+Other whole H2s may be added or removed on the same page only when the projector
+proves their complete spans and actual presence/absence. Every added and removed
+unit remains a seed. Common-record order, anchors, remainder, reference definitions
+and unchanged local contexts must still be preserved. Partial added/removed
+selections cannot obtain this proof.
+
+Only `current_observation` may use an introduced complete H2 with a null BASE
+selector and hash. Its independently reviewed source receipt remains required.
+`current_review` and `documentary_edits` still require a preexisting subject.
+A removed H2 retains its BASE consumers and factual prerequisites; classifying
+its generated component-to-document edge as representation does not classify
+any actual consumer edge that way.
 
 The CURRENT file receipt uses `wiki_record_review.v1`. It has the observation
 receipt's fields, replacing `observed_on` with `reviewed_on`, and also requires
@@ -443,7 +457,7 @@ entirely after the original document. This requires a literal BASE prefix,
 identical old record selections, bytes, ordering and anchors, an identical
 remainder and reference definitions, and complete contiguous coverage of only
 the appended bytes. Only that proved remainder exclusion change is equivalent
-for an otherwise valid causal disposition. It does not make an addition a
+for an otherwise valid causal disposition. By itself it does not make an addition a
 precise carrier, remove a WHOLE obligation, erase the new record's seed or waive
 its independence review. Authored markers and post-projection mutations cannot
 supply the proof. [Append regressions](../../tests/test_causal_append_partition.py)
