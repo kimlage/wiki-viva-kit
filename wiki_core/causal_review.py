@@ -199,13 +199,17 @@ def verify(current, base, changed, contract, artifact_inputs):
                     if before_part is None or after_part is None or before_part == after_part:
                         raise ValueError("updated requires substantive repair in the affected record")
         decisions[item["obligation_id"]] = copy.deepcopy(item)
-    from wiki_core.causal_reconciliation import repaired_boundary, reachable_repaired_frontiers, upstream_closure
+    from wiki_core.causal_reconciliation import (
+        repaired_boundary, reachable_repaired_frontiers, upstream_closure, updated_paths,
+    )
     from functools import lru_cache
     @lru_cache(maxsize=None)
     def is_repaired(node):
         return repaired_boundary(base, current, node)
-    frontiers = reachable_repaired_frontiers(inventory, decisions, base, current, is_repaired)
+    paths = updated_paths(inventory, decisions)
+    frontiers = reachable_repaired_frontiers(inventory, decisions, base, current, is_repaired, paths=paths)
     arrival_upstream = upstream_closure(inventory)
+    requests, direct_seeds = {}, {}
     for oid, item in decisions.items():
         if item['disposition'] not in {'no_change', 'revalidated'}:
             continue
@@ -220,15 +224,100 @@ def verify(current, base, changed, contract, artifact_inputs):
         requested = set(item.get('reviewed_upstream_repairs', []))
         if not requested <= candidates:
             raise ValueError('reviewed upstream repair lacks same-seed substantive support')
+        requests[oid], direct_seeds[oid] = requested, direct_seed
+
+    # Complete interpretation belongs to the consumer, while support belongs
+    # to each seed/occurrence. Compose only explicit, locally proved requests
+    # that actually arrive here through updated paths. Potential dispositions
+    # beyond another cut cannot manufacture support.
+    eligible = defaultdict(set)
+    for oid, obligation in inventory['obligations'].items():
+        edge = inventory['edges'][obligation['edge_id']]
+        if edge['prerequisite'] in paths[obligation['seed']]:
+            eligible[edge['consumer']].add(oid)
+    compositions = {}
+
+    @lru_cache(maxsize=None)
+    def exact_interpretation_equal(node):
+        return _interpretation(base, node) == _interpretation(current, node)
+
+    @lru_cache(maxsize=None)
+    def interpretation_equal(consumer, stops):
+        return (_interpretation_state(base, consumer, stop_at=stops, append_equivalence=True)
+                == _interpretation_state(current, consumer, stop_at=stops, append_equivalence=True))
+
+    @lru_cache(maxsize=None)
+    def joint_interpretation_equal(consumer, stops, authority_ids):
+        if not authority_ids:
+            return interpretation_equal(consumer, stops)
+        matched = reviewed_citation_extension(base, current, consumer,
+            {key: citations[key] for key in authority_ids},
+            stop_at=stops, append_equivalence=True)
+        return matched is not None and matched == set(authority_ids)
+
+    @lru_cache(maxsize=None)
+    def prerequisite_qualification(node):
+        if node not in base['nodes'] or node not in current['nodes']:
+            return None
+        try:
+            before, after = _document(base, node), _document(current, node)
+        except ValueError:
+            return None
+        if before != after:
+            return None
+        if node in current['documents']:
+            same = base['documents'][before] == current['documents'][after]
+        else:
+            old = base['nodes'][node].get('record_sha256')
+            same = old is not None and old == current['nodes'][node].get('record_sha256')
+        if not same:
+            return None
+        if exact_interpretation_equal(node):
+            return dict(prerequisite=node, base_authority_citations=[])
+        matched = reviewed_citation_extension(base, current, node, citations) if citations else None
+        return (dict(prerequisite=node, base_authority_citations=sorted(matched))
+                if matched is not None else None)
+
+    @lru_cache(maxsize=None)
+    def composed_requests(consumer):
+        combined = set()
+        participants = []
+        intact_inputs = {}
+        for other in sorted(eligible[consumer]):
+            if other not in requests:  # Missing, blocked or updated is not an unchanged arrival.
+                return None
+            local = requests[other]
+            if local:
+                combined.update(local)
+                participants.append(other)
+            else:
+                incoming = inventory['edges'][inventory['obligations'][other]['edge_id']]['prerequisite']
+                proof = prerequisite_qualification(incoming)
+                if proof is None:
+                    # An empty request must prove its own complete input is
+                    # unchanged or use the existing sealed authority proof;
+                    # it cannot borrow another seed's substantive repair.
+                    return None
+                participants.append(other)
+                intact_inputs[other] = proof
+        return frozenset(combined), participants, intact_inputs
+
+    for oid, requested in requests.items():
+        item = decisions[oid]
+        obligation = inventory['obligations'][oid]
+        edge = inventory['edges'][obligation['edge_id']]
+        seed, consumer = obligation['seed'], edge['consumer']
+        direct_seed = direct_seeds[oid]
         candidates = requested
-        key = (seed, consumer, tuple(sorted(candidates)))
+        key = (seed, consumer, edge['prerequisite'], tuple(sorted(candidates)),
+               direct_seed, oid in eligible[consumer])
         if key not in unchanged_interpretations:
             before_path, after_path = _document(base, consumer), _document(current, consumer)
             same_content = base['documents'][before_path] == current['documents'][after_path]
             if consumer not in current['documents']:
                 old_hash = base['nodes'][consumer].get('record_sha256')
                 same_content = old_hash is not None and old_hash == current['nodes'][consumer].get('record_sha256')
-            equivalent = _interpretation(base, consumer) == _interpretation(current, consumer)
+            equivalent = exact_interpretation_equal(consumer)
             qualification = {}
             if same_content and not equivalent and citations:
                 matched = reviewed_citation_extension(base, current, consumer, citations)
@@ -236,25 +325,43 @@ def verify(current, base, changed, contract, artifact_inputs):
                 if matched is not None:
                     used_citations.update(matched)
             if same_content and not equivalent:
-                states = [_interpretation_state(g, consumer, stop_at=candidates, append_equivalence=True)
-                          for g in (base, current)]
-                equivalent = states[0] == states[1]
+                equivalent = interpretation_equal(consumer, frozenset(candidates))
+                composition = None
+                authority_ids = frozenset()
+                if (not equivalent and oid in eligible[consumer]
+                        and (requested or prerequisite_qualification(edge['prerequisite']) is not None)):
+                    group = composed_requests(consumer)
+                    if group is not None:
+                        combined, participants, intact_inputs = group
+                        qualified_authorities = frozenset(key for proof in intact_inputs.values()
+                                                          for key in proof['base_authority_citations'])
+                        if joint_interpretation_equal(consumer, combined, qualified_authorities):
+                            candidates = set(combined)
+                            authority_ids = qualified_authorities
+                            equivalent = True
+                            composition = dict(arrivals=participants, upstream_repairs=sorted(combined),
+                                               prerequisite_qualifications=intact_inputs)
                 if equivalent:
+                    states = [_interpretation_state(g, consumer, stop_at=candidates, append_equivalence=True)
+                              for g in (base, current)]
                     reached = set(states[0]['scopes']) | set(states[1]['scopes'])
                     used = sorted(candidates & reached)
-                    if set(used) != requested:
+                    if set(used) != candidates:
                         raise ValueError('reviewed upstream repair declaration is unused')
                     # Reachability alone is not use. Every named frontier
                     # must be necessary for this arrival's equivalence.
                     for node in used:
                         without = candidates - {node}
-                        remaining = [_interpretation_state(g, consumer, stop_at=without, append_equivalence=True)
-                                     for g in (base, current)]
-                        if remaining[0] == remaining[1]:
+                        if joint_interpretation_equal(consumer, frozenset(without), authority_ids):
                             raise ValueError('reviewed upstream repair declaration is unused')
-                    qualification = dict(upstream_repairs={node: frontiers[seed].get(node, []) for node in used},
-                        direct_repaired_seed=seed if direct_seed and seed in used else None,
+                    qualification = dict(upstream_repairs={node: frontiers[seed].get(node, []) for node in sorted(requested)},
+                        direct_repaired_seed=seed if direct_seed and seed in requested else None,
                         append_only_remainders=sorted(reached & set(current.get('verified_append_only_partitions', {}))))
+                    if composition is not None:
+                        compositions[consumer] = composition
+                        qualification['composed_consumer'] = consumer
+                        for proof in composition['prerequisite_qualifications'].values():
+                            used_citations.update(proof['base_authority_citations'])
             unchanged_interpretations[key] = same_content and equivalent, qualification
         accepted, qualification = unchanged_interpretations[key]
         if not accepted:
@@ -296,7 +403,8 @@ def verify(current, base, changed, contract, artifact_inputs):
     verified = dict(pair_sha256=pair, census_sha256=structured_digest(inventory),
                 census=inventory, dispositions=decisions, review_evidence=evidence,
                 review_sha256=candidates[0]["sha256"], plan_sha256=receipt["plan_sha256"],
-                normative_revalidations=revalidations, reconciled_interpretations=reconciled_interpretations)
+                normative_revalidations=revalidations, reconciled_interpretations=reconciled_interpretations,
+                composed_interpretations=compositions)
     verified["payload_sha256"] = structured_digest(verified)
     return verified
 

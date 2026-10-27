@@ -147,6 +147,203 @@ def test_direct_repaired_seed_allows_unique_markdown_section_relocation(tmp_path
     assert_tail_is_retained_debt(result, 'memories/tail.md')
 
 
+@pytest.mark.parametrize('binding', [False, True])
+@pytest.mark.parametrize('stale_authority', [False, True])
+def test_reviewed_frontier_preserves_old_markdown_use_when_another_is_added(
+        tmp_path, binding, stale_authority):
+    b, c, changed, spec = markdown_position_pair(
+        tmp_path, explicit_binding=binding, semantic_change='multiplicity')
+    if stale_authority:
+        for graph in (b, c):
+            graph['nodes']['memories/required.md']['updated_at'] = '2026-01-01'
+    spec, inputs = authored(b, c, changed, spec=spec,
+        select=lambda e, o: e['consumer'] == 'memories/consumer.md',
+        mutate=lambda plan: [row.update(reviewed_upstream_repairs=['memories/policy.md'])
+                             for row in plan['dispositions']])
+    pc, pb, seeds, _ = project_records(c, b, changed, spec, artifact_inputs=inputs)
+    inventory = census(pc, pb, seeds)
+    # A WHOLE citation still expands to all units; none of the new occurrences
+    # is erased to qualify the independently reviewed, unchanged consumer.
+    authority_uses = [edge for edge in inventory['edges'].values()
+                      if edge['consumer'] == 'memories/policy.md'
+                      and edge['prerequisite'].startswith('memories/required.md::record:')]
+    assert sum(e['origin'] == 'current' for e in authority_uses) > sum(
+        e['origin'] == 'base' for e in authority_uses)
+    result = evaluate_impact(pc, pb, seeds, today=TODAY)
+    if stale_authority:
+        assert not result['ok']
+        assert any(row['path'].startswith('memories/required.md')
+                   and row['state'] == 'stale' for row in result['blockers'])
+    else:
+        assert result['ok']
+        assert_tail_is_retained_debt(result, 'memories/tail.md')
+
+
+def independent_repairs_pair():
+    """Two changed origins repair separate premises of one intact consumer."""
+    b, c, changed = make()
+    for graph in (b, c):
+        for node in ('other', 'left', 'right', 'left-authority', 'right-authority'):
+            _add_node(graph, node, '# ' + node + '\n\nComplete existing duty.\n')
+        graph['edges'] = [reference('left', 'policy'), reference('right', 'other'),
+                          reference('consumer', 'left'), reference('consumer', 'right'),
+                          reference('tail', 'consumer')]
+    for node in ('other', 'left', 'right'):
+        c['documents'][node] += 'The independent review of this duty is now explicit.\n'
+        changed.add(node)
+    for side in ('left', 'right'):
+        c['documents'][side] += f'Use [{side}-authority]({side}-authority).\n'
+        c['edges'].append(reference(side, side + '-authority'))
+    return b, c, changed
+
+
+def author_independent_repairs(b, c, changed, *, fault=None):
+    pc, pb, seeds, _ = project_records(c, b, changed, contract(b, c))
+    inventory = census(pc, pb, seeds)
+
+    def qualify(plan):
+        for item in plan['dispositions']:
+            obligation = inventory['obligations'][item['obligation_id']]
+            edge = inventory['edges'][obligation['edge_id']]
+            if edge['consumer'] == 'consumer':
+                if edge['prerequisite'] != 'intact':
+                    item['reviewed_upstream_repairs'] = [edge['prerequisite']]
+                if obligation['seed'] == 'other' and edge['prerequisite'] == 'right':
+                    if fault == 'blocked':
+                        item['disposition'] = 'blocked'
+                        item.pop('reviewed_upstream_repairs')
+                    elif fault == 'empty_changed_input':
+                        item.pop('reviewed_upstream_repairs')
+                    elif fault == 'wrong_branch':
+                        item['reviewed_upstream_repairs'] = ['left']
+
+    def select(edge, obligation):
+        if edge['consumer'] not in {'left', 'right', 'consumer'}:
+            return False
+        if obligation['seed'] == 'other':
+            if fault == 'missing_updated_path' and edge['consumer'] == 'right':
+                return False
+            if edge['consumer'] == 'consumer' and edge['prerequisite'] == 'right':
+                if fault == 'missing' or fault == 'missing_current' and edge['origin'] == 'current':
+                    return False
+        return True
+
+    return authored(b, c, changed, select=select,
+        disposition=lambda e: 'no_change' if e['consumer'] == 'consumer' else 'updated',
+        mutate=qualify)
+
+
+@pytest.mark.parametrize('cycle', [False, True])
+def test_independent_origins_compose_reviewed_repairs_for_the_same_intact_consumer(cycle):
+    b, c, changed = independent_repairs_pair()
+    if cycle:
+        for graph in (b, c):
+            graph['edges'].extend([reference('left', 'right'), reference('right', 'left')])
+    spec, inputs = author_independent_repairs(b, c, changed)
+    result = run(b, c, changed, spec, inputs)
+    assert result['ok']
+    assert {'left-authority', 'right-authority'} <= {r['path'] for r in result['included']}
+    assert_tail_is_retained_debt(result)
+    actual = result['causal_review']['approved_boundaries']
+    assert {row['seed'] for row in actual} == changed
+    assert len(actual) == (16 if cycle else 8)
+    pc, _, _, _ = project_records(c, b, changed, spec, artifact_inputs=inputs)
+    proof = pc['verified_causal_review']['composed_interpretations']['consumer']
+    assert set(proof['arrivals']) == {row['obligation_id'] for row in spec['causal_review']['dispositions']
+                                     if row['disposition'] == 'no_change'}
+    assert proof['upstream_repairs'] == ['left', 'right']
+
+
+@pytest.mark.parametrize('fault', ['missing', 'missing_current', 'blocked', 'missing_updated_path',
+                                  'empty_changed_input', 'wrong_branch'])
+def test_joint_interpretation_cannot_fill_an_unreviewed_origin_or_occurrence(fault):
+    b, c, changed = independent_repairs_pair()
+    spec, inputs = author_independent_repairs(b, c, changed, fault=fault)
+    with pytest.raises(ValueError, match='interpretation|same-seed substantive support'):
+        run(b, c, changed, spec, inputs)
+
+
+@pytest.mark.parametrize('stale', ['right', 'right-authority'])
+def test_joint_interpretation_preserves_freshness_for_each_branch(stale):
+    b, c, changed = independent_repairs_pair()
+    for graph in (b, c):
+        graph['nodes'][stale]['updated_at'] = '2026-01-01'
+    spec, inputs = author_independent_repairs(b, c, changed)
+    result = run(b, c, changed, spec, inputs)
+    assert not result['ok']
+    assert any(row['path'] == stale and row['state'] == 'stale' for row in result['blockers'])
+
+
+@pytest.mark.parametrize('changed_input', [False, True])
+def test_intact_input_can_participate_without_claiming_a_substantive_repair(changed_input):
+    b, c, changed = independent_repairs_pair()
+    for graph in (b, c):
+        _add_node(graph, 'intact', '# Intact independent premise\n\nKeep this complete duty.\n')
+        graph['edges'].append(reference('consumer', 'intact'))
+    # A component/carrier seed can be unchanged: it still has explicit arrivals
+    # and cannot claim updated. Exact input equality supplies its own proof.
+    changed.add('intact')
+    if changed_input:
+        c['documents']['intact'] += 'A different duty now applies.\n'
+    spec, inputs = author_independent_repairs(b, c, changed)
+    if changed_input:
+        with pytest.raises(ValueError, match='interpretation'):
+            run(b, c, changed, spec, inputs)
+    else:
+        result = run(b, c, changed, spec, inputs)
+        assert result['ok']
+        pc, _, _, _ = project_records(c, b, changed, spec, artifact_inputs=inputs)
+        proof = pc['verified_causal_review']['composed_interpretations']['consumer']
+        assert {p['prerequisite'] for p in proof['prerequisite_qualifications'].values()} == {'intact'}
+
+
+@pytest.mark.parametrize('fault', [None, 'unqualified', 'stale'])
+def test_joint_interpretation_reuses_exact_local_authority_proof(fault):
+    from test_causal_authority import fixture
+
+    def branch(b, c, changed):
+        for graph in (b, c):
+            for node in ('intact', 'right', 'new-authority'):
+                _add_node(graph, node, '# ' + node + '\n\nComplete independent duty.\n')
+            next(e for e in graph['edges'] if e['source'] == 'consumer' and e['target'] == 'policy')['target'] = 'intact'
+            graph['edges'].extend([reference('intact', 'policy'), reference('intact', 'authority'),
+                                   reference('consumer', 'right')])
+            if fault == 'stale':
+                graph['nodes']['authority']['updated_at'] = '2026-01-01'
+        c['documents']['right'] += 'Require the newly explicit authority.\n'
+        c['edges'].append(reference('right', 'new-authority'))
+        changed.update({'intact', 'right'})
+
+    b, c, changed, spec, inputs = fixture(graph_change=branch, qualify=fault != 'unqualified')
+    citations = spec.pop('causal_review').get('base_authority_citations', [])
+    artifacts = [a for a in spec['artifacts'] if a['id'] != 'synthetic-independent-review']
+    spec['artifacts'] = []
+    pc, pb, seeds, _ = project_records(c, b, changed, spec)
+    inventory = census(pc, pb, seeds)
+
+    def qualify(plan):
+        if citations:
+            plan['base_authority_citations'] = citations
+        for row in plan['dispositions']:
+            edge = inventory['edges'][inventory['obligations'][row['obligation_id']]['edge_id']]
+            if edge['consumer'] == 'consumer' and edge['prerequisite'] == 'right':
+                row['reviewed_upstream_repairs'] = ['right']
+
+    spec, new_inputs = authored(b, c, changed, spec=spec,
+        select=lambda e, o: e['consumer'] == 'intact' or
+            e['consumer'] == 'consumer' and o['seed'] in {'intact', 'right'}, mutate=qualify)
+    spec['artifacts'].extend(artifacts)
+    inputs.update(new_inputs)
+    if fault == 'unqualified':
+        with pytest.raises(ValueError, match='interpretation'):
+            run(b, c, changed, spec, inputs)
+    else:
+        result = run(b, c, changed, spec, inputs)
+        assert result['ok'] == (fault != 'stale')
+        if fault == 'stale':
+            assert any(r['path'] == 'authority' and r['state'] == 'stale' for r in result['blockers'])
+
+
 def test_zero_length_exception_does_not_qualify_a_non_direct_repaired_seed():
     b, c, changed, spec = upstream_pair()
     # The current premise has its own real change, but policy is not the
