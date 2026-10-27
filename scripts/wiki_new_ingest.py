@@ -294,7 +294,7 @@ def source_metadata(source: str, s: dict[str, str]) -> list[str]:
         stat = path.stat()
         rows.append(s["meta_type_file"].format(suffix=path.suffix or "no extension"))
         rows.append(s["meta_size"].format(size=stat.st_size))
-        manifest = build_manifest(source, CONFIG.default_context)
+        manifest = build_manifest(source, CONFIG.default_context, root=ROOT)
         if manifest.get("hash_sha256"):
             rows.append(f"- SHA256: `{manifest['hash_sha256']}`")
     else:
@@ -328,7 +328,7 @@ def build_proposal(source: str, context: str, date: dt.date, status: str, langua
         risk_rows = risk_rows + [s["risk_secret_header"]] + secret_rows
     if pii_rows:
         risk_rows = risk_rows + [s["risk_pii_header"]] + pii_rows
-    manifest = build_manifest(source, context)
+    manifest = build_manifest(source, context, root=ROOT)
     source_id = str(manifest["source_id"])
     recommendation = {
         "memory": s["rec_memory"],

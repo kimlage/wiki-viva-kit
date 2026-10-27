@@ -233,7 +233,7 @@ def main() -> int:
     required = bool(config.llm.get("required_context_pass", True))
 
     if args.source:
-        manifest = build_manifest(args.source, args.context)
+        manifest = build_manifest(args.source, args.context, root=ROOT)
         try:
             chunks = _chunks_for_source(paths, manifest)
         except ValueError as exc:

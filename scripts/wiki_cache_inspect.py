@@ -33,7 +33,7 @@ def main() -> int:
     summary["chunk_sources"] = len(list(paths.chunks.glob("*.json")))
     summary["context_plans"] = len(list(paths.extraction_events.glob("*llm-context-plan.json")))
     if args.source:
-        manifest = build_manifest(args.source, args.context)
+        manifest = build_manifest(args.source, args.context, root=ROOT)
         source_id = str(manifest["source_id"])
         summary["source"] = {
             "source_id": source_id,

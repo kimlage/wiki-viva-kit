@@ -39,7 +39,7 @@ from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION
 from wiki_core.paths import WikiPaths
 from wiki_core.score import record_event
 from wiki_core.source_config import find_source_config, merge_perspectives
-from wiki_core.source_manifest import build_manifest, write_manifest
+from wiki_core.source_manifest import build_manifest, write_manifest, chunk_document, write_source_artifact
 
 SCHEMA_VERSION = "wiki_ingest_pipeline.v1"
 IngestObserver = Callable[[str, int, dict[str, object]], None]
@@ -119,7 +119,7 @@ def run(
     source_path = Path(source).expanduser()
     source_bytes = source_path.stat().st_size if source_path.is_file() else None
     with _observed(observer, "manifest_hash", bytes_read=source_bytes):
-        manifest = build_manifest(source, context)
+        manifest = build_manifest(source, context, root=root)
     source_id = str(manifest["source_id"])
     source_type = str(manifest["source_type"])
     warnings: list[str] = []
@@ -225,28 +225,14 @@ def run(
                 )
                 text_path = _rel(text_file, root)
                 chunks_file = paths.chunks / f"{source_id}.json"
-                chunks_file.write_text(
-                    json.dumps(
-                        {
-                            "schema_version": "wiki_chunks.v1",
-                            "source_id": source_id,
-                            "source_hash_sha256": manifest.get("hash_sha256"),
-                            "chunks": chunk_dicts,
-                        },
-                        ensure_ascii=False,
-                        indent=2,
-                        sort_keys=True,
-                    )
-                    + "\n",
-                    encoding="utf-8",
-                )
+                write_source_artifact(chunks_file, chunk_document(manifest, chunk_dicts, warnings=warnings))
                 chunks_path = _rel(chunks_file, root)
                 written_files.extend([text_file, chunks_file])
             metrics["files_written"] = len(written_files)
             metrics["bytes_written"] = sum(path.stat().st_size for path in written_files)
 
     chunks_indexed = 0
-    if persist and chunk_dicts:
+    if persist and (chunk_dicts or extracted is not None and not warnings):
         # INCREMENTAL indexing: only the just-written source is (re)indexed,
         # instead of a full rebuild of the whole directory on every ingestion
         # (finding 13).
