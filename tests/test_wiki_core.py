@@ -382,13 +382,13 @@ def test_build_context_request_marks_result_exists_and_counts_pending(tmp_path):
     chunks = [
         {
             "chunk_id": "chunk-0001",
-            "hash_sha256": sha256_text("chunk one"),
+            "hash_sha256": sha256_text("primeiro trecho"),
             "token_estimate": 4,
             "text": "primeiro trecho",
         },
         {
             "chunk_id": "chunk-0002",
-            "hash_sha256": sha256_text("chunk two"),
+            "hash_sha256": sha256_text("segundo trecho"),
             "token_estimate": 4,
             "text": "segundo trecho",
         },
@@ -397,21 +397,15 @@ def test_build_context_request_marks_result_exists_and_counts_pending(tmp_path):
     schema_version = "schema.v2"
     model_profile = "deep_context"
 
-    # Pre-seed a cached result for the FIRST chunk only.
-    key0 = cache_key(
-        chunks[0]["hash_sha256"], prompt_version, schema_version, model_profile
-    )
-    write_result(cache_dir, _complete_result(key=key0))
-
-    request = build_context_request(
-        manifest,
-        chunks,
-        cache_dir,
-        prompt_version,
-        schema_version,
-        model_profile,
-        prompt_name="context_deep_read",
-    )
+    request = build_context_request(manifest, chunks, cache_dir, prompt_version,
+                                    schema_version, model_profile)
+    row = request["chunks"][0]
+    key0 = row["cache_key"]
+    recorded = dict(_complete_result(key=key0), context_sha256=row["context_sha256"],
+                    chunk_hash_sha256=row["chunk_hash_sha256"])
+    write_result(cache_dir, recorded)
+    request = build_context_request(manifest, chunks, cache_dir, prompt_version,
+                                    schema_version, model_profile)
 
     assert request["kind"] == "llm_context_request"
     assert request["pending_llm_calls"] == 1
@@ -435,7 +429,7 @@ def test_build_context_request_includes_perspectives(tmp_path):
         [
             {
                 "chunk_id": "chunk-1",
-                "hash_sha256": sha256_text("chunk"),
+                "hash_sha256": sha256_text("text"),
                 "text": "text",
             }
         ],
@@ -514,3 +508,119 @@ def test_build_manifest_stable_hash_for_local_file(tmp_path):
     third = build_manifest(str(src), context="teste")
     assert third["hash_sha256"] != first["hash_sha256"]
     assert third["source_id"] != first["source_id"]
+
+
+def _bound_request(tmp_path, *, manifest=None, **context):
+    source = {"source_id": "source-fixture-abc123", "hash_sha256": "a" * 64,
+              "context": "system", "source_origin": {"id": "origin-one"}}
+    source.update(manifest or {})
+    chunks = [{"chunk_id": "chunk-0001", "hash_sha256": sha256_text("same excerpt"), "text": "same excerpt"}]
+    return build_context_request(source, chunks, tmp_path / "cache", "v1", "schema.v2", "deep_context", **context)
+
+
+def _record_bound(tmp_path, request):
+    row = request["chunks"][0]
+    result = dict(_complete_result(row["cache_key"]), source_id=row["source_id"],
+                  chunk_id=row["chunk_id"], context_sha256=row["context_sha256"],
+                  chunk_hash_sha256=row["chunk_hash_sha256"])
+    write_result(tmp_path / "cache", result)
+    return result
+
+
+@pytest.mark.parametrize("context", [
+    {"root_entity": {"page_id": "another-root"}},
+    {"target_pages": ["memories/another.md"]},
+    {"perspectives_optional": ["legal"]},
+    {"perspectives_required": ["legal"]},
+    {"input_channel": {"page_id": "another-channel"}},
+    {"quadrant_semantics": {"q4": "different interpretation"}},
+    {"block_context_package": {"write_policy": "reviewed"}},
+])
+def test_context_cache_separates_semantic_envelopes(tmp_path, context):
+    first = _bound_request(tmp_path)
+    _record_bound(tmp_path, first)
+    assert _bound_request(tmp_path)["cached_calls"] == 1
+    changed = _bound_request(tmp_path, **context)
+    assert changed["chunks"][0]["cache_key"] != first["chunks"][0]["cache_key"]
+    assert changed["pending_llm_calls"] == 1
+
+
+@pytest.mark.parametrize("manifest", [
+    {"context": "another-domain"}, {"source_origin": {"id": "another-origin"}},
+    {"account_id": "synthetic-other-account"}, {"provider_account_id": "provider-other"},
+])
+def test_context_cache_separates_provenance_without_inferring_account(tmp_path, manifest):
+    _record_bound(tmp_path, _bound_request(tmp_path))
+    assert _bound_request(tmp_path, manifest=manifest)["pending_llm_calls"] == 1
+
+
+def test_context_cache_reuses_unchanged_chunk_of_same_origin_and_keeps_read_provenance(tmp_path):
+    from wiki_core.llm.context_pass import result_matches_request
+    first = _bound_request(tmp_path)
+    result = _record_bound(tmp_path, first)
+    current = _bound_request(tmp_path, manifest={"source_id": "source-next-version", "hash_sha256": "b" * 64,
+                                                "captured_at": "future capture metadata"})
+    assert current["cached_calls"] == 1
+    assert current["chunks"][0]["result_source_id"] == first["source_id"]
+    assert not result_matches_request(result, current, current["chunks"][0], recording=True)
+
+
+@pytest.mark.parametrize("raw", ["{}", "[]", "null", "{", "true"])
+def test_context_cache_invalid_json_shape_never_counts_as_reading(tmp_path, raw):
+    from wiki_core.consolidate import deep_read_complete, aggregate_results
+    request = _bound_request(tmp_path)
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / (request["chunks"][0]["cache_key"] + ".json")).write_text(raw)
+    assert _bound_request(tmp_path)["pending_llm_calls"] == 1
+    assert not deep_read_complete(request, cache)
+    assert aggregate_results(request, cache)["claims"] == []
+
+
+@pytest.mark.parametrize("field", ["cache_key", "prompt_version", "schema_version", "model_profile",
+                                   "context_sha256", "chunk_hash_sha256"])
+def test_context_cache_mismatched_metadata_is_pending(tmp_path, field):
+    request = _bound_request(tmp_path)
+    result = _record_bound(tmp_path, request)
+    result[field] = "incorrect"
+    (tmp_path / "cache" / (request["chunks"][0]["cache_key"] + ".json")).write_text(json.dumps(result))
+    assert _bound_request(tmp_path)["pending_llm_calls"] == 1
+
+
+def test_context_cache_legacy_key_remains_history_not_new_context_proof(tmp_path):
+    key = cache_key(sha256_text("same excerpt"), "v1", "schema.v2", "deep_context")
+    write_result(tmp_path / "cache", _complete_result(key))
+    assert _bound_request(tmp_path)["pending_llm_calls"] == 1
+    assert read_result(tmp_path / "cache", key) is not None
+
+
+def test_context_request_rejects_text_hash_disagreement(tmp_path):
+    with pytest.raises(ValueError, match="context_chunk_hash_mismatch"):
+        build_context_request({"source_id": "source"}, [{"chunk_id": "c", "hash_sha256": "a" * 64, "text": "different"}],
+                              tmp_path, "v1", "schema.v2", "deep_context")
+
+
+@pytest.mark.parametrize("field,value", [("claims", {}), ("decisions", None), ("actions", "text"),
+                                         ("relationships", {}), ("quadrants", {q: {"text": "invalid"} for q in DEFAULT_QUADRANTS}),
+                                         ("sensitivity", {"has_pii": "false"})])
+def test_context_result_invalid_collection_types_do_not_close_gate(tmp_path, field, value):
+    request = _bound_request(tmp_path)
+    result = _record_bound(tmp_path, request)
+    result[field] = value
+    (tmp_path / "cache" / (request["chunks"][0]["cache_key"] + ".json")).write_text(json.dumps(result))
+    assert _bound_request(tmp_path)["pending_llm_calls"] == 1
+
+
+@pytest.mark.parametrize("change", ["text", "binding", "binding_and_marker"])
+def test_persisted_bound_request_cannot_downgrade_or_change_text(tmp_path, change):
+    from wiki_core.llm.context_pass import read_matching_result
+    request = _bound_request(tmp_path)
+    _record_bound(tmp_path, request)
+    row = request["chunks"][0]
+    if change == "text":
+        row["text"] = "a different statement"
+    else:
+        del row["context_sha256"]
+        if change == "binding_and_marker":
+            del request["context_binding_version"]
+    assert read_matching_result(tmp_path / "cache", request, row) is None

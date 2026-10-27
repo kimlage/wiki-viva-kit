@@ -7,6 +7,7 @@ the Message Batches API envelope with custom_id = cache_key. No network.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -55,7 +56,12 @@ def test_export_batch_shape(tmp_path: Path) -> None:
     assert r0["params"]["model"] == "claude-haiku-4-5"
     assert r0["params"]["max_tokens"] == 1500
     assert r0["params"]["messages"][0]["role"] == "user"
-    assert "CHUNK" in r0["params"]["messages"][0]["content"]
+    envelope = json.loads(r0["params"]["messages"][0]["content"])
+    packet = json.loads(files[0].read_text())
+    for field in ("root_entity", "target_pages", "perspectives_required", "block_context_package", "prompt"):
+        assert envelope[field] == packet[field]
+    assert envelope["chunks"][0]["cache_key"] == r0["custom_id"]
+    assert envelope["chunks"][0]["context_sha256"]
 
 
 def test_export_batch_deterministic(tmp_path: Path) -> None:

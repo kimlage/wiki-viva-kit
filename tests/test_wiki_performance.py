@@ -91,6 +91,15 @@ def test_materialized_cycle1_fixture_is_public_synthetic_and_reproducible(tmp_pa
     assert "/users/" not in text
     assert "private-user-name" not in text
 
+    # Reuse the existing ingestion cases: this is identity regression coverage,
+    # not a new performance run, model invocation or timing threshold.
+    report = PerformanceRunner(ROOT)._ingestion_benchmark(first_root)
+    assert report["llm_context_cache_risk"]["same_cache_keys_different_context"] is False
+    cases = report["cases"]
+    assert cases[0]["cache_keys"] == cases[1]["cache_keys"]
+    assert cases[2]["context_sha256"] != cases[3]["context_sha256"]
+    assert cases[2]["cache_keys"] != cases[3]["cache_keys"]
+
 
 def test_dirty_source_subject_is_verifiable_but_not_claimed_clean(tmp_path: Path) -> None:
     _git_repo(tmp_path / "repo")

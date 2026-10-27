@@ -87,6 +87,10 @@ def test_context_pass_gate_red_then_green(tmp_path, audit, monkeypatch):
         recorded["cache_key"] = chunk["cache_key"]
         recorded["source_id"] = result.source_id
         recorded["chunk_id"] = chunk["chunk_id"]
+        recorded["context_sha256"] = chunk["context_sha256"]
+        recorded["chunk_hash_sha256"] = chunk["chunk_hash_sha256"]
+        recorded.update({field: request[field] for field in ("prompt_version", "schema_version", "model_profile")})
+        recorded.update(perspectives={}, perspectives_required=request.get("perspectives_required", []))
         # write_result revalidates the schema (filled quadrants, sensitivity...).
         out = write_result(cache_dir, recorded)
         assert out.exists()
@@ -105,6 +109,21 @@ def test_context_pass_gate_red_then_green(tmp_path, audit, monkeypatch):
     meta_errors: list[str] = []
     audit.audit_llm_cache_metadata(meta_errors)
     assert meta_errors == []
+
+    # The same recorded interpretation agrees across the remaining consumers.
+    from wiki_core.consolidate import deep_read_complete, aggregate_results
+    from wiki_core.quality import build_quality_report
+    assert deep_read_complete(request, cache_dir)
+    assert aggregate_results(request, cache_dir)["claims"] == template["claims"]
+    quality = build_quality_report(tmp_path, config)
+    assert quality["summary"]["cached_calls"] == len(request["chunks"])
+    assert quality["summary"]["pending_calls"] == 0
+
+    config.llm["default_model_profile"] = "another-profile"
+    current_quality = build_quality_report(tmp_path, config)
+    assert current_quality["summary"]["cached_calls"] == 0
+    assert current_quality["summary"]["pending_calls"] == len(request["chunks"])
+    assert run(str(PILOT_SOURCE), "system", tmp_path, config).pending_llm_calls == len(request["chunks"])
 
 
 def test_recorded_result_fixture_is_schema_valid():

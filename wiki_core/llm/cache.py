@@ -11,16 +11,20 @@ def cache_key(
     prompt_version: str,
     schema_version: str,
     model_profile: str,
+    *,
+    context_sha256: str | None = None,
 ) -> str:
-    """Deterministic cache key for the per-chunk LLM pass.
+    """Keep legacy keys readable; new interpretation requests bind their context.
 
-    Does NOT include the hash of the WHOLE SOURCE (finding 4): the deep-read
-    result is a function of the chunk's CONTENT + prompt + schema + model, not of
-    the source. Including the source_hash invalidated 100% of the cache on every
-    source edit, even for identical chunks; now chunks with the same text dedup
-    the result across versions (and even across different sources).
+    Byte extraction stays independent. The optional digest describes the actual
+    semantic envelope, never a global wiki hash or capture timestamp.
     """
-    return sha256_text("|".join([chunk_hash, prompt_version, schema_version, model_profile]))
+    parts = [chunk_hash, prompt_version, schema_version, model_profile]
+    if context_sha256 is not None:
+        return sha256_text(json.dumps(["context-bound-v1", *parts, context_sha256],
+                                      separators=(",", ":")))
+    return sha256_text("|".join(parts))
+
 
 
 def cache_summary(cache_dir: Path) -> dict[str, object]:
