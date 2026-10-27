@@ -11,7 +11,8 @@ Examples:
   python3 scripts/wiki_ingest.py --source data/raw/example.pdf --context system
   python3 scripts/wiki_ingest.py --source X.md --context system --dry-run
 
-Returns exit 2 if the pre-triage finds a SECRET in the source (block at origin).
+Returns exit 2 for secrets or an incomplete retry that would replace a complete
+capture. In either case the rejected attempt writes no artifacts.
 """
 
 from __future__ import annotations
@@ -56,6 +57,9 @@ def main() -> int:
             "do not consolidate without removing.",
             file=sys.stderr,
         )
+        return 2
+    if result.blocked:
+        print("BLOCKED: extraction retry was not accepted; the complete capture was retained.", file=sys.stderr)
         return 2
     return 0
 

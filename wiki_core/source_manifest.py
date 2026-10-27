@@ -150,8 +150,62 @@ def chunk_document(manifest: dict, chunks: list[dict], *, warnings=()) -> dict:
                 observed_at=manifest["captured_at"], extraction_complete=not bool(warnings), chunks=chunks)
 
 
+def require_capture_not_regressed(path: Path, payload: dict) -> None:
+    """An unsuccessful retry must not destroy a complete capture of these bytes."""
+    if (payload.get("schema_version") != "wiki_chunks.v1"
+            or payload.get("extraction_complete") is True or not path.exists()):
+        return
+    previous = json.loads(path.read_text(encoding="utf-8"))
+    if (isinstance(previous, dict) and previous.get("extraction_complete") is True
+            and previous.get("schema_version") == "wiki_chunks.v1"
+            and isinstance(previous.get("chunks"), list)
+            and all(previous.get(key) == payload.get(key) for key in
+                    ("source_id", "source_hash_sha256", "source_origin_id"))):
+        raise ValueError("source_capture_incomplete: complete capture retained; retry extraction")
+
+
+def resolve_source_manifest(manifest: dict, manifests: Path, chunks: Path, *, root: Path) -> dict:
+    """Resolve old captures without changing their IDs or guessing from a basename.
+
+    New captures take precedence. A legacy filename only locates a candidate;
+    its manifest must independently prove the exact origin and content digest.
+    This does not transfer context-read results to a different source identity.
+    """
+    source_id = str(manifest["source_id"])
+    if (chunks / f"{source_id}.json").exists():
+        return manifest
+    source = str(manifest["source_uri"])
+    parsed = urlparse(source)
+    name = Path(parsed.path).name or parsed.netloc or "source"
+    digest = manifest.get("hash_sha256")
+    short = str(digest)[:12] if digest else hashlib.sha256(source.encode()).hexdigest()[:12]
+    legacy_id = f"source-{slugify(name)}-{short}"
+    candidate = manifests / f"{legacy_id}.json"
+    if not candidate.exists() and not (chunks / f"{legacy_id}.json").exists():
+        return manifest
+    try:
+        if candidate.is_symlink():
+            raise ValueError("symbolic manifest")
+        old = json.loads(candidate.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError("source_legacy_origin_unverified: restore the original manifest") from exc
+    if (not isinstance(old, dict) or old.get("schema_version") != "wiki_source_manifest.v1"
+            or old.get("source_id") != legacy_id or old.get("hash_sha256") != digest):
+        raise ValueError("source_legacy_identity_conflict: manifest does not match this source")
+    locators = [old[k] for k in ("source_uri", "absolute_path") if old.get(k)]
+    if not locators or any(not isinstance(value, str) for value in locators):
+        raise ValueError("source_legacy_origin_unverified: manifest has no source locator")
+    for value in locators:
+        if urlparse(value).scheme not in {"http", "https"} and not Path(value).is_absolute():
+            value = str(root / value)
+        if source_origin(value, root) != manifest["source_origin"]:
+            raise ValueError("source_legacy_origin_conflict: matching name and bytes do not prove origin")
+    return {**manifest, "source_id": legacy_id, "identity_resolution": "verified_legacy_manifest"}
+
+
 def write_source_artifact(path: Path, payload: dict) -> None:
     """Publish one complete derived JSON; readers never see a truncated write."""
+    require_capture_not_regressed(path, payload)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:

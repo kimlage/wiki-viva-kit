@@ -32,6 +32,23 @@ wiki_ingest.py -> wiki_llm_context_pass.py -> wiki_consolidate.py
   -> wiki_semantic_inventory.py / wiki_web_snapshot.py -> wiki_audit.py
 ```
 
+## Source identity and index reconciliation
+
+[Ingestion](wiki_ingest.py) identifies new captures by normalized origin and
+content digest. Repository-relative locations survive a checkout move;
+external file locations and exact URLs remain distinct. A URL is a locator,
+not proof of account identity. Legacy captures keep their original identifiers.
+Explicit-source checks and [cache inspection](wiki_cache_inspect.py) discover
+them only when the retained manifest proves the same location and digest.
+
+Incremental indexing and [rebuild](wiki_build_index.py) select the latest
+complete, timestamped observation of each proven origin. Ties and observations
+without ordering evidence remain ambiguous. Observation time is neither a
+provider revision nor factual freshness. Incomplete retries cannot overwrite a
+complete capture of the same bytes. The ingestion result exposes index gaps;
+missing prior artifacts are preserved in the incremental index and reported,
+while an explicit rebuild retains its existing orphan-removal policy.
+
 ## Downstream kit sync
 
 [wiki_sync_from_kit.py](wiki_sync_from_kit.py) is the supported orchestrator:

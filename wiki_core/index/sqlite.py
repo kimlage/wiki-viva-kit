@@ -40,7 +40,7 @@ def _load_chunks(path: Path) -> dict:
 
 def _observation_time(data: dict) -> dt.datetime | None:
     value = data.get("observed_at")
-    if not isinstance(value, str) or data.get("extraction_complete") is False:
+    if not isinstance(value, str) or data.get("extraction_complete") is not True:
         return None
     try:
         parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -75,10 +75,15 @@ def _select_observations(documents: list[dict]) -> tuple[list[dict], int]:
         unordered = [data for data in versions if _observation_time(data) is None]
         # Failed empty extraction is evidence of a gap, never deletion of a
         # previously read version. Nonempty partial content stays explicit.
-        winners.extend(data for data in unordered if data["chunks"] or data.get("extraction_complete") is not False)
+        winners.extend(data for data in unordered if data["chunks"])
         ambiguous += int(bool(unordered) or len(winners) > 1)
         selected.extend(winners)
     return selected, ambiguous
+
+
+def _incomplete_ids(documents: list[dict]) -> set[str]:
+    return {item["source_id"] for item in documents
+            if item.get("source_origin_id") and item.get("extraction_complete") is not True}
 
 
 def _connect(path: Path) -> sqlite3.Connection:
@@ -131,15 +136,24 @@ def index_source(db_path: Path, chunks_file: Path) -> dict[str, int]:
     try:
         with conn:
             indexed = {row[0] for row in conn.execute("SELECT DISTINCT source_id FROM chunks")}
+            preserved = indexed & _incomplete_ids(documents)
+            unresolved = {sid for sid in indexed - candidate_ids
+                          if origin and sid.startswith(f"source-v2-{origin}-")}
             pruned = len((indexed & candidate_ids) - selected_ids)
-            for source_id in candidate_ids:
+            for source_id in candidate_ids - preserved:
                 _delete_source(conn, source_id)
-            total = sum(_insert_chunks(conn, item["source_id"], item["chunks"]) for item in selected)
+            total = sum(_insert_chunks(conn, item["source_id"], item["chunks"])
+                        for item in selected if item["source_id"] not in preserved)
     finally:
         conn.close()
     result = {"sources_indexed": len(selected), "chunks_indexed": total, "pruned_versions": pruned}
     if ambiguous:
         result["ambiguous_origins"] = ambiguous
+    if preserved:
+        result["preserved_incomplete_sources"] = len(preserved)
+        result["pruned_versions"] -= len(preserved - selected_ids)
+    if unresolved:
+        result["unresolved_indexed_sources"] = len(unresolved)
     return result
 
 
@@ -156,15 +170,19 @@ def build_index(chunks_dir: Path, db_path: Path) -> dict[str, int]:
     try:
         with conn:
             indexed = {row[0] for row in conn.execute("SELECT DISTINCT source_id FROM chunks")}
-            for source_id in indexed:
+            preserved = indexed & _incomplete_ids(documents)
+            for source_id in indexed - preserved:
                 if not source_id.startswith(PAGE_SOURCE_PREFIX):
                     _delete_source(conn, source_id)
-            total = sum(_insert_chunks(conn, item["source_id"], item["chunks"]) for item in selected)
+            total = sum(_insert_chunks(conn, item["source_id"], item["chunks"])
+                        for item in selected if item["source_id"] not in preserved)
     finally:
         conn.close()
     result = {"sources_indexed": len(selected), "chunks_indexed": total}
     if ambiguous:
         result["ambiguous_origins"] = ambiguous
+    if preserved:
+        result["preserved_incomplete_sources"] = len(preserved)
     return result
 
 

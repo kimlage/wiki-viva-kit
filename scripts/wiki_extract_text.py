@@ -18,7 +18,8 @@ from wiki_core.config import load_config
 from wiki_core.detectors import scan_file, scan_text
 from wiki_core.extractors import extract_source
 from wiki_core.paths import WikiPaths
-from wiki_core.source_manifest import build_manifest, write_manifest, chunk_document, write_source_artifact
+from wiki_core.source_manifest import (build_manifest, write_manifest, chunk_document,
+                                      write_source_artifact, require_capture_not_regressed)
 
 
 def main() -> int:
@@ -78,12 +79,18 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    write_manifest(manifest, paths.source_manifests)
     text_path = paths.source_text / f"{source_id}.json"
     chunk_path = paths.chunks / f"{source_id}.json"
+    chunk_payload = chunk_document(manifest, payload["chunks"], warnings=extracted.warnings)
+    try:
+        require_capture_not_regressed(chunk_path, chunk_payload)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    write_manifest(manifest, paths.source_manifests)
     text_payload = {key: value for key, value in payload.items() if key != "chunks"}
     text_path.write_text(json.dumps(text_payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    write_source_artifact(chunk_path, chunk_document(manifest, payload["chunks"], warnings=extracted.warnings))
+    write_source_artifact(chunk_path, chunk_payload)
     print(text_path.relative_to(ROOT))
     print(chunk_path.relative_to(ROOT))
     return 0

@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import time
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator
 
@@ -39,7 +39,8 @@ from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION
 from wiki_core.paths import WikiPaths
 from wiki_core.score import record_event
 from wiki_core.source_config import find_source_config, merge_perspectives
-from wiki_core.source_manifest import build_manifest, write_manifest, chunk_document, write_source_artifact
+from wiki_core.source_manifest import (build_manifest, write_manifest, chunk_document,
+                                      write_source_artifact, require_capture_not_regressed)
 
 SCHEMA_VERSION = "wiki_ingest_pipeline.v1"
 IngestObserver = Callable[[str, int, dict[str, object]], None]
@@ -84,6 +85,7 @@ class IngestResult:
     warnings: list[str]
     stream_id: str | None = None
     stream_cursor_written: bool = False
+    index_diagnostics: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         return {"schema_version": SCHEMA_VERSION, **asdict(self)}
@@ -189,6 +191,13 @@ def run(
 
     # A secret in the source BLOCKS: nothing is persisted (scan-first).
     blocked = bool(secret_findings)
+    if write and not blocked and extracted is not None:
+        try:
+            require_capture_not_regressed(paths.chunks / f"{source_id}.json",
+                chunk_document(manifest, chunk_dicts, warnings=warnings))
+        except ValueError as exc:
+            blocked = True
+            warnings.append(str(exc))
     persist = write and not blocked
 
     if persist:
@@ -232,6 +241,7 @@ def run(
             metrics["bytes_written"] = sum(path.stat().st_size for path in written_files)
 
     chunks_indexed = 0
+    index_diagnostics = {}
     if persist and (chunk_dicts or extracted is not None and not warnings):
         # INCREMENTAL indexing: only the just-written source is (re)indexed,
         # instead of a full rebuild of the whole directory on every ingestion
@@ -241,6 +251,9 @@ def run(
                 paths.indexes / "wiki.sqlite", paths.chunks / f"{source_id}.json"
             )
             chunks_indexed = int(index_result.get("chunks_indexed", 0))
+            index_diagnostics = {key: index_result[key] for key in
+                ("ambiguous_origins", "unresolved_indexed_sources", "preserved_incomplete_sources")
+                if index_result.get(key)}
             metrics["chunks_indexed"] = chunks_indexed
             index_path = paths.indexes / "wiki.sqlite"
             metrics["sqlite_bytes"] = index_path.stat().st_size if index_path.exists() else None
@@ -366,4 +379,5 @@ def run(
         warnings=warnings,
         stream_id=stream_id,
         stream_cursor_written=stream_cursor_written,
+        index_diagnostics=index_diagnostics,
     )

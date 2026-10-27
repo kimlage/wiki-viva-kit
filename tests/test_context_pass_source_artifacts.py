@@ -39,8 +39,69 @@ def source_check(tmp_path, monkeypatch):
 
 
 def _artifact(paths, source, directory="chunks"):
-    source_id = build_manifest(str(source), "system")["source_id"]
+    source_id = build_manifest(str(source), "system", root=paths.root)["source_id"]
     return getattr(paths, directory) / f"{source_id}.json"
+
+
+def _legacy_capture(source, config, paths):
+    from wiki_core.ids import slugify
+    current = run(str(source), "system", paths.root, config)
+    manifest_path = _artifact(paths, source, "source_manifests")
+    manifest = json.loads(manifest_path.read_text())
+    legacy_id = f"source-{slugify(source.name)}-{manifest['hash_sha256'][:12]}"
+    for directory in (paths.source_manifests, paths.source_text, paths.chunks):
+        path = directory / (current.source_id + ".json")
+        data = json.loads(path.read_text().replace(current.source_id, legacy_id))
+        for key in ("source_origin", "source_origin_id", "observed_at", "extraction_complete"):
+            data.pop(key, None)
+        (directory / (legacy_id + ".json")).write_text(json.dumps(data))
+        path.unlink()
+    return legacy_id
+
+
+@pytest.mark.parametrize("inventory_manifest", [False, True])
+def test_legacy_source_is_discovered_without_reingestion(source_check, capsys, monkeypatch, inventory_manifest):
+    source, config, paths, check = source_check
+    legacy_id = _legacy_capture(source, config, paths)
+    if inventory_manifest:
+        from wiki_core.source_manifest import write_manifest
+        write_manifest(build_manifest(str(source), "system", root=paths.root), paths.source_manifests)
+    before = {p: p.read_bytes() for p in paths.derived_root.rglob("*") if p.is_file()}
+    assert check("--check") == 1  # valid capture, deep read still pending
+    report = json.loads(capsys.readouterr().out)
+    assert report["source_id"] == legacy_id and report["chunks"] == 1
+    spec = importlib.util.spec_from_file_location("legacy_cache_inspect", ROOT / "scripts/wiki_cache_inspect.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(module, "ROOT", paths.root)
+    monkeypatch.setattr(module, "load_config", lambda _: config)
+    monkeypatch.setattr(sys, "argv", ["wiki_cache_inspect.py", "--source", str(source)])
+    assert module.main() == 0
+    inspected = json.loads(capsys.readouterr().out)["source"]
+    assert inspected["source_id"] == legacy_id and inspected["chunks_exist"]
+    assert inspected["identity_resolution"] == "verified_legacy_manifest"
+    assert {p: p.read_bytes() for p in paths.derived_root.rglob("*") if p.is_file()} == before
+
+
+@pytest.mark.parametrize("fault", ["different_origin", "missing_origin", "conflicting_locators", "missing_manifest"])
+def test_legacy_basename_and_digest_are_not_origin_proof(source_check, capsys, fault):
+    source, config, paths, check = source_check
+    legacy_id = _legacy_capture(source, config, paths)
+    path = paths.source_manifests / (legacy_id + ".json")
+    data = json.loads(path.read_text())
+    if fault == "missing_manifest":
+        path.unlink()
+    else:
+        if fault == "different_origin":
+            data.update(source_uri=str(paths.root / "other" / source.name), absolute_path=str(paths.root / "other" / source.name))
+        elif fault == "missing_origin":
+            data.pop("source_uri")
+            data.pop("absolute_path")
+        else:
+            data["absolute_path"] = str(paths.root / "other" / source.name)
+        path.write_text(json.dumps(data))
+    assert check("--check") == 2
+    assert "source_legacy_origin_" in json.loads(capsys.readouterr().out)["error"]
 
 
 @pytest.mark.parametrize("required", [True, False])
