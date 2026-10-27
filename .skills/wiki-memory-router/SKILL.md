@@ -8,7 +8,7 @@ description: Route reading, editing and delegation in Markdown/Git living-wiki r
 ## Choose the task first
 
 Identify the authorized checkout, read its AGENTS instructions and configured
-memory index, then use the [existing task entry points](../../memories/system/wiki/command-reference.md#common-flows).
+memory index, then use the [existing task entry points](../../scripts/README.md#task-entry-points).
 Consumer-specific context requirements continue to apply.
 
 - For locating or reading a candidate, use direct lookup or the known page.

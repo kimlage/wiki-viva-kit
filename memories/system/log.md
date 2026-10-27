@@ -1492,3 +1492,4 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 - The [command reference](wiki/command-reference.md#common-flows) groups existing find, context, source and action methods by intended task. It distinguishes local inspection from external refresh/publication and received-result comments from documentary integration.
 - The [router](../../.skills/wiki-memory-router/SKILL.md) retains checkout instructions, factual coverage requirements and canonical-change gates while avoiding global maintenance for a simple lookup. The [CLI introduction](../../scripts/README.md) points to the same map; no command, service, index, writer or authorization mechanism is added.
+- The task map lives in the portable [CLI guide](../../scripts/README.md#task-entry-points), selected by C1. The public reference links to it; translated consumers can retain their own memory roots and route to the same map without copying the public memory tree.
