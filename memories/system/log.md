@@ -1464,3 +1464,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 - The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) now checks retained relations and mandatory contexts throughout the already-consumed BASE closure. A second path to the same authority cannot hide a removed, retargeted or reclassified relation behind a repaired premise.
 - [Synthetic counterexamples](../../tests/test_causal_reconciliation_review.py) cover deeper chains, cycles, multiplicity and changed contexts. Supported additions and unique relocations retain their existing limits; newly added prerequisites remain subject to factual freshness. This corrects the [PR141 review finding](https://github.com/kimlage/wiki-viva-kit/pull/141#discussion_r4383669406) without granting operational authority or reclassifying consumer data.
+
+## [2026-10-27] Read-only lookup with explicit source provenance
+
+- The [local lookup command](../../scripts/wiki_find.py) reuses the existing FTS index and returns source identity, location and available provenance for each match. The [command reference](wiki/command-reference.md) distinguishes index unavailability, invalid indexes and a successful search without matches.
+- [Lookup regressions](../../tests/test_wiki_core.py) cover read-only access, context filtering before result limits, unsafe catalog paths and WAL handling. [Indexed-page coverage](../../tests/test_consolidate.py) preserves local page identity. Context filters select results; they do not grant access or prove source freshness.
