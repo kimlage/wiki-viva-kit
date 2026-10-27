@@ -72,7 +72,9 @@ def pair_digest(current, base, changed):
                      locator_changes=g.get("verified_locator_changes", {}),
                      locator_record_documents=g.get("verified_locator_record_documents", {}),
                      **({"record_observations": g["verified_record_observations"]}
-                        if "verified_record_observations" in g else {}))
+                        if "verified_record_observations" in g else {}),
+                     **({"record_reviews": g["verified_record_reviews"]}
+                        if "verified_record_reviews" in g else {}))
         for origin, g in (("base", base), ("current", current))}))
 
 
