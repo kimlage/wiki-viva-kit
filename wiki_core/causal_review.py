@@ -137,6 +137,31 @@ def _interpretation(graph, node):
     return structured_digest(_interpretation_state(graph, node))
 
 
+def _review_receipt(plan, contract, artifact_inputs):
+    """Verify the immutable review binding before deriving any proof."""
+    evidence = plan["review_evidence"]
+    candidates = [a for a in contract.get("artifacts", []) if a.get("origin") == "current" and a.get("id") == evidence and "path" in a]
+    raw = artifact_inputs.get(("current", evidence)) if isinstance(evidence, str) else None
+    if len(candidates) != 1 or raw is None or digest(raw.decode()) != candidates[0]["sha256"]:
+        raise ValueError("causal review requires immutable current review evidence")
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("duplicate causal review receipt key")
+            value[key] = item
+        return value
+    receipt = json.loads(raw, object_pairs_hook=unique)
+    expected = {"schema_version", "author", "reviewer", "decision", "plan_sha256", "unresolved_findings"}
+    if (not isinstance(receipt, dict) or set(receipt) != expected or receipt["schema_version"] != "wiki_causal_review_receipt.v1"
+            or receipt["author"] != plan["author"] or not isinstance(receipt["reviewer"], str)
+            or not receipt["reviewer"].strip() or receipt["reviewer"].strip() == plan["author"].strip()
+            or receipt["decision"] != "approved" or receipt["unresolved_findings"] != []
+            or receipt["plan_sha256"] != structured_digest({k: v for k, v in plan.items() if k != "review_evidence"})):
+        raise ValueError("causal disposition review is missing, stale or not independent")
+    return evidence, candidates[0]["sha256"], receipt
+
+
 def verify(current, base, changed, contract, artifact_inputs):
     plan = contract.get("causal_review")
     if plan is None:
@@ -156,6 +181,7 @@ def verify(current, base, changed, contract, artifact_inputs):
         raise ValueError("causal review graph pair/census changed")
     if not isinstance(plan["author"], str) or not plan["author"].strip() or not isinstance(plan["dispositions"], list):
         raise ValueError("invalid causal review author/dispositions")
+    evidence, review_sha, receipt = _review_receipt(plan, contract, artifact_inputs)
     decisions = {}
     unchanged_interpretations = {}
     reconciled_interpretations = {}
@@ -256,27 +282,97 @@ def verify(current, base, changed, contract, artifact_inputs):
         return matched is not None and matched == set(authority_ids)
 
     @lru_cache(maxsize=None)
-    def prerequisite_qualification(node):
+    def same_complete_unit(node):
         if node not in base['nodes'] or node not in current['nodes']:
-            return None
+            return False
         try:
             before, after = _document(base, node), _document(current, node)
         except ValueError:
-            return None
+            return False
         if before != after:
-            return None
+            return False
         if node in current['documents']:
-            same = base['documents'][before] == current['documents'][after]
-        else:
-            old = base['nodes'][node].get('record_sha256')
-            same = old is not None and old == current['nodes'][node].get('record_sha256')
-        if not same:
+            return base['documents'][before] == current['documents'][after]
+        old = base['nodes'][node].get('record_sha256')
+        return old is not None and old == current['nodes'][node].get('record_sha256')
+
+    @lru_cache(maxsize=None)
+    def native_prerequisite_qualification(node):
+        if not same_complete_unit(node):
             return None
         if exact_interpretation_equal(node):
             return dict(prerequisite=node, base_authority_citations=[])
         matched = reviewed_citation_extension(base, current, node, citations) if citations else None
         return (dict(prerequisite=node, base_authority_citations=sorted(matched))
                 if matched is not None else None)
+
+    def input_evidence(proof):
+        # Supports are already aggregated. Keep their exact identities without
+        # recursively embedding the same prerequisite proof down every path.
+        return {key: value for key, value in proof.items() if key != 'prerequisite_qualifications'}
+
+    @lru_cache(maxsize=1)
+    def component_qualifications():
+        """Ground intact cycles jointly; a visiting member is never evidence.
+
+        All supports come from actual reviewed arrivals or already established
+        input proofs. Flatten repaired frontiers instead of stopping traversal
+        at an intact member, which would hide its factual dependencies.
+        """
+        from wiki_core.causal_reconciliation import preserved_components
+        nodes = frozenset(base['nodes']) | frozenset(current['nodes'])
+        intact = {node for node in nodes if same_complete_unit(node)
+                  and interpretation_equal(node, nodes)}
+        incoming = defaultdict(set)
+        for edge in inventory['edges'].values():
+            incoming[edge['consumer']].add(edge['prerequisite'])
+        groups = preserved_components({node: incoming[node] & intact for node in intact})
+        proved = {}
+        # Kosaraju order follows consumer -> prerequisite. Reverse it so only
+        # fully completed prerequisite components can supply a foundation.
+        for members in reversed(groups):
+            required = set().union(*(eligible[node] for node in members))
+            if any(oid not in requests for oid in required):
+                continue
+            # An intact intermediary beyond a reviewed cut has no actual
+            # arrival to approve. It can carry only proofs established for
+            # all its inputs below; it cannot introduce its own repair.
+            repairs = set().union(*(requests[oid] for oid in required))
+            authorities, supports, input_proofs = set(), set(required), {}
+            valid = True
+            for node in members:
+                for parent in incoming[node] - members:
+                    proof = native_prerequisite_qualification(parent) or proved.get(parent)
+                    arrivals = {oid for oid in eligible[node]
+                                if inventory['edges'][inventory['obligations'][oid]['edge_id']]['prerequisite'] == parent}
+                    if proof is None:
+                        # No other seed/member can cover an empty or absent
+                        # declaration for this changed external input.
+                        if not arrivals or any(not requests[oid] for oid in arrivals):
+                            valid = False
+                            break
+                    else:
+                        repairs.update(proof.get('upstream_repairs', []))
+                        authorities.update(proof['base_authority_citations'])
+                        supports.update(proof.get('arrivals', []))
+                        input_proofs[parent] = input_evidence(proof)
+                if not valid:
+                    break
+            if not valid:
+                continue
+            stops, authority_ids = frozenset(repairs), frozenset(authorities)
+            if not all(joint_interpretation_equal(node, stops, authority_ids) for node in members):
+                continue
+            proof = dict(members=sorted(members), arrivals=sorted(supports),
+                         upstream_repairs=sorted(repairs), base_authority_citations=sorted(authorities),
+                         prerequisite_qualifications=input_proofs)
+            for node in members:
+                proved[node] = dict(proof, prerequisite=node)
+        return proved
+
+    @lru_cache(maxsize=None)
+    def prerequisite_qualification(node):
+        return native_prerequisite_qualification(node) or component_qualifications().get(node)
 
     @lru_cache(maxsize=None)
     def composed_requests(consumer):
@@ -299,7 +395,8 @@ def verify(current, base, changed, contract, artifact_inputs):
                     # it cannot borrow another seed's substantive repair.
                     return None
                 participants.append(other)
-                intact_inputs[other] = proof
+                intact_inputs[other] = input_evidence(proof)
+                combined.update(proof.get('upstream_repairs', []))
         return frozenset(combined), participants, intact_inputs
 
     for oid, requested in requests.items():
@@ -312,11 +409,7 @@ def verify(current, base, changed, contract, artifact_inputs):
         key = (seed, consumer, edge['prerequisite'], tuple(sorted(candidates)),
                direct_seed, oid in eligible[consumer])
         if key not in unchanged_interpretations:
-            before_path, after_path = _document(base, consumer), _document(current, consumer)
-            same_content = base['documents'][before_path] == current['documents'][after_path]
-            if consumer not in current['documents']:
-                old_hash = base['nodes'][consumer].get('record_sha256')
-                same_content = old_hash is not None and old_hash == current['nodes'][consumer].get('record_sha256')
+            same_content = same_complete_unit(consumer)
             equivalent = exact_interpretation_equal(consumer)
             qualification = {}
             if same_content and not equivalent and citations:
@@ -341,6 +434,15 @@ def verify(current, base, changed, contract, artifact_inputs):
                             equivalent = True
                             composition = dict(arrivals=participants, upstream_repairs=sorted(combined),
                                                prerequisite_qualifications=intact_inputs)
+                if not equivalent:
+                    proof = component_qualifications().get(consumer)
+                    if proof is not None:
+                        candidates = set(proof['upstream_repairs'])
+                        authority_ids = frozenset(proof['base_authority_citations'])
+                        if not requested <= candidates:
+                            raise ValueError('reviewed upstream repair declaration is unused')
+                        equivalent = True
+                        composition = proof
                 if equivalent:
                     states = [_interpretation_state(g, consumer, stop_at=candidates, append_equivalence=True)
                               for g in (base, current)]
@@ -378,31 +480,11 @@ def verify(current, base, changed, contract, artifact_inputs):
         raise ValueError("base authority citation qualification is unused")
     if used_revalidations != set(revalidations):
         raise ValueError("normative revalidation qualification is unused")
-    evidence = plan["review_evidence"]
-    candidates = [a for a in contract.get("artifacts", []) if a.get("origin") == "current" and a.get("id") == evidence and "path" in a]
-    raw = artifact_inputs.get(("current", evidence)) if isinstance(evidence, str) else None
-    if len(candidates) != 1 or raw is None or digest(raw.decode()) != candidates[0]["sha256"]:
-        raise ValueError("causal review requires immutable current review evidence")
-    def unique(pairs):
-        value = {}
-        for key, item in pairs:
-            if key in value:
-                raise ValueError("duplicate causal review receipt key")
-            value[key] = item
-        return value
-    receipt = json.loads(raw, object_pairs_hook=unique)
-    expected = {"schema_version", "author", "reviewer", "decision", "plan_sha256", "unresolved_findings"}
-    if (not isinstance(receipt, dict) or set(receipt) != expected or receipt["schema_version"] != "wiki_causal_review_receipt.v1"
-            or receipt["author"] != plan["author"] or not isinstance(receipt["reviewer"], str)
-            or not receipt["reviewer"].strip() or receipt["reviewer"].strip() == plan["author"].strip()
-            or receipt["decision"] != "approved" or receipt["unresolved_findings"] != []
-            or receipt["plan_sha256"] != structured_digest({k: v for k, v in plan.items() if k != "review_evidence"})):
-        raise ValueError("causal disposition review is missing, stale or not independent")
     # This binds semantic evidence, not authenticated reviewer identity. The
     # existing final-HEAD independent PR promotion gate remains mandatory.
     verified = dict(pair_sha256=pair, census_sha256=structured_digest(inventory),
                 census=inventory, dispositions=decisions, review_evidence=evidence,
-                review_sha256=candidates[0]["sha256"], plan_sha256=receipt["plan_sha256"],
+                review_sha256=review_sha, plan_sha256=receipt["plan_sha256"],
                 normative_revalidations=revalidations, reconciled_interpretations=reconciled_interpretations,
                 composed_interpretations=compositions)
     verified["payload_sha256"] = structured_digest(verified)
