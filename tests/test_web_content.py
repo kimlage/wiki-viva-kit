@@ -165,6 +165,31 @@ def test_action_field_links_remain_inert_without_published_origin(tmp_path: Path
     assert all(link["kind"] == "missing" for link in payload["resolved_links"] if link["text"] in {"local", "escape"})
 
 
+@pytest.mark.parametrize("href", ["https://[broken", "https://example.test／unsafe"])
+@pytest.mark.parametrize("field", ["action_dialogue", "blocker_reason", "next_action"])
+def test_malformed_action_urls_do_not_break_reader_or_sidecars(
+    tmp_path: Path, href: str, field: str,
+) -> None:
+    config = _sample_repo(tmp_path)
+    page = tmp_path / "memories/example/index.md"
+    text = f"Read [evidence]({href}) and [source](sources/manifest.md)."
+    encoded = json.dumps(text, ensure_ascii=False)
+    entry = (f"action_dialogue:\n  - text: {encoded}\n" if field == "action_dialogue"
+             else f"{field}: {encoded}\n")
+    page.write_text(page.read_text().replace("source_refs:", entry + "source_refs:"))
+    before = page.read_bytes()
+    snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
+
+    payload = build_page_content(tmp_path, config, "example-hub", snapshot)
+    assert payload["ok"] is True
+    links = {link["href"]: link for link in payload["resolved_links"]}
+    assert links[href] == {"kind": "missing", "text": "evidence", "href": href, "target": href}
+    assert links["sources/manifest.md"]["page_id"] == "example-source"
+    written = write_content_sidecars(tmp_path, config, snapshot, tmp_path / "site")
+    assert json.loads(written["example-hub"].read_text()) == payload
+    assert page.read_bytes() == before
+
+
 @pytest.mark.parametrize("remote", ["https://secret@github.com/example/wiki", "https://github.com.evil.test/example/wiki", "file:///private/repo", "ssh://user@host/repo", "https://github.com/../wiki"])
 def test_repository_display_url_rejects_credentials_or_unknown_hosts(remote: str) -> None:
     from wiki_core.web.git_ops import _repository_web_url

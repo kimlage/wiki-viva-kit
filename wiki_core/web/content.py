@@ -110,8 +110,15 @@ def _resolved_links(root: Path, rel: str, body: str, index: dict[str, dict[str, 
         if key in seen:
             continue
         seen.add(key)
-        if _is_external(href):
-            domain = urlparse(href).netloc
+        try:
+            external = _is_external(href)
+            domain = urlparse(href).netloc if external else ""
+        except ValueError:
+            # Authored URLs are untrusted display data. A malformed authority
+            # must neither break the reader nor fall back to a repository path.
+            links.append({"kind": "missing", "text": text, "href": href, "target": href})
+            continue
+        if external:
             if domain:
                 links.append({"kind": "external", "text": text, "href": href, "domain": domain})
             continue
