@@ -203,7 +203,8 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
 
     A declaration binds BOTH full input snapshots. It is not a path filter:
     changed paths are still derived by the caller from the complete diff.
-    Mixed deltas retain whole-page seeds. Records use page freshness unchanged.
+    Mixed deltas retain whole-page seeds. Records inherit page freshness unless
+    an explicitly reviewed observation qualifies its own CURRENT record.
     """
     from wiki_core.freshness_impact import ASSOCIATION, REFERENCE, STRUCTURAL
 
@@ -677,6 +678,8 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
             precise_components[path] = parts
     for graph in graphs.values():
         graph["verified_precise_component_seeds"] = copy.deepcopy(precise_components)
+    from wiki_core.record_observations import apply_observations
+    apply_observations(graphs, contract, changes, artifact_inputs or {})
     if contract.get("causal_review") is not None:
         from wiki_core.causal_review import verify
         causal = verify(graphs["current"], graphs["base"], changes, contract, artifact_inputs or {})

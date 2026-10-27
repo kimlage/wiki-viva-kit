@@ -70,7 +70,9 @@ def pair_digest(current, base, changed):
                      precise_component_seeds=g.get("verified_precise_component_seeds", {}),
                      append_only_partitions=g.get("verified_append_only_partitions", {}),
                      locator_changes=g.get("verified_locator_changes", {}),
-                     locator_record_documents=g.get("verified_locator_record_documents", {}))
+                     locator_record_documents=g.get("verified_locator_record_documents", {}),
+                     **({"record_observations": g["verified_record_observations"]}
+                        if "verified_record_observations" in g else {}))
         for origin, g in (("base", base), ("current", current))}))
 
 

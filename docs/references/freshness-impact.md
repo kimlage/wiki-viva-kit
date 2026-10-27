@@ -170,7 +170,8 @@ requires content review. A new block that revokes, reinterprets or relies on a
 sibling must declare that context. Page-level factual metadata and introduction
 references outside H2 sections (including introductions after subsequent H1s)
 are always inherited. Record dates/statuses are descriptive: all
-records retain the page's freshness policy and date without renewal.
+records retain the page's freshness policy and date without renewal unless the
+bounded observation contract below is explicitly verified.
 
 An unqualified consumer of a document consumes every record and the remainder.
 It receives the new impact and keeps old prerequisites. A qualified consumer
@@ -183,6 +184,55 @@ hashes. It must be a local repository-relative file; it is itself hash-bound in
 the report and checked for concurrent modification along with the full input
 snapshot. A mismatch or incomplete binding fails closed. Updating the snapshot
 requires renewed semantic review; hashes alone do not approve a declaration.
+
+### Evidence-bound observations in an older page
+
+A new observation can have a recent source capture while the rest of its page
+retains older, unverified facts. In `document_record.v2`, an `h2_v1` observation
+may declare `current_observation: <artifact_id>` to identify a CURRENT file
+receipt. This is an opt-in semantic declaration, implemented by
+[record observations](../../wiki_core/record_observations.py) and covered by
+[the synthetic regressions](../../tests/test_record_observations.py).
+
+The ordinary partition guards must first prove a complete independent H2 delta:
+unchanged remainder, order, anchors and document-wide reference definitions,
+with no raw-document seed left. The record must be new or substantively changed.
+Unchanged content, mixed/uncovered deltas, remainder/envelope slots, decisions,
+hypotheses and `explicit_view_v2` cannot use this option. Existing declarations
+without it keep their original behavior; `recorded_on` alone grants no freshness.
+
+The receipt has schema `wiki_record_observation.v1` and exactly these fields:
+
+- `document`, `record_id`, `document_sha256`, `record_sha256` bind the complete
+  current page and selected H2.
+- `declaration_sha256` is the structured digest of the complete record
+  declaration except `current_observation`; this seals selectors, contexts,
+  source IDs and epistemic status as well as hashes.
+- `observed_on` is the actual source-supported observation date, no later than
+  `recorded_on`. A future observation is `unknown` during evaluation. An expired
+  observation remains stale under the inherited window.
+- `scope` describes precisely what was observed and its limits. `contexts` maps
+  every mandatory `context_records` ID to its complete current hash.
+- `sources` is a nonempty list of `{id, sha256, purpose}` matching the record's
+  `current_evidence` exactly. Those verified CURRENT artifacts remain real
+  factual prerequisites. The subject's own bytes and review/proof aliases
+  cannot serve as source evidence.
+- `review` contains distinct `author` and `reviewer`, `decision: approved`, and
+  `unresolved_findings: []`. This binds the review statement; it does not
+  authenticate the reviewer or replace independent review of the final PR SHA.
+
+Only this CURRENT record uses `observed_on` for its freshness verdict. Its
+page, BASE, remainder and siblings keep their dates. The existing finite
+window, refresh cadence and exemption policy cannot change through this proof.
+Expired factual prerequisites and mandatory contexts still block. A WHOLE
+consumer still reaches the complete page, including its old claims. This
+contract grants no access, action transition, authority, publication permission
+or source lifecycle success.
+
+A changed date in prose is not proof of a new measurement. The semantic reviewer
+must read the actual capture and diff, preserve historical cuts, and reject an
+authorization or ongoing obligation mislabeled as an observation. Machine hash
+checks establish identity and custody, not truth or completeness of a source.
 
 ### Occurrence roles and immutable evidence
 
