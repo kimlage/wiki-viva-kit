@@ -153,15 +153,27 @@ def _render_c2(root: Path, config: WikiConfig, ids: list[str], generated_at: str
     return result
 
 
-def _write_action(root: Path, action: dict) -> None:
+def _write_action(root: Path, action: dict, *, expected_policy: bytes | None = None) -> None:
     ref = action["page_ref"]
     if _bytes(root, ref) is None or _sha(_bytes(root, ref)) != action["expected_sha256"]:
         raise ProposalError("proposal_action_revision_mismatch")
+    transition = action.get("transition")
+    if transition is not None and transition.get("dialogue_event") is not None:
+        # Reuse the operator endpoint's coordinator/action binding in staging
+        # AND immediately before the actual native writer. Dialogue is not
+        # execution admission; the enclosing proposal still needs its session.
+        from wiki_core.coordination import validate_dialogue_route
+        validate_dialogue_route(root, ref, transition["dialogue_event"])
+        if expected_policy is not None and _bytes(root, "wiki.coordination.yaml") != expected_policy:
+            raise ProposalError("proposal_planned_dialogue_route_changed")
+    expected_action = action["expected_sha256"]
     if "body" in action:
-        integrate_action_body(root, ref, action["body"], expected_sha256=action["expected_sha256"],
-                              contribution=action["contribution"], recorded_at=action["recorded_at"])
+        written = integrate_action_body(root, ref, action["body"], expected_sha256=expected_action,
+                                        contribution=action["contribution"], recorded_at=action["recorded_at"])
+        expected_action = written["after_sha256"]
     if "transition" in action:
-        transition_action_page(root, ref, expected_sha256=_sha((root / ref).read_bytes()), **action["transition"])
+        transition_action_page(root, ref, expected_sha256=expected_action,
+                               dialogue_actor="operator", **action["transition"])
 
 
 def _pin_record_artifacts(root: Path, config: WikiConfig, material: dict,
@@ -347,7 +359,7 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
         if "transition" in action:
             transition = action["transition"]
             _closed(transition, {"next_state", "recorded_at"},
-                    {"reason", "next_action", "blocked_by", "blocker_reason", "completion_receipt", "cancellation_receipt"})
+                    {"reason", "next_action", "blocked_by", "blocker_reason", "completion_receipt", "cancellation_receipt", "dialogue_event"})
         if effect_runner:
             effect_runner(lambda: _write_action(shadow, action))
         else:
@@ -466,7 +478,8 @@ def prepare_proposal(root: Path, config: WikiConfig, params: dict, *, expected_o
                     continue  # A fixed C2 output can already be current.
                 started_paths.append(ref)
                 if ref == preview["material"]["action"]["page_ref"]:
-                    effect(lambda: _write_action(root, preview["material"]["action"]))
+                    effect(lambda: _write_action(root, preview["material"]["action"],
+                        expected_policy=preview["readset"].get("wiki.coordination.yaml")))
                     if _bytes(root, ref) != after:
                         raise ProposalError("proposal_native_writer_output_changed")
                 else:

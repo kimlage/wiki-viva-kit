@@ -263,8 +263,8 @@ def test_exception_after_real_writer_is_reported_as_partial(prepared, monkeypatc
     head = _git(root, "rev-parse", "HEAD")
     original = normal_proposal._write_action
 
-    def interrupted_after_write(where, action):
-        original(where, action)
+    def interrupted_after_write(where, action, **kwargs):
+        original(where, action, **kwargs)
         if where == root:
             raise OSError("controlled interruption after the real canonical writer")
 
