@@ -45,7 +45,7 @@ def command(root, *args):
 def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, effects=False,
                      effect_consumer=False, prior_day=False, historical_consumer=False,
                      unselected_tail=False, changed_consumer=False, inherited_event=False,
-                     qualified_context=False, terminal_newline=True):
+                     qualified_context=False, terminal_newline=True, instant=None):
     root = tmp_path / 'consumer'
     command(tmp_path, 'git', 'clone', '--shared', '--quiet', str(SOURCE), str(root))
     git(root, 'switch', '-C', 'main')
@@ -65,7 +65,8 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
     config_file.write_text(yaml.safe_dump(config, sort_keys=False))
     # The canonical body writer stamps UTC, independently of the host timezone.
     # A prior-day action really changes the pass view and must require C3.
-    today = dt.datetime.now(dt.timezone.utc).date().isoformat()
+    instant = instant or dt.datetime.now(dt.timezone.utc)
+    today = instant.date().isoformat()
     for path in (root / 'memories').rglob('*.md'):
         text = path.read_text()
         match = FRONTMATTER_RE.match(text)
@@ -75,7 +76,7 @@ def fullmap_consumer(tmp_path, *, support=False, guarded=False, captured=False, 
             path.write_text(front + text[match.end():])
     action = root / 'memories/actions/contract-example.md'
     action.parent.mkdir(exist_ok=True)
-    action_day = (dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=int(prior_day))).isoformat()
+    action_day = (instant.date() - dt.timedelta(days=int(prior_day))).isoformat()
     values = dict(page_id='action-contract-example', page_type='action', title='Synthetic contract action',
                   context='example', visibility='private_self', updated_at=action_day, stale_after_days=30,
                   sources_policy='synthetic_only', gate='github_pr', sensitive_data_policy='private_sensitive_allowed',
@@ -494,10 +495,24 @@ def test_opt_in_prepares_exact_support_with_real_producers_and_reuses(tmp_path, 
 
 
 @pytest.mark.parametrize('unselected_tail,inherited_event', [(False, False), (True, False), (False, True)])
-def test_new_annotations_keep_historical_consumption_across_two_real_preparations(tmp_path, unselected_tail, inherited_event):
+def test_new_annotations_keep_historical_consumption_across_two_real_preparations(tmp_path, monkeypatch, unselected_tail, inherited_event):
+    instant = dt.datetime.now(dt.timezone.utc)
     root, action, log, records, request = fullmap_consumer(tmp_path, support=True,
         captured=True, effects=True, historical_consumer=True, unselected_tail=unselected_tail,
-        inherited_event=inherited_event, qualified_context=inherited_event)
+        inherited_event=inherited_event, qualified_context=inherited_event, instant=instant)
+    # This test isolates same-day log preservation. A real UTC rollover would
+    # correctly change the compiled action date and require C3; that refusal is
+    # tested separately below. Supply time only to this real synthetic writer,
+    # leaving subprocess gates, authorization and all production clocks intact.
+    writer = port.integrate_action_body
+    written_instants = []
+    def same_day_writer(*args, **kwargs):
+        at = instant.replace(hour=12, minute=0, second=0, microsecond=0) + dt.timedelta(
+            microseconds=len(written_instants) + 1)
+        assert 'recorded_at' not in kwargs
+        written_instants.append(at)
+        return writer(*args, **kwargs, recorded_at=at.isoformat())
+    monkeypatch.setattr(port, 'integrate_action_body', same_day_writer)
     original = json.loads(records.read_text())
     prior_consumption = [b for b in original['bindings'] if b.get('target_record') == 'remainder']
     assert len(prior_consumption) == 2
@@ -539,6 +554,8 @@ def test_new_annotations_keep_historical_consumption_across_two_real_preparation
         # Actual local Git adoption; this test makes no provider/served claim.
         git(root, 'merge', '--ff-only', result['proposal_commit'])
     assert prepared[0]['receipt_id'] != prepared[1]['receipt_id']
+    assert len(written_instants) == 2 and written_instants[0] < written_instants[1]
+    assert {at.date() for at in written_instants} == {instant.date()}
     assert len([r for r in json.loads(records.read_text())['artifacts']
                 if r.get('field') == 'action_state_history']) == 2
 
