@@ -185,3 +185,22 @@ def test_ingest_cli_returns_failure_for_incomplete_retry(tmp_path, monkeypatch, 
     assert json.loads(captured.out)["blocked"] is True
     assert "complete capture was retained" in captured.err
     assert "secret" not in captured.err
+
+
+@pytest.mark.parametrize("observed_at", [None, "2026-01-01T00:00:00", "invalid"])
+def test_empty_capture_with_unknown_order_cannot_clear_same_indexed_identity(tmp_path, observed_at):
+    source = tmp_path / "notes.md"
+    source.write_text("Previously read sentinel.\n")
+    config = WikiConfig()
+    result = run(str(source), "example", tmp_path, config, record_score=False)
+    paths = WikiPaths(tmp_path, config)
+    path = tmp_path / result.chunks_path
+    data = json.loads(path.read_text())
+    data.update(chunks=[], observed_at=observed_at)
+    path.write_text(json.dumps(data))
+    for update in (lambda: index_source(paths.indexes / "wiki.sqlite", path),
+                   lambda: build_index(paths.chunks, paths.indexes / "wiki.sqlite")):
+        report = update()
+        assert report["preserved_incomplete_sources"] == 1
+        assert report["ambiguous_origins"] == 1
+        assert search(paths.indexes / "wiki.sqlite", "sentinel")

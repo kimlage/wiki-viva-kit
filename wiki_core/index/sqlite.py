@@ -83,7 +83,7 @@ def _select_observations(documents: list[dict]) -> tuple[list[dict], int]:
 
 def _incomplete_ids(documents: list[dict]) -> set[str]:
     return {item["source_id"] for item in documents
-            if item.get("source_origin_id") and item.get("extraction_complete") is not True}
+            if item.get("source_origin_id") and _observation_time(item) is None}
 
 
 def _connect(path: Path) -> sqlite3.Connection:
