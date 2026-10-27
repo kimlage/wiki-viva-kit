@@ -667,12 +667,17 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
             continue
         shapes = [{n: shape for n, shape in graph["verified_record_shapes"].items()
                    if graph["verified_record_documents"][n] == path} for graph in (graphs["base"], graphs["current"])]
-        if shapes[0] != shapes[1]:
+        from wiki_core.document_view_selectors import corresponding_h2_shapes
+        if shapes[0] != shapes[1] and not corresponding_h2_shapes(shapes[0], shapes[1]):
             continue
         parts = sorted(n for n in shapes[0] if graphs["base"]["nodes"][n]["record_sha256"]
                        != graphs["current"]["nodes"][n]["record_sha256"])
         from wiki_core.causal_review import _interpretation
-        stable_context = all(_interpretation(graphs["base"], n) == _interpretation(graphs["current"], n)
+        # Compare only partition correspondence here. The actual shapes stay
+        # untouched for causal review, including upstream repair checks.
+        comparison_base = dict(graphs['base'], verified_record_shapes={
+            **graphs['base']['verified_record_shapes'], **shapes[1]})
+        stable_context = all(_interpretation(comparison_base, n) == _interpretation(graphs["current"], n)
                              for n in shapes[0] if n not in parts)
         if parts and set(parts) <= changes and stable_context:
             precise_components[path] = parts

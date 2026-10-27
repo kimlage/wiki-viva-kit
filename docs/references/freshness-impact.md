@@ -238,11 +238,19 @@ checks establish identity and custody, not truth or completeness of a source.
 
 A substantive repair of a preexisting complete H2 may retain its epistemic
 type while receiving a bounded review. Declare `current_review: <artifact_id>`
-on an `h2_v1` record of type `decision`, `hypothesis` or `proposal`. This uses
+on a complete H2 record of type `decision`, `hypothesis` or `proposal`. This uses
 the same source, context, integrity and independent-review checks as observations;
 it does not introduce another integration path. New records, remainders,
 partial selections, unchanged assertions and concurrent `current_observation`
 claims are ineligible.
+
+The record may use `h2_v1`, or preexisting whole-H2 selectors in both origins
+of `explicit_view_v2`. V2 may explicitly retain the same record ID across a
+title change. Complete delta coverage, unchanged remainder and references,
+record order, anchors, padding, type and contexts are still required for the
+precise partition. Tables, preambles, envelopes and absent BASE selectors do
+not qualify through this route. The real origin selectors remain in the graph;
+local partition correspondence does not make causal interpretations equal.
 
 The CURRENT file receipt uses `wiki_record_review.v1`. It has the observation
 receipt's fields, replacing `observed_on` with `reviewed_on`, and also requires
@@ -532,11 +540,21 @@ evidence.
 
 The [documentary verifier](../../wiki_core/documentary_edits.py) permits only a
 preexisting, substantively changed, complete contiguous H2 record explicitly
-classified as `observation` under `h2_v1`. Raw pages, remainders, normative
+classified as `observation` under `h2_v1`, or the complete preexisting H2
+selection described above under `explicit_view_v2`. Raw pages, remainders, normative
 decisions, hypotheses and simultaneous `current_observation` claims are outside
 this scope. Page and record freshness dates, cadences and exemptions must stay
 unchanged. The historical cut precedes the actual review date; review cannot be
 future-dated at evaluation or later than the record's declared observation.
+
+During causal evaluation, a projector-proved raw carrier has no additional
+freshness obligation when only its complete changed components are demanded.
+Those components retain their own checks and causal dispositions. Any actual
+WHOLE or context arrival, including another seed or cycle, requires the full
+document again. A current review and historical correction on the same page
+therefore cannot renew each other or their untouched siblings. The
+[origin-selector regressions](../../tests/test_complete_h2_origin_qualification.py)
+exercise this distinction.
 
 `edit_kind` is `authorized_removal` or `historical_correction`. Removal permits
 only deletions; a correction may replace historical assertions against retained

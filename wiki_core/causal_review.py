@@ -621,8 +621,14 @@ def evaluate(current, base, changed, *, today):
                 and date.fromisoformat(proof['reviewed_on']) <= today):
             row['documentary_edit_satisfied'] = proof
             satisfied.append(row['path'])
+        if (row['path'] in carriers and row['path'] not in factual_demands
+                and row['reason'] == 'changed_page'):
+            # The complete changed components still have their own obligations.
+            # A later WHOLE/context arrival removes this representation-only
+            # status; it cannot borrow a sibling's edit or observation proof.
+            row['precise_representation_components'] = carriers[row['path']]
     stale = [r for r in included if r["state"] in {"stale", "unknown"}
-             and 'documentary_edit_satisfied' not in r]
+             and 'documentary_edit_satisfied' not in r and 'precise_representation_components' not in r]
     beyond = [dict(r, reason="beyond_reviewed_causal_boundary") for r in original["included"] if r["path"] not in reasons]
     result = dict(original, included=included, blockers=[*stale, *unresolved.values()],
                   unrelated_debt=[*original["unrelated_debt"], *(r for r in beyond if r["state"] in {"stale", "unknown"})])
