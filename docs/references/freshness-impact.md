@@ -304,14 +304,16 @@ cannot supply that support.
 
 The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) compares
 the intact consumer's interpretation up to the declared repaired premises.
-Every declared premise must be actually necessary for this arrival: removing
-it must break the proved equivalence. All previously consumed prerequisite
+Every declared premise must be necessary for the proved equivalence. All previously consumed prerequisite
 scopes, relation occurrences and mandatory contexts must remain intact through
 the full BASE factual closure, even behind a repaired premise. An alternate
 path to the same authority does not justify removing an old relation. Missing, unknown,
 duplicate, unnecessary or misplaced declarations fail closed. The old relation
-multiset must be retained; a reviewed section relocation requires an unambiguous
-one-to-one occurrence correspondence with all other semantics unchanged.
+multiset must be retained, including each occurrence's section. Additional uses
+of the same authority are allowed when every previous use survives. If a use
+disappears, a reviewed section relocation still requires an unambiguous one-to-one
+occurrence correspondence with all other semantics unchanged; relocation plus
+duplication is not that proof.
 Global section/role/target/scope checks are not relaxed. Added citations remain
 real prerequisites. The full BASE/CURRENT union, freshness checks, other
 arrivals and downstream debt are still evaluated. Without this explicit field,
@@ -319,6 +321,25 @@ repaired upstream premises do not excuse a changed interpretation. The existing
 pair, census and independent-review receipt seal the declaration and proof path.
 [Synthetic arrival tests](../../tests/test_causal_upstream_repairs.py) cover the
 positive path and competing causes, branch borrowing, stale evidence and replay.
+
+When one intact consumer receives independently repaired inputs, the verifier
+can compose their proofs for that same complete consumer. Each actual arrival
+must first qualify on its own: an explicit repair supported by its own seed and
+occurrence, or an unchanged complete prerequisite with identical interpretation.
+The existing sealed BASE authority-citation proof below can qualify a strictly
+non-narrowing extension of that intact prerequisite. An empty declaration does
+not borrow another input's repair.
+
+The group contains only arrivals reachable from their seed through `updated`
+steps, including a direct seed input. Every such BASE/CURRENT occurrence must be
+covered; a missing or blocked arrival prevents composition. Traversal never
+uses a `no_change` or `revalidated` boundary to manufacture a support path. The
+joint interpretation must be equivalent, and removing any distinct repaired
+premise must break that equivalence. All used authority citations remain bound
+to their exact prior evidence. The verified receipt records the constituent
+arrivals and their local proofs. Freshness, all other arrivals and required
+dependencies are still evaluated separately; composition cannot turn an expired
+source, incomplete branch or cycle into an approved result.
 
 Separately, the projector can prove that new independent records are appended
 entirely after the original document. This requires a literal BASE prefix,

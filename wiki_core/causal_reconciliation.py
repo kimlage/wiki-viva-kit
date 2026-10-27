@@ -70,16 +70,23 @@ def repaired_boundary(base, current, node):
             if raw.get('field') == 'context_records':
                 local_context.append(structured_digest(edge))
         states.append(Counter(edges));contexts.append(Counter(local_context));occurrences.append(exact)
-    if contexts[0] != contexts[1] or any(states[1][key] != count for key, count in states[0].items()):
+    if contexts[0] != contexts[1]:
         return False
-    if any(sorted(occurrences[0][key]) != sorted(occurrences[1][key]) and count != 1
-           for key, count in states[0].items()):
-        return False
+    for key, count in states[0].items():
+        # Additional uses are allowed only when every old semantic occurrence
+        # survives, including its section and multiplicity. They remain factual
+        # premises in the pair/census and still require freshness and review.
+        if Counter(occurrences[0][key]) <= Counter(occurrences[1][key]):
+            continue
+        # An old use that disappeared may only be the existing uniquely
+        # reviewed relocation. Relocation plus duplication is ambiguous.
+        if count != 1 or states[1][key] != 1:
+            return False
     return True
 
 
-def reachable_repaired_frontiers(inventory, decisions, base, current, is_repaired):
-    """Only validated updated paths from the SAME seed supply a frontier.
+def updated_paths(inventory, decisions):
+    """Reachability from each seed through validated updated arrivals only.
 
     No traversal crosses a potential no_change/revalidated/blocked arrival.
     Cycles cannot manufacture a first proof of reachability.
@@ -94,17 +101,22 @@ def reachable_repaired_frontiers(inventory, decisions, base, current, is_repaire
     result = {}
     for seed in inventory['seeds']:
         paths, queue = {seed: []}, deque([seed])
-        frontiers = {}
         while queue:
             parent = queue.popleft()
             for oid, node in downstream[seed, parent]:
                 if node not in paths:
                     paths[node] = [*paths[parent], oid]
                     queue.append(node)
-                    if is_repaired(node):
-                        frontiers[node] = paths[node]
-        result[seed] = frontiers
+        result[seed] = paths
     return result
+
+
+def reachable_repaired_frontiers(inventory, decisions, base, current, is_repaired, *, paths=None):
+    """Only validated updated paths from the SAME seed supply a frontier."""
+    paths = updated_paths(inventory, decisions) if paths is None else paths
+    return {seed: {node: path for node, path in reached.items()
+                   if node != seed and is_repaired(node)}
+            for seed, reached in paths.items()}
 
 
 def upstream_closure(inventory):
