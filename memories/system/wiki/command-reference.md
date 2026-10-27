@@ -18,8 +18,10 @@ related_pages: [memories/system/wiki/index.md]
 
 # Command reference
 
-All commands are deterministic and local. Run `python3 scripts/<command>
---help` for exact options.
+Commands provide deterministic orchestration with different effect scopes.
+Local lookup and inspection do not imply permission to refresh a source or
+publish an artifact externally. Run `python3 scripts/<command> --help` for
+exact options; only use preview/apply modes actually exposed by that command.
 
 | Command | Purpose |
 | --- | --- |
@@ -77,6 +79,10 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 The cancelled host integration is retained in the [withdrawal record](../../../docs/references/releases/hermes-integration-withdrawal-2026-10-22.md) and Git history, outside this active CLI catalogue.
 
 ## Common flows
+
+Use the portable [task entry points](../../../scripts/README.md#task-entry-points)
+for find, context, source and action. They describe existing methods, effect
+scopes, coverage and the distinction between a receipt and integration.
 
 Use [wiki_find.py](../../../scripts/wiki_find.py) for direct lookup before
 preparing a reading request. `--context` filters observed local metadata before
