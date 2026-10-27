@@ -1,4 +1,5 @@
 import type { PageContent, PageRecord } from "../types";
+import { EvidenceMarkdown } from "./EvidenceMarkdown";
 
 const COPY = {
   pt: { history: "Histórico desta ação", connection: "Conexão atual do executor", unknown: "Não verificada nesta interface", automation: "Automação geral", telemetry: "Esta tela não recebe atividade do executor em tempo real. Uma conclusão registrada não confirma uma conexão atual.", results: "Resultado e evidências", recorded: "A conclusão está registrada na wiki. Consulte o resultado e os limites nas evidências.", original: "Registro original da conclusão", cancelled: "Registro original do cancelamento", related: "Artefatos relacionados", read: "Ler", back: "Voltar ao card" },
@@ -29,6 +30,10 @@ export function ActionOutcome({ page, content, pages, language, stateLabel, open
       <div><dt>{copy.automation}</dt><dd>{copy.unknown}</dd></div>
     </dl>
     <p className="boardProvenance">{copy.telemetry}</p>
+    {([['blocker_reason', language.startsWith('pt') ? 'Motivo do bloqueio' : language.startsWith('es') ? 'Motivo del bloqueo' : 'Blocker'], ['next_action', language.startsWith('pt') ? 'Próximo passo' : language.startsWith('es') ? 'Siguiente paso' : 'Next step']] as const).map(([key, label]) => {
+      const text = content.frontmatter?.[key];
+      return typeof text === 'string' && text ? <div key={key}><h3>{label}</h3><EvidenceMarkdown text={text} links={content.resolved_links} open={open} pages={pages} language={language} /></div> : null;
+    })}
     {state === "done" && <p>{copy.recorded}</p>}
     {artifacts.length > 0 && <div className="boardResultLinks"><h3>{copy.related}</h3>{artifacts.map(p => <div key={p.id}>
       <button onClick={() => open(p.id)}>{copy.read}: {p.title}</button>

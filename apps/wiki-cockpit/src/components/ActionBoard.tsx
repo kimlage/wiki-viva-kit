@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import DOMPurify from "dompurify";
-import { Marked } from "marked";
 import type { OperatorPort } from "../application/ports";
 import type { PageContent, PageRecord } from "../types";
 import type { SnapshotLoadResult } from "../application/ports";
@@ -14,8 +12,7 @@ import { ActionOutcome, outcomeCopy } from "./ActionOutcome";
 import { pageTitle } from "../data/boardPresentation";
 import type { DialogueInput } from "../data/actionBoard";
 
-// Evidence is Markdown, never a container for raw HTML or remote resources.
-const boardMarkdown = new Marked({ renderer: { html: () => "" } });
+import { EvidenceMarkdown } from "./EvidenceMarkdown";
 
 const READ_COPY = {
   en: { revision: "The wiki changed while opening this page. Refresh the board.", integrity: "The page could not be verified against this wiki revision. Refresh the board.", read: "The page could not be read. Refresh the board.", access: "This page is not available through the current access." },
@@ -229,18 +226,8 @@ export function ActionBoard({ operator, save, create, loadCreationOptions, loadC
         {coordinatorFor(page) && <><p className="boardProvenance">{copy.directionHint}</p>{coordinatorFor(page)?.access_requirements?.map(a => <details key={a.service}><summary>{copy.access}: {a.expected_identity}</summary><p>{a.service}</p><p>{a.method}</p></details>)}</>}
         {page.page_type === "action" && <ActionOutcome page={page} content={content} pages={pages} language={language} stateLabel={titleFor(actionState(page))} open={select} />}
         <ActionForm key={`${page.id}:${page.content_sha256}`} page={page} body={content.body || ""} frontmatter={content.frontmatter || {}} language={language} writable={Boolean(writable && page.content_sha256)} saving={saving} copy={copy} submit={submit} />
-        {page.page_type === "action" && <ActionDialogue key={page.id} pages={pages} coordinatorLabel={coordinatorFor(page)?.label} events={content.frontmatter && "action_dialogue" in content.frontmatter ? content.frontmatter.action_dialogue : []} coordinator={coordinatorFor(page)?.id} language={language} writable={Boolean(writable && !["done", "cancelled", "unknown"].includes(actionState(page)))} busy={saving} send={sendDialogue} />}
-        <section className="boardEvidence"><h3>{copy.sources}</h3>{content.source_refs?.map(s => <p key={s.ref}>{s.resolved ? <button onClick={() => select(s.page_id)}>{s.title}</button> : s.ref}</p>)}<h3>{copy.page}</h3><article className="boardMarkdown" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(boardMarkdown.parse(content.body || "", { async: false }), { ALLOWED_TAGS: ["p", "br", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "a", "strong", "em", "del", "blockquote", "ul", "ol", "li", "pre", "code", "table", "thead", "tbody", "tr", "th", "td", "details", "summary"], ALLOWED_ATTR: ["href", "title", "colspan", "rowspan"] }) }} onClick={event => {
-          const anchor = (event.target as HTMLElement).closest("a"); if (!anchor) return;
-          const href = anchor.getAttribute("href") || "";
-          const link = content.resolved_links?.find(l => {
-            if (l.href === href) return true;
-            try { return encodeURI(l.href) === href || l.href === decodeURIComponent(href); } catch { return false; }
-          });
-          if (link?.kind === "page") { event.preventDefault(); select(link.page_id); }
-          else if (anchor.getAttribute("href")?.startsWith("#")) { event.preventDefault(); }
-          else { event.preventDefault(); if (link?.kind === "external" && /^https?:\/\//.test(link.href)) window.open(link.href, "_blank", "noopener,noreferrer"); }
-        }} /></section></>}
+        {page.page_type === "action" && <ActionDialogue key={page.id} links={content.resolved_links} open={select} pages={pages} coordinatorLabel={coordinatorFor(page)?.label} events={content.frontmatter && "action_dialogue" in content.frontmatter ? content.frontmatter.action_dialogue : []} coordinator={coordinatorFor(page)?.id} language={language} writable={Boolean(writable && !["done", "cancelled", "unknown"].includes(actionState(page)))} busy={saving} send={sendDialogue} />}
+        <section className="boardEvidence"><h3>{copy.sources}</h3>{content.source_refs?.map(s => <p key={s.ref}>{s.resolved ? <button onClick={() => select(s.page_id)}>{s.title}</button> : s.ref}</p>)}<h3>{copy.page}</h3><EvidenceMarkdown text={content.body || ""} links={content.resolved_links} open={select} language={language} /></section></>}
       </aside>}
     </div>}
     {!loading && !error && rows.length === 0 && <p className="boardEmpty">{copy.empty}</p>}

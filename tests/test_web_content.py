@@ -105,6 +105,72 @@ def test_summary_strips_markdown_and_flags_truncation() -> None:
     assert cut.endswith(".") or cut.endswith("…")
 
 
+def test_action_fields_resolve_verified_pages_and_pinned_artifacts(tmp_path: Path) -> None:
+    config = _sample_repo(tmp_path)
+    page = tmp_path / "memories/example/index.md"
+    page.write_text(page.read_text().replace("source_refs:", '''next_action: "Read [source](sources/manifest.md)."
+blocker_reason: "See [receipt](../../docs/receipt.json)."
+action_dialogue:
+  - text: "[Receipt](../../docs/receipt.json), [alias](../../docs/alias.json), [directory](../../alias-dir/receipt.json), [space](<../../docs/spaço receipt.json>) and [missing](../../untracked.json)."
+source_refs:'''))
+    _write(tmp_path / "docs/receipt.json", '{"result":"received", "integrated":false}\n')
+    (tmp_path / "docs/alias.json").symlink_to("receipt.json")
+    (tmp_path / "alias-dir").symlink_to("docs", target_is_directory=True)
+    _write(tmp_path / "docs/spaço receipt.json", "second receipt")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "receipt"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "remote", "add", "origin", "git@github.com:example/synthetic-wiki.git"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "update-ref", "refs/remotes/origin/main", "HEAD"], cwd=tmp_path, check=True)
+    snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
+    head = snapshot["git.json"]["head"]
+    _write(tmp_path / "untracked.json", "not published")
+    payload = build_page_content(tmp_path, config, "example-hub", snapshot)
+    links = {link["href"]: link for link in payload["resolved_links"]}
+    assert links["sources/manifest.md"]["page_id"] == "example-source"
+    assert links["../../docs/receipt.json"] == {
+        "kind": "artifact", "text": "Receipt", "href": "../../docs/receipt.json",
+        "path": "docs/receipt.json", "domain": "github.com",
+        "url": f"https://github.com/example/synthetic-wiki/blob/{head}/docs/receipt.json",
+    }
+    assert links["../../untracked.json"]["kind"] == "missing"
+    assert links["../../docs/alias.json"]["kind"] == "missing"
+    assert links["../../alias-dir/receipt.json"]["kind"] == "missing"
+    assert links["../../docs/spaço receipt.json"]["url"].endswith("/docs/spa%C3%A7o%20receipt.json")
+    from wiki_core.web.repository_links import published_blob_links
+    blobs = published_blob_links(tmp_path, snapshot["git.json"])
+    assert "docs/alias.json" not in blobs
+    assert "untracked.json" not in blobs
+    # A later local edit must never rewrite the snapshot's immutable URL.
+    _write(tmp_path / "docs/receipt.json", "later observation")
+    (tmp_path / "docs/alias.json").unlink()
+    (tmp_path / "docs/alias.json").symlink_to("../memories/index.md")
+    (tmp_path / "alias-dir").unlink()
+    (tmp_path / "alias-dir").symlink_to("memories", target_is_directory=True)
+    assert build_page_content(tmp_path, config, "example-hub", snapshot)["resolved_links"] == payload["resolved_links"]
+    assert published_blob_links(tmp_path, {**snapshot["git.json"], "published_head": False}) == {}
+    assert published_blob_links(tmp_path, {**snapshot["git.json"], "head": "HEAD"}) == {}
+    assert published_blob_links(tmp_path, {**snapshot["git.json"], "published_head": "true"}) == {}
+    assert published_blob_links(tmp_path, {**snapshot["git.json"], "worktree": {"clean": False}}) == {}
+    assert published_blob_links(tmp_path, {**snapshot["git.json"], "proposal": {"human_gate_state": "ready_for_review"}}) == {}
+    assert published_blob_links(tmp_path, {}) == {}
+
+
+def test_action_field_links_remain_inert_without_published_origin(tmp_path: Path) -> None:
+    config = _sample_repo(tmp_path)
+    page = tmp_path / "memories/example/index.md"
+    page.write_text(page.read_text().replace("source_refs:", 'next_action: "Read [local](../../docs/receipt.json) or [escape](../../../escape.json)."\nsource_refs:'))
+    _write(tmp_path / "docs/receipt.json", "retained")
+    snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
+    payload = build_page_content(tmp_path, config, "example-hub", snapshot)
+    assert all(link["kind"] == "missing" for link in payload["resolved_links"] if link["text"] in {"local", "escape"})
+
+
+@pytest.mark.parametrize("remote", ["https://secret@github.com/example/wiki", "https://github.com.evil.test/example/wiki", "file:///private/repo", "ssh://user@host/repo", "https://github.com/../wiki"])
+def test_repository_display_url_rejects_credentials_or_unknown_hosts(remote: str) -> None:
+    from wiki_core.web.git_ops import _repository_web_url
+    assert _repository_web_url(remote) is None
+
+
 def test_page_records_expose_summary_flags_and_children_counts(tmp_path: Path) -> None:
     config = _sample_repo(tmp_path)
     snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
