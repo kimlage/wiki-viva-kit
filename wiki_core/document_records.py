@@ -665,6 +665,11 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
         path = item["path"]
         if not (item.get("mode") == "explicit_view_v2" and item.get("precise_component_seeds")):
             continue
+        # Exact append-only partitions have their own narrower proof. Keep the
+        # raw document obligation: preserving the old prefix does not qualify
+        # the whole document or its newly appended factual units.
+        if node_id(path, 'remainder') in append_proofs:
+            continue
         shapes = [{n: shape for n, shape in graph["verified_record_shapes"].items()
                    if graph["verified_record_documents"][n] == path} for graph in (graphs["base"], graphs["current"])]
         from wiki_core.document_view_selectors import corresponding_h2_shapes
