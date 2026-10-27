@@ -516,9 +516,13 @@ def _link_or_metadata_only_change(rel: str) -> bool:
     previous = _text_at_audit_base(rel)
     if previous is None:
         return False
-    return _semantic_impact_text(previous) == _semantic_impact_text(
-        current.read_text(encoding="utf-8", errors="replace")
-    )
+    current_text = current.read_text(encoding="utf-8", errors="replace")
+    # Reuse the writer's exact state/body/policy-preserving comment contract.
+    # Physical changes remain visible to integrity, authorization and CAS.
+    from wiki_core.action_transition import operational_comment_receipt
+    if operational_comment_receipt(previous, current_text) is not None:
+        return True
+    return _semantic_impact_text(previous) == _semantic_impact_text(current_text)
 
 
 def _impact_relevant_changed_paths() -> set[str]:
@@ -1780,7 +1784,15 @@ def audit_impact(errors: list[str], config: WikiConfig) -> None:
         return
     for affected in result.affected_pages:
         if affected in changed_all:
-            continue
+            from wiki_core.action_transition import operational_comment_receipt
+            previous = _text_at_audit_base(affected)
+            current = ROOT / affected
+            # Receiving a comment cannot discharge an incoming factual impact.
+            if (previous is None or not current.is_file()
+                    or operational_comment_receipt(
+                        previous, current.read_text(encoding="utf-8", errors="replace")
+                    ) is None):
+                continue
         if _impact_ack_added(config, affected):
             continue
         refs = ", ".join(result.references.get(affected, ()))
