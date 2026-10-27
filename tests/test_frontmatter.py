@@ -155,6 +155,37 @@ def test_flat_parser_list_block_and_empty_list():
     assert values["consolidated_into"] == []
 
 
+@pytest.mark.parametrize("value", [
+    "[] # no participants yet",
+    "[]          # person-... ids; each linked in the body",
+    "[]\t# comment after a tab",
+    '[] # comment with another #, "quotes", [] and a colon:',
+])
+def test_flat_parser_accepts_empty_list_with_inline_comment(value):
+    values, errors = parse_frontmatter_flat_with_errors(
+        _doc(f"participants: {value}\nowner: example")
+    )
+    assert errors == []
+    assert values == {"participants": [], "owner": "example"}
+
+
+@pytest.mark.parametrize("value, expected", [
+    ('"[] # literal text"', "[] # literal text"),
+    ("'[] # literal text'", "[] # literal text"),
+    ('"Meeting #1"', "Meeting #1"),
+    ("'Owner''s # note'", "Owner's # note"),
+    ('"Say \\"#\\""', 'Say "#"'),
+    ("7", "7"),
+    ("true", "true"),
+    ("null", "null"),
+    ("2026-01-02", "2026-01-02"),
+])
+def test_flat_parser_comment_support_preserves_scalar_strings(value, expected):
+    values, errors = parse_frontmatter_flat_with_errors(_doc(f"title: {value}"))
+    assert errors == []
+    assert values == {"title": expected}
+
+
 def test_flat_parser_accepts_yaml_indentless_sequence_entries():
     values, errors = parse_frontmatter_flat_with_errors(
         _doc(

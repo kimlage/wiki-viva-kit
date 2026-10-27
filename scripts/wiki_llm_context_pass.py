@@ -35,11 +35,70 @@ from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest
 
 
-def _chunks_for_source(paths: WikiPaths, source_id: str) -> list[dict[str, object]]:
-    path = paths.chunks / f"{source_id}.json"
-    if not path.exists():
-        return []
-    return list(json.loads(path.read_text(encoding="utf-8")).get("chunks", []))
+def _source_artifact(path: Path, schema: str, source_id: str) -> dict[str, object]:
+    """Read an explicitly requested source, never turn missing input into success."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(f"source_artifact_missing: {path.parent.name}/{path.name}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"source_artifact_invalid_json: {path.parent.name}/{path.name}") from exc
+    except (OSError, UnicodeError) as exc:
+        raise ValueError(f"source_artifact_unreadable: {path.parent.name}/{path.name}") from exc
+    if not isinstance(data, dict) or data.get("schema_version") != schema:
+        raise ValueError(f"source_artifact_schema: {path.parent.name}/{path.name}")
+    if data.get("source_id") != source_id:
+        raise ValueError(f"source_artifact_identity: {path.parent.name}/{path.name}")
+    return data
+
+
+def _chunks_for_source(paths: WikiPaths, manifest: dict[str, object]) -> list[dict[str, object]]:
+    source_id = str(manifest["source_id"])
+    if manifest.get("exists") is False:
+        raise ValueError("source_not_found: extract the requested source before checking it")
+    data = _source_artifact(paths.chunks / f"{source_id}.json", "wiki_chunks.v1", source_id)
+    if "source_hash_sha256" not in data or data["source_hash_sha256"] != manifest.get("hash_sha256"):
+        raise ValueError("source_artifact_hash: chunks do not match the requested source")
+    chunks = data.get("chunks")
+    if not isinstance(chunks, list):
+        raise ValueError("source_chunks_schema: an explicit chunks array is required")
+    ids: set[str] = set()
+    for chunk in chunks:
+        if not isinstance(chunk, dict) or not isinstance(chunk.get("text"), str) or not chunk["text"].strip():
+            raise ValueError("source_chunk_schema: each chunk requires nonempty text")
+        chunk_id = chunk.get("chunk_id")
+        if (not isinstance(chunk_id, str) or not chunk_id.startswith(f"{source_id}-chunk-")
+                or chunk_id in ids or chunk.get("source_id", source_id) != source_id):
+            raise ValueError("source_chunk_identity: chunk ids must be unique and belong to this source")
+        if chunk.get("hash_sha256") != sha256_text(chunk["text"]):
+            raise ValueError("source_chunk_hash: chunk text does not match its digest")
+        ids.add(chunk_id)
+    if chunks:
+        return chunks
+
+    # The ingestion pipeline legitimately writes chunks=[] and no LLM request
+    # for empty input. Extraction failures also produce zero chunks, so require
+    # the retained extraction observation before accepting this empty result.
+    extracted = _source_artifact(paths.source_text / f"{source_id}.json", "wiki_extracted_text.v1", source_id)
+    warnings = extracted.get("warnings")
+    units = extracted.get("units")
+    characters = extracted.get("text_characters")
+    if (not isinstance(warnings, list) or any(not isinstance(w, str) for w in warnings)
+            or not isinstance(units, list) or type(characters) is not int or characters < 0
+            or any(not isinstance(u, dict) or not isinstance(u.get("text"), str) for u in units)):
+        raise ValueError("source_extraction_schema: empty chunks require a complete extraction observation")
+    if warnings:
+        # Do not echo arbitrary extractor messages: they can include source text.
+        raise ValueError("source_extraction_warning: review extraction warnings before accepting empty chunks")
+    if any(u["text"].strip() for u in units):
+        raise ValueError("source_extraction_not_empty: zero chunks conflict with extracted text")
+    # For empty/whitespace-only input the current producers retain one text
+    # unit or join units with newlines (CSV, workbook and document). Email also
+    # matches this join when headers are empty; substantive headers were rejected
+    # above. Count the separators, not just the units, and reject unexplained text.
+    if characters != len("\n".join(u["text"] for u in units)):
+        raise ValueError("source_extraction_count_mismatch: character count does not match empty units")
+    return chunks
 
 
 def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], list[dict[str, object]]]:
@@ -175,7 +234,23 @@ def main() -> int:
 
     if args.source:
         manifest = build_manifest(args.source, args.context)
-        chunks = _chunks_for_source(paths, str(manifest["source_id"]))
+        try:
+            chunks = _chunks_for_source(paths, manifest)
+        except ValueError as exc:
+            if args.check:
+                print(json.dumps({
+                    "source_id": manifest["source_id"], "required_context_pass": required,
+                    "ok": False, "error": str(exc),
+                    "remediation": (
+                        "Restore the same source if missing. Regenerate its artifacts with "
+                        "python3 scripts/wiki_ingest.py --source <source> --context <context>; "
+                        "resolve extraction warnings or missing dependencies, then repeat this check. "
+                        "Do not replace missing or inconsistent artifacts with empty lists."
+                    ),
+                }, ensure_ascii=False, indent=2))
+            else:
+                print(f"ERROR: {exc}. Re-extract the source and review its artifacts.", file=sys.stderr)
+            return 2
         source_config = find_source_config(ROOT, config, args.source)
         input_context = input_context_for_source(ROOT, config, args.source)
     else:
