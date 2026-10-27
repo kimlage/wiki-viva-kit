@@ -222,3 +222,54 @@ def search(db_path: Path, query: str, limit: int = 20) -> list[dict[str, object]
         {"chunk_id": row[0], "source_id": row[1], "text": row[2], "rank": row[3]}
         for row in rows
     ]
+
+
+def search_detailed(db_path: Path, query: str, limit: int = 20, *, source_ids=None) -> dict:
+    """Read the existing FTS index with explicit availability and scope.
+
+    This never creates/schema-upgrades a database. The caller can resolve the
+    indexed identities against its catalog; indexed revision/coverage is unknown
+    in legacy databases. Filtering happens before ranking's result limit.
+    """
+    match = sanitize_fts_query(query)
+    result = dict(status="invalid_query", query=query, effective_query=match,
+                  operator="AND", limit=limit, hits=[], indexed_source_ids=[])
+    if not match or type(limit) is not int or not 1 <= limit <= 1000:
+        return result
+    if not db_path.is_file():
+        return {**result, "status": "index_missing"}
+    allowed = None if source_ids is None else sorted(set(source_ids))
+    conn = None
+    try:
+        # SQLite mode=ro can create WAL/SHM sidecars. The kit's index producer
+        # uses rollback journaling; report other modes without changing them.
+        # Header offsets: https://sqlite.org/fileformat.html#file_format_version_numbers
+        with db_path.open("rb") as source:
+            header = source.read(20)
+        if header.startswith(b"SQLite format 3\x00") and header[18:20] != b"\x01\x01":
+            return {**result, "status": "index_error", "error": "index_journal_mode_unsupported"}
+        conn = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True)
+        conn.execute("BEGIN")
+        result["indexed_source_ids"] = [r[0] for r in conn.execute(
+            "SELECT DISTINCT source_id FROM chunks ORDER BY source_id")]
+        scope, params = "", [match]
+        if allowed is not None:
+            scope = " AND chunk_fts.source_id IN (" + ",".join("?" for _ in allowed) + ")" if allowed else " AND 0"
+            params.extend(allowed)
+        params.append(limit)
+        rows = conn.execute(
+            "SELECT chunk_fts.chunk_id, chunk_fts.source_id, chunk_fts.text, "
+            "bm25(chunk_fts) AS rank, chunks.hash_sha256 FROM chunk_fts "
+            "LEFT JOIN chunks ON chunks.chunk_id = chunk_fts.chunk_id "
+            "AND chunks.source_id = chunk_fts.source_id "
+            "WHERE chunk_fts MATCH ?" + scope + " ORDER BY rank, chunk_fts.chunk_id LIMIT ?",
+            params).fetchall()
+    except (sqlite3.Error, OSError):
+        return {**result, "status": "index_error", "error": "index_unreadable_or_invalid"}
+    finally:
+        if conn is not None:
+            conn.close()
+    result["hits"] = [dict(chunk_id=r[0], source_id=r[1], text=r[2], rank=r[3],
+                           hash_sha256=r[4]) for r in rows]
+    result["status"] = "ok" if rows else "no_matches"
+    return result

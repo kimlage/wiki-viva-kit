@@ -36,6 +36,7 @@ All commands are deterministic and local. Run `python3 scripts/<command>
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Export context requests in batch format |
 | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | Build a deterministic source manifest |
 | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extract and chunk a source |
+| [wiki_find.py](../../../scripts/wiki_find.py) | Read-only lexical lookup with provenance and explicit index/context gaps |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Inspect/transition proposal gates |
 | [wiki_gc.py](../../../scripts/wiki_gc.py) | Remove orphan derived artifacts |
 | [wiki_git_subject.py](../../../scripts/wiki_git_subject.py) | Emit a path-safe Git diagnostic fingerprint |
@@ -77,7 +78,18 @@ The cancelled host integration is retained in the [withdrawal record](../../../d
 
 ## Common flows
 
+Use [wiki_find.py](../../../scripts/wiki_find.py) for direct lookup before
+preparing a reading request. `--context` filters observed local metadata before
+the hit limit; `--source` selects an exact indexed identity. Missing/invalid
+index and no matches are distinct states. A zero-result query does not prove
+absence from unindexed sources, unresolved metadata or current external facts.
+No index, cache or request is created. Index revision and factual freshness are
+not verified by this lookup. In contrast, `--context` on
+[wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) labels the
+delegated request and does not filter its retrieved hits.
+
 ```sh
+python3 scripts/wiki_find.py "pending decisions" --context system
 python3 scripts/wiki_ingest.py --source data/raw/example.pdf --context system
 python3 scripts/wiki_sync_from_kit.py --kit . --consumer /path/to/consumer --dry-run
 python3 scripts/wiki_operation_compile.py --check

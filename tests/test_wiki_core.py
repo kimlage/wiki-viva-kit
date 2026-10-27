@@ -168,6 +168,110 @@ def test_search_with_slash_does_not_raise(tmp_path):
     assert search(tmp_path / "does-not-exist.sqlite", "salario") == []
 
 
+def test_detailed_search_distinguishes_index_state_without_writing(tmp_path, monkeypatch):
+    import sqlite3
+    from wiki_core.index import sqlite as index
+    missing = tmp_path / "absent" / "wiki.sqlite"
+    assert index.search_detailed(missing, "budget")["status"] == "index_missing"
+    assert not missing.parent.exists()
+    invalid = tmp_path / "invalid.sqlite"
+    invalid.write_bytes(b"not sqlite")
+    assert index.search_detailed(invalid, "budget")["status"] == "index_error"
+    empty_schema = tmp_path / "empty.sqlite"
+    sqlite3.connect(empty_schema).close()
+    assert index.search_detailed(empty_schema, "budget")["status"] == "index_error"
+    chunks = tmp_path / "chunks"
+    _write_chunks_json(chunks)
+    db = tmp_path / "wiki.sqlite"
+    build_index(chunks, db)
+    before = db.read_bytes()
+    monkeypatch.setattr(index, "_connect", lambda *a: pytest.fail("lookup invoked writer"))
+    assert index.search_detailed(db, "unmatched")["status"] == "no_matches"
+    assert index.search_detailed(db, " ")["status"] == "invalid_query"
+    assert index.search_detailed(db, "budget", limit=0)["status"] == "invalid_query"
+    found = index.search_detailed(db, "salario")
+    assert found["status"] == "ok" and found["hits"][0]["hash_sha256"]
+    assert index.search_detailed(db, "alpha/beta")["status"] == "no_matches"
+    assert db.read_bytes() == before
+
+
+def test_find_filters_context_before_limit_and_reports_provenance_gaps(tmp_path):
+    from wiki_core.config import WikiConfig
+    from wiki_core.find import find
+    from wiki_core.paths import WikiPaths
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    paths.chunks.mkdir(parents=True)
+    paths.source_manifests.mkdir()
+    for sid, context in [("source-alpha", "work"), ("source-beta", "personal")]:
+        text = "unique search phrase"
+        (paths.chunks / f"{sid}.json").write_text(json.dumps(dict(source_id=sid, chunks=[
+            dict(chunk_id=sid + "-chunk", ordinal=0, hash_sha256=sha256_text(text), token_estimate=3, text=text)])))
+        (paths.source_manifests / f"{sid}.json").write_text(json.dumps(dict(
+            schema_version="wiki_source_manifest.v1", source_id=sid, context=context,
+            source_uri=f"https://example.test/{sid}", hash_sha256="a" * 64, captured_at="2026-01-01")))
+    db = paths.indexes / "wiki.sqlite"
+    build_index(paths.chunks, db)
+    result = find(tmp_path, cfg, "unique search", context="personal", limit=1)
+    assert [h["source_id"] for h in result["hits"]] == ["source-beta"]
+    assert result["hits"][0]["provenance"]["locator"] == "https://example.test/source-beta"
+    assert result["freshness"] == "not_evaluated"
+    assert result["coverage"]["index_revision"] == "unknown"
+    # Duplicate metadata must not silently select a context or origin.
+    (paths.source_manifests / "duplicate.json").write_bytes((paths.source_manifests / "source-beta.json").read_bytes())
+    result = find(tmp_path, cfg, "unique", context="personal")
+    assert result["status"] == "no_matches" and result["coverage"]["context_scope"] == "partial"
+    assert {"source_id": "source-beta", "reason": "metadata_ambiguous"} in result["scope"]["metadata_gaps"]
+    (paths.source_manifests / "source-alpha.json").unlink()
+    result = find(tmp_path, cfg, "unique", source_id="source-alpha")
+    assert result["status"] == "ok"
+    assert result["hits"][0]["provenance"]["status"] == "missing"
+    (paths.source_manifests / "broken.json").write_text("{broken")
+    assert find(tmp_path, cfg, "unique")["scope"]["catalog_issues"]
+
+
+def test_find_cli_missing_index_does_not_create_files(tmp_path, monkeypatch, capsys):
+    from scripts import wiki_find
+    monkeypatch.setattr(wiki_find, "ROOT", tmp_path)
+    before = list(tmp_path.rglob("*"))
+    assert wiki_find.main(["budget", "--context", "system"]) == 2
+    assert json.loads(capsys.readouterr().out)["status"] == "index_missing"
+    assert list(tmp_path.rglob("*")) == before
+
+
+def test_detailed_search_reports_wal_without_creating_sidecars(tmp_path):
+    import sqlite3
+    from wiki_core.index.sqlite import search_detailed
+    db = tmp_path / "wal.sqlite"
+    conn = sqlite3.connect(db)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("CREATE TABLE retained(value)")
+    conn.commit()
+    conn.close()
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    result = search_detailed(db, "anything")
+    assert result["status"] == "index_error"
+    assert result["error"] == "index_journal_mode_unsupported"
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
+
+
+def test_find_reports_external_catalog_location_without_reading_it(tmp_path):
+    from dataclasses import replace
+    from wiki_core.config import WikiConfig
+    from wiki_core.find import find
+    root = tmp_path / "repo"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "page.md").write_text("---\npage_id: outside\ncontext: secret\n---\n")
+    cfg = WikiConfig()
+    cfg = replace(cfg, paths={**cfg.paths, "memory_root": str(outside)})
+    result = find(root, cfg, "query")
+    assert result["status"] == "index_missing"
+    assert result["scope"]["catalog_issues"] == [
+        {"kind": "page", "reason": "metadata_path_outside_local_catalog"}]
+
+
 # ---------------------------------------------------------------------------
 # extractors
 # ---------------------------------------------------------------------------
