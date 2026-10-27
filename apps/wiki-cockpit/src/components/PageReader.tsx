@@ -1,3 +1,4 @@
+import { safeEvidenceUrl } from "./EvidenceMarkdown";
 // PageReader: the DEEP reading surface of the cockpit — the second level of
 // the two-level read (the anchored WorldPlate summary comes first; opening the
 // page docks this reader inside the 3D shell). It doubles as the 2D/static
@@ -320,6 +321,11 @@ function ReaderBody({
         anchor.classList.add("readerWikiLink");
         anchor.setAttribute("href", "#");
         anchor.title = `${resolved.title} · ${contextLabel(resolved.context)}`;
+      } else if (resolved?.kind === "artifact" && safeEvidenceUrl(resolved.url)) {
+        anchor.href = resolved.url;
+        anchor.classList.add("readerExternalLink");
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
       } else if (resolved?.kind === "missing") {
         anchor.classList.add("readerMissingLink");
         anchor.setAttribute("href", "#");

@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,18 @@ def _run_git(root: Path, args: list[str]) -> tuple[int, str, str]:
 def _git_output(root: Path, args: list[str]) -> str:
     code, stdout, _stderr = _run_git(root, args)
     return stdout.strip() if code == 0 else ""
+
+
+def _repository_web_url(remote: str) -> str | None:
+    """Allowlisted HTTPS display URL, without embedded credentials."""
+    match = re.fullmatch(r"(?:git@github\.com:|https://github\.com/)([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)", remote)
+    if not match:
+        return None
+    owner, name = match.groups()
+    name = name.removesuffix(".git")
+    if owner in {".", ".."} or name in {"", ".", ".."}:
+        return None
+    return f"https://github.com/{owner}/{name}"
 
 
 def _is_git_repo(root: Path) -> bool:
@@ -186,12 +199,19 @@ def build_git_state(root: Path, config: WikiConfig) -> dict[str, Any]:
     clean = not changed
     is_proposal = current_branch.startswith(branch_prefix)
     pr_metadata = _gh_pr_metadata(root, current_branch) if is_proposal else None
+    head = _git_output(root, ["rev-parse", "HEAD"])
+    repository_url = _repository_web_url(_git_output(root, ["remote", "get-url", remote]))
+    published_head = bool(repository_url and clean and current_branch == default_branch and
+                          _run_git(root, ["merge-base", "--is-ancestor", head,
+                                          f"refs/remotes/{remote}/{default_branch}"])[0] == 0)
     return {
         "schema_version": WEB_GIT_SCHEMA_VERSION,
         "available": True,
         "default_branch": default_branch,
         "current_branch": current_branch,
-        "head": _git_output(root, ["rev-parse", "HEAD"]),
+        "head": head,
+        "repository_url": repository_url,
+        "published_head": published_head,
         "branch_prefix": branch_prefix,
         "worktree": {"clean": clean, "changed_files": changed},
         "upstream": {

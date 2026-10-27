@@ -166,6 +166,27 @@ it('renders inert evidence and follows encoded canonical page links',async()=>{
   await waitFor(()=>expect(operator.loadPageContent).toHaveBeenLastCalledWith('Context page',expect.anything()));
 });
 
+it('opens a dialogue source and returns to the same blocked card without writing or granting approval', async()=>{
+  const task = action('Blocked task', 'blocked');
+  const source = {...action('Evidence page'),page_type:'source'};
+  const loaded = readSnapshot('fixed-revision',[task,source]);
+  const event = {before_sha256:'a'.repeat(64),event_id:'receipt-event-001',kind:'comment',actor:'coordinator:research',coordinator:'research',at:'2026-07-01T10:00:00Z',text:'Read [original source](source.md).'};
+  const original = JSON.stringify({task,event});
+  const content = {ok:true,snapshot_id:'fixed-revision',body:'Recorded execution; document integration pending.',frontmatter:{state:'blocked',next_action:'Review [the evidence](source.md).',blocker_reason:'Document review pending.',action_dialogue:[event]},source_refs:[],resolved_links:[{kind:'page',href:'source.md',page_id:source.id}]};
+  const operator = {loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockImplementation(async(id:string)=>id===task.id ? content : {ok:true,snapshot_id:'fixed-revision',body:'Original source content',frontmatter:{},source_refs:[],resolved_links:[]})};
+  const save=vi.fn();
+  render(<ActionBoard operator={operator} save={save}/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Blocked task/}));
+  expect(await screen.findByRole('link',{name:'the evidence'})).toBeTruthy();
+  fireEvent.click(await screen.findByRole('link',{name:'original source'}));
+  expect(await screen.findByText('Original source content')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Back to card'}));
+  expect(await screen.findByRole('link',{name:'original source'})).toBeTruthy();
+  expect(operator.loadPageContent.mock.calls.map(call=>call[0])).toEqual([task.id,source.id,task.id]);
+  expect(JSON.stringify({task,event})).toBe(original);
+  expect(save).not.toHaveBeenCalled();
+});
+
 it('shows the primary coordinator while preserving owner and leaving live connectivity unverified', async()=>{
   const pages=[action('Synthetic task')];
   const loaded={source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:'test'},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult;

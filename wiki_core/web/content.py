@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import posixpath
 import re
 from pathlib import Path
 from typing import Any
@@ -19,10 +20,11 @@ from urllib.parse import unquote, urlparse
 
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import parse_frontmatter
+from wiki_core.web.repository_links import published_blob_links
 
 PAGE_CONTENT_SCHEMA_VERSION = "wiki_web_page_content.v1"
 
-MD_LINK_RE = re.compile(r"(?<!\!)\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+MD_LINK_RE = re.compile(r"(?<!\!)\[([^\]]*)\]\((<[^>\n]+>|[^)\s]+)(?:\s+\"[^\"]*\")?\)")
 
 
 def _is_external(href: str) -> bool:
@@ -30,22 +32,23 @@ def _is_external(href: str) -> bool:
     return bool(parsed.scheme) or href.startswith("#") or href.startswith("mailto:")
 
 
-def _repo_rel(root: Path, path: Path) -> str | None:
-    try:
-        return path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
+def _resolve_internal(source_rel: str, href: str) -> str | None:
+    if _is_external(href):
         return None
-
-
-def _resolve_internal(root: Path, source_rel: str, href: str) -> str | None:
-    href = unquote(href.split("#", 1)[0]).strip()
-    if not href or _is_external(href):
-        return None
-    candidate = root / href.lstrip("/") if href.startswith("/") else (root / source_rel).parent / href
-    rel = _repo_rel(root, candidate)
+    rel = _repository_path(source_rel, href)
     if rel and rel.endswith(".md"):
         return rel
     return None
+
+
+def _repository_path(source_rel: str, href: str) -> str | None:
+    """Lexical Git path: local symlinks cannot redirect a pinned artifact."""
+    path = unquote(href.split("#", 1)[0])
+    if not path or path.startswith("//") or "\\" in path or any(ord(c) < 32 for c in path):
+        return None
+    rel = posixpath.normpath(path.lstrip("/") if path.startswith("/")
+                            else posixpath.join(posixpath.dirname(source_rel), path))
+    return None if rel in {".", ".."} or rel.startswith("../") else rel
 
 
 def sidecar_name(page_id: str) -> str:
@@ -97,26 +100,40 @@ def _page_index(pages: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return index
 
 
-def _resolved_links(root: Path, rel: str, body: str, index: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+def _resolved_links(root: Path, rel: str, body: str, index: dict[str, dict[str, Any]],
+                    blobs: dict[str, str] | None = None) -> list[dict[str, Any]]:
     links: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for match in MD_LINK_RE.finditer(body):
-        text, href = match.group(1).strip(), match.group(2).strip()
+        text, href = match.group(1).strip(), match.group(2).strip().removeprefix("<").removesuffix(">")
         key = (text, href)
         if key in seen:
             continue
         seen.add(key)
-        if _is_external(href):
-            domain = urlparse(href).netloc
+        try:
+            external = _is_external(href)
+            domain = urlparse(href).netloc if external else ""
+        except ValueError:
+            # Authored URLs are untrusted display data. A malformed authority
+            # must neither break the reader nor fall back to a repository path.
+            links.append({"kind": "missing", "text": text, "href": href, "target": href})
+            continue
+        if external:
             if domain:
                 links.append({"kind": "external", "text": text, "href": href, "domain": domain})
             continue
-        target_rel = _resolve_internal(root, rel, href)
+        target_rel = _resolve_internal(rel, href)
         target = index.get(target_rel or "")
         if target:
             links.append({"kind": "page", "text": text, "href": href, **_page_brief(target)})
         else:
-            links.append({"kind": "missing", "text": text, "href": href, "target": target_rel or href})
+            blob_path = _repository_path(rel, href)
+            url = (blobs or {}).get(blob_path or "")
+            if url:
+                links.append({"kind": "artifact", "text": text, "href": href, "url": url,
+                              "path": blob_path, "domain": "github.com"})
+            else:
+                links.append({"kind": "missing", "text": text, "href": href, "target": target_rel or href})
     return links
 
 
@@ -212,6 +229,17 @@ def build_page_content(
             "page_id": page_id,
             "snapshot_id": snapshot_id,
         }
+    # Communication and next-step fields are authored content too. Resolve
+    # their links only after verifying the same immutable page bytes.
+    link_text = [body]
+    for key in ("next_action", "blocker_reason", "completion_receipt", "cancellation_receipt"):
+        value = values.get(key)
+        if isinstance(value, str):
+            link_text.append(value)
+    dialogue = values.get("action_dialogue")
+    if isinstance(dialogue, list):
+        link_text.extend(event["text"] for event in dialogue
+                         if isinstance(event, dict) and isinstance(event.get("text"), str))
     return {
         "ok": True,
         "schema_version": PAGE_CONTENT_SCHEMA_VERSION,
@@ -222,7 +250,8 @@ def build_page_content(
                  "moc_parent": str(page.get("moc_parent") or "")},
         "frontmatter": safe_frontmatter,
         "body": body,
-        "resolved_links": _resolved_links(root, rel, body, index),
+        "resolved_links": _resolved_links(root, rel, "\n".join(link_text), index,
+                                           published_blob_links(root, snapshot.get("git.json", {}))),
         "backlinks": _backlinks(page, graph, index),
         "source_refs": _resolved_sources(page, index),
     }

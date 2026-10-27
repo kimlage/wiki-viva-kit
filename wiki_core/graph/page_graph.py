@@ -104,7 +104,11 @@ def _memory_prefix(config: WikiConfig) -> str:
 
 
 def _is_external(href: str) -> bool:
-    parsed = urlparse(href)
+    try:
+        parsed = urlparse(href)
+    except ValueError:
+        # Invalid URL authorities are never local page dependencies.
+        return True
     return bool(parsed.scheme) or href.startswith("#") or href.startswith("mailto:")
 
 

@@ -208,6 +208,7 @@ export type PageRecord = {
 export type ResolvedLink =
   | ({ kind: "page"; text: string; href: string } & PageBrief)
   | { kind: "external"; text: string; href: string; domain: string }
+  | { kind: "artifact"; text: string; href: string; url: string; path: string; domain: string }
   | { kind: "missing"; text: string; href: string; target: string };
 
 export type PageBrief = {
