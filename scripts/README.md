@@ -7,6 +7,25 @@ performed by the operating agent, never by an embedded client. See the
 
 ## Primary lifecycle
 
+For direct local lookup, use [wiki_find.py](wiki_find.py):
+
+```sh
+python3 scripts/wiki_find.py "release review" --context system --limit 10
+```
+
+It reads the existing FTS index and reports provenance for each hit. It
+distinguishes no matches from a missing or invalid index. Context is filtered
+before the result limit, using current local metadata; unresolved identities
+remain explicit gaps. Legacy index coverage/revision and factual freshness
+remain unknown. This command creates no index, request, cache or model call.
+Context selects retrieval results; account and session controls govern access.
+An index configured for WAL is reported as unsupported instead of creating
+SQLite sidecars or silently ignoring uncheckpointed data. Its journal mode is
+never changed by lookup.
+Use [wiki_build_index.py](wiki_build_index.py) explicitly when a rebuild is
+needed. The `--context` option on [wiki_llm_context_pass.py](wiki_llm_context_pass.py)
+describes a delegated reading request; it does not filter that command's query.
+
 ```text
 wiki_ingest.py -> wiki_llm_context_pass.py -> wiki_consolidate.py
   -> wiki_operation_compile.py / wiki_input_stage.py

@@ -427,5 +427,27 @@ def test_index_pages_searchable_and_survives_rebuild_and_prune(tmp_path):
     assert any(str(h["source_id"]).startswith(PAGE_SOURCE_PREFIX) for h in hits)
 
 
+def test_find_reads_indexed_page_body_with_local_identity(tmp_path):
+    from scripts.wiki_build_index import collect_page_chunks
+    from wiki_core.find import find
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    page = paths.memory_root / "system" / "release.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("---\npage_id: release-guide\ncontext: system\ntitle: Release\n---\n"
+                    "# Release\n\nThe rollback preserves the reviewed revision.\n")
+    index_pages(paths.indexes / "wiki.sqlite", collect_page_chunks(tmp_path, paths, cfg))
+    result = find(tmp_path, cfg, "rollback", context="system")
+    assert result["status"] == "ok"
+    hit = result["hits"][0]
+    assert hit["source_id"] == "page:release-guide"
+    assert hit["provenance"]["path"] == "memories/system/release.md"
+    assert hit["provenance"]["metadata_observation"] == "local_at_query_time"
+    assert hit["provenance"]["indexed_revision"] == "unknown"
+    assert hit["hash_sha256"]
+    # Metadata is not itself indexed as page body.
+    assert find(tmp_path, cfg, "release-guide")["status"] == "no_matches"
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
