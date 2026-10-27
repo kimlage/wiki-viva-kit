@@ -317,6 +317,9 @@ def evaluate_impact(
            upstream, "prerequisite", "required_dependency")
 
     def verdict(path: str) -> str:
+        from wiki_core.record_observations import observation_is_future
+        if observation_is_future(current, path, today):
+            return "unknown"
         values = nodes[path]
         if path in current.get("verified_evidence_nodes", []):
             return "historical_evidence"
