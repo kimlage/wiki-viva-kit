@@ -234,6 +234,45 @@ must read the actual capture and diff, preserve historical cuts, and reject an
 authorization or ongoing obligation mislabeled as an observation. Machine hash
 checks establish identity and custody, not truth or completeness of a source.
 
+### Complete review of a changed decision, hypothesis or proposal
+
+A substantive repair of a preexisting complete H2 may retain its epistemic
+type while receiving a bounded review. Declare `current_review: <artifact_id>`
+on an `h2_v1` record of type `decision`, `hypothesis` or `proposal`. This uses
+the same source, context, integrity and independent-review checks as observations;
+it does not introduce another integration path. New records, remainders,
+partial selections, unchanged assertions and concurrent `current_observation`
+claims are ineligible.
+
+The CURRENT file receipt uses `wiki_record_review.v1`. It has the observation
+receipt's fields, replacing `observed_on` with `reviewed_on`, and also requires
+`base_document_sha256`, `base_record_sha256`, `base_text`, `current_text` and
+`epistemic_status`. Both texts must equal the complete native H2 partitions;
+the type must match the declaration. `declaration_sha256` seals the complete
+declaration except `current_review`. Every mandatory context, including the
+transitive local context closure, maps its record ID to both `base` and `current`
+hashes. Sources must exactly match `current_evidence`
+and cannot alias the subject, its contexts or any qualification/review receipt.
+
+`reviewed_on` means the actual independent review of the **entire assertion**,
+including unchanged premises, historical cuts and uncertainty. It is not a new
+provider observation or authentication. Every assertion must be supported in
+the scope and time in which it is written; a claim about current external state
+still needs current evidence. Hashes and different author/reviewer names cannot
+establish that semantic sufficiency or human authority. Final-HEAD independent
+review and the existing publication/admission gates remain necessary.
+
+Only the reviewed CURRENT record receives that effective date under its
+existing finite freshness window. BASE, document, siblings, sources, cadences,
+exemptions and lifecycle states stay unchanged. Future review dates evaluate
+as unknown. A hypothesis stays uncertain, a proposal stays pending, and reviewing
+a decision grants no new execution permission. Required sources and contexts
+still block when stale; WHOLE consumption, cycles and other seeds retain their
+obligations. Causal `updated` requires the actual complete repair and a reviewed
+disposition for each arrival. This receipt cannot make stale BASE eligible for
+`no_change` or replace causal reconciliation. The
+[synthetic review tests](../../tests/test_record_reviews.py) cover these limits.
+
 ### Occurrence roles and immutable evidence
 
 A binding defaults to `role: consumption`. Three other reviewed roles are
