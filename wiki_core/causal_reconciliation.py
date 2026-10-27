@@ -139,6 +139,48 @@ def upstream_closure(inventory):
     return closure
 
 
+def preserved_components(upstream):
+    """Strong components of an already verified, unchanged unit graph.
+
+    Membership is structural, not a proof. Callers must ground every external
+    input and reviewed arrival before accepting a component. Iterative walks
+    avoid a recursion limit on large documentary chains.
+    """
+    visited, order = set(), []
+    reverse = defaultdict(set)
+    for node, inputs in upstream.items():
+        for other in inputs:
+            reverse[other].add(node)
+    for start in sorted(upstream):
+        if start in visited:
+            continue
+        visited.add(start)
+        stack = [(start, iter(sorted(upstream[start])))]
+        while stack:
+            node, inputs = stack[-1]
+            other = next(inputs, None)
+            if other is None:
+                order.append(node)
+                stack.pop()
+            elif other not in visited:
+                visited.add(other)
+                stack.append((other, iter(sorted(upstream[other]))))
+    groups, assigned = [], set()
+    for start in reversed(order):
+        if start in assigned:
+            continue
+        members, queue = {start}, [start]
+        assigned.add(start)
+        while queue:
+            node = queue.pop()
+            for other in reverse[node] - assigned:
+                members.add(other)
+                assigned.add(other)
+                queue.append(other)
+        groups.append(frozenset(members))
+    return groups
+
+
 def append_only_partitions(graphs, partitions, declarations, modes):
     """Projector-only proof of added units entirely outside the old document."""
     from wiki_core.document_records import node_id, reference_definitions, sections
