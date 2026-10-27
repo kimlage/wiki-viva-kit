@@ -66,6 +66,7 @@ def pair_digest(current, base, changed):
                      record_shapes=g.get("verified_record_shapes", {}),
                      record_substantive_sha256=g.get("verified_record_substantive_sha256", {}),
                      precise_component_seeds=g.get("verified_precise_component_seeds", {}),
+                     append_only_partitions=g.get("verified_append_only_partitions", {}),
                      locator_changes=g.get("verified_locator_changes", {}),
                      locator_record_documents=g.get("verified_locator_record_documents", {}))
         for origin, g in (("base", base), ("current", current))}))
@@ -81,7 +82,21 @@ def _document(graph, node):
     return path
 
 
-def _interpretation(graph, node):
+def _normalized_interpretation_edge(raw):
+    edge = copy.deepcopy(raw)
+    for key in ("body_line", "body_offset"):
+        edge.pop(key, None)
+    for field in ("consumption_binding", "locator_review"):
+        binding = edge.get(field)
+        if isinstance(binding, dict):
+            for key in ("origin", "consumed_sha256", "prerequisite_document_sha256", "rationale"):
+                binding.pop(key, None)
+            if field == "consumption_binding":
+                binding.pop("edge_sha256", None)
+    return edge
+
+
+def _interpretation_state(graph, node, *, stop_at=frozenset(), append_equivalence=False):
     """Scope must be identical; different consumed hashes alone are expected.
 
     A newly shrunken remainder, changed partitions, contexts or dependency roles
@@ -101,25 +116,23 @@ def _interpretation(graph, node):
         scopes[parent] = dict(document=graph.get("verified_record_documents", {}).get(parent, parent),
             selection=graph.get("verified_record_shapes", {}).get(parent, "whole_document"),
             evidence=graph["nodes"][parent].get("evidence_source"))
+        if append_equivalence and parent in graph.get('verified_append_only_partitions', {}):
+            scopes[parent]['selection'] = graph['verified_append_only_partitions'][parent]['base_shape']
+        if parent != node and parent in stop_at:
+            continue
         for prerequisite, raw in upstream[parent]:
-            edge = copy.deepcopy(raw)
             # Coordinates identify the exact occurrence in the pair/census,
             # but a reviewed text insertion may move the same semantic use.
             # Keep section, role, target, scope and occurrence multiplicity.
-            for key in ("body_line", "body_offset"):
-                edge.pop(key, None)
-            for field in ("consumption_binding", "locator_review"):
-                binding = edge.get(field)
-                if isinstance(binding, dict):
-                    for key in ("origin", "consumed_sha256", "prerequisite_document_sha256", "rationale"):
-                        binding.pop(key, None)
-                    if field == "consumption_binding":
-                        binding.pop("edge_sha256", None)
-            related.append(edge)
+            related.append(_normalized_interpretation_edge(raw))
             if prerequisite not in seen:
                 seen.add(prerequisite); queue.append(prerequisite)
-    return structured_digest(dict(record_sha256=graph["nodes"][node].get("record_sha256"),
-        scopes=scopes, dependencies=sorted(related, key=structured_digest)))
+    return dict(record_sha256=graph["nodes"][node].get("record_sha256"),
+        scopes=scopes, dependencies=sorted(related, key=structured_digest))
+
+
+def _interpretation(graph, node):
+    return structured_digest(_interpretation_state(graph, node))
 
 
 def verify(current, base, changed, contract, artifact_inputs):
@@ -129,7 +142,9 @@ def verify(current, base, changed, contract, artifact_inputs):
     if contract.get("schema_version") != "document_record.v2":
         raise ValueError("causal review requires document_record.v2")
     required = {"schema_version", "author", "pair_sha256", "census_sha256", "dispositions", "review_evidence"}
-    if not isinstance(plan, dict) or set(plan) != required or plan["schema_version"] != "wiki_causal_review.v1":
+    if (not isinstance(plan, dict) or not required <= set(plan)
+            or set(plan) - required - {"base_authority_citations", "normative_revalidations"}
+            or plan["schema_version"] != "wiki_causal_review.v1"):
         raise ValueError("invalid causal review schema")
     if contract.get("locator_changes"):
         raise ValueError("causal review with locator changes is not supported in v1")
@@ -141,13 +156,28 @@ def verify(current, base, changed, contract, artifact_inputs):
         raise ValueError("invalid causal review author/dispositions")
     decisions = {}
     unchanged_interpretations = {}
+    reconciled_interpretations = {}
+    from wiki_core.causal_authority import citation_qualifications, reviewed_citation_extension
+    citations = citation_qualifications(plan, contract, artifact_inputs, inventory, base, current)
+    used_citations = set()
+    from wiki_core.causal_revalidation import normative_revalidations
+    revalidations = normative_revalidations(plan, contract, artifact_inputs, base, current)
+    used_revalidations = set()
+    # Validate every proposed repair before deriving any same-seed frontier.
     for item in plan["dispositions"]:
-        if (not isinstance(item, dict) or set(item) != {"obligation_id", "disposition", "reason"}
+        if (not isinstance(item, dict) or not {"obligation_id", "disposition", "reason"} <= set(item)
+                or set(item) - {"obligation_id", "disposition", "reason", "reviewed_upstream_repairs"}
                 or not isinstance(item["obligation_id"], str) or not isinstance(item["disposition"], str)
                 or item["obligation_id"] not in inventory["obligations"]
-                or item["obligation_id"] in decisions or item["disposition"] not in {"updated", "no_change", "blocked"}
+                or item["obligation_id"] in decisions or item["disposition"] not in {"updated", "no_change", "revalidated", "blocked"}
                 or not isinstance(item["reason"], str) or not item["reason"].strip()):
             raise ValueError("invalid/duplicate/unknown causal disposition")
+        requested = item.get('reviewed_upstream_repairs', [])
+        if (not isinstance(requested, list) or any(not isinstance(n, str) or not n for n in requested)
+                or 'reviewed_upstream_repairs' in item and not requested
+                or len(requested) != len(set(requested))
+                or requested and item['disposition'] not in {'no_change', 'revalidated'}):
+            raise ValueError('invalid reviewed upstream repair declaration')
         obligation = inventory["obligations"][item["obligation_id"]]
         edge = inventory["edges"][obligation["edge_id"]]
         consumer = edge["consumer"]
@@ -158,23 +188,7 @@ def verify(current, base, changed, contract, artifact_inputs):
             before, after = base["documents"][before_path], current["documents"][after_path]
             if before_path != after_path:
                 raise ValueError("consumer identity changed")
-            if item["disposition"] == "no_change":
-                if consumer not in unchanged_interpretations:
-                    # Raw WHOLE still means every byte. A verified complete
-                    # record is its own consumer: an independent sibling edit
-                    # must not require fictional changes to this intact unit.
-                    # Transitive scope, contexts, roles and multiplicity remain
-                    # guarded by _interpretation, including remainder shape.
-                    same_content = before == after
-                    if consumer not in current["documents"]:
-                        old_hash = base["nodes"][consumer].get("record_sha256")
-                        new_hash = current["nodes"][consumer].get("record_sha256")
-                        same_content = old_hash is not None and old_hash == new_hash
-                    unchanged_interpretations[consumer] = (
-                        same_content and _interpretation(base, consumer) == _interpretation(current, consumer))
-                if not unchanged_interpretations[consumer]:
-                    raise ValueError("no_change requires identical complete consumer unit and interpretation")
-            else:
+            if item["disposition"] == "updated":
                 if substantive_digest(before) == substantive_digest(after):
                     raise ValueError("updated requires substantive consumer repair")
                 if consumer not in current["documents"]:
@@ -183,6 +197,78 @@ def verify(current, base, changed, contract, artifact_inputs):
                     if before_part is None or after_part is None or before_part == after_part:
                         raise ValueError("updated requires substantive repair in the affected record")
         decisions[item["obligation_id"]] = copy.deepcopy(item)
+    from wiki_core.causal_reconciliation import repaired_boundary, reachable_repaired_frontiers, upstream_closure
+    from functools import lru_cache
+    @lru_cache(maxsize=None)
+    def is_repaired(node):
+        return repaired_boundary(base, current, node)
+    frontiers = reachable_repaired_frontiers(inventory, decisions, base, current, is_repaired)
+    arrival_upstream = upstream_closure(inventory)
+    for oid, item in decisions.items():
+        if item['disposition'] not in {'no_change', 'revalidated'}:
+            continue
+        obligation = inventory['obligations'][oid]
+        edge = inventory['edges'][obligation['edge_id']]
+        seed, consumer = obligation['seed'], edge['consumer']
+        candidates = (set(frontiers[seed]) & arrival_upstream(edge['prerequisite'])) - {consumer}
+        direct_seed = (seed == edge['prerequisite'] and seed != consumer
+                       and is_repaired(seed))
+        if direct_seed:
+            candidates.add(seed)
+        requested = set(item.get('reviewed_upstream_repairs', []))
+        if not requested <= candidates:
+            raise ValueError('reviewed upstream repair lacks same-seed substantive support')
+        candidates = requested
+        key = (seed, consumer, tuple(sorted(candidates)))
+        if key not in unchanged_interpretations:
+            before_path, after_path = _document(base, consumer), _document(current, consumer)
+            same_content = base['documents'][before_path] == current['documents'][after_path]
+            if consumer not in current['documents']:
+                old_hash = base['nodes'][consumer].get('record_sha256')
+                same_content = old_hash is not None and old_hash == current['nodes'][consumer].get('record_sha256')
+            equivalent = _interpretation(base, consumer) == _interpretation(current, consumer)
+            qualification = {}
+            if same_content and not equivalent and citations:
+                matched = reviewed_citation_extension(base, current, consumer, citations)
+                equivalent = matched is not None
+                if matched is not None:
+                    used_citations.update(matched)
+            if same_content and not equivalent:
+                states = [_interpretation_state(g, consumer, stop_at=candidates, append_equivalence=True)
+                          for g in (base, current)]
+                equivalent = states[0] == states[1]
+                if equivalent:
+                    reached = set(states[0]['scopes']) | set(states[1]['scopes'])
+                    used = sorted(candidates & reached)
+                    if set(used) != requested:
+                        raise ValueError('reviewed upstream repair declaration is unused')
+                    # Reachability alone is not use. Every named frontier
+                    # must be necessary for this arrival's equivalence.
+                    for node in used:
+                        without = candidates - {node}
+                        remaining = [_interpretation_state(g, consumer, stop_at=without, append_equivalence=True)
+                                     for g in (base, current)]
+                        if remaining[0] == remaining[1]:
+                            raise ValueError('reviewed upstream repair declaration is unused')
+                    qualification = dict(upstream_repairs={node: frontiers[seed].get(node, []) for node in used},
+                        direct_repaired_seed=seed if direct_seed and seed in used else None,
+                        append_only_remainders=sorted(reached & set(current.get('verified_append_only_partitions', {}))))
+            unchanged_interpretations[key] = same_content and equivalent, qualification
+        accepted, qualification = unchanged_interpretations[key]
+        if not accepted:
+            raise ValueError("no_change/revalidated requires identical complete consumer unit and interpretation")
+        if requested and not qualification:
+            raise ValueError('reviewed upstream repair declaration is unused')
+        if qualification:
+            reconciled_interpretations[oid] = copy.deepcopy(qualification)
+        if item['disposition'] == 'revalidated':
+            if consumer not in revalidations:
+                raise ValueError("revalidated requires exact normative revalidation evidence")
+            used_revalidations.add(consumer)
+    if used_citations != set(citations):
+        raise ValueError("base authority citation qualification is unused")
+    if used_revalidations != set(revalidations):
+        raise ValueError("normative revalidation qualification is unused")
     evidence = plan["review_evidence"]
     candidates = [a for a in contract.get("artifacts", []) if a.get("origin") == "current" and a.get("id") == evidence and "path" in a]
     raw = artifact_inputs.get(("current", evidence)) if isinstance(evidence, str) else None
@@ -207,7 +293,8 @@ def verify(current, base, changed, contract, artifact_inputs):
     # existing final-HEAD independent PR promotion gate remains mandatory.
     verified = dict(pair_sha256=pair, census_sha256=structured_digest(inventory),
                 census=inventory, dispositions=decisions, review_evidence=evidence,
-                review_sha256=candidates[0]["sha256"], plan_sha256=receipt["plan_sha256"])
+                review_sha256=candidates[0]["sha256"], plan_sha256=receipt["plan_sha256"],
+                normative_revalidations=revalidations, reconciled_interpretations=reconciled_interpretations)
     verified["payload_sha256"] = structured_digest(verified)
     return verified
 
@@ -233,6 +320,17 @@ def decision(review, seed, edge, current, base, today):
                                stale_exempt=is_stale_exempt(values.get("stale_exempt"))) != "fresh":
                 state = "no_change_consumer_not_fresh"
                 break
+    elif state == "revalidated":
+        # This is a reviewed normative revision, not inherited page freshness.
+        # Unknown/added units and already-fresh BASE units cannot use this path.
+        from datetime import date
+        states = [freshness_state(g["nodes"][edge["dependent"]].get("updated_at"),
+                    g["nodes"][edge["dependent"]].get("stale_after_days"), today,
+                    stale_exempt=is_stale_exempt(g["nodes"][edge["dependent"]].get("stale_exempt")))
+                  for g in (base, current)]
+        proof = review["normative_revalidations"][edge["dependent"]]
+        if states != ["stale", "fresh"] or date.fromisoformat(proof["checked_on"]) > today:
+            state = "revalidated_consumer_not_fresh"
     return oid, state
 
 
@@ -286,7 +384,7 @@ def evaluate(current, base, changed, *, today):
             arrivals[oid] = dict(seed=seed, consumer=target, edge_id=eid, disposition=status)
             reasons.setdefault(target, reason)
             witnesses.setdefault((seed, target), reason)
-            if status == "no_change":
+            if status in {"no_change", "revalidated"}:
                 boundaries[oid] = arrivals[oid]
                 continue
             if status != "updated":

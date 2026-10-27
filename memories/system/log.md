@@ -1444,3 +1444,23 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - The [causal verifier](../../wiki_core/causal_review.py) compares the exact complete record when reviewing an unchanged unit beside a repaired sibling. Freshness must hold in both snapshots; a sibling's date cannot renew an old assertion.
 - The [document projector](../../wiki_core/document_records.py) identifies exact representation carriers only after checking coverage, selectors, contexts and the interpretation of every preserved component. Raw identities and all factual edges remain available to WHOLE consumers.
 - [Synthetic regressions](../../tests/test_causal_review.py) retain real stale prerequisites, common premises, WHOLE demand, changing scope and evidence, competing causes and independent review. The [contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) distinguishes untouched historical debt from the factual requirements of the actual change. No factual date, credential, permission or runtime configuration is altered.
+
+## [2026-10-26] Explicit citations of previously applicable rules
+
+- The existing [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) accepts independently reviewed BASE evidence for an exact new citation between already-consumed units. Complete scope, consumer bytes, authority text and local mandatory context remain guarded; factual prerequisites retain their freshness checks.
+- The [applicability verifier](../../wiki_core/causal_authority.py) refuses new scopes, incomplete proofs, ambiguous occurrences, removed or reclassified relations and unreviewed meaning. [Synthetic tests](../../tests/test_causal_authority.py) distinguish documentary applicability from account authorization and retain competing causes. No historical relation, source date, permission or runtime setting is rewritten.
+
+## [2026-10-26] Reviewed revalidation of intact normative rules
+
+- The existing [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) can record an actual sourced review of a complete intact normative rule through the `revalidated` disposition. It requires a stale BASE, fresh CURRENT, unchanged cadence, complete normative contexts and independent review of the exact pair.
+- The [revalidation verifier](../../wiki_core/causal_revalidation.py) preserves real prerequisites and competing causes. [Synthetic regressions](../../tests/test_causal_revalidation.py) reject inherited dates without proof, factual contexts, future verification, missing current evidence and replayed reviews. This mechanism does not revalidate external facts, change action/source states, or grant operational permissions.
+
+## [2026-10-26] Occurrence-bound reconciliation of repaired premises
+
+- The [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) can explicitly reconcile an intact consumer with a substantively repaired premise on that same arrival and seed. Complete scope, retained factual relations, freshness, other causes and independent review remain required.
+- The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) also proves exact append-only remainder equivalence without clearing WHOLE consumers or new records. [Arrival regressions](../../tests/test_causal_upstream_repairs.py) and [append regressions](../../tests/test_causal_append_partition.py) distinguish supported reconciliation from branch borrowing, scope loss, source aliases and stale replay. No account, credential or operational authority changes.
+
+## [2026-10-26] Preserve relations throughout repaired factual context
+
+- The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) now checks retained relations and mandatory contexts throughout the already-consumed BASE closure. A second path to the same authority cannot hide a removed, retargeted or reclassified relation behind a repaired premise.
+- [Synthetic counterexamples](../../tests/test_causal_reconciliation_review.py) cover deeper chains, cycles, multiplicity and changed contexts. Supported additions and unique relocations retain their existing limits; newly added prerequisites remain subject to factual freshness. This corrects the [PR141 review finding](https://github.com/kimlage/wiki-viva-kit/pull/141#discussion_r4383669406) without granting operational authority or reclassifying consumer data.

@@ -250,6 +250,10 @@ Each disposition has an exact `obligation_id`, substantive `reason` and one of:
   intervals or exemption flags alone cannot constitute that repair. Content
   review must establish pertinence to the exact obligation; a lateral edit is
   not enough. Impact continues to the repaired consumer's dependents.
+- `revalidated`: an intact complete local normative rule was actually checked
+  against retained sources, with the specific evidence described below. Its
+  freshness moves from stale BASE to fresh CURRENT without a fictitious body
+  edit. Only the reviewed arrival stops; real prerequisites remain evaluated.
 - `blocked`: the obligation remains unresolved, even when the consumer is fresh.
 
 Missing dispositions also block. Every reached seed/occurrence is checked;
@@ -285,6 +289,117 @@ still bind those exact positions, so shifting a link invalidates an old receipt.
 Reviewing a migration must additionally compare the prior approved contract:
 narrowing both origins is not justified by their mutual equality. No legacy
 `impact_closure` statement becomes a freshness waiver.
+
+A `no_change` or `revalidated` disposition may explicitly declare
+`reviewed_upstream_repairs`, a nonempty list of unique prerequisite node IDs.
+This is an occurrence-specific causal judgment, not a general flag that an
+upstream page was reviewed. Each node must have a substantive repair in the
+same complete unit, preserve scope, mandatory contexts and all old factual
+relations, and lie in this arrival's factual prerequisite branch. Reachability
+requires an uninterrupted path of validated `updated` dispositions from the
+same seed. A direct repaired seed can qualify only when it is this arrival's
+prerequisite; its complete delta still requires the disposition's substantive
+reason and independent review. Another seed, branch, sibling repair or cycle
+cannot supply that support.
+
+The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) compares
+the intact consumer's interpretation up to the declared repaired premises.
+Every declared premise must be actually necessary for this arrival: removing
+it must break the proved equivalence. All previously consumed prerequisite
+scopes, relation occurrences and mandatory contexts must remain intact through
+the full BASE factual closure, even behind a repaired premise. An alternate
+path to the same authority does not justify removing an old relation. Missing, unknown,
+duplicate, unnecessary or misplaced declarations fail closed. The old relation
+multiset must be retained; a reviewed section relocation requires an unambiguous
+one-to-one occurrence correspondence with all other semantics unchanged.
+Global section/role/target/scope checks are not relaxed. Added citations remain
+real prerequisites. The full BASE/CURRENT union, freshness checks, other
+arrivals and downstream debt are still evaluated. Without this explicit field,
+repaired upstream premises do not excuse a changed interpretation. The existing
+pair, census and independent-review receipt seal the declaration and proof path.
+[Synthetic arrival tests](../../tests/test_causal_upstream_repairs.py) cover the
+positive path and competing causes, branch borrowing, stale evidence and replay.
+
+Separately, the projector can prove that new independent records are appended
+entirely after the original document. This requires a literal BASE prefix,
+identical old record selections, bytes, ordering and anchors, an identical
+remainder and reference definitions, and complete contiguous coverage of only
+the appended bytes. Only that proved remainder exclusion change is equivalent
+for an otherwise valid causal disposition. It does not make an addition a
+precise carrier, remove a WHOLE obligation, erase the new record's seed or waive
+its independence review. Authored markers and post-projection mutations cannot
+supply the proof. [Append regressions](../../tests/test_causal_append_partition.py)
+retain uncovered edits, old-byte repartition and WHOLE consumers.
+
+An optional `base_authority_citations` list can qualify a newly explicit
+documentary citation inside an already-consumed premise. It applies only when
+the complete consumer stays byte-identical, the entire factual scope is already
+reachable in BASE, and the only additional relations are the exact qualified
+CURRENT body citations. It does not infer that an authority was applicable from
+reachability alone. New scopes, changed roles/selections, removed relations,
+ambiguous duplicate occurrences and citations added in the consumer itself
+remain ineligible for `no_change`.
+
+Each qualification contains `edge_id`, `evidence_id`, `evidence_sha256` and a
+substantive `reason`. The evidence is a sealed BASE file artifact with schema
+`wiki_base_authority_applicability.v1`: `unit`, `unit_base_sha256`, `authority`,
+`authority_base_sha256`, `authority_document`, `authority_document_sha256`,
+`supporting_units` and `applicability_reason`. Each supporting unit supplies its
+`node`, `sha256` and `complete_text`. This narrow format requires the exact
+complete local closure of the authority, including its mandatory contexts in
+the same document. Discontiguous remainders or proofs that require excerpts from
+other documents are unsupported. Other factual prerequisites remain present
+and evaluated; this format does not certify their current truth.
+
+The [applicability verifier](../../wiki_core/causal_authority.py) checks the prior
+unit identities, complete unchanged authority document, exact support set and
+non-narrowing relation delta. Independent review must establish that the prior
+text actually applied to the receiving unit, including conditions and limits;
+a historical example or an unmet condition is insufficient. The existing review
+receipt binds every qualification and evidence hash to the complete pair and
+census. Missing, altered or unused qualifications fail closed. No relation is
+inserted into BASE, no freshness is renewed, and no execution/account permission
+is granted. [Synthetic regressions](../../tests/test_causal_authority.py) exercise
+these guards separately from real consumer authorship and operational admission.
+
+An optional `normative_revalidations` list supports the narrow `revalidated`
+disposition. Each item has `consumer`, `evidence_id`, `evidence_sha256` and a
+substantive `reason`. The sealed CURRENT proof uses
+`wiki_normative_revalidation.v1`: `assertion_kind: normative_rule`, `consumer`,
+`base_sha256`, `current_sha256`, `complete_text`, `current_document_sha256`,
+`checked_on`, `contexts`, `sources` and `revalidation_reason`. Each context has
+`node`, `sha256` and `complete_text`; each checked source has `evidence_id`,
+`sha256` and `purpose` and must be a separate sealed CURRENT file artifact.
+The unit, its containing document and mandatory context cannot become their
+own authority by being duplicated under another artifact ID. This applies to
+both BASE and CURRENT content, every revalidation proof and the independent
+review receipt. Evidence must include actual independent policy or
+implementation sources; hashes cannot establish semantic independence.
+
+The [revalidation verifier](../../wiki_core/causal_revalidation.py) requires a
+preexisting complete contiguous record explicitly classified as `decision`,
+identical consumer bytes and interpretation, and every mandatory local context
+as a complete `decision` record. A qualified prior-authority citation may
+reconcile interpretation under the same guards above. Raw documents,
+observations, discontiguous remainders and mixed factual contexts cannot use
+this version. Cadence and exemption flags must remain unchanged. The actual
+verification date must equal CURRENT's date, exceed BASE's date and not be in
+the future at evaluation. Unknown BASE freshness, already-fresh BASE and stale
+CURRENT do not qualify. Ordinary `no_change` still requires both snapshots fresh.
+
+Content review must establish that these are normative rules, that the complete
+sources support the current verification, and that no current external facts
+borrow the new date. A label, CURRENT artifact origin or hash does not establish
+those semantic claims. Continued validity alone does not establish absence of
+causal impact: each occurrence's disposition reason and independent review
+must also explain why that exact seed/delta leaves the consumer's conclusion
+or duty unchanged. The unit proof supplies the sourced current verification;
+it cannot replace this per-arrival causal judgment.
+The proof is bound through the causal plan, not added as
+new factual evidence of the rule itself. Missing, duplicate or unused proofs
+fail closed. Revalidation does not clear another seed, cycle, stale authority
+or factual prerequisite, nor change action/source states. The
+[synthetic tests](../../tests/test_causal_revalidation.py) cover these boundaries.
 
 `review_evidence` names one CURRENT immutable JSON file artifact. Its
 `wiki_causal_review_receipt.v1` receipt has `author`, a distinct `reviewer`,
