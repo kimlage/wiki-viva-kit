@@ -14,7 +14,7 @@ import subprocess
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import partial
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -1216,6 +1216,20 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 snapshot = self.server.snapshot_payloads()
                 if path == "/api/coordination":
                     payload = coordination_index(self.server.root, snapshot)
+                    from wiki_core.web.openclaw import attempts
+                    runtime = self.server.config.openclaw
+                    for profile in payload["profiles"]:
+                        route = runtime.get("routes", {}).get(profile["id"]) if runtime.get("enabled") else None
+                        profile["runtime"] = {"configured": bool(route), "label": route["label"] if route else "OpenClaw"}
+                    for action in payload["actions"]:
+                        try:
+                            action["runtime_attempts"] = attempts(self.server.root, self.server.config,
+                                action.get("coordinator"), action["action_id"]) if action.get("coordinator") else []
+                        except (ValueError, KeyError, OSError, subprocess.SubprocessError):
+                            # Recovery evidence is not optional. Keep the card
+                            # readable while refusing new dispatch until repaired.
+                            action["runtime_attempts"] = []
+                            action["runtime_error"] = "openclaw_receipt_unavailable_reconcile"
                 else:
                     profile = path[len("/api/coordination/profiles/"):]
                     action_id = (parse_qs(parsed.query).get("action_id") or [None])[0]
@@ -2079,7 +2093,21 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             session_manager=manager,
             session_token=token,
         )
-        if self._mutation_owned and not result.get("ok") and not result.get("affected_paths"):
+        if result.get("ok") and command_id in {"wiki.proposal.prepare", "wiki.proposal.adopt"}:
+            # Native documentary incorporation can advance only the C3 audit
+            # pointers. Refresh those without retaining stale server context;
+            # changes to authority/routes still require a reviewed restart.
+            loaded = load_config(self.server.root)
+            previous, candidate = asdict(self.server.config), asdict(loaded)
+            for key in ("freshness_base", "freshness_records"):
+                if key in previous["audit"]:
+                    candidate["audit"][key] = previous["audit"][key]
+                else:
+                    candidate["audit"].pop(key, None)
+            if candidate == previous:
+                self.server.config = loaded
+        if (self._mutation_owned and not result.get("ok")
+                and not result.get("affected_paths") and not result.get("snapshot_invalidated")):
             # A refused execution mutated nothing; releasing here avoids an
             # unnecessary multi-minute snapshot rebuild on the next read.
             self.server.end_mutation()

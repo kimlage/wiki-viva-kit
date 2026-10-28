@@ -475,7 +475,7 @@ export type AdminCatalogResult =
 
 export type AdminPlanResult =
   | { ok: true; plan: AdminPlan }
-  | { ok: false; errorCode: AdminCommandErrorCode };
+  | { ok: false; errorCode: AdminCommandErrorCode; detail?: string };
 
 export type AdminExecuteResult =
   | { ok: true; outcome: AdminExecuteOutcome }
@@ -677,7 +677,8 @@ export async function planAdminCommand(
     const payload = (await response.json()) as Record<string, unknown>;
     const plan = parseAdminPlan(payload);
     if (response.ok && plan) return { ok: true, plan };
-    return { ok: false, errorCode: commandErrorCodeOf(payload) };
+    const detail = typeof payload.detail === "string" && /^openclaw_[a-z_]+$/.test(payload.detail) ? payload.detail : undefined;
+    return { ok: false, errorCode: commandErrorCodeOf(payload), ...(detail ? { detail } : {}) };
   } catch {
     return { ok: false, errorCode: "operator_unreachable" };
   }

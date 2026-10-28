@@ -81,8 +81,8 @@ export function AdminPlanReview({
     setExecuting(false);
     if (result.ok) {
       setOutcome(result.outcome);
-      onExecuted?.(result.outcome);
       onNotice?.(t("admin.plan.executed"));
+      onExecuted?.(result.outcome);
       return;
     }
     setError({

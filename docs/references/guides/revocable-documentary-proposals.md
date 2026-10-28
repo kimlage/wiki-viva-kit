@@ -1,8 +1,9 @@
 # Revocable documentary proposals
 
 The existing [admin command bus](../../../wiki_core/web/admin/plans.py) can prepare
-an ordinary documentary PR through three fixed commands: `wiki.proposal.prepare`,
-`wiki.proposal.publish` and `wiki.proposal.promote`. A context packet or successful
+an ordinary documentary PR through `wiki.proposal.prepare`,
+`wiki.proposal.publish` and `wiki.proposal.promote`, then return to approved
+content through `wiki.proposal.adopt`. A context packet or successful
 freshness check does not authorize these operations. The live local session,
 existing capabilities, operator nonce/attempt checks, repository policy,
 independent review and applicable gates remain separate requirements.

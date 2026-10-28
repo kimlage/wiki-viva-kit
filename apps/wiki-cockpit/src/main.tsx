@@ -11,7 +11,7 @@ import { browserApplication } from "./infrastructure/browserApplication";
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <ErrorBoundary>
-      {isBoard ? <Suspense fallback={<p role="status">Loading wiki…</p>}><ActionBoard operator={browserApplication.operator} save={saveAction} create={createAction} loadCreationOptions={loadActionCreationOptions} loadCoordination={loadCoordination} demo={window.location.pathname.startsWith("/demo/")} /></Suspense> : <App ports={browserApplication} />}
+      {isBoard ? <Suspense fallback={<p role="status">Loading wiki…</p>}><ActionBoard admin={browserApplication.admin} operator={browserApplication.operator} save={saveAction} create={createAction} loadCreationOptions={loadActionCreationOptions} loadCoordination={loadCoordination} demo={window.location.pathname.startsWith("/demo/")} /></Suspense> : <App ports={browserApplication} />}
     </ErrorBoundary>
   </React.StrictMode>
 );

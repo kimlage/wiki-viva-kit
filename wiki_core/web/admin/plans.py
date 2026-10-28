@@ -525,7 +525,17 @@ def build_admin_plan(
             "error_code": ERROR_INVALID_PARAMS,
             "detail": "command does not support dry run",
         }
-    if spec.planner in {"proposal_publish", "proposal_promote"}:
+    if spec.planner == "proposal_adopt":
+        from wiki_core.web.normal_proposal import adoption_target
+        try:
+            target = adoption_target(root, config, params)
+        except (ValueError, OSError, subprocess.SubprocessError) as exc:
+            return {"ok": False, "error_code": ERROR_INVALID_PARAMS, "detail": getattr(exc, "code", "proposal_adoption_failed")}
+        planned = {"summary": "Preserve the proposal branch and fast-forward the clean approved checkout to the displayed commit",
+                   "effects": {"files_read": [], "files_write": [] if dry_run else ["approved checkout"],
+                               "external_calls": [] if dry_run else ["git fetch origin"], "snapshot_invalidated": not dry_run},
+                   "targets": [], "diff": target}
+    elif spec.planner in {"proposal_publish", "proposal_promote"}:
         if spec.planner == "proposal_publish":
             from wiki_core.action_transition import _assert_no_secrets
             try:
@@ -552,6 +562,40 @@ def build_admin_plan(
                         "external_calls": [] if dry_run else [str(params.get("operation") or "reviewed_pr_promotion")],
                         "snapshot_invalidated": not dry_run},
             "targets": [], "diff": {"expected_head": params["expected_head"]},
+        }
+    elif spec.planner in {"openclaw_dispatch", "openclaw_inspect", "openclaw_receipt"}:
+        from wiki_core.web.openclaw import plan_dispatch, retained_intent, storage, receipt_source
+        try:
+            if spec.planner == "openclaw_dispatch":
+                prepared = plan_dispatch(root, config, params)
+                effect = prepared["effect_key"]
+                diff = prepared
+            else:
+                directory, prepared, _, _ = retained_intent(root, config, params)
+                if spec.planner == "openclaw_receipt":
+                    _, _, receipt = receipt_source(root, config, params)
+                effect = prepared["effect_key"]
+                diff = {"action_id": params["action_id"], "effect_key": effect,
+                        "message_sha256": prepared["message_sha256"], "new_dispatch": False}
+                if spec.planner == "openclaw_receipt":
+                    diff["result"] = receipt
+                    from wiki_core.web.git_workflows import _proposal_branch
+                    diff["proposal_branch"] = _proposal_branch(config, "runtime-return-" + effect.removeprefix("wiki-run-")) if current_branch(root) == str(config.approval.get("default_branch") or "main") else current_branch(root)
+            directory = storage(root, config, effect)
+        except (ValueError, OSError, KeyError, subprocess.SubprocessError) as exc:
+            return {"ok": False, "error_code": ERROR_INVALID_PARAMS,
+                    "detail": getattr(exc, "code", "openclaw_precondition_failed")}
+        dispatching = spec.planner == "openclaw_dispatch"
+        planned = {
+            "summary": "Start a proposal branch if on main and derive receipt material; canonical incorporation requires the existing proposal command" if spec.planner == "openclaw_receipt" else
+                       "Send the displayed message for this action once; receipt is not completion" if dispatching else
+                       "Recover the exact existing run; never dispatch or mark the action done",
+            "effects": {"files_read": [prepared["binding"]["action_path"]],
+                        "files_write": [] if dry_run else [str(directory.relative_to(root))],
+                        "external_calls": [] if dry_run or spec.planner == "openclaw_receipt" else ["OpenClaw chat.send" if dispatching else "OpenClaw chat.history"],
+                        "snapshot_invalidated": False},
+            "diff": diff, "targets": [prepared["binding"]["action_path"]],
+            "validation": {"canonical_write": False, "documentary_integration": "separate reviewed proposal"},
         }
     elif spec.planner == "normal_proposal":
         from wiki_core.web.normal_proposal import ProposalError, preview_proposal
@@ -824,7 +868,16 @@ def execute_admin_plan(
             return {"ok": False, "error_code": ERROR_PLAN_ALREADY_EXECUTED}
         dry_run = bool(content.get("dry_run"))
         try:
-            if spec.executor == "proposal_promote":
+            if spec.executor == "proposal_adopt":
+                from wiki_core.web.normal_proposal import adopt_proposal
+                result = {"ok": True, "dry_run": True} if dry_run else adopt_proposal(
+                    root, config, content["diff"], manager=session_manager, token=session_token,
+                    session_id=str(record["session_id"]))
+                if not result.get("ok"):
+                    return {"ok": False, "error_code": _proposal_error_code(result.get("error_code", ERROR_COMMAND_FAILED)),
+                            "output": _redact_output(result), "snapshot_invalidated": True}
+                outcome = {"output": result, "affected_paths": [], "snapshot_invalidated": not dry_run}
+            elif spec.executor == "proposal_promote":
                 from wiki_core.web.normal_proposal import promote_proposal
                 result = {"ok": True, "dry_run": True} if dry_run else promote_proposal(
                     root, config, content["params"], manager=session_manager,
@@ -842,6 +895,23 @@ def execute_admin_plan(
                 if not result.get("ok"):
                     return {"ok": False, "error_code": ERROR_COMMAND_FAILED, "output": _redact_output(result)}
                 outcome = {"output": result, "affected_paths": [], "snapshot_invalidated": False}
+            elif spec.executor in {"openclaw_dispatch", "openclaw_inspect", "openclaw_receipt"}:
+                from wiki_core.web.openclaw import dispatch, inspect, prepare_receipt_material
+                def runtime_effect():
+                    if dry_run:
+                        return {"dry_run": True, "new_dispatch": False, "canonical_write": False}
+                    if spec.executor == "openclaw_dispatch":
+                        return dispatch(root, config, content["diff"])
+                    if spec.executor == "openclaw_receipt":
+                        from wiki_core.coordination import digest
+                        return prepare_receipt_material(root, config, content["params"],
+                            expected_result_sha256=digest(content["diff"]["result"]))
+                    return inspect(root, config, content["params"])
+                admitted = session_manager.execute_current(
+                    session_token, str(record["session_id"]), spec.capability, runtime_effect)
+                if not admitted.get("ok"):
+                    return admitted
+                outcome = {"output": admitted["result"], "affected_paths": [], "snapshot_invalidated": False}
             elif spec.executor == "normal_proposal":
                 from wiki_core.web.normal_proposal import prepare_proposal
                 outcome = prepare_proposal(

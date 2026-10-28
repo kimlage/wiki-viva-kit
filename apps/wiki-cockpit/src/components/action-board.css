@@ -82,6 +82,16 @@
 .boardDialogue fieldset { border: 0; padding: 0; min-width: 0; }
 .boardDialogue blockquote { margin: 8px 0; padding-left: 10px; border-left: 3px solid var(--wiki-accent); }
 
+.boardRuntime{border-top:1px solid var(--board-line);margin-top:20px;padding-top:12px;font-size:13px}
+.boardRuntime label{display:grid;gap:6px;margin:12px 0}
+.boardRuntime textarea{width:100%;min-height:110px;resize:vertical}
+.boardRuntime input{width:100%;min-width:0}
+.boardRuntime pre,.boardRuntime code{white-space:pre-wrap;overflow-wrap:anywhere}
+.boardRuntime ul{padding:0;list-style:none}
+.boardRuntime li{padding:10px 0;border-bottom:1px solid var(--board-line)}
+.boardRuntime button{margin:4px 6px 4px 0}
+.boardRuntimeProposal{margin-top:14px;padding:12px;border:1px solid var(--board-line);border-radius:8px}
+
 .boardExecutionState{display:grid;gap:.7rem;margin:1rem 0}.boardExecutionState div{border-left:3px solid var(--board-line);padding-left:.75rem}.boardExecutionState dt{font-size:.8rem;opacity:.75}.boardExecutionState dd{margin:.2rem 0;font-weight:600}.boardOriginal{margin:.8rem 0;font-size:.85rem}.boardOriginal summary{cursor:pointer}.boardOriginal p,.boardOriginal pre{white-space:pre-wrap;overflow-wrap:anywhere}.boardOriginal pre{font-size:.75rem}.boardResultLinks button{max-width:100%;text-align:left}.boardResultLinks p{font-size:.9rem;line-height:1.5}.boardOutcome{border-bottom:1px solid var(--board-line);padding-bottom:1rem;margin-bottom:1rem}
 
 .boardForm input{font:inherit;padding:.6rem;border:1px solid var(--board-line);border-radius:6px;min-width:0;max-width:100%;width:100%;box-sizing:border-box}.boardCreate{max-width:640px;padding:20px;margin:12px 0;border:1px solid var(--board-line);border-radius:12px}.boardCreate fieldset{min-width:0}.boardCreate textarea{box-sizing:border-box;width:100%}
