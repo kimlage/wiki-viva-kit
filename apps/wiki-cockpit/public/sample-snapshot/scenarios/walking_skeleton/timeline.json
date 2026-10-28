@@ -20,9 +20,9 @@
       "kind": "page_updated",
       "label": "Enviar proposta para Caio",
       "path": "memories/actions/action-enviar-proposta.md",
-      "status": "fresh",
+      "status": "unknown",
       "timestamp": "2026-07-11T00:00:00Z",
-      "weight": 2
+      "weight": 1
     },
     {
       "commit": "",

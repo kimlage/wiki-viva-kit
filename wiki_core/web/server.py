@@ -2093,19 +2093,6 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             session_manager=manager,
             session_token=token,
         )
-        if result.get("ok") and command_id in {"wiki.proposal.prepare", "wiki.proposal.adopt"}:
-            # Native documentary incorporation can advance only the C3 audit
-            # pointers. Refresh those without retaining stale server context;
-            # changes to authority/routes still require a reviewed restart.
-            loaded = load_config(self.server.root)
-            previous, candidate = asdict(self.server.config), asdict(loaded)
-            for key in ("freshness_base", "freshness_records"):
-                if key in previous["audit"]:
-                    candidate["audit"][key] = previous["audit"][key]
-                else:
-                    candidate["audit"].pop(key, None)
-            if candidate == previous:
-                self.server.config = loaded
         if (self._mutation_owned and not result.get("ok")
                 and not result.get("affected_paths") and not result.get("snapshot_invalidated")):
             # A refused execution mutated nothing; releasing here avoids an

@@ -223,32 +223,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--base", help="explicit commit or ref for --impact (required with --impact)"
     )
-    parser.add_argument("--record-review", action="store_true",
-                        help="Inspect configured documentary occurrences, without evaluation or writes")
-    parser.add_argument("--target", action="append", default=[],
-                        help="Authored repository path for --record-review; repeatable")
-    parser.add_argument("--out", type=Path,
-                        help="NEW private JSON output for --record-review; otherwise stdout")
     args = parser.parse_args(argv)
-    if args.record_review:
-        if args.impact or args.base is not None or args.write or args.check:
-            parser.error("--record-review cannot combine with --impact, --base, --write or --check")
-        if not args.target:
-            parser.error("--record-review requires --target")
-        from wiki_core.document_record_review import repository_review
-        try:
-            report = repository_review(ROOT, args.target)
-            text = json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
-            if args.out:
-                with args.out.open("x", encoding="utf-8") as handle:
-                    handle.write(text)
-            else:
-                print(text, end="")
-        except (OSError, ValueError, RuntimeError) as exc:
-            parser.exit(1, f"documentary review unavailable: {exc}\n")
-        return 0
-    if args.target or args.out is not None:
-        parser.error("--target and --out require --record-review")
 
     base_sha: str | None = None
     head_sha: str | None = None

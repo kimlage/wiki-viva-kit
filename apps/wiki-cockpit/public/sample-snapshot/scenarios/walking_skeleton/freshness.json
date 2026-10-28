@@ -1,9 +1,9 @@
 {
   "by_context": {
     "clientes": {
-      "fresh": 1,
+      "fresh": 0,
       "stale": 0,
-      "unknown": 0
+      "unknown": 1
     },
     "estudio": {
       "fresh": 0,
@@ -40,8 +40,8 @@
     }
   ],
   "summary": {
-    "fresh": 6,
+    "fresh": 5,
     "stale": 2,
-    "unknown": 0
+    "unknown": 1
   }
 }

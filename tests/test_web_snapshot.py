@@ -459,7 +459,8 @@ def test_snapshot_compiles_collections_once_for_pages_edges_and_diagnostics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _sample_repo(tmp_path)
-    original = snapshot_module.compile_collections
+    from wiki_core.web import snapshot_projection
+    original = snapshot_projection.compile_collections
     calls = 0
 
     def counted(*args, **kwargs):
@@ -467,7 +468,7 @@ def test_snapshot_compiles_collections_once_for_pages_edges_and_diagnostics(
         calls += 1
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(snapshot_module, "compile_collections", counted)
+    monkeypatch.setattr(snapshot_projection, "compile_collections", counted)
 
     snapshot = build_snapshot(
         tmp_path,
@@ -4231,7 +4232,8 @@ def test_pages_payload_skips_unreadable_page(tmp_path: Path, monkeypatch) -> Non
     config = _sample_repo(tmp_path)
     broken = tmp_path / "memories/example/broken.md"
     _write(broken, "---\npage_id: broken\n---\n\n# Broken\n")
-    original_record = snapshot_module._page_record
+    from wiki_core.web import snapshot_projection
+    original_record = snapshot_projection._page_record
 
     def fail_only_for_fixture(
         root,
@@ -4251,7 +4253,7 @@ def test_pages_payload_skips_unreadable_page(tmp_path: Path, monkeypatch) -> Non
             temporal_adapter_fields=temporal_adapter_fields,
         )
 
-    monkeypatch.setattr(snapshot_module, "_page_record", fail_only_for_fixture)
+    monkeypatch.setattr(snapshot_projection, "_page_record", fail_only_for_fixture)
     payload = _pages_payload(tmp_path, config)
     paths = {page["path"] for page in payload["pages"]}
     assert "memories/example/broken.md" not in paths

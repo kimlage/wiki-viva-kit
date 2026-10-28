@@ -1350,7 +1350,7 @@ Append-only record of changes in the [memories/](../index.md) layer.
 ## [2026-10-19] system | Software records under living rules
 
 - Documented the [existing v1 composition](../../docs/references/guides/software-change-records.md) in the [portable skill](../../.skills/wiki-viva/SKILL.md): canonical rules retain dates, limits and real factual support; historical origins and recording destinations require exact per-origin review.
-- The [composite synthetic case](../../tests/test_software_change_records.py) covers two new records, inherited metadata/introduction, rule contexts and six old obligation occurrences. Negative controls retain stale rules/facts, real financial claims and actual-change propagation. It does not establish closure of a consumer wiki or activate execution.
+- The [composite synthetic case](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_software_change_records.py) covers two new records, inherited metadata/introduction, rule contexts and six old obligation occurrences. Negative controls retain stale rules/facts, real financial claims and actual-change propagation. It does not establish closure of a consumer wiki or activate execution.
 - The [input-stage CLI](../../scripts/wiki_input_stage.py) emits a verified JSON catalog at its own generation date after a hidden-model change. [Regression tests](../../tests/test_input_stage.py) reject mismatching/malformed caches and retain read-only Markdown behavior. No graph schema or evaluator behavior changed.
 
 ## [2026-10-19] system | Validate cache dates without Markdown
@@ -1394,7 +1394,7 @@ Append-only record of changes in the [memories/](../index.md) layer.
   material-bound heading and a producer-declared destination link. Separate
   contributions on one day remain distinct, and the exact prior annotation
   format remains readable for retained-proposal recovery.
-- [Documentary support](../../wiki_core/contribution_records.py) derives one
+- [Documentary support](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/wiki_core/contribution_records.py) derives one
   observation for the exact new annotation and one structured selector for its
   canonical body receipt. Earlier log remainder and consumption hashes stay
   intact. Existing qualifications, historical artifacts, factual dates and
@@ -1404,10 +1404,10 @@ Append-only record of changes in the [memories/](../index.md) layer.
   checks each existing source binding and its unchanged event hash; the helper
   extends only that explicit context to its receipt-proved new record.
   Unqualified context and historical remainder dependencies stay factual.
-- [Synthetic regression coverage](../../tests/test_contribution_document_records.py)
+- [Synthetic regression coverage](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_contribution_document_records.py)
   exercises historical remainder consumption, consecutive preparations with
   real local producers/gates, replay and legacy compatibility. Receipt forgery
-  remains covered by the [effect proof controls](../../tests/test_contribution_effects.py).
+  remains covered by the [effect proof controls](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_contribution_effects.py).
   These tests do not establish an operator account, private C3, remote merge,
   selected-checkout adoption or a served runtime.
 
@@ -1423,13 +1423,13 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 ## [2026-10-25] Explicit documentary introductions
 
-- The [documentary view selector](../../wiki_core/document_view_selectors.py) can select a whole parser-delimited Markdown introduction as an explicitly reviewed factual record. The [contract](../../docs/references/freshness-impact.md#explicit-view-entries-opt-in-v2) keeps frontmatter common, exact BASE/CURRENT hashes, real context dependencies, WHOLE fallback and page freshness unchanged.
-- [Synthetic regressions](../../tests/test_document_preamble.py) distinguish an independent introduction from necessary approval context, retain whole-document consumers and stale factual prerequisites, and reject invalid or uncovered selections. This capability does not qualify any consumer's actual independence or source freshness.
+- The [documentary view selector](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/wiki_core/document_view_selectors.py) can select a whole parser-delimited Markdown introduction as an explicitly reviewed factual record. The [contract](../../docs/references/freshness-impact.md#explicit-view-entries-opt-in-v2) keeps frontmatter common, exact BASE/CURRENT hashes, real context dependencies, WHOLE fallback and page freshness unchanged.
+- [Synthetic regressions](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_document_preamble.py) distinguish an independent introduction from necessary approval context, retain whole-document consumers and stale factual prerequisites, and reject invalid or uncovered selections. This capability does not qualify any consumer's actual independence or source freshness.
 
 ## [2026-10-26] Reviewed causal boundaries and precise ingestion guidance
 
 - The optional [causal review contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) binds complete BASE/CURRENT inputs, occurrence obligations and independent review evidence. It distinguishes an unchanged, fresh, causally reviewed consumer from an unexamined fresh page while retaining real prerequisites and downstream debt.
-- [Synthetic coverage](../../tests/test_causal_review.py) preserves competing causes, historical selection scope, trust markers and stale-source blockers. No source date, account permission or promotion authority is granted by the new record.
+- [Synthetic coverage](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_causal_review.py) preserves competing causes, historical selection scope, trust markers and stale-source blockers. No source date, account permission or promotion authority is granted by the new record.
 - Corrected [ingestion guidance](ingestion-process.md) against the existing producer: secret screening precedes persistence, dry-run and score conditions are explicit, and consolidation presence checks remain distinct from source-backlink and synthesis audits. Historical update labels are retained; this is a normative review, not external factual revalidation.
 - Reconciled the complete [gates guide](wiki/gates-and-audit.md) and [PR governance](wiki/pr-governance.md) against the current verifier: freshness errors remain distinct from warnings, source targets have explicit backlink semantics, legacy-event skips do not waive other gates, and transition validation does not claim retrospective history validation. Normative review dates identify this check without renewing external facts.
 
@@ -1441,29 +1441,29 @@ Append-only record of changes in the [memories/](../index.md) layer.
 
 ## [2026-10-26] Complete units in reviewed causal updates
 
-- The [causal verifier](../../wiki_core/causal_review.py) compares the exact complete record when reviewing an unchanged unit beside a repaired sibling. Freshness must hold in both snapshots; a sibling's date cannot renew an old assertion.
-- The [document projector](../../wiki_core/document_records.py) identifies exact representation carriers only after checking coverage, selectors, contexts and the interpretation of every preserved component. Raw identities and all factual edges remain available to WHOLE consumers.
-- [Synthetic regressions](../../tests/test_causal_review.py) retain real stale prerequisites, common premises, WHOLE demand, changing scope and evidence, competing causes and independent review. The [contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) distinguishes untouched historical debt from the factual requirements of the actual change. No factual date, credential, permission or runtime configuration is altered.
+- The [causal verifier](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/wiki_core/causal_review.py) compares the exact complete record when reviewing an unchanged unit beside a repaired sibling. Freshness must hold in both snapshots; a sibling's date cannot renew an old assertion.
+- The [document projector](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/wiki_core/document_records.py) identifies exact representation carriers only after checking coverage, selectors, contexts and the interpretation of every preserved component. Raw identities and all factual edges remain available to WHOLE consumers.
+- [Synthetic regressions](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_causal_review.py) retain real stale prerequisites, common premises, WHOLE demand, changing scope and evidence, competing causes and independent review. The [contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) distinguishes untouched historical debt from the factual requirements of the actual change. No factual date, credential, permission or runtime configuration is altered.
 
 ## [2026-10-26] Explicit citations of previously applicable rules
 
 - The existing [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) accepts independently reviewed BASE evidence for an exact new citation between already-consumed units. Complete scope, consumer bytes, authority text and local mandatory context remain guarded; factual prerequisites retain their freshness checks.
-- The [applicability verifier](../../wiki_core/causal_authority.py) refuses new scopes, incomplete proofs, ambiguous occurrences, removed or reclassified relations and unreviewed meaning. [Synthetic tests](../../tests/test_causal_authority.py) distinguish documentary applicability from account authorization and retain competing causes. No historical relation, source date, permission or runtime setting is rewritten.
+- The [applicability verifier](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/wiki_core/causal_authority.py) refuses new scopes, incomplete proofs, ambiguous occurrences, removed or reclassified relations and unreviewed meaning. [Synthetic tests](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_causal_authority.py) distinguish documentary applicability from account authorization and retain competing causes. No historical relation, source date, permission or runtime setting is rewritten.
 
 ## [2026-10-26] Reviewed revalidation of intact normative rules
 
 - The existing [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) can record an actual sourced review of a complete intact normative rule through the `revalidated` disposition. It requires a stale BASE, fresh CURRENT, unchanged cadence, complete normative contexts and independent review of the exact pair.
-- The [revalidation verifier](../../wiki_core/causal_revalidation.py) preserves real prerequisites and competing causes. [Synthetic regressions](../../tests/test_causal_revalidation.py) reject inherited dates without proof, factual contexts, future verification, missing current evidence and replayed reviews. This mechanism does not revalidate external facts, change action/source states, or grant operational permissions.
+- The [revalidation verifier](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/wiki_core/causal_revalidation.py) preserves real prerequisites and competing causes. [Synthetic regressions](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_causal_revalidation.py) reject inherited dates without proof, factual contexts, future verification, missing current evidence and replayed reviews. This mechanism does not revalidate external facts, change action/source states, or grant operational permissions.
 
 ## [2026-10-26] Occurrence-bound reconciliation of repaired premises
 
 - The [causal contract](../../docs/references/freshness-impact.md#reviewed-causal-boundaries-opt-in-v2) can explicitly reconcile an intact consumer with a substantively repaired premise on that same arrival and seed. Complete scope, retained factual relations, freshness, other causes and independent review remain required.
-- The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) also proves exact append-only remainder equivalence without clearing WHOLE consumers or new records. [Arrival regressions](../../tests/test_causal_upstream_repairs.py) and [append regressions](../../tests/test_causal_append_partition.py) distinguish supported reconciliation from branch borrowing, scope loss, source aliases and stale replay. No account, credential or operational authority changes.
+- The [reconciliation verifier](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/wiki_core/causal_reconciliation.py) also proves exact append-only remainder equivalence without clearing WHOLE consumers or new records. [Arrival regressions](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_causal_upstream_repairs.py) and [append regressions](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_causal_append_partition.py) distinguish supported reconciliation from branch borrowing, scope loss, source aliases and stale replay. No account, credential or operational authority changes.
 
 ## [2026-10-26] Preserve relations throughout repaired factual context
 
-- The [reconciliation verifier](../../wiki_core/causal_reconciliation.py) now checks retained relations and mandatory contexts throughout the already-consumed BASE closure. A second path to the same authority cannot hide a removed, retargeted or reclassified relation behind a repaired premise.
-- [Synthetic counterexamples](../../tests/test_causal_reconciliation_review.py) cover deeper chains, cycles, multiplicity and changed contexts. Supported additions and unique relocations retain their existing limits; newly added prerequisites remain subject to factual freshness. This corrects the [PR141 review finding](https://github.com/kimlage/wiki-viva-kit/pull/141#discussion_r4383669406) without granting operational authority or reclassifying consumer data.
+- The [reconciliation verifier](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/wiki_core/causal_reconciliation.py) now checks retained relations and mandatory contexts throughout the already-consumed BASE closure. A second path to the same authority cannot hide a removed, retargeted or reclassified relation behind a repaired premise.
+- [Synthetic counterexamples](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_causal_reconciliation_review.py) cover deeper chains, cycles, multiplicity and changed contexts. Supported additions and unique relocations retain their existing limits; newly added prerequisites remain subject to factual freshness. This corrects the [PR141 review finding](https://github.com/kimlage/wiki-viva-kit/pull/141#discussion_r4383669406) without granting operational authority or reclassifying consumer data.
 
 ## [2026-10-27] Read-only lookup with explicit source provenance
 
@@ -1493,3 +1493,15 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - The [command reference](wiki/command-reference.md#common-flows) groups existing find, context, source and action methods by intended task. It distinguishes local inspection from external refresh/publication and received-result comments from documentary integration.
 - The [router](../../.skills/wiki-memory-router/SKILL.md) retains checkout instructions, factual coverage requirements and canonical-change gates while avoiding global maintenance for a simple lookup. The [CLI introduction](../../scripts/README.md) points to the same map; no command, service, index, writer or authorization mechanism is added.
 - The task map lives in the portable [CLI guide](../../scripts/README.md#task-entry-points), selected by C1. The public reference links to it; translated consumers can retain their own memory roots and route to the same map without copying the public memory tree.
+
+## [2026-10-28] System | Simplify the operating core
+
+- Retired executable release certification and documentary hash/record contracts.
+- Kept source dependency review, exact-head independent review, canonical action
+  writes and public/privacy gates; [freshness rules](../../docs/references/freshness-impact.md).
+- Split [snapshot projection](../../wiki_core/web/snapshot_projection.py) from
+  [publication and recovery](../../wiki_core/web/snapshot.py), preserving APIs.
+- Narrowed [consumer sync](../../docs/references/upgrades/sync-manifest.yaml) to
+  omit public demonstration bundles and generic Python suites.
+- Links to removed implementation in earlier entries now point to the immutable
+  pre-migration Git revision; historical assertions and dates are preserved.

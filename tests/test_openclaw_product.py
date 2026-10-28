@@ -31,27 +31,13 @@ def product(tmp_path,monkeypatch,request):
                  ('remote','add','origin','git@github.com:synthetic/wiki.git'),('add','.'),('commit','-qm','fixture')]:
         subprocess.run(['git',*args],cwd=tmp_path,check=True,capture_output=True)
     if getattr(request,'param',False):
-        from wiki_core.freshness_impact import authored_graph
-        from wiki_core.document_records import digest, edge_digest, sections
         log=tmp_path/'memories/historical-log.md'
-        log.write_text('---\npage_id: historical-log\npage_type: system_log\ncontext: system\nvisibility: private_self\nupdated_at: 2026-01-01\nstale_after_days: 30\n---\n\n# Log\n\n## Historical pointer\n\nUse the [action](actions/action-server-synthetic.md) to navigate to its current card.\n')
+        log.write_text('---\npage_id: historical-log\npage_type: system_log\ncontext: system\nvisibility: private_self\nupdated_at: 2026-01-01\nstale_after_days: 30\n---\n\n# Historical log\n\nHistorical note; no current assertion.\n')
         subprocess.run(['git','add','.'],cwd=tmp_path,check=True,capture_output=True)
         subprocess.run(['git','commit','-qm','Synthetic historical record'],cwd=tmp_path,check=True,capture_output=True)
-        graph=authored_graph(tmp_path,load_config(tmp_path));ref='memories/historical-log.md'
-        record={'id':'pointer','heading':'Historical pointer','independent':True,'rationale':'Historical locator only.',
-                'epistemic_status':'observation','recorded_on':'2026-01-01','context_records':[],
-                'base_sha256':digest(sections(graph['documents'][ref])[1]['Historical pointer'][2]),
-                'current_sha256':digest(sections(graph['documents'][ref])[1]['Historical pointer'][2])}
-        edge=next(e for e in graph['edges'] if e['source']==ref and e['target']==action.relative_to(tmp_path).as_posix())
-        contract={'schema_version':'document_record.v1','documents':[{'path':ref,'records':[record]}],
-                  'bindings':[{'origin':origin,'edge_sha256':edge_digest(edge),'consumer_record':'pointer','role':'navigation',
-                    'target_document_sha256':hashlib.sha256(action.read_bytes()).hexdigest(),
-                    'rationale':'Exact sentence directs navigation and asserts no current action facts.'} for origin in ('base','current')]}
-        for origin in ('base','current'):contract[origin+'_documents_sha256']={p:digest(t) for p,t in graph['documents'].items()}
-        contract_ref='docs/references/active-records.json';target=tmp_path/contract_ref;target.parent.mkdir(parents=True);target.write_text(json.dumps(contract))
-        cfg=yaml.safe_load(cp.read_text());cfg['audit']={'freshness_base':oc.git(tmp_path,'rev-parse','HEAD'),'freshness_records':contract_ref};cp.write_text(yaml.safe_dump(cfg))
+        cfg=yaml.safe_load(cp.read_text());cfg['audit']={'freshness_scope':'impact','freshness_base':oc.git(tmp_path,'rev-parse','HEAD')};cp.write_text(yaml.safe_dump(cfg))
         subprocess.run(['git','add','.'],cwd=tmp_path,check=True,capture_output=True)
-        subprocess.run(['git','commit','-qm','Pin historical review'],cwd=tmp_path,check=True,capture_output=True)
+        subprocess.run(['git','commit','-qm','Use scoped freshness'],cwd=tmp_path,check=True,capture_output=True)
     h={'sessionId':'synthetic-session','sessionInfo':{'hasActiveRun':False,'status':'done','lastRunId':'previous', 'activeLeafEntryId':'leaf'},
        'pendingInputs':{'total':0},'messages':[]}
     calls=[]
@@ -201,21 +187,17 @@ def test_server_restart_recovers_same_run_and_prepared_proposal_without_dispatch
 def test_product_c3_preserves_history_and_admits_pure_receipt(product):
     from wiki_core.freshness_impact import repository_report
     srv,root,action,params,unlock,calls=product;token=unlock()
-    cfg=srv.server.config;before=json.loads((root/cfg.audit['freshness_records']).read_text())
+    cfg=srv.server.config;before=(root/'memories/historical-log.md').read_bytes()
     assert repository_report(root,cfg,cfg.audit['freshness_base'])['ok']
     sent,_=execute(srv,token,'agents.openclaw.dispatch',params)
     query={'profile':'research','action_id':params['action_id'],'effect_key':sent['effect_key']}
     execute(srv,token,'agents.openclaw.inspect',query)
     material,_=execute(srv,token,'agents.openclaw.receipt',query)
     execute(srv,token,'wiki.proposal.prepare',{k:material[k] for k in ('material_path','material_sha256')})
-    current=load_config(root);after=json.loads((root/current.audit['freshness_records']).read_text())
-    assert srv.server.config == current
-    assert after['base_documents_sha256']==before['base_documents_sha256']
-    assert after['documents']==before['documents'] and after['bindings'][0]==before['bindings'][0]
-    expected=copy.deepcopy(before);new_sha=hashlib.sha256(action.read_bytes()).hexdigest()
-    expected['current_documents_sha256'][action.relative_to(root).as_posix()]=new_sha
-    expected['bindings'][1]['target_document_sha256']=new_sha
-    assert after==expected
+    current=load_config(root)
+    assert srv.server.config == current == cfg
+    assert (root/'memories/historical-log.md').read_bytes() == before
+    assert not list((root/'docs').rglob('records.json'))
     report=repository_report(root,current,current.audit['freshness_base'])
     assert report['ok'],report
     assert len(report['operational_comments'])==1 and report['unrelated_debt']

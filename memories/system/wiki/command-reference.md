@@ -41,7 +41,6 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_find.py](../../../scripts/wiki_find.py) | Read-only lexical lookup with provenance and explicit index/context gaps |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Inspect/transition proposal gates |
 | [wiki_gc.py](../../../scripts/wiki_gc.py) | Remove orphan derived artifacts |
-| [wiki_git_subject.py](../../../scripts/wiki_git_subject.py) | Emit a path-safe Git diagnostic fingerprint |
 | [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Run end-to-end ingestion |
 | [wiki_ingestion_closure_report.py](../../../scripts/wiki_ingestion_closure_report.py) | Report ingestion closure |
 | [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) | Compile the input stage |

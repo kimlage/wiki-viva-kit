@@ -164,153 +164,21 @@ drafts, requested changes and an explicitly required human review. Local gates
 never replace independent review of the exact generated head.
 
 After the local gates, integration rereads canonical policy and overlapping
-action/log/support bytes, the PR and proposal head before the normal
+action/log bytes, the PR and proposal head before the normal
 `--match-head-commit` merge. GitHub branch protections remain authoritative; no
 administrative bypass is requested. An uncertain merge still requires
 reconciliation without repeating the effect. A local-mode dry run performs no
 gates and returns `validation_status: local_validation_required` with
 `gates_not_run: true`, rather than claiming integration readiness. Selecting
-local validation does not waive the documentary-support contract below.
+local validation never waives source freshness or independent review.
 
-## Exact documentary support (optional)
+## Documentary freshness
 
-An exact `audit.freshness_records` contract binds the entire BASE and CURRENT
-document maps. A normal contribution changes the action and log, so leaving
-that contract unchanged makes the real auditor refuse the proposal. Merely
-configuring an audit input does not authorize the port to write it.
-
-A project operator may opt in through the approved parent policy:
-
-```yaml
-approval:
-  contribution_record_support: true
-```
-
-The default is `false`. The model request still contains exactly one action.
-The port derives only the one existing tracked, regular JSON contract named by
-the parent's `audit.freshness_records`, outside memory/raw/cache/secret paths.
-It validates the actual configured BASE and parent CURRENT using the existing
-projector (this bounded option requires `audit.freshness_base` to be a full
-commit SHA), then updates the final action/log CURRENT hashes. An existing
-last H2 record in the log may acquire only the exact blank separator from the
-canonical append. All existing BASE hashes, semantic record content, artifacts,
-dates, roles, evidence, rationales and contexts remain unchanged. Duplicate JSON
-keys, unsupported selectors and changed semantic record content cause refusal.
-
-New canonical annotations have a material-bound H2 heading and an exact
-producer-declared change-target link to the action. After verifying the actual
-body-integration receipt, independent material review and complete annotation,
-the helper derives exactly one new H2 observation record and one structured
-evidence selector for that specific receipt in `action_state_history`. Its
-date is the receipt's actual UTC date. The model cannot supply that declaration,
-change its meaning or choose an extra output path. The generated head still
-requires independent review before integration.
-
-The new record selects only the appended annotation and its necessary blank
-separator. Earlier log remainder bytes and historical consumption hashes stay
-unchanged, so an older observation does not silently consume the next entry.
-Repeated contributions on the same day have distinct material-bound headings.
-This does not reclassify a WHOLE consumer or an unqualified recording obligation.
-The exact legacy annotation format remains readable: a retained legacy proposal
-reconstructs its original support without adding records retroactively. No
-existing assertion is given a newer date or replacement evidence.
-
-Affected occurrence guards and consumed-record bindings require explicit
-project migration (C3). The port never infers eligibility from `navigation`,
-`change_target`, a phrase or an empty evidence list. A capture proving an
-earlier log update does not prove a future update.
-
-A reviewed `document_record.v2` parent contract can explicitly qualify an
-individual CURRENT `change_target` occurrence with
-`"contribution_effect": "canonical_log_annotation"`. This narrow qualification
-requires the exact configured log, a canonical `prerequisite_document_sha256`,
-no `evidence` field (including an empty list), and unchanged consumer document
-and occurrence context. BASE, other roles, legacy hash aliases and unknown
-values are invalid. Ordinary projection still checks the exact hash; the
-qualification itself proves no completed write.
-
-Only support derivation can advance that one CURRENT guard, after proving the
-actual new canonical body receipt/history and matching material, effect,
-task/run/session and independent review, plus the exact canonical log append.
-Preparation, immutable candidate validation and merged canonical readback use
-the same proof. Valid earlier dialogue suffixes remain preserved. An unmarked
-or evidence-bearing guard still refuses: initial C3 must separately preserve
-and justify the dated old proof, never silently remove it or turn it into proof
-of the new transaction. The helper cannot add a qualification, change an
-existing role/evidence/rationale/context or renew BASE or old artifacts. Its
-only new evidence is the already-proved canonical body receipt for its own
-new annotation; it proves preparation, not external execution or served adoption.
-
-A historical ingestion event's `consolidated_into` relation is factual context
-inherited by every log record. Isolating a new H2 does not automatically exempt
-it from that context. C3 may separately author the following v2 qualification
-(the hash placeholder must be replaced with the exact existing occurrence):
-
-```json
-"canonical_log_annotation_context": {
-  "log_path": "memories/system/log.md",
-  "bindings": [{
-    "edge_sha256": "<exact CURRENT occurrence SHA-256>",
-    "consumer_record": "reviewed-later-observation",
-    "rationale": "This exact historical write destination supplies no facts to the fixed receipt-backed preparation annotation."
-  }]
-}
-```
-
-Each entry must reference an already valid CURRENT `change_target` binding for
-an explicit H2 record in that log. The actual relation must be an ingestion
-event's frontmatter `consolidated_into` pointing to the log, with an exact source
-document guard and no evidence, effect marker or hash alias. Duplicate or
-unmatched occurrences are refused. After the canonical receipt proof, support
-derivation can add that exact qualification for its new H2, using the separately
-authored rationale. The event, its guard, the historical bindings, the remainder
-dependency and all prior evidence remain unchanged. No unlisted source or
-arbitrary new record gains this treatment. Without this explicit qualification,
-the inherited dependency remains factual and can block preparation normally.
-
-`record_support_c3_required` identifies other binding or declaration fields to
-review. This mechanism does not author the complete initial five-view C3. In
-particular, the real body writer sets `updated_at` to the receipt's UTC date;
-if that changes a producer's content or ordering, normal checks still refuse.
-Do not anticipate or renew a date to make those checks pass.
-
-The opted-in transaction also runs the real source-registry, operation and
-operational-pass checks alongside the existing auditor/input-stage gates.
-Other authored pages, including the action index, remain byte-identical.
-If an H1 or other producer input requires a generated view update, preparation
-refuses instead of adding another output file. Failed checks install no ref.
-
-The generated proposal and exact-head review bind all three files. Reuse,
-publication, reconciliation and merged readback recompute the exact support
-from the immutable parent and validated canonical action/log delta. Local
-support/input drift fails the late CAS. Publication and OPEN integration
-require freshly observed canonical HEAD to equal the proposal parent; a main
-advance is a conflict, without automatic rebase or hash renewal. The remote
-base may still race that observation: post-merge readback detects an unexpected
-parent or support, retains `remote_merged`, and reports unknown rather than
-replaying or rolling back. Canonical readback also validates the complete
-document pair and retained artifact bytes. Readback covers the support file as well as the
-action/log; selected checkout and served adoption remain separate observations.
-
-A dry-run preparation does not derive support or run these gates and therefore
-does not establish contract eligibility. With the flag off, the original
-two-path flow and its exact-contract refusal remain unchanged.
-
-Retained and merged proposal validation reads support eligibility, modes and
-artifact bytes from immutable Git. A missing, aliased or executable local
-support file reports `waiting_worktree_adoption` after canonical validation;
-recovery does not follow or replace it. Preparation, its late CAS and integration
-still require a safe regular local support file with the expected preimage,
-using the existing bounded file reader. Working-tree audits retain their normal
-filesystem guards for evidence. Git-only artifact validation checks the entry
-types in both frozen cuts instead of resolving aliases in the selected checkout.
-
-Successful repeated preparation and reconciliation reconstruct the same
-`generated_paths` and `receipt_id` from the validated commit and frozen parent
-policy. They do not depend on retaining the first response. The list contains
-the verified canonical log and, when opted in, the exact derived contract; a
-model-supplied path list never determines it. A dry run or an unvalidated
-candidate does not establish this prepared receipt.
+The contribution writes only the action and its existing memory log. No hash
+contract is regenerated. Migrate old support configuration using
+[scoped freshness](../freshness-impact.md#migrating-from-documentary-contracts)
+before preparing new contributions. Approved-parent policy, exact material and
+head review, action/log CAS and readback remain required.
 
 ## Recovery and adoption coverage
 

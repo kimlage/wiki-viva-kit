@@ -25,7 +25,6 @@ from wiki_core.paths import WikiPaths
 
 SCHEMA = "wiki_action_contribution.v1"
 COVERAGE = "one_action_body_and_existing_memory_log_annotation"
-RECORD_COVERAGE = COVERAGE + "; exact_opted_in_documentary_support"
 OPERATIONS = frozenset({"prepare_contribution", "publish_contribution", "integrate_contribution", "reconcile_contribution"})
 
 
@@ -142,45 +141,23 @@ def _head_review(request: dict, material: str, commit: str, review: Any) -> dict
     return _review(request, material, review)
 
 
-def _support_identity(request: dict, material: str, review: dict) -> dict:
-    return {"material_sha256": material, "effect_key": request["effect_key"], "review": review,
-            **{field: request[field] for field in ("task_ref", "run_ref", "session_ref")}}
-
-
-def _support(root: Path, parent: str, path: str, log_ref: str, graph: dict, *, final_revision=None,
-             contribution_identity=None):
-    from wiki_core.contribution_records import derive_support
-    try:
-        return derive_support(root, parent, path, log_ref, graph, final_revision=final_revision,
-                              contribution_identity=contribution_identity)
-    except ValueError as exc:
-        raise ContributionError(str(exc)) from exc
-
-
-def _support_path(root: Path, parent: str, *, require_worktree: bool = False):
-    from wiki_core.contribution_records import support_path
-    try:
-        return support_path(root, parent, require_worktree=require_worktree)
-    except ValueError as exc:
-        raise ContributionError(str(exc)) from exc
-
-
-def _support_bytes(root: Path, path: str):
-    from wiki_core.contribution_records import worktree_support_bytes
-    try:
-        return worktree_support_bytes(root, path)
-    except ValueError as exc:
-        raise ContributionError(str(exc)) from exc
+def _parent_policy(root: Path, parent: str) -> WikiConfig:
+    """Read policy from the immutable approved parent, never caller input."""
+    with tempfile.TemporaryDirectory(prefix="wiki-contribution-policy-") as directory:
+        location = Path(directory)
+        (location / "wiki.config.yaml").write_text(_blob(root, parent, "wiki.config.yaml"))
+        config = load_config(location)
+    if config.approval.get("contribution_record_support"):
+        raise ContributionError("documentary_support_retired: migrate the approved policy first")
+    return config
 
 
 def _generated_paths(root: Path, commit: str) -> list[str]:
     """Describe the generated files of an already `_entry`-validated commit."""
-    from wiki_core.contribution_records import parent_policy
     parent = _git(root, "rev-parse", commit + "^")
-    config, _ = parent_policy(root, parent)
+    config = _parent_policy(root, parent)
     log = WikiPaths(root, config).log_page.relative_to(root).as_posix()
-    support = _support_path(root, parent)
-    return [log] + ([support] if support else [])
+    return [log]
 
 
 def _entry(root: Path, commit: str, path: str, request: dict, material: str,
@@ -191,8 +168,7 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str,
     if not approved:
         raise ContributionError("approved_base_unavailable")
     _git(root, "merge-base", "--is-ancestor", parent, approved)
-    from wiki_core.contribution_records import parent_policy
-    frozen_config, _ = parent_policy(root, parent)
+    frozen_config = _parent_policy(root, parent)
     log_ref = WikiPaths(root, frozen_config).log_page.relative_to(root).as_posix()
     text = _blob(root, commit, path)
     fm, _ = _parse_document(text)
@@ -230,24 +206,12 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str,
     if _blob(root, commit, log_ref) not in expected_logs:
         raise ContributionError("candidate_log_annotation_tampered")
     allowed = [path, log_ref]
-    support_ref = _support_path(root, parent)
-    if support_ref:
-        from scripts.wiki_page_graph import project_memory_at_commit
-        from wiki_core.freshness_impact import authored_graph
-        support = _support(root, parent, path, log_ref,
-                           project_memory_at_commit(commit, authored_graph, root=root), final_revision=commit,
-                           contribution_identity=_support_identity(request, material, metadata["review"]))
-        if _blob(root, commit, support_ref).encode() != support[1]:
-            raise ContributionError("candidate_record_support_tampered")
-        if _git(root, "ls-tree", parent, "--", support_ref).split()[0] != _git(root, "ls-tree", commit, "--", support_ref).split()[0]:
-            raise ContributionError("candidate_record_support_mode_changed")
-        allowed.append(support_ref)
     if _git(root, "diff", "--name-only", parent, commit).splitlines() != sorted(allowed):
         raise ContributionError("proposal_exceeds_body_and_log_annotation")
     return entry, text
 
 
-def _gates(root: Path, config: WikiConfig, *, record_support: bool = False,
+def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
            committed_head: str | None = None, effect_runner=None) -> list[dict]:
     commands = [
         [sys.executable, "scripts/wiki_audit.py", "--check"],
@@ -255,7 +219,7 @@ def _gates(root: Path, config: WikiConfig, *, record_support: bool = False,
         [sys.executable, "scripts/wiki_pr_summary.py"],
         ["git", "diff", "--check", *([committed_head + "^", committed_head] if committed_head else [])],
     ]
-    if record_support:
+    if full_checks:
         commands.extend([[sys.executable, "scripts/" + name + ".py", "--check"] for name in
                          ("wiki_source_registry", "wiki_operation_compile", "wiki_operational_pass")])
     extra = config.approval.get("contribution_gates", [])
@@ -295,12 +259,12 @@ def _validation_policy(config: WikiConfig) -> str:
 
 def _local_integration_gates(root: Path, commit: str, *, effect_runner=None,
                              required_policy: str = "local_gates",
-                             record_support_override: bool | None = None) -> list[dict]:
+                             full_checks: bool = False) -> list[dict]:
     """Re-run the existing gates on the immutable reviewed head, never caller receipts.
 
     This local clone reads retained Git objects, without fetching from GitHub or
     switching the application's checkout. `_entry` already restricts the commit
-    delta to the action/log/support, so policy and gate code come from its
+    delta to the action/log, so policy and gate code come from its
     approved parent. Ignored caches may change; authored files and HEAD may not.
     """
     with tempfile.TemporaryDirectory(prefix="wiki-contribution-validation-") as temporary:
@@ -310,9 +274,8 @@ def _local_integration_gates(root: Path, commit: str, *, effect_runner=None,
         config = load_config(scratch)
         if _validation_policy(config) != required_policy:
             raise ContributionError("committed_validation_policy_mismatch")
-        support = _support_path(scratch, _git(scratch, "rev-parse", commit + "^"))
         receipts = _gates(scratch, config,
-                          record_support=bool(support) if record_support_override is None else record_support_override,
+                          full_checks=full_checks,
                           committed_head=commit, effect_runner=effect_runner)
         if (_git(scratch, "rev-parse", "HEAD") != commit
                 or _git(scratch, "status", "--porcelain", "--untracked-files=all")):
@@ -358,13 +321,6 @@ def _integration_source_check(root: Path, config: WikiConfig, commit: str, path:
     base_branch = str(config.approval.get("default_branch") or "main")
     canonical = _canonical_observation(root, base_branch, dry_run=dry_run)
     parent = _git(root, "rev-parse", commit + "^")
-    support_ref = _support_path(root, parent)
-    if support_ref:
-        if canonical != parent:
-            raise ContributionError("record_support_canonical_parent_advanced: reconcile required")
-        _support_path(root, parent, require_worktree=True)
-        if _support_bytes(root, support_ref) != _blob(root, parent, support_ref).encode():
-            raise ContributionError("record_support_changed_since_prepare")
     if _blob(root, canonical, "wiki.config.yaml") != _blob(root, commit, "wiki.config.yaml"):
         raise ContributionError("canonical_policy_changed: reconcile required")
     if _blob(root, canonical, path) != _blob(root, parent, path):
@@ -442,9 +398,10 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
                 "material_sha256": material, "receipt_id": entry["receipt_id"],
                 "after_sha256": _sha(text), "idempotent": True,
                 "generated_paths": _generated_paths(root, existing),
-                "coverage": RECORD_COVERAGE if _support_path(root, _git(root, "rev-parse", existing + "^")) else COVERAGE}
+                "coverage": COVERAGE}
     target, path = _contained_action_path(root, path)
     base = _git(root, "rev-parse", "HEAD")
+    _parent_policy(root, base)  # Refuse retired policy before dry-run or effects.
     approved_branch = str(config.approval.get("default_branch") or "main")
     refs = [f"refs/remotes/origin/{approved_branch}", f"refs/heads/{approved_branch}"]
     approved = None
@@ -475,16 +432,6 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
     policy = _blob(root, base, "wiki.config.yaml")
     if (root / "wiki.config.yaml").read_text() != policy:
         raise ContributionError("uncommitted_policy")
-    support_ref = _support_path(root, base, require_worktree=True)
-    support_before = None
-    support_inputs = None
-    if support_ref:
-        from wiki_core.freshness_impact import input_hashes
-        support_before = _support_bytes(root, support_ref)
-        if support_before != _blob(root, base, support_ref).encode():
-            raise ContributionError("uncommitted_record_support")
-        _assert_no_secrets(support_before.decode())
-        support_inputs = input_hashes(root, config)
     if dry_run:
         return {"status": "ready_to_prepare", "material_sha256": material,
                 "branch": branch, "coverage": COVERAGE}
@@ -508,18 +455,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         fm_after, _ = _parse_document((scratch / path).read_text())
         append_contribution_log(scratch, log_ref, path, material, fm_after["action_state_history"][-1]["at"])
         expected_log = (scratch / log_ref).read_text()
-        support = None
-        if support_ref:
-            from wiki_core.freshness_impact import authored_graph
-            support = _support(scratch, base, path, log_ref, authored_graph(scratch, load_config(scratch)),
-                               contribution_identity=_support_identity(request, material, review))
-            (scratch / support_ref).write_bytes(support[1])
-        gates = (_gates(scratch, load_config(scratch), record_support=True) if support_ref
-                 else _gates(scratch, load_config(scratch)))
-        if support and _support_bytes(scratch, support_ref) != support[1]:
-            raise ContributionError("gate_modified_record_support")
-        if support_ref:
-            _support_path(scratch, base, require_worktree=True)
+        gates = _gates(scratch, load_config(scratch))
         if (scratch / log_ref).read_text() != expected_log:
             raise ContributionError("gate_modified_log_annotation")
         # Check commands may not silently modify the reviewed proposal.
@@ -527,7 +463,7 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         if _sha(after) != receipt["after_sha256"]:
             raise ContributionError("gate_modified_proposal")
         changed = _git(scratch, "diff", "--name-only", base).splitlines()
-        allowed = [path, log_ref] + ([support_ref] if support_ref else [])
+        allowed = [path, log_ref]
         if changed != sorted(allowed) or _git(scratch, "ls-files", "--others", "--exclude-standard"):
             raise ContributionError("gate_modified_other_paths")
         _git(scratch, "add", "--", *allowed)
@@ -536,13 +472,8 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
         # No model/audit work under these process-shared guards. Revalidate
         # HEAD, bytes and policy immediately before installing the proposal ref.
         with ExitStack() as locks:
-            for lock in ["contribution-ref:" + branch, path, source_log_ref, *([support_ref] if support_ref else [])]:
+            for lock in ["contribution-ref:" + branch, path, source_log_ref]:
                 locks.enter_context(_action_file_lock(root, lock))
-            if support_ref:
-                if (_support_path(root, base, require_worktree=True) != support_ref
-                        or _support_bytes(root, support_ref) != support_before
-                        or input_hashes(root, config) != support_inputs):
-                    raise ContributionError("record_support_inputs_changed_during_prepare")
             if (_git(root, "rev-parse", "HEAD") != base or target.read_text() != before
                 or (root / "wiki.config.yaml").read_text() != policy
                 or source_log_path.read_text() != source_log):
@@ -554,8 +485,8 @@ def _prepare(root: Path, config: WikiConfig, request: dict, review: dict | None,
     return {"status": "prepared", "proposal_commit": commit, "branch": branch,
             "material_sha256": material, "after_sha256": receipt["after_sha256"],
             "receipt_id": receipt["receipt_id"], "gate_receipts": gates,
-            "idempotent": False, "coverage": RECORD_COVERAGE if support_ref else COVERAGE,
-            "generated_paths": [log_ref] + ([support_ref] if support_ref else [])}
+            "idempotent": False, "coverage": COVERAGE,
+            "generated_paths": [log_ref]}
 
 
 def _repository(root: Path) -> str:
@@ -780,32 +711,13 @@ def _canonical_readback(root: Path, config: WikiConfig, pr: dict, path: str,
     local = local and current_log == expected_log and log_path.read_text() == current_log
     readback_files = [{"path": path, "sha256": _sha(current_text)},
                       {"path": log_ref, "sha256": _sha(current_log)}]
-    support_ref = _support_path(root, _git(root, "rev-parse", candidate + "^"))
-    if support_ref:
-        expected_support = _blob(root, candidate, support_ref)
-        if _blob(root, merge, support_ref) != expected_support:
-            raise ContributionError("merged_record_support_readback_mismatch")
-        if (_git(root, "rev-parse", merge + "^") != _git(root, "rev-parse", candidate + "^")
-                or _blob(root, remote_head, support_ref) != expected_support):
-            raise ContributionError("canonical_record_support_snapshot_changed: reconcile required")
-        from scripts.wiki_page_graph import project_memory_at_commit
-        from wiki_core.freshness_impact import authored_graph
-        observed = _support(root, _git(root, "rev-parse", candidate + "^"), path, log_ref,
-                            project_memory_at_commit(remote_head, authored_graph, root=root),
-                            final_revision=remote_head,
-                            contribution_identity=_support_identity(request, material, entry["contribution"]["review"]))
-        if observed[1] != expected_support.encode():
-            raise ContributionError("canonical_record_support_snapshot_changed: reconcile required")
-        from wiki_core.contribution_records import worktree_support_matches
-        local = local and worktree_support_matches(root, support_ref, expected_support.encode())
-        readback_files.append({"path": support_ref, "sha256": _sha(expected_support)})
     return {"status": "adopted_in_checkout" if local else "waiting_worktree_adoption",
             "remote_merged": True, "source_commit": merge, "canonical_head": remote_head,
             "canonical_body_adopted": local, "readback_sha256": _sha(current_text),
             "merged_sha256": _sha(merged_text), "canonical_matches_material": current_text == expected,
             "worktree_adopted": local, "served_adoption_verified": False,
             "generated_paths": _generated_paths(root, candidate),
-            "coverage": (RECORD_COVERAGE if support_ref else COVERAGE) + "; Git source and selected checkout only",
+            "coverage": COVERAGE + "; Git source and selected checkout only",
             "readback_files": readback_files}
 
 
@@ -845,9 +757,6 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
                 return {**result, "ok": True, "status": "waiting_policy_adapter"}
             repository = _repository(root)
             parent = _git(root, "rev-parse", commit + "^")
-            if _support_path(root, parent) and _canonical_observation(
-                    root, str(config.approval.get("default_branch") or "main"), dry_run=dry_run) != parent:
-                raise ContributionError("record_support_canonical_parent_advanced: reconcile required")
             if dry_run:
                 return {**result, "ok": True, "status": "dry_run", "validation_status": "ready_to_publish",
                         "proposal_commit": commit, "repository": repository}

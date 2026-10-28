@@ -6,15 +6,7 @@ portable:
     - wiki_core/**
     - scripts/wiki_*.py
     - scripts/_common.py
-    - scripts/_git_subject.py
     - scripts/README.md
-    - tests/test_action_contribution.py
-    - tests/test_action_contribution_recovery.py
-    - tests/test_action_contribution_validation.py
-    - tests/test_build_demo.py
-    - tests/test_coordination.py
-    - tests/test_source_registry_policy.py
-    - tests/test_web_snapshot.py
     - apps/wiki-cockpit/**
     - .skills/wiki-*/**
     - packs/**
@@ -23,8 +15,12 @@ portable:
     - docs/references/templates/deploy/**
     - docs/references/templates/wiki/subagent-brief.md
     - docs/references/schemas/**
-    - docs/references/fixtures/demo-wiki/**
   block:
+    - apps/wiki-cockpit/e2e/**
+    - apps/wiki-cockpit/scripts/demo-journeys.test.mjs
+    - apps/wiki-cockpit/playwright.config.ts
+    - apps/wiki-cockpit/public/sample-snapshot/**
+    - scripts/wiki_build_demo.py
     - apps/wiki-cockpit/node_modules/**
     - data/**
     - memories/**
@@ -38,5 +34,4 @@ portable:
 
 # C2 is deterministic and kit-owned. C3 is always explicit on the CLI because
 # adapters, configuration and domain content belong to the consumer.
-c2_commands:
-  - [python3, scripts/wiki_build_demo.py]
+c2_commands: []

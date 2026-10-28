@@ -53,7 +53,7 @@
     {
       "approved_state": "approved",
       "context": "clientes",
-      "freshness_state": "fresh",
+      "freshness_state": "unknown",
       "page_id": "action-enviar-proposta",
       "page_type": "action",
       "path": "memories/actions/action-enviar-proposta.md",
@@ -238,6 +238,6 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-183c7dad5024e109",
+  "snapshot_id": "wiki-viva-demo-826d4fefc0fac3f2",
   "source_refs": []
 }

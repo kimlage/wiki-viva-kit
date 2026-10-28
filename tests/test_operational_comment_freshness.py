@@ -9,7 +9,6 @@ from wiki_core.action_transition import (
     operational_comment_receipt, transition_action_page,
 )
 from wiki_core.config import load_config
-from wiki_core.document_records import project_records
 from wiki_core.freshness_impact import authored_graph, evaluate_impact, repository_report
 from tests.test_action_transition import _write_action
 from tests.test_freshness_impact import repo, page, commit, paths
@@ -131,34 +130,6 @@ def test_comment_and_lifecycle_receipts_keep_their_distinct_dates(repo):
     assert operational_comment_receipt(original, action.read_text()) is None
 
 
-def test_records_still_require_exact_physical_snapshot_and_causal_pair(repo):
-    from tests.test_causal_review import authored, run, contract
-    action = setup(repo)
-    cfg = load_config(repo)
-    base = authored_graph(repo, cfg)
-    # Reuse the existing independent declaration and review fixture.
-    declaration = '# Declaration\n\n## Stable\n\nComplete unrelated unit.\n'
-    base['documents']['declaration'] = declaration
-    base['nodes']['declaration'] = dict(updated_at='2026-10-26', stale_after_days=30)
-    comment(repo, action)
-    current = authored_graph(repo, cfg)
-    current['documents']['declaration'] = declaration
-    current['nodes']['declaration'] = copy.deepcopy(base['nodes']['declaration'])
-    changed = {action.relative_to(repo).as_posix()}
-    spec = contract(base, current)
-    wrong = copy.deepcopy(spec)
-    wrong['current_documents_sha256'] = copy.deepcopy(wrong['base_documents_sha256'])
-    with pytest.raises(ValueError, match='document snapshot'):
-        project_records(current, base, changed, wrong)
-    reviewed, inputs = authored(base, current, changed, spec=spec)
-    result = run(base, current, changed, reviewed, inputs)
-    assert result['ok'] and result['operational_comments']
-    assert result['causal_review']['potential_obligations'] == 0
-    pc, pb, seeds, _ = project_records(current, base, changed, reviewed, artifact_inputs=inputs)
-    pc['documents'][next(iter(changed))] += 'Unreviewed assertion.\n'
-    with pytest.raises(ValueError, match='causal inputs changed'):
-        evaluate_impact(pc, pb, seeds, today=TODAY)
-
 
 def test_legacy_date_renewing_comment_is_auditable_but_not_qualified(repo):
     action = setup(repo)
@@ -173,27 +144,6 @@ def test_legacy_date_renewing_comment_is_auditable_but_not_qualified(repo):
     assert action_transition_diagnostics(before, legacy) == ()
     assert operational_comment_receipt(before, legacy) is None
 
-
-def test_partitioned_action_and_generated_view_keep_independent_obligations(repo):
-    from tests.test_document_records import declaration
-    action = setup(repo)
-    action.write_text(action.read_text() + '\n## Evidence\n\nUnchanged evidence.\n')
-    cfg = load_config(repo)
-    base = authored_graph(repo, cfg)
-    comment(repo, action)
-    current = authored_graph(repo, cfg)
-    ref = action.relative_to(repo).as_posix()
-    spec = declaration(base, current, path=ref, headings=('Evidence',))
-    pc, pb, changed, _ = project_records(current, base, {ref}, spec)
-    result = evaluate_impact(pc, pb, changed, today=TODAY)
-    assert not result['ok'] and ref in result['seeds']
-    assert 'operational_comments' not in result
-    # A separate generated output is not qualified by a comment elsewhere.
-    current['documents']['memories/consumer.md'] += '\nNew generated assertion.\n'
-    result = evaluate_impact(current, base, {ref, 'memories/consumer.md'}, today=TODAY)
-    assert not result['ok'] and result['operational_comments']
-    assert 'memories/consumer.md' in result['seeds']
-    assert 'memories/policy.md' in paths(result['blockers'])
 
 
 def test_native_comment_passes_page_shape_and_keeps_temporal_receipt(repo):

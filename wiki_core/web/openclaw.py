@@ -401,7 +401,6 @@ def prepare_receipt_material(root, config, params, *, expected_result_sha256):
     stamp = dt.datetime.now(dt.timezone.utc).isoformat()
     reference = (WikiPaths(root, config).references_root / "runtime-returns" / plan["effect_key"]).relative_to(root)
     proof_ref = (reference / "result.json").as_posix()
-    contract_ref = (reference / "records.json").as_posix()
     link = os.path.relpath(proof_ref, Path(ref).parent)
     material = {"schema_version": "wiki_normal_proposal.v1", "base_head": b["base_head"],
         "branch": git(root, "branch", "--show-current"),
@@ -430,24 +429,6 @@ def prepare_receipt_material(root, config, params, *, expected_result_sha256):
         initial = preview()
         after = initial["outputs"][ref].decode()
         require(bool(operational_comment_receipt(before, after)), "openclaw_return_not_pure_comment")
-        contract_path = config.audit.get("freshness_records")
-        if contract_path:
-            original = json.loads(_safe(root, contract_path).read_text())
-            contract = copy.deepcopy(original)
-            require(contract["current_documents_sha256"].get(ref) == b["action_sha256"], "openclaw_contract_snapshot_changed")
-            after_sha = hashlib.sha256(after.encode()).hexdigest()
-            contract["current_documents_sha256"][ref] = after_sha
-            for guard in contract.get("bindings", []):
-                if guard.get("origin") == "current" and guard.get("role") in {"provenance", "navigation", "change_target"}:
-                    for key in ("prerequisite_document_sha256", "target_document_sha256"):
-                        if guard.get(key) == b["action_sha256"]:
-                            guard[key] = after_sha
-            material["documents"].append({"path": contract_ref, "before_sha256": None,
-                "after_text": json.dumps(contract, ensure_ascii=False, indent=2) + "\n"})
-            material["freshness_pointer"] = {
-                "before_sha256": hashlib.sha256((root / "wiki.config.yaml").read_bytes()).hexdigest(),
-                "freshness_base": config.audit["freshness_base"], "freshness_records": contract_ref}
-            initial = preview()
         material_raw = (json.dumps(material, ensure_ascii=False, indent=2) + "\n").encode()
         saved = {"material_path": material_file.relative_to(root).as_posix(),
                  "material_sha256": hashlib.sha256(material_raw).hexdigest(),

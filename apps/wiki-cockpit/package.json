@@ -12,13 +12,12 @@
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:assets": "node scripts/check-assets.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
-    "check:release-matrix": "node scripts/release-matrix-contract.mjs --check",
     "check:snapshot-api": "node scripts/check-snapshot-api.mjs",
     "test": "vitest run src",
     "test:gates": "node --test scripts/*.test.mjs",
     "test:visual": "npm run build && playwright test --config=playwright.config.ts --retries=0",
-    "test:e2e:release": "sh scripts/run-playwright-release.sh --scope public_required",
-    "test:e2e:operator": "node scripts/run-playwright-release.mjs --scope downstream_required",
+    "test:e2e:release": "npm run build && playwright test --config=playwright.config.ts --retries=0",
+    "test:e2e:operator": "playwright test --config=playwright.downstream.config.ts --retries=0",
     "test:visual:update": "npm run build && playwright test --update-snapshots"
   },
   "dependencies": {
