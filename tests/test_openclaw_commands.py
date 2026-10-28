@@ -22,7 +22,7 @@ def runtime(tmp_path, monkeypatch):
                 'routes': {'research': route}}
     (tmp_path/'wiki.config.yaml').write_text(yaml.safe_dump({'repo_id':'synthetic','openclaw':settings}))
     (tmp_path/'.gitignore').write_text('data/\n')
-    for args in [('init',),('config','user.name','Synthetic'),('config','user.email','fixture@example.test'),('add','.'),('commit','-qm','fixture')]:
+    for args in [('init','-b','main'),('config','user.name','Synthetic'),('config','user.email','fixture@example.test'),('add','.'),('commit','-qm','fixture')]:
         subprocess.run(['git',*args],cwd=tmp_path,check=True,capture_output=True)
     monkeypatch.setattr(oc,'build_snapshot',lambda *args:copy.deepcopy(snapshot))
     calls=[]

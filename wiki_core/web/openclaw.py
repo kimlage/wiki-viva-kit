@@ -135,6 +135,8 @@ def idle_leaf(history):
 
 
 def plan_dispatch(root, config, params):
+    require(git(root, "branch", "--show-current") == str(config.approval.get("default_branch") or "main"),
+            "openclaw_dispatch_requires_approved_checkout")
     profile, action = params["profile"], params["action_id"]
     message = params["message"]
     require(0 < len(message.strip()) <= 12000, "openclaw_message_size")
@@ -155,6 +157,8 @@ def plan_dispatch(root, config, params):
 
 def dispatch(root, config, prepared):
     """Called only inside the existing live agents.execute effect admission."""
+    require(git(root, "branch", "--show-current") == str(config.approval.get("default_branch") or "main"),
+            "openclaw_dispatch_requires_approved_checkout")
     b = prepared["binding"]
     runtime, route = route_for(config, b["profile"])
     require(digest(runtime) == prepared["route_sha256"] and route == prepared["route"], "openclaw_route_changed")
@@ -319,7 +323,25 @@ def proposal_status(root, config, directory, plan):
         proof = operational_comment_receipt(before, after)
         require(bool(proof) and proof["event_id"] == "received-" + plan["effect_key"],
                 "openclaw_receipt_semantics_changed")
-    status = ("received_in_main" if branch == str(config.approval.get("default_branch") or "main")
+    historical = False
+    if prepared and not matched and branch == str(config.approval.get("default_branch") or "main"):
+        from wiki_core.action_transition import action_transition_diagnostics
+        current_text = subprocess.check_output(["git", "show", "HEAD:" + action], cwd=root).decode()
+        old_fm, _ = _parse_document(after)
+        current_fm, _ = _parse_document(current_text)
+        events = old_fm.get("action_dialogue", [])
+        proof_doc = material["documents"][0]["path"]
+        try:
+            proof_bytes = subprocess.check_output(["git", "show", "HEAD:" + proof_doc], cwd=root, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+            # A revocation after switching to main can leave its old approved
+            # revision selected. The receipt is still awaiting adoption.
+            proof_bytes = None
+        historical = (proof_bytes is not None
+                      and current_fm.get("action_dialogue", [])[:len(events)] == events
+                      and not action_transition_diagnostics(after, current_text)
+                      and hashlib.sha256(proof_bytes).hexdigest() == expected[proof_doc])
+    status = "received_in_main" if historical else ("received_in_main" if branch == str(config.approval.get("default_branch") or "main")
               else "prepared") if matched else "awaiting_adoption" if prepared else "material_ready" if (
                   head == material["base_head"] and branch == material["branch"]) else "reconciliation_required"
     return {"status": status, "head": head, "approved_base": material["base_head"],

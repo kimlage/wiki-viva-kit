@@ -669,6 +669,12 @@ def adoption_target(root: Path, config: WikiConfig, params: dict) -> dict:
             _git(root, 'status', '--porcelain', '--untracked-files=all')):
         raise ProposalError('proposal_adoption_checkout_changed')
     repository = _repository(root)
+    fetch_url = _git(root, 'remote', 'get-url', 'origin')
+    from urllib.parse import urlsplit
+    if '://' in fetch_url:
+        url = urlsplit(fetch_url)
+        if url.password is not None or (url.username is not None and not (url.scheme == 'ssh' and url.username == 'git')):
+            raise ProposalError('proposal_origin_credentials_not_allowed')
     default = str(config.approval.get('default_branch') or 'main')
     response = _run(root, ['gh', 'pr', 'view', params['pr'], '--repo', repository, '--json',
                           'number,state,headRefOid,baseRefName,isCrossRepository,mergeCommit'], timeout_seconds=60)
@@ -686,7 +692,7 @@ def adoption_target(root: Path, config: WikiConfig, params: dict) -> dict:
             raise ValueError()
     except (ValueError, TypeError, KeyError, IndexError) as exc:
         raise ProposalError('proposal_adoption_observation_unavailable') from exc
-    return {'repository': repository, 'remote_url': _git(root, 'remote', 'get-url', 'origin'),
+    return {'repository': repository, 'remote_url_sha256': _sha(fetch_url.encode()),
             'branch': _git(root, 'branch', '--show-current'), 'default_branch': default,
             'local_main': _git(root, 'rev-parse', default),
             'merge_commit': merged, 'target_head': oid, **params}
@@ -704,6 +710,9 @@ def adopt_proposal(root: Path, config: WikiConfig, target: dict, *, manager: Adm
     if adoption_target(root, config, params) != target:
         raise ProposalError('proposal_adoption_target_changed')
     if target['branch'] == target['default_branch'] and target['expected_head'] == target['target_head']:
+        included = _run(root, ['git', 'merge-base', '--is-ancestor', target['merge_commit'], target['target_head']])
+        if not included.get('ok'):
+            raise ProposalError('proposal_adoption_merge_not_in_approved_history')
         return {'ok': True, 'status': 'observed_adopted', 'head': target['target_head'],
                 'proposal_head': target['proposal_head'], 'merge_commit': target['merge_commit'],
                 'new_effect': False, 'served_adoption_verified': False}
@@ -712,7 +721,7 @@ def adopt_proposal(root: Path, config: WikiConfig, target: dict, *, manager: Adm
         def run():
             if (_git(root, 'branch', '--show-current') != branch or _git(root, 'rev-parse', 'HEAD') != head
                     or _git(root, 'rev-parse', target['default_branch']) != main
-                    or _git(root, 'remote', 'get-url', 'origin') != target['remote_url']
+                    or _sha(_git(root, 'remote', 'get-url', 'origin').encode()) != target['remote_url_sha256']
                     or _git(root, 'status', '--porcelain', '--untracked-files=all')):
                 raise ProposalError('proposal_adoption_checkout_changed')
             return _run(root, argv, timeout_seconds=180)

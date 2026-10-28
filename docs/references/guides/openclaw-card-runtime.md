@@ -34,8 +34,10 @@ accepted; the browser cannot choose executables, profile, state directory,
 destination or physical session. Installation, account authorization and actual
 agent tools/sandbox remain consumer responsibilities. A configured route is not
 proof of connection, login, account isolation or effective tool access. A profile
-name is not an ACL. Changing operator configuration requires its normal reviewed
+name is not an ACL. Changing operator route or authority configuration requires its normal reviewed
 adoption and process restart; a running server refuses stale configuration.
+After native proposal preparation/adoption, the server can refresh documentary
+audit pointers only when every other configuration field remains unchanged.
 
 The adapter uses the installed official OpenClaw gateway client. It obtains
 authentication through that client's existing state, without reading, copying

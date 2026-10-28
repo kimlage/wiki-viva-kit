@@ -51,18 +51,25 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
   const [notice, setNotice] = useState("");
   const [output, setOutput] = useState<Record<string, unknown> | null>(null);
   const [known, setKnown] = useState(attempts);
-  const [proposal, setProposal] = useState<RuntimeProposal | null>(attempts.find(item => item.proposal)?.proposal || null);
+  const latest = [...attempts].sort((a,b) => b.attempted_at.localeCompare(a.attempted_at))[0];
+  const [selectedEffect, setSelectedEffect] = useState(latest?.effect_key || "");
+  const [proposal, setProposal] = useState<RuntimeProposal | null>(latest?.proposal || null);
   const [pr, setPr] = useState("");
   const [reviewPath, setReviewPath] = useState("");
   const [reviewHash, setReviewHash] = useState("");
   useEffect(() => {
     setKnown(items => [...attempts, ...items.filter(item => !attempts.some(a => a.effect_key === item.effect_key))]);
-    const recovered = attempts.find(item => item.proposal)?.proposal;
-    if (recovered) setProposal(recovered);
-  }, [attempts]);
+    const recovered = attempts.find(item => item.effect_key === selectedEffect);
+    if (recovered) setProposal(recovered.proposal || null);
+  }, [attempts, selectedEffect]);
   const configured = profile.runtime?.configured === true && !recoveryError;
   const request = async (command: string, params: Record<string, string>) => {
     if (busy || disabled || !configured) return;
+    if (command === "agents.openclaw.inspect") {
+      setSelectedEffect(params.effect_key);setOutput(null);
+      setProposal(known.find(item => item.effect_key === params.effect_key)?.proposal || null);
+      setPr("");setReviewPath("");setReviewHash("");
+    }
     setBusy(true); setNotice("");
     try {
       const supplied = command.startsWith("agents.openclaw.") ? { profile: profile.id, action_id: action.id, ...params } : params;
@@ -77,8 +84,12 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
     const value = outcome.output as Record<string, unknown>;
     if (value.action_id !== action.id && !["wiki.proposal.publish", "wiki.proposal.promote", "wiki.proposal.adopt"].includes(outcome.commandId)) { setNotice(copy.error); return; }
     setOutput(value);
-    if (outcome.commandId.startsWith("agents.openclaw.") && typeof value.effect_key === "string" && !known.some(item => item.effect_key === value.effect_key)) {
-      setKnown([...known, { effect_key: value.effect_key, attempted_at: "", has_result: value.result_available === true }]);
+    if (outcome.commandId.startsWith("agents.openclaw.") && typeof value.effect_key === "string") {
+      setSelectedEffect(value.effect_key);
+      setKnown(items => items.some(item => item.effect_key === value.effect_key)
+        ? items.map(item => item.effect_key === value.effect_key ? {...item,has_result:item.has_result || value.result_available === true} : item)
+        : [...items, { effect_key: String(value.effect_key), attempted_at: "", has_result: value.result_available === true }]);
+      if (outcome.commandId === "agents.openclaw.dispatch") setProposal(null);
     }
     if (value.proposal && typeof value.proposal === "object") setProposal(value.proposal as RuntimeProposal);
     if (outcome.commandId === "wiki.proposal.prepare" && value.prepared && typeof value.head === "string") {
@@ -114,6 +125,7 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
     {result && !output?.integration_hold && typeof output?.effect_key === "string" && <button type="button" disabled={disabled || busy || Boolean(plan)}
       onClick={() => void request("agents.openclaw.receipt", { effect_key: String(output.effect_key) })}>{copy.prepare}</button>}
     {proposal && <div className="boardRuntimeProposal">
+      <code>{selectedEffect}</code>
       <p>{proposal.status === "prepared" ? copy.prepared : proposal.status === "received_in_main" ? copy.received : proposal.status === "awaiting_adoption" ? copy.adopt : proposal.status === "reconciliation_required" ? copy.reconcile : copy.incorporate}</p>
       <code>{proposal.branch} · {proposal.head}</code>
       <p><a href="/w?dock=approve">{copy.review}</a> · <button type="button" onClick={refresh}>{copy.reload}</button></p>

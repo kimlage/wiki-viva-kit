@@ -55,6 +55,12 @@ def test_card_adopts_exact_approved_commit_and_replay_only_observes(adoption):
     repeated, _ = execute(srv, token, 'wiki.proposal.adopt', request)
     assert repeated['status'] == 'observed_adopted' and not repeated['new_effect']
     assert count == len([a for a in effects if a[:2] in (['git', 'fetch'], ['git', 'switch'], ['git', 'merge'])])
+    import hashlib
+    action = root/'memories/actions/action-server-synthetic.md'
+    status, planned = _plan(srv,token,'agents.openclaw.dispatch',params={
+        'profile':'research','action_id':query['action_id'],'action_sha256':hashlib.sha256(action.read_bytes()).hexdigest(),
+        'message':'Next distinct mission after approved adoption.'})
+    assert status==200,planned
 
 
 @pytest.mark.parametrize('field,value', [('state', 'OPEN'), ('headRefOid', 'a'*40), ('isCrossRepository', True), ('baseRefName', 'other')])
@@ -135,3 +141,42 @@ def test_adoption_cannot_overwrite_main_changed_after_plan(adoption):
     assert not out['ok'] and oc.git(root, 'rev-parse','main') == other
     assert oc.git(root,'branch','--show-current') == branch
     assert not any(a[:2] == ['git','switch'] for a in effects)
+
+
+def test_adoption_rejects_origin_userinfo_without_exposing_it(adoption):
+    srv,root,token,request,_,effects,_,_,_=adoption
+    credential='synthetic-access-material'
+    subprocess.run(['git','remote','set-url','origin','https://'+credential+'@github.com/synthetic/wiki.git'],cwd=root,check=True)
+    status,out=_plan(srv,token,'wiki.proposal.adopt',params=request)
+    assert status==400 and credential not in json.dumps(out)
+    assert out['detail']=='proposal_origin_credentials_not_allowed'
+    assert not any(a[0]=='gh' for a in effects)
+
+
+def test_already_current_main_does_not_prove_unrelated_merge_inclusion(adoption):
+    srv,root,token,request,pr,_,_,_,_=adoption
+    execute(srv,token,'wiki.proposal.adopt',request)
+    tree=oc.git(root,'rev-parse','HEAD^{tree}')
+    orphan=subprocess.check_output(['git','commit-tree',tree,'-m','Unrelated merge'],cwd=root,text=True).strip()
+    pr['mergeCommit']['oid']=orphan
+    status,plan=_plan(srv,token,'wiki.proposal.adopt',params=request);assert status==200
+    status,out=_execute(srv,token,plan,confirmation=plan['plan']['confirmation']['text'])
+    assert not out['ok'] and 'proposal_adoption_merge_not_in_approved_history' in out['failed_preconditions']
+
+
+def test_later_canonical_comment_does_not_reopen_previous_adoption(adoption):
+    import hashlib
+    srv,root,token,request,_,_,_,_,query=adoption
+    execute(srv,token,'wiki.proposal.adopt',request)
+    path=root/'memories/actions/action-server-synthetic.md'
+    # Use the same existing native writer for a later communication.
+    from wiki_core.web.normal_proposal import _write_action
+    _write_action(root,{'page_ref':path.relative_to(root).as_posix(),'page_id':query['action_id'],
+        'expected_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'run_id':'later-run','effect_key':'later-received',
+        'transition':{'next_state':'open','recorded_at':'2026-12-01T10:00:00Z','dialogue_event':{
+            'kind':'comment','event_id':'later-comment','coordinator':'research','text':'Later communication, no state change.'}}})
+    subprocess.run(['git','add','.'],cwd=root,check=True,capture_output=True)
+    subprocess.run(['git','commit','-qm','Later approved comment'],cwd=root,check=True,capture_output=True)
+    status,coord=srv.get('/api/coordination');assert status==200,coord
+    item=next(a for a in coord['actions'] if a['action_id']==query['action_id'])['runtime_attempts'][0]
+    assert item['proposal']['status']=='received_in_main'

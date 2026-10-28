@@ -106,6 +106,8 @@ def test_product_dispatch_reconcile_receipt_and_native_proposal(product):
     assert len(fm['action_dialogue'])==1 and fm['action_dialogue'][0]['kind']=='comment'
     assert oc.git(root,'rev-parse','main')==main
     assert len([x for x in calls if x[0]=='chat.send'])==1
+    status, denied = _plan(srv,token,'agents.openclaw.dispatch',params={**params,'message':'Next mission.'})
+    assert status==400 and denied['detail']=='openclaw_dispatch_requires_approved_checkout'
     status,replay=_execute(srv,token,plan,confirmation=plan['plan']['confirmation']['text'])
     assert status==409 and replay['error_code']=='admin_plan_already_executed'
 
@@ -177,6 +179,7 @@ def test_product_c3_preserves_history_and_admits_pure_receipt(product):
     material,_=execute(srv,token,'agents.openclaw.receipt',query)
     execute(srv,token,'wiki.proposal.prepare',{k:material[k] for k in ('material_path','material_sha256')})
     current=load_config(root);after=json.loads((root/current.audit['freshness_records']).read_text())
+    assert srv.server.config == current
     assert after['base_documents_sha256']==before['base_documents_sha256']
     assert after['documents']==before['documents'] and after['bindings'][0]==before['bindings'][0]
     expected=copy.deepcopy(before);new_sha=hashlib.sha256(action.read_bytes()).hexdigest()

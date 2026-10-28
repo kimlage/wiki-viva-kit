@@ -74,3 +74,23 @@ it('offers native adoption recovery with distinct checkout and proposal identiti
     expected_head:proposal.head,proposal_head:proposal.proposal_head,pr:'7'}));
   expect(admin.executeAdminPlan).not.toHaveBeenCalled();
 });
+
+it('keeps recovered proposal commands bound to the selected effect across two runs', async()=>{
+  const proposal=(head:string)=>({status:'prepared' as const,head,proposal_head:head,approved_base:'a'.repeat(40),
+    branch:'wiki/existing',material_path:'data/derived/'+head+'.json',material_sha256:'f'.repeat(64)});
+  const old={effect_key:'wiki-run-'+'a'.repeat(32),attempted_at:'2026-01-01',has_result:true,proposal:proposal('b'.repeat(40))};
+  const recent={effect_key:'wiki-run-'+'z'.repeat(32),attempted_at:'2026-02-01',has_result:true,proposal:proposal('e'.repeat(40))};
+  const {admin}=setup({attempts:[old,recent]});
+  fireEvent.click(screen.getByRole('button',{name:'Review publication of this commit'}));
+  await waitFor(()=>expect(admin.planAdminCommand).toHaveBeenLastCalledWith('wiki.proposal.publish',{
+    expected_head:recent.proposal.head,operation:'publish_proposal'}));
+  fireEvent.click(screen.getAllByRole('button',{name:t('surface.close')})[0]);
+  fireEvent.click(screen.getAllByRole('button',{name:'Reconcile existing run'})[0]);
+  await waitFor(()=>expect(admin.planAdminCommand).toHaveBeenLastCalledWith('agents.openclaw.inspect',{
+    profile:'research',action_id:action.id,effect_key:old.effect_key}));
+  fireEvent.click(screen.getAllByRole('button',{name:t('surface.close')})[0]);
+  fireEvent.click(screen.getByRole('button',{name:'Review publication of this commit'}));
+  await waitFor(()=>expect(admin.planAdminCommand).toHaveBeenLastCalledWith('wiki.proposal.publish',{
+    expected_head:old.proposal.head,operation:'publish_proposal'}));
+  expect(admin.executeAdminPlan).not.toHaveBeenCalled();
+});
