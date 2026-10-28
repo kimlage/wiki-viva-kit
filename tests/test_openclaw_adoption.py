@@ -41,12 +41,15 @@ def adoption(product, monkeypatch, tmp_path_factory):
     return srv, root, token, request, pr, effects, branch, bare, query
 
 
-def test_card_adopts_exact_approved_commit_and_replay_only_observes(adoption):
+@pytest.mark.parametrize('cleanup_branch', [False, True])
+def test_card_adopts_exact_approved_commit_and_replay_only_observes(adoption, cleanup_branch):
     srv, root, token, request, _, effects, branch, _, query = adoption
     out, _ = execute(srv, token, 'wiki.proposal.adopt', request)
     assert out['status'] == 'approved_checkout_updated' and not out['served_adoption_verified']
     assert oc.git(root, 'branch', '--show-current') == 'main'
     assert oc.git(root, 'rev-parse', branch) == request['proposal_head']
+    if cleanup_branch:
+        subprocess.run(['git', 'branch', '-d', branch], cwd=root, check=True, capture_output=True)
     status, coord = srv.get('/api/coordination')
     assert status == 200
     attempt = next(a for a in coord['actions'] if a['action_id'] == query['action_id'])['runtime_attempts'][0]
@@ -164,10 +167,13 @@ def test_already_current_main_does_not_prove_unrelated_merge_inclusion(adoption)
     assert not out['ok'] and 'proposal_adoption_merge_not_in_approved_history' in out['failed_preconditions']
 
 
-def test_later_canonical_comment_does_not_reopen_previous_adoption(adoption):
+@pytest.mark.parametrize('cleanup_branch', [False, True])
+def test_later_canonical_comment_does_not_reopen_previous_adoption(adoption, cleanup_branch):
     import hashlib
-    srv,root,token,request,_,_,_,_,query=adoption
+    srv,root,token,request,_,_,branch,_,query=adoption
     execute(srv,token,'wiki.proposal.adopt',request)
+    if cleanup_branch:
+        subprocess.run(['git', 'branch', '-d', branch], cwd=root, check=True, capture_output=True)
     path=root/'memories/actions/action-server-synthetic.md'
     # Use the same existing native writer for a later communication.
     from wiki_core.web.normal_proposal import _write_action
@@ -180,3 +186,40 @@ def test_later_canonical_comment_does_not_reopen_previous_adoption(adoption):
     status,coord=srv.get('/api/coordination');assert status==200,coord
     item=next(a for a in coord['actions'] if a['action_id']==query['action_id'])['runtime_attempts'][0]
     assert item['proposal']['status']=='received_in_main'
+
+
+def test_missing_unincorporated_branch_does_not_claim_receipt(adoption):
+    srv, root, _, _, _, _, branch, _, query = adoption
+    subprocess.run(['git', 'switch', 'main'], cwd=root, check=True, capture_output=True)
+    # Simulate an operator losing an unmerged proposal ref. Approved content
+    # is still old; neither a retained result nor an absent branch is adoption.
+    subprocess.run(['git', 'branch', '-D', branch], cwd=root, check=True, capture_output=True)
+    status, coord = srv.get('/api/coordination')
+    assert status == 200
+    attempt = next(a for a in coord['actions'] if a['action_id'] == query['action_id'])['runtime_attempts'][0]
+    assert attempt['proposal']['status'] == 'reconciliation_required'
+
+
+@pytest.mark.parametrize('tamper', ['prepared_action', 'canonical_proof'])
+def test_branch_cleanup_does_not_mask_tampered_receipt(adoption, tamper):
+    srv, root, token, request, _, _, branch, _, query = adoption
+    execute(srv, token, 'wiki.proposal.adopt', request)
+    subprocess.run(['git', 'branch', '-d', branch], cwd=root, check=True, capture_output=True)
+    directory = oc.storage(root, srv.server.config, query['effect_key'])
+    manifest = directory/'receipt-material-integrity.json'
+    saved = json.loads(manifest.read_text())
+    if tamper == 'prepared_action':
+        saved['action_after_text'] += '\nChanged after review.\n'
+        manifest.write_text(json.dumps(saved))
+    else:
+        material = json.loads((root/saved['material_path']).read_text())
+        (root/material['documents'][0]['path']).write_text('{}\n')
+        subprocess.run(['git', 'add', '.'], cwd=root, check=True, capture_output=True)
+        subprocess.run(['git', 'commit', '-qm', 'Synthetic proof corruption'], cwd=root, check=True, capture_output=True)
+    status, coord = srv.get('/api/coordination')
+    assert status == 200
+    item = next(a for a in coord['actions'] if a['action_id'] == query['action_id'])
+    if tamper == 'prepared_action':
+        assert item['runtime_error'] == 'openclaw_receipt_unavailable_reconcile'
+    else:
+        assert item['runtime_attempts'][0]['proposal']['status'] == 'reconciliation_required'

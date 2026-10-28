@@ -313,18 +313,25 @@ def proposal_status(root, config, directory, plan):
     matched = matches("HEAD")
     head = git(root, "rev-parse", "HEAD")
     branch = git(root, "branch", "--show-current")
-    proposal_head = git(root, "rev-parse", "refs/heads/" + material["branch"])
-    prepared = matches(proposal_head)
-    if matched or prepared:
-        from wiki_core.action_transition import operational_comment_receipt
-        action = material["action"]["page_ref"]
-        before = subprocess.check_output(["git", "show", material["base_head"] + ":" + action], cwd=root).decode()
-        after = subprocess.check_output(["git", "show", (head if matched else proposal_head) + ":" + action], cwd=root).decode()
-        proof = operational_comment_receipt(before, after)
-        require(bool(proof) and proof["event_id"] == "received-" + plan["effect_key"],
-                "openclaw_receipt_semantics_changed")
+    ref = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "refs/heads/" + material["branch"]],
+                         cwd=root, capture_output=True, text=True)
+    require(ref.returncode in {0, 1}, "openclaw_proposal_ref_unavailable")
+    proposal_head = ref.stdout.strip() if ref.returncode == 0 else ""
+    prepared = bool(proposal_head) and matches(proposal_head)
+    # A merged proposal branch is disposable. The prepared action bytes are
+    # retained with their output digest, so incorporation can be checked from
+    # approved content even after normal branch cleanup or later comments.
+    from wiki_core.action_transition import operational_comment_receipt
+    action = material["action"]["page_ref"]
+    before = subprocess.check_output(["git", "show", material["base_head"] + ":" + action], cwd=root).decode()
+    after = saved.get("action_after_text")
+    require(isinstance(after, str) and hashlib.sha256(after.encode()).hexdigest() == expected[action],
+            "openclaw_material_changed")
+    proof = operational_comment_receipt(before, after)
+    require(bool(proof) and proof["event_id"] == "received-" + plan["effect_key"],
+            "openclaw_receipt_semantics_changed")
     historical = False
-    if prepared and not matched and branch == str(config.approval.get("default_branch") or "main"):
+    if not matched and branch == str(config.approval.get("default_branch") or "main"):
         from wiki_core.action_transition import action_transition_diagnostics
         current_text = subprocess.check_output(["git", "show", "HEAD:" + action], cwd=root).decode()
         old_fm, _ = _parse_document(after)
@@ -443,6 +450,7 @@ def prepare_receipt_material(root, config, params, *, expected_result_sha256):
         write_new(material_file, material)
         saved = {"material_path": material_file.relative_to(root).as_posix(),
                  "material_sha256": hashlib.sha256(material_file.read_bytes()).hexdigest(),
+                 "action_after_text": after,
                  "output_hashes": {ref: hashlib.sha256(raw).hexdigest() for ref, raw in initial["outputs"].items()}}
         write_new(manifest, saved)
         return {**saved, "proposal": proposal_status(root, config, directory, plan),

@@ -78,6 +78,11 @@ upgrade OpenClaw.
    reconcile actual refs; an already adopted target is observed without writes.
    Reload the card and verify the receipt on the served approved version.
 
+After incorporation, normal cleanup of the merged proposal branch does not
+erase receipt recognition. Recovery verifies the retained prepared action
+bytes, their digest, the append-only canonical history and the immutable result
+reference. A missing branch alone never proves that a proposal was adopted.
+
 Prepared, published, integrated, adopted and served are separate observations.
 Receiving a result does not incorporate documentary changes suggested in that
 result or close the action. Those changes retain their existing proposal and
