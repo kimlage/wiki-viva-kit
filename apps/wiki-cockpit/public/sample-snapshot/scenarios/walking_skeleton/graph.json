@@ -197,7 +197,7 @@
     {
       "approved_state": "approved",
       "context": "clientes",
-      "freshness_state": "fresh",
+      "freshness_state": "unknown",
       "id": "action-enviar-proposta",
       "metrics": {
         "inbound_links": 0,
@@ -239,11 +239,11 @@
         "freshness": {
           "count": 1,
           "reasons": [
-            "freshness:fresh"
+            "freshness:unknown"
           ],
           "refs": [],
-          "state": "fresh",
-          "value": 1
+          "state": "unknown",
+          "value": null
         },
         "ownership": {
           "count": 0,

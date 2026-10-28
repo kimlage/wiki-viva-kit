@@ -115,10 +115,9 @@ reviewed action-body proposals with optional local agents. See the
 [provider-neutral contribution contract](../docs/references/guides/agent-contributions.md)
 for Git policy gates, conflict handling and adoption coverage.
 
-[wiki_page_graph.py](wiki_page_graph.py) also has an explicit `--record-review`
-mode for the configured documentary pair, using the projector's own trace.
-It emits private authoring context, never inferred bindings or freshness approval.
-See [documentary authoring](../docs/references/guides/software-change-records.md#authoring-the-complete-consumption-frontier).
+[wiki_page_graph.py](wiki_page_graph.py) reports authored dependencies and
+exact-base impact. See [scoped freshness](../docs/references/freshness-impact.md)
+for reasoned documentary-only edits and conservative source review.
 
 
 ## Context-bound reading and directory captures

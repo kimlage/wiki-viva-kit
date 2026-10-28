@@ -14,7 +14,7 @@ import {
 } from "./focusMap";
 
 const walkingGraph = JSON.parse(readFileSync(
-  new URL("../../public/sample-snapshot/scenarios/walking_skeleton/graph.json", import.meta.url),
+  new URL("./focusMap.fixture.json", import.meta.url),
   "utf8"
 )) as FocusGraph;
 
@@ -56,7 +56,7 @@ afterEach(() => {
 });
 
 describe("focused read-only 2D graph", () => {
-  it("uses the committed walking skeleton's direct incoming and outgoing neighbors", () => {
+  it("uses the synthetic fixture’s direct incoming and outgoing neighbors", () => {
     const model = buildFocusMap(walkingGraph, { selectedId: "source-banco-export" });
     expect(model.nodes.map((item) => item.id)).toEqual([
       "source-banco-export", "artifact-relatorio-recon", "claim-custos-sobem",

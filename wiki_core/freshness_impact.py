@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
-import json
+import posixpath
+from urllib.parse import unquote, urlsplit
 import re
 from collections import defaultdict, deque
 from pathlib import Path
@@ -18,7 +19,7 @@ from typing import Any
 from wiki_core.config import WikiConfig
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
-from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, MARKDOWN_LINK_RE, _path_from_link
+from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, MARKDOWN_LINK_RE
 from wiki_core.markdown_link_roles import parse_role_markdown, project_link_role
 from wiki_core.semantic_inventory import (
     RELATION_DIRECTIONS, _authored_pages, _expected_relations, _page_indexes,
@@ -29,6 +30,19 @@ STRUCTURAL = frozenset({"moc_parent", "collection_member", "ownership", "partici
 ASSOCIATION = frozenset({"related_page", "related_holon", "navigation_link", "record_context_reference"})
 REFERENCE = frozenset({"source_ref", "markdown_link", "untyped_reference"})
 NAVIGATION_HEADINGS = frozenset({"related", "relacionados", "navigation", "navegação"})
+
+
+def _path_from_link(root: Path, source_rel: str, href: str) -> str | None:
+    """Lexical repository link; never follow a symlink while discovering sources."""
+    parsed = urlsplit(href)
+    if parsed.scheme or parsed.netloc or not parsed.path or parsed.path.endswith("/"):
+        return None
+    path = unquote(parsed.path)
+    if "\\" in path or any(ord(c) < 32 for c in path):
+        return None
+    relative = posixpath.normpath(path.lstrip("/") if path.startswith("/")
+                                 else posixpath.join(posixpath.dirname(source_rel), path))
+    return relative if relative != ".." and not relative.startswith("../") else None
 
 
 def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[str]):
@@ -191,9 +205,6 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
             and page.path in {e["source"], e["target"]}
         }
         for occurrence in _body_occurrences(root, page.path, body, navigation_targets):
-            if occurrence["target"] not in by_path:
-                # Non-memory documents are checked by the global link auditor.
-                continue
             edges.append(occurrence)
     return {"documents": {p.path: (root / p.path).read_bytes().decode("utf-8") for p in pages},
             "nodes": {p.path: p.values for p in pages}, "edges": edges,
@@ -205,19 +216,14 @@ def factual_changes(current: dict, base: dict, changed: set[str]) -> tuple[set[s
 
     WHOLE continues to consume every factual assertion and dependency of an
     action. A received, unincorporated comment does not change those assertions.
-    Complete document bytes remain in the record contract, readset and Git diff.
+    Complete document bytes remain in the readset and Git diff.
     No edge is removed: another factual seed still reaches the old content and
-    its original freshness date. Partitioned actions remain conservative until
-    their independently authored interpretation has been reconciled.
+    its original freshness date.
     """
     from wiki_core.action_transition import operational_comment_receipt
     factual = set(changed)
     comments = []
-    partitioned = set(base.get("verified_record_documents", {}).values()) | set(
-        current.get("verified_record_documents", {}).values())
     for path in sorted(set(changed) & base["documents"].keys() & current["documents"].keys()):
-        if path in partitioned:
-            continue
         receipt = operational_comment_receipt(base["documents"][path], current["documents"][path])
         if receipt is not None:
             factual.remove(path)
@@ -227,12 +233,30 @@ def factual_changes(current: dict, base: dict, changed: set[str]) -> tuple[set[s
 
 def evaluate_impact(
     current: dict[str, Any], base: dict[str, Any], changed: set[str], *, today: dt.date,
+    documentary_only: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Dependents of changes, then prerequisites; never fan out from shared sources."""
-    if current.get("verified_causal_review") is not None or base.get("verified_causal_review") is not None:
-        from wiki_core.causal_review import evaluate
-        return evaluate(current, base, changed, today=today)
+    declarations = documentary_only or {}
+    # An exact-path review may also classify a referenced tracked input. A
+    # retired input qualifies only after all current factual citations to it
+    # are gone; historical edges remain and another factual seed still reaches
+    # its missing-evidence blocker. Memory-page deletion never qualifies.
+    reviewable = (base["documents"].keys() & current["documents"].keys()) | current.get("reviewable_evidence", set())
+    if not isinstance(declarations, dict) or any(
+        path not in changed or path not in reviewable
+        or not isinstance(reason, str) or not reason.strip()
+        for path, reason in declarations.items()
+    ):
+        raise ValueError("documentary-only review requires changed existing paths and a rationale")
+    for path in declarations:
+        for field in ("updated_at", "stale_after_days", "stale_exempt"):
+            if current["nodes"][path].get(field) != base["nodes"][path].get(field):
+                raise ValueError("documentary-only edits cannot renew dates or change freshness policy")
     changed, comments = factual_changes(current, base, changed)
+    # An independently reviewed proposal may classify an edit as documentary.
+    # This suppresses only its initial seed, never its factual dependencies or
+    # a review obligation reached from another changed source.
+    changed -= declarations.keys()
     nodes = current["nodes"]
     all_paths = set(nodes) | set(base["nodes"])
     seeds = sorted((changed & all_paths) | (set(base["nodes"]) - set(nodes)))
@@ -259,88 +283,38 @@ def evaluate_impact(
     for edge in edges:
         downstream[edge["prerequisite"]].append(edge)
         upstream[edge["dependent"]].append(edge)
-    locators = current.get("verified_locator_changes", {})
-    if locators != base.get("verified_locator_changes", {}):
-        raise ValueError("locator review requires the same verified input pair")
-    for path, declaration in locators.items():
-        for origin, graph in (("base", base), ("current", current)):
-            text = graph["documents"].get(path)
-            if text is None or hashlib.sha256(text.encode()).hexdigest() != declaration.get(f"{origin}_sha256"):
-                raise ValueError("locator input pair changed after projection")
     reasons = {p: dict(reason="changed_page", seed=p, via=None, chain=[]) for p in seeds}
-    # None is a factual obligation; a string identifies one verified custody
-    # delta. These form a monotone union, not a first-witness exemption. Unknown
-    # or WHOLE consumption promotes representation to factual by default.
-    requirements = {}
-    witnesses = {}
-    for path in seeds:
-        # Raw identity dominates all authored metadata, including fields that
-        # resemble projected component metadata. Only the projector's validated
-        # graph-root lineage may associate a non-document seed with a locator.
-        if path in current["documents"] or path in base["documents"]:
-            document = path
-        else:
-            parents = {graph.get("verified_locator_record_documents", {}).get(path)
-                       for graph in (base, current)} - {None}
-            document = next(iter(parents)) if len(parents) == 1 else None
-        kind = locators[document]["id"] if document in locators else None
-        requirements[path] = {kind}
-        witnesses[(path, kind)] = reasons[path]
 
     def expand(start, adjacency: dict, endpoint: str, phase: str) -> None:
         queue = deque(start)
         visited = set(start)
         while queue:
-            parent, requirement = queue.popleft()
+            parent = queue.popleft()
             for edge in adjacency[parent]:
                 target = edge[endpoint]
-                qualification = edge.get("locator_review", {})
-                qualified = (requirement is not None and not edge.get("whole_document_consumption")
-                             and qualification.get("change_id") == requirement
-                             and qualification.get("consumption") == "historical_observation_without_locator")
-                resulting = requirement if qualified else None
-                state = (target, resulting)
-                if state in visited:
+                if target in visited:
                     continue
-                reason = dict(reason=phase, seed=witnesses[(parent, requirement)]["seed"],
-                              via=parent, chain=[*witnesses[(parent, requirement)]["chain"], edge])
-                if target not in reasons:
-                    reasons[target] = reason
-                requirements.setdefault(target, set()).add(resulting)
-                witnesses.setdefault((target, resulting), reason)
-                visited.add(state)
-                queue.append(state)
+                reasons.setdefault(target, dict(reason=phase, seed=reasons[parent]["seed"],
+                    via=parent, chain=[*reasons[parent]["chain"], edge]))
+                visited.add(target)
+                queue.append(target)
 
-    expand([(p, next(iter(requirements[p]))) for p in seeds], downstream, "dependent", "affected_dependent")
-    # As before, prerequisites never trigger a fresh downstream traversal.
-    expand([(p, kind) for p in sorted(reasons) for kind in sorted(requirements[p], key=str)],
-           upstream, "prerequisite", "required_dependency")
+    expand(seeds, downstream, "dependent", "affected_dependent")
+    # Required evidence never starts a new downstream traversal into siblings.
+    expand(sorted(reasons), upstream, "prerequisite", "required_dependency")
 
     def verdict(path: str) -> str:
-        from wiki_core.record_observations import observation_is_future
-        if observation_is_future(current, path, today):
-            return "unknown"
+        if path in current.get("evidence_paths", set()):
+            return "source_artifact" if path not in current.get("missing_evidence", set()) else "unknown"
         values = nodes[path]
-        if path in current.get("verified_evidence_nodes", []):
-            return "historical_evidence"
         return freshness_state(values.get("updated_at"), values.get("stale_after_days"),
                                today, stale_exempt=is_stale_exempt(values.get("stale_exempt")))
 
     included = [dict(path=p, state=verdict(p) if p in nodes else "removed", **reasons[p])
                 for p in sorted(reasons)]
-    if locators:
-        for row in included:
-            path = row["path"]
-            row["review_requirements"] = dict(
-                factual=None in requirements[path],
-                representation=sorted(v for v in requirements[path] if v is not None),
-                factual_witness=witnesses.get((path, None)),
-                representation_witnesses={v: witnesses[(path, v)]
-                    for v in sorted(requirements[path] - {None})})
     debt = [dict(path=p, state=verdict(p), reason="outside_change_dependency_closure")
-            for p in sorted(set(nodes) - set(reasons)) if verdict(p) != "fresh"]
-    blockers = [r for r in included if r["state"] in {"stale", "unknown"}
-                and None in requirements[r["path"]]]
+            for p in sorted(set(nodes) - set(reasons)) if verdict(p) in {"stale", "unknown"}]
+    blockers = [r for r in included if r["state"] in {"stale", "unknown"}]
     result = dict(schema_version="wiki_freshness_impact.v1", evaluated_on=today.isoformat(),
                 seeds=seeds, included=included, blockers=blockers, unrelated_debt=debt,
                 removed_pages=sorted(set(base["nodes"]) - set(nodes)),
@@ -349,37 +323,29 @@ def evaluate_impact(
                 ok=not blockers and not current["errors"])
     if comments:
         result["operational_comments"] = comments
-    if locators:
-        result["locator_changes"] = list(locators.values())
-        result["preserved_content_debt"] = [r for r in included
-            if r["state"] in {"stale", "unknown"} and None not in requirements[r["path"]]]
+    if declarations:
+        result["documentary_only"] = declarations
     return result
 
 
-def input_hashes(root: Path, config: WikiConfig) -> dict[str, str]:
+def input_hashes(root: Path, config: WikiConfig, evidence_paths=()) -> dict[str, str | None]:
     files = sorted((root / str(config.paths["memory_root"])).rglob("*.md"))
     files.append(root / "wiki.config.yaml")
-    record_path = config.audit.get("freshness_records")
-    if record_path:
-        relative = Path(str(record_path))
-        if relative.is_absolute() or relative.as_posix() != str(record_path) or ".." in relative.parts:
-            raise ValueError("freshness_records requires a normalized repository-relative path")
-        path = root / relative
-        if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
-            raise ValueError("freshness record contract must be a local non-symlink file")
-        files.append(path)
-        from wiki_core.document_records import artifact_paths
-        try:
-            contract = json.loads(path.read_text(encoding="utf-8"))
-            files.extend(artifact_paths(root, contract).values())
-        except (KeyError, TypeError, AttributeError) as exc:
-            raise ValueError(f"malformed document record artifacts: {exc}") from exc
-    return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in files}
+    result = {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in files}
+    from wiki_core.source_integrity import _worktree_entry
+    for ref in sorted(evidence_paths):
+        path = root / ref
+        if path.exists() or path.is_symlink():
+            result[ref] = hashlib.sha256(_worktree_entry(root, "100755" if path.stat().st_mode & 0o111 else "100644", ref)).hexdigest()
+        else:
+            result[ref] = None
+    return result
 
 
 def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
-                      today: dt.date | None = None) -> dict[str, Any]:
+                      today: dt.date | None = None,
+                      documentary_only: dict[str, str] | None = None) -> dict[str, Any]:
     """Freeze one ancestor SHA; reuse exact-base Git inventory/materialization.
 
     Fail closed on missing Git/base, unreadable inputs or concurrent edits. An
@@ -398,20 +364,31 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     current = authored_graph(root, config)
     base = project_memory_at_commit(base_sha, authored_graph, root=root)
     changed = set(changes.paths)
-    records = None
+    # Referenced tracked artifacts are ordinary source dependencies, without a
+    # separately authored hash registry. Retain old links when an artifact or
+    # citation is removed. Ignored caches and external URLs remain source-owner
+    # concerns; they cannot become implicit inputs through a Markdown link.
+    base_tracked = set(run_git(["ls-tree", "-r", "--name-only", "-z", base_sha], root=root).split("\0"))
+    tracked = set(base_tracked)
+    tracked.update(run_git(["ls-files", "-z"], root=root).split("\0"))
+    memory_paths = set(current["nodes"]) | set(base["nodes"])
+    evidence = {e["target"] for g in (base, current) for e in g["edges"]
+                if e["type"] in REFERENCE and e["target"] in tracked} - memory_paths
+    before.update({p: h for p, h in input_hashes(root, config, evidence).items() if p in evidence})
+    for graph in (base, current):
+        graph["evidence_paths"] = evidence
+        graph["missing_evidence"] = {p for p in evidence if before[p] is None}
+        graph["nodes"].update({p: {} for p in evidence})
+    current_citations = {e["target"] for e in current["edges"] if e["type"] in REFERENCE}
+    current["reviewable_evidence"] = {
+        p for p in evidence & base_tracked
+        if before[p] is not None or p not in current_citations
+    }
     if config.audit.get("freshness_records"):
-        from wiki_core.document_records import artifact_paths, project_records
-        contract = json.loads((root / str(config.audit["freshness_records"])).read_text(encoding="utf-8"))
-        try:
-            artifacts = {key: path.read_bytes() for key, path in artifact_paths(root, contract).items()}
-            current, base, changed, records = project_records(current, base, changed, contract, artifact_inputs=artifacts)
-        except (KeyError, TypeError, AttributeError) as exc:
-            raise ValueError(f"malformed document record declaration: {exc}") from exc
-    result = evaluate_impact(current, base, changed, today=today or dt.date.today())
-    if records is not None:
-        result["document_records"] = records
-        result["record_contract_sha256"] = before[str(config.audit["freshness_records"])]
-    if (before != input_hashes(root, config)
+        raise ValueError("freshness_records is retired; remove the pointer after reviewing the migration diff")
+    result = evaluate_impact(current, base, changed, today=today or dt.date.today(),
+                             documentary_only=documentary_only)
+    if (before != input_hashes(root, config, evidence)
             or changes != collect_git_changes(base_sha, root=root)
             or head != run_git(["rev-parse", "--verify", "HEAD"], root=root).strip()):
         raise ValueError("freshness inputs changed during evaluation; rerun on stable inputs")

@@ -22,10 +22,10 @@ loads before this change and 900 afterward. One profiled compilation took
 3.94 seconds before and 2.88 seconds afterward. These measurements are local
 observations, not a latency guarantee for a consumer or an installed service.
 
-[Parser tests](../../../tests/test_frontmatter_compilation_cache.py) cover
+[Parser tests](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_frontmatter_compilation_cache.py) cover
 fresh file/body reads, independent mappings, cleanup after failure, nested
 scopes, thread isolation, cache limits and safe-loader semantics.
-[Snapshot parity](../../../tests/test_snapshot_frontmatter_cache.py) compares
+[Snapshot parity](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_snapshot_frontmatter_cache.py) compares
 the complete payload with reuse enabled and disabled, at the same revision
 and generation time.
 

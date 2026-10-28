@@ -198,13 +198,6 @@ def test_default_manifest_is_the_canonical_upgrade_contract(tmp_path: Path) -> N
     assert default_plan["c1"] == explicit_plan["c1"]
 
 
-def test_legacy_manifest_compatibility_copy_matches_canonical() -> None:
-    canonical = ROOT / "docs/references/upgrades/sync-manifest.yaml"
-    legacy = ROOT / "docs/references/upgrades/wiki-viva-v8/sync-manifest.yaml"
-
-    assert legacy.read_bytes() == canonical.read_bytes()
-
-
 def test_root_named_block_pattern_does_not_block_nested_fixture_contract() -> None:
     sync = _sync_module()
 
@@ -215,7 +208,7 @@ def test_root_named_block_pattern_does_not_block_nested_fixture_contract() -> No
     )
 
 
-def test_published_contract_applies_c2_and_second_b0_is_unchanged(tmp_path: Path) -> None:
+def test_runtime_only_contract_preserves_consumer_and_second_b0_is_unchanged(tmp_path: Path) -> None:
     consumer = _repo(tmp_path / "downstream")
     (consumer / "README.md").write_text("synthetic downstream\n", encoding="utf-8")
     _git(consumer, "add", "README.md")
@@ -223,16 +216,11 @@ def test_published_contract_applies_c2_and_second_b0_is_unchanged(tmp_path: Path
 
     first = _run_default(ROOT, consumer)
     assert first.returncode == 0, first.stderr
-    for relative in (
-        "docs/references/fixtures/demo-wiki/wiki.config.yaml",
-        "docs/references/fixtures/demo-wiki/wiki.page-types.yaml",
-        "docs/references/fixtures/demo-wiki/wiki.templates.yaml",
-        "tests/test_build_demo.py",
-        "tests/test_web_snapshot.py",
-        "docs/references/releases/hermes-integration-withdrawal-2026-10-22.md",
-    ):
+    for relative in ("wiki_core/config.py", "scripts/wiki_audit.py", "docs/references/freshness-impact.md", "apps/wiki-cockpit/src/App.tsx", "apps/wiki-cockpit/e2e/downstream/operator-origin.spec.ts", "apps/wiki-cockpit/e2e/fixtures.ts"):
         assert (consumer / relative).is_file(), relative
-    assert (consumer / "apps/wiki-cockpit/public/sample-snapshot/manifest.json").is_file()
+    for relative in ("docs/references/fixtures/demo-wiki", "tests", "apps/wiki-cockpit/public/sample-snapshot", "scripts/wiki_build_demo.py"):
+        assert not (consumer / relative).exists(), relative
+    assert (consumer / "README.md").read_text() == "synthetic downstream\n"
 
     second = _run_default(ROOT, consumer, "--dry-run", "--json")
     assert second.returncode == 0, second.stderr

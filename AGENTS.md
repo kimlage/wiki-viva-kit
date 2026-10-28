@@ -99,3 +99,14 @@ npm --prefix apps/wiki-cockpit run build
 
 Configure each consumer through `wiki.config.yaml`; no context, owner or memory
 root may be hardcoded in shared core.
+
+## Keep the operating core small
+
+- Technical documentation edits use [scoped freshness](docs/references/freshness-impact.md),
+  exact changed paths and a reviewed rationale. Never renew source dates merely
+  because documentation was edited. Do not recreate documentary hash dossiers.
+- Generic Python suites, demo fixtures and public browser journeys are maintained
+  and tested in this kit. Consumer sync copies runtime and shared contracts;
+  consumers retain their domain/integration checks and frontend unit tests.
+- The public static demo is built and checked here. Consumers serve the cockpit
+  through their operator, whose live runtime configuration supplies the snapshot.

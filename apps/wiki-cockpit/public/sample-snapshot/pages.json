@@ -797,7 +797,7 @@
       "collection_refs": [],
       "content_sha256": "8ccb44d003f9b95f1e76e931efc122e3f1ff67e5985b2cee8a3b065e6d27c5df",
       "context": "clientes",
-      "freshness_state": "fresh",
+      "freshness_state": "unknown",
       "id": "action-enviar-proposta",
       "moc_children_count": 0,
       "moc_parent": "memories/clientes/index.md",

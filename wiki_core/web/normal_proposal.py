@@ -100,8 +100,7 @@ def load_material(root: Path, config: WikiConfig, params: dict) -> tuple[dict, s
     from wiki_core.action_transition import _assert_no_secrets
     _assert_no_secrets(data.decode("utf-8"))
     material = json.loads(data)
-    _closed(material, {"schema_version", "base_head", "branch", "action", "documents", "c2", "generated_at", "commit_message"},
-            {"freshness_pointer"})
+    _closed(material, {"schema_version", "base_head", "branch", "action", "documents", "c2", "generated_at", "commit_message"})
     if material["schema_version"] != SCHEMA:
         raise ProposalError("proposal_schema_unsupported")
     instant = dt.datetime.fromisoformat(material["generated_at"].replace("Z", "+00:00"))
@@ -176,44 +175,10 @@ def _write_action(root: Path, action: dict, *, expected_policy: bytes | None = N
                                dialogue_actor="operator", **action["transition"])
 
 
-def _pin_record_artifacts(root: Path, config: WikiConfig, material: dict,
-                          readset: dict[str, bytes | None]) -> None:
-    """Explicit evidence stays eligible and pinned in both contract versions."""
-    proposed = {doc["path"]: doc["after_text"].encode() for doc in material["documents"]}
-    active = config.audit.get("freshness_records")
-    candidate = (material.get("freshness_pointer") or {}).get("freshness_records")
-    refs = [ref for ref in (active, candidate) if ref]
-    if any(not isinstance(ref, str) for ref in refs):
-        raise ProposalError("proposal_invalid_record_contract")
-    for ref in sorted(set(refs)):
-        before = _bytes(root, ref)
-        readset[ref] = before
-        if before is None and (ref == active or ref not in proposed):
-            raise ProposalError("proposal_record_contract_missing")
-        snapshots = [data for data in (before, proposed.get(ref)) if data is not None]
-        for data in snapshots:
-            contract = json.loads(data)
-            if not isinstance(contract, dict) or not isinstance(contract.get("artifacts", []), list):
-                raise ProposalError("proposal_invalid_record_contract")
-            for item in contract.get("artifacts", []):
-                if (not isinstance(item, dict) or ("path" in item) == ("document" in item)):
-                    raise ProposalError("proposal_invalid_record_contract")
-                # Validate EVERY declaration, even duplicate IDs. Never reduce
-                # untrusted occurrences to a map before applying the guards.
-                key = "path" if "path" in item else "document"
-                ref = item[key]
-                if not isinstance(ref, str):
-                    raise ProposalError("proposal_invalid_record_contract")
-                readset[ref] = _bytes(root, ref)
-                # Only structured BASE evidence may name a document absent now;
-                # current evidence and immutable files must exist or be outputs.
-                historical_document = key == "document" and item.get("origin") == "base"
-                if readset[ref] is None and ref not in proposed and not historical_document:
-                    raise ProposalError("proposal_record_artifact_missing")
-
-
 def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_runner=None,
                      expected_readset_sha256: str | None = None) -> dict:
+    if config.audit.get("freshness_records") or config.approval.get("contribution_record_support"):
+        raise ProposalError("documentary_support_retired: migrate the approved policy first")
     material, material_sha = load_material(root, config, params)
     paths = WikiPaths(root, config)
     readset: dict[str, bytes | None] = {}
@@ -322,18 +287,6 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
                 raise ProposalError("proposal_action_requires_native_writer")
         if target == paths.log_page and (before is None or not doc["after_text"].encode().startswith(before)):
             raise ProposalError("proposal_log_must_be_append_only")
-    pointer = material.get("freshness_pointer")
-    if pointer is not None:
-        _closed(pointer, {"before_sha256", "freshness_base", "freshness_records"})
-        ref = "wiki.config.yaml"
-        before = _bytes(root, ref)
-        readset[ref] = before
-        if before is None or _sha(before) != pointer["before_sha256"]:
-            raise ProposalError("proposal_config_preimage_mismatch")
-        if not re.fullmatch(r"[0-9a-f]{40,64}", pointer["freshness_base"]):
-            raise ProposalError("proposal_invalid_freshness_base")
-        _document_target(root, config, pointer["freshness_records"])
-    _pin_record_artifacts(root, config, material, readset)
     if sum(len(v) for v in readset.values() if v is not None) > MAX_STAGING_BYTES:
         raise ProposalError("proposal_staging_budget_exceeded")
     for target in c2_targets:
@@ -365,22 +318,6 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
         else:
             _write_action(shadow, action)
         outputs[action_ref] = (shadow / action_ref).read_bytes()
-        if pointer is not None:
-            # Typed pointer update only; no arbitrary YAML/config replacement.
-            text = readset["wiki.config.yaml"].decode()
-            for key in ("freshness_base", "freshness_records"):
-                text, count = re.subn(r"(?m)^  " + key + r":.*$", "  " + key + ": " + pointer[key], text)
-                if count != 1:
-                    raise ProposalError("proposal_freshness_pointer_not_unique")
-            expected_config = copy.deepcopy(yaml.safe_load(readset["wiki.config.yaml"]))
-            if not isinstance(expected_config.get("audit"), dict):
-                raise ProposalError("proposal_audit_pointer_not_configured")
-            for key in ("freshness_base", "freshness_records"):
-                expected_config["audit"][key] = pointer[key]
-            if yaml.safe_load(text) != expected_config:
-                raise ProposalError("proposal_config_change_outside_pointer")
-            (shadow / "wiki.config.yaml").write_text(text, encoding="utf-8")
-            outputs["wiki.config.yaml"] = text.encode()
         outputs.update(_render_c2(shadow, load_config(shadow), material["c2"], material["generated_at"], effect_runner))
     for ref in outputs:
         if ref not in readset:
@@ -787,24 +724,9 @@ def promotion_policy(root: Path, params: dict) -> WikiConfig:
     if not changed:
         raise ProposalError("proposal_empty_delta")
     for ref in changed:
-        if ref == "wiki.config.yaml":
-            before = subprocess.check_output(["git", "show", approved + ":" + ref], cwd=root).decode()
-            after = subprocess.check_output(["git", "show", params["expected_head"] + ":" + ref], cwd=root).decode()
-            for key in ("freshness_base", "freshness_records"):
-                value = str(config.audit.get(key) or "")
-                if key == "freshness_base" and not re.fullmatch(r"[0-9a-f]{40,64}", value):
-                    raise ProposalError("proposal_invalid_freshness_base")
-                if key == "freshness_records":
-                    _document_target(root, base_config, value)
-                before, count = re.subn(r"(?m)^  " + key + r":.*$", "  " + key + ": " + value, before)
-                if count != 1:
-                    raise ProposalError("proposal_freshness_pointer_not_unique")
-            if before != after:
-                raise ProposalError("proposal_config_change_outside_pointer")
-        else:
-            _document_target(root, base_config, ref)
-            if not _git(root, "ls-tree", params["expected_head"], "--", ref).startswith("100644 blob "):
-                raise ProposalError("proposal_requires_committed_regular_document")
+        _document_target(root, base_config, ref)
+        if not _git(root, "ls-tree", params["expected_head"], "--", ref).startswith("100644 blob "):
+            raise ProposalError("proposal_requires_committed_regular_document")
     return config
 
 
@@ -914,7 +836,7 @@ def promote_proposal(root: Path, config: WikiConfig, params: dict, *, manager: A
             ready_for_effect(pr, allow_draft=True)
             gates = admitted(lambda: _local_integration_gates(root, expected_head,
                 effect_runner=lambda call: admitted(call, ('gates.run',)),
-                required_policy=_validation_policy(config), record_support_override=True), ('gates.run',))
+                required_policy=_validation_policy(config), full_checks=True), ('gates.run',))
             pr = observe()
             ready_for_effect(pr, allow_draft=True)
             if pr.get('isDraft'):

@@ -45,14 +45,16 @@ code or weaken core gates. See the
 
 Agent-facing commands live in [scripts](../scripts/README.md).
 
-[document_record_review.py](document_record_review.py) consumes the optional
-read-only trace of [document_records.py](document_records.py) for a complete
-incoming/own-premise census. It does not introduce another projection algorithm,
-infer authored intent or evaluate freshness.
+[freshness_impact.py](freshness_impact.py) evaluates actual changed pages and
+both historical and current dependencies. Documentary classifications are
+per-proposal review inputs, not persistent hash contracts. See
+[scoped freshness](../docs/references/freshness-impact.md).
 
-[contribution_records.py](contribution_records.py) derives the explicitly
-opted-in documentary support for [action_contribution.py](action_contribution.py).
-It reuses the projector, preserves BASE and semantic declarations, and refuses
-affected bindings requiring C3. Models still request one action body; normal
-producer checks and exact generated-head review cover the complete proposal.
-See [agent contributions](../docs/references/guides/agent-contributions.md).
+[action_contribution.py](action_contribution.py) writes one reviewed action body
+and its existing memory-log annotation, protected by immutable-parent policy,
+CAS, exact-head review and Git readback. See
+[agent contributions](../docs/references/guides/agent-contributions.md).
+
+Snapshot [projection](web/snapshot_projection.py) builds and validates the read
+models. [Publication](web/snapshot.py) owns disk revisions, locks, atomic
+promotion and recovery. Existing public imports remain available.

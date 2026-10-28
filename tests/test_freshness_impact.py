@@ -506,3 +506,145 @@ def test_moving_citation_to_moc_declaration_preserves_historical_dependency(repo
     assert paths(result["blockers"]) == {"memories/catalogue.md"}
     assert result["blockers"][0]["chain"][0]["origin"] == "base"
     assert any(e.get("body_relation_label") == "MOC:" for e in result["nonpropagating_relations"])
+
+
+def test_documentary_review_suppresses_only_seed_never_required_evidence(repo):
+    source = page(repo, 'source', stale=True)
+    consumer = page(repo, 'consumer', source_refs=['source'])
+    base = commit(repo)
+    source.write_text(source.read_text() + '\nTypographical clarification.\n')
+    cfg = load_config(repo)
+    declaration = {'memories/source.md': 'Only spelling changed; original verification date retained.'}
+    result = repository_report(repo, cfg, base, today=TODAY, documentary_only=declaration)
+    assert result['ok'] and not result['seeds']
+    assert 'memories/source.md' in paths(result['unrelated_debt'])
+    consumer.write_text(consumer.read_text() + '\nA new factual conclusion.\n')
+    result = repository_report(repo, cfg, base, today=TODAY, documentary_only=declaration)
+    assert not result['ok']
+    assert 'memories/source.md' in paths(result['blockers'])
+
+
+@pytest.mark.parametrize('declaration', [
+    {'memories/unchanged.md': 'No changed bytes'}, {'memories/source.md': ''},
+    {'../source.md': 'Outside repository'}, {'memories/*.md': 'No blanket exemptions'},
+])
+def test_documentary_review_refuses_unbounded_or_unexplained_classification(repo, declaration):
+    source = page(repo, 'source')
+    page(repo, 'unchanged')
+    base = commit(repo)
+    source.write_text(source.read_text() + '\nEdited.\n')
+    with pytest.raises(ValueError, match='documentary-only'):
+        repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=declaration)
+
+
+def test_documentary_edit_cannot_renew_source_date(repo):
+    source = page(repo, 'source', stale=True)
+    base = commit(repo)
+    source.write_text(source.read_text().replace('2026-01-01', '2026-10-18'))
+    with pytest.raises(ValueError, match='cannot renew'):
+        repository_report(repo, load_config(repo), base, today=TODAY,
+                          documentary_only={'memories/source.md': 'Claimed formatting only'})
+
+
+@pytest.mark.parametrize('exempt', [False, True])
+def test_future_verification_is_unknown_even_when_evergreen(exempt):
+    from wiki_core.freshness import freshness_state
+    assert freshness_state('2099-01-01', 30, TODAY, stale_exempt=exempt) == 'unknown'
+
+
+@pytest.mark.parametrize('operation', ['edit', 'delete', 'delete_and_unlink'])
+def test_tracked_nonmemory_evidence_changes_reach_stale_consumers(repo, operation):
+    artifact = repo / 'evidence.txt'
+    artifact.write_text('Original captured evidence.\n')
+    consumer = page(repo, 'consumer', stale=True, body='Claim based on [evidence](../evidence.txt).')
+    base = commit(repo)
+    if operation == 'edit':
+        artifact.write_text('Changed captured evidence.\n')
+    else:
+        artifact.unlink()
+        if operation == 'delete_and_unlink':
+            consumer.write_text(consumer.read_text().replace('[evidence](../evidence.txt)', 'the former capture'))
+    result = report(repo, base)
+    assert not result['ok']
+    assert 'evidence.txt' in result['seeds']
+    assert 'memories/consumer.md' in paths(result['blockers'])
+    if operation != 'edit':
+        assert 'evidence.txt' in paths(result['blockers'])
+
+
+def test_nonmemory_evidence_symlink_cannot_read_outside_root(repo, tmp_path):
+    evidence = repo / 'evidence.txt'
+    evidence.write_text('Original capture.')
+    page(repo, 'consumer', body='[Evidence](../evidence.txt)')
+    base = commit(repo)
+    evidence.unlink()
+    evidence.symlink_to('/etc/passwd')
+    with pytest.raises(ValueError):
+        report(repo, base)
+
+
+def test_unicode_source_filename_is_not_lost_in_git_quoting(repo):
+    artifact = repo / 'evidência técnica.txt'
+    artifact.write_text('Original capture.')
+    page(repo, 'consumer', stale=True, body='[Evidence](../evidência%20técnica.txt)')
+    base = commit(repo)
+    artifact.write_text('Changed capture.')
+    result = report(repo, base)
+    assert artifact.name in result['seeds']
+    assert artifact.name in result['input_sha256']
+    assert 'memories/consumer.md' in paths(result['blockers'])
+
+
+def test_reviewed_technical_input_suppresses_only_its_seed(repo):
+    tool = repo / 'tool.py'
+    tool.write_text('print("old")\n')
+    manual = page(repo, 'manual', body='Tool [implementation](../tool.py); [source](source.md).')
+    page(repo, 'source', stale=True)
+    base = commit(repo)
+    tool.write_text('print("new implementation")\n')
+    assert 'memories/source.md' in paths(report(repo, base)['blockers'])
+    reason = {'tool.py': 'Implementation refactor; downstream asserted facts unchanged, reviewed and tested.'}
+    result = repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    assert result['seeds'] == []
+    manual.write_text(manual.read_text() + '\nA new factual assertion.\n')
+    result = repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    assert 'tool.py' in paths(result['included'])
+    assert 'memories/source.md' in paths(result['blockers'])
+
+
+def test_retired_input_review_requires_no_surviving_citation_and_keeps_old_edges(repo):
+    tool = repo / 'old-tool.py'
+    tool.write_text('print("historical implementation")\n')
+    manual = page(repo, 'manual', body='[Tool](../old-tool.py); [source](source.md).')
+    source = page(repo, 'source', stale=True)
+    base = commit(repo)
+    tool.unlink()
+    reason = {'old-tool.py': 'Retired implementation retained at the approved Git revision.'}
+    with pytest.raises(ValueError, match='changed existing paths'):
+        repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    manual.write_text(manual.read_text().replace('[Tool](../old-tool.py)', 'Retired tool; see approved Git history'))
+    reason['memories/manual.md'] = 'Replace retired implementation link, no source fact changed.'
+    result = repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    assert result['seeds'] == []
+    source.write_text(source.read_text() + '\nChanged evidence.\n')
+    result = repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    assert 'old-tool.py' in paths(result['blockers'])
+    assert next(r for r in result['included'] if r['path'] == 'old-tool.py')['state'] == 'unknown'
+
+
+def test_documentary_input_review_refuses_new_unreferenced_or_deleted_memory(repo):
+    memory = page(repo, 'manual')
+    existing = repo / 'unreferenced.txt'
+    existing.write_text('Original')
+    base = commit(repo)
+    existing.write_text('Changed')
+    new = repo / 'new.txt'
+    new.write_text('New evidence')
+    memory.write_text(memory.read_text() + '\n[New](../new.txt)')
+    git(repo, 'add', 'new.txt')
+    for path in ('new.txt', 'unreferenced.txt'):
+        with pytest.raises(ValueError, match='documentary-only'):
+            repository_report(repo, load_config(repo), base, today=TODAY, documentary_only={path: 'Reason'})
+    memory.unlink()
+    with pytest.raises(ValueError, match='documentary-only'):
+        repository_report(repo, load_config(repo), base, today=TODAY, documentary_only={'memories/manual.md': 'Deleted'})

@@ -68,7 +68,7 @@ def freshness_state(
 ) -> str:
     """Canonical freshness verdict: "fresh", "stale" or "unknown"."""
     updated = parse_updated_date(updated_at)
-    if updated is None:
+    if updated is None or updated > today:
         return UNKNOWN
     # Evergreen records (statements, closed events, historical snapshots)
     # opt out of the freshness window: verified once, they do not decay.

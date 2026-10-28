@@ -29,13 +29,13 @@
         "aprovacoes_no_sla": 0.0,
         "fontes_recentes": 0.0,
         "insights_revisados": 0.0,
-        "paginas_atualizadas": 1.0,
+        "paginas_atualizadas": 0.0,
         "paginas_orfas": 0.0,
-        "pendencias": 0.0,
+        "pendencias": 1.0,
         "responsabilidades_sem_dono": 0.0,
         "riscos_privacidade_resolvidos": 0.0
       },
-      "indice_vitalidade": 8.0,
+      "indice_vitalidade": 0.0,
       "participacao_distribuida": 0,
       "participantes": [],
       "score_aggregado": 0.0

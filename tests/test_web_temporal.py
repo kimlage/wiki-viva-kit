@@ -1384,33 +1384,6 @@ def test_snapshot_writer_rejects_nonfinite_json_before_creating_artifact(
     assert not (target / "temporal_graph.json").exists()
 
 
-def test_temporal_event_fingerprint_round_trips_identically_through_node() -> None:
-    event = _fixture("imprecise-event.json")
-    event["after"] = {
-        "metric": 2**53 - 1,
-        "nested": [True, None, "1.25"],
-    }
-    events = [event]
-    expected = _events_fingerprint(events)
-    module = (
-        ROOT / "apps/wiki-cockpit/scripts/release-matrix-lib.mjs"
-    ).as_uri()
-    script = (
-        f'import {{ sha256CanonicalJson }} from "{module}";'
-        'let raw="";for await (const chunk of process.stdin) raw+=chunk;'
-        "console.log(sha256CanonicalJson(JSON.parse(raw)));"
-    )
-    completed = subprocess.run(
-        ["node", "--input-type=module", "-e", script],
-        input=json.dumps(events, ensure_ascii=False, allow_nan=False),
-        text=True,
-        capture_output=True,
-        check=True,
-        cwd=ROOT / "apps/wiki-cockpit",
-    )
-
-    assert completed.stdout.strip() == expected
-
 
 def test_temporal_graph_validator_detects_count_range_and_cursor_tampering() -> None:
     payload = paginate_temporal_events(

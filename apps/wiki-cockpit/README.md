@@ -301,159 +301,13 @@ to proposal branches and the Pull Request handoff remains the human gate.
 The ingestion wizard executes read/dry-run steps directly, while write steps
 stay behind an explicit UI toggle and proposal-branch checks.
 
-## Required release matrices
+## Functional checks
 
-The public browser matrix and the real downstream operator matrix are separate
-contracts. `npm run test:e2e:release` runs only public/demo specifications with
-`retries=0`, then rejects the JSON report if any required test skipped, retried,
-flaked or failed. The public Playwright configuration ignores
-`e2e/downstream/`, so missing private infrastructure can never appear as a
-harmless public-CI skip.
-
-Current worktree collection enumerates **102 public cells in 17 specifications**
-and **2 mandatory downstream cells in 1 specification**. The versioned matrix
-contains that exact 102+2 inventory; `check:release-matrix` must pass with zero
-collection drift before either release command can produce evidence.
-
-The downstream repository must start its exact local operator and same-origin
-cockpit, then provide every attestation below — there are no defaults:
-
-```sh
-export WIKI_COCKPIT_SNAPSHOT_URL=http://127.0.0.1:5173/api/snapshot/pages.json
-export WIKI_COCKPIT_REAL_BASE_URL=http://127.0.0.1:5173
-export WIKI_COCKPIT_EXPECT_REPO_ID=<exact-repo-id>
-export WIKI_COCKPIT_EXPECT_SNAPSHOT_REVISION=<exact-manifest-snapshot-id>
-export WIKI_COCKPIT_EXPECT_SNAPSHOT_HASH=<exact-64-char-manifest-bundle-hash>
-export WIKI_COCKPIT_EXPECT_CONSUMER_HEAD=<exact-clean-40-char-consumer-HEAD>
-export WIKI_COCKPIT_EXPECT_PUBLIC_RELEASE_SHA=<exact-adopted-public-release-SHA>
-export WIKI_COCKPIT_EXPECT_ADAPTER_HASH=<exact-64-char-downstream-adapter-hash>
-export WIKI_COCKPIT_EXPECT_SNAPSHOT_VERSION=wiki_web_snapshot.v2
-export WIKI_COCKPIT_EXPECT_RUNTIME_VERSION=wiki_world_runtime.v8
-export WIKI_COCKPIT_EXPECT_SERVER_VERSION=wiki_web_server.v6
-export WIKI_COCKPIT_EXPECT_TEMPORAL_GRAPH_VERSION=wiki_temporal_graph.v1
-export WIKI_COCKPIT_EXPECT_TEMPORAL_EVENT_VERSION=wiki_temporal_event.v1
-export WIKI_COCKPIT_EXPECT_EXPERIENCE_PACK_COMPOSITION_VERSION=wiki_experience_pack_composition.v1
-export WIKI_COCKPIT_EXPECT_COMPOSITION_SHA256=<exact-64-char-experience-packs-composition-sha256>
-# Explicit JSON is required. [] is valid when this consumer has no active pack.
-export WIKI_COCKPIT_EXPECT_ACTIVE_PACKS='[{"id":"personal-finance","version":"0.1.0"}]'
-export WIKI_COCKPIT_EXPECT_CAPABILITIES=operator_security_v2,cors_default_deny_v1,action_state_transitions_v1
-export WIKI_COCKPIT_MIN_PAGES=<explicit-positive-minimum>
-npm run test:e2e:operator
-```
-
-Run that command from the consumer checkout itself: the checker requires the
-preflight consumer HEAD, clean snapshot `source_commit` and pre/post tested Git
-subject to be the same commit.
-
-### Restart a stale local operator safely
-
-If the Codex diagnostics dock says the operator is outdated, stop the existing
-Python operator and Vite proxy normally with `Ctrl-C`; do not keep or reuse the
-old port occupant. From the consumer repository root, start fresh processes:
-
-```sh
-# terminal 1 — repository root
-python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
-
-# terminal 2 — repository root
-npm --prefix apps/wiki-cockpit run dev:proxy
-```
-
-With both processes running, verify the same-origin handshake from
-`apps/wiki-cockpit/` using the exact shared validator. This prints no nonce:
-
-```sh
-node --input-type=module <<'NODE'
-import { validateOperatorHandshake } from "./src/contracts/operatorSecurity.js";
-
-const response = await fetch("http://127.0.0.1:5173/api/health", {
-  headers: { accept: "application/json" },
-  cache: "no-store"
-});
-const result = validateOperatorHandshake(await response.json());
-if (!response.ok || !result.ok) {
-  console.error(result.errors.join("; ") || `health failed: ${response.status}`);
-  process.exit(1);
-}
-console.log("operator handshake current: v6 / security v2 / default-deny CORS");
-NODE
-```
-
-Open the Codex diagnostics dock and choose **Re-verify** / **Re-verificar**. The
-operator rung must turn healthy without a page reload. The downstream preflight
-now rejects a v4/v1 process even when it exposes a plausible Codex block, and
-also rejects missing nonce/header/body bounds, non-POST mutation policy,
-non-default-deny browser origin or a non-exact CORS allowlist.
-
-The same-origin `/wiki-cockpit.config.json` served by that UI must independently
-publish the adoption identity; expected environment values are comparisons, not
-the source of truth:
-
-```json
-{
-  "adoption": {
-    "public_release_sha": "<40-char-public-release-SHA>",
-    "adapter_manifest": "wiki.adapter-manifest.json",
-    "adapter_hash": "<64-char-consumer-adapter-SHA-256>"
-  }
-}
-```
-
-Build and commit that identity with
-[`wiki_adapter_manifest.py`](../../scripts/wiki_adapter_manifest.py) before the
-browser gate; the complete workflow is in the
-[downstream adapter manifest guide](../../docs/references/guides/downstream-adapter-manifest.md).
-If the consumer has not implemented that runtime boundary, preflight stops at
-`adoption_identity_unavailable`; it does not infer or echo an identity.
-
-The preflight fetches pages, manifest, `temporal_graph.json`,
-`experience_packs.json` and `/api/health` before launching the browser. A
-missing variable, remote/non-loopback endpoint, repo/revision/hash
-mismatch, dirty/old snapshot source commit, schema/runtime/operator version
-drift, absent/mismatched public-release identity, missing/untracked/dirty
-adapter manifest, adapter file hash/size drift, runtime/manifest/environment
-adapter-hash disagreement, non-empty
-`contract_errors`, missing security or required snapshot capability, wrong
-temporal event/graph or experience-pack composition version, payload-integrity
-drift, semantic composition-hash drift, active-pack mismatch, empty real-data
-Timeline, cross-origin
-snapshot/UI pair, oversized/slow JSON response or insufficient page count fails
-closed. Active packs are an exact, canonically ordered JSON array of
-`{"id","version"}` objects; `[]` is an explicit valid core-only state, never an
-omitted assumption. The rendered-UI test observes the exact
-`pages.json` and `manifest.json` responses used by the page and rechecks the
-attested revision/hash, opens the real lazy-loaded Chronoscope, and opens the
-generic pack workbench only when a pack is explicitly expected. Pack commands
-and operations remain visible but disabled, and the journey asserts that it did
-not send a mutation. One 390x844 forced-fallback passage with one non-default
-theme/density pair is included as a bounded integration proof; the exhaustive
-appearance, viewport and fallback cross-product remains owned by the public
-matrix. Matching only `repo_id` is insufficient. The two
-exact-repository tests cannot skip. Their normalized `downstream_required` gate
-result hashes both the preflight record and the versioned exact
-spec/project/test-cell matrix, the exact Playwright config/checkers and the
-stable pre/post Git worktree fingerprint. The matrix contract is regenerated
-only after reviewing the exact `playwright --list` diff; ordinary checks use
-`npm run check:release-matrix`. Each required invocation creates a unique
-`run_id` directory. Its report, subject, preflight and passing gate never reuse
-a fixed path; every exit writes an atomic `run-result.json` with start/finish
-times, the pre/post Git subjects and either a hashed passing gate or an explicit
-blocked stage. Thus an early build, Playwright or checker failure remains durable
-blocked evidence rather than leaving an older green file at the current run
-location. The passing gate can be consumed by
-the consumer PR; the public and
-downstream gates are closed in their own repository receipts, while only a
-future external authority may combine them into E5.
-
-Release evidence is deliberately confined to the explicitly ignored,
-tool-owned roots `apps/wiki-cockpit/test-results/**` and
-`data/derived/wiki/release/**`. Every caller-controlled report, preflight,
-subject, output and clear target must be a canonical repo-relative POSIX path
-under its expected root, must remain untracked, and must not cross a symbolic
-link in either the ancestor chain or target. Hard-linked targets are refused as
-well, so an ignored alias cannot truncate a tracked file. Validation happens before any
-mutation; cleanup unlinks regular evidence files only and never recursively
-removes a caller-selected path.
+Run `npm test`, `npm run test:gates`, TypeScript and `npm run build` for
+code changes. Browser coverage uses `npm run test:e2e:release`; operator
+coverage uses `npm run test:e2e:operator` with an explicitly configured
+consumer. Review actual failures and the affected journeys. There is no frozen
+matrix, release capsule, subject capture or certification export.
 
 ## Build
 
@@ -473,7 +327,6 @@ performance budgets, visual baselines, legacy normalization and the
 drill → lock → read → retreat loop. It then enforces zero required skips,
 flaky results and retries. Use `npm run test:visual:update` only when
 intentionally accepting reviewed visual changes, and regenerate the exact
-release-matrix contract only after reviewing the collected-cell diff.
 
 ## Deployment inputs
 

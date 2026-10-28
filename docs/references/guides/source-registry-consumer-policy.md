@@ -21,7 +21,7 @@ or new external ingestion permission. Recipe cadence, timestamps and data
 boundaries retain their existing contracts.
 
 The public demo is authored against its own
-[fixture page-type registry](../fixtures/demo-wiki/wiki.page-types.yaml).
+[fixture page-type registry](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/docs/references/fixtures/demo-wiki/wiki.page-types.yaml).
 Its cross-surface tests use that registry, preserving all five-event checks.
 A downstream root's own type declarations do not redefine the synthetic demo.
 
