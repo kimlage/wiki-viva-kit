@@ -118,6 +118,7 @@
   border-bottom: 1px solid #223642;
   background: rgba(6, 14, 20, 0.96);
 }
+.sourceWorkspaceHeader > button { min-height: 44px; }
 .sourceWorkspaceHeader > div,
 .sourceWorkspaceHeader > div > span {
   display: flex;
@@ -11403,7 +11404,11 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 }
 
 /* --- Quest markers: missions placed IN the world --------------------------- */
-.questMarkerWrap { pointer-events: auto; }
+/* The translated child owns the hit area; the empty anchor must not cover
+   the page label beneath it. Keep the visible marker/menu interactive. */
+.questMarkerWrap { pointer-events: none; }
+.questMarkerWrap .questMarker,
+.questMarkerWrap .questPlate { pointer-events: auto; }
 .questMarker {
   display: flex;
   align-items: center;

@@ -133,6 +133,22 @@ jobs:
           --project=chromium-desktop --project=webkit-keyboard
           --project=webkit-mobile --project=chromium-fallback
           --project=firefox-smoke
+      - name: Temporary public demo diagnostics
+        if: failure()
+        run: |
+          python3 - <<'PYDIAG'
+          import base64
+          from pathlib import Path
+          root = Path("apps/wiki-cockpit/test-results/playwright-dev-artifacts")
+          for folder in root.iterdir():
+              if not any(name in folder.name for name in ("keyboard-genesis-native", "visual-regression-review")):
+                  continue
+              for path in folder.iterdir():
+                  if path.name == "error-context.md" or path.suffix == ".json":
+                      print("DIAGNOSTIC", str(path), path.read_text()[:16000])
+                  elif path.name == "review-demo-actual.png":
+                      print("REVIEW_IMAGE_BASE64", base64.b64encode(path.read_bytes()).decode())
+          PYDIAG
       - name: Verify built UI against the native operator
         if: ${{ !cancelled() }}
         env:

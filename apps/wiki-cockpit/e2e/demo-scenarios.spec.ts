@@ -68,15 +68,20 @@ for (const scenario of executionContract.scenarios as ScenarioContract[]) {
     await expect(page.locator(".worldRouteLoading, .sceneLoading")).toHaveCount(0, {
       timeout: 20_000
     });
+    if (parsedRoute.searchParams.get("dock") === "source") {
+      await expect(page.locator(".sourceWorkspace")).toBeVisible();
+      await expect(workspace).toHaveCount(0);
+      await expect(page.locator(".sourceRegistryList button").first()).toBeVisible();
+      await page.locator(".sourceWorkspaceHeader > button").click();
+      await expect(page).not.toHaveURL(/[?&]dock=/);
+    }
     await expect(workspace).toBeVisible({ timeout: 20_000 });
     await expect(workspace).toHaveAttribute("data-world-center", parsedRoute.searchParams.get("center")!);
     await expect(workspace).toHaveAttribute("data-world-view", parsedRoute.searchParams.get("view")!);
     await expect(workspace).toHaveAttribute("data-world-page-count", String(scenario.page_count));
     const overlay = parsedRoute.searchParams.get("overlay");
     if (overlay) await expect(workspace).toHaveAttribute("data-world-overlay", overlay);
-    const dock = parsedRoute.searchParams.get("dock");
-    if (dock === "source") await expect(page.locator(".sourceDock")).toBeVisible();
-    if (dock === "work") await expect(page.locator(".workDockPanel")).toBeVisible();
+    if (parsedRoute.searchParams.get("dock") === "work") await expect(page.locator(".workDockPanel")).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`[?&]demo_scenario=${scenario.id}(?:&|$)`));
     await expect(page.getByRole("heading", { name: "Real snapshot required" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "O cockpit quebrou ao renderizar" })).toHaveCount(0);

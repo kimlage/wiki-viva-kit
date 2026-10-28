@@ -1294,7 +1294,7 @@ for (const scenario of [
     dockButton: ".dockButton",
     dockLabel: /Sources|Fontes/,
     dock: "source",
-    surface: ".sourceDock"
+    surface: ".sourceWorkspace"
   },
   {
     view: "work" as const,
@@ -1334,10 +1334,18 @@ test(`${scenario.view} keeps page, reader and dock navigation on one canonical w
   await expect(page.locator(scenario.surface)).toBeVisible({ timeout: 10_000 });
   await expect(page).toHaveURL(new RegExp(`[?&]dock=${scenario.dock}(?:&|$)`));
   await expect(page).not.toHaveURL(/[?&]reader=1(?:&|$)/);
-  await expectCanonicalNativeRoute(page, scenario.view);
-  await expectSurfaceBackground(page, true);
+  if (scenario.dock === "source") {
+    await expect(page.locator(".worldWorkspace, canvas")).toHaveCount(0);
+    expect(new URL(page.url()).searchParams.get("view")).toBe(scenario.view);
+    expect(new URL(page.url()).searchParams.get("center")).toBe("root-alex-rivera");
+  } else {
+    await expectCanonicalNativeRoute(page, scenario.view);
+    await expectSurfaceBackground(page, true);
+  }
 
-  const dockClose = page.locator(`${scenario.surface} .readerClose`).first();
+  const dockClose = page.locator(scenario.dock === "source"
+    ? ".sourceWorkspaceHeader > button"
+    : `${scenario.surface} .readerClose`).first();
   await expect(dockClose).toBeVisible();
   expect(await dockClose.evaluate((button) => {
     const rect = button.getBoundingClientRect();

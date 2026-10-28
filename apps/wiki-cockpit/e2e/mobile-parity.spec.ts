@@ -151,10 +151,10 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
 
   await page.locator(".dockButton").filter({ hasText: /Sources|Fontes/ }).tap();
   await expect(page).toHaveURL(/[?&]dock=source/);
-  const sourceDock = page.locator(".sourceDock");
+  const sourceDock = page.locator(".sourceWorkspace");
   await expect(sourceDock).toBeVisible({ timeout: 10_000 });
-  await expectMobileViewportBounded(page, ".sourceDock");
-  const sourceClose = sourceDock.locator(".readerClose").first();
+  await expectMobileViewportBounded(page, ".sourceWorkspace");
+  const sourceClose = sourceDock.locator(".sourceWorkspaceHeader > button").first();
   await expectTouchTarget(sourceClose);
   await sourceClose.tap();
   await expect(page).not.toHaveURL(/[?&]dock=/);

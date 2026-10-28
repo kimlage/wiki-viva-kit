@@ -390,13 +390,15 @@ test("desktop cockpit modules keep one semantic world while navigating", async (
   await expectNavigableWorld(page, expectedCenter);
 
   await expect(page.locator(".operationStation")).toHaveCount(0);
-  await openDock(page, "Sources", "source", ".sourceDock", expectedCenter);
-  await expect(page.locator(".sourceDock .dockTelemetry")).toBeVisible();
-  await expect(page.locator(".sourceDock .dockTelemetryItem")).toHaveCount(4);
-  await expectCompactControlsFit(page);
-  // The active surface makes the world underneath inert. Close it explicitly
-  // before opening another dock instead of clicking through its backdrop.
-  await closeSurface(page, expectedCenter);
+  await page.locator(".dockButton", { hasText: "Sources" }).click();
+  await expect(page).toHaveURL(/[?&]dock=source/);
+  await expect(page.locator(".sourceWorkspace")).toBeVisible();
+  await expect(page.locator(".worldWorkspace, canvas")).toHaveCount(0);
+  await page.locator(".sourceRegistryList button").first().click();
+  await expect(page.locator(".sourceIdentity")).toBeVisible();
+  await page.locator(".sourceWorkspaceHeader > button").click();
+  await expect(page).not.toHaveURL(/[?&]dock=/);
+  await expectNavigableWorld(page, expectedCenter);
   await openDock(page, "Health", "gates", ".gatesDock", expectedCenter);
   await expect(page.locator(".gatesDock .dockTelemetry")).toBeVisible();
   await expect(page.locator(".gatesDock .dockTelemetryItem")).toHaveCount(4);
