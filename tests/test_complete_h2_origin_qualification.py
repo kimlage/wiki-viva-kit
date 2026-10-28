@@ -165,6 +165,8 @@ def composed_data(repo, fault=None):
     if fault == 'removed_source':
         removed[0] = removed[0].replace('A historical quoted ceiling.', '[Original source](old-source.md).')
     added = '## New measurement\n\nMeasured value 7 from the retained reading.\n\n'
+    if fault == 'new_source':
+        added = added.replace('from the retained reading.', 'from the retained [reading](live-source.md).')
     if fault in {'whole', 'base_consumer'}:
         page(repo, 'consumer', body='This claim relies on the complete [record](log.md).')
     for origin, snapshot in (('base', base), ('current', current)):
@@ -217,6 +219,51 @@ def composed_data(repo, fault=None):
     return data
 
 
+@pytest.mark.parametrize('operation', ['introduced', 'removed'])
+@pytest.mark.parametrize('disposition', ['updated', 'no_change', 'revalidated'])
+def test_complete_unit_delta_accepts_reviewed_updated_arrival_without_cutting_its_consumers(repo, operation, disposition):
+    """Qualification and causal reconciliation must compose on an exact delta."""
+    from test_freshness_impact import page
+    from test_documentary_edits import changed_pages
+    data = composed_data(repo, 'new_source' if operation == 'introduced' else 'removed_source')
+    base, current, spec, inputs, _ = data
+    source = 'live-source' if operation == 'introduced' else 'old-source'
+    page(repo, source, stale=operation == 'removed', body='The retained source has a substantive correction.')
+    current.clear(); current.update(graph(repo))
+    spec['current_documents_sha256'] = {p: digest(t) for p, t in current['documents'].items()}
+    seal(data)
+    bare = copy.deepcopy(spec); bare.pop('causal_review')
+    pc, pb, seeds, _ = project_records(current, base, changed_pages(data), bare, artifact_inputs=inputs)
+    target = node_id(PATH, 'new-measurement' if operation == 'introduced' else 'retired-0')
+    assert (target not in pb['nodes']) if operation == 'introduced' else (target not in pc['nodes'])
+    if operation == 'introduced':
+        assert target in pc['verified_record_observations']
+    inventory = census(pc, pb, seeds)
+    selected = []
+    for row in spec['causal_review']['dispositions']:
+        edge = inventory['edges'][inventory['obligations'][row['obligation_id']]['edge_id']]
+        if edge['consumer'] == target:
+            selected.append(row['obligation_id'])
+            row.update(disposition=disposition, reason='Reviewed complete unit addition or removal; propagate every downstream arrival.')
+    assert selected, 'The qualified unit must receive an actual factual arrival.'
+    receipt = json.loads(inputs['current', 'review'])
+    receipt['plan_sha256'] = structured_digest({k: v for k, v in spec['causal_review'].items() if k != 'review_evidence'})
+    raw = json.dumps(receipt, sort_keys=True).encode()
+    inputs['current', 'review'] = raw
+    next(a for a in spec['artifacts'] if a['id'] == 'review')['sha256'] = digest(raw.decode())
+    if disposition != 'updated':
+        with pytest.raises(ValueError, match='removed/added consumer'):
+            run(data)
+        return
+    pc, pb, result = run(data)
+    assert all(pc['verified_causal_review']['dispositions'][oid]['disposition'] == 'updated' for oid in selected)
+    assert not result['ok']  # This review does not reconcile other consumers or stale sources.
+    assert not any(row['consumer'] == target for row in result['causal_review']['approved_boundaries'])
+    assert any(row['path'] == PATH for row in result['blockers'])
+    if operation == 'removed':
+        assert any(row['path'] == 'memories/old-source.md' for row in result['blockers'])
+
+
 @pytest.mark.parametrize('fault', [None, 'context', 'whole', 'removed_source', 'base_consumer'])
 def test_complete_h2_composition_preserves_every_real_obligation(repo, fault):
     data = composed_data(repo, fault)
@@ -251,13 +298,16 @@ def test_composition_rejects_uncovered_bytes_or_forged_absence(repo, fault):
 @pytest.mark.parametrize('operation', ['add', 'remove'])
 def test_valid_partial_addition_or_removal_does_not_gain_h2_carrier(repo, operation):
     from test_freshness_impact import page
+    from test_causal_review import authored
     header = '| Key | Value |\n| --- | --- |\n'
     stable = '| stable | 1 |\n'
     row = '| changed | 7 |\n'
     before = '# Register\n\n' + header + stable + (row if operation == 'remove' else '')
     after = '# Register\n\n' + header + stable + (row if operation == 'add' else '')
-    path = page(repo, 'log', stale=True, body=before); base = graph(repo)
-    page(repo, 'log', stale=True, body=after); current = graph(repo)
+    page(repo, 'source', body='Original premise.')
+    path = page(repo, 'log', stale=True, body=before, source_refs=['memories/source.md']); base = graph(repo)
+    page(repo, 'log', stale=True, body=after, source_refs=['memories/source.md'])
+    page(repo, 'source', body='Corrected premise.'); current = graph(repo)
     selector = dict(kind='table_row', container_heading_path=['Register'], header_sha256=digest(header),
                     key_column=0, key=dict(kind='text', value='changed'), required_match_count=1)
     record = dict(id='partial', independent=True, rationale='Valid exact table row, not a complete H2.',
@@ -274,6 +324,11 @@ def test_valid_partial_addition_or_removal_does_not_gain_h2_carrier(repo, operat
     assert evidence[0]['complete_delta_covered'] and evidence[0]['precise_component_seeds']
     assert node_id(PATH, 'partial') in seeds
     assert PATH not in pc['verified_precise_component_seeds']
+    causal, inputs = authored(base, current, {PATH, 'memories/source.md'}, spec=spec,
+        select=lambda edge, obligation: edge['consumer'] == node_id(PATH, 'partial'), disposition='updated')
+    assert causal['causal_review']['dispositions']
+    with pytest.raises(ValueError, match='removed/added consumer'):
+        project_records(current, base, {PATH, 'memories/source.md'}, causal, artifact_inputs=inputs)
     record['current_observation'] = 'unqualified'
     with pytest.raises(ValueError, match='complete independent H2 delta'):
         project_records(current, base, {PATH}, spec)

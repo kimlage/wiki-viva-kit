@@ -55,6 +55,45 @@ def test_exact_append_preserves_remainder_without_clearing_whole_or_new_seed(mod
     assert any(r['path']=='whole' for r in result['blockers'])
 
 
+@pytest.mark.parametrize('mode', ['h2_v1', 'explicit_view_v2'])
+@pytest.mark.parametrize('operation', ['introduced', 'removed'])
+@pytest.mark.parametrize('position', ['end', 'before'])
+def test_complete_h2_updated_arrival_propagates_without_qualifying_whole(mode, operation, position):
+    b, c, changed, spec = append_pair(mode)
+    record = spec['documents'][-1]['records'][0]
+    if position == 'before':
+        added = c['documents']['log'][len(b['documents']['log']):]
+        c['documents']['log'] = b['documents']['log'].replace('## Prior', added + '## Prior', 1)
+    if operation == 'removed':
+        b, c = c, b
+        record['base_sha256'], record['current_sha256'] = record['current_sha256'], None
+        if mode == 'explicit_view_v2':
+            record['selectors'] = {'base': record['selectors']['current'], 'current': None}
+        edge = next(e for e in b['edges'] if e['source'] == 'whole')
+        spec['bindings'].append(dict(origin='base', edge_sha256=edge_digest(edge),
+            target_record='new-event', consumed_sha256=record['base_sha256'],
+            rationale='The BASE claim consumes the complete removed event and still needs reconciliation.'))
+    for origin, graph in (('base', b), ('current', c)):
+        spec[origin + '_documents_sha256'] = {p: digest(t) for p, t in graph['documents'].items()}
+    spec, inputs = authored(b, c, changed, spec=spec,
+        select=lambda edge, obligation: edge['consumer'] == 'log::record:new-event', disposition='updated')
+    assert spec['causal_review']['dispositions']
+    pc, pb, seeds, _ = project_records(c, b, changed, spec, artifact_inputs=inputs)
+    absent = pb if operation == 'introduced' else pc
+    assert 'log::record:new-event' not in absent['nodes']
+    if mode == 'h2_v1' or (position == 'end' and operation == 'introduced'):
+        assert 'log' not in pc['verified_precise_component_seeds']
+    result = run(b, c, changed, spec, inputs)
+    assert not result['ok']
+    assert not result['causal_review']['approved_boundaries']
+    assert all('precise_representation_components' not in row
+               for row in result['included'] if row['path'] == 'log')
+    assert any(row['path'] == 'whole' for row in result['blockers'])
+    if operation == 'removed':
+        assert any(row['path'] == 'whole' and row['via'] == 'log::record:new-event'
+                   for row in result['causal_review']['unresolved'])
+
+
 @pytest.mark.parametrize('fault',['prefix','uncovered','reference-definition','new-selects-old'])
 def test_append_proof_refuses_unproved_partition_changes(fault):
     def mutate(b,c,s,n):

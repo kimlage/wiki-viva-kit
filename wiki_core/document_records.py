@@ -662,6 +662,18 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
     # uncovered bytes conservatively keep the full-document obligation.
     precise_components = {}
     complete_component_deltas = set()
+    from wiki_core.document_view_selectors import complete_h2_record
+    for declaration in declarations:
+        path = declaration['path']
+        appended = append_proofs.get(node_id(path, 'remainder'), {}).get('added_records', [])
+        # V1 already removes the raw change only after exact remainder,
+        # references, common-record order and anchors establish a full H2
+        # partition. Retain that same proof for causal updated arrivals.
+        precise_h2 = modes.get(path) == 'h2_v1' and path in changed and path not in changes
+        for record in declaration['records']:
+            if ((precise_h2 and node_id(path, record['id']) in changes or record['id'] in appended)
+                    and complete_h2_record(contract, declaration, record, allow_introduced=True)):
+                complete_component_deltas.add(node_id(path, record['id']))
     for item in evidence:
         path = item["path"]
         if not (item.get("mode") == "explicit_view_v2" and item.get("precise_component_seeds")):

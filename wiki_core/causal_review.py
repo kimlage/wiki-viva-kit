@@ -218,19 +218,29 @@ def verify(current, base, changed, contract, artifact_inputs, *, complete_compon
         consumer = edge["consumer"]
         if item["disposition"] != "blocked":
             if consumer not in base["nodes"] or consumer not in current["nodes"]:
-                raise ValueError("removed/added consumer needs explicit supported reconciliation")
-            before_path, after_path = _document(base, consumer), _document(current, consumer)
-            before, after = base["documents"][before_path], current["documents"][after_path]
-            if before_path != after_path:
-                raise ValueError("consumer identity changed")
-            if item["disposition"] == "updated":
-                if substantive_digest(before) == substantive_digest(after):
-                    raise ValueError("updated requires substantive consumer repair")
-                if consumer not in current["documents"]:
-                    before_part = base.get("verified_record_substantive_sha256", {}).get(consumer)
-                    after_part = current.get("verified_record_substantive_sha256", {}).get(consumer)
-                    if before_part is None or after_part is None or before_part == after_part:
-                        raise ValueError("updated requires substantive repair in the affected record")
+                # The projector can prove an entire H2 was introduced/removed
+                # inside an otherwise preserved document. An independently
+                # reviewed `updated` arrival propagates that exact delta; it
+                # is never an unchanged cut, freshness proof or WHOLE waiver.
+                present = current if consumer in current["nodes"] else base
+                path = present.get("verified_record_documents", {}).get(consumer)
+                if (item["disposition"] != "updated" or consumer not in complete_component_deltas
+                        or path not in base["documents"] or path not in current["documents"]
+                        or consumer in base["documents"] or consumer in current["documents"]):
+                    raise ValueError("removed/added consumer needs explicit supported reconciliation")
+            else:
+                before_path, after_path = _document(base, consumer), _document(current, consumer)
+                before, after = base["documents"][before_path], current["documents"][after_path]
+                if before_path != after_path:
+                    raise ValueError("consumer identity changed")
+                if item["disposition"] == "updated":
+                    if substantive_digest(before) == substantive_digest(after):
+                        raise ValueError("updated requires substantive consumer repair")
+                    if consumer not in current["documents"]:
+                        before_part = base.get("verified_record_substantive_sha256", {}).get(consumer)
+                        after_part = current.get("verified_record_substantive_sha256", {}).get(consumer)
+                        if before_part is None or after_part is None or before_part == after_part:
+                            raise ValueError("updated requires substantive repair in the affected record")
         decisions[item["obligation_id"]] = copy.deepcopy(item)
     from wiki_core.causal_reconciliation import (
         repaired_boundary, reachable_repaired_frontiers, upstream_closure, updated_paths,
