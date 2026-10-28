@@ -9,6 +9,8 @@ portable:
     - scripts/README.md
     - apps/wiki-cockpit/src/**
     - apps/wiki-cockpit/public/**
+    - apps/wiki-cockpit/assets/**
+    - apps/wiki-cockpit/deploy/**
     - apps/wiki-cockpit/scripts/**
     - apps/wiki-cockpit/e2e/downstream/**
     - apps/wiki-cockpit/e2e/fixtures.ts

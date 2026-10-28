@@ -41,4 +41,3 @@ def validated_config(value):
         require(all(isinstance(v, str) and 0 < len(v) <= 240 and not any(ord(c) < 32 for c in v)
                     for v in route.values()), "openclaw_invalid_route")
     return value
-

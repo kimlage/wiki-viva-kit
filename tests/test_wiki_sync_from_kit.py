@@ -221,6 +221,14 @@ def test_runtime_only_contract_preserves_consumer_and_second_b0_is_unchanged(tmp
     for relative in ("docs/references/fixtures/demo-wiki", "tests", "apps/wiki-cockpit/public/sample-snapshot", "scripts/wiki_build_demo.py"):
         assert not (consumer / relative).exists(), relative
     assert (consumer / "README.md").read_text() == "synthetic downstream\n"
+    # Exercise the installed contract, not only the manifest's path list.
+    # These tests use synthetic fixtures and Node built-ins, without npm install.
+    cockpit = consumer / "apps/wiki-cockpit"
+    gates = subprocess.run(
+        ["node", "--test", *[str(cockpit / "scripts" / name) for name in ("asset-gate.test.mjs", "build-safety.test.mjs", "vercel-preview.test.mjs")]],
+        cwd=cockpit, text=True, capture_output=True,
+    )
+    assert gates.returncode == 0, gates.stdout + gates.stderr
 
     second = _run_default(ROOT, consumer, "--dry-run", "--json")
     assert second.returncode == 0, second.stderr
