@@ -276,6 +276,15 @@ A removed H2 retains its BASE consumers and factual prerequisites; classifying
 its generated component-to-document edge as representation does not classify
 any actual consumer edge that way.
 
+A reviewed causal `updated` disposition can reconcile a factual arrival at an
+introduced or removed H2 only when the projector proves that complete local
+delta inside a document present in both origins. It propagates the arrival;
+it cannot create a `no_change`/`revalidated` boundary or a repaired frontier.
+The complete plan and independent review still bind the exact pair and each
+occurrence. Added/removed documents and partial selections remain unsupported.
+Freshness, retained sources, WHOLE consumers and downstream BASE obligations
+are checked separately; the disposition does not certify them.
+
 The CURRENT file receipt uses `wiki_record_review.v1`. It has the observation
 receipt's fields, replacing `observed_on` with `reviewed_on`, and also requires
 `base_document_sha256`, `base_record_sha256`, `base_text`, `current_text` and
@@ -601,8 +610,9 @@ approve publication. The existing independent review on the final PR HEAD,
 native effect admission and all other gates remain mandatory. Changing any
 bound input invalidates the review.
 
-This initial scope refuses added/removed consumers and combinations with
-`locator_changes`. Removed seeds retain their BASE obligations. Contracts
+This scope refuses unchanged cuts for added/removed consumers and combinations
+with `locator_changes`. The complete-H2 `updated` case above only propagates
+its reviewed delta. Removed seeds retain their BASE obligations. Contracts
 without `causal_review` preserve previous behavior. Consumers author and review
 the optional C3 input after adopting the public kit SHA; no automatic private
 migration or source revalidation occurs. The
