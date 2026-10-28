@@ -170,6 +170,10 @@ runtime that actually executes tools.
 
 ## Validation
 
+An optional [integrated OpenClaw route](openclaw-card-runtime.md) connects the
+existing action card to the administrative command bus. It is disabled by
+default and does not grant runtime account access or autonomous scheduling.
+
 Synthetic tests cover primary-route uniqueness, wrong-profile rejection, terminal preservation, path boundaries, stale content, unmapped new actions and HTTP origin checks. No private consumer routes are distributed by the public kit.
 
 ## Optional answer observation

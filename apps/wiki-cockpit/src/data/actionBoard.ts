@@ -31,10 +31,14 @@ export type ActionEdit = {
   cancellation_receipt?: string; priority?: string; dialogue_event?: DialogueInput;
 };
 
+export type RuntimeProposal = {
+  status: "material_ready" | "prepared" | "received_in_main" | "awaiting_adoption" | "reconciliation_required";
+  head: string; proposal_head: string; approved_base: string; branch: string; material_path: string; material_sha256: string;
+};
 export type CoordinationIndex = {
   schema_version: string; configured: boolean; snapshot_id: string;
-  profiles: { id: string; label: string; scope: string; action_ids: string[]; access_requirements?: {service: string; expected_identity: string; method: string; source_ref: string}[] }[];
-  actions: { action_id: string; coordinator: string | null; content_sha256: string; dialogue?: {pending_question_ids: string[]} }[];
+  profiles: { runtime?: {configured: boolean; label: string}; id: string; label: string; scope: string; action_ids: string[]; access_requirements?: {service: string; expected_identity: string; method: string; source_ref: string}[] }[];
+  actions: { runtime_error?: string; runtime_attempts?: {effect_key: string; attempted_at: string; has_result: boolean; proposal?: RuntimeProposal | null}[]; action_id: string; coordinator: string | null; content_sha256: string; dialogue?: {pending_question_ids: string[]} }[];
 };
 
 export type DialogueInput = {

@@ -120,14 +120,17 @@ def test_catalog_grants_follow_session_role(server: _Server) -> None:
         "/api/admin/commands", headers={ADMIN_SESSION_HEADER: token}
     )
     granted = {e["id"] for e in partial["commands"] if e["granted"]}
-    assert granted == {"system.inspect", "config.inspect"}
+    assert granted == {"system.inspect", "config.inspect", "agents.openclaw.inspect"}
     denied = {e["id"]: e["reason"] for e in partial["commands"] if not e["granted"]}
     assert denied == {
+        "agents.openclaw.dispatch": "role_not_authorized",
+        "agents.openclaw.receipt": "role_not_authorized",
         "config.validate": "role_not_authorized",
         "snapshot.rebuild": "role_not_authorized",
         "wiki.proposal.prepare": "role_not_authorized",
         "wiki.proposal.publish": "role_not_authorized",
         "wiki.proposal.promote": "role_not_authorized",
+        "wiki.proposal.adopt": "role_not_authorized",
     }
 
 
@@ -152,7 +155,7 @@ def test_plan_without_session_is_a_typed_refusal(
     assert body["error_code"] == "admin_session_invalid"
 
 
-@pytest.mark.parametrize("command_id", [c for c in COMMAND_IDS if not c.startswith("wiki.proposal.")])
+@pytest.mark.parametrize("command_id", [spec.id for spec in ADMIN_COMMAND_SPECS if not any(m.get("required") for m in spec.parameter_schema.values())])
 def test_plan_with_admin_session_materializes(server: _Server, command_id: str) -> None:
     token = _unlock_admin(server)
     status, body = _plan(server, token, command_id)

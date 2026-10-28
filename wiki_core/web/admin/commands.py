@@ -49,6 +49,33 @@ class AdminCommandSpec:
 # administration PR ships planners with proposal branches and typed targets.
 ADMIN_COMMAND_SPECS: tuple[AdminCommandSpec, ...] = (
     AdminCommandSpec(
+        id="wiki.proposal.adopt", title="Refresh the approved checkout after PR integration",
+        capability=("git.publish",), risk_level="proposal_write", supports_dry_run=True,
+        parameter_schema={"expected_head": {"required": True}, "proposal_head": {"required": True}, "pr": {"required": True}},
+        planner="proposal_adopt", executor="proposal_adopt", undo_strategy=None,
+    ),
+    AdminCommandSpec(
+        id="agents.openclaw.receipt", title="Prepare receipt material for this action",
+        capability=("agents.inspect", "git.propose"), risk_level="proposal_write", supports_dry_run=True,
+        parameter_schema={"profile": {"required": True}, "action_id": {"required": True},
+                          "effect_key": {"required": True}},
+        planner="openclaw_receipt", executor="openclaw_receipt", undo_strategy=None,
+    ),
+    AdminCommandSpec(
+        id="agents.openclaw.dispatch", title="Dispatch this canonical action to OpenClaw",
+        capability=("agents.execute",), risk_level="external_write", supports_dry_run=True,
+        parameter_schema={"profile": {"required": True}, "action_id": {"required": True},
+                          "action_sha256": {"required": True}, "message": {"required": True}},
+        planner="openclaw_dispatch", executor="openclaw_dispatch", undo_strategy=None,
+    ),
+    AdminCommandSpec(
+        id="agents.openclaw.inspect", title="Reconcile this action's existing OpenClaw run",
+        capability=("agents.inspect",), risk_level="derive", supports_dry_run=True,
+        parameter_schema={"profile": {"required": True}, "action_id": {"required": True},
+                          "effect_key": {"required": True}},
+        planner="openclaw_inspect", executor="openclaw_inspect", undo_strategy=None,
+    ),
+    AdminCommandSpec(
         id="system.inspect",
         title="Inspect system state",
         capability=("system.inspect",),

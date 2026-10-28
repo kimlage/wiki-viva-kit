@@ -658,6 +658,99 @@ def publish_proposal(root: Path, config: WikiConfig, *, expected_head: str, oper
         return admitted["result"]
 
 
+def adoption_target(root: Path, config: WikiConfig, params: dict) -> dict:
+    """Observe the merged PR and pin the exact approved remote target."""
+    from wiki_core.action_contribution import _repository
+    from wiki_core.web.git_workflows import _run
+    _closed(params, {"expected_head", "proposal_head", "pr"})
+    if (not re.fullmatch(r'[1-9][0-9]{0,11}', str(params['pr'])) or
+            not re.fullmatch(r'[0-9a-f]{40,64}', str(params['proposal_head'])) or
+            _git(root, 'rev-parse', 'HEAD') != params['expected_head'] or
+            _git(root, 'status', '--porcelain', '--untracked-files=all')):
+        raise ProposalError('proposal_adoption_checkout_changed')
+    repository = _repository(root)
+    default = str(config.approval.get('default_branch') or 'main')
+    response = _run(root, ['gh', 'pr', 'view', params['pr'], '--repo', repository, '--json',
+                          'number,state,headRefOid,baseRefName,isCrossRepository,mergeCommit'], timeout_seconds=60)
+    try:
+        pr = json.loads(response['stdout'])
+        merged = pr['mergeCommit']['oid']
+        if (not response['ok'] or pr['number'] != int(params['pr']) or pr['state'] != 'MERGED'
+                or pr['headRefOid'] != params['proposal_head'] or pr['baseRefName'] != default
+                or pr['isCrossRepository'] is not False or not re.fullmatch(r'[0-9a-f]{40,64}', merged)):
+            raise ValueError()
+        remote = _run(root, ['git', 'ls-remote', '--heads', 'origin', 'refs/heads/' + default], timeout_seconds=60)
+        rows = remote['stdout'].splitlines()
+        oid, ref = rows[0].split()
+        if not remote['ok'] or len(rows) != 1 or ref != 'refs/heads/' + default or not re.fullmatch(r'[0-9a-f]{40,64}', oid):
+            raise ValueError()
+    except (ValueError, TypeError, KeyError, IndexError) as exc:
+        raise ProposalError('proposal_adoption_observation_unavailable') from exc
+    return {'repository': repository, 'remote_url': _git(root, 'remote', 'get-url', 'origin'),
+            'branch': _git(root, 'branch', '--show-current'), 'default_branch': default,
+            'local_main': _git(root, 'rev-parse', default),
+            'merge_commit': merged, 'target_head': oid, **params}
+
+
+def adopt_proposal(root: Path, config: WikiConfig, target: dict, *, manager: AdminSessionManager,
+                   token: str, session_id: str) -> dict:
+    """Return to approved content after merge, preserving the proposal branch.
+
+    Every mutation remains admitted. A partial switch is observable and never
+    rolled back by reset; a new plan uses the actual current checkout.
+    """
+    from wiki_core.web.git_workflows import _run
+    params = {k: target[k] for k in ('expected_head', 'proposal_head', 'pr')}
+    if adoption_target(root, config, params) != target:
+        raise ProposalError('proposal_adoption_target_changed')
+    if target['branch'] == target['default_branch'] and target['expected_head'] == target['target_head']:
+        return {'ok': True, 'status': 'observed_adopted', 'head': target['target_head'],
+                'proposal_head': target['proposal_head'], 'merge_commit': target['merge_commit'],
+                'new_effect': False, 'served_adoption_verified': False}
+    results = []
+    def effect(argv, *, branch, head, main):
+        def run():
+            if (_git(root, 'branch', '--show-current') != branch or _git(root, 'rev-parse', 'HEAD') != head
+                    or _git(root, 'rev-parse', target['default_branch']) != main
+                    or _git(root, 'remote', 'get-url', 'origin') != target['remote_url']
+                    or _git(root, 'status', '--porcelain', '--untracked-files=all')):
+                raise ProposalError('proposal_adoption_checkout_changed')
+            return _run(root, argv, timeout_seconds=180)
+        admitted = manager.execute_current(token, session_id, ('git.publish',),
+            run)
+        if not admitted.get('ok'):
+            raise ProposalError(admitted['error_code'])
+        result = admitted['result'];results.append(result)
+        if not result.get('ok'):
+            raise ProposalError('proposal_adoption_effect_requires_reconciliation')
+    try:
+        effect(['git', 'fetch', 'origin', 'refs/heads/' + target['default_branch']],
+               branch=target['branch'], head=target['expected_head'], main=target['local_main'])
+        if (_git(root, 'rev-parse', 'FETCH_HEAD') != target['target_head'] or
+                _git(root, 'rev-parse', 'HEAD') != target['expected_head'] or
+                _git(root, 'status', '--porcelain', '--untracked-files=all')):
+            raise ProposalError('proposal_adoption_target_changed')
+        for ancestor in (target['merge_commit'], target['local_main']):
+            result = _run(root, ['git', 'merge-base', '--is-ancestor', ancestor, target['target_head']])
+            if not result.get('ok'):
+                raise ProposalError('proposal_adoption_not_fast_forward')
+        effect(['git', 'switch', target['default_branch']],
+               branch=target['branch'], head=target['expected_head'], main=target['local_main'])
+        effect(['git', 'merge', '--ff-only', target['target_head']],
+               branch=target['default_branch'], head=target['local_main'], main=target['local_main'])
+        verified = (_git(root, 'branch', '--show-current') == target['default_branch']
+                    and _git(root, 'rev-parse', 'HEAD') == target['target_head']
+                    and not _git(root, 'status', '--porcelain', '--untracked-files=all'))
+        return {'ok': verified, 'status': 'approved_checkout_updated' if verified else 'reconciliation_required',
+                'head': _git(root, 'rev-parse', 'HEAD'), 'proposal_head': target['proposal_head'],
+                'merge_commit': target['merge_commit'], 'results': results, 'served_adoption_verified': False}
+    except Exception as exc:
+        return {'ok': False, 'error_code': getattr(exc, 'code', 'proposal_adoption_failed'),
+                'status': 'reconciliation_required', 'head': _git(root, 'rev-parse', 'HEAD'),
+                'branch': _git(root, 'branch', '--show-current'), 'results': results,
+                'served_adoption_verified': False}
+
+
 def committed_config(root: Path, revision: str) -> WikiConfig:
     if not re.fullmatch(r"[0-9a-f]{40,64}", str(revision)):
         raise ProposalError("proposal_invalid_git_revision")

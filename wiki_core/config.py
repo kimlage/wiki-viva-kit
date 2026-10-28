@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from wiki_core.openclaw_config import validated_config as _validated_openclaw
+
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -392,6 +394,7 @@ class WikiConfig:
     # offer it; a repo/deploy turns it off with `codex:\n  enabled: false` in
     # wiki.config.yaml (then the cockpit never advertises a Codex launch, even if
     # the binary is present). `binary` overrides the CLI name/path.
+    openclaw: dict[str, Any] = field(default_factory=lambda: {"enabled": False})
     codex: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "binary": "codex"})
     # Optional Claude Code adapter.  It shares the governed job runner; this
     # block only chooses capability and binary, never credentials.
@@ -505,6 +508,7 @@ def load_config(root: Path) -> WikiConfig:
         root_entity={**WikiConfig().root_entity, **dict(raw.get("root_entity", {}))},
         audit={**WikiConfig().audit, **dict(raw.get("audit", {}))},
         karma={**WikiConfig().karma, **dict(raw.get("karma", {}))},
+        openclaw=_validated_openclaw(raw.get("openclaw")),
         codex={**WikiConfig().codex, **dict(raw.get("codex", {}))},
         claude={**WikiConfig().claude, **dict(raw.get("claude", {}))},
         admin=_validated_admin(raw.get("admin")),

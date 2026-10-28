@@ -1216,6 +1216,20 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 snapshot = self.server.snapshot_payloads()
                 if path == "/api/coordination":
                     payload = coordination_index(self.server.root, snapshot)
+                    from wiki_core.web.openclaw import attempts
+                    runtime = self.server.config.openclaw
+                    for profile in payload["profiles"]:
+                        route = runtime.get("routes", {}).get(profile["id"]) if runtime.get("enabled") else None
+                        profile["runtime"] = {"configured": bool(route), "label": route["label"] if route else "OpenClaw"}
+                    for action in payload["actions"]:
+                        try:
+                            action["runtime_attempts"] = attempts(self.server.root, self.server.config,
+                                action.get("coordinator"), action["action_id"]) if action.get("coordinator") else []
+                        except (ValueError, KeyError, OSError):
+                            # Recovery evidence is not optional. Keep the card
+                            # readable while refusing new dispatch until repaired.
+                            action["runtime_attempts"] = []
+                            action["runtime_error"] = "openclaw_receipt_unavailable_reconcile"
                 else:
                     profile = path[len("/api/coordination/profiles/"):]
                     action_id = (parse_qs(parsed.query).get("action_id") or [None])[0]
