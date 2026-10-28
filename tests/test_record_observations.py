@@ -11,7 +11,7 @@ from wiki_core.document_records import digest, node_id, project_records, structu
 from wiki_core.freshness_impact import evaluate_impact
 
 
-def prepared(repo, *, context=False, whole=False):
+def prepared(repo, *, context=False, whole=False, mode='h2_v1'):
     page(repo, 'old-source', stale=True)
     page(repo, 'new-source')
     p = page(repo, 'log', stale=True, body='# Log\n\n## Old record\n\n[Old](old-source.md).\n\n')
@@ -23,6 +23,12 @@ def prepared(repo, *, context=False, whole=False):
     contract = declaration(base, current)
     contract.update(schema_version='document_record.v2', document_modes={'memories/log.md': 'h2_v1'})
     record = contract['documents'][0]['records'][0]
+    if mode == 'explicit_view_v2':
+        record.pop('heading')
+        record['selectors'] = {'base': None, 'current': {'kind': 'h2', 'heading': 'New record'}}
+        contract['document_modes']['memories/log.md'] = mode
+    else:
+        assert mode == 'h2_v1'
     record['current_evidence'] = ['measurement']
     record['current_observation'] = 'observation-review'
     if context:
@@ -67,8 +73,9 @@ def test_reviewed_observation_has_own_date_without_renewing_page(repo):
 
 
 @pytest.mark.parametrize('kind', ['context', 'whole', 'stale_source', 'mixed_delta', 'expired', 'future'])
-def test_observation_never_clears_other_factual_obligations(repo, kind):
-    data = prepared(repo, context=kind == 'context', whole=kind == 'whole')
+@pytest.mark.parametrize('mode', ['h2_v1', 'explicit_view_v2'])
+def test_observation_never_clears_other_factual_obligations(repo, kind, mode):
+    data = prepared(repo, context=kind == 'context', whole=kind == 'whole', mode=mode)
     b, c, contract, inputs, receipt = data
     if kind == 'stale_source':
         c['nodes']['memories/new-source.md']['updated_at'] = '2026-01-01'
@@ -90,8 +97,9 @@ def test_observation_never_clears_other_factual_obligations(repo, kind):
 
 @pytest.mark.parametrize('fault', ['no_receipt', 'record_hash', 'document_hash', 'source_hash', 'empty_sources', 'missing_source',
     'context_omitted', 'self_review', 'unresolved_review', 'future_recording', 'wrong_record', 'normative', 'v1', 'unchanged', 'policy', 'unknown_window'])
-def test_observation_fails_closed(repo, fault):
-    data = prepared(repo, context=fault == 'context_omitted')
+@pytest.mark.parametrize('mode', ['h2_v1', 'explicit_view_v2'])
+def test_observation_fails_closed(repo, fault, mode):
+    data = prepared(repo, context=fault == 'context_omitted', mode=mode)
     b, c, contract, inputs, receipt = data
     record = contract['documents'][0]['records'][0]
     if fault == 'no_receipt': record['current_observation'] = 'absent'
@@ -106,7 +114,13 @@ def test_observation_fails_closed(repo, fault):
     elif fault == 'future_recording': receipt['observed_on'] = '2026-10-19'
     elif fault == 'wrong_record': receipt['record_id'] = 'remainder'
     elif fault == 'normative': record['epistemic_status'] = 'decision'
-    elif fault == 'v1': contract['schema_version'] = 'document_record.v1'
+    elif fault == 'v1':
+        contract['schema_version'] = 'document_record.v1'
+        if 'selectors' in record:
+            selector = record.pop('selectors')['current']
+            record['heading'] = selector['heading']
+            if 'leading_blank_lines' in selector:
+                record['leading_blank_lines'] = selector['leading_blank_lines']
     elif fault == 'unchanged':
         b = copy.deepcopy(c); data = b, c, contract, inputs, receipt
         contract['base_documents_sha256'] = copy.deepcopy(contract['current_documents_sha256'])
@@ -134,8 +148,9 @@ def test_changed_existing_observation_preserves_base_date(repo):
 
 
 @pytest.mark.parametrize('fault', ['context', 'selector', 'snapshot', 'proof_bytes', 'source_bytes', 'self_source', 'base_self_source', 'declaration_date'])
-def test_receipt_cannot_be_replayed_or_replace_its_source(repo, fault):
-    b, c, contract, inputs, receipt = prepared(repo)
+@pytest.mark.parametrize('mode', ['h2_v1', 'explicit_view_v2'])
+def test_receipt_cannot_be_replayed_or_replace_its_source(repo, fault, mode):
+    b, c, contract, inputs, receipt = prepared(repo, mode=mode)
     record = contract['documents'][0]['records'][0]
     if fault in {'self_source', 'base_self_source'}:
         source = (c if fault == 'self_source' else b)['documents']['memories/log.md'].encode()
@@ -163,6 +178,8 @@ def test_explicit_view_observation_keeps_raw_obligation_without_causal_review(re
     nid = node_id('memories/log.md', 'entry-0')
     assert nid in current['verified_record_observations']
     assert nid not in base['nodes']
+    assert 'memories/log.md' not in current['verified_precise_component_seeds']
+    assert current['nodes']['memories/log.md']['updated_at'] == base['nodes']['memories/log.md']['updated_at']
     assert not result['ok']
     assert any(row['path'] == 'memories/log.md' for row in result['blockers'])
 
