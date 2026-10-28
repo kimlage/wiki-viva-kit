@@ -69,6 +69,8 @@ def pair_digest(current, base, changed):
                      record_substantive_sha256=g.get("verified_record_substantive_sha256", {}),
                      precise_component_seeds=g.get("verified_precise_component_seeds", {}),
                      append_only_partitions=g.get("verified_append_only_partitions", {}),
+                     h2_partition_changes=g.get('verified_h2_partition_changes', {}),
+                     record_body_occurrences=g.get('verified_record_body_occurrences', []),
                      locator_changes=g.get("verified_locator_changes", {}),
                      locator_record_documents=g.get("verified_locator_record_documents", {}),
                      **({"record_observations": g["verified_record_observations"]}
@@ -102,7 +104,8 @@ def _normalized_interpretation_edge(raw):
     return edge
 
 
-def _interpretation_state(graph, node, *, stop_at=frozenset(), append_equivalence=False):
+def _interpretation_state(graph, node, *, stop_at=frozenset(), append_equivalence=False,
+                          scope_correspondences=None, ignored_edges=frozenset()):
     """Scope must be identical; different consumed hashes alone are expected.
 
     A newly shrunken remainder, changed partitions, contexts or dependency roles
@@ -111,6 +114,8 @@ def _interpretation_state(graph, node, *, stop_at=frozenset(), append_equivalenc
     from wiki_core.freshness_impact import REFERENCE, STRUCTURAL, ASSOCIATION
     upstream = defaultdict(list)
     for raw in graph["edges"]:
+        if ignored_edges and structured_digest(raw) in ignored_edges:
+            continue
         if raw["type"] in STRUCTURAL | ASSOCIATION:
             continue
         consumer, prerequisite = ((raw["source"], raw["target"]) if raw["type"] in REFERENCE
@@ -124,6 +129,8 @@ def _interpretation_state(graph, node, *, stop_at=frozenset(), append_equivalenc
             evidence=graph["nodes"][parent].get("evidence_source"))
         if append_equivalence and parent in graph.get('verified_append_only_partitions', {}):
             scopes[parent]['selection'] = graph['verified_append_only_partitions'][parent]['base_shape']
+        if parent in (scope_correspondences or {}):
+            scopes[parent]['selection'] = scope_correspondences[parent]
         if parent != node and parent in stop_at:
             continue
         for prerequisite, raw in upstream[parent]:
@@ -243,12 +250,14 @@ def verify(current, base, changed, contract, artifact_inputs, *, complete_compon
                             raise ValueError("updated requires substantive repair in the affected record")
         decisions[item["obligation_id"]] = copy.deepcopy(item)
     from wiki_core.causal_reconciliation import (
-        repaired_boundary, reachable_repaired_frontiers, upstream_closure, updated_paths,
+        repaired_boundary, reachable_repaired_frontiers, upstream_closure, updated_paths, qualified_documentary_deltas,
     )
+    documentary_deltas = qualified_documentary_deltas(base, current, documentary_edits)
+    qualified_scopes = documentary_deltas['scopes']
     from functools import lru_cache
     @lru_cache(maxsize=None)
     def is_repaired(node):
-        return repaired_boundary(base, current, node)
+        return repaired_boundary(base, current, node, documentary_deltas=documentary_deltas)
     paths = updated_paths(inventory, decisions)
     frontiers = reachable_repaired_frontiers(inventory, decisions, base, current, is_repaired, paths=paths)
     arrival_upstream = upstream_closure(inventory)
@@ -286,8 +295,10 @@ def verify(current, base, changed, contract, artifact_inputs, *, complete_compon
 
     @lru_cache(maxsize=None)
     def interpretation_equal(consumer, stops):
-        return (_interpretation_state(base, consumer, stop_at=stops, append_equivalence=True)
-                == _interpretation_state(current, consumer, stop_at=stops, append_equivalence=True))
+        return (_interpretation_state(base, consumer, stop_at=stops, append_equivalence=True,
+                                      scope_correspondences=qualified_scopes)
+                == _interpretation_state(current, consumer, stop_at=stops, append_equivalence=True,
+                                         scope_correspondences=qualified_scopes))
 
     @lru_cache(maxsize=None)
     def joint_interpretation_equal(consumer, stops, authority_ids):
@@ -295,7 +306,7 @@ def verify(current, base, changed, contract, artifact_inputs, *, complete_compon
             return interpretation_equal(consumer, stops)
         matched = reviewed_citation_extension(base, current, consumer,
             {key: citations[key] for key in authority_ids},
-            stop_at=stops, append_equivalence=True)
+            stop_at=stops, append_equivalence=True, scope_correspondences=qualified_scopes)
         return matched is not None and matched == set(authority_ids)
 
     @lru_cache(maxsize=None)
@@ -319,6 +330,8 @@ def verify(current, base, changed, contract, artifact_inputs, *, complete_compon
             return None
         if exact_interpretation_equal(node):
             return dict(prerequisite=node, base_authority_citations=[])
+        if node in qualified_scopes and interpretation_equal(node, frozenset()):
+            return dict(prerequisite=node, base_authority_citations=[], qualified_partition=node)
         matched = reviewed_citation_extension(base, current, node, citations) if citations else None
         return (dict(prerequisite=node, base_authority_citations=sorted(matched))
                 if matched is not None else None)
@@ -461,7 +474,8 @@ def verify(current, base, changed, contract, artifact_inputs, *, complete_compon
                         equivalent = True
                         composition = proof
                 if equivalent:
-                    states = [_interpretation_state(g, consumer, stop_at=candidates, append_equivalence=True)
+                    states = [_interpretation_state(g, consumer, stop_at=candidates, append_equivalence=True,
+                                                     scope_correspondences=qualified_scopes)
                               for g in (base, current)]
                     reached = set(states[0]['scopes']) | set(states[1]['scopes'])
                     used = sorted(candidates & reached)
@@ -503,7 +517,8 @@ def verify(current, base, changed, contract, artifact_inputs, *, complete_compon
                 census=inventory, dispositions=decisions, review_evidence=evidence,
                 review_sha256=review_sha, plan_sha256=receipt["plan_sha256"],
                 normative_revalidations=revalidations, reconciled_interpretations=reconciled_interpretations,
-                composed_interpretations=compositions, documentary_edits=documentary_edits)
+                composed_interpretations=compositions, documentary_edits=documentary_edits,
+                documentary_deltas=documentary_deltas)
     verified["payload_sha256"] = structured_digest(verified)
     return verified
 
@@ -612,22 +627,39 @@ def evaluate(current, base, changed, *, today):
     queue = deque(key for key in witnesses
                   if key[1] not in carriers or key in factual_raw_arrivals)
     seen = set(queue)
+
+    def require_input(seed, parent, edge):
+        target = edge['prerequisite']
+        factual_demands.add(target)
+        reason = dict(reason='required_dependency', seed=seed, via=parent,
+                      chain=[*witnesses[seed, parent]['chain'], edge])
+        reasons.setdefault(target, reason)
+        witnesses.setdefault((seed, target), reason)
+        if (seed, target) not in seen:
+            seen.add((seed, target)); queue.append((seed, target))
+
+    for seed, parent in list(witnesses):
+        if parent in carriers and (seed, parent) not in factual_raw_arrivals:
+            # Its retirement evidence is an input to the operation, even when
+            # the removed record is absent. Do not mark the carrier visited:
+            # a later factual WHOLE arrival must still traverse every sibling.
+            for _, edge in upstream[parent]:
+                if (edge['origin'] == 'current' and edge.get('basis') == 'document_record.v2'
+                        and edge.get('field') == 'removed_record_evidence'):
+                    require_input(seed, parent, edge)
     while queue:
         seed, parent = queue.popleft()
         for eid, edge in upstream[parent]:
-            target = edge["prerequisite"]
-            factual_demands.add(target)
-            reason = dict(reason="required_dependency", seed=seed, via=parent,
-                          chain=[*witnesses[seed, parent]["chain"], edge])
-            reasons.setdefault(target, reason)
-            witnesses.setdefault((seed, target), reason)
-            if (seed, target) not in seen:
-                seen.add((seed, target)); queue.append((seed, target))
+            require_input(seed, parent, edge)
     included = [dict(path=p, state=original_rows[p]["state"], **reasons[p]) for p in sorted(reasons)]
     from datetime import date
-    satisfied = []
+    satisfied, pending_edits = [], []
     for row in included:
         proof = review['documentary_edits'].get(row['path'])
+        if proof and proof.get('retired') and date.fromisoformat(proof['reviewed_on']) > today:
+            # A missing CURRENT node has state `removed`, so freshness cannot
+            # enforce the review's time boundary on its behalf.
+            pending_edits.append(dict(row, reason='documentary_review_in_future'))
         if (proof and row['reason'] == 'changed_page' and row['state'] == 'stale'
                 and row['path'] not in factual_demands
                 and date.fromisoformat(proof['reviewed_on']) <= today):
@@ -642,7 +674,7 @@ def evaluate(current, base, changed, *, today):
     stale = [r for r in included if r["state"] in {"stale", "unknown"}
              and 'documentary_edit_satisfied' not in r and 'precise_representation_components' not in r]
     beyond = [dict(r, reason="beyond_reviewed_causal_boundary") for r in original["included"] if r["path"] not in reasons]
-    result = dict(original, included=included, blockers=[*stale, *unresolved.values()],
+    result = dict(original, included=included, blockers=[*stale, *unresolved.values(), *pending_edits],
                   unrelated_debt=[*original["unrelated_debt"], *(r for r in beyond if r["state"] in {"stale", "unknown"})])
     result["causal_review"] = dict(pair_sha256=review["pair_sha256"], census_sha256=review["census_sha256"],
         potential_obligations=len(inventory["obligations"]), considered_arrivals=len(arrivals),

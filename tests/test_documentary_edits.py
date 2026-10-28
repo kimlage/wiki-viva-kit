@@ -60,7 +60,7 @@ def prepare(repo, *, correction=False, whole=False, context=False, stale_source=
     return base, current, spec, inputs, proof
 
 
-def seal(data, *, omit_dispositions=False, changed=None):
+def seal(data, *, omit_dispositions=False, changed=None, retired_owner=False):
     base, current, spec, inputs, proof = data
     record = spec['documents'][0]['records'][0]
     # Reconstruct graph identities before sealing the complete causal pair.
@@ -79,8 +79,10 @@ def seal(data, *, omit_dispositions=False, changed=None):
     # remains unresolved; a documentary edit must never clear it.
     plan = dict(schema_version='wiki_causal_review.v1', author='fixture-author',
         pair_sha256=pair_digest(pc, pb, seeds), census_sha256=structured_digest(inventory),
-        dispositions=[] if omit_dispositions else [dict(obligation_id=k, disposition='blocked', reason='Current factual use remains unresolved.')
-            for k in inventory['obligations']], review_evidence='review',
+        dispositions=[] if omit_dispositions else [dict(obligation_id=k,
+            disposition='updated' if retired_owner and inventory['edges'][v['edge_id']]['consumer'] == PATH else 'blocked',
+            reason='Complete owner reflects the reviewed removal; other current factual uses remain unresolved.')
+            for k, v in inventory['obligations'].items()], review_evidence='review',
         documentary_edits=[dict(subject=SUBJECT, evidence_id='edit-proof', evidence_sha256=digest(raw.decode()),
             reason='Independently reviewed historical documentary edit, not freshness.')])
     spec['causal_review'] = plan
@@ -101,6 +103,89 @@ def run(data, *, today=TODAY):
     b, c, spec, inputs, _ = data
     pc, pb, seeds, _ = project_records(c, b, changed_pages(data), spec, artifact_inputs=inputs)
     return pc, pb, evaluate_impact(pc, pb, seeds, today=today)
+
+
+def retirement(repo, **kwargs):
+    base, _, spec, inputs, proof = prepare(repo, **kwargs)
+    # The surviving page keeps its original metadata and unrelated rule. The
+    # removed record has no fabricated empty CURRENT selection or fresh date.
+    (repo / PATH).write_text(base['documents'][PATH].replace(proof['base_text'], '', 1))
+    current = graph(repo)
+    spec['document_modes'][PATH] = 'explicit_view_v2'
+    record = spec['documents'][0]['records'][0]
+    record['selectors'] = {'base': dict(kind='h2', heading=record.pop('heading')), 'current': None}
+    record['current_sha256'] = None
+    spec['current_documents_sha256'] = {p: digest(t) for p, t in current['documents'].items()}
+    proof.update(current_text='', current_document_sha256=digest(current['documents'][PATH]),
+                 scope='Retire the complete obsolete historical observation; preserve the original source and all current obligations.')
+    source = json.loads(inputs['current', 'source'])
+    source['owner_instruction'] = 'Retire the complete Historical record section as obsolete; preserve the original evidence.'
+    inputs['current', 'source'] = json.dumps(source, sort_keys=True).encode()
+    source_hash = digest(inputs['current', 'source'].decode())
+    spec['artifacts'][0]['sha256'] = proof['sources'][0]['sha256'] = source_hash
+    return base, current, spec, inputs, proof
+
+
+def test_complete_retirement_retains_current_evidence_without_freshening_history(repo):
+    data = retirement(repo)
+    seal(data, retired_owner=True)
+    pc, pb, result = run(data)
+    proof = pc['verified_causal_review']['documentary_edits'][SUBJECT]
+    assert proof['retired'] and proof['historical_as_of'] == '2026-01-01'
+    assert SUBJECT not in pc['nodes'] and SUBJECT in pb['nodes']
+    assert pc['nodes'][PATH]['updated_at'] == pb['nodes'][PATH]['updated_at'] == '2026-01-01'
+    source = 'evidence::source:' + data[4]['sources'][0]['sha256']
+    assert any(r['path'] == source and r['reason'] == 'required_dependency' for r in result['included'])
+    assert any(e['target'] == source and e.get('field') == 'removed_record_evidence' for e in pc['edges'])
+    assert not any(e.get('field') == 'removed_record_evidence' for e in pb['edges'])
+    assert result['ok'], result['blockers']
+
+
+@pytest.mark.parametrize('kind', ['whole', 'context', 'stale_source', 'another_seed', 'cycle'])
+def test_retirement_does_not_clear_real_factual_obligations(repo, kind):
+    data = retirement(repo, **{kind: True})
+    seal(data, retired_owner=True)
+    pc, pb, result = run(data)
+    assert not result['ok']
+    if kind in {'whole', 'another_seed', 'cycle'}:
+        assert any(r['path'] == 'memories/consumer.md' for r in result['blockers'])
+    if kind in {'whole', 'context'}:
+        assert any(r['path'] == 'memories/old-source.md' for r in result['blockers']), result['blockers']
+    if kind == 'stale_source':
+        assert any(r['path'] == 'memories/live-source.md' for r in result['blockers'])
+    assert SUBJECT not in pc['nodes'] and SUBJECT in pb['nodes']
+
+
+def test_retirement_future_review_cannot_be_used_early(repo):
+    data = retirement(repo)
+    seal(data, retired_owner=True)
+    _, _, result = run(data, today=TODAY - dt.timedelta(days=1))
+    assert not result['ok']
+    assert any(r['path'] == SUBJECT and r['reason'] == 'documentary_review_in_future' for r in result['blockers'])
+
+
+@pytest.mark.parametrize('fault', ['decision', 'partial_text', 'uncovered', 'source_bytes',
+                                  'reused_proof', 'context_changed', 'fresh_date', 'missing_evidence'])
+def test_retirement_requires_complete_current_review_of_exact_historical_unit(repo, fault):
+    data = retirement(repo, context=fault == 'context_changed')
+    b, c, spec, inputs, proof = data
+    record = spec['documents'][0]['records'][0]
+    if fault == 'decision': record['epistemic_status'] = 'decision'
+    elif fault == 'partial_text': proof['base_text'] = 'The archived meter value was 0.\n'
+    elif fault == 'missing_evidence': record['current_evidence'] = []
+    elif fault in {'uncovered', 'context_changed', 'fresh_date'}:
+        p = repo / PATH
+        text = p.read_text()
+        text = text.replace('2026-01-01', '2026-10-18') if fault == 'fresh_date' else text.replace('Compare', 'Skip')
+        p.write_text(text)
+        c = graph(repo)
+        data = b, c, spec, inputs, proof
+        spec['current_documents_sha256'][PATH] = proof['current_document_sha256'] = digest(c['documents'][PATH])
+    seal(data, retired_owner=True)
+    if fault == 'source_bytes': inputs['current', 'source'] += b' '
+    elif fault == 'reused_proof': c['documents'][PATH] += '\nNew unreviewed assertion.\n'
+    with pytest.raises(ValueError):
+        run(data)
 
 
 @pytest.mark.parametrize('correction', [False, True])
@@ -200,9 +285,10 @@ def test_documentary_proof_cannot_be_replayed(repo,fault):
     with pytest.raises(ValueError): run(data)
 
 
-def test_native_git_report_reads_sealed_artifacts_and_rejects_later_edit(repo):
+@pytest.mark.parametrize('complete_retirement', [False, True])
+def test_native_git_report_reads_sealed_artifacts_and_rejects_later_edit(repo, complete_retirement):
     from scripts.wiki_page_graph import collect_git_changes
-    data = prepare(repo)
+    data = retirement(repo) if complete_retirement else prepare(repo)
     base, current, spec, inputs, _ = data
     for path, text in base['documents'].items():
         (repo / path).write_text(text)
@@ -214,7 +300,7 @@ def test_native_git_report_reads_sealed_artifacts_and_rejects_later_edit(repo):
         (repo / f'references/{name}.json').write_text('{}')
     (repo / 'wiki.config.yaml').write_text(
         'audit:\n  freshness_scope: impact\n  freshness_records: references/records.json\n')
-    seal(data, changed=set(collect_git_changes(base_sha, root=repo).paths))
+    seal(data, changed=set(collect_git_changes(base_sha, root=repo).paths), retired_owner=complete_retirement)
     for artifact in spec['artifacts']:
         path = repo / artifact['path']
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -222,8 +308,8 @@ def test_native_git_report_reads_sealed_artifacts_and_rejects_later_edit(repo):
     (repo / 'references/records.json').write_text(json.dumps(spec))
     result = repository_report(repo, load_config(repo), base_sha, today=TODAY)
     assert result['ok'] and result['base_sha'] == base_sha
-    assert result['causal_review']['documentary_edits_satisfied'] == [SUBJECT]
-    assert next(r for r in result['included'] if r['path']==SUBJECT)['state'] == 'stale'
+    assert result['causal_review']['documentary_edits_satisfied'] == ([] if complete_retirement else [SUBJECT])
+    assert next(r for r in result['included'] if r['path']==SUBJECT)['state'] == ('removed' if complete_retirement else 'stale')
     (repo / PATH).write_text(current['documents'][PATH] + '\nA later unreviewed assertion.\n')
     with pytest.raises(ValueError, match='snapshot does not match'):
         repository_report(repo, load_config(repo), base_sha, today=TODAY)

@@ -130,7 +130,7 @@ def citation_qualifications(plan, contract, artifact_inputs, inventory, base, cu
 
 
 def reviewed_citation_extension(base, current, consumer, qualifications, *,
-                               stop_at=frozenset(), append_equivalence=False):
+                               stop_at=frozenset(), append_equivalence=False, scope_correspondences=None):
     """Return exact used claims only for a non-narrowing reviewed extension.
 
     Prior reachability through a different branch is not inferred to prove
@@ -139,7 +139,8 @@ def reviewed_citation_extension(base, current, consumer, qualifications, *,
     """
     from wiki_core.causal_review import _interpretation_state
     old, new = (_interpretation_state(graph, consumer, stop_at=stop_at,
-                                     append_equivalence=append_equivalence)
+                                     append_equivalence=append_equivalence,
+                                     scope_correspondences=scope_correspondences)
                 for graph in (base, current))
     if old["record_sha256"] != new["record_sha256"] or old["scopes"] != new["scopes"]:
         return None

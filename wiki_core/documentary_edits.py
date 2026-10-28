@@ -34,8 +34,9 @@ def qualifications(plan, contract, inputs, base, current, seeds, *, complete_com
                 or item['subject'] in result):
             raise ValueError('invalid or duplicate documentary edit')
         node = item['subject']
-        if node not in seeds or node not in base['nodes'] or node not in current['nodes']:
+        if node not in seeds or node not in base['nodes']:
             raise ValueError('documentary edit requires a preexisting changed subject')
+        removed = node not in current['nodes']
         proof = _unique_json(_artifact(contract, inputs, item['evidence_id'], item['evidence_sha256']))
         fields = {'schema_version', 'subject', 'base_text', 'current_text',
                   'base_document_sha256', 'current_document_sha256', 'declaration_sha256',
@@ -45,14 +46,20 @@ def qualifications(plan, contract, inputs, base, current, seeds, *, complete_com
                 or proof['edit_kind'] not in {'authorized_removal', 'historical_correction'}
                 or not isinstance(proof['scope'], str) or not proof['scope'].strip()):
             raise ValueError('invalid documentary edit proof')
-        path = _complete_unit(current, node, proof['current_text'])
-        if _complete_unit(base, node, proof['base_text']) != path:
+        path = _complete_unit(base, node, proof['base_text'])
+        if removed:
+            if (proof['edit_kind'] != 'authorized_removal' or proof['current_text'] != ''
+                    or path not in current['documents']
+                    or contract['document_modes'].get(path) != 'explicit_view_v2'
+                    or node not in complete_component_deltas):
+                raise ValueError('complete retirement requires a verified absent observation in a surviving document')
+        elif _complete_unit(current, node, proof['current_text']) != path:
             raise ValueError('documentary subject identity changed')
-        rid = current['nodes'][node].get('document_record_id')
+        rid = base['nodes'][node].get('document_record_id')
         declaration = next(d for d in contract['documents'] if d['path'] == path)
         records = [r for r in declaration['records'] if r['id'] == rid]
         if (len(records) != 1 or rid in {'remainder', 'preamble'}
-                or not complete_h2_record(contract, declaration, records[0])
+                or not complete_h2_record(contract, declaration, records[0], allow_removed=removed)
                 or contract['document_modes'][path] == 'explicit_view_v2'
                    and node not in complete_component_deltas
                 or records[0].get('epistemic_status') != 'observation'
@@ -60,17 +67,20 @@ def qualifications(plan, contract, inputs, base, current, seeds, *, complete_com
                 or proof['declaration_sha256'] != structured_digest(records[0])):
             raise ValueError('documentary edit requires a complete historical observation record')
         record = records[0]
+        if removed and (record.get('current_sha256') is not None
+                        or record.get('selectors', {}).get('current') is not None):
+            raise ValueError('complete retirement must not manufacture a CURRENT record')
         for origin, graph in (('base', base), ('current', current)):
             if proof[origin + '_document_sha256'] != digest(graph['documents'][path]):
                 raise ValueError('documentary input snapshot changed')
         policy = ('updated_at', 'stale_after_days', 'refresh_cadence_days', 'stale_exempt')
         if (any(base['nodes'][n].get(k) != current['nodes'][n].get(k)
-                for n in (path, node) for k in policy)
-                or parse_updated_date(current['nodes'][node].get('updated_at')) is None):
+                for n in ((path,) if removed else (path, node)) for k in policy)
+                or parse_updated_date(base['nodes'][node].get('updated_at')) is None):
             raise ValueError('documentary edit cannot renew or replace freshness policy')
         before = base.get('verified_record_substantive_sha256', {}).get(node)
         after = current.get('verified_record_substantive_sha256', {}).get(node)
-        if not before or not after or before == after:
+        if not before or (not removed and (not after or before == after)):
             raise ValueError('documentary edit requires an actual substantive delta')
         if proof['edit_kind'] == 'authorized_removal':
             # Deletion is a lexical restriction, not proof of semantic safety:
@@ -87,9 +97,9 @@ def qualifications(plan, contract, inputs, base, current, seeds, *, complete_com
         if (historical.isoformat() != proof['historical_as_of'] or reviewed.isoformat() != proof['reviewed_on']
                 or historical >= reviewed or reviewed > recorded):
             raise ValueError('documentary review must retain an earlier historical cut')
-        required = _local_contexts(current, node)
+        required = _local_contexts(base if removed else current, node)
         contexts = {n: {o: g['nodes'][n]['record_sha256'] for o, g in (('base', base), ('current', current))}
-                    for n in required if n in base['nodes']}
+                    for n in required if n in base['nodes'] and n in current['nodes']}
         if (required != _local_contexts(base, node) or set(contexts) != required
                 or proof['contexts'] != contexts):
             raise ValueError('documentary edit omits or changes its context scope')
@@ -112,7 +122,15 @@ def qualifications(plan, contract, inputs, base, current, seeds, *, complete_com
             seen.add(source['id'])
         if seen != set(record.get('current_evidence', [])):
             raise ValueError('documentary sources must remain factual prerequisites')
+        if removed:
+            actual = {e['target'] for e in current['edges']
+                      if e['source'] == path and e['type'] == 'source_ref'
+                      and e.get('basis') == 'document_record.v2'
+                      and e.get('field') == 'removed_record_evidence' and e.get('removed_record') == rid}
+            expected = {f"evidence::{source['id']}:{source['sha256']}" for source in sources}
+            if actual != expected:
+                raise ValueError('retirement evidence must remain on the surviving CURRENT owner')
         result[node] = dict(evidence_id=item['evidence_id'], evidence_sha256=item['evidence_sha256'],
                             edit_kind=proof['edit_kind'], historical_as_of=historical.isoformat(),
-                            reviewed_on=reviewed.isoformat())
+                            reviewed_on=reviewed.isoformat(), **({'retired': True} if removed else {}))
     return result

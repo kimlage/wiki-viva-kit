@@ -10,13 +10,69 @@ from collections import Counter, defaultdict, deque
 from wiki_core.document_records import digest, substantive_digest
 
 
-def scope_identity(graph, node):
+def scope_identity(graph, node, *, correspondences=None):
     return dict(document=graph.get('verified_record_documents', {}).get(node, node),
-                selection=graph.get('verified_record_shapes', {}).get(node, 'whole_document'),
+                selection=(correspondences or {}).get(node,
+                    graph.get('verified_record_shapes', {}).get(node, 'whole_document')),
                 evidence=graph['nodes'][node].get('evidence_source'))
 
 
-def repaired_boundary(base, current, node):
+def qualified_documentary_deltas(base, current, documentary_edits):
+    """Derive comparison support from existing, independently reviewed proofs.
+
+    No authored waiver or new plan language is accepted. Geometry is supplied
+    only by the native projector. These correspondences never alter either
+    graph, the census or freshness; same-seed arrivals still grant causal use.
+    """
+    from wiki_core.document_records import edge_digest, structured_digest
+    from wiki_core.freshness_impact import REFERENCE
+
+    verified = (set(documentary_edits) | set(current.get('verified_record_observations', {}))
+                | set(current.get('verified_record_reviews', {})))
+    correspondences, retired = {}, set()
+    partitions = current.get('verified_h2_partition_changes', {})
+    if partitions != base.get('verified_h2_partition_changes', {}):
+        raise ValueError('partition correspondence requires the same projected pair')
+    for path, proof in partitions.items():
+        if not set(proof['changed_components']) <= verified:
+            continue
+        old, new = proof['base_shapes'], proof['current_shapes']
+        # All changed components need their own qualification. An insertion
+        # receipt never certifies a simultaneous rewrite of an old sibling.
+        gone = set(old) - set(new)
+        if any(not documentary_edits.get(node, {}).get('retired') for node in gone):
+            continue
+        retired.update(gone)
+        for node in old.keys() & new.keys():
+            if old[node] != new[node]:
+                correspondences[node] = copy.deepcopy(old[node])
+
+    def literal_signature(row):
+        # Roles, labels, Markdown style and positions do not erase a reference
+        # to the same destination. Repeated uses remain ambiguous and closed.
+        return structured_digest(dict(consumer=row['consumer'], target=row['raw']['target']))
+
+    occurrences = [graph.get('verified_record_body_occurrences', []) for graph in (base, current)]
+    counts = [Counter(literal_signature(row) for row in rows) for rows in occurrences]
+    removed_edges = set()
+    for row in occurrences[0]:
+        proof = documentary_edits.get(row['consumer'])
+        if not proof or proof.get('retired'):
+            continue
+        key = literal_signature(row)
+        # Repeated indistinguishable uses do not prove which occurrence was
+        # removed. A surviving literal whose binding changed is not a deletion.
+        if counts[0][key] == 1 and counts[1][key] == 0:
+            removed_edges.update(row['projected'])
+    for raw in base['edges']:
+        consumer = raw['source'] if raw['type'] in REFERENCE else raw['target']
+        if (consumer in retired or raw.get('basis') == 'document_record.v2'
+                and raw.get('field') == 'document_components' and raw['target'] in retired):
+            removed_edges.add(edge_digest(raw))
+    return dict(scopes=correspondences, retired=sorted(retired), removed_base_edges=sorted(removed_edges))
+
+
+def repaired_boundary(base, current, node, *, documentary_deltas=None):
     """A complete, substantively repaired unit with unchanged declared scope."""
     from wiki_core.causal_review import _document
     if node not in base['nodes'] or node not in current['nodes']:
@@ -25,7 +81,10 @@ def repaired_boundary(base, current, node):
         before, after = _document(base, node), _document(current, node)
     except ValueError:
         return False
-    if before != after or scope_identity(base, node) != scope_identity(current, node):
+    qualifications = documentary_deltas or {}
+    scopes = qualifications.get('scopes', {})
+    removed_edges = set(qualifications.get('removed_base_edges', []))
+    if before != after or scope_identity(base, node, correspondences=scopes) != scope_identity(current, node, correspondences=scopes):
         return False
     if substantive_digest(base['documents'][before]) == substantive_digest(current['documents'][after]):
         return False
@@ -36,10 +95,13 @@ def repaired_boundary(base, current, node):
             return False
     # Stopping interpretation at a repaired unit must not hide a narrowed
     # selection anywhere in its already-consumed factual context. The only
-    # equivalent shape change is the projector's exact append-only proof.
+    # equivalent shape changes require the projector's exact append-only or
+    # independently qualified complete-partition proof.
     from wiki_core.causal_review import _interpretation_state
-    old_scopes = _interpretation_state(base, node, append_equivalence=True)['scopes']
-    new_scopes = _interpretation_state(current, node, append_equivalence=True)['scopes']
+    old_scopes = _interpretation_state(base, node, append_equivalence=True,
+        scope_correspondences=scopes, ignored_edges=removed_edges)['scopes']
+    new_scopes = _interpretation_state(current, node, append_equivalence=True,
+        scope_correspondences=scopes)['scopes']
     if any(new_scopes.get(prerequisite) != scope for prerequisite, scope in old_scopes.items()):
         return False
     # A repaired upstream unit does not authorize loss/reclassification of any
@@ -49,12 +111,14 @@ def repaired_boundary(base, current, node):
     # new nodes remain additional factual premises, without inventing BASE uses.
     # Exact unique relocation remains reviewed by the arrival declaration.
     from wiki_core.causal_review import _normalized_interpretation_edge
-    from wiki_core.document_records import structured_digest
+    from wiki_core.document_records import edge_digest, structured_digest
     from wiki_core.freshness_impact import REFERENCE, STRUCTURAL, ASSOCIATION
     states, contexts, occurrences = [], [], []
     for graph in (base, current):
         edges, local_context, exact = [], [], defaultdict(list)
         for raw in graph['edges']:
+            if graph is base and edge_digest(raw) in removed_edges:
+                continue
             if raw['type'] in STRUCTURAL | ASSOCIATION:
                 continue
             consumer = raw['source'] if raw['type'] in REFERENCE else raw['target']

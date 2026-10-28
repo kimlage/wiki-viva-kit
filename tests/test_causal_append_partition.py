@@ -1,8 +1,91 @@
 """An appended independent unit cannot reinterpret any preexisting byte."""
+import json
+
 import pytest
 
 from test_causal_review import authored, contract, make, run
 from wiki_core.document_records import digest, edge_digest, project_records
+
+
+def middle_observation(*, qualified=True, unreviewed_sibling=False):
+    from test_causal_review import TODAY
+    from wiki_core.causal_review import census, pair_digest
+    from wiki_core.document_records import sections, structured_digest
+    b, c, changed, spec = append_pair('explicit_view_v2')
+    added = c['documents']['log'][len(b['documents']['log']):]
+    c['documents']['log'] = b['documents']['log'].replace('## Prior', added + '## Prior', 1)
+    entry = spec['documents'][-1]['records'][0]
+    source = b'{"observed_fact":"a new independent event occurred"}'
+    inputs = {('current', 'measurement'): source}
+    spec['artifacts'].append(dict(origin='current', id='measurement', path='measurement.json', sha256=digest(source.decode())))
+    entry['current_evidence'] = ['measurement']
+    if qualified:
+        entry['current_observation'] = 'new-record-proof'
+    if unreviewed_sibling:
+        c['documents']['log'] = c['documents']['log'].replace('Retained complete', 'Changed complete')
+        spec['documents'][-1]['records'].append(dict(id='prior', independent=True,
+            rationale='A separate changed assertion requires its own review.', epistemic_status='observation',
+            recorded_on=TODAY.isoformat(), context_records=[],
+            selectors={o:dict(kind='h2', heading='Prior') for o in ('base','current')},
+            **{o+'_sha256':digest(sections(g['documents']['log'])[1]['Prior'][2]) for o,g in (('base',b),('current',c))}))
+        # The original consumer is deliberately rebound to the intact header,
+        # so it cannot claim the changed sibling itself is unchanged.
+        for binding in spec['bindings']:
+            if binding.get('target_record') == 'remainder':
+                binding['consumed_sha256'] = digest('# Log\n\n')
+    for origin, g in (('base', b), ('current', c)):
+        spec[origin+'_documents_sha256'] = {p:digest(t) for p,t in g['documents'].items()}
+    if qualified:
+        proof = dict(schema_version='wiki_record_observation.v1', document='log', record_id='new-event',
+            document_sha256=digest(c['documents']['log']), record_sha256=entry['current_sha256'],
+            declaration_sha256=structured_digest({k:v for k,v in entry.items() if k!='current_observation'}),
+            observed_on=TODAY.isoformat(), scope='The complete inserted event only; no sibling is revalidated.', contexts={},
+            sources=[dict(id='measurement', sha256=digest(source.decode()), purpose='Retained independent event evidence.')],
+            review=dict(author='writer', reviewer='independent-reader', decision='approved', unresolved_findings=[]))
+        raw=json.dumps(proof,sort_keys=True).encode();inputs['current','new-record-proof']=raw
+        spec['artifacts'].append(dict(origin='current',id='new-record-proof',path='observation.json',sha256=digest(raw.decode())))
+    pc,pb,seeds,_=project_records(c,b,changed,spec,artifact_inputs=inputs)
+    inventory=census(pc,pb,seeds)
+    decisions=[]
+    for oid, obligation in inventory['obligations'].items():
+        edge=inventory['edges'][obligation['edge_id']]
+        if edge['consumer']=='log::record:remainder':
+            decisions.append(dict(obligation_id=oid,disposition='no_change',
+                reason='Exact current policy change leaves the complete old remainder intact; the inserted event has its own proof.'))
+    plan=dict(schema_version='wiki_causal_review.v1',author='writer',pair_sha256=pair_digest(pc,pb,seeds),
+        census_sha256=structured_digest(inventory),dispositions=decisions,review_evidence='causal-review')
+    spec['causal_review']=plan
+    receipt=dict(schema_version='wiki_causal_review_receipt.v1',author='writer',reviewer='independent-reader',
+        decision='approved',plan_sha256=structured_digest({k:v for k,v in plan.items() if k!='review_evidence'}),unresolved_findings=[])
+    raw=json.dumps(receipt,sort_keys=True).encode();inputs['current','causal-review']=raw
+    spec['artifacts'].append(dict(origin='current',id='causal-review',path='causal-review.json',sha256=digest(raw.decode())))
+    return b,c,changed,spec,inputs
+
+
+def test_reviewed_middle_insertion_keeps_intact_remainder_but_not_whole():
+    from test_causal_review import TODAY
+    from wiki_core.freshness_impact import evaluate_impact
+    b,c,changed,spec,inputs=middle_observation()
+    pc,pb,seeds,_=project_records(c,b,changed,spec,artifact_inputs=inputs)
+    result=evaluate_impact(pc,pb,seeds,today=TODAY)
+    assert any(r['consumer']=='log::record:remainder' for r in result['causal_review']['approved_boundaries'])
+    assert not result['ok'] and any(r['path']=='whole' for r in result['blockers'])
+    assert pc['verified_record_shapes']['log::record:remainder'] != pb['verified_record_shapes']['log::record:remainder']
+
+
+@pytest.mark.parametrize('fault', ['no_observation', 'unreviewed_sibling', 'proof_mutation'])
+def test_middle_insertion_cannot_qualify_another_delta_or_forge_geometry(fault):
+    from test_causal_review import TODAY
+    from wiki_core.freshness_impact import evaluate_impact
+    b,c,changed,spec,inputs=middle_observation(qualified=fault!='no_observation',unreviewed_sibling=fault=='unreviewed_sibling')
+    if fault=='proof_mutation':
+        pc,pb,seeds,_=project_records(c,b,changed,spec,artifact_inputs=inputs)
+        for g in (pc,pb):g['verified_h2_partition_changes']['log']['changed_components']=[]
+        with pytest.raises(ValueError,match='inputs changed'):
+            evaluate_impact(pc,pb,seeds,today=TODAY)
+    else:
+        with pytest.raises(ValueError,match='identical complete consumer'):
+            project_records(c,b,changed,spec,artifact_inputs=inputs)
 
 
 def append_pair(mode='h2_v1', *, mutation=None):

@@ -235,6 +235,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
         raise ValueError("locator declaration must describe an actual changed document")
     locator_ids = {v["id"] for v in locator_changes.values()}
     partitions = {"base": {}, "current": {}}
+    retirement_evidence = []
     declared = set()
     changes = set(changed)
     evidence = []
@@ -355,6 +356,18 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                                        "document_path": path, "record_sha256": part["content_sha256"]}
             for record in entries:
                 if record["id"] not in parts:
+                    # Retiring a complete record must not discard the evidence
+                    # of that editorial operation with the CURRENT node. Keep
+                    # the inputs on its surviving owner; no empty record or
+                    # retroactive BASE evidence is manufactured. Qualification
+                    # of the removal is separately sealed by causal review.
+                    if explicit_view and origin == 'current' and record.get('base_sha256') is not None:
+                        for aid in record.get('current_evidence', []):
+                            if (origin, aid) not in artifacts:
+                                raise ValueError(f"{path}: missing retirement evidence")
+                            retirement_evidence.append(dict(source=path, target=artifacts[origin, aid],
+                                type='source_ref', direction='directed', basis='document_record.v2',
+                                path=path, field='removed_record_evidence', removed_record=record['id']))
                     continue
                 for context in record["context_records"]:
                     if context not in parts or context == record["id"]:
@@ -452,7 +465,9 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
     used_context = set()
     for origin, graph in graphs.items():
         projected = []
+        body_occurrences = []
         for raw_index, raw in enumerate(graph["edges"]):
+            raw_output_start = len(projected)
             edge = dict(raw)
             path = raw["path"]
             partition = partitions[origin].get(path)
@@ -583,6 +598,17 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                         raw=copy.deepcopy(raw), before=before, consumer_record=consumer,
                         binding=copy.deepcopy(binding),
                         projected=copy.deepcopy(projected[output_start:])))
+            # Classify physical presence by canonical text span, independently
+            # of both contract bindings and earlier native Markdown role
+            # annotations. A surviving navigation link is still present text.
+            if partition and raw.get('basis') == 'markdown_body':
+                line = raw['body_line'] - 1
+                rid = next((rid for start, end, rid in partition['ranges'] if start <= line < end), None)
+                if rid not in {None, 'remainder', 'preamble'}:
+                    physical_consumer = node_id(path, rid)
+                    body_occurrences.append(dict(consumer=physical_consumer, raw=copy.deepcopy(raw),
+                        projected=[edge_digest(e) for e in projected[raw_output_start:]
+                                   if e['source'] == physical_consumer]))
         # A v2 WHOLE consumes the retained raw document. Raw document in turn
         # consumes all its parts. Keeping this direction preserves raw seeds and
         # upstream freshness without re-expanding unchanged parts downstream.
@@ -601,7 +627,20 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                         before=copy.deepcopy(relation), consumer_record="document", binding=None,
                         projected=[copy.deepcopy(relation)]))
                 raw_count += 1
+        # These operation inputs belong to the surviving owner, not every
+        # sibling assertion. Add them after authored occurrence projection so
+        # they cannot be reclassified or inherited into unrelated records.
+        if origin == 'current':
+            for relation in retirement_evidence:
+                projected.append(relation)
+                if trace is not None:
+                    trace.append(dict(origin=origin, raw_index=raw_count, variant_index=0,
+                        edge_sha256=edge_digest(relation), raw=copy.deepcopy(relation),
+                        before=copy.deepcopy(relation), consumer_record='document', binding=None,
+                        projected=[copy.deepcopy(relation)]))
+                raw_count += 1
         graph["edges"] = projected
+        graph['verified_record_body_occurrences'] = body_occurrences
         if locator_changes:
             graph["verified_locator_changes"] = copy.deepcopy(locator_changes)
             # This graph-root lineage is built from validated partitions, never
@@ -661,6 +700,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
     # Changed common selection/context shape, partial added/removed units or
     # uncovered bytes conservatively keep the full-document obligation.
     precise_components = {}
+    partition_changes = {}
     complete_component_deltas = set()
     from wiki_core.document_view_selectors import complete_h2_record
     for declaration in declarations:
@@ -698,6 +738,12 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
         # the raw/WHOLE obligations without invalidating this unit's receipt.
         # This internal value is never accepted from authored graph metadata.
         complete_component_deltas.update(parts)
+        partition_changes[path] = dict(
+            document=path,
+            base_document_sha256=digest(graphs['base']['documents'][path]),
+            current_document_sha256=digest(graphs['current']['documents'][path]),
+            declaration_sha256=structured_digest(next(d for d in declarations if d['path'] == path)),
+            changed_components=parts, base_shapes=copy.deepcopy(shapes[0]), current_shapes=copy.deepcopy(shapes[1]))
         from wiki_core.causal_review import _interpretation
         # Compare only partition correspondence here. The actual shapes stay
         # untouched for causal review, including upstream repair checks.
@@ -709,6 +755,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
             precise_components[path] = parts
     for graph in graphs.values():
         graph["verified_precise_component_seeds"] = copy.deepcopy(precise_components)
+        graph['verified_h2_partition_changes'] = copy.deepcopy(partition_changes)
     from wiki_core.record_observations import apply_observations
     apply_observations(graphs, contract, changes, artifact_inputs or {},
                        complete_component_deltas=complete_component_deltas)

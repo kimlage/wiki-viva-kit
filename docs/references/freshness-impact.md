@@ -452,6 +452,25 @@ pair, census and independent-review receipt seal the declaration and proof path.
 [Synthetic arrival tests](../../tests/test_causal_upstream_repairs.py) cover the
 positive path and competing causes, branch borrowing, stale evidence and replay.
 
+An existing documentary-edit proof can qualify a renamed complete H2, an exact
+literal citation removed from it, or retirement of the complete historical
+record. The projector must prove the full partition delta, with every changed
+component independently qualified by its own edit, observation or review.
+Remainder bytes, reference definitions, surviving order and anchors stay intact.
+Only then may causal comparison normalize the corresponding selection shapes;
+the stored graphs, census, full-document scope and freshness remain unchanged.
+
+A physical removal is determined from the native occurrence's text span and
+destination, before any semantic binding. A surviving link reclassified as
+navigation or change-target is not a removal. Repeated indistinguishable uses
+and removals outside the reviewed section remain unresolved. Complete retirement
+preserves the original record and provenance in BASE and verifies its current
+removal evidence on the surviving owner. These proofs support an explicit
+same-seed causal disposition; they do not approve consumers or excuse another
+seed, WHOLE use, expired premise or unreviewed sibling. An unchanged remainder
+whose only difference is a qualified partition locator still requires its own
+causal disposition and identical factual interpretation.
+
 When one intact consumer receives independently repaired inputs, the verifier
 can compose their proofs for that same complete consumer. Each actual arrival
 must first qualify on its own: an explicit repair supported by its own seed and
@@ -579,6 +598,19 @@ decisions, hypotheses and simultaneous `current_observation` claims are outside
 this scope. Page and record freshness dates, cadences and exemptions must stay
 unchanged. The historical cut precedes the actual review date; review cannot be
 future-dated at evaluation or later than the record's declared observation.
+
+An `authorized_removal` may retire the complete BASE H2 in an
+`explicit_view_v2` document that still exists in CURRENT. The CURRENT selector
+and record hash must be null, and `current_text` must be empty. The projector
+must prove the complete component delta, including preserved surrounding bytes,
+reference definitions, ordering and anchors. Mandatory BASE contexts must
+survive unchanged. No empty CURRENT record or renewed date is manufactured.
+The retained removal sources become CURRENT prerequisites of the surviving
+document owner; they are not inherited by unrelated sibling assertions. A
+later WHOLE arrival still traverses every part and prerequisite. This proves
+the reviewed retirement only: consumers of the removed assertion still require
+their own causal reconciliation, and neither missing dispositions nor stale
+factual inputs are cleared.
 
 During causal evaluation, a projector-proved raw carrier has no additional
 freshness obligation when only its complete changed components are demanded.
