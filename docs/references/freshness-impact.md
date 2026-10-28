@@ -196,9 +196,11 @@ receipt. This is an opt-in semantic declaration, implemented by
 
 The ordinary partition guards must first prove a complete independent H2 delta:
 unchanged remainder, order, anchors and document-wide reference definitions,
-with no raw-document seed left. The record must be new or substantively changed.
-Unchanged content, mixed/uncovered deltas, remainder/envelope slots, decisions,
-hypotheses and `explicit_view_v2` cannot use this option. Existing declarations
+with no raw-document seed left, or by the exact whole-H2 composition proof below
+for `explicit_view_v2`, which retains the raw seed for WHOLE consumers.
+The record must be new or substantively changed. Unchanged content,
+uncovered deltas, partial selections, remainder/envelope slots, decisions
+and hypotheses cannot use this option. Existing declarations
 without it keep their original behavior; `recorded_on` alone grants no freshness.
 
 The receipt has schema `wiki_record_observation.v1` and exactly these fields:
@@ -238,11 +240,31 @@ checks establish identity and custody, not truth or completeness of a source.
 
 A substantive repair of a preexisting complete H2 may retain its epistemic
 type while receiving a bounded review. Declare `current_review: <artifact_id>`
-on an `h2_v1` record of type `decision`, `hypothesis` or `proposal`. This uses
+on a complete H2 record of type `decision`, `hypothesis` or `proposal`. This uses
 the same source, context, integrity and independent-review checks as observations;
 it does not introduce another integration path. New records, remainders,
 partial selections, unchanged assertions and concurrent `current_observation`
 claims are ineligible.
+
+The record may use `h2_v1`, or preexisting whole-H2 selectors in both origins
+of `explicit_view_v2`. V2 may explicitly retain the same record ID across a
+title change. Complete delta coverage, unchanged remainder and references,
+record order, anchors, padding, type and contexts are still required for the
+precise partition. Tables, preambles, envelopes and absent BASE selectors do
+not qualify through this route. The real origin selectors remain in the graph;
+local partition correspondence does not make causal interpretations equal.
+Other whole H2s may be added or removed on the same page only when the projector
+proves their complete spans and actual presence/absence. Every added and removed
+unit remains a seed. Common-record order, anchors, remainder, reference definitions
+and unchanged local contexts must still be preserved. Partial added/removed
+selections cannot obtain this proof.
+
+Only `current_observation` may use an introduced complete H2 with a null BASE
+selector and hash. Its independently reviewed source receipt remains required.
+`current_review` and `documentary_edits` still require a preexisting subject.
+A removed H2 retains its BASE consumers and factual prerequisites; classifying
+its generated component-to-document edge as representation does not classify
+any actual consumer edge that way.
 
 The CURRENT file receipt uses `wiki_record_review.v1`. It has the observation
 receipt's fields, replacing `observed_on` with `reviewed_on`, and also requires
@@ -435,7 +457,7 @@ entirely after the original document. This requires a literal BASE prefix,
 identical old record selections, bytes, ordering and anchors, an identical
 remainder and reference definitions, and complete contiguous coverage of only
 the appended bytes. Only that proved remainder exclusion change is equivalent
-for an otherwise valid causal disposition. It does not make an addition a
+for an otherwise valid causal disposition. By itself it does not make an addition a
 precise carrier, remove a WHOLE obligation, erase the new record's seed or waive
 its independence review. Authored markers and post-projection mutations cannot
 supply the proof. [Append regressions](../../tests/test_causal_append_partition.py)
@@ -532,11 +554,21 @@ evidence.
 
 The [documentary verifier](../../wiki_core/documentary_edits.py) permits only a
 preexisting, substantively changed, complete contiguous H2 record explicitly
-classified as `observation` under `h2_v1`. Raw pages, remainders, normative
+classified as `observation` under `h2_v1`, or the complete preexisting H2
+selection described above under `explicit_view_v2`. Raw pages, remainders, normative
 decisions, hypotheses and simultaneous `current_observation` claims are outside
 this scope. Page and record freshness dates, cadences and exemptions must stay
 unchanged. The historical cut precedes the actual review date; review cannot be
 future-dated at evaluation or later than the record's declared observation.
+
+During causal evaluation, a projector-proved raw carrier has no additional
+freshness obligation when only its complete changed components are demanded.
+Those components retain their own checks and causal dispositions. Any actual
+WHOLE or context arrival, including another seed or cycle, requires the full
+document again. A current review and historical correction on the same page
+therefore cannot renew each other or their untouched siblings. The
+[origin-selector regressions](../../tests/test_complete_h2_origin_qualification.py)
+exercise this distinction.
 
 `edit_kind` is `authorized_removal` or `historical_correction`. Removal permits
 only deletions; a correction may replace historical assertions against retained

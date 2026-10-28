@@ -658,22 +658,33 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
     # separately that this raw seed is a representation carrier, not a request
     # to revalidate independent, untouched siblings. Only the projector may
     # establish this after complete delta/anchor/order/reference validation.
-    # Changed selection/context shape, added/removed parts, or uncovered bytes
-    # conservatively keep the ordinary full-document obligation.
+    # Changed common selection/context shape, partial added/removed units or
+    # uncovered bytes conservatively keep the full-document obligation.
     precise_components = {}
     for item in evidence:
         path = item["path"]
         if not (item.get("mode") == "explicit_view_v2" and item.get("precise_component_seeds")):
             continue
+        # Exact append-only partitions have their own narrower proof. Keep the
+        # raw document obligation: preserving the old prefix does not qualify
+        # the whole document or its newly appended factual units.
+        if node_id(path, 'remainder') in append_proofs:
+            continue
         shapes = [{n: shape for n, shape in graph["verified_record_shapes"].items()
                    if graph["verified_record_documents"][n] == path} for graph in (graphs["base"], graphs["current"])]
-        if shapes[0] != shapes[1]:
+        from wiki_core.document_view_selectors import corresponding_h2_shapes
+        if shapes[0] != shapes[1] and not corresponding_h2_shapes(shapes[0], shapes[1]):
             continue
-        parts = sorted(n for n in shapes[0] if graphs["base"]["nodes"][n]["record_sha256"]
-                       != graphs["current"]["nodes"][n]["record_sha256"])
+        parts = sorted(n for n in shapes[0].keys() | shapes[1].keys()
+                       if graphs["base"]["nodes"].get(n, {}).get("record_sha256")
+                       != graphs["current"]["nodes"].get(n, {}).get("record_sha256"))
         from wiki_core.causal_review import _interpretation
-        stable_context = all(_interpretation(graphs["base"], n) == _interpretation(graphs["current"], n)
-                             for n in shapes[0] if n not in parts)
+        # Compare only partition correspondence here. The actual shapes stay
+        # untouched for causal review, including upstream repair checks.
+        comparison_base = dict(graphs['base'], verified_record_shapes={
+            **graphs['base']['verified_record_shapes'], **shapes[1]})
+        stable_context = all(_interpretation(comparison_base, n) == _interpretation(graphs["current"], n)
+                             for n in shapes[0].keys() & shapes[1].keys() if n not in parts)
         if parts and set(parts) <= changes and stable_context:
             precise_components[path] = parts
     for graph in graphs.values():

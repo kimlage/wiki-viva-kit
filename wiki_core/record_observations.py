@@ -26,6 +26,7 @@ def _json(raw):
 def apply_observations(graphs, contract, changes, inputs):
     from wiki_core.document_records import digest, node_id, structured_digest
     from wiki_core.freshness import is_stale_exempt, parse_updated_date
+    from wiki_core.document_view_selectors import complete_h2_record
 
     declarations = contract['documents']
     requested = [(d, r, key) for d in declarations for r in d['records'] + d.get('envelope', [])
@@ -53,11 +54,17 @@ def apply_observations(graphs, contract, changes, inputs):
         if 'current_observation' in record and 'current_review' in record:
             raise ValueError('record cannot claim both observation and review')
         allowed_types = {'decision', 'hypothesis', 'proposal'} if is_review else {'observation'}
+        precise = nid in current.get('verified_precise_component_seeds', {}).get(path, [])
+        # Append-only proves the new unit's location, not the whole page's
+        # freshness. Its observation still needs the complete receipt below.
+        appended_observation = (not is_review and rid in current.get(
+            'verified_append_only_partitions', {}).get(node_id(path, 'remainder'), {}).get('added_records', []))
         if (contract.get('schema_version') != 'document_record.v2'
-                or contract.get('document_modes', {}).get(path) != 'h2_v1'
+                or not complete_h2_record(contract, declaration, record, allow_introduced=not is_review)
                 or record.get('epistemic_status') not in allowed_types
                 or record not in declaration['records'] or rid in {'remainder', 'preamble'}
-                or path in changes or nid not in changes or nid not in current['nodes']):
+                or path in changes and not (precise or appended_observation)
+                or nid not in changes or nid not in current['nodes']):
             raise ValueError('observation requires a complete independent H2 delta')
         if is_review and (nid not in base['nodes'] or not record.get('base_sha256')):
             raise ValueError('record review requires a preexisting complete H2')

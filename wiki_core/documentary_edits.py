@@ -16,6 +16,7 @@ def qualifications(plan, contract, inputs, base, current, seeds):
     from wiki_core.causal_authority import _unique_json
     from wiki_core.causal_revalidation import _artifact, _complete_unit, _local_contexts
     from wiki_core.freshness import parse_updated_date
+    from wiki_core.document_view_selectors import complete_h2_record
 
     items = plan.get('documentary_edits', [])
     if not isinstance(items, list):
@@ -48,9 +49,12 @@ def qualifications(plan, contract, inputs, base, current, seeds):
         if _complete_unit(base, node, proof['base_text']) != path:
             raise ValueError('documentary subject identity changed')
         rid = current['nodes'][node].get('document_record_id')
-        records = [r for d in contract['documents'] if d['path'] == path for r in d['records'] if r['id'] == rid]
+        declaration = next(d for d in contract['documents'] if d['path'] == path)
+        records = [r for r in declaration['records'] if r['id'] == rid]
         if (len(records) != 1 or rid in {'remainder', 'preamble'}
-                or contract.get('document_modes', {}).get(path) != 'h2_v1'
+                or not complete_h2_record(contract, declaration, records[0])
+                or contract['document_modes'][path] == 'explicit_view_v2'
+                   and node not in current.get('verified_precise_component_seeds', {}).get(path, [])
                 or records[0].get('epistemic_status') != 'observation'
                 or records[0].get('current_observation')
                 or proof['declaration_sha256'] != structured_digest(records[0])):

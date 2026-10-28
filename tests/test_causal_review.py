@@ -658,11 +658,22 @@ def test_real_factual_demand_still_expands_all_required_components(kwargs):
         assert result['causal_review']['approved_boundaries']  # no_change is no freshness waiver.
 
 
-@pytest.mark.parametrize('mutation', ['remainder','references','order','shape'])
+@pytest.mark.parametrize('mutation', ['remainder','references','order'])
 def test_uncovered_delta_never_becomes_a_precise_representation_carrier(mutation):
     b,c,changed,spec = precise_component_pair(mutation=mutation)
     pc,pb,_,_ = project_records(c,b,changed,spec)
     assert pc['verified_precise_component_seeds'] == pb['verified_precise_component_seeds'] == {}
+
+
+def test_exact_h2_rename_preserves_changed_component_and_its_factual_dependencies():
+    b, c, changed, spec, inputs = authored_precise_pair(mutation='shape')
+    pc, pb, seeds, _ = project_records(c, b, changed, spec, artifact_inputs=inputs)
+    assert pc['verified_precise_component_seeds']['policy'] == ['policy::record:historical', 'policy::record:procedure']
+    assert pb['verified_record_shapes']['policy::record:historical']['selector']['heading'] == 'Historical'
+    assert pc['verified_record_shapes']['policy::record:historical']['selector']['heading'] == 'Archive'
+    result = evaluate_impact(pc, pb, seeds, today=TODAY)
+    assert not result['ok']
+    assert any(r['path'] == 'required' and r['state'] == 'stale' for r in result['blockers'])
 
 
 def test_authored_marker_cannot_make_uncovered_delta_precise():
