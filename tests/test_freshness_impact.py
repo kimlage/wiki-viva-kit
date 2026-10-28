@@ -593,3 +593,58 @@ def test_unicode_source_filename_is_not_lost_in_git_quoting(repo):
     assert artifact.name in result['seeds']
     assert artifact.name in result['input_sha256']
     assert 'memories/consumer.md' in paths(result['blockers'])
+
+
+def test_reviewed_technical_input_suppresses_only_its_seed(repo):
+    tool = repo / 'tool.py'
+    tool.write_text('print("old")\n')
+    manual = page(repo, 'manual', body='Tool [implementation](../tool.py); [source](source.md).')
+    page(repo, 'source', stale=True)
+    base = commit(repo)
+    tool.write_text('print("new implementation")\n')
+    assert 'memories/source.md' in paths(report(repo, base)['blockers'])
+    reason = {'tool.py': 'Implementation refactor; downstream asserted facts unchanged, reviewed and tested.'}
+    result = repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    assert result['seeds'] == []
+    manual.write_text(manual.read_text() + '\nA new factual assertion.\n')
+    result = repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    assert 'tool.py' in paths(result['included'])
+    assert 'memories/source.md' in paths(result['blockers'])
+
+
+def test_retired_input_review_requires_no_surviving_citation_and_keeps_old_edges(repo):
+    tool = repo / 'old-tool.py'
+    tool.write_text('print("historical implementation")\n')
+    manual = page(repo, 'manual', body='[Tool](../old-tool.py); [source](source.md).')
+    source = page(repo, 'source', stale=True)
+    base = commit(repo)
+    tool.unlink()
+    reason = {'old-tool.py': 'Retired implementation retained at the approved Git revision.'}
+    with pytest.raises(ValueError, match='changed existing paths'):
+        repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    manual.write_text(manual.read_text().replace('[Tool](../old-tool.py)', 'Retired tool; see approved Git history'))
+    reason['memories/manual.md'] = 'Replace retired implementation link, no source fact changed.'
+    result = repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    assert result['seeds'] == []
+    source.write_text(source.read_text() + '\nChanged evidence.\n')
+    result = repository_report(repo, load_config(repo), base, today=TODAY, documentary_only=reason)
+    assert 'old-tool.py' in paths(result['blockers'])
+    assert next(r for r in result['included'] if r['path'] == 'old-tool.py')['state'] == 'unknown'
+
+
+def test_documentary_input_review_refuses_new_unreferenced_or_deleted_memory(repo):
+    memory = page(repo, 'manual')
+    existing = repo / 'unreferenced.txt'
+    existing.write_text('Original')
+    base = commit(repo)
+    existing.write_text('Changed')
+    new = repo / 'new.txt'
+    new.write_text('New evidence')
+    memory.write_text(memory.read_text() + '\n[New](../new.txt)')
+    git(repo, 'add', 'new.txt')
+    for path in ('new.txt', 'unreferenced.txt'):
+        with pytest.raises(ValueError, match='documentary-only'):
+            repository_report(repo, load_config(repo), base, today=TODAY, documentary_only={path: 'Reason'})
+    memory.unlink()
+    with pytest.raises(ValueError, match='documentary-only'):
+        repository_report(repo, load_config(repo), base, today=TODAY, documentary_only={'memories/manual.md': 'Deleted'})

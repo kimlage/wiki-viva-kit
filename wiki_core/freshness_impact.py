@@ -237,8 +237,13 @@ def evaluate_impact(
 ) -> dict[str, Any]:
     """Dependents of changes, then prerequisites; never fan out from shared sources."""
     declarations = documentary_only or {}
+    # An exact-path review may also classify a referenced tracked input. A
+    # retired input qualifies only after all current factual citations to it
+    # are gone; historical edges remain and another factual seed still reaches
+    # its missing-evidence blocker. Memory-page deletion never qualifies.
+    reviewable = (base["documents"].keys() & current["documents"].keys()) | current.get("reviewable_evidence", set())
     if not isinstance(declarations, dict) or any(
-        path not in changed or path not in base["documents"] or path not in current["documents"]
+        path not in changed or path not in reviewable
         or not isinstance(reason, str) or not reason.strip()
         for path, reason in declarations.items()
     ):
@@ -363,7 +368,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     # separately authored hash registry. Retain old links when an artifact or
     # citation is removed. Ignored caches and external URLs remain source-owner
     # concerns; they cannot become implicit inputs through a Markdown link.
-    tracked = set(run_git(["ls-tree", "-r", "--name-only", "-z", base_sha], root=root).split("\0"))
+    base_tracked = set(run_git(["ls-tree", "-r", "--name-only", "-z", base_sha], root=root).split("\0"))
+    tracked = set(base_tracked)
     tracked.update(run_git(["ls-files", "-z"], root=root).split("\0"))
     memory_paths = set(current["nodes"]) | set(base["nodes"])
     evidence = {e["target"] for g in (base, current) for e in g["edges"]
@@ -373,6 +379,11 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
         graph["evidence_paths"] = evidence
         graph["missing_evidence"] = {p for p in evidence if before[p] is None}
         graph["nodes"].update({p: {} for p in evidence})
+    current_citations = {e["target"] for e in current["edges"] if e["type"] in REFERENCE}
+    current["reviewable_evidence"] = {
+        p for p in evidence & base_tracked
+        if before[p] is not None or p not in current_citations
+    }
     if config.audit.get("freshness_records"):
         raise ValueError("freshness_records is retired; remove the pointer after reviewing the migration diff")
     result = evaluate_impact(current, base, changed, today=today or dt.date.today(),

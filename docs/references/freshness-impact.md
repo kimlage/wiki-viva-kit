@@ -102,11 +102,23 @@ python3 scripts/wiki_audit.py --check --freshness-base BASE_SHA \
 
 This is an authored classification, not automatic proof. It removes only the
 initial seed. A factual change elsewhere still reaches the page and all its
-old dependencies. Unknown intent stays factual. The option accepts only exact
-changed existing paths with a rationale; no globs, deleted pages or permanent
-config exemptions. It refuses changes to dates, cadence or evergreen policy.
+old dependencies. Unknown intent stays factual. The option accepts exact changed
+paths with a rationale; no globs or permanent config exemptions. Existing memory
+pages and referenced inputs tracked at the approved base are eligible. A
+technical refactor qualifies only when the reviewer verifies that the downstream
+asserted facts remain unchanged; a code extension alone grants no exemption.
+It refuses changes to dates, cadence or evergreen policy.
 Missing, invalid and future dates remain unknown. A document edit does not
 prove that its source was reread: preserve the source's verification date.
+
+An intentionally retired non-memory input may be classified only after every
+current factual citation to it is removed. The reviewer verifies that no retained
+assertion depends on the missing input and that historical evidence remains
+recoverable, for example through an immutable Git link. Deleted memory pages,
+new/unreferenced inputs and symlink replacements cannot use this exception.
+Historical edges remain: another factual seed reaching the retired input still
+gets an unknown-evidence blocker. Without the explicit classification, artifact
+edits and deletions continue to propagate conservatively.
 
 The graph uses the union of the approved base and candidate. Independent review
 of the exact final SHA remains required. The machine cannot determine semantic
