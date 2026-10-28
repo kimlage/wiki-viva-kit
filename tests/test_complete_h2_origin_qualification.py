@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from test_documentary_edits import PATH, SUBJECT, TODAY, prepare, run, seal
+from test_documentary_edits import PATH, SUBJECT, TODAY, prepare, retirement, run, seal
 from test_document_records import graph
-from test_freshness_impact import repo
+from test_freshness_impact import page, repo
 from wiki_core.causal_review import census
-from wiki_core.document_records import digest, node_id, project_records, sections, structured_digest
+from wiki_core.document_records import digest, edge_digest, node_id, project_records, sections, structured_digest
 
 
 def explicit_h2(data, root, *, rename=True):
@@ -46,6 +46,126 @@ def seal_view(data):
     raw = json.dumps(receipt, sort_keys=True).encode()
     inputs['current', 'review'] = raw
     next(a for a in spec['artifacts'] if a['id'] == 'review')['sha256'] = digest(raw.decode())
+
+
+def frontier(repo, kind, *, qualified=True, another_seed=False):
+    page(repo, 'tail', stale=True, body='Uses the unchanged [decision](consumer.md).')
+    data = (retirement(repo, whole=True) if kind == 'retirement'
+            else explicit_h2(prepare(repo, correction=True, whole=True), repo, rename=kind == 'rename'))
+    base, current, spec, inputs, proof = data
+    record = spec['documents'][0]['records'][0]
+    # This fixture reviews a historical correction in a currently reviewed
+    # page. Keep the same finite freshness policy in both snapshots.
+    for graph_data in (base, current):
+        for path in (PATH, 'memories/old-source.md'):
+            graph_data['documents'][path] = graph_data['documents'][path].replace('2026-01-01', TODAY.isoformat())
+            graph_data['nodes'][path]['updated_at'] = TODAY.isoformat()
+    if kind in {'literal_removal', 'reclassification', 'duplicate', 'native_navigation', 'native_change_target', 'outside_h2'}:
+        original = proof['base_text']
+        base['documents'][PATH] = base['documents'][PATH].replace(original,
+            original.replace('A quoted quota reference.', 'A quoted [source](old-source.md).'))
+        if kind == 'duplicate':
+            base['documents'][PATH] = base['documents'][PATH].replace('A quoted [source](old-source.md).',
+                'A quoted [source](old-source.md).\nA quoted [source](old-source.md).')
+        # Rebuild native occurrences from the actual fixture bytes. Reclassify
+        # keeps the literal reference; its role alone changes after projection.
+        if kind in {'reclassification', 'duplicate', 'native_navigation', 'native_change_target'}:
+            current['documents'][PATH] = current['documents'][PATH].replace('The archived meter value was 2.\n',
+                'The archived meter value was 2.\nA quoted [source](old-source.md).\n')
+        if kind.startswith('native_'):
+            from wiki_core.markdown_link_roles import declare_link_role
+            current['documents'][PATH] = current['documents'][PATH].replace('[source](old-source.md)',
+                declare_link_role('[source](old-source.md)', kind.removeprefix('native_')))
+        if kind == 'outside_h2':
+            current['documents'][PATH] = current['documents'][PATH].replace(
+                'Compare [terms](old-source.md)', 'Compare terms')
+        for origin, graph_data in (('base', base), ('current', current)):
+            for path, text in graph_data['documents'].items():
+                (repo / path).write_text(text)
+            graph_data.update(graph(repo))
+        for origin, graph_data in (('base', base), ('current', current)):
+            proof[origin + '_text'] = sections(graph_data['documents'][PATH])[1]['Historical record'][2]
+            record[origin + '_sha256'] = digest(proof[origin + '_text'])
+    for origin, graph_data in (('base', base), ('current', current)):
+        spec[origin + '_documents_sha256'] = {p: digest(t) for p, t in graph_data['documents'].items()}
+        proof[origin + '_document_sha256'] = digest(graph_data['documents'][PATH])
+        if kind != 'retirement':
+            edge = next(e for e in graph_data['edges'] if e['source'] == 'memories/consumer.md')
+            spec['bindings'].append(dict(origin=origin, edge_sha256=edge_digest(edge), target_record='entry-0',
+                consumed_sha256=record[origin + '_sha256'], rationale='This conclusion consumes this complete historical assertion only.'))
+    if kind == 'reclassification':
+        edge = min((e for e in current['edges'] if e['source'] == PATH and e['target'] == 'memories/old-source.md'),
+                   key=lambda e: e['body_line'])
+        spec['bindings'].append(dict(origin='current', edge_sha256=edge_digest(edge), consumer_record='entry-0',
+            role='navigation', target_document_sha256=digest(current['documents']['memories/old-source.md']),
+            rationale='Deliberately invalid attempt to describe role change as physical removal.'))
+    if another_seed:
+        # A separate new arrival cannot borrow the first seed's repaired path.
+        page(repo, 'other', body='New independent [dependency](consumer.md).')
+        other = graph(repo)
+        for name in ('documents', 'nodes'):
+            base[name]['memories/other.md'] = other[name]['memories/other.md']
+            current[name]['memories/other.md'] = other[name]['memories/other.md']
+        current['documents']['memories/other.md'] += '\nChanged external assertion.\n'
+        for origin, graph_data in (('base', base), ('current', current)):
+            graph_data['documents']['memories/consumer.md'] += '\nAlso uses [other](other.md).\n'
+            for path, text in graph_data['documents'].items():
+                (repo / path).write_text(text)
+            graph_data.update(graph(repo))
+            spec[origin + '_documents_sha256'] = {p: digest(t) for p, t in graph_data['documents'].items()}
+    seal(data, retired_owner=True)
+    proposal = copy.deepcopy(spec)
+    proposal.pop('causal_review')
+    changed = {p for p in base['documents'] | current['documents']
+               if base['documents'].get(p) != current['documents'].get(p)}
+    pc, pb, seeds, _ = project_records(current, base, changed, proposal, artifact_inputs=inputs)
+    inventory = census(pc, pb, seeds)
+    for item in spec['causal_review']['dispositions']:
+        edge = inventory['edges'][inventory['obligations'][item['obligation_id']]['edge_id']]
+        if edge['consumer'] == 'memories/consumer.md':
+            item.update(disposition='no_change', reason='The independently reviewed historical edit leaves this complete conclusion unchanged.',
+                reviewed_upstream_repairs=[PATH if kind == 'retirement' else SUBJECT])
+    if not qualified:
+        spec['causal_review'].pop('documentary_edits')
+    receipt = json.loads(inputs['current', 'review'])
+    receipt['plan_sha256'] = structured_digest({k: v for k, v in spec['causal_review'].items() if k != 'review_evidence'})
+    raw = json.dumps(receipt, sort_keys=True).encode()
+    inputs['current', 'review'] = raw
+    next(a for a in spec['artifacts'] if a['id'] == 'review')['sha256'] = digest(raw.decode())
+    return data
+
+
+@pytest.mark.parametrize('kind', ['rename', 'retirement', 'literal_removal'])
+def test_reviewed_historical_frontier_reconciles_same_seed_without_altering_graph(repo, kind):
+    data = frontier(repo, kind)
+    pc, pb, result = run(data)
+    assert result['ok'], result['blockers']
+    assert any(r['path'] == 'memories/tail.md' for r in result['unrelated_debt'])
+    assert not any(r['path'] == 'memories/tail.md' for r in result['included'])
+    assert result['causal_review']['approved_boundaries']
+    assert pc['documents'] == data[1]['documents'] and pb['documents'] == data[0]['documents']
+
+
+@pytest.mark.parametrize('kind', ['rename', 'retirement', 'literal_removal', 'reclassification', 'duplicate',
+                                  'native_navigation', 'native_change_target'])
+def test_frontier_cannot_infer_edit_permission_or_hide_surviving_literal(repo, kind):
+    data = frontier(repo, kind, qualified=kind in {'reclassification', 'duplicate', 'native_navigation', 'native_change_target'})
+    with pytest.raises(ValueError, match='reviewed upstream repair lacks'):
+        run(data)
+
+
+def test_partition_proof_cannot_supply_a_different_seeds_frontier(repo):
+    data = frontier(repo, 'rename', another_seed=True)
+    with pytest.raises(ValueError, match='reviewed upstream repair lacks'):
+        run(data)
+
+
+def test_reviewed_h2_removal_cannot_hide_another_relations_loss(repo):
+    # The reviewed historical section loses one literal citation. The rule
+    # outside that complete section loses a different use of the same target;
+    # its obligation cannot borrow the first section's editorial permission.
+    with pytest.raises(ValueError):
+        run(frontier(repo, 'outside_h2'))
 
 
 @pytest.mark.parametrize('rename', [False, True])
