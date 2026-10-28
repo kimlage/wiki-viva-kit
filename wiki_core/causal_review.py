@@ -166,7 +166,7 @@ def _review_receipt(plan, contract, artifact_inputs):
     return evidence, candidates[0]["sha256"], receipt
 
 
-def verify(current, base, changed, contract, artifact_inputs):
+def verify(current, base, changed, contract, artifact_inputs, *, complete_component_deltas=frozenset()):
     plan = contract.get("causal_review")
     if plan is None:
         return None
@@ -196,7 +196,8 @@ def verify(current, base, changed, contract, artifact_inputs):
     revalidations = normative_revalidations(plan, contract, artifact_inputs, base, current)
     used_revalidations = set()
     from wiki_core.documentary_edits import qualifications
-    documentary_edits = qualifications(plan, contract, artifact_inputs, base, current, inventory['seeds'])
+    documentary_edits = qualifications(plan, contract, artifact_inputs, base, current, inventory['seeds'],
+                                        complete_component_deltas=complete_component_deltas)
     # Validate every proposed repair before deriving any same-seed frontier.
     for item in plan["dispositions"]:
         if (not isinstance(item, dict) or not {"obligation_id", "disposition", "reason"} <= set(item)

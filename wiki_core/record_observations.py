@@ -23,7 +23,7 @@ def _json(raw):
         raise ValueError('invalid observation receipt JSON') from exc
 
 
-def apply_observations(graphs, contract, changes, inputs):
+def apply_observations(graphs, contract, changes, inputs, *, complete_component_deltas=frozenset()):
     from wiki_core.document_records import digest, node_id, structured_digest
     from wiki_core.freshness import is_stale_exempt, parse_updated_date
     from wiki_core.document_view_selectors import complete_h2_record
@@ -54,7 +54,7 @@ def apply_observations(graphs, contract, changes, inputs):
         if 'current_observation' in record and 'current_review' in record:
             raise ValueError('record cannot claim both observation and review')
         allowed_types = {'decision', 'hypothesis', 'proposal'} if is_review else {'observation'}
-        precise = nid in current.get('verified_precise_component_seeds', {}).get(path, [])
+        complete_delta = nid in complete_component_deltas
         # Append-only proves the new unit's location, not the whole page's
         # freshness. Its observation still needs the complete receipt below.
         appended_observation = (not is_review and rid in current.get(
@@ -63,7 +63,7 @@ def apply_observations(graphs, contract, changes, inputs):
                 or not complete_h2_record(contract, declaration, record, allow_introduced=not is_review)
                 or record.get('epistemic_status') not in allowed_types
                 or record not in declaration['records'] or rid in {'remainder', 'preamble'}
-                or path in changes and not (precise or appended_observation)
+                or path in changes and not (complete_delta or appended_observation)
                 or nid not in changes or nid not in current['nodes']):
             raise ValueError('observation requires a complete independent H2 delta')
         if is_review and (nid not in base['nodes'] or not record.get('base_sha256')):

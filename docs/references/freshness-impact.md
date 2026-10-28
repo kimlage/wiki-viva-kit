@@ -259,6 +259,16 @@ unit remains a seed. Common-record order, anchors, remainder, reference definiti
 and unchanged local contexts must still be preserved. Partial added/removed
 selections cannot obtain this proof.
 
+The projector distinguishes complete local deltas from a document carrier.
+A changed prerequisite of an untouched sibling can prevent carrier qualification
+while a complete H2 still qualifies for its own evidence-bound observation,
+review or historical-edit receipt. This internal structural proof is not an
+authored flag or an admission decision. It keeps the raw document seed, WHOLE
+consumers, sibling dates, mandatory contexts and BASE obligations. All receipt
+checks remain required, and unresolved factual dependencies still block the
+proposal. Uncovered bytes, partial units or changed local boundaries do not
+receive this proof.
+
 Only `current_observation` may use an introduced complete H2 with a null BASE
 selector and hash. Its independently reviewed source receipt remains required.
 `current_review` and `documentary_edits` still require a preexisting subject.

@@ -12,7 +12,7 @@ from difflib import SequenceMatcher
 from wiki_core.document_records import digest, structured_digest
 
 
-def qualifications(plan, contract, inputs, base, current, seeds):
+def qualifications(plan, contract, inputs, base, current, seeds, *, complete_component_deltas=frozenset()):
     from wiki_core.causal_authority import _unique_json
     from wiki_core.causal_revalidation import _artifact, _complete_unit, _local_contexts
     from wiki_core.freshness import parse_updated_date
@@ -54,7 +54,7 @@ def qualifications(plan, contract, inputs, base, current, seeds):
         if (len(records) != 1 or rid in {'remainder', 'preamble'}
                 or not complete_h2_record(contract, declaration, records[0])
                 or contract['document_modes'][path] == 'explicit_view_v2'
-                   and node not in current.get('verified_precise_component_seeds', {}).get(path, [])
+                   and node not in complete_component_deltas
                 or records[0].get('epistemic_status') != 'observation'
                 or records[0].get('current_observation')
                 or proof['declaration_sha256'] != structured_digest(records[0])):
