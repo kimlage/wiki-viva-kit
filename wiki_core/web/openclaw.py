@@ -26,6 +26,7 @@ from wiki_core.web.snapshot import build_snapshot
 
 from wiki_core.openclaw_config import RuntimeErrorCode, require, validated_config
 
+MAX_RECEIPT_BYTES = 256_000
 
 def route_for(config, profile):
     runtime = validated_config(config.openclaw)
@@ -115,7 +116,7 @@ def write_new(path, value):
 
 
 def read_receipt(path):
-    require(path.is_file() and path.stat().st_size <= 256_000 and not path.is_symlink(), "openclaw_receipt_missing")
+    require(path.is_file() and path.stat().st_size <= MAX_RECEIPT_BYTES and not path.is_symlink(), "openclaw_receipt_missing")
     try:
         value = json.loads(path.read_text())
     except (json.JSONDecodeError, UnicodeError):
@@ -447,11 +448,16 @@ def prepare_receipt_material(root, config, params, *, expected_result_sha256):
                 "before_sha256": hashlib.sha256((root / "wiki.config.yaml").read_bytes()).hexdigest(),
                 "freshness_base": config.audit["freshness_base"], "freshness_records": contract_ref}
             initial = preview()
-        write_new(material_file, material)
+        material_raw = (json.dumps(material, ensure_ascii=False, indent=2) + "\n").encode()
         saved = {"material_path": material_file.relative_to(root).as_posix(),
-                 "material_sha256": hashlib.sha256(material_file.read_bytes()).hexdigest(),
+                 "material_sha256": hashlib.sha256(material_raw).hexdigest(),
                  "action_after_text": after,
                  "output_hashes": {ref: hashlib.sha256(raw).hexdigest() for ref, raw in initial["outputs"].items()}}
+        # Check the actual UTF-8 serialized size before either recovery file
+        # is published. Never leave a manifest that its own reader refuses.
+        require(len((json.dumps(saved, ensure_ascii=False, indent=2) + "\n").encode()) <= MAX_RECEIPT_BYTES,
+                "openclaw_receipt_material_too_large")
+        write_new(material_file, material)
         write_new(manifest, saved)
         return {**saved, "proposal": proposal_status(root, config, directory, plan),
                 "action_id": params["action_id"], "effect_key": params["effect_key"],

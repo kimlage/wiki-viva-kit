@@ -121,6 +121,36 @@ def test_product_revocation_after_plan_prevents_gateway_send(product):
     assert not any(x[0]=='chat.send' for x in calls)
 
 
+@pytest.mark.parametrize('characters,accepted', [(120_000, True), (128_000, False)])
+def test_receipt_manifest_utf8_limit_precedes_publication(product, characters, accepted):
+    srv, root, action, params, unlock, calls = product
+    action.write_text(action.read_text() + '\n\n' + 'é' * characters + '\n')
+    subprocess.run(['git', 'add', '.'], cwd=root, check=True, capture_output=True)
+    subprocess.run(['git', 'commit', '-qm', 'Synthetic large action'], cwd=root, check=True, capture_output=True)
+    params = {**params, 'action_sha256': hashlib.sha256(action.read_bytes()).hexdigest()}
+    before = action.read_bytes(); token = unlock()
+    sent, _ = execute(srv, token, 'agents.openclaw.dispatch', params)
+    query = {'profile': 'research', 'action_id': params['action_id'], 'effect_key': sent['effect_key']}
+    execute(srv, token, 'agents.openclaw.inspect', query)
+    status, plan = _plan(srv, token, 'agents.openclaw.receipt', params=query)
+    assert status == 200, plan
+    _, out = _execute(srv, token, plan, confirmation=plan['plan']['confirmation']['text'])
+    directory = oc.storage(root, srv.server.config, sent['effect_key'])
+    assert action.read_bytes() == before and len([c for c in calls if c[0] == 'chat.send']) == 1
+    if accepted:
+        assert out['ok'], out
+        manifest = directory/'receipt-material-integrity.json'
+        assert manifest.stat().st_size <= oc.MAX_RECEIPT_BYTES
+        assert oc.read_receipt(manifest)['action_after_text']
+        assert out['output']['proposal']['status'] == 'material_ready'
+    else:
+        assert not out['ok'] and 'openclaw_receipt_material_too_large' in out['failed_preconditions'], out
+        assert not (directory/'receipt-material.json').exists()
+        assert not (directory/'receipt-material-integrity.json').exists()
+        assert not (directory/'receipt-preview.json').exists()
+        assert (directory/'intent.json').is_file() and (directory/'result.json').is_file()
+
+
 def test_product_dry_run_sends_nothing_and_unknown_route_stays_closed(product):
     srv,root,_,params,unlock,calls=product;token=unlock()
     status,p=_plan(srv,token,'agents.openclaw.dispatch',params=params,dry_run=True);assert status==200,p
