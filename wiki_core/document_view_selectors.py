@@ -402,11 +402,12 @@ def frontmatter_span(text, selector, shape):
     return start + offset, end + offset
 
 
-def complete_h2_record(contract, declaration, record, *, allow_introduced=False):
+def complete_h2_record(contract, declaration, record, *, allow_introduced=False, allow_removed=False):
     """Recognize an already projected whole H2, never a row or envelope.
 
     V2 origin selectors may name a renamed, preexisting H2. Only the bounded
-    observation route may request an introduced H2. Exact presence, spans,
+    observation route may request an introduced H2; reviewed retirement may
+    request an absent CURRENT H2. Exact presence, spans,
     hashes and ambiguity checks remain the partitioner's responsibility.
     """
     if record not in declaration['records'] or record['id'] in {'remainder', 'preamble'}:
@@ -422,12 +423,15 @@ def complete_h2_record(contract, declaration, record, *, allow_introduced=False)
     candidates = selectors.values()
     if allow_introduced and selectors['base'] is None and record.get('base_sha256') is None:
         candidates = [selectors['current']]
+    elif allow_removed and selectors['current'] is None and record.get('current_sha256') is None:
+        candidates = [selectors['base']]
     for selector in candidates:
         if (not isinstance(selector, dict) or selector.get('kind') != 'h2'
                 or set(selector) - {'kind', 'heading', 'leading_blank_lines'}
                 or not isinstance(selector.get('heading'), str) or not selector['heading']):
             return False
-    return selectors['base'] is None or selectors['base'].get('leading_blank_lines', 0) == selectors['current'].get('leading_blank_lines', 0)
+    return (len(candidates) == 1 or
+            selectors['base'].get('leading_blank_lines', 0) == selectors['current'].get('leading_blank_lines', 0))
 
 
 def corresponding_h2_shapes(before, after):

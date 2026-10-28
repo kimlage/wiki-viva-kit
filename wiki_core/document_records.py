@@ -235,6 +235,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
         raise ValueError("locator declaration must describe an actual changed document")
     locator_ids = {v["id"] for v in locator_changes.values()}
     partitions = {"base": {}, "current": {}}
+    retirement_evidence = []
     declared = set()
     changes = set(changed)
     evidence = []
@@ -355,6 +356,18 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                                        "document_path": path, "record_sha256": part["content_sha256"]}
             for record in entries:
                 if record["id"] not in parts:
+                    # Retiring a complete record must not discard the evidence
+                    # of that editorial operation with the CURRENT node. Keep
+                    # the inputs on its surviving owner; no empty record or
+                    # retroactive BASE evidence is manufactured. Qualification
+                    # of the removal is separately sealed by causal review.
+                    if explicit_view and origin == 'current' and record.get('base_sha256') is not None:
+                        for aid in record.get('current_evidence', []):
+                            if (origin, aid) not in artifacts:
+                                raise ValueError(f"{path}: missing retirement evidence")
+                            retirement_evidence.append(dict(source=path, target=artifacts[origin, aid],
+                                type='source_ref', direction='directed', basis='document_record.v2',
+                                path=path, field='removed_record_evidence', removed_record=record['id']))
                     continue
                 for context in record["context_records"]:
                     if context not in parts or context == record["id"]:
@@ -599,6 +612,18 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
                     trace.append(dict(origin=origin, raw_index=raw_count, variant_index=0,
                         edge_sha256=edge_digest(relation), raw=copy.deepcopy(relation),
                         before=copy.deepcopy(relation), consumer_record="document", binding=None,
+                        projected=[copy.deepcopy(relation)]))
+                raw_count += 1
+        # These operation inputs belong to the surviving owner, not every
+        # sibling assertion. Add them after authored occurrence projection so
+        # they cannot be reclassified or inherited into unrelated records.
+        if origin == 'current':
+            for relation in retirement_evidence:
+                projected.append(relation)
+                if trace is not None:
+                    trace.append(dict(origin=origin, raw_index=raw_count, variant_index=0,
+                        edge_sha256=edge_digest(relation), raw=copy.deepcopy(relation),
+                        before=copy.deepcopy(relation), consumer_record='document', binding=None,
                         projected=[copy.deepcopy(relation)]))
                 raw_count += 1
         graph["edges"] = projected

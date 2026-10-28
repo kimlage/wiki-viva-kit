@@ -612,22 +612,39 @@ def evaluate(current, base, changed, *, today):
     queue = deque(key for key in witnesses
                   if key[1] not in carriers or key in factual_raw_arrivals)
     seen = set(queue)
+
+    def require_input(seed, parent, edge):
+        target = edge['prerequisite']
+        factual_demands.add(target)
+        reason = dict(reason='required_dependency', seed=seed, via=parent,
+                      chain=[*witnesses[seed, parent]['chain'], edge])
+        reasons.setdefault(target, reason)
+        witnesses.setdefault((seed, target), reason)
+        if (seed, target) not in seen:
+            seen.add((seed, target)); queue.append((seed, target))
+
+    for seed, parent in list(witnesses):
+        if parent in carriers and (seed, parent) not in factual_raw_arrivals:
+            # Its retirement evidence is an input to the operation, even when
+            # the removed record is absent. Do not mark the carrier visited:
+            # a later factual WHOLE arrival must still traverse every sibling.
+            for _, edge in upstream[parent]:
+                if (edge['origin'] == 'current' and edge.get('basis') == 'document_record.v2'
+                        and edge.get('field') == 'removed_record_evidence'):
+                    require_input(seed, parent, edge)
     while queue:
         seed, parent = queue.popleft()
         for eid, edge in upstream[parent]:
-            target = edge["prerequisite"]
-            factual_demands.add(target)
-            reason = dict(reason="required_dependency", seed=seed, via=parent,
-                          chain=[*witnesses[seed, parent]["chain"], edge])
-            reasons.setdefault(target, reason)
-            witnesses.setdefault((seed, target), reason)
-            if (seed, target) not in seen:
-                seen.add((seed, target)); queue.append((seed, target))
+            require_input(seed, parent, edge)
     included = [dict(path=p, state=original_rows[p]["state"], **reasons[p]) for p in sorted(reasons)]
     from datetime import date
-    satisfied = []
+    satisfied, pending_edits = [], []
     for row in included:
         proof = review['documentary_edits'].get(row['path'])
+        if proof and proof.get('retired') and date.fromisoformat(proof['reviewed_on']) > today:
+            # A missing CURRENT node has state `removed`, so freshness cannot
+            # enforce the review's time boundary on its behalf.
+            pending_edits.append(dict(row, reason='documentary_review_in_future'))
         if (proof and row['reason'] == 'changed_page' and row['state'] == 'stale'
                 and row['path'] not in factual_demands
                 and date.fromisoformat(proof['reviewed_on']) <= today):
@@ -642,7 +659,7 @@ def evaluate(current, base, changed, *, today):
     stale = [r for r in included if r["state"] in {"stale", "unknown"}
              and 'documentary_edit_satisfied' not in r and 'precise_representation_components' not in r]
     beyond = [dict(r, reason="beyond_reviewed_causal_boundary") for r in original["included"] if r["path"] not in reasons]
-    result = dict(original, included=included, blockers=[*stale, *unresolved.values()],
+    result = dict(original, included=included, blockers=[*stale, *unresolved.values(), *pending_edits],
                   unrelated_debt=[*original["unrelated_debt"], *(r for r in beyond if r["state"] in {"stale", "unknown"})])
     result["causal_review"] = dict(pair_sha256=review["pair_sha256"], census_sha256=review["census_sha256"],
         potential_obligations=len(inventory["obligations"]), considered_arrivals=len(arrivals),

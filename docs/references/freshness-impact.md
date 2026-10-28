@@ -580,6 +580,19 @@ this scope. Page and record freshness dates, cadences and exemptions must stay
 unchanged. The historical cut precedes the actual review date; review cannot be
 future-dated at evaluation or later than the record's declared observation.
 
+An `authorized_removal` may retire the complete BASE H2 in an
+`explicit_view_v2` document that still exists in CURRENT. The CURRENT selector
+and record hash must be null, and `current_text` must be empty. The projector
+must prove the complete component delta, including preserved surrounding bytes,
+reference definitions, ordering and anchors. Mandatory BASE contexts must
+survive unchanged. No empty CURRENT record or renewed date is manufactured.
+The retained removal sources become CURRENT prerequisites of the surviving
+document owner; they are not inherited by unrelated sibling assertions. A
+later WHOLE arrival still traverses every part and prerequisite. This proves
+the reviewed retirement only: consumers of the removed assertion still require
+their own causal reconciliation, and neither missing dispositions nor stale
+factual inputs are cleared.
+
 During causal evaluation, a projector-proved raw carrier has no additional
 freshness obligation when only its complete changed components are demanded.
 Those components retain their own checks and causal dispositions. Any actual
