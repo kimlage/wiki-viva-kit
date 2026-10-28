@@ -103,6 +103,41 @@ jobs:
       - name: Production build
         run: npm --prefix apps/wiki-cockpit run build
 
+  cockpit-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22.22.3"
+          cache: npm
+          cache-dependency-path: apps/wiki-cockpit/package-lock.json
+      - name: Install browser dependencies
+        working-directory: apps/wiki-cockpit
+        run: |
+          npm install --global npm@10.9.8
+          npm ci
+          npx playwright install --with-deps chromium firefox webkit
+      # Hardware frame-time evidence remains a separate local GPU run. These
+      # are all functional projects, not a claim that software rendering is GPU.
+      - name: Browser journeys (desktop, keyboard, mobile, fallback, Firefox)
+        working-directory: apps/wiki-cockpit
+        run: >-
+          npm run test:e2e:release --
+          --project=chromium-desktop --project=webkit-keyboard
+          --project=webkit-mobile --project=chromium-fallback
+          --project=firefox-smoke
+      - name: Browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cockpit-browser-failures
+          path: |
+            apps/wiki-cockpit/test-results/
+            output/playwright/wiki-cockpit-report/
+          retention-days: 7
+
   snapshot-flat-windows:
     runs-on: windows-latest
     steps:

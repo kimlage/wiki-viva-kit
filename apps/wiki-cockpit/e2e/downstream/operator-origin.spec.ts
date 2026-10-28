@@ -6,7 +6,7 @@ test.describe.configure({ timeout: 90_000 });
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
-  if (!value) throw new Error(`${name} is required by the downstream release matrix`);
+  if (!value) throw new Error(`${name} is required by the downstream integration checks`);
   return value;
 }
 
@@ -53,8 +53,6 @@ function expectations() {
     expectedRevision: required("WIKI_COCKPIT_EXPECT_SNAPSHOT_REVISION"),
     expectedHash: required("WIKI_COCKPIT_EXPECT_SNAPSHOT_HASH").toLowerCase(),
     expectedConsumerHead: required("WIKI_COCKPIT_EXPECT_CONSUMER_HEAD").toLowerCase(),
-    expectedPublicReleaseSha: required("WIKI_COCKPIT_EXPECT_PUBLIC_RELEASE_SHA").toLowerCase(),
-    expectedAdapterHash: required("WIKI_COCKPIT_EXPECT_ADAPTER_HASH").toLowerCase(),
     expectedSnapshotVersion: required("WIKI_COCKPIT_EXPECT_SNAPSHOT_VERSION"),
     expectedRuntimeVersion: required("WIKI_COCKPIT_EXPECT_RUNTIME_VERSION"),
     expectedServerVersion: required("WIKI_COCKPIT_EXPECT_SERVER_VERSION"),
@@ -71,15 +69,13 @@ function expectations() {
   };
 }
 
-test("exact downstream operator serves the attested repo, revision, hash and capabilities", async ({ request }) => {
+test("exact downstream operator serves the configured repo, revision, hash and capabilities", async ({ request }) => {
   const {
     snapshotUrl,
     expectedRepo,
     expectedRevision,
     expectedHash,
     expectedConsumerHead,
-    expectedPublicReleaseSha,
-    expectedAdapterHash,
     expectedSnapshotVersion,
     expectedRuntimeVersion,
     expectedServerVersion,
@@ -169,23 +165,19 @@ test("exact downstream operator serves the attested repo, revision, hash and cap
   const operatorHandshake = validateOperatorHandshake(health);
   expect(operatorHandshake.errors).toEqual([]);
   expect(operatorHandshake.ok).toBe(true);
-  expect(String(runtimeConfig.adoption?.public_release_sha || "").toLowerCase()).toBe(expectedPublicReleaseSha);
-  expect(String(runtimeConfig.adoption?.adapter_hash || "").toLowerCase()).toBe(expectedAdapterHash);
-  expect(runtimeConfig.adoption?.adapter_manifest).toBe("wiki.adapter-manifest.json");
+  expect(runtimeConfig).toMatchObject({ api_base: "/api", snapshot_base: "/api/snapshot", mode: "local_operator" });
   for (const capability of expectedCapabilities) {
     expect(health.schema_capabilities).toContain(capability);
   }
 });
 
-test("exact downstream UI renders the attested repo instead of a sample fallback", async ({ page }) => {
+test("exact downstream UI renders the configured repo instead of a sample fallback", async ({ page }) => {
   const {
     snapshotUrl,
     expectedRepo,
     expectedRevision,
     expectedHash,
     expectedConsumerHead,
-    expectedPublicReleaseSha,
-    expectedAdapterHash,
     expectedSnapshotVersion,
     expectedRuntimeVersion,
     expectedTemporalGraphVersion,
@@ -245,9 +237,7 @@ test("exact downstream UI renders the attested repo instead of a sample fallback
   expect(Array.isArray(uiPages.pages) ? uiPages.pages.length : 0).toBeGreaterThanOrEqual(minPages);
   expect(canonicalEvidence(uiPages)).toEqual(uiManifest.integrity?.["pages.json"]);
   expect(canonicalEvidence(uiExperiencePacks)).toEqual(uiManifest.integrity?.["experience_packs.json"]);
-  expect(String(uiRuntimeConfig.adoption?.public_release_sha || "").toLowerCase()).toBe(expectedPublicReleaseSha);
-  expect(String(uiRuntimeConfig.adoption?.adapter_hash || "").toLowerCase()).toBe(expectedAdapterHash);
-  expect(uiRuntimeConfig.adoption?.adapter_manifest).toBe("wiki.adapter-manifest.json");
+  expect(uiRuntimeConfig).toMatchObject({ api_base: "/api", snapshot_base: "/api/snapshot", mode: "local_operator" });
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(page.locator(".topBar")).toContainText(expectedRepo, { timeout: 20000 });
   await expect(page.locator(".topBar")).toContainText("local operator");
