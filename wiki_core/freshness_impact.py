@@ -363,8 +363,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     # separately authored hash registry. Retain old links when an artifact or
     # citation is removed. Ignored caches and external URLs remain source-owner
     # concerns; they cannot become implicit inputs through a Markdown link.
-    tracked = set(run_git(["ls-tree", "-r", "--name-only", base_sha], root=root).splitlines())
-    tracked.update(run_git(["ls-files"], root=root).splitlines())
+    tracked = set(run_git(["ls-tree", "-r", "--name-only", "-z", base_sha], root=root).split("\0"))
+    tracked.update(run_git(["ls-files", "-z"], root=root).split("\0"))
     memory_paths = set(current["nodes"]) | set(base["nodes"])
     evidence = {e["target"] for g in (base, current) for e in g["edges"]
                 if e["type"] in REFERENCE and e["target"] in tracked} - memory_paths

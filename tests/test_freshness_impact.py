@@ -581,3 +581,15 @@ def test_nonmemory_evidence_symlink_cannot_read_outside_root(repo, tmp_path):
     evidence.symlink_to('/etc/passwd')
     with pytest.raises(ValueError):
         report(repo, base)
+
+
+def test_unicode_source_filename_is_not_lost_in_git_quoting(repo):
+    artifact = repo / 'evidência técnica.txt'
+    artifact.write_text('Original capture.')
+    page(repo, 'consumer', stale=True, body='[Evidence](../evidência%20técnica.txt)')
+    base = commit(repo)
+    artifact.write_text('Changed capture.')
+    result = report(repo, base)
+    assert artifact.name in result['seeds']
+    assert artifact.name in result['input_sha256']
+    assert 'memories/consumer.md' in paths(result['blockers'])

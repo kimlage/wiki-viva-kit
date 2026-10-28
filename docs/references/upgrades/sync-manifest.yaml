@@ -7,7 +7,19 @@ portable:
     - scripts/wiki_*.py
     - scripts/_common.py
     - scripts/README.md
-    - apps/wiki-cockpit/**
+    - apps/wiki-cockpit/src/**
+    - apps/wiki-cockpit/public/**
+    - apps/wiki-cockpit/scripts/**
+    - apps/wiki-cockpit/e2e/downstream/**
+    - apps/wiki-cockpit/e2e/fixtures.ts
+    - apps/wiki-cockpit/package.json
+    - apps/wiki-cockpit/package-lock.json
+    - apps/wiki-cockpit/tsconfig.json
+    - apps/wiki-cockpit/vite.config.ts
+    - apps/wiki-cockpit/index.html
+    - apps/wiki-cockpit/playwright.downstream.config.ts
+    - apps/wiki-cockpit/README.md
+    - apps/wiki-cockpit/SOURCE_BRAND_NOTICES.md
     - .skills/wiki-*/**
     - packs/**
     - docs/references/guides/**
@@ -16,9 +28,7 @@ portable:
     - docs/references/templates/wiki/subagent-brief.md
     - docs/references/schemas/**
   block:
-    - apps/wiki-cockpit/e2e/**
     - apps/wiki-cockpit/scripts/demo-journeys.test.mjs
-    - apps/wiki-cockpit/playwright.config.ts
     - apps/wiki-cockpit/public/sample-snapshot/**
     - scripts/wiki_build_demo.py
     - apps/wiki-cockpit/node_modules/**
