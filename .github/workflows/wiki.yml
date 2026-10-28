@@ -119,6 +119,11 @@ jobs:
           npm install --global npm@10.9.8
           npm ci
           npx playwright install --with-deps chromium firefox webkit
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install native operator dependencies
+        run: python3 -m pip install -r requirements.txt
       # Hardware frame-time evidence remains a separate local GPU run. These
       # are all functional projects, not a claim that software rendering is GPU.
       - name: Browser journeys (desktop, keyboard, mobile, fallback, Firefox)
@@ -128,6 +133,59 @@ jobs:
           --project=chromium-desktop --project=webkit-keyboard
           --project=webkit-mobile --project=chromium-fallback
           --project=firefox-smoke
+      - name: Verify built UI against the native operator
+        if: ${{ !cancelled() }}
+        env:
+          WIKI_COCKPIT_REAL_BASE_URL: http://127.0.0.1:18765
+        run: |
+          # Startup codes are intentionally discarded, never uploaded as logs.
+          python3 scripts/wiki_web_server.py --port 18765 --frontend apps/wiki-cockpit/dist >/dev/null 2>&1 &
+          operator_pid=$!
+          trap 'kill "$operator_pid"' EXIT
+          python3 - <<'PY'
+          import json, os, subprocess, time, urllib.request
+          from pathlib import Path
+          from wiki_core.web.snapshot import build_snapshot
+          from wiki_core.web.schemas import WEB_SERVER_VERSION, SCHEMA_CAPABILITIES
+          base = os.environ["WIKI_COCKPIT_REAL_BASE_URL"]
+          url = base + "/api/snapshot/manifest.json"
+          for attempt in range(30):
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      served = json.load(response)
+                  break
+              except (OSError, TimeoutError):
+                  if attempt == 29:
+                      raise
+                  time.sleep(1)
+          expected = build_snapshot(Path.cwd())
+          manifest = expected["manifest.json"]
+          versions = manifest["versions"]
+          packs = expected["experience_packs.json"]
+          env = {
+              "SNAPSHOT_URL": base + "/api/snapshot/pages.json",
+              "EXPECT_REPO_ID": manifest["repo"]["repo_id"],
+              "EXPECT_CONSUMER_HEAD": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "EXPECT_SNAPSHOT_REVISION": served["snapshot_id"],
+              "EXPECT_SNAPSHOT_HASH": served["bundle_hash"],
+              "EXPECT_SNAPSHOT_VERSION": versions["snapshot"],
+              "EXPECT_RUNTIME_VERSION": versions["runtime_contract"],
+              "EXPECT_SERVER_VERSION": WEB_SERVER_VERSION,
+              "EXPECT_TEMPORAL_GRAPH_VERSION": versions["temporal_graph"],
+              "EXPECT_TEMPORAL_EVENT_VERSION": versions["temporal_event"],
+              "EXPECT_EXPERIENCE_PACK_COMPOSITION_VERSION": versions["experience_pack_composition"],
+              "EXPECT_COMPOSITION_SHA256": packs["composition_sha256"],
+              "EXPECT_ACTIVE_PACKS": json.dumps(packs["packs"]),
+              "EXPECT_CAPABILITIES": ",".join(SCHEMA_CAPABILITIES),
+              "MIN_PAGES": str(len(expected["pages.json"]["pages"])),
+          }
+          assert int(env["MIN_PAGES"]) > 0
+          subprocess.run(
+              ["npm", "--prefix", "apps/wiki-cockpit", "run", "test:e2e:operator"],
+              env={**os.environ, **{"WIKI_COCKPIT_" + key: value for key, value in env.items()}},
+              check=True,
+          )
+          PY
       - name: Browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
@@ -136,6 +194,7 @@ jobs:
           path: |
             apps/wiki-cockpit/test-results/
             output/playwright/wiki-cockpit-report/
+            output/playwright/wiki-cockpit-downstream-report/
           retention-days: 7
 
   snapshot-flat-windows:

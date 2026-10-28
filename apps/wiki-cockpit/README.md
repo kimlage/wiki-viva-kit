@@ -320,7 +320,10 @@ npm run test:e2e:release
 `npm run test:e2e:release` builds the static app and runs every configured
 browser project with zero retries. Functional coverage includes the five native
 views, compatibility routes, Genesis, packs, appearance, mobile, keyboard,
-fallback and reader navigation. CI runs the five functional projects on Linux.
+fallback and reader navigation. CI runs the five functional projects on Linux, including the standalone
+read-only Kanban, then runs the downstream journey against the native operator
+serving the public kit wiki. This synthetic/public integration does not certify a
+private consumer installation.
 The separate `chromium-performance` project requires a real hardware WebGL
 renderer; a software CI runner cannot certify its frame-time budget. Run the
 complete command on a GPU-capable host before claiming full browser coverage.
