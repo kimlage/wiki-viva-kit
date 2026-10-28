@@ -661,6 +661,7 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
     # Changed common selection/context shape, partial added/removed units or
     # uncovered bytes conservatively keep the full-document obligation.
     precise_components = {}
+    complete_component_deltas = set()
     for item in evidence:
         path = item["path"]
         if not (item.get("mode") == "explicit_view_v2" and item.get("precise_component_seeds")):
@@ -678,6 +679,13 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
         parts = sorted(n for n in shapes[0].keys() | shapes[1].keys()
                        if graphs["base"]["nodes"].get(n, {}).get("record_sha256")
                        != graphs["current"]["nodes"].get(n, {}).get("record_sha256"))
+        if not parts or not set(parts) <= changes:
+            continue
+        # Structural qualification of a complete local delta is weaker than
+        # carrier qualification. A sibling's changed prerequisite must retain
+        # the raw/WHOLE obligations without invalidating this unit's receipt.
+        # This internal value is never accepted from authored graph metadata.
+        complete_component_deltas.update(parts)
         from wiki_core.causal_review import _interpretation
         # Compare only partition correspondence here. The actual shapes stay
         # untouched for causal review, including upstream repair checks.
@@ -685,15 +693,17 @@ def project_records(current: dict, base: dict, changed: set[str], contract: dict
             **graphs['base']['verified_record_shapes'], **shapes[1]})
         stable_context = all(_interpretation(comparison_base, n) == _interpretation(graphs["current"], n)
                              for n in shapes[0].keys() & shapes[1].keys() if n not in parts)
-        if parts and set(parts) <= changes and stable_context:
+        if stable_context:
             precise_components[path] = parts
     for graph in graphs.values():
         graph["verified_precise_component_seeds"] = copy.deepcopy(precise_components)
     from wiki_core.record_observations import apply_observations
-    apply_observations(graphs, contract, changes, artifact_inputs or {})
+    apply_observations(graphs, contract, changes, artifact_inputs or {},
+                       complete_component_deltas=complete_component_deltas)
     if contract.get("causal_review") is not None:
         from wiki_core.causal_review import verify
-        causal = verify(graphs["current"], graphs["base"], changes, contract, artifact_inputs or {})
+        causal = verify(graphs["current"], graphs["base"], changes, contract, artifact_inputs or {},
+                        complete_component_deltas=complete_component_deltas)
         for graph in graphs.values():
             graph["verified_causal_review"] = copy.deepcopy(causal)
     if review_trace is not None:

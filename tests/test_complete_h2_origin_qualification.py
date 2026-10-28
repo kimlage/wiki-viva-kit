@@ -277,3 +277,33 @@ def test_valid_partial_addition_or_removal_does_not_gain_h2_carrier(repo, operat
     record['current_observation'] = 'unqualified'
     with pytest.raises(ValueError, match='complete independent H2 delta'):
         project_records(current, base, {PATH}, spec)
+
+
+@pytest.mark.parametrize('upstream_change', ['reference', 'cycle'])
+def test_local_receipts_do_not_require_or_grant_a_document_carrier(repo, upstream_change):
+    """A complete reading can be qualified while its page still fails admission."""
+    from test_freshness_impact import page
+    data = composed_data(repo)
+    base, current, spec, inputs, _ = data
+    target = 'live-source.md' if upstream_change == 'reference' else 'log.md'
+    page(repo, 'old-source', stale=True, body=f'A changed prerequisite consumes [evidence]({target}).')
+    updated = graph(repo)
+    current.clear(); current.update(updated)
+    spec['current_documents_sha256'] = {p: digest(t) for p, t in current['documents'].items()}
+    seal(data)
+    pc, pb, result = run(data)
+    assert node_id(PATH, 'new-measurement') in pc['verified_record_observations']
+    assert node_id(PATH, 'proposal') in pc['verified_record_reviews']
+    assert pc['nodes'][node_id(PATH, 'new-measurement')]['updated_at'] == TODAY.isoformat()
+    assert pc['nodes'][node_id(PATH, 'proposal')]['updated_at'] == TODAY.isoformat()
+    assert PATH not in pc['verified_precise_component_seeds']
+    assert {PATH, 'memories/old-source.md', node_id(PATH, 'retired-0'),
+            node_id(PATH, 'retired-1')} <= set(result['seeds'])
+    for node in (PATH, SUBJECT, node_id(PATH, 'remainder')):
+        assert pc['nodes'][node]['updated_at'] == pb['nodes'][node]['updated_at'] == '2026-01-01'
+    assert not result['ok']
+    assert {PATH, 'memories/old-source.md'} <= {r['path'] for r in result['blockers']}
+    assert 'precise_representation_components' not in next(r for r in result['included'] if r['path'] == PATH)
+    assert SUBJECT in pc['verified_causal_review']['documentary_edits']
+    assert SUBJECT in result['causal_review']['documentary_edit_factual_demands']
+    assert SUBJECT not in result['causal_review']['documentary_edits_satisfied']
