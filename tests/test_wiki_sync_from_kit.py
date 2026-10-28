@@ -216,7 +216,7 @@ def test_runtime_only_contract_preserves_consumer_and_second_b0_is_unchanged(tmp
 
     first = _run_default(ROOT, consumer)
     assert first.returncode == 0, first.stderr
-    for relative in ("wiki_core/config.py", "scripts/wiki_audit.py", "apps/wiki-cockpit/src/App.tsx", "apps/wiki-cockpit/e2e/downstream/operator-origin.spec.ts", "apps/wiki-cockpit/e2e/fixtures.ts"):
+    for relative in ("wiki_core/config.py", "scripts/wiki_audit.py", "docs/references/freshness-impact.md", "apps/wiki-cockpit/src/App.tsx", "apps/wiki-cockpit/e2e/downstream/operator-origin.spec.ts", "apps/wiki-cockpit/e2e/fixtures.ts"):
         assert (consumer / relative).is_file(), relative
     for relative in ("docs/references/fixtures/demo-wiki", "tests", "apps/wiki-cockpit/public/sample-snapshot", "scripts/wiki_build_demo.py"):
         assert not (consumer / relative).exists(), relative
