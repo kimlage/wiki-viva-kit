@@ -14,7 +14,7 @@ never mutated by showcase generation.
 | `personal_finance_showcase` | `personal-finance@0.1.0` | 10 | `sample-snapshot/scenarios/personal_finance_showcase` | `/demo/w?demo_scenario=personal_finance_showcase&center=finance-transaction-income&view=timeline&time_mode=event&time_lanes=page&tour=0` |
 
 The executable allowlist and exact page-set hashes live under
-[`scenarios/pack-showcases`](../fixtures/demo-wiki/scenarios/pack-showcases/manifest.yaml).
+[`scenarios/pack-showcases`](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/docs/references/fixtures/demo-wiki/scenarios/pack-showcases/manifest.yaml).
 The normal, dense-stress and Genesis registries remain separate. Their fixture
 selection and active-pack state are therefore unchanged: they continue to
 publish the exact empty pack composition unless their own contract is advanced.

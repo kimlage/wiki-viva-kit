@@ -102,9 +102,9 @@ as its last completed run; otherwise reconciliation remains held. After capture,
 the adapter reads the retained exact message even if the session advanced.
 No arbitrary history scan, redispatch or account switch is used for recovery.
 
-[Product tests](../../../tests/test_openclaw_product.py) exercise actual HTTP,
+[Product tests](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_openclaw_product.py) exercise actual HTTP,
 session admission, native writers and Git with a synthetic Gateway. They cover
-revocation, C3 preservation and server restart. [Adoption tests](../../../tests/test_openclaw_adoption.py)
+revocation, C3 preservation and server restart. [Adoption tests](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_openclaw_adoption.py)
 use actual local Git with a synthetic provider, including interrupted adoption
 and no-effect replay. [Card tests](../../../apps/wiki-cockpit/src/components/ActionRuntime.test.tsx)
 verify typed review and recovery controls. These fixtures do not prove a live

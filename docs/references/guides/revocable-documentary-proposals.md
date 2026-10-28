@@ -102,11 +102,11 @@ claiming this boundary is active.
 
 ## Verification
 
-[Admission tests](../../../tests/test_normal_proposal_admission.py) use real native
+[Admission tests](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_normal_proposal_admission.py) use real native
 challenge/unlock/lock HTTP endpoints, a real Git fixture, the action writer,
 deterministic C2 and a real local commit. They compare domain bytes, index, refs
 and state after revocation, then prepare the same material with a new session
-and plan. [Session effect tests](../../../tests/test_admin_effect_authority.py)
+and plan. [Session effect tests](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_admin_effect_authority.py)
 cover live expiry, capability refusal and ordering. Controlled provider tests
 can verify dispatch/CAS/uncertainty semantics, but do not demonstrate an actual
 provider account, remote merge or consumer adoption. Each consumer still needs

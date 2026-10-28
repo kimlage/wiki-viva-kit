@@ -70,7 +70,7 @@ default layout is:
 | --- | --- |
 | [wiki_core](../../../wiki_core/__init__.py) | Deterministic Python core. |
 | [scripts](../../../scripts/wiki_ingest.py) | `wiki_*` CLIs that expose the core. |
-| [tests](../../../tests/test_wiki_pipeline.py) | Unit and fixture tests for the reusable kit. |
+| [tests](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_wiki_pipeline.py) | Unit and fixture tests for the reusable kit. |
 | Configured `paths.memory_root` | Living wiki: canonical Markdown memory. |
 | Configured `root_entity.page` | Semantic root entity for this consumer. |
 | Configured `root_entity.input_stage_page` | Generated root/channel/source staging page. |
@@ -659,7 +659,7 @@ contract.
 | [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) | Root entity, input channel and source-config staging freshness. |
 | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | Deep-read-complete sources are integrated. |
 | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Density, repetition, hierarchy, open integration and quality telemetry. |
-| [pytest](../../../tests/test_wiki_pipeline.py) | Reusable toolkit behavior. |
+| [pytest](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_wiki_pipeline.py) | Reusable toolkit behavior. |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Reviewer-ready diff summary. |
 | `git diff --check` | Whitespace and patch hygiene. |
 

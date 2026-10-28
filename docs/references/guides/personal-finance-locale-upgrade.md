@@ -49,7 +49,7 @@ enables a disabled pack or installs a missing pack. The underlying `upgrade`
 command retains its strict version rule.
 
 Run `wiki_pack.py validate --all`, the consumer's gates and real snapshot
-readback before promotion. The [synthetic tests](../../../tests/test_personal_finance_upgrade.py)
+readback before promotion. The [synthetic tests](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_personal_finance_upgrade.py)
 prove the legacy failure, repeatable dry-run, preserved authored pages,
 custom templates and config, receipt closure, replay with no writes, and
 refusal of drift both before and after upgrade. No private consumer content
