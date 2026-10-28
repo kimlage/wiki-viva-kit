@@ -17,7 +17,10 @@ export default defineConfig({
     colorScheme: "dark",
     locale: "pt-BR",
     screenshot: "only-on-failure",
-    trace: "retain-on-failure",
+    // Operator responses carry ephemeral mutation nonces. Playwright traces
+    // retain response bodies/headers, so keep only the sanitized fixture
+    // summaries and visual diagnostics for this live integration boundary.
+    trace: "off",
     video: "retain-on-failure"
   },
   projects: [
