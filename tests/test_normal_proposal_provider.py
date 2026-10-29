@@ -293,3 +293,89 @@ def test_pr_edit_binds_pre_and_post_head_and_requested_content(prepared, monkeyp
         assert len(calls) == 1 and result["output"]["outcome_uncertain"] is True
     else:
         assert calls == []
+
+
+def _with_age_review(root, params, value):
+    path = root / params['review_path']
+    review = json.loads(path.read_text())
+    review['freshness_reviews'] = value
+    path.write_text(json.dumps(review))
+    return {**params, 'review_sha256': _sha(path.read_bytes())}
+
+
+def _age_review():
+    return {'memories/history.md': {'disposition': 'historical',
+        'evidence': 'memories/review.md', 'rationale': 'Original observation remains historical.',
+        'limits': 'No new provider read or changed source date.'}}
+
+
+@pytest.mark.parametrize('invalid', [None, [], {'x': 'historical'},
+    {'../history.md': {'disposition': 'historical', 'evidence': 'memories/review.md',
+        'rationale': 'Old observation.', 'limits': 'No live read.'}},
+    {'memories/history.md': {'disposition': 'historical', 'evidence': 'memories/review.md',
+        'rationale': 'Extra|delimiter', 'limits': 'No live read.'}},
+    {'memories/history.md': {'disposition': 'historical', 'evidence': 'memories/review.md',
+        'rationale': 'Extra\nargument', 'limits': 'No live read.'}}])
+def test_invalid_age_review_refused_before_promotion(prepared, invalid):
+    srv, root, token, params = _reviewed(prepared)
+    params = _with_age_review(root, params, invalid)
+    before = _state(root)
+    status, result = _plan(srv, token, 'wiki.proposal.promote', params=params)
+    assert status != 200 and not result['ok']
+    assert _state(root) == before
+
+
+def test_age_review_bytes_cannot_change_after_plan(prepared, monkeypatch):
+    from wiki_core.web import git_workflows
+    srv, root, token, params = _reviewed(prepared)
+    params = _with_age_review(root, params, _age_review())
+    status, plan = _plan(srv, token, 'wiki.proposal.promote', params=params)
+    assert status == 200, plan
+    _with_age_review(root, params, {})
+    monkeypatch.setattr(git_workflows, '_run', lambda *a, **k: pytest.fail('provider called after review changed'))
+    status, result = _execute(srv, token, plan, confirmation=plan['plan']['confirmation']['text'])
+    assert status != 200 and not result['ok']
+
+
+def test_age_reviews_reach_promotion_gate_with_exact_approved_base(prepared, monkeypatch):
+    from wiki_core import action_contribution
+    from wiki_core.web import git_workflows
+    srv, root, token, params = _reviewed(prepared)
+    reviews = _age_review()
+    params = _with_age_review(root, params, reviews)
+    calls = []
+    def gates(gate_root, head, *, freshness_base, freshness_reviews, effect_runner, **kwargs):
+        assert gate_root == root and head == params['expected_head']
+        assert freshness_base == params['approved_base'] and freshness_reviews == reviews
+        effect_runner(lambda: calls.append('gate'))
+        raise action_contribution.ContributionError('proposal_gate_failed:synthetic-other-check')
+    monkeypatch.setattr(action_contribution, '_local_integration_gates', gates)
+    def provider(root, argv, **kwargs):
+        assert argv[2] == 'view', 'reviewed age cannot waive another failing gate'
+        return {'ok': True, 'stdout': json.dumps(_pr(params))}
+    monkeypatch.setattr(git_workflows, '_run', provider)
+    status, result = _run_promote(srv, token, params)
+    assert calls == ['gate'] and status != 200 and not result['ok']
+
+
+def test_age_review_arguments_are_executed_in_immutable_checkout(tmp_path):
+    import wiki_core.action_contribution as port
+    from test_action_contribution import fixture
+    fixture(tmp_path)
+    cfg = tmp_path / 'wiki.config.yaml'
+    cfg.write_text(cfg.read_text() + '  contribution_validation: local_gates\n')
+    # This synthetic executable checks transport and immutable bytes. Actual
+    # evidence/date/closure semantics are tested with the real freshness auditor.
+    script = tmp_path / 'scripts/wiki_audit.py'
+    script.write_text('import sys\nassert sys.argv[1] == "--check"\n'
+        'assert sys.argv[2] == "--freshness-base"\nassert len(sys.argv[3]) == 40\n'
+        'assert sys.argv[4:] == ["--freshness-reviewed", '
+        + repr('memories/history.md=historical|memories/review.md|Original observation remains historical.|No new provider read or changed source date.') + ']\n')
+    _git(tmp_path, 'add', '.')
+    _git(tmp_path, 'commit', '-m', 'Synthetic reviewed gate transport')
+    head = _git(tmp_path, 'rev-parse', 'HEAD')
+    script.write_text('raise SystemExit("mutable gate must never execute")\n')
+    receipts = port._local_integration_gates(tmp_path, head,
+        freshness_base=head, freshness_reviews=_age_review())
+    assert len(receipts) == 4 and all(r['exit_code'] == 0 for r in receipts)
+    assert receipts[0]['argv'][2:4] == ['--check', '--freshness-base']

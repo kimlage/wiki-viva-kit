@@ -743,7 +743,7 @@ def promotion_review(root: Path, config: WikiConfig, params: dict) -> dict:
     from wiki_core.action_transition import _assert_no_secrets
     _assert_no_secrets(raw.decode())
     review = json.loads(raw)
-    _closed(review, {"schema_version", "head", "approved_base", "repository", "author", "reviewer", "decision", "unresolved_findings", "evidence"})
+    _closed(review, {"schema_version", "head", "approved_base", "repository", "author", "reviewer", "decision", "unresolved_findings", "evidence"}, {"freshness_reviews"})
     from wiki_core.action_contribution import _repository
     if (review["schema_version"] != "wiki_normal_review.v1" or review["head"] != params["expected_head"]
             or review["decision"] != "approved" or review["unresolved_findings"] != []
@@ -752,6 +752,14 @@ def promotion_review(root: Path, config: WikiConfig, params: dict) -> dict:
             or len(params["pr"]) > 12 or not re.fullmatch(r"[1-9][0-9]*", params["pr"])
             or review["repository"] != _repository(root) or review["approved_base"] != params["approved_base"]):
         raise ProposalError("proposal_independent_review_required")
+    if "freshness_reviews" in review:
+        from wiki_core.action_contribution import _freshness_review_args, ContributionError
+        if review["freshness_reviews"] is None:
+            raise ProposalError("proposal_invalid_freshness_review")
+        try:
+            _freshness_review_args(params["approved_base"], review["freshness_reviews"])
+        except ContributionError as exc:
+            raise ProposalError("proposal_invalid_freshness_review") from exc
     require_human = config.approval.get("require_human_review", False)
     if not isinstance(require_human, bool):
         raise ProposalError("proposal_invalid_human_review_policy")
@@ -836,7 +844,8 @@ def promote_proposal(root: Path, config: WikiConfig, params: dict, *, manager: A
             ready_for_effect(pr, allow_draft=True)
             gates = admitted(lambda: _local_integration_gates(root, expected_head,
                 effect_runner=lambda call: admitted(call, ('gates.run',)),
-                required_policy=_validation_policy(config), full_checks=True), ('gates.run',))
+                required_policy=_validation_policy(config), full_checks=True,
+                freshness_base=approved, freshness_reviews=review.get('freshness_reviews')), ('gates.run',))
             pr = observe()
             ready_for_effect(pr, allow_draft=True)
             if pr.get('isDraft'):

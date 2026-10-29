@@ -75,6 +75,15 @@ The trusted operator must obtain the actual independent review and run all
 additional checks required by its repository instructions. Consumers requiring
 human review need their own supported human-review adapter; this command does
 not infer that approval from a local assertion.
+The same exact-head review may include `freshness_reviews`, a mapping of exact
+memory paths to `disposition`, `evidence`, `rationale` and `limits`. These are
+the existing [individual age reviews](../freshness-impact.md), not gate results
+or a permanent registry. Promotion passes them to the full auditor with the
+reviewed `approved_base` inside the immutable candidate checkout. The auditor
+rechecks the evidence, changed-page dependency closure and unchanged source
+dates; other failures still stop promotion. Malformed declarations, arbitrary
+CLI arguments and changed review bytes are refused. Omit the field when no age
+findings need review. No command can infer that a source was reread.
 An absent `approval.require_human_review` keeps the existing false default;
 explicit true refuses promotion without that adapter, and non-boolean policy
 values are invalid. Independent review remains required when the policy is false.
