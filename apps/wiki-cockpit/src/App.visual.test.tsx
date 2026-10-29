@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { loadSnapshotBundle } from "./data/snapshot";
+import { loadAgentCapabilities, loadSnapshotBundle } from "./data/snapshot";
 import { browserApplication } from "./infrastructure/browserApplication";
 import type { SnapshotBundle } from "./types";
 
@@ -1043,6 +1043,28 @@ describe("visual route contract", () => {
     } finally {
       now.mockRestore();
       loadSnapshotMock.mockImplementation(defaultImplementation!);
+    }
+  });
+
+  it("aborts a pending capability probe in the same navigation task that enters demo", async () => {
+    const probe = vi.mocked(loadAgentCapabilities);
+    const previous = probe.getMockImplementation();
+    let signal: AbortSignal | undefined;
+    probe.mockImplementation((_runtime, options) => new Promise((_, reject) => {
+      signal = options?.signal;
+      signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+    }));
+    try {
+      await renderRoute("/w/radar");
+      await waitFor(() => expect(signal).toBeTruthy());
+      expect(signal!.aborted).toBe(false);
+      window.history.pushState({}, "", "/demo/world?tour=0");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      // Deliberately do not await React: transport must stop at navigation.
+      expect(signal!.aborted).toBe(true);
+      expect(await screen.findByText(/Read-only demo with synthetic data/)).toBeTruthy();
+    } finally {
+      probe.mockImplementation(previous!);
     }
   });
 

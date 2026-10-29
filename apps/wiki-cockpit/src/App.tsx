@@ -1225,6 +1225,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
       if (!navigation.parseUrl(navigation.getSnapshot()).demo) return;
       realLoadControllerRef.current?.abort();
       realLoadControllerRef.current = null;
+      codexProbeControllerRef.current?.abort();
+      codexProbeControllerRef.current = null;
     }),
     [navigation]
   );

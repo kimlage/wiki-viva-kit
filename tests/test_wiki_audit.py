@@ -1370,6 +1370,28 @@ audit:
 """
 
 
+@pytest.mark.parametrize("prior", [None, "stale page", "stale outside freshness impact (reported, nonblocking)"])
+def test_operation_age_warns_once_but_still_checks_shape(tmp_path, audit, monkeypatch, prior):
+    config = WikiConfig()
+    rel = str(config.paths["operation_page"])
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    path.write_text("---\npage_id: operation\npage_type: dashboard\ncontext: system\n"
+                    "visibility: private_self\ngate: github_pr\nsources_policy: synthetic\n"
+                    "sensitive_data_policy: private_sensitive_allowed\n"
+                    "updated_at: 2000-01-01\nstale_after_days: 1\npurpose: Synthetic operation\n---\n")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    warnings = [] if prior is None else [f"{rel}: {prior}"]
+    errors = []
+    audit.audit_operation_page(errors, warnings, config)
+    assert not errors
+    assert warnings == [f"{rel}: {prior or 'operation cockpit is not from today'}"]
+    path.write_text(path.read_text().replace("stale_after_days: 1", "stale_after_days: 2"))
+    audit.parse_frontmatter.cache_clear()
+    audit.audit_operation_page(errors, warnings, config)
+    assert any("stale_after_days must be 1" in error for error in errors)
+
+
 def test_pt_pinned_layout_keeps_localized_repo_working(tmp_path, audit, monkeypatch):
     """Localized-layout compat: a repo pinning the pt layout in wiki.config.yaml
     must drive every gate to the pt paths (nothing falls back to the en defaults)."""

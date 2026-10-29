@@ -14,6 +14,23 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-10-29] Count unrelated freshness debt once
+
+The [auditor](../../scripts/wiki_audit.py) enriches an existing stale-page warning
+with its impact scope instead of emitting the same debt twice. Unknown evidence,
+other diagnostics, global budgets and factual blockers remain unchanged. The
+[freshness guide](../../docs/references/freshness-impact.md) explains the count;
+synthetic Git tests cover both unrelated debt and subsequent factual edits.
+
+The normal browser gate also exposed a pending agent-capability probe that was
+aborted only by React cleanup after entering demo. The existing synchronous
+navigation guard now cancels that probe too. A regression test fails before
+the fix and passes only when cancellation occurs in the same navigation task.
+The browser network check compares response completion and navigation using
+browser timestamps, so delayed delivery of a Node event cannot misclassify a
+response completed before navigation. It retains pending reads from before
+the observer mark and rejects new requests or completed reads crossing demo.
+
 ## [2026-10-15] System | Readable action outcomes
 
 - Separate recorded action state from unverified current executor connection and
