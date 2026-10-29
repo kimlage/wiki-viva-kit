@@ -510,6 +510,43 @@ describe("visual route contract", () => {
     expect(window.location.search).toContain("reader=1");
   });
 
+  it("preserves a newer search edit when its debounced URL write returns", async () => {
+    let interleaved = false;
+    const navigation = {
+      ...browserApplication.navigation,
+      dispatch: (intent: Parameters<typeof browserApplication.navigation.dispatch>[0]) => {
+        if (!interleaved && intent.type === "navigate" && intent.replace &&
+            new URL(String(intent.target), window.location.origin).searchParams.get("q") === "Sour") {
+          interleaved = true;
+          // A real input event can arrive after the debounce was queued but
+          // before its route update reaches the component.
+          fireEvent.change(screen.getByRole("combobox", { name: "Search content" }), {
+            target: { value: "Source Fixture" }
+          });
+        }
+        browserApplication.navigation.dispatch(intent);
+      }
+    };
+    window.history.pushState({}, "", "/w/radar");
+    render(<App ports={{ ...browserApplication, navigation }} />);
+    const search = await screen.findByRole("combobox", { name: "Search content" });
+    search.focus();
+    fireEvent.change(search, { target: { value: "Sour" } });
+    await waitFor(() => {
+      expect(interleaved).toBe(true);
+      expect((search as HTMLInputElement).value).toBe("Source Fixture");
+      expect(new URLSearchParams(window.location.search).get("q")).toBe("Source Fixture");
+    });
+    // External history still owns the draft, even while the input is focused.
+    act(() => {
+      window.history.replaceState({}, "", "/w/radar?q=Root");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await waitFor(() => expect((search as HTMLInputElement).value).toBe("Root"));
+    fireEvent.keyDown(search, { key: "Enter" });
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get("page")).toBe("root"));
+  });
+
   it("keeps the search surface operable over the temporal view with URL-owned facets", async () => {
     await renderRoute("/w?view=timeline&q=Source");
     expect(

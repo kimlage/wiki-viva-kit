@@ -188,6 +188,31 @@ test("exact downstream UI renders the configured repo instead of a sample fallba
     minPages
   } = expectations();
   const expectedBootUrl = new URL("/api/snapshot/boot", snapshotUrl).toString();
+  // A real consumer's aggregate can exceed Chromium's default inspector cache.
+  // Capture the actual browser response in a bounded, memory-only CDP buffer;
+  // do not refetch it or replace the response served to the UI.
+  const capture = await page.context().newCDPSession(page);
+  await capture.send("Network.enable", {
+    maxTotalBufferSize: 128 * 1024 * 1024,
+    maxResourceBufferSize: 64 * 1024 * 1024
+  });
+  let bootRequestId: string | undefined;
+  const bootBody = new Promise<string>((resolve, reject) => {
+    capture.on("Network.responseReceived", (event) => {
+      if (event.response.url === expectedBootUrl) bootRequestId = event.requestId;
+    });
+    capture.on("Network.loadingFinished", async (event) => {
+      if (event.requestId !== bootRequestId) return;
+      try {
+        const result = await capture.send("Network.getResponseBody", { requestId: event.requestId });
+        resolve(result.base64Encoded ? Buffer.from(result.body, "base64").toString("utf8") : result.body);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+  // Keep an early capture failure handled until the navigation checks finish.
+  void bootBody.catch(() => {});
   const expectedTemporalUrl = payloadUrl(snapshotUrl, "temporal_graph.json");
   const expectedRuntimeConfigUrl = new URL("/wiki-cockpit.config.json", snapshotUrl).toString();
   const runtimeConfigResponse = page.waitForResponse(
@@ -210,7 +235,8 @@ test("exact downstream UI renders the configured repo instead of a sample fallba
   ]);
   expect(bootResponse.ok()).toBe(true);
   expect(configResponse.ok()).toBe(true);
-  const uiBoot = await bootResponse.json();
+  const uiBoot = JSON.parse(await bootBody);
+  await capture.detach();
   const uiManifest = uiBoot["manifest.json"];
   const uiPages = uiBoot["pages.json"];
   const uiExperiencePacks = uiBoot["experience_packs.json"];

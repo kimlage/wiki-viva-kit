@@ -1020,7 +1020,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                   or (path.startswith("/demo/") and route.split("/")[1] in {"world", "genesis"}))
         if is_spa:
             relative = "index.html"
-        elif path.startswith(("/assets/", "/sample-snapshot/")) or path == "/favicon.svg":
+        elif path.startswith(("/assets/", "/source-icons/", "/sample-snapshot/")) or path == "/favicon.svg":
             relative = path.lstrip("/")
         else:
             return False

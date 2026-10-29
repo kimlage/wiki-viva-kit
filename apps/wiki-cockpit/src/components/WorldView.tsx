@@ -587,6 +587,7 @@ export function WorldView({
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
   // scene events) must never replay a stale route and revert navigation.
   const [searchDraft, setSearchDraft] = useState(route.query.q);
+  const searchRouteEchoRef = useRef<string | null>(null);
   const [activeHit, setActiveHit] = useState(0);
   // Keyboard events can arrive back-to-back before React commits the state
   // written by the previous event. Keep the active option in a synchronous
@@ -1140,9 +1141,12 @@ export function WorldView({
     }
   }, [visualConfig]);
 
-  // Search field mirrors ?q= (deep-linkable transient state).
+  // History/deep links own the draft, but an echo of our own debounce must
+  // not overwrite a newer keystroke that arrived before the route committed.
   useEffect(() => {
-    setSearchDraft(route.query.q);
+    const ownQuery = searchRouteEchoRef.current;
+    searchRouteEchoRef.current = null;
+    if (route.query.q !== ownQuery) setSearchDraft(route.query.q);
   }, [route.query.q]);
   useEffect(() => {
     if (!isVisualControlCommand(searchDraft)) return;
@@ -1166,6 +1170,7 @@ export function WorldView({
     // debounce reduce that state back to a query-only route.
     if (submittedSearchRef.current === searchDraft) return undefined;
     const timer = window.setTimeout(() => {
+      searchRouteEchoRef.current = searchDraft;
       navigateWorld(searchDraft
         ? { q: searchDraft, searchLimit: null, dock: null }
         : {

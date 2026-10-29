@@ -1639,6 +1639,7 @@ def test_native_board_static_boundary_and_config(server: _Server, tmp_path: Path
     dist = tmp_path / "frontend"
     _write(dist / "index.html", "<html>synthetic board</html>")
     _write(dist / "assets/app.js", "export {}")
+    _write(dist / "source-icons/provider.svg", '<svg xmlns="http://www.w3.org/2000/svg"/>')
     _write(tmp_path / "private.txt", "never serve")
     server.server.frontend_dir = dist
     server.server.frame_origins = ("file:",)
@@ -1649,6 +1650,13 @@ def test_native_board_static_boundary_and_config(server: _Server, tmp_path: Path
     assert status == 200
     assert config["mode"] == "local_operator"
     assert server.get_headers("/assets/app.js")[0] == 200
+    status, headers = server.get_headers("/source-icons/provider.svg")
+    assert status == 200
+    assert headers["Content-Type"] == "image/svg+xml"
+    assert server.get_headers("/source-icons/missing.svg")[0] == 404
+    assert server.get_headers("/source-icons/../../private.txt")[0] == 404
+    (dist / "source-icons/private.svg").symlink_to(tmp_path / "private.txt")
+    assert server.get_headers("/source-icons/private.svg")[0] == 404
     assert server.get_headers("/assets/../../private.txt")[0] == 404
     assert server.get_headers("/memories/index.md")[0] == 404
     assert server.get("/api/health")[0] == 200
