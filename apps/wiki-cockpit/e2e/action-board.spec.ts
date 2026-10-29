@@ -20,7 +20,10 @@ test("standalone Kanban reads canonical demo cards without contacting the operat
   await expect(detail).toHaveAttribute("data-read-state", "ready");
   await expect(detail.getByRole("heading", { name: title, exact: true }).first()).toBeVisible();
   await expect(detail.locator(".boardEvidence")).not.toBeEmpty();
-  await expect(detail.locator(".boardForm fieldset")).toBeDisabled();
+  await expect(detail.locator(".boardForm fieldset")).toHaveAttribute("disabled", "");
+  const fields = detail.locator(".boardForm input, .boardForm select, .boardForm textarea");
+  expect(await fields.count()).toBeGreaterThan(0);
+  for (const field of await fields.all()) await expect(field).toBeDisabled();
   await expect(detail.locator('button[type="submit"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(detail).toHaveAttribute("data-read-state", "ready");

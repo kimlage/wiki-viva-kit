@@ -441,37 +441,31 @@ test("desktop cockpit modules keep one semantic world while navigating", async (
   await expectCompactControlsFit(page);
   await closeSurface(page, expectedCenter);
 
+  // This long module journey may adapt from WebGL at any point. Exercise the
+  // declared lightweight Create flow explicitly; dedicated spatial/mobile
+  // journeys cover the 3D card geometry without caching a stale render mode.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
   await page.locator(".dockButton", { hasText: "Create" }).first().click();
   await expect(page).toHaveURL(/[?&]dock=create/);
-  const createMode = await expectNavigableWorld(page, expectedCenter);
-  await page.waitForTimeout(500);
+  await expectNavigableWorld(page, expectedCenter);
   const createUrl = page.url();
   const createScene = await sceneContract(page);
-  if (createMode === "3d") {
-    await expectSpatialCardsWithinSafeArea(page, { expectedPrimary: 7, expectedTotal: 8 });
-    await page.locator(".spatialCardType").first().hover();
-    await page.waitForTimeout(250);
-  } else {
-    // The same URL has a declared DOM twin when the renderer is no longer
-    // safe. Prove that its curated catalog, mold and create action remain
-    // understandable and usable instead of asking for spatial geometry that
-    // intentionally no longer exists.
-    const createSheet = page.locator(".createSheet");
-    await expect(createSheet).toBeVisible();
-    await expect(createSheet).toHaveAttribute("role", "dialog");
-    await expect(createSheet).toHaveAttribute("aria-label", /Create a page|Criar página/);
-    await expect(createSheet.locator(".dockTelemetryItem")).toHaveCount(4);
-    await expect(createSheet.locator(".createTypeRow")).toHaveCount(7);
-    await expect(createSheet.locator(".createForm")).toBeVisible();
-    await expect(page.locator(".spatialCardType")).toHaveCount(0);
-    await createSheet.locator(".createForm .intakeField input").first().fill("Adaptive map draft");
-    const createAction = createSheet.locator(".createFormFoot .btn--primary");
-    await expect(createAction).toBeDisabled();
-    await expect(createAction).toHaveAttribute("title", /sends nothing to the local operator/i);
-    await expect(createSheet.locator(".createGateNote")).toContainText(/never composes a brief.*opens a PR|nunca compõe um brief.*abre um PR/i);
-    await createAction.evaluate((button: HTMLButtonElement) => button.click());
-    await createSheet.locator(".createTypeRow").first().hover();
-  }
+  const createSheet = page.locator(".createSheet");
+  await expect(createSheet).toBeVisible();
+  await expect(createSheet).toHaveAttribute("role", "dialog");
+  await expect(createSheet).toHaveAttribute("aria-label", /Create a page|Criar página/);
+  await expect(createSheet.locator(".dockTelemetryItem")).toHaveCount(4);
+  await expect(createSheet.locator(".createTypeRow")).toHaveCount(7);
+  await expect(createSheet.locator(".createForm")).toBeVisible();
+  await expect(page.locator(".spatialCardType")).toHaveCount(0);
+  await createSheet.locator(".createForm .intakeField input").first().fill("Adaptive map draft");
+  const createAction = createSheet.locator(".createFormFoot .btn--primary");
+  await expect(createAction).toBeDisabled();
+  await expect(createAction).toHaveAttribute("title", /sends nothing to the local operator/i);
+  await expect(createSheet.locator(".createGateNote")).toContainText(/never composes a brief.*opens a PR|nunca compõe um brief.*abre um PR/i);
+  await createAction.evaluate((button: HTMLButtonElement) => button.click());
+  await createSheet.locator(".createTypeRow").first().hover();
   expect(page.url()).toBe(createUrl);
   expect(await sceneContract(page)).toEqual(createScene);
   await closeSurface(page, expectedCenter);

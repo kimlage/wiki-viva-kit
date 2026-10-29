@@ -1355,7 +1355,13 @@ test(`${scenario.view} keeps page, reader and dock navigation on one canonical w
     );
     return topmost === button || Boolean(topmost && button.contains(topmost));
   }), "the primary dock must own its close-button pixels above shell controls").toBe(true);
-  await dockClose.click();
+  if (scenario.dock === "source") {
+    await expect(dockClose).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.locator('.worldCommandBar [data-dock="source"]')).toBeFocused();
+  } else {
+    await dockClose.click();
+  }
   await expect(page.locator(scenario.surface)).toHaveCount(0);
   await expect(page).not.toHaveURL(/[?&]dock=/);
   await expectCanonicalNativeRoute(page, scenario.view);

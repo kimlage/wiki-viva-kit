@@ -133,26 +133,11 @@ jobs:
           --project=chromium-desktop --project=webkit-keyboard
           --project=webkit-mobile --project=chromium-fallback
           --project=firefox-smoke
-      - name: Temporary public demo diagnostics
-        if: failure()
-        run: |
-          python3 - <<'PYDIAG'
-          import base64
-          from pathlib import Path
-          root = Path("apps/wiki-cockpit/test-results/playwright-dev-artifacts")
-          for folder in root.iterdir():
-              if not any(name in folder.name for name in ("keyboard-genesis-native", "visual-regression-review")):
-                  continue
-              for path in folder.iterdir():
-                  if path.name == "error-context.md" or path.suffix == ".json":
-                      print("DIAGNOSTIC", str(path), path.read_text()[:16000])
-                  elif path.name == "review-demo-actual.png":
-                      print("REVIEW_IMAGE_BASE64", base64.b64encode(path.read_bytes()).decode())
-          PYDIAG
       - name: Verify built UI against the native operator
         if: ${{ !cancelled() }}
         env:
           WIKI_COCKPIT_REAL_BASE_URL: http://127.0.0.1:18765
+          GIT_OPTIONAL_LOCKS: "0"
         run: |
           # Startup codes are intentionally discarded, never uploaded as logs.
           python3 scripts/wiki_web_server.py --port 18765 --frontend apps/wiki-cockpit/dist >/dev/null 2>&1 &
@@ -164,6 +149,7 @@ jobs:
           from wiki_core.web.snapshot import build_snapshot
           from wiki_core.web.schemas import WEB_SERVER_VERSION, SCHEMA_CAPABILITIES
           base = os.environ["WIKI_COCKPIT_REAL_BASE_URL"]
+          expected = build_snapshot(Path.cwd())
           url = base + "/api/snapshot/manifest.json"
           for attempt in range(30):
               try:
@@ -174,7 +160,6 @@ jobs:
                   if attempt == 29:
                       raise
                   time.sleep(1)
-          expected = build_snapshot(Path.cwd())
           manifest = expected["manifest.json"]
           versions = manifest["versions"]
           packs = expected["experience_packs.json"]

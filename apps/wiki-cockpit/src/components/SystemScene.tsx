@@ -12,7 +12,7 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { AnchorRecord, GitState, GraphEdge, GraphNode } from "../types";
 import { t } from "../data/i18n";
@@ -2227,9 +2227,11 @@ export function SystemScene({
         data-performance-ready="false"
         aria-hidden="true"
       />
+      {/* Keep the same HUD subtree when adaptive rendering changes modes.
+          Its DOM position differs, but the search/reader must retain focus. */}
       {fallback ? (
         <>
-          {children}
+          <Fragment key="world-instruments">{children}</Fragment>
           <SceneFallback
             layout={layout}
             overlay={overlay}
@@ -2357,7 +2359,7 @@ export function SystemScene({
               aria-hidden="true"
             />
           </div>
-          {children}
+          <Fragment key="world-instruments">{children}</Fragment>
           <HoverTooltip hover={hover} anchorInfo={anchorInfo} groups={layout.groups} />
           {/* No data, no instrument: a filter strip over a 1-2 node world is
               noise — census chips earn their place only when there is a crowd
