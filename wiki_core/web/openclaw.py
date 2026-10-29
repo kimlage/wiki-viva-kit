@@ -98,6 +98,7 @@ def storage(root, config, effect):
 def write_new(path, value):
     raw = json.dumps(value, ensure_ascii=False, indent=2) + "\n"
     _assert_no_secrets(raw)
+    require(len(raw.encode("utf-8")) <= MAX_RECEIPT_BYTES, "openclaw_receipt_too_large")
     path.parent.mkdir(parents=True, exist_ok=True)
     # Publish complete bytes atomically, with exclusive creation. A second
     # caller cannot overwrite an intent, even after an interrupted response.
@@ -149,7 +150,7 @@ def pending_page(history):
     pending = history["pendingInputs"]
     items = pending.get("items", [])
     require(type(pending.get("total")) is int and pending["total"] >= 0 and isinstance(items, list)
-            and all(isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"]
+            and all(isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"] and isinstance(item.get("state"), str)
                     for item in items), "openclaw_pending_inputs_incomplete")
     cursor = pending.get("nextBefore")
     require(cursor is None or type(cursor) is int and cursor > 0, "openclaw_pending_inputs_incomplete")

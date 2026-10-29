@@ -90,6 +90,7 @@ def test_changed_inputs_refuse_before_receipt(runtime,target):
 
 @pytest.mark.parametrize('pending',[{'total':True},{'total':-1},{'total':0,'items':None},
     {'total':1,'queuedCount':0,'items':[None]},
+    {'total':1,'queuedCount':0,'items':[{'id':'a','state':[]}]},
     {'total':1,'queuedCount':0,'items':[{'id':'a','state':'queued'}]},
     {'total':2,'queuedCount':0,'items':[{'id':'a','state':'cancelled'}]*2},
     {'total':0,'nextBefore':False},{'total':0,'queuedCount':False}])
@@ -153,3 +154,14 @@ def test_evidence_cannot_be_replaced_by_rehashing_only_the_retained_copy(runtime
     r['evidence_sha256']=oc.digest(r['evidence']);r['evidence_raw']=json.dumps(r['evidence'])
     p.write_text(json.dumps(r))
     with pytest.raises(ValueError,match='resolution_changed'):oc.attempts(root,cfg,'research','task')
+
+
+def test_oversized_final_resolution_is_refused_without_persistence(runtime):
+    root,cfg,*_=runtime
+    plan,q,rp,ep=failed(runtime)
+    ep.write_text(ep.read_text().ljust(oc.MAX_RECEIPT_BYTES-1))
+    r=json.loads(rp.read_text());r['evidence_sha256']=hashlib.sha256(ep.read_bytes()).hexdigest()
+    rp.write_text(json.dumps(r));q['review_sha256']=hashlib.sha256(rp.read_bytes()).hexdigest()
+    prepared=oc.plan_failure_resolution(root,cfg,q)
+    with pytest.raises(ValueError,match='receipt_too_large'):oc.resolve_failed(root,cfg,q,prepared)
+    assert not (oc.storage(root,cfg,plan['effect_key'])/'failure-resolution.json').exists()
