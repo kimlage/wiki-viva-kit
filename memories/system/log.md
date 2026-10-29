@@ -25,8 +25,11 @@ synthetic Git tests cover both unrelated debt and subsequent factual edits.
 The normal browser gate also exposed a pending agent-capability probe that was
 aborted only by React cleanup after entering demo. The existing synchronous
 navigation guard now cancels that probe too. A regression test fails before
-the fix and passes only when cancellation occurs in the same navigation task;
-the demo network assertions remain unchanged.
+the fix and passes only when cancellation occurs in the same navigation task.
+The browser network check compares response completion and navigation using
+browser timestamps, so delayed delivery of a Node event cannot misclassify a
+response completed before navigation. It retains pending reads from before
+the observer mark and rejects new requests or completed reads crossing demo.
 
 ## [2026-10-15] System | Readable action outcomes
 

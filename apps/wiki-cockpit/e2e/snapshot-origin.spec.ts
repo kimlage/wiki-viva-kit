@@ -5,6 +5,28 @@ import { expect, test } from "./fixtures";
 
 type GenesisInputMode = "keyboard" | "pointer" | "touch";
 
+function crossesDemoBoundary(
+  read: { startTime: number; responseEnd: number; state: string; failure: string },
+  boundary: number
+): boolean {
+  if (read.startTime <= 0 || read.startTime >= boundary) return true;
+  if (read.state === "failed") return !/aborted/i.test(read.failure);
+  if (read.state !== "finished" || read.responseEnd < 0) return true;
+  return read.startTime + read.responseEnd >= boundary;
+}
+
+test("demo network timing distinguishes late observer delivery from a real boundary crossing", () => {
+  const finished = { startTime: 1000, responseEnd: 7, state: "finished", failure: "" };
+  expect(crossesDemoBoundary(finished, 1040)).toBe(false);
+  expect(crossesDemoBoundary({ ...finished, responseEnd: 50 }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...finished, responseEnd: -1 }, 1040)).toBe(true);
+  const aborted = { ...finished, state: "failed", failure: "net::ERR_ABORTED" };
+  expect(crossesDemoBoundary(aborted, 1040)).toBe(false);
+  expect(crossesDemoBoundary({ ...aborted, startTime: 1041 }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...aborted, failure: "net::ERR_FAILED" }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...finished, startTime: -1 }, 1040)).toBe(true);
+});
+
 const GENESIS_STAGE_TITLES: Record<number, RegExp> = {
   0: /Every world begins empty|Todo mundo começa vazio/i,
   1: /The root brought the laws|A raiz trouxe as leis/i,
@@ -26,7 +48,7 @@ function watchDemoNetwork(
   const operatorRequests: string[] = [];
   const nonSyntheticJson: string[] = [];
   const syntheticJson: string[] = [];
-  let operatorBoundaryMarked = false;
+  let requestsBeforeMark = new Set<import("@playwright/test").Request>();
   const afterMark = new Map<import("@playwright/test").Request, {
     url: string;
     routeAtStart: string;
@@ -51,15 +73,13 @@ function watchDemoNetwork(
     });
     if (underOperatorBase || operatorOrigins.has(url.origin)) {
       operatorRequests.push(request.url());
-      if (operatorBoundaryMarked) {
-        afterMark.set(request, {
+      afterMark.set(request, {
           url: request.url(),
           routeAtStart: page.url(),
           routeAtFinish: "",
           state: "pending",
           failure: ""
-        });
-      }
+      });
     }
     if (url.pathname.endsWith(".json")) {
       if (url.pathname === "/wiki-cockpit.config.json" || url.pathname.startsWith("/sample-snapshot/")) {
@@ -92,12 +112,13 @@ function watchDemoNetwork(
       expect(syntheticJson.some((path) => path.startsWith("/sample-snapshot/"))).toBe(true);
     },
     markOperatorBoundary() {
-      operatorBoundaryMarked = true;
-      afterMark.clear();
+      // Retain earlier pending reads: they must also abort at the transition.
+      requestsBeforeMark = new Set(afterMark.keys());
     },
     async waitForRealOperatorCompletionAfterMark() {
       await expect.poll(
-        () => [...afterMark.values()].some((request) =>
+        () => [...afterMark.entries()].some(([key, request]) =>
+          !requestsBeforeMark.has(key) &&
           request.state === "finished" &&
           !request.routeAtStart.includes("/demo") &&
           !request.routeAtFinish.includes("/demo")
@@ -105,22 +126,20 @@ function watchDemoNetwork(
         { timeout: 5_000 }
       ).toBe(true);
     },
-    async assertNoOperatorAfterMark() {
+    async assertNoOperatorAfterMark(boundary: number) {
       await expect.poll(
         () => [...afterMark.values()].every((request) => request.state !== "pending"),
         { timeout: 5_000 }
       ).toBe(true);
-      const violations = [...afterMark.values()].filter((request) => {
-        // The Node-side mark and the browser-side history write are separated
-        // by one Playwright transport hop. A live poll that both starts and
-        // finishes under the real route in that gap is not post-boundary
-        // traffic. A request started in demo is always invalid; an in-flight
-        // real request is invalid only when it completes under the demo route
-        // instead of being aborted by the synchronous navigation guard.
-        if (request.routeAtStart.includes("/demo")) return true;
-        if (!request.routeAtFinish.includes("/demo")) return false;
-        return request.state === "finished" ||
-          (request.state === "failed" && !/aborted/i.test(request.failure));
+      // requestfinished reaches Node after a transport hop. page.url() at
+      // delivery time can already be /demo although the browser completed
+      // the response earlier. Request timing and the history boundary below
+      // share browser epoch milliseconds; unavailable timing fails closed.
+      const violations = [...afterMark.entries()].flatMap(([key, request]) => {
+        const timing = key.timing();
+        return crossesDemoBoundary({ ...request, ...timing }, boundary)
+          ? [{ ...request, timing, boundary }]
+          : [];
       });
       expect(violations).toEqual([]);
     }
@@ -457,14 +476,16 @@ test("demo cockpit can still render the bundled sample universe", async ({ page 
   // This makes the Playwright-transport gap explicit: only the subsequent
   // history transition is the privacy boundary.
   await network.waitForRealOperatorCompletionAfterMark();
-  await page.evaluate(() => {
+  const boundary = await page.evaluate(() => {
+    const at = performance.timeOrigin + performance.now();
     window.history.pushState({}, "", "/demo/w?center=root-alex-rivera&view=work&dock=work&visual=1&tour=0");
     window.dispatchEvent(new PopStateEvent("popstate"));
+    return at;
   });
   await expect(page).toHaveURL(/\/demo\/w/);
   await expect(work).toContainText(/demo/i, { timeout: 20_000 });
   await page.waitForTimeout(2_700);
-  await network.assertNoOperatorAfterMark();
+  await network.assertNoOperatorAfterMark(boundary);
 });
 
 test("demo mutation surfaces are visibly disabled and emit zero write requests", async ({ page, browser }, testInfo) => {
