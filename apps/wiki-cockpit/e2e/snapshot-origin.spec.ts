@@ -6,10 +6,14 @@ import { expect, test } from "./fixtures";
 type GenesisInputMode = "keyboard" | "pointer" | "touch";
 
 function crossesDemoBoundary(
-  read: { startTime: number; responseEnd: number; state: string; failure: string },
+  read: { startTime: number; responseEnd: number; state: string; failure: string; observedBeforeBoundary?: boolean },
   boundary: number
 ): boolean {
-  if (read.startTime <= 0 || read.startTime >= boundary) return true;
+  // Chromium may omit all timing when a fetch is aborted before networking.
+  // Only a request event already observed before issuing the browser history
+  // transition supplies an independent ordering witness for that case.
+  if (read.startTime <= 0) return !(read.state === "failed" && /aborted/i.test(read.failure) && read.observedBeforeBoundary);
+  if (read.startTime >= boundary) return true;
   if (read.state === "failed") return !/aborted/i.test(read.failure);
   if (read.state !== "finished" || read.responseEnd < 0) return true;
   return read.startTime + read.responseEnd >= boundary;
@@ -25,6 +29,11 @@ test("demo network timing distinguishes late observer delivery from a real bound
   expect(crossesDemoBoundary({ ...aborted, startTime: 1041 }, 1040)).toBe(true);
   expect(crossesDemoBoundary({ ...aborted, failure: "net::ERR_FAILED" }, 1040)).toBe(true);
   expect(crossesDemoBoundary({ ...finished, startTime: -1 }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...aborted, startTime: 0 }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...aborted, startTime: 0, observedBeforeBoundary: true }, 1040)).toBe(false);
+  expect(crossesDemoBoundary({ ...finished, startTime: 0, observedBeforeBoundary: true }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...aborted, startTime: 1041, observedBeforeBoundary: true }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...aborted, startTime: 0, failure: "net::ERR_FAILED", observedBeforeBoundary: true }, 1040)).toBe(true);
 });
 
 const GENESIS_STAGE_TITLES: Record<number, RegExp> = {
@@ -126,7 +135,11 @@ function watchDemoNetwork(
         { timeout: 5_000 }
       ).toBe(true);
     },
-    async assertNoOperatorAfterMark(boundary: number) {
+    observeBeforeTransition() {
+      // Called synchronously in Node before page.evaluate initiates pushState.
+      return new Set(afterMark.keys());
+    },
+    async assertNoOperatorAfterMark(boundary: number, observedBeforeBoundary: Set<import("@playwright/test").Request>) {
       await expect.poll(
         () => [...afterMark.values()].every((request) => request.state !== "pending"),
         { timeout: 5_000 }
@@ -137,7 +150,7 @@ function watchDemoNetwork(
       // share browser epoch milliseconds; unavailable timing fails closed.
       const violations = [...afterMark.entries()].flatMap(([key, request]) => {
         const timing = key.timing();
-        return crossesDemoBoundary({ ...request, ...timing }, boundary)
+        return crossesDemoBoundary({ ...request, ...timing, observedBeforeBoundary: observedBeforeBoundary.has(key) }, boundary)
           ? [{ ...request, timing, boundary }]
           : [];
       });
@@ -476,6 +489,7 @@ test("demo cockpit can still render the bundled sample universe", async ({ page 
   // This makes the Playwright-transport gap explicit: only the subsequent
   // history transition is the privacy boundary.
   await network.waitForRealOperatorCompletionAfterMark();
+  const observedBeforeBoundary = network.observeBeforeTransition();
   const boundary = await page.evaluate(() => {
     const at = performance.timeOrigin + performance.now();
     window.history.pushState({}, "", "/demo/w?center=root-alex-rivera&view=work&dock=work&visual=1&tour=0");
@@ -485,7 +499,7 @@ test("demo cockpit can still render the bundled sample universe", async ({ page 
   await expect(page).toHaveURL(/\/demo\/w/);
   await expect(work).toContainText(/demo/i, { timeout: 20_000 });
   await page.waitForTimeout(2_700);
-  await network.assertNoOperatorAfterMark(boundary);
+  await network.assertNoOperatorAfterMark(boundary, observedBeforeBoundary);
 });
 
 test("demo mutation surfaces are visibly disabled and emit zero write requests", async ({ page, browser }, testInfo) => {
