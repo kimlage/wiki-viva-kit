@@ -202,3 +202,32 @@ def test_product_c3_preserves_history_and_admits_pure_receipt(product):
     assert report['ok'],report
     assert len(report['operational_comments'])==1 and report['unrelated_debt']
     assert len([c for c in calls if c[0]=='chat.send'])==1
+
+
+def test_failure_resolution_native_authority_and_no_result(product,monkeypatch):
+    from tests.test_openclaw_failure import review_inputs
+    srv,root,action,params,unlock,calls=product
+    token=unlock();sent,_=execute(srv,token,'agents.openclaw.dispatch',params)
+    cfg=load_config(root)
+    directory=oc.storage(root,cfg,sent['effect_key'])
+    plan=oc.read_receipt(directory/'intent.json')['plan']
+    q,_,_=review_inputs(root,cfg,plan)
+    # Gateway error has been independently observed; the model produced no reply.
+    def failed_history(self,method,args):
+        assert method=='chat.history'
+        calls.append((method,args))
+        return {'sessionId':'synthetic-session','sessionInfo':{'hasActiveRun':False,'status':'killed',
+            'lastRunId':'cancelled-recovery','activeLeafEntryId':'failed-leaf'},
+            'pendingInputs':{'total':0,'queuedCount':0},'messages':[]}
+    monkeypatch.setattr(oc.Gateway,'call',failed_history)
+    before=action.read_bytes()
+    status,p=_plan(srv,token,'agents.openclaw.resolve_failed',params=q);assert status==200,p
+    srv.post('/api/admin/session/lock',{},headers={ADMIN_SESSION_HEADER:token})
+    status,out=_execute(srv,token,p,confirmation=p['plan']['confirmation']['text'])
+    assert status==403 and not out['ok'],out
+    assert not (directory/'failure-resolution.json').exists()
+    token=unlock()
+    result,_=execute(srv,token,'agents.openclaw.resolve_failed',q)
+    assert result['status']=='resolved_without_result' and not result['result_available']
+    assert before==action.read_bytes() and not (directory/'result.json').exists()
+    assert len([c for c in calls if c[0]=='chat.send'])==1
