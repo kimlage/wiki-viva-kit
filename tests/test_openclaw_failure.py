@@ -165,3 +165,28 @@ def test_oversized_final_resolution_is_refused_without_persistence(runtime):
     prepared=oc.plan_failure_resolution(root,cfg,q)
     with pytest.raises(ValueError,match='receipt_too_large'):oc.resolve_failed(root,cfg,q,prepared)
     assert not (oc.storage(root,cfg,plan['effect_key'])/'failure-resolution.json').exists()
+
+
+def test_terminal_failure_without_diagnostic_preserves_null_and_review(runtime):
+    root,cfg,params,h,calls,_=runtime
+    plan,q,rp,ep=failed(runtime)
+    evidence=json.loads(ep.read_text());evidence['error']=None;ep.write_text(json.dumps(evidence))
+    review=json.loads(rp.read_text());review['evidence_sha256']=hashlib.sha256(ep.read_bytes()).hexdigest();rp.write_text(json.dumps(review))
+    q['review_sha256']=hashlib.sha256(rp.read_bytes()).hexdigest()
+    raw=ep.read_bytes();prepared=oc.plan_failure_resolution(root,cfg,q)
+    receipt=oc.resolve_failed(root,cfg,q,prepared)
+    assert receipt['status']=='resolved_without_result' and not receipt['result_available']
+    retained=oc.verified_failure_resolution(oc.storage(root,cfg,plan['effect_key']),plan)
+    assert retained['evidence']['error'] is None
+    assert retained['evidence_raw'].encode()==raw
+    assert oc.inspect(root,cfg,q)['result_available'] is False
+    assert len([c for c in calls if c[0]=='chat.send'])==1
+
+
+@pytest.mark.parametrize('error', ['', 0, False, [], {}])
+def test_missing_diagnostic_is_null_not_any_falsy_value(runtime,error):
+    root,cfg,*_=runtime
+    plan,q,rp,ep=failed(runtime)
+    evidence=json.loads(ep.read_text());evidence['error']=error
+    with pytest.raises(ValueError,match='preserved_terminal_error'):
+        oc.validate_failure_evidence(evidence,plan)
