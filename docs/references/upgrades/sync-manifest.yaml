@@ -31,7 +31,10 @@ portable:
     - docs/references/templates/wiki/subagent-brief.md
     - docs/references/schemas/**
   block:
-    - apps/wiki-cockpit/scripts/demo-journeys.test.mjs
+    - apps/wiki-cockpit/src/*.test.*
+    - apps/wiki-cockpit/src/*.fixture.json
+    - apps/wiki-cockpit/src/data/fixtures/**
+    - apps/wiki-cockpit/scripts/*.test.mjs
     - apps/wiki-cockpit/public/sample-snapshot/**
     - scripts/wiki_build_demo.py
     - apps/wiki-cockpit/node_modules/**

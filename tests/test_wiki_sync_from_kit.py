@@ -213,6 +213,7 @@ def test_runtime_only_contract_preserves_consumer_and_second_b0_is_unchanged(tmp
     (consumer / "README.md").write_text("synthetic downstream\n", encoding="utf-8")
     _git(consumer, "add", "README.md")
     _git(consumer, "commit", "-qm", "synthetic downstream")
+    original_tree = _git(consumer, "rev-parse", "HEAD^{tree}")
 
     first = _run_default(ROOT, consumer)
     assert first.returncode == 0, first.stderr
@@ -221,14 +222,16 @@ def test_runtime_only_contract_preserves_consumer_and_second_b0_is_unchanged(tmp
     for relative in ("docs/references/fixtures/demo-wiki", "tests", "apps/wiki-cockpit/public/sample-snapshot", "scripts/wiki_build_demo.py"):
         assert not (consumer / relative).exists(), relative
     assert (consumer / "README.md").read_text() == "synthetic downstream\n"
+    assert not list((consumer / "apps/wiki-cockpit/src").rglob("*.test.*"))
+    assert not list((consumer / "apps/wiki-cockpit/src").rglob("*.fixture.json"))
+    assert not (consumer / "apps/wiki-cockpit/src/data/fixtures").exists()
+    assert not list((consumer / "apps/wiki-cockpit/scripts").glob("*.test.mjs"))
     # Exercise the installed contract, not only the manifest's path list.
-    # These tests use synthetic fixtures and Node built-ins, without npm install.
+    # Generic tests stay upstream; execute the consumer's actual local checks.
     cockpit = consumer / "apps/wiki-cockpit"
-    gates = subprocess.run(
-        ["node", "--test", *[str(cockpit / "scripts" / name) for name in ("asset-gate.test.mjs", "build-safety.test.mjs", "vercel-preview.test.mjs")]],
-        cwd=cockpit, text=True, capture_output=True,
-    )
-    assert gates.returncode == 0, gates.stdout + gates.stderr
+    for script in ("check-assets.mjs",):
+        gate = subprocess.run(["node", str(cockpit / "scripts" / script)], cwd=cockpit, text=True, capture_output=True)
+        assert gate.returncode == 0, gate.stdout + gate.stderr
 
     second = _run_default(ROOT, consumer, "--dry-run", "--json")
     assert second.returncode == 0, second.stderr
@@ -237,6 +240,10 @@ def test_runtime_only_contract_preserves_consumer_and_second_b0_is_unchanged(tmp
     assert plan["c1"]["change"] == []
     assert plan["c1"]["remove_previously_managed"] == []
     assert plan["c1"]["unchanged"] == plan["c1"]["managed_total"]
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "adopt kit")
+    _git(consumer, "revert", "--no-edit", "HEAD")
+    assert _git(consumer, "rev-parse", "HEAD^{tree}") == original_tree
 
 
 def test_retired_host_is_pruned_only_when_previously_managed(tmp_path: Path) -> None:

@@ -107,6 +107,6 @@ root may be hardcoded in shared core.
   because documentation was edited. Do not recreate documentary hash dossiers.
 - Generic Python suites, demo fixtures and public browser journeys are maintained
   and tested in this kit. Consumer sync copies runtime and shared contracts;
-  consumers retain their domain/integration checks and frontend unit tests.
+  consumers retain their domain checks and native operator integration tests.
 - The public static demo is built and checked here. Consumers serve the cockpit
   through their operator, whose live runtime configuration supplies the snapshot.

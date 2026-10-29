@@ -26,7 +26,6 @@ exact options; only use preview/apply modes actually exposed by that command.
 | Command | Purpose |
 | --- | --- |
 | [wiki_action_adopt.py](../../../scripts/wiki_action_adopt.py) | Adopt a downstream action baseline |
-| [wiki_adapter_manifest.py](../../../scripts/wiki_adapter_manifest.py) | Build/check consumer adapter identity |
 | [wiki_archive.py](../../../scripts/wiki_archive.py) | Archive resolved proposals/events |
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audit contracts, links, secrets and public PII |
 | [wiki_build_demo.py](../../../scripts/wiki_build_demo.py) | Regenerate the public synthetic demo |

@@ -119,6 +119,58 @@ def test_context_pass_gate_red_then_green(tmp_path, audit, monkeypatch):
     assert quality["summary"]["cached_calls"] == len(request["chunks"])
     assert quality["summary"]["pending_calls"] == 0
 
+    # Close the same source into authored knowledge, then retrieve its origin.
+    # The interpretation remains the recorded agent fixture, not a new LLM run.
+    import datetime as dt
+    from wiki_core.consolidate import build_event_markdown, pending_consolidations
+    from wiki_core.paths import WikiPaths
+    from wiki_core.web.snapshot import build_snapshot
+    from wiki_core.web.content import build_page_content
+
+    paths = WikiPaths(tmp_path, config)
+    paths.ingest_events_dir.mkdir(parents=True)
+    source = tmp_path / "memories/sources/pilot.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("---\npage_id: source-pilot\npage_type: source\nsource_refs: []\n---\n# Pilot source\n")
+    target = tmp_path / "memories/index.md"
+    target.write_text(
+        "---\npage_id: consolidated-pilot\npage_type: root_entity\nsource_refs:\n  - source-pilot\n"
+        "updated_at: 2026-10-28\n---\n# Consolidated knowledge\n\n"
+        + template["claims"][0] + "\n\n[Origin](sources/pilot.md)\n"
+    )
+    event = paths.ingest_events_dir / "pilot.md"
+    event.write_text(build_event_markdown(
+        aggregate_results(request, cache_dir), config=config, context="system",
+        date=dt.date(2026, 10, 28), source_page="memories/sources/pilot.md",
+        source_ref="source-pilot", event_dir=paths.ingest_events_dir, root=tmp_path,
+    ).replace("consolidated_into: []", "consolidated_into:\n  - memories/index.md\nsem_claim: Synthesis integrated into hub"))
+    assert pending_consolidations(tmp_path, config) == []
+    audit.parse_frontmatter.cache_clear()
+    integration_errors = []
+    audit.audit_consolidation(integration_errors, [], config)
+    assert integration_errors == []
+    snapshot = build_snapshot(tmp_path, config)
+    content = build_page_content(tmp_path, config, "consolidated-pilot", snapshot)
+    assert content["ok"] and template["claims"][0] in json.dumps(content)
+    page = next(p for p in snapshot["pages.json"]["pages"] if p["id"] == "consolidated-pilot")
+    assert "source-pilot" in page["source_refs"]
+    before_event, before_target = event.read_bytes(), target.read_bytes()
+    repeated = run(str(PILOT_SOURCE), "system", tmp_path, config)
+    assert repeated.source_id == result.source_id
+    # Newly consolidated knowledge changes the context hash. Record the fixture
+    # interpretation for that context; only an unchanged subsequent run reuses it.
+    refreshed_request = _request_for(tmp_path, result.source_id)
+    for chunk in refreshed_request["chunks"]:
+        recorded = dict(template)
+        recorded.update({field: chunk[field] for field in ("cache_key", "chunk_id", "context_sha256", "chunk_hash_sha256")})
+        recorded.update({field: refreshed_request[field] for field in ("source_id", "prompt_version", "schema_version", "model_profile")})
+        recorded.update(perspectives={}, perspectives_required=refreshed_request.get("perspectives_required", []))
+        write_result(cache_dir, recorded)
+    assert run(str(PILOT_SOURCE), "system", tmp_path, config).pending_llm_calls == 0
+    assert event.read_bytes() == before_event and target.read_bytes() == before_target
+    assert len(list(paths.ingest_events_dir.glob("*.md"))) == 1
+    assert pending_consolidations(tmp_path, config) == []
+
     config.llm["default_model_profile"] = "another-profile"
     current_quality = build_quality_report(tmp_path, config)
     assert current_quality["summary"]["cached_calls"] == 0

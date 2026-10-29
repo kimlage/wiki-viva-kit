@@ -1505,3 +1505,18 @@ Append-only record of changes in the [memories/](../index.md) layer.
   omit public demonstration bundles and generic Python suites.
 - Links to removed implementation in earlier entries now point to the immutable
   pre-migration Git revision; historical assertions and dates are preserved.
+
+
+## [2026-10-28] Complete simplification scope
+
+- [Snapshot projection](../../wiki_core/web/snapshot_projection.py) shares one page
+  graph across block, quality and graph views within each build; subsequent builds
+  still read changed Markdown. Synthetic parity covers the complete payload.
+- [Consumer sync](../../docs/references/upgrades/sync-manifest.yaml) also excludes
+  generic frontend/script tests and their fixtures, retaining runtime and native
+  downstream integration. Generic suites remain maintained and tested in the kit.
+- Removed the unused downstream adapter-manifest generator and retired test marker;
+  the [command reference](wiki/command-reference.md) reflects active entry points.
+- Extended existing ingestion, action and sync integration scenarios to prove
+  consolidation provenance, safe reingestion, board readback and Git rollback.
+  [Release scope](../../docs/references/releases/operating-core-simplification-2026-10-28.md).
