@@ -95,9 +95,12 @@ test("native Tab crosses scene, world controls and search, then reader Escape re
 });
 
 
-test("changing to the lightweight map preserves the focused search and its draft", async ({ page }) => {
+test("changing to the lightweight map preserves the focused search and its draft", async ({ page, browserName }) => {
   await prepare(page, "/demo/w?center=root-alex-rivera&view=quadrants&lens=all&overlay=actions&tour=0");
-  await expect(page.locator("canvas")).toHaveCount(1);
+  // Firefox may boot directly into its honest WebGL-unavailable fallback.
+  // Chromium and WebKit must prove the actual 3D-to-2D transition; Firefox
+  // additionally verifies that changing the preference preserves existing HUD.
+  await expect(page.locator(browserName === "firefox" ? "canvas, .sceneShell.fallbackMode" : "canvas")).toHaveCount(1);
   const search = page.locator(".commandSearch input");
   await search.fill("CRM accounts export");
   const original = await search.elementHandle();

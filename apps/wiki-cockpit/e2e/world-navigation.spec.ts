@@ -42,7 +42,7 @@ async function expectSingleWorld(page: Page) {
   await expect(page.locator(".worldCommandBar")).toBeVisible();
 }
 
-type NavigableWorldMode = "3d" | "performance_budget";
+type NavigableWorldMode = "3d" | "performance_budget" | "reduced_motion";
 
 const observedNavigableWorldMode = new WeakMap<Page, NavigableWorldMode>();
 
@@ -73,11 +73,13 @@ async function expectNavigableWorld(page: Page, expectedCenter?: string): Promis
       canvasCount === 0 &&
       workspaceFallback === "true"
     ) return "performance_budget";
+    if (fallback && reason === "reduced_motion" && canvasCount === 0 && workspaceFallback === "true"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return "reduced_motion";
     if (fallback) return `unexpected:${reason || "unknown"}:${canvasCount}:${workspaceFallback}`;
     return false;
   }, undefined, { timeout: 10_000 });
   const mode = await handle.jsonValue() as string;
-  expect(["3d", "performance_budget"], `coherent adaptive world state: ${mode}`).toContain(mode);
+  expect(["3d", "performance_budget", "reduced_motion"], `coherent adaptive world state: ${mode}`).toContain(mode);
 
   if (expectedCenter !== undefined) {
     await expect(scene).toHaveAttribute("data-scene-center", expectedCenter);
@@ -105,8 +107,8 @@ async function expectNavigableWorld(page: Page, expectedCenter?: string): Promis
     return "performance_budget";
   }
 
-  observedNavigableWorldMode.set(page, "3d");
-  return "3d";
+  observedNavigableWorldMode.set(page, mode as NavigableWorldMode);
+  return mode as NavigableWorldMode;
 }
 
 async function expectWorldCanvasHasSignal(page: Page) {

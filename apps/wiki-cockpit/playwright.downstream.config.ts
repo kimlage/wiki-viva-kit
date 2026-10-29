@@ -7,6 +7,10 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   workers: 1,
+  // Playwright's CI diff metadata runs git fetch and changes FETCH_HEAD/shallow
+  // after the caller pins the live snapshot. This journey already validates
+  // the explicit consumer HEAD; reporting must not mutate that repository.
+  captureGitInfo: { commit: false, diff: false },
   reporter: [
     [process.env.CI ? "line" : "list"],
     ["html", { open: "never", outputFolder: process.env.WIKI_PLAYWRIGHT_HTML_REPORT || "../../output/playwright/wiki-cockpit-downstream-report" }],
