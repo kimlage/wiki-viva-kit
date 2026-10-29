@@ -672,3 +672,126 @@ def test_documentary_input_review_refuses_new_unreferenced_or_deleted_memory(rep
     memory.unlink()
     with pytest.raises(ValueError, match='documentary-only'):
         repository_report(repo, load_config(repo), base, today=TODAY, documentary_only={'memories/manual.md': 'Deleted'})
+
+
+def reviewed_fixture(repo):
+    page(repo, 'archive', stale=True, body='Observation at the recorded date.')
+    base = commit(repo)
+    page(repo, 'review', body='Reviewed [archive](archive.md): the dated observation stands; no current claim.')
+    review = {'memories/archive.md': {
+        'disposition': 'historical', 'evidence': 'memories/review.md',
+        'rationale': 'Dated observation checked against its original evidence.',
+        'limits': 'Does not establish current provider state.',
+    }}
+    return base, review
+
+
+def test_review_disposes_age_without_changing_dates_graph_or_other_debt(repo):
+    base, review = reviewed_fixture(repo)
+    cfg = load_config(repo)
+    before = repository_report(repo, cfg, base, today=TODAY)
+    after = repository_report(repo, cfg, base, today=TODAY, freshness_reviews=review)
+    assert after['ok'] and not before['ok']
+    assert after['included'] == before['included']
+    assert after['input_sha256'] == before['input_sha256']
+    assert after['reviewed_findings'][0]['state'] == 'stale'
+    assert after['reviewed_findings'][0]['chain'] == before['blockers'][0]['chain']
+    # A new proposal cannot inherit the previous review implicitly.
+    merged = commit(repo)
+    page(repo, 'new-change', body='Uses [archive](archive.md).')
+    assert 'memories/archive.md' in paths(repository_report(repo, cfg, merged, today=TODAY)['blockers'])
+
+
+@pytest.mark.parametrize('disposition', ['historical', 'verified_local', 'verified_live', 'known_gap'])
+def test_review_never_removes_unreviewed_prerequisite_or_relation_error(repo, disposition):
+    page(repo, 'source', stale=True)
+    page(repo, 'archive', stale=True, source_refs=['source'])
+    base = commit(repo)
+    page(repo, 'review', body='Review of [archive](archive.md).')
+    review = {'memories/archive.md': dict(disposition=disposition, evidence='memories/review.md',
+        rationale='Explicit scoped review.', limits='Source gap stays unresolved.')}
+    result = repository_report(repo, load_config(repo), base, today=TODAY, freshness_reviews=review)
+    assert not result['ok']
+    assert 'memories/source.md' in paths(result['blockers'])
+    assert 'memories/source.md' in paths(result['included'])
+    page(repo, 'broken', source_refs=['no-such-page'])
+    result = repository_report(repo, load_config(repo), base, today=TODAY, freshness_reviews=review)
+    assert result['relation_errors'] and not result['ok']
+
+
+@pytest.mark.parametrize('mutation', ['future', 'missing_date', 'cadence', 'renewal', 'exemption',
+                                     'no_citation', 'stale_evidence', 'unknown_kind', 'no_limits', 'outside'])
+def test_invalid_reviews_fail_closed(repo, mutation):
+    base, review = reviewed_fixture(repo)
+    archive = repo / 'memories/archive.md'
+    evidence = repo / 'memories/review.md'
+    r = review['memories/archive.md']
+    if mutation == 'future':
+        archive.write_text(archive.read_text().replace('2026-01-01', '2099-01-01'))
+    elif mutation == 'missing_date':
+        archive.write_text(archive.read_text().replace("updated_at: '2026-01-01'", 'updated_at: invalid'))
+    elif mutation == 'cadence':
+        archive.write_text(archive.read_text().replace('stale_after_days: 30', 'stale_after_days: 31'))
+    elif mutation == 'renewal':
+        archive.write_text(archive.read_text().replace('2026-01-01', '2026-01-02'))
+    elif mutation == 'exemption':
+        archive.write_text(archive.read_text().replace('stale_after_days: 30', 'stale_after_days: 30\nstale_exempt: true'))
+    elif mutation == 'no_citation':
+        evidence.write_text(evidence.read_text().replace('[archive](archive.md)', 'archive'))
+    elif mutation == 'stale_evidence':
+        evidence.write_text(evidence.read_text().replace('2026-10-18', '2026-01-01'))
+    elif mutation == 'unknown_kind':
+        r['disposition'] = 'ignore'
+    elif mutation == 'no_limits':
+        r['limits'] = ''
+    elif mutation == 'outside':
+        review['memories/no-such-page.md'] = review.pop('memories/archive.md')
+    with pytest.raises(ValueError, match='freshness review'):
+        repository_report(repo, load_config(repo), base, today=TODAY, freshness_reviews=review)
+
+
+def test_review_requires_evidence_changed_in_this_proposal(repo):
+    base, review = reviewed_fixture(repo)
+    base = commit(repo)
+    page(repo, 'other', body='Uses [archive](archive.md).')
+    with pytest.raises(ValueError, match='fresh changed evidence'):
+        repository_report(repo, load_config(repo), base, today=TODAY, freshness_reviews=review)
+
+
+def test_review_preserves_one_age_warning_and_global_rejects_option(repo, monkeypatch):
+    base, review = reviewed_fixture(repo)
+    monkeypatch.setattr(audit, 'ROOT', repo)
+    cfg = load_config(repo)
+    errors, warnings = [], ['memories/archive.md: stale page']
+    audit.audit_freshness_budget(errors, warnings, cfg, base_ref=base, freshness_reviews=review)
+    assert not errors and len(warnings) == 1
+    assert 'stale; reviewed historical' in warnings[0]
+    cfg.audit['freshness_scope'] = 'global'
+    audit.audit_freshness_budget(errors, warnings, cfg, freshness_reviews=review)
+    assert any('require audit.freshness_scope: impact' in e for e in errors)
+
+
+def test_documentary_only_delta_cannot_supply_freshness_review(repo):
+    base, review = reviewed_fixture(repo)
+    base = commit(repo)
+    evidence = repo / 'memories/review.md'
+    evidence.write_text(evidence.read_text() + '\nClarify typography only.\n')
+    page(repo, 'change', body='Uses [archive](archive.md).')
+    with pytest.raises(ValueError, match='fresh changed evidence'):
+        repository_report(repo, load_config(repo), base, today=TODAY,
+            freshness_reviews=review,
+            documentary_only={'memories/review.md': 'Typography clarification; no new factual review.'})
+
+
+def test_operational_comment_cannot_supply_freshness_review(repo):
+    from tests.test_action_transition import _write_action
+    from tests.test_operational_comment_freshness import comment
+    page(repo, 'archive', stale=True)
+    action = _write_action(repo, extra={'updated_at': '2026-10-18', 'source_refs': ['archive']})
+    base = commit(repo)
+    comment(repo, action)
+    page(repo, 'change', body='Uses [archive](archive.md).')
+    review = {'memories/archive.md': dict(disposition='historical',
+        evidence=action.relative_to(repo).as_posix(), rationale='Dated record.', limits='No current claim.')}
+    with pytest.raises(ValueError, match='fresh changed evidence'):
+        repository_report(repo, load_config(repo), base, today=TODAY, freshness_reviews=review)

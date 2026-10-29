@@ -987,6 +987,7 @@ def audit_freshness_budget(
     errors: list[str], warnings: list[str], config: WikiConfig, *,
     base_ref: str | None = None, report_path: Path | None = None,
     documentary_only: dict[str, str] | None = None,
+    freshness_reviews: dict[str, dict[str, str]] | None = None,
 ) -> None:
     """Freshness budget with a gate that BITES (P1 of the critical review).
 
@@ -1004,7 +1005,7 @@ def audit_freshness_budget(
         from scripts.wiki_page_graph import GitCommandError
         try:
             report = repository_report(ROOT, config, base_ref or str(config.audit.get("freshness_base") or ""),
-                                       documentary_only=documentary_only)
+                                       documentary_only=documentary_only, freshness_reviews=freshness_reviews)
             if report_path:
                 # Never replace an existing canonical file with a diagnostic.
                 with report_path.open("x", encoding="utf-8") as stream:
@@ -1016,6 +1017,14 @@ def audit_freshness_budget(
         for row in report["blockers"]:
             errors.append(f"{row['path']}: {row['state']} in freshness impact ({row['reason']}; seed={row['seed']})")
         errors.extend(f"freshness relation integrity: {error}" for error in report["relation_errors"])
+        for row in report.get("reviewed_findings", []):
+            message = (f"{row['path']}: stale; reviewed {row['disposition']} for this proposal "
+                       f"(evidence={row['evidence']}; date unchanged)")
+            generic = f"{row['path']}: stale page"
+            if generic in warnings:
+                warnings[warnings.index(generic)] = message
+            else:
+                warnings.append(message)
         for row in report["unrelated_debt"]:
             message = f"{row['path']}: {row['state']} outside freshness impact (reported, nonblocking)"
             generic = f"{row['path']}: stale page"
@@ -1027,7 +1036,7 @@ def audit_freshness_budget(
             else:
                 warnings.append(message)
         return
-    if report_path or base_ref or documentary_only:
+    if report_path or base_ref or documentary_only or freshness_reviews:
         errors.append("freshness impact options require audit.freshness_scope: impact")
         return
     try:
@@ -2458,7 +2467,7 @@ class AuditContext:
     positional/keyword arguments the old hand-written main() used.
     """
 
-    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only")
+    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews")
 
     def __init__(self, config: WikiConfig, public_export: bool = False) -> None:
         self.errors: list[str] = []
@@ -2468,6 +2477,7 @@ class AuditContext:
         self.freshness_base: str | None = None
         self.freshness_report: Path | None = None
         self.documentary_only: dict[str, str] = {}
+        self.freshness_reviews: dict[str, dict[str, str]] = {}
 
 
 # Declarative audit registry: ordered (name, runner) pairs. The order and the
@@ -2487,7 +2497,7 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
     ("source_lifecycle_transitions", lambda ctx: audit_source_lifecycle_transitions(ctx.errors)),
     ("stale_coverage", lambda ctx: audit_stale_coverage(ctx.warnings, ctx.config)),
     ("freshness_budget", lambda ctx: audit_freshness_budget(ctx.errors, ctx.warnings, ctx.config,
-        base_ref=ctx.freshness_base, report_path=ctx.freshness_report, documentary_only=ctx.documentary_only)),
+        base_ref=ctx.freshness_base, report_path=ctx.freshness_report, documentary_only=ctx.documentary_only, freshness_reviews=ctx.freshness_reviews)),
     ("drive_artifact_links", lambda ctx: (audit_drive_artifact_links(ctx.warnings, ctx.config),
                                         audit_wiki_text_storage(ctx.errors, ctx.config))),
     ("command_reference", lambda ctx: audit_command_reference(ctx.errors, ctx.config)),
@@ -2560,6 +2570,9 @@ def main() -> int:
     )
     parser.add_argument("--documentary-only", action="append", default=[], metavar="PATH=RATIONALE",
                         help="Reviewed documentary-only edit; suppress this seed, never dependencies; repeatable")
+    parser.add_argument("--freshness-reviewed", action="append", default=[],
+                        metavar="PATH=DISPOSITION|EVIDENCE|RATIONALE|LIMITS",
+                        help="Independently reviewed age finding, scoped to this proposal; repeatable")
     parser.add_argument("--freshness-base", help="exact ancestor ref/SHA for configured impact freshness")
     parser.add_argument("--freshness-report", type=Path, help="write impact evidence to a NEW JSON file (may contain private paths)")
     args = parser.parse_args()
@@ -2601,6 +2614,13 @@ def main() -> int:
         if not separator or not rationale.strip() or path in ctx.documentary_only:
             parser.error("--documentary-only requires a unique PATH=RATIONALE")
         ctx.documentary_only[path] = rationale
+    for declaration in args.freshness_reviewed:
+        path, separator, value = declaration.partition("=")
+        fields = value.split("|", 3)
+        if (not separator or not path or path in ctx.freshness_reviews
+                or len(fields) != 4 or any(not field.strip() for field in fields)):
+            parser.error("--freshness-reviewed requires a unique PATH=DISPOSITION|EVIDENCE|RATIONALE|LIMITS")
+        ctx.freshness_reviews[path] = dict(zip(("disposition", "evidence", "rationale", "limits"), fields))
     ctx.freshness_base = args.freshness_base
     ctx.freshness_report = args.freshness_report
     for _name, run in selected:

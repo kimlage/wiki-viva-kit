@@ -234,6 +234,7 @@ def factual_changes(current: dict, base: dict, changed: set[str]) -> tuple[set[s
 def evaluate_impact(
     current: dict[str, Any], base: dict[str, Any], changed: set[str], *, today: dt.date,
     documentary_only: dict[str, str] | None = None,
+    freshness_reviews: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Dependents of changes, then prerequisites; never fan out from shared sources."""
     declarations = documentary_only or {}
@@ -314,13 +315,43 @@ def evaluate_impact(
                 for p in sorted(reasons)]
     debt = [dict(path=p, state=verdict(p), reason="outside_change_dependency_closure")
             for p in sorted(set(nodes) - set(reasons)) if verdict(p) in {"stale", "unknown"}]
-    blockers = [r for r in included if r["state"] in {"stale", "unknown"}]
+    # Age is still reported. A proposal can resolve an age finding only through
+    # an explicit, independently reviewed disposition with fresh, changed
+    # evidence citing this exact page. It never cuts graph traversal or makes
+    # an old source fresh. Unknown evidence is not reviewable this way.
+    reviews = freshness_reviews or {}
+    if not isinstance(reviews, dict):
+        raise ValueError("freshness review must be a mapping")
+    included_by_path = {row["path"]: row for row in included}
+    reviewed = []
+    for path, review in sorted(reviews.items()):
+        if (path not in current["documents"] or path not in base["documents"]
+                or included_by_path.get(path, {}).get("state") != "stale"):
+            raise ValueError(f"freshness review requires an existing stale page in the closure: {path}")
+        if (not isinstance(review, dict)
+                or set(review) != {"disposition", "evidence", "rationale", "limits"}
+                or any(not isinstance(value, str) or not value.strip() for value in review.values())
+                or review["disposition"] not in {"historical", "verified_local", "verified_live", "known_gap"}):
+            raise ValueError(f"freshness review requires disposition, evidence, rationale and limits: {path}")
+        for field in ("updated_at", "stale_after_days", "stale_exempt"):
+            if nodes[path].get(field) != base["nodes"][path].get(field):
+                raise ValueError(f"freshness review cannot renew dates or change freshness policy: {path}")
+        evidence = review["evidence"]
+        if (evidence == path or evidence not in changed
+                or evidence not in current["documents"] or verdict(evidence) != "fresh"
+                or not any(edge["source"] == evidence and edge["target"] == path
+                           and edge["type"] in REFERENCE for edge in current["edges"])):
+            raise ValueError(f"freshness review needs fresh changed evidence citing the exact page: {path}")
+        reviewed.append({**included_by_path[path], **review})
+    blockers = [r for r in included if r["state"] in {"stale", "unknown"} and r["path"] not in reviews]
     result = dict(schema_version="wiki_freshness_impact.v1", evaluated_on=today.isoformat(),
                 seeds=seeds, included=included, blockers=blockers, unrelated_debt=debt,
                 removed_pages=sorted(set(base["nodes"]) - set(nodes)),
                 nonpropagating_relations=nonpropagating,
                 relation_errors=current["errors"], base_relation_diagnostics=base["errors"],
                 ok=not blockers and not current["errors"])
+    if reviewed:
+        result["reviewed_findings"] = reviewed
     if comments:
         result["operational_comments"] = comments
     if declarations:
@@ -345,7 +376,8 @@ def input_hashes(root: Path, config: WikiConfig, evidence_paths=()) -> dict[str,
 
 def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                       today: dt.date | None = None,
-                      documentary_only: dict[str, str] | None = None) -> dict[str, Any]:
+                      documentary_only: dict[str, str] | None = None,
+                      freshness_reviews: dict[str, dict[str, str]] | None = None) -> dict[str, Any]:
     """Freeze one ancestor SHA; reuse exact-base Git inventory/materialization.
 
     Fail closed on missing Git/base, unreadable inputs or concurrent edits. An
@@ -387,7 +419,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     if config.audit.get("freshness_records"):
         raise ValueError("freshness_records is retired; remove the pointer after reviewing the migration diff")
     result = evaluate_impact(current, base, changed, today=today or dt.date.today(),
-                             documentary_only=documentary_only)
+                             documentary_only=documentary_only, freshness_reviews=freshness_reviews)
     if (before != input_hashes(root, config, evidence)
             or changes != collect_git_changes(base_sha, root=root)
             or head != run_git(["rev-parse", "--verify", "HEAD"], root=root).strip()):
