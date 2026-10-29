@@ -94,3 +94,33 @@ it('keeps recovered proposal commands bound to the selected effect across two ru
     expected_head:old.proposal.head,operation:'publish_proposal'}));
   expect(admin.executeAdminPlan).not.toHaveBeenCalled();
 });
+
+it('shows a recovered failed attempt without treating it as a received result',()=>{
+  const {admin}=setup({attempts:[{effect_key:'wiki-run-'+'d'.repeat(32),attempted_at:'2026-01-01',
+    has_result:false,reconciled:true,resolved_without_result:true}]});
+  expect(screen.getByText(/Attempt reconciled without a result/)).toBeTruthy();
+  expect(screen.queryByRole('button',{name:'Prepare receipt proposal'})).toBeNull();
+  expect(admin.planAdminCommand).not.toHaveBeenCalled();
+});
+
+it('offers reviewed recovery after inspection finds no result, never a success receipt',async()=>{
+  const effect='wiki-run-'+'d'.repeat(32);
+  const {admin,plan}=setup({attempts:[{effect_key:effect,attempted_at:'2026-01-01',has_result:false}]});
+  const inspected={...plan,commandId:'agents.openclaw.inspect'};
+  vi.mocked(admin.planAdminCommand).mockResolvedValue({ok:true,plan:inspected});
+  vi.mocked(admin.executeAdminPlan).mockResolvedValue({ok:true,outcome:{planId:plan.planId,commandId:inspected.commandId,status:'success',dryRun:false,
+    output:{action_id:action.id,effect_key:effect,result_available:false,status:'killed',new_dispatch:false},affectedPaths:[],branch:'main',snapshotInvalidated:false,undo:{available:false,kind:null}}});
+  fireEvent.click(screen.getByRole('button',{name:'Reconcile existing run'}));
+  fireEvent.change(await screen.findByLabelText(t('admin.plan.typeToConfirm',{text:plan.confirmation.text!})),{target:{value:plan.confirmation.text}});
+  fireEvent.click(screen.getByRole('button',{name:t('admin.plan.execute')}));
+  expect(await screen.findByText(/No verified result is available/)).toBeTruthy();
+  expect(screen.queryByText('The Gateway accepted the run. This is not task completion.')).toBeNull();
+  expect(screen.queryByRole('button',{name:'Prepare receipt proposal'})).toBeNull();
+  fireEvent.click(screen.getAllByRole('button',{name:t('surface.close')})[0]);
+  fireEvent.click(screen.getByText('Review resolution without a result',{selector:'summary'}));
+  fireEvent.change(screen.getByLabelText('Independent review artifact path'),{target:{value:'data/derived/review.json'}});
+  fireEvent.change(screen.getByLabelText('Review artifact SHA-256'),{target:{value:'e'.repeat(64)}});
+  fireEvent.click(screen.getByRole('button',{name:'Review resolution without a result'}));
+  await waitFor(()=>expect(admin.planAdminCommand).toHaveBeenLastCalledWith('agents.openclaw.resolve_failed',{
+    profile:'research',action_id:action.id,effect_key:effect,review_path:'data/derived/review.json',review_sha256:'e'.repeat(64)}));
+});

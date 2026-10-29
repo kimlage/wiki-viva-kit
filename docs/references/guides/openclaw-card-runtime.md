@@ -57,7 +57,7 @@ upgrade OpenClaw.
    single native send. Acceptance means started, never action completed.
 3. Use **Reconcile existing run**. It only reads the same physical session and
    exact terminal message. A timeout or interrupted response retains the
-   intent and bars another mission until the result is reconciled. Corruption
+   intent and bars another mission until the attempt is reconciled. Corruption
    is an explicit hold, not permission to start over. Refresh/restart discovers
    these receipts; it never dispatches on mount.
 4. **Prepare receipt proposal** derives a native comment on the same action,
@@ -94,6 +94,32 @@ integrated. A retained result is bound to its reviewed digest before preparing
 material. Canonical references contain the explicit message and result, subject
 to the normal secret/privacy boundary. Do not dispatch secrets or data from an
 unqualified account.
+
+## Failed attempts without a result
+
+A native failure can outlive the Gateway's transient terminal-error cache. An
+integrator may use **Review resolution without a result** after inspecting the
+retained attempt. This requires a preserved terminal error and an independent
+review bound to the original plan/run/physical session, current action revision
+and approved HEAD. The review names its author, distinct reviewer, reason and
+limits. Its decision is `resolve_without_result`, never success or completion.
+Evidence digests establish integrity, not RPC provenance; the basis is explicitly
+`preserved_observation_independently_reviewed`.
+
+The command verifies current configuration and physical session, no active run,
+an empty live queue and all paginated pending-input records. Native `total`
+counts history; only cancelled/interrupted historical records are admitted with
+an explicit zero `queuedCount`. Unknown states, missing pages, duplicate records,
+changes during observation or revoked operator authority refuse the operation.
+The evidence and native state are checked again before the atomic local receipt.
+
+Resolution retains the original intent, acceptance and reviewed error. It writes
+only a `resolved_without_result` recovery record. Discovery distinguishes
+`reconciled=true` from `has_result=false`. There is no incorporation button,
+result file, action transition or automatic retry. External effects remain
+undetermined by this record and must be reconciled separately where applicable.
+The original effect still cannot be sent again. Another mission requires an
+explicit new plan, an admissible action and all current dispatch gates.
 
 ## Limits and verification
 

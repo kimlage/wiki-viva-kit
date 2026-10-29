@@ -11,6 +11,7 @@ const COPY = {
   en: { title: "Execute this action", configure: "No runtime is configured for this coordinator. Integration must configure and verify this route first.",
     message: "Exact message to the executor", scope: "Only this message is sent. Wiki context is checked locally; page bodies are not exported.",
     dispatch: "Review dispatch", unlock: "Unlock local commands", inspect: "Reconcile existing run", receipt: "Result received — review and incorporation still required",
+    resolve: "Review resolution without a result", resolved: "Attempt reconciled without a result. The action remains open; external effects are not determined by this record.", unavailable: "No verified result is available. Inspect the retained evidence before resolving or dispatching again.",
     pending: "The Gateway accepted the run. This is not task completion.", held: "Result preserved; current context must be reconciled before incorporation.",
     error: "Command unavailable. No retry was sent.", noRetry: "If a response is lost, refresh and reconcile the retained run. Do not submit the mission again.",
     result: "Executor result", prepare: "Prepare receipt proposal", incorporate: "Review wiki incorporation", close: "Close review",
@@ -25,6 +26,7 @@ const COPY = {
   pt: { title: "Executar esta ação", configure: "Não há runtime configurado para este coordenador. O integrador precisa configurar e verificar a rota primeiro.",
     message: "Mensagem exata para o executor", scope: "Somente esta mensagem será enviada. O contexto da wiki é conferido localmente; o corpo das páginas não é exportado.",
     dispatch: "Revisar despacho", unlock: "Desbloquear comandos locais", inspect: "Reconciliar execução existente", receipt: "Resultado recebido — revisão e incorporação ainda necessárias",
+    resolve: "Revisar resolução sem resultado", resolved: "Tentativa reconciliada sem resultado. A ação permanece aberta; este registro não determina efeitos externos.", unavailable: "Nenhum resultado verificado disponível. Confira as evidências preservadas antes de resolver ou despachar novamente.",
     pending: "O Gateway aceitou a execução. Isso não conclui a tarefa.", held: "Resultado preservado; o contexto atual precisa ser reconciliado antes da incorporação.",
     error: "Comando indisponível. Nenhuma repetição foi enviada.", noRetry: "Se a resposta se perder, atualize e reconcilie a execução registrada. Não envie a missão novamente.",
     result: "Resultado do executor", prepare: "Preparar proposta de recebimento", incorporate: "Revisar incorporação na wiki", close: "Fechar revisão",
@@ -87,8 +89,8 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
     if (outcome.commandId.startsWith("agents.openclaw.") && typeof value.effect_key === "string") {
       setSelectedEffect(value.effect_key);
       setKnown(items => items.some(item => item.effect_key === value.effect_key)
-        ? items.map(item => item.effect_key === value.effect_key ? {...item,has_result:item.has_result || value.result_available === true} : item)
-        : [...items, { effect_key: String(value.effect_key), attempted_at: "", has_result: value.result_available === true }]);
+        ? items.map(item => item.effect_key === value.effect_key ? {...item,has_result:item.has_result || value.result_available === true, reconciled:value.reconciled === true || value.result_available === true, resolved_without_result:value.status === "resolved_without_result"} : item)
+        : [...items, { effect_key: String(value.effect_key), attempted_at: "", has_result: value.result_available === true, reconciled:value.reconciled === true || value.result_available === true, resolved_without_result:value.status === "resolved_without_result" }]);
       if (outcome.commandId === "agents.openclaw.dispatch") setProposal(null);
     }
     if (value.proposal && typeof value.proposal === "object") setProposal(value.proposal as RuntimeProposal);
@@ -102,7 +104,7 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
     }
     if (outcome.commandId === "wiki.proposal.promote") {setNotice(copy.merged); return;}
     if (outcome.commandId === "wiki.proposal.adopt") {setNotice(copy.adopted); refresh(); return;}
-    setNotice(value.integration_hold ? copy.held : value.result_available ? copy.receipt : copy.pending);
+    setNotice(value.status === "resolved_without_result" ? copy.resolved : value.integration_hold ? copy.held : value.result_available ? copy.receipt : value.new_dispatch ? copy.pending : copy.unavailable);
   };
   const result = output?.result && typeof output.result === "object" ? output.result as Record<string, unknown> : null;
   return <section className="boardRuntime" aria-label={copy.title}>
@@ -116,7 +118,7 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
         action_sha256: action.content_sha256 || "", message
       })}>{copy.dispatch}</button>
       <p>{copy.noRetry}</p>
-      <ul>{known.map(item => <li key={item.effect_key}><code>{item.effect_key}</code> {item.attempted_at}
+      <ul>{known.map(item => <li key={item.effect_key}><code>{item.effect_key}</code> {item.attempted_at} {item.resolved_without_result && <span>{copy.resolved}</span>}
         <button type="button" disabled={disabled || busy || Boolean(plan)} onClick={() => void request("agents.openclaw.inspect", {effect_key: item.effect_key})}>{copy.inspect}</button>
       </li>)}</ul>
     </>}
@@ -124,6 +126,14 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
     {result && typeof result.text === "string" && <details open><summary>{copy.result}</summary><pre>{result.text}</pre></details>}
     {result && !output?.integration_hold && typeof output?.effect_key === "string" && <button type="button" disabled={disabled || busy || Boolean(plan)}
       onClick={() => void request("agents.openclaw.receipt", { effect_key: String(output.effect_key) })}>{copy.prepare}</button>}
+    {output?.result_available === false && output?.status !== "resolved_without_result" && typeof output?.effect_key === "string" && <details>
+      <summary>{copy.resolve}</summary><p>{copy.reviewHelp}</p>
+      <label>{copy.reviewPath}<input value={reviewPath} onChange={e => setReviewPath(e.target.value)} /></label>
+      <label>{copy.reviewHash}<input value={reviewHash} onChange={e => setReviewHash(e.target.value)} /></label>
+      <button type="button" disabled={disabled || busy || Boolean(plan) || !reviewPath || !/^[0-9a-f]{64}$/.test(reviewHash)} onClick={() => void request("agents.openclaw.resolve_failed", {
+        effect_key: String(output.effect_key), review_path: reviewPath, review_sha256: reviewHash
+      })}>{copy.resolve}</button>
+    </details>}
     {proposal && <div className="boardRuntimeProposal">
       <code>{selectedEffect}</code>
       <p>{proposal.status === "prepared" ? copy.prepared : proposal.status === "received_in_main" ? copy.received : proposal.status === "awaiting_adoption" ? copy.adopt : proposal.status === "reconciliation_required" ? copy.reconcile : copy.incorporate}</p>

@@ -38,7 +38,7 @@ export type RuntimeProposal = {
 export type CoordinationIndex = {
   schema_version: string; configured: boolean; snapshot_id: string;
   profiles: { runtime?: {configured: boolean; label: string}; id: string; label: string; scope: string; action_ids: string[]; access_requirements?: {service: string; expected_identity: string; method: string; source_ref: string}[] }[];
-  actions: { runtime_error?: string; runtime_attempts?: {effect_key: string; attempted_at: string; has_result: boolean; proposal?: RuntimeProposal | null}[]; action_id: string; coordinator: string | null; content_sha256: string; dialogue?: {pending_question_ids: string[]} }[];
+  actions: { runtime_error?: string; runtime_attempts?: {effect_key: string; attempted_at: string; has_result: boolean; reconciled?: boolean; resolved_without_result?: boolean; proposal?: RuntimeProposal | null}[]; action_id: string; coordinator: string | null; content_sha256: string; dialogue?: {pending_question_ids: string[]} }[];
 };
 
 export type DialogueInput = {

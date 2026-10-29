@@ -98,6 +98,7 @@ def storage(root, config, effect):
 def write_new(path, value):
     raw = json.dumps(value, ensure_ascii=False, indent=2) + "\n"
     _assert_no_secrets(raw)
+    require(len(raw.encode("utf-8")) <= MAX_RECEIPT_BYTES, "openclaw_receipt_too_large")
     path.parent.mkdir(parents=True, exist_ok=True)
     # Publish complete bytes atomically, with exclusive creation. A second
     # caller cannot overwrite an intent, even after an interrupted response.
@@ -115,10 +116,17 @@ def write_new(path, value):
             temporary.unlink(missing_ok=True)
 
 
-def read_receipt(path):
-    require(path.is_file() and path.stat().st_size <= MAX_RECEIPT_BYTES and not path.is_symlink(), "openclaw_receipt_missing")
+def receipt_bytes(path):
+    require(path.is_file() and not path.is_symlink(), "openclaw_receipt_missing")
+    with path.open("rb") as stream:
+        raw = stream.read(MAX_RECEIPT_BYTES + 1)
+    require(len(raw) <= MAX_RECEIPT_BYTES, "openclaw_receipt_missing")
+    return raw
+
+
+def parse_receipt(raw):
     try:
-        value = json.loads(path.read_text())
+        value = json.loads(raw)
     except (json.JSONDecodeError, UnicodeError):
         raise RuntimeErrorCode("openclaw_receipt_corrupt_reconcile") from None
     require(isinstance(value, dict), "openclaw_receipt_corrupt_reconcile")
@@ -126,13 +134,65 @@ def read_receipt(path):
     return value
 
 
+def read_receipt(path):
+    return parse_receipt(receipt_bytes(path))
+
+
+def reviewed_receipt(path, sha):
+    raw = receipt_bytes(path)
+    require(hashlib.sha256(raw).hexdigest() == sha, "openclaw_failure_reviewed_bytes_changed")
+    return parse_receipt(raw), raw.decode("utf-8")
+
+
+def pending_page(history):
+    require(isinstance(history, dict) and isinstance(history.get("sessionInfo"), dict)
+            and isinstance(history.get("pendingInputs"), dict), "openclaw_pending_inputs_incomplete")
+    pending = history["pendingInputs"]
+    items = pending.get("items", [])
+    require(type(pending.get("total")) is int and pending["total"] >= 0 and isinstance(items, list)
+            and all(isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"] and isinstance(item.get("state"), str)
+                    for item in items), "openclaw_pending_inputs_incomplete")
+    cursor = pending.get("nextBefore")
+    require(cursor is None or type(cursor) is int and cursor > 0, "openclaw_pending_inputs_incomplete")
+    return pending, items, cursor
+
+
 def idle_leaf(history):
+    pending, items, cursor = pending_page(history)
     info = history["sessionInfo"]
-    require(info.get("hasActiveRun") is False and history["pendingInputs"]["total"] == 0,
+    # Current Gateways include cancelled/interrupted history in total. Only
+    # an explicit live queuedCount permits those retained historical records.
+    queued = pending.get("queuedCount", pending["total"])
+    require(info.get("hasActiveRun") is False and type(queued) is int and queued == 0,
             "openclaw_session_busy_reconcile")
+    require(cursor is None and all(item.get("state") in {"cancelled", "interrupted"} for item in items),
+            "openclaw_pending_inputs_reconcile")
+    require(pending["total"] == len(items) and len({item["id"] for item in items}) == len(items),
+            "openclaw_pending_inputs_incomplete")
     leaf = info.get("activeLeafEntryId")
     require(isinstance(leaf, str) and bool(leaf), "openclaw_session_leaf_missing")
     return leaf
+
+
+def idle_history(gateway):
+    """Read the complete bounded pending-input history, without exporting it."""
+    first = gateway.history(limit=20)
+    pending, initial, cursor = pending_page(first)
+    items, seen = list(initial), set()
+    while cursor is not None:
+        require(cursor not in seen and len(seen) < 25, "openclaw_pending_inputs_incomplete")
+        seen.add(cursor)
+        page = gateway.history(limit=20, pendingBefore=cursor)
+        next_pending, next_items, cursor = pending_page(page)
+        require({k: page["sessionInfo"].get(k) for k in ("hasActiveRun", "activeLeafEntryId", "lastRunId")} ==
+                {k: first["sessionInfo"].get(k) for k in ("hasActiveRun", "activeLeafEntryId", "lastRunId")}
+                and next_pending.get("total") == pending.get("total")
+                and next_pending.get("queuedCount") == pending.get("queuedCount"),
+                "openclaw_session_changed_reconcile")
+        items.extend(next_items)
+    first["pendingInputs"] = {**pending, "items": items, "nextBefore": None}
+    idle_leaf(first)
+    return first
 
 
 def plan_dispatch(root, config, params):
@@ -148,9 +208,9 @@ def plan_dispatch(root, config, params):
     effect = "wiki-run-" + digest({"action": canonical, "message": message, "route": route})[:32]
     directory = storage(root, config, effect)
     require(not (directory / "intent.json").exists(), "openclaw_intent_exists_reconcile")
-    require(not any(not item["has_result"] for item in attempts(root, config, profile, action)),
+    require(not any(not item["reconciled"] for item in attempts(root, config, profile, action)),
             "openclaw_uncollected_attempt_reconcile")
-    leaf = idle_leaf(Gateway(runtime, route).history())
+    leaf = idle_leaf(idle_history(Gateway(runtime, route)))
     return {"binding": canonical, "route": route, "route_sha256": digest(runtime), "message": message,
             "message_sha256": hashlib.sha256(message.encode()).hexdigest(), "expected_leaf": leaf,
             "effect_key": effect, "canonical_write": False}
@@ -165,10 +225,10 @@ def dispatch(root, config, prepared):
     require(digest(runtime) == prepared["route_sha256"] and route == prepared["route"], "openclaw_route_changed")
     require(binding(root, config, b["profile"], b["action_id"]) == b, "openclaw_context_changed")
     gateway = Gateway(runtime, route)
-    require(idle_leaf(gateway.history()) == prepared["expected_leaf"], "openclaw_session_changed_reconcile")
+    require(idle_leaf(idle_history(gateway)) == prepared["expected_leaf"], "openclaw_session_changed_reconcile")
     directory = storage(root, config, prepared["effect_key"])
     require(not (directory / "intent.json").exists(), "openclaw_intent_exists_reconcile")
-    require(not any(not item["has_result"] for item in attempts(root, config, b["profile"], b["action_id"])),
+    require(not any(not item["reconciled"] for item in attempts(root, config, b["profile"], b["action_id"])),
             "openclaw_uncollected_attempt_reconcile")
     write_new(directory / "intent.json", {"plan": prepared, "plan_sha256": digest(prepared),
               "attempted_at": dt.datetime.now(dt.timezone.utc).isoformat()})
@@ -205,6 +265,11 @@ def retained_intent(root, config, params):
 def inspect(root, config, params):
     """Reconcile one retained run, including after an operator restart."""
     directory, plan, runtime, route = retained_intent(root, config, params)
+    if (directory / "failure-resolution.json").exists():
+        resolution = verified_failure_resolution(directory, plan)
+        return {"action_id": params["action_id"], "effect_key": params["effect_key"],
+                "status": "resolved_without_result", "reconciled": True, "result_available": False,
+                "resolution": resolution, "new_dispatch": False, "canonical_write": False}
     gateway = Gateway(runtime, route)
     history = gateway.history()
     info = history["sessionInfo"]
@@ -267,8 +332,12 @@ def attempts(root, config, profile, action_id):
             has_result = result_path.exists()
             if has_result:
                 verified_result(path.parent, plan)
+            resolved = (path.parent / "failure-resolution.json").exists()
+            if resolved:
+                verified_failure_resolution(path.parent, plan)
             found.append({"effect_key": plan["effect_key"], "attempted_at": intent["attempted_at"],
-                          "has_result": has_result,
+                          "has_result": has_result, "reconciled": has_result or resolved,
+                          "resolved_without_result": resolved,
                           "proposal": proposal_status(root, config, path.parent, plan)})
     return found
 
@@ -284,6 +353,113 @@ def verified_result(directory, plan):
             and result.get("text_sha256") == hashlib.sha256(result["text"].encode()).hexdigest(),
             "openclaw_retained_result_changed")
     return result
+
+
+def validate_failure_review(review, plan, head, action_sha256):
+    require(isinstance(review, dict), "openclaw_independent_failure_review_required")
+    fields = {"schema_version", "head", "plan_sha256", "action_id", "action_sha256", "run_id", "session_id",
+              "author", "reviewer", "decision", "evidence_path", "evidence_sha256", "reason", "limits"}
+    require(set(review) == fields and review["schema_version"] == "wiki_openclaw_failure_review.v1" and
+            review["head"] == head and review["plan_sha256"] == digest(plan) and
+            review["action_id"] == plan["binding"]["action_id"] and review["action_sha256"] == action_sha256 and
+            review["run_id"] == plan["effect_key"] and review["session_id"] == plan["route"]["session_id"] and
+            review["decision"] == "resolve_without_result" and
+            all(isinstance(review[k], str) and 8 <= len(review[k].strip()) <= 8192
+                for k in ("author", "reviewer", "reason", "limits")) and
+            review["author"].strip() != review["reviewer"].strip(), "openclaw_independent_failure_review_required")
+
+
+def validate_failure_evidence(evidence, plan):
+    require(isinstance(evidence, dict), "openclaw_preserved_terminal_error_required")
+    require(set(evidence) == {"status", "runId", "startedAt", "endedAt", "error"} and
+            evidence["status"] == "error" and evidence["runId"] == plan["effect_key"] and
+            type(evidence["startedAt"]) is int and type(evidence["endedAt"]) is int and
+            0 < evidence["startedAt"] <= evidence["endedAt"] <= int(dt.datetime.now(dt.timezone.utc).timestamp()*1000) and
+            isinstance(evidence["error"], str) and 0 < len(evidence["error"]) <= 2048,
+            "openclaw_preserved_terminal_error_required")
+
+
+def verified_failure_resolution(directory, plan):
+    value = read_receipt(directory / "failure-resolution.json")
+    require(not (directory / "result.json").exists() and
+            value.get("schema_version") == "wiki_openclaw_failure_resolution.v1" and
+            value.get("status") == "resolved_without_result" and
+            value.get("plan_sha256") == digest(plan) and
+            value.get("effect_key") == plan["effect_key"] and
+            value.get("session_id") == plan["route"]["session_id"] and
+            value.get("action_id") == plan["binding"]["action_id"] and
+            value.get("evidence_basis") == "preserved_observation_independently_reviewed" and
+            value.get("external_effects") == "not_determined_by_this_receipt" and
+            value.get("review_sha256") == digest(value.get("review")) and
+            value.get("evidence_sha256") == digest(value.get("evidence")),
+            "openclaw_failure_resolution_changed")
+    review = value.get("review")
+    require(isinstance(review, dict), "openclaw_failure_resolution_changed")
+    validate_failure_review(review, plan, review.get("head"), review.get("action_sha256"))
+    validate_failure_evidence(value.get("evidence"), plan)
+    raw = value.get("evidence_raw")
+    require(isinstance(raw, str) and hashlib.sha256(raw.encode()).hexdigest() == review.get("evidence_sha256")
+            and parse_receipt(raw) == value["evidence"], "openclaw_failure_resolution_changed")
+    require(isinstance(review.get("head"), str) and re.fullmatch(r"[0-9a-f]{40}", review["head"])
+            and isinstance(review.get("action_sha256"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", review["action_sha256"]), "openclaw_failure_resolution_changed")
+    return value
+
+
+def plan_failure_resolution(root, config, params):
+    """An explicit reviewed recovery, not a reconstructed native final answer."""
+    directory, plan, runtime, route = retained_intent(root, config, params)
+    require((directory / "accepted.json").exists() and not (directory / "result.json").exists(),
+            "openclaw_failure_resolution_not_eligible")
+    current = binding(root, config, params["profile"], params["action_id"])
+    require(git(root, "branch", "--show-current") == str(config.approval.get("default_branch") or "main"),
+            "openclaw_resolution_requires_approved_checkout")
+    derived = WikiPaths(root, config).derived_root
+    path = _safe(root, params["review_path"])
+    require(path.is_relative_to(derived), "openclaw_review_must_be_derived")
+    review, _ = reviewed_receipt(path, params["review_sha256"])
+    validate_failure_review(review, plan, current["base_head"], current["action_sha256"])
+    evidence_path = _safe(root, review["evidence_path"])
+    require(evidence_path.is_relative_to(derived), "openclaw_evidence_must_be_derived")
+    evidence, evidence_raw = reviewed_receipt(evidence_path, review["evidence_sha256"])
+    validate_failure_evidence(evidence, plan)
+    gateway = Gateway(runtime, route)
+    history = idle_history(gateway)
+    observation = {"leaf": idle_leaf(history), "session_id": history["sessionId"],
+                   "last_run": history["sessionInfo"].get("lastRunId"),
+                   "pending": [{k: row.get(k) for k in ("id", "runId", "state")}
+                               for row in history["pendingInputs"].get("items", [])]}
+    return {"plan": plan, "review": review, "evidence": evidence, "evidence_raw": evidence_raw, "observation": observation,
+            "canonical_write": False, "new_dispatch": False,
+            "external_effects": "not_determined_by_this_receipt"}
+
+
+def resolve_failed(root, config, params, prepared):
+    # Current native authority surrounds this entire effect. Changed evidence,
+    # physical session, queue or canonical inputs refuse before persistence.
+    current = plan_failure_resolution(root, config, params)
+    require(current == prepared, "openclaw_failure_resolution_inputs_changed")
+    directory = storage(root, config, params["effect_key"])
+    plan = current["plan"]
+    if (directory / "failure-resolution.json").exists():
+        value = verified_failure_resolution(directory, plan)
+        require(value["review"] == current["review"] and value["evidence"] == current["evidence"],
+                "openclaw_failure_resolution_changed")
+    else:
+        value = {"schema_version": "wiki_openclaw_failure_resolution.v1", "status": "resolved_without_result",
+                 "effect_key": plan["effect_key"], "action_id": plan["binding"]["action_id"],
+                 "session_id": plan["route"]["session_id"], "plan_sha256": digest(plan),
+                 "evidence_basis": "preserved_observation_independently_reviewed",
+                 "external_effects": "not_determined_by_this_receipt", "review": current["review"],
+                 "review_sha256": digest(current["review"]), "evidence": current["evidence"],
+                 "evidence_sha256": digest(current["evidence"]), "evidence_raw": current["evidence_raw"], "observation": current["observation"],
+                 "recorded_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+        # Re-read immediately before the atomic local receipt; no provider write.
+        require(plan_failure_resolution(root, config, params) == current, "openclaw_failure_resolution_inputs_changed")
+        write_new(directory / "failure-resolution.json", value)
+    return {"action_id": params["action_id"], "effect_key": params["effect_key"], "reconciled": True,
+            "status": "resolved_without_result", "result_available": False, "new_dispatch": False,
+            "canonical_write": False, "resolution": value}
 
 
 def proposal_status(root, config, directory, plan):

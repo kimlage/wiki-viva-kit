@@ -563,8 +563,8 @@ def build_admin_plan(
                         "snapshot_invalidated": not dry_run},
             "targets": [], "diff": {"expected_head": params["expected_head"]},
         }
-    elif spec.planner in {"openclaw_dispatch", "openclaw_inspect", "openclaw_receipt"}:
-        from wiki_core.web.openclaw import plan_dispatch, retained_intent, storage, receipt_source
+    elif spec.planner in {"openclaw_dispatch", "openclaw_inspect", "openclaw_receipt", "openclaw_resolve_failed"}:
+        from wiki_core.web.openclaw import plan_dispatch, retained_intent, storage, receipt_source, plan_failure_resolution
         try:
             if spec.planner == "openclaw_dispatch":
                 prepared = plan_dispatch(root, config, params)
@@ -577,6 +577,8 @@ def build_admin_plan(
                 effect = prepared["effect_key"]
                 diff = {"action_id": params["action_id"], "effect_key": effect,
                         "message_sha256": prepared["message_sha256"], "new_dispatch": False}
+                if spec.planner == "openclaw_resolve_failed":
+                    diff = plan_failure_resolution(root, config, params)
                 if spec.planner == "openclaw_receipt":
                     diff["result"] = receipt
                     from wiki_core.web.git_workflows import _proposal_branch
@@ -587,10 +589,11 @@ def build_admin_plan(
                     "detail": getattr(exc, "code", "openclaw_precondition_failed")}
         dispatching = spec.planner == "openclaw_dispatch"
         planned = {
-            "summary": "Start a proposal branch if on main and derive receipt material; canonical incorporation requires the existing proposal command" if spec.planner == "openclaw_receipt" else
+            "summary": "Resolve this failed attempt from preserved independently reviewed evidence; no result, task completion or automatic retry; external effects remain outside this receipt" if spec.planner == "openclaw_resolve_failed" else
+                       "Start a proposal branch if on main and derive receipt material; canonical incorporation requires the existing proposal command" if spec.planner == "openclaw_receipt" else
                        "Send the displayed message for this action once; receipt is not completion" if dispatching else
                        "Recover the exact existing run; never dispatch or mark the action done",
-            "effects": {"files_read": [prepared["binding"]["action_path"]],
+            "effects": {"files_read": [prepared["binding"]["action_path"]] + ([params["review_path"], diff["review"]["evidence_path"]] if spec.planner == "openclaw_resolve_failed" else []),
                         "files_write": [] if dry_run else [str(directory.relative_to(root))],
                         "external_calls": [] if dry_run or spec.planner == "openclaw_receipt" else ["OpenClaw chat.send" if dispatching else "OpenClaw chat.history"],
                         "snapshot_invalidated": False},
@@ -895,13 +898,15 @@ def execute_admin_plan(
                 if not result.get("ok"):
                     return {"ok": False, "error_code": ERROR_COMMAND_FAILED, "output": _redact_output(result)}
                 outcome = {"output": result, "affected_paths": [], "snapshot_invalidated": False}
-            elif spec.executor in {"openclaw_dispatch", "openclaw_inspect", "openclaw_receipt"}:
-                from wiki_core.web.openclaw import dispatch, inspect, prepare_receipt_material
+            elif spec.executor in {"openclaw_dispatch", "openclaw_inspect", "openclaw_receipt", "openclaw_resolve_failed"}:
+                from wiki_core.web.openclaw import dispatch, inspect, prepare_receipt_material, resolve_failed
                 def runtime_effect():
                     if dry_run:
                         return {"dry_run": True, "new_dispatch": False, "canonical_write": False}
                     if spec.executor == "openclaw_dispatch":
                         return dispatch(root, config, content["diff"])
+                    if spec.executor == "openclaw_resolve_failed":
+                        return resolve_failed(root, config, content["params"], content["diff"])
                     if spec.executor == "openclaw_receipt":
                         from wiki_core.coordination import digest
                         return prepare_receipt_material(root, config, content["params"],

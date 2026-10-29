@@ -49,6 +49,14 @@ class AdminCommandSpec:
 # administration PR ships planners with proposal branches and typed targets.
 ADMIN_COMMAND_SPECS: tuple[AdminCommandSpec, ...] = (
     AdminCommandSpec(
+        id="agents.openclaw.resolve_failed", title="Resolve a reviewed failed attempt without a result",
+        capability=("agents.inspect", "agents.execute"), risk_level="proposal_write", supports_dry_run=True,
+        parameter_schema={"profile": {"required": True}, "action_id": {"required": True},
+                          "effect_key": {"required": True}, "review_path": {"required": True},
+                          "review_sha256": {"required": True}},
+        planner="openclaw_resolve_failed", executor="openclaw_resolve_failed", undo_strategy=None,
+    ),
+    AdminCommandSpec(
         id="wiki.proposal.adopt", title="Refresh the approved checkout after PR integration",
         capability=("git.publish",), risk_level="proposal_write", supports_dry_run=True,
         parameter_schema={"expected_head": {"required": True}, "proposal_head": {"required": True}, "pr": {"required": True}},
