@@ -2009,7 +2009,11 @@ def audit_operation_page(errors: list[str], warnings: list[str], config: WikiCon
         return
     if stale_after != 1:
         errors.append(f"{rel}: stale_after_days must be 1")
-    if updated_at < dt.date.today():
+    stale_diagnostics = {
+        f"{rel}: stale page",
+        f"{rel}: stale outside freshness impact (reported, nonblocking)",
+    }
+    if updated_at < dt.date.today() and not stale_diagnostics.intersection(warnings):
         warnings.append(f"{rel}: operation cockpit is not from today")
 
 
