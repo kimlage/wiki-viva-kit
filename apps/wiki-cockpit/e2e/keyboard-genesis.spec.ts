@@ -83,6 +83,7 @@ test("native Tab crosses scene, world controls and search, then reader Escape re
   }
   await expect(page.locator(".commandSearch input")).toBeFocused();
   await page.keyboard.type("CRM accounts export");
+  await expect(page.locator(".commandSearch input")).toHaveValue("CRM accounts export");
   await page.keyboard.press("Enter");
   await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(".pageReader")).toBeFocused();
