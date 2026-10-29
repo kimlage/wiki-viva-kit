@@ -1016,8 +1016,16 @@ def audit_freshness_budget(
         for row in report["blockers"]:
             errors.append(f"{row['path']}: {row['state']} in freshness impact ({row['reason']}; seed={row['seed']})")
         errors.extend(f"freshness relation integrity: {error}" for error in report["relation_errors"])
-        warnings.extend(f"{row['path']}: {row['state']} outside freshness impact (reported, nonblocking)"
-                        for row in report["unrelated_debt"])
+        for row in report["unrelated_debt"]:
+            message = f"{row['path']}: {row['state']} outside freshness impact (reported, nonblocking)"
+            generic = f"{row['path']}: stale page"
+            # Frontmatter/coverage already report the same stale page. Enrich
+            # that diagnostic with its scope instead of counting the debt twice.
+            # Unknown evidence and other diagnostics remain independent.
+            if row["state"] == "stale" and generic in warnings:
+                warnings[warnings.index(generic)] = message
+            else:
+                warnings.append(message)
         return
     if report_path or base_ref or documentary_only:
         errors.append("freshness impact options require audit.freshness_scope: impact")

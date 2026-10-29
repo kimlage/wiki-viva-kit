@@ -5,6 +5,11 @@ change actually touches and their dependencies. A stale unrelated page remains
 visible as debt without preventing that integration. Global integrity, privacy,
 secrets, links, page shapes and impact-closure checks still run unchanged.
 
+In impact mode, the scope diagnostic replaces an existing generic stale warning
+for the same page. Each unrelated stale page is counted once; unknown evidence
+and other problems remain separate. This changes reporting only, never source
+dates, cadence, exemptions or whether a factual dependency blocks a proposal.
+
 ## Upgrading
 
 This is an explicit consumer-owned C3 configuration migration through the

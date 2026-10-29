@@ -325,6 +325,30 @@ def test_audit_writes_evidence_and_keeps_registry_global_checks(repo, monkeypatc
     assert {"secrets", "pii", "relations", "page_type_registry"} <= set(audit.CHECK_NAMES)
 
 
+def test_audit_enriches_existing_stale_warning_without_hiding_other_debt(repo, monkeypatch):
+    old = page(repo, "old", stale=True)
+    page(repo, "unknown")
+    unknown = repo / "memories/unknown.md"
+    unknown.write_text(unknown.read_text().replace("2026-10-18", "invalid"))
+    base = commit(repo)
+    before = old.read_bytes()
+    monkeypatch.setattr(audit, "ROOT", repo)
+    errors = []
+    warnings = ["memories/old.md: stale page", "memories/old.md: unrelated diagnostic"]
+    audit.audit_freshness_budget(errors, warnings, load_config(repo), base_ref=base)
+    assert errors == []
+    assert warnings == [
+        "memories/old.md: stale outside freshness impact (reported, nonblocking)",
+        "memories/old.md: unrelated diagnostic",
+        "memories/unknown.md: unknown outside freshness impact (reported, nonblocking)",
+    ]
+    assert old.read_bytes() == before
+    # The same old page still blocks when a factual edit brings it into scope.
+    old.write_text(old.read_text() + "Changed factual evidence.\n")
+    audit.audit_freshness_budget(errors, [], load_config(repo), base_ref=base)
+    assert any("memories/old.md: stale in freshness impact" in error for error in errors)
+
+
 def test_catalogue_associations_do_not_couple_independent_contexts(repo):
     page(repo, "catalogue", related_pages=["books", "tax"],
          body="## Related\n- [Books](books.md)\n- [Tax](tax.md)\n")
