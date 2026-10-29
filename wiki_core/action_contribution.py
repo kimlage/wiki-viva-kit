@@ -211,10 +211,40 @@ def _entry(root: Path, commit: str, path: str, request: dict, material: str,
     return entry, text
 
 
+def _freshness_review_args(base: str | None, reviews: dict | None) -> list[str]:
+    """Transport authored findings, never caller commands or gate outcomes."""
+    if reviews is None:
+        return []
+    import re
+    if (not isinstance(base, str) or not re.fullmatch(r"[0-9a-f]{40,64}", base)
+            or not isinstance(reviews, dict) or len(reviews) > 512
+            or any(not isinstance(path, str) for path in reviews)):
+        raise ContributionError("invalid_freshness_review")
+    fields = ("disposition", "evidence", "rationale", "limits")
+    args = ["--freshness-base", base]
+    for path, review in sorted(reviews.items()):
+        if (not isinstance(path, str) or not path or "=" in path
+                or not isinstance(review, dict) or set(review) != set(fields)
+                or any(not isinstance(review[k], str) or not review[k].strip() for k in fields)
+                or review["disposition"] not in {"historical", "verified_local", "verified_live", "known_gap"}):
+            raise ContributionError("invalid_freshness_review")
+        values = [path, *(review[k] for k in fields)]
+        if any(len(v) > 8192 or "|" in v or any(ord(c) < 32 for c in v) for v in values):
+            raise ContributionError("invalid_freshness_review")
+        for ref in (path, review["evidence"]):
+            p = Path(ref)
+            if p.is_absolute() or p.as_posix() != ref or ".." in p.parts or "\\" in ref:
+                raise ContributionError("invalid_freshness_review")
+        args.extend(["--freshness-reviewed", path + "=" + "|".join(review[k] for k in fields)])
+    return args
+
+
 def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
-           committed_head: str | None = None, effect_runner=None) -> list[dict]:
+           committed_head: str | None = None, effect_runner=None,
+           freshness_base: str | None = None, freshness_reviews: dict | None = None) -> list[dict]:
     commands = [
-        [sys.executable, "scripts/wiki_audit.py", "--check"],
+        [sys.executable, "scripts/wiki_audit.py", "--check",
+         *_freshness_review_args(freshness_base, freshness_reviews)],
         [sys.executable, "scripts/wiki_input_stage.py", "--check"],
         [sys.executable, "scripts/wiki_pr_summary.py"],
         ["git", "diff", "--check", *([committed_head + "^", committed_head] if committed_head else [])],
@@ -259,7 +289,9 @@ def _validation_policy(config: WikiConfig) -> str:
 
 def _local_integration_gates(root: Path, commit: str, *, effect_runner=None,
                              required_policy: str = "local_gates",
-                             full_checks: bool = False) -> list[dict]:
+                             full_checks: bool = False,
+                             freshness_base: str | None = None,
+                             freshness_reviews: dict | None = None) -> list[dict]:
     """Re-run the existing gates on the immutable reviewed head, never caller receipts.
 
     This local clone reads retained Git objects, without fetching from GitHub or
@@ -276,7 +308,8 @@ def _local_integration_gates(root: Path, commit: str, *, effect_runner=None,
             raise ContributionError("committed_validation_policy_mismatch")
         receipts = _gates(scratch, config,
                           full_checks=full_checks,
-                          committed_head=commit, effect_runner=effect_runner)
+                          committed_head=commit, effect_runner=effect_runner,
+                          freshness_base=freshness_base, freshness_reviews=freshness_reviews)
         if (_git(scratch, "rev-parse", "HEAD") != commit
                 or _git(scratch, "status", "--porcelain", "--untracked-files=all")):
             raise ContributionError("local_validation_modified_proposal", {"gate_receipts": receipts})
