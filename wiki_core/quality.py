@@ -236,9 +236,11 @@ def operational_coverage(
     }
 
 
-def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
+def build_quality_report(
+    root: Path, config: WikiConfig, *, graph: PageGraph | None = None,
+) -> dict[str, Any]:
     paths = WikiPaths(root, config)
-    graph = build_page_graph(root, config)
+    graph = graph if graph is not None else build_page_graph(root, config)
     pages: list[dict[str, Any]] = []
     repeated_index: dict[str, list[str]] = defaultdict(list)
     body_text_by_rel: dict[str, str] = {}

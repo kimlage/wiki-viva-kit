@@ -16,7 +16,7 @@ from wiki_core.experience_packs import CORE_VERSION as EXPERIENCE_PACK_CORE_VERS
 from wiki_core.events import resolve_ingestion_event_identity
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import frontmatter_parsing_cache, list_values, parse_frontmatter
-from wiki_core.graph import build_page_graph
+from wiki_core.graph import PageGraph, build_page_graph
 from wiki_core.paths import WikiPaths
 from wiki_core.quality import build_quality_report
 from wiki_core.source_lifecycle import SOURCE_ADOPTION_STATES, SOURCE_FRESHNESS_STATES, SOURCE_LAST_ATTEMPT_STATES, SOURCE_LIFECYCLE_STATES, SOURCE_PIPELINE_STAGES, normalize_source_last_attempt_state
@@ -1231,8 +1231,9 @@ def _graph_payload(
     source_lifecycle_payload: dict[str, Any],
     *,
     today: dt.date | None = None,
+    graph: PageGraph | None = None,
 ) -> dict[str, Any]:
-    graph = build_page_graph(root, config)
+    graph = graph if graph is not None else build_page_graph(root, config)
     events_dir = WikiPaths(root, config).ingest_events_dir.relative_to(root)
     pages_by_path = {str(page["path"]): page for page in pages_payload["pages"]}
     id_by_path = {rel: (node.page_id or rel) for rel, node in graph.nodes.items()}
@@ -2694,6 +2695,7 @@ def _safe_blocks(
     config: WikiConfig,
     *,
     today: dt.date | None = None,
+    graph: PageGraph | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """The v2 block registry (blocks.json) and per-anchor resolved stacks
     (block_stacks.json). Wrapped like the other rich payloads so a malformed
@@ -2701,7 +2703,7 @@ def _safe_blocks(
     try:
         from wiki_core.template_blocks import blocks_payloads
 
-        return blocks_payloads(root, config, today=today or _today())
+        return blocks_payloads(root, config, today=today or _today(), graph=graph)
     except Exception as exc:  # noqa: BLE001
         error = str(exc)
         return (
@@ -2720,9 +2722,9 @@ def _safe_blocks(
         )
 
 
-def _safe_quality(root: Path, config: WikiConfig) -> dict[str, Any]:
+def _safe_quality(root: Path, config: WikiConfig, *, graph: PageGraph | None = None) -> dict[str, Any]:
     try:
-        report = build_quality_report(root, config)
+        report = build_quality_report(root, config, graph=graph)
     except Exception as exc:  # pragma: no cover - defensive snapshot surface
         return {"schema_version": "wiki_quality_report.v1", "error": str(exc)}
     return report
@@ -2989,10 +2991,14 @@ def build_snapshot(
         generated_at=generated_at,
     )
     diff = build_diff_payload(root, config, git_payload)
+    # One canonical graph per build; consumers only read it. No cross-build
+    # cache: the next snapshot must observe edits and new/deleted pages.
+    graph = build_page_graph(root, config)
     blocks_payload, block_stacks_payload = _safe_blocks(
         root,
         config,
         today=reference_date,
+        graph=graph,
     )
     source_entities_payload = _safe_source_entities(
         root,
@@ -3022,7 +3028,7 @@ def build_snapshot(
         source_lifecycle_payload,
         region_groups_payload,
     )
-    quality_payload = _safe_quality(root, config)
+    quality_payload = _safe_quality(root, config, graph=graph)
     gates_payload = _gates_payload(root, config)
     payloads = {
         "operations.json": operations,
@@ -3036,6 +3042,7 @@ def build_snapshot(
             gates_payload,
             source_lifecycle_payload,
             today=reference_date,
+            graph=graph,
         ),
         "pages.json": pages,
         "sources.json": _sources_payload(pages),

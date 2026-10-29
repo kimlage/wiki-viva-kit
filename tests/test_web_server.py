@@ -791,6 +791,7 @@ def test_post_keeps_prior_snapshot_until_mutation_finishes_then_invalidates(
     worker.join(5)
     assert result and result[0][0] == 200
     assert server.server._snapshot_cache is None
+
     after_status, after = server.get("/api/snapshot")
     assert after_status == 200
     assert after["manifest.json"]["snapshot_id"] != before_id
@@ -1412,6 +1413,13 @@ def test_operator_action_transition_writes_markdown_and_returns_safe_receipt(
     # snapshot; the server-wide POST invalidation makes the next live snapshot
     # read rebuild from that source.
     assert server.server._snapshot_cache is None
+
+    # A new board read after the mutation must project the persisted Markdown,
+    # rather than a pre-write snapshot or a separate task store.
+    status, refreshed = server.get("/api/snapshot/work_items.json")
+    assert status == 200
+    card = next(item for item in refreshed["actions"] if item["action_id"] == "action-server-synthetic")
+    assert card["state"] == values["action_state"]
 
 
 def test_operator_blocked_transition_binds_structured_blocker_refs(

@@ -303,11 +303,18 @@ stay behind an explicit UI toggle and proposal-branch checks.
 
 ## Functional checks
 
-Run `npm test`, `npm run test:gates`, TypeScript and `npm run build` for
+In the kit, run `npm test`, `npm run test:gates`, TypeScript and `npm run build` for
 code changes. Browser coverage uses `npm run test:e2e:release`; operator
 coverage uses `npm run test:e2e:operator` with an explicitly configured
 consumer. Review actual failures and the affected journeys. There is no frozen
 matrix, release capsule, subject capture or certification export.
+
+Consumer sync excludes generic unit/gate tests and their fixtures. Those run
+once in the kit CI at the pinned source revision. Consumers run their own
+domain tests, `check:architecture`, `check:assets`, TypeScript, `build` and the
+configured `test:e2e:operator` against their installation. `npm test`,
+`test:gates` and the public demo journeys are kit development commands; they
+are not empty-suite passes in a consumer checkout.
 
 ## Build
 
