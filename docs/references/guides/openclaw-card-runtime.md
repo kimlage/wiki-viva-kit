@@ -106,7 +106,7 @@ No arbitrary history scan, redispatch or account switch is used for recovery.
 session admission, native writers and Git with a synthetic Gateway. They cover
 revocation, C3 preservation and server restart. [Adoption tests](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_openclaw_adoption.py)
 use actual local Git with a synthetic provider, including interrupted adoption
-and no-effect replay. [Card tests](../../../apps/wiki-cockpit/src/components/ActionRuntime.test.tsx)
+and no-effect replay. [Card tests](https://github.com/kimlage/wiki-viva-kit/blob/9c65f032572d4e5e2e2b3a6f3a4f53685481f9e3/apps/wiki-cockpit/src/components/ActionRuntime.test.tsx)
 verify typed review and recovery controls. These fixtures do not prove a live
 account, real model response, hosted wiki or autonomous operation. A consumer
 must qualify those through its adopted product entry and approved sources.
