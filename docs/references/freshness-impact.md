@@ -83,8 +83,10 @@ their surviving dependents are evaluated. Invalid current typed relations remain
 errors even outside the freshness closure. Historical relation diagnostics stay
 in evidence, allowing a change to repair an invalid old declaration.
 
-Every stale or unknown-freshness page in the closure blocks, regardless of the
-global budget or an impact acknowledgment. Existing explicit evergreen semantics
+Every unresolved stale or unknown-freshness finding in the closure blocks,
+regardless of the global budget or an impact acknowledgment. An independently
+reviewed age finding can be resolved for this proposal as described below; its
+state, original date, graph membership and warning remain unchanged. Existing explicit evergreen semantics
 are preserved. A clean/no-memory-change tree reports debt without change-scoped
 freshness blockers; use `global` mode for a whole-wiki maintenance gate.
 
@@ -153,3 +155,52 @@ and causal receipts are retired. No replacement JSON dossier is required.
 Historical links can point to the pre-migration commit. Current reference roles
 from [Markdown producers](../../wiki_core/markdown_link_roles.py) continue to
 classify individual navigation links; another factual citation still counts.
+
+## Reviewing an age finding without renewing the source
+
+Age is a reason to investigate, not proof that an assertion is false. A dated
+observation does not become a current claim when its source catalogue changes.
+A recorded access gap can also be accurate: incorporating that gap must not
+claim that the inaccessible source was refreshed or a dependent task completed.
+
+After checking the complete page, its dependency chain and the proposed delta,
+an independent reviewer may resolve an individual age finding for this proposal:
+
+```sh
+python3 scripts/wiki_audit.py --check --freshness-base BASE_SHA \
+  --freshness-reviewed 'memories/history.md=historical|memories/review.md|The recorded observation remains supported by the original evidence.|No claim about current provider state.'
+```
+
+The four fields after the exact path are disposition, evidence page, rationale
+and limits, separated by `|`. Repeat for distinct paths; duplicates are errors.
+The evidence must be a fresh memory page changed in this proposal and cite the
+exact reviewed page as evidence. Evidence that is documentary-only or only an
+unincorporated operational comment cannot qualify. Record the substantive
+review in that page and the independent reviewer and exact SHA in the PR. This
+is authored semantic judgment, not a machine inference from a label or hash.
+
+- `historical`: a bounded observation, closed act or immutable record; the delta
+  does not turn it into a current assertion. A whole page type is not historical
+  by default, and an old page containing a live rule needs that rule checked.
+- `verified_local`: current code, generated output or local governing contract
+  was checked; cite the check and result. A stale projection must be regenerated.
+- `verified_live`: the actual source was read. Record account/surface, period,
+  result and coverage limits. Login or an inventory alone does not prove content.
+- `known_gap`: the page accurately records the unresolved limitation. Explain
+  why no new factual conclusion or action completion depends on resolving it.
+  A needed but unverified assertion must be corrected or remain blocking.
+
+Only existing stale memory pages inside the evaluated closure are eligible.
+Changed source dates, cadence or exemptions are rejected. Unknown, missing,
+invalid and future-dated evidence remains blocking. Deleted pages, untracked
+artifacts and absent source content cannot be qualified through this option.
+All graph edges, prerequisites, other findings and integrity checks remain.
+Reviewing one page never resolves a stale prerequisite or dependent implicitly.
+
+The report keeps `state: stale`, the original chain and all input hashes, and
+adds the evidence, disposition, rationale and limits under `reviewed_findings`.
+The audit retains one explicit age warning per reviewed page. No permanent
+configuration exemption or replacement documentary registry is created; the
+classification must be reviewed again for a later proposal. These options are
+available only in impact mode. They resolve an integration finding, not the
+source health, refresh queue or the user's real-world unfinished work.
