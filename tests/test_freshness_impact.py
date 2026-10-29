@@ -769,3 +769,29 @@ def test_review_preserves_one_age_warning_and_global_rejects_option(repo, monkey
     cfg.audit['freshness_scope'] = 'global'
     audit.audit_freshness_budget(errors, warnings, cfg, freshness_reviews=review)
     assert any('require audit.freshness_scope: impact' in e for e in errors)
+
+
+def test_documentary_only_delta_cannot_supply_freshness_review(repo):
+    base, review = reviewed_fixture(repo)
+    base = commit(repo)
+    evidence = repo / 'memories/review.md'
+    evidence.write_text(evidence.read_text() + '\nClarify typography only.\n')
+    page(repo, 'change', body='Uses [archive](archive.md).')
+    with pytest.raises(ValueError, match='fresh changed evidence'):
+        repository_report(repo, load_config(repo), base, today=TODAY,
+            freshness_reviews=review,
+            documentary_only={'memories/review.md': 'Typography clarification; no new factual review.'})
+
+
+def test_operational_comment_cannot_supply_freshness_review(repo):
+    from tests.test_action_transition import _write_action
+    from tests.test_operational_comment_freshness import comment
+    page(repo, 'archive', stale=True)
+    action = _write_action(repo, extra={'updated_at': '2026-10-18', 'source_refs': ['archive']})
+    base = commit(repo)
+    comment(repo, action)
+    page(repo, 'change', body='Uses [archive](archive.md).')
+    review = {'memories/archive.md': dict(disposition='historical',
+        evidence=action.relative_to(repo).as_posix(), rationale='Dated record.', limits='No current claim.')}
+    with pytest.raises(ValueError, match='fresh changed evidence'):
+        repository_report(repo, load_config(repo), base, today=TODAY, freshness_reviews=review)
