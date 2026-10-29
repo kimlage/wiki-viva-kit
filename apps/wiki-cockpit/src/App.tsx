@@ -1785,6 +1785,25 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const isWorld = Boolean(worldRoute);
   const isFocusMap = worldRoute?.query.projection === "2d";
   const sourceWorkspaceOpen = !isFocusMap && route.kind === "world" && route.query.dock === "source";
+  const sourceReturnToWorld = route.kind === "world" && !route.query.reader && !route.query.dock && !route.query.tray;
+  const sourceWasOpen = useRef(false);
+  useEffect(() => {
+    const returning = sourceWasOpen.current && !sourceWorkspaceOpen;
+    sourceWasOpen.current = sourceWorkspaceOpen;
+    if (!returning || !sourceReturnToWorld) return;
+    // Sources replaces the world. Its former opener was unmounted, so wait
+    // for the world (including a lazy first load) before restoring focus.
+    const restore = () => {
+      const opener = document.querySelector<HTMLButtonElement>('.worldCommandBar [data-dock="source"]');
+      if (!opener || opener.closest("[inert], [aria-hidden='true']")) return false;
+      opener.focus({ preventScroll: true });
+      return document.activeElement === opener;
+    };
+    if (restore()) return;
+    const observer = new MutationObserver(() => { if (restore()) observer.disconnect(); });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["inert", "aria-hidden"] });
+    return () => observer.disconnect();
+  }, [sourceWorkspaceOpen, sourceReturnToWorld]);
   const requestedDock = !isFocusMap && worldRoute && ["codex", "approve", "gates", "intake", "work", "blocks", "admin"].includes(worldRoute.query.dock || "")
     ? worldRoute.query.dock
     : null;

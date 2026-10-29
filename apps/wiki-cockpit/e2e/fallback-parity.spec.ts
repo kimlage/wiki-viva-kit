@@ -78,9 +78,10 @@ test("forced fallback preserves route, first viewport and source/action/person/r
 
   await page.locator(".dockButton").filter({ hasText: /Sources|Fontes/ }).click();
   await expect(page).toHaveURL(/[?&]dock=source/);
-  await expect(page.locator(".sourceDock")).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".sourceWorkspace")).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".sceneShell")).toHaveCount(0);
+  await page.locator(".sourceWorkspaceHeader > button").click();
   await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
-  await page.locator(".sourceDock .readerClose").first().click();
   await expect(page).not.toHaveURL(/[?&]dock=/);
   await expect(page.locator(".appDockPresence")).toHaveCount(0);
 

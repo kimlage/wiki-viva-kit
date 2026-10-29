@@ -290,7 +290,7 @@ export function SourceWorkspace(props: SourceWorkspaceProps) {
           <Database size={17} aria-hidden />
           <span><strong>{t("source.workspace.title")}</strong><small>{t("source.workspace.subtitle")}</small></span>
         </div>
-        <button type="button" className="secondaryButton" onClick={props.onClose}>
+        <button type="button" className="secondaryButton" autoFocus onClick={props.onClose}>
           <ArrowLeft size={14} aria-hidden />
           {t("source.workspace.back")}
         </button>

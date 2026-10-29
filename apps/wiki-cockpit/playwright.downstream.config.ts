@@ -7,6 +7,10 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   workers: 1,
+  // Playwright's CI diff metadata runs git fetch and changes FETCH_HEAD/shallow
+  // after the caller pins the live snapshot. This journey already validates
+  // the explicit consumer HEAD; reporting must not mutate that repository.
+  captureGitInfo: { commit: false, diff: false },
   reporter: [
     [process.env.CI ? "line" : "list"],
     ["html", { open: "never", outputFolder: process.env.WIKI_PLAYWRIGHT_HTML_REPORT || "../../output/playwright/wiki-cockpit-downstream-report" }],
@@ -17,7 +21,10 @@ export default defineConfig({
     colorScheme: "dark",
     locale: "pt-BR",
     screenshot: "only-on-failure",
-    trace: "retain-on-failure",
+    // Operator responses carry ephemeral mutation nonces. Playwright traces
+    // retain response bodies/headers, so keep only the sanitized fixture
+    // summaries and visual diagnostics for this live integration boundary.
+    trace: "off",
     video: "retain-on-failure"
   },
   projects: [

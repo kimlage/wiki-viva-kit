@@ -502,10 +502,10 @@ test("demo mutation surfaces are visibly disabled and emit zero write requests",
   await preview.evaluate((button: HTMLButtonElement) => button.click());
 
   await page.goto("/demo/w/radar?dock=source&visual=1&tour=0");
-  await expect(page.locator(".sourceDock")).toBeVisible({ timeout: 20_000 });
-  await page.locator(".sourceListItem").first().click();
+  await expect(page.locator(".sourceWorkspace")).toBeVisible({ timeout: 20_000 });
+  await page.locator(".sourceRegistryList button").first().click();
   await expect(page.locator(".sourceIdentity")).toBeVisible();
-  const sourceMutation = page.locator(".sourceDock .btn--run");
+  const sourceMutation = page.locator(".sourceWorkspace .btn--run");
   if (await sourceMutation.count()) {
     await expect(sourceMutation).toBeDisabled();
     await sourceMutation.evaluate((button: HTMLButtonElement) => button.click());

@@ -268,6 +268,7 @@ export function CommandBar({
         ] as const).filter((item) => instruments.destinations.includes(item.dock)).map((item) => (
           <button
             key={item.dock}
+            data-dock={item.dock}
             className={route.query.dock === item.dock ? "dockButton active" : "dockButton"}
             onClick={() => {
               onNavigateWorld({ dock: route.query.dock === item.dock ? null : item.dock });

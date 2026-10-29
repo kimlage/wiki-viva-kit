@@ -69,12 +69,18 @@ test("native Tab crosses scene, world controls and search, then reader Escape re
     sequence.push(active);
     expect(active, `native focus sequence: ${sequence.join(" -> ")}`).not.toBe("BODY");
     visited.add(active);
-    if (visited.has("scene-target") && visited.has("navigator") && active === "search") break;
+    if (visited.has("scene-target") && visited.has("navigator") && visited.has("search")) break;
   }
 
   expect(visited.has("scene-target")).toBe(true);
   expect(visited.has("navigator")).toBe(true);
   expect(visited.has("search")).toBe(true);
+  // The fallback's reading order places instruments before map links. Once
+  // all groups were reached, return to search through native reverse traversal.
+  for (let index = 0; index < 140; index += 1) {
+    if (await page.locator(".commandSearch input").evaluate(el => el === document.activeElement)) break;
+    await page.keyboard.press("Shift+Tab");
+  }
   await expect(page.locator(".commandSearch input")).toBeFocused();
   await page.keyboard.type("CRM accounts export");
   await page.keyboard.press("Enter");
@@ -86,4 +92,24 @@ test("native Tab crosses scene, world controls and search, then reader Escape re
   await expect(page.locator(".commandSearch input")).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
+});
+
+
+test("changing to the lightweight map preserves the focused search and its draft", async ({ page, browserName }) => {
+  await prepare(page, "/demo/w?center=root-alex-rivera&view=quadrants&lens=all&overlay=actions&tour=0");
+  // Firefox may boot directly into its honest WebGL-unavailable fallback.
+  // Chromium and WebKit must prove the actual 3D-to-2D transition; Firefox
+  // additionally verifies that changing the preference preserves existing HUD.
+  await expect(page.locator(browserName === "firefox" ? "canvas, .sceneShell.fallbackMode" : "canvas")).toHaveCount(1);
+  const search = page.locator(".commandSearch input");
+  await search.fill("CRM accounts export");
+  const original = await search.elementHandle();
+  await expect(search).toBeFocused();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
+  expect(await original!.evaluate(el => el === document.querySelector(".commandSearch input"))).toBe(true);
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue("CRM accounts export");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".readerHead h2")).toHaveText("CRM accounts export");
 });

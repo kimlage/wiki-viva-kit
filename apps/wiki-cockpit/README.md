@@ -317,16 +317,23 @@ npm run build
 npm run test:e2e:release
 ```
 
-`npm run test:e2e:release` builds the static app, serves it with Vite preview
-and executes the exact versioned release matrix. That matrix covers the five
-native world views (including Timeline / Chronoscope), the explicit
-compatibility routes, normal/dense/Genesis demo worlds, installed Study and
-Personal Finance pack showcases, both appearance themes and all three density
-modes, desktop/mobile/keyboard/forced-fallback journeys, safe-area and
-performance budgets, visual baselines, legacy normalization and the
-drill → lock → read → retreat loop. It then enforces zero required skips,
-flaky results and retries. Use `npm run test:visual:update` only when
-intentionally accepting reviewed visual changes, and regenerate the exact
+`npm run test:e2e:release` builds the static app and runs every configured
+browser project with zero retries. Functional coverage includes the five native
+views, compatibility routes, Genesis, packs, appearance, mobile, keyboard,
+fallback and reader navigation. CI runs the five functional projects on Linux, including the standalone
+read-only Kanban, then runs the downstream journey against the native operator
+serving the public kit wiki. This synthetic/public integration does not certify a
+private consumer installation.
+The separate `chromium-performance` project requires a real hardware WebGL
+renderer; a software CI runner cannot certify its frame-time budget. Run the
+complete command on a GPU-capable host before claiming full browser coverage.
+Do not update screenshot baselines to conceal a functional or layout failure.
+
+The downstream operator test checks the configured repository and source commit,
+snapshot integrity, current API handshake, actual UI, Timeline, theme/density
+and mobile behavior. It does not require retired release/adapter certification
+fields in the runtime config. Kit provenance is recorded by `kit.lock`; local
+operator configuration is served by the operator itself.
 
 ## Deployment inputs
 
@@ -369,9 +376,8 @@ materializes the package-owned
 `scripts/public-release-runtime-config.json` into `dist/wiki-cockpit.config.json`.
 It never rewrites or serves a downstream's tracked operator config as public
 evidence. Consumer-specific deployment remains a separate deploy-bundle/runtime
-boundary. Required release runs record those fixed effective inputs alongside
-the exact `dist/` inventory in `wiki_release_build_manifest.v2`; the independent
-Python receipt validator reopens both contracts.
+boundary. The build gates verify those inputs and the generated bundle directly; no
+release receipt or certification export is required.
 
 ## Presentation config (per-implementation customization)
 
