@@ -22,6 +22,12 @@ other diagnostics, global budgets and factual blockers remain unchanged. The
 [freshness guide](../../docs/references/freshness-impact.md) explains the count;
 synthetic Git tests cover both unrelated debt and subsequent factual edits.
 
+The normal browser gate also exposed a pending agent-capability probe that was
+aborted only by React cleanup after entering demo. The existing synchronous
+navigation guard now cancels that probe too. A regression test fails before
+the fix and passes only when cancellation occurs in the same navigation task;
+the demo network assertions remain unchanged.
+
 ## [2026-10-15] System | Readable action outcomes
 
 - Separate recorded action state from unverified current executor connection and
