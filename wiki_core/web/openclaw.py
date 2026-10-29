@@ -375,7 +375,8 @@ def validate_failure_evidence(evidence, plan):
             evidence["status"] == "error" and evidence["runId"] == plan["effect_key"] and
             type(evidence["startedAt"]) is int and type(evidence["endedAt"]) is int and
             0 < evidence["startedAt"] <= evidence["endedAt"] <= int(dt.datetime.now(dt.timezone.utc).timestamp()*1000) and
-            isinstance(evidence["error"], str) and 0 < len(evidence["error"]) <= 2048,
+            (evidence["error"] is None or
+             isinstance(evidence["error"], str) and 0 < len(evidence["error"]) <= 2048),
             "openclaw_preserved_terminal_error_required")
 
 

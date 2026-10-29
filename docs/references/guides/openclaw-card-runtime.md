@@ -103,6 +103,9 @@ retained attempt. This requires a preserved terminal error and an independent
 review bound to the original plan/run/physical session, current action revision
 and approved HEAD. The review names its author, distinct reviewer, reason and
 limits. Its decision is `resolve_without_result`, never success or completion.
+A native terminal failure may carry `error: null`; this preserves an absent
+diagnostic, without inventing an error message or inferring cancellation.
+Cancellation attribution requires its own run-bound request/response evidence.
 Evidence digests establish integrity, not RPC provenance; the basis is explicitly
 `preserved_observation_independently_reviewed`.
 
