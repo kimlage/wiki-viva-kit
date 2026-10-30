@@ -55,6 +55,14 @@
         [
           "async function handleChatSendWithOptions(handlerOptions, onAdmissionOwned, externalAuthorityAdmission, options) {",
           "async function handleChatSendWithOptions(handlerOptions, onAdmissionOwned, externalAuthorityAdmission, options) {\n\twikiMissionGuard.authorizeChat(handlerOptions.params);"
+        ],
+        [
+          "\tconst matchesRequestedSession = requestedSessionId === void 0 || requestedSessionId === session.entry?.sessionId;",
+          "\tif (options?.wikiMissionParams) wikiMissionGuard.authorizeAdmission(options.wikiMissionParams, activePathRelation, session.entry?.sessionId);\n\tconst matchesRequestedSession = requestedSessionId === void 0 || requestedSessionId === session.entry?.sessionId;"
+        ],
+        [
+          "assertExpectedLeafActive(latestSession, agentId, expectedLeafEntryId, requestedSessionId, { allowEmptyAncestor: true })",
+          "assertExpectedLeafActive(latestSession, agentId, expectedLeafEntryId, requestedSessionId, { allowEmptyAncestor: true, wikiMissionParams: p })"
         ]
       ],
       "import_guard": true
@@ -138,6 +146,23 @@
         [
           "CodexAppServerClient.start(startOptions, () => {\n\t\t\t\t\tassertStartupCurrent();\n\t\t\t\t\tresolveRemainingAcquireTimeout(timeoutMs, acquireStartedAt);\n\t\t\t\t})",
           "CodexAppServerClient.start(startOptions, () => {\n\t\t\t\t\tassertStartupCurrent();\n\t\t\t\t\twikiMissionGuard.authorizeClientStart(startOptions);\n\t\t\t\t\tresolveRemainingAcquireTimeout(timeoutMs, acquireStartedAt);\n\t\t\t\t})"
+        ]
+      ],
+      "import_guard": true
+    },
+    {
+      "name": "thread-lifecycle-run-BHM-L-56.mjs",
+      "package": "plugin",
+      "relative": "dist/.setup/thread-lifecycle-run-BHM-L-56.mjs",
+      "sha256": "c84cd5852168f5df82b4da4647cc8ca128c0672114778278ddfba8fadb80c6d6",
+      "edits": [
+        [
+          "\t\tlet binding = saved;",
+          "\t\tconst wikiBootstrap = wikiMissionGuard.beginBootstrapThread(input.params, input.client, saved, wikiMissionGuard.captureOwner(import.meta.url), authority.assertCurrent);\n\t\tlet binding = saved;"
+        ],
+        [
+          "\t\tif (replacementPredecessor && !preserveExistingBinding && configuredMcpOwnershipChanged) await releaseRetainedThread(replacementPredecessor.threadId, replacementPredecessor.clientId);",
+          "\t\twikiMissionGuard.completeBootstrapThread(wikiBootstrap, started);\n\t\tif (replacementPredecessor && !preserveExistingBinding && configuredMcpOwnershipChanged) await releaseRetainedThread(replacementPredecessor.threadId, replacementPredecessor.clientId);"
         ]
       ],
       "import_guard": true

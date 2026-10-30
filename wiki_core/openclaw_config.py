@@ -37,7 +37,10 @@ def validated_config(value):
     require(isinstance(value["routes"], dict) and bool(value["routes"]), "openclaw_routes_required")
     for profile, route in value["routes"].items():
         require(isinstance(profile, str) and re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", profile)
-                and isinstance(route, dict) and set(route) - {"native_thread_id"} == {"session_key", "session_id", "label"}, "openclaw_invalid_route")
+                and isinstance(route, dict) and set(route) - {"native_thread_id", "native_thread_binding"} == {"session_key", "session_id", "label"}, "openclaw_invalid_route")
+        require("native_thread_binding" not in route or
+                route["native_thread_binding"] == "first_turn" and "native_thread_id" not in route,
+                "openclaw_invalid_route")
         require(all(isinstance(v, str) and 0 < len(v) <= 240 and not any(ord(c) < 32 for c in v)
                     for v in route.values()), "openclaw_invalid_route")
     options = value.get("mission_options", {})

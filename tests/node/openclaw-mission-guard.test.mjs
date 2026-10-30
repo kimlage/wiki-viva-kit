@@ -106,7 +106,7 @@ test('inference rejects a different native owner and rechecks logical revocation
 test('SDK facade refuses missing, mutable, copied, replaced or extra authority',async()=>{
  const {assertSharedSdkBridge}=await import('../../scripts/openclaw/mission-loader.mjs');
  const host=await import('../../scripts/openclaw/mission-guard.mjs');
- const keys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook','registerInferenceBinding','registerInferenceRoute','authorizeClientStart'];
+ const keys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook','registerInferenceBinding','registerInferenceRoute','authorizeClientStart','beginBootstrapThread','completeBootstrapThread'];
  const bridge=Object.fromEntries(keys.map(key=>[key,host[key]]));
  assertSharedSdkBridge({wikiMissionBridge:Object.freeze({...bridge})});
  for(const value of [undefined,bridge,Object.freeze({...bridge,loadedHook:()=>{}}),Object.freeze({...bridge,configureRuntime:host.configureRuntime}),Object.freeze(Object.fromEntries(Object.entries(bridge).slice(1)))]){

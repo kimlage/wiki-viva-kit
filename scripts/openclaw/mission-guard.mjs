@@ -5,10 +5,12 @@ import crypto from 'node:crypto';
 import {assertOwner,assertCapture,markNativeHook} from './mission-runtime.mjs';
 export {captureOwner,registerNativeArtifact} from './mission-runtime.mjs';
 const threads = new Map();
+const creations = new WeakSet(), createdThreads = new Map();
 const bindings = new WeakMap(), routes = new WeakMap();
 const TURN_HOOK='run-attempt-CGHsrfPB.mjs';
 const INFERENCE_HOOK='inference-dispatch-CO6tTs4q.mjs';
 const ROUTE_HOOK='shared-client-C0gEybHs.mjs';
+const CREATION_HOOK='thread-lifecycle-run-BHM-L-56.mjs';
 const hooks = new Set();
 let expectedHooks,clientAdmission;
 export function configureRuntime(names,admitClient) { require(!expectedHooks, 'runtime_already_configured'); expectedHooks = new Set(names); clientAdmission=admitClient; }
@@ -44,7 +46,7 @@ function load(runId) {
   require(m.schema_version === 'wiki_openclaw_mission.v1' && m.run_id === runId && active.run_id === runId && active.contract_sha256 === sha(raw), 'contract_changed');
   require(typeof m.expires_at === 'string' && Date.parse(m.expires_at) > Date.now(), 'expired');
   require(m.provider === 'openai' && typeof m.model === 'string' && /^[a-zA-Z0-9._-]+$/.test(m.model) && ['high','max'].includes(m.effort), 'selection_invalid');
-  require(typeof m.native_thread_id === 'string' && m.native_thread_id.length > 8 && typeof m.session_id === 'string' && typeof m.session_key === 'string', 'identity_required');
+  require((m.native_thread_binding === 'first_turn' ? m.native_thread_id === null : m.native_thread_binding === undefined && typeof m.native_thread_id === 'string' && m.native_thread_id.length > 8) && typeof m.session_id === 'string' && typeof m.session_key === 'string', 'identity_required');
   require(/^[a-f0-9]{64}$/.test(m.message_sha256), 'message_digest_required');
   return {m, hash:sha(raw), runDir};
 }
@@ -61,6 +63,40 @@ export function authorizeChat(params) {
   const lock = load(params?.idempotencyKey), m=lock.m;
   require(params.wikiMission === lock.hash && params.sessionKey === m.session_key && params.sessionId === m.session_id && params.thinking === m.effort && params.suppressCommandInterpretation === true && params.deliver === false && sha(params.message) === m.message_sha256, 'send_mismatch');
   return lock;
+}
+// Called inside the native final admission transaction, before input insertion.
+export function authorizeAdmission(params, relation, sessionId) {
+  const lock=authorizeChat(params);
+  if(lock.m.native_thread_binding !== 'first_turn') return;
+  require(params.expectedLeafEntryId === null && relation === 'exact' && sessionId === lock.m.session_id,'bootstrap_not_empty');
+  writeExclusive(path.join(lock.runDir,'guard-bootstrap-admission.json'),{run_id:lock.m.run_id,session_id:sessionId,contract_sha256:lock.hash});
+}
+export function beginBootstrapThread(params,client,saved,owner,assertCurrent) {
+  const lock=load(params.runId),m=lock.m;
+  if(m.native_thread_binding !== 'first_turn') return null;
+  assertOwner(owner,CREATION_HOOK);
+  require(!saved && client && typeof assertCurrent==='function' && params.sessionId===m.session_id && params.sessionKey===m.session_key && params.provider===m.provider && params.modelId===m.model,'bootstrap_existing_binding');
+  assertCurrent();
+  const admission=JSON.parse(read(path.join(lock.runDir,'guard-bootstrap-admission.json')));
+  require(admission.run_id===m.run_id && admission.session_id===m.session_id && admission.contract_sha256===lock.hash,'bootstrap_admission_required');
+  writeExclusive(path.join(lock.runDir,'guard-bootstrap-start.json'),admission);
+  const creation={lock,client,owner,assertCurrent};creations.add(creation);return creation;
+}
+function currentCreation(creation) {
+  require(creation && creations.has(creation),'bootstrap_creation_required');
+  assertOwner(creation.owner,CREATION_HOOK);
+  // The native binding lease ends when lifecycle preparation returns. Once
+  // committed, the turn's own authority and exact route guard take over.
+  if(!creation.threadId)creation.assertCurrent();
+  current(creation.lock);
+}
+export function completeBootstrapThread(creation,started) {
+  if(creation===null)return;
+  currentCreation(creation);
+  const {lock}=creation,m=lock.m;
+  require(!creation.threadId && typeof started?.threadId==='string' && started.threadId.length>8 && !createdThreads.has(started.threadId) && !threads.has(started.threadId) && started.lifecycle?.action==='started' && !started.lifecycle.preserveExistingBinding && !started.lifecycle.rotatedContextEngineBinding && started.model===m.model && started.modelProvider===m.provider,'bootstrap_thread_mismatch');
+  writeExclusive(path.join(lock.runDir,'guard-bootstrap-thread.json'),{run_id:m.run_id,session_id:m.session_id,thread_id:started.threadId,model:m.model,contract_sha256:lock.hash});
+  creation.threadId=started.threadId;createdThreads.set(started.threadId,creation);
 }
 function assertBinding(binding,runtime=true) {
   require(binding && bindings.get(binding.fn)===binding,'inference_binding_required');
@@ -90,14 +126,18 @@ export function authorizeTurn(params, turn, owner,client,handle,assertRouteCurre
   require(route.binding.client===client && typeof assertRouteCurrent==='function','turn_route_mismatch');
   assertRouteCurrent();
   const lock=load(params.runId), m=lock.m;
-  require(params.sessionKey === m.session_key && params.sessionId === m.session_id && params.provider === m.provider && params.modelId === m.model && turn.threadId === m.native_thread_id && turn.model === m.model && turn.effort === m.effort, 'turn_mismatch');
+  if(m.native_thread_binding==='first_turn') {
+    const creation=createdThreads.get(turn.threadId);currentCreation(creation);
+    require(creation.lock.hash===lock.hash && creation.client===client && creation.owner.record===owner.record,'bootstrap_turn_mismatch');
+  } else require(turn.threadId===m.native_thread_id,'turn_mismatch');
+  require(params.sessionKey === m.session_key && params.sessionId === m.session_id && params.provider === m.provider && params.modelId === m.model && turn.model === m.model && turn.effort === m.effort, 'turn_mismatch');
   if (turn.collaborationMode != null) require(turn.collaborationMode.settings?.model === m.model && turn.collaborationMode.settings?.reasoning_effort === m.effort, 'collaboration_mismatch');
   // Durable claim prevents a restarted process or a live model switch from
   // admitting another turn under the same mission. Recovery is inspect-only.
-  writeExclusive(path.join(lock.runDir,'guard-turn.json'), {schema_version:'wiki_openclaw_guard_turn.v1',run_id:m.run_id,session_id:m.session_id,thread_id:m.native_thread_id,model:m.model,effort:m.effort,contract_sha256:lock.hash});
+  writeExclusive(path.join(lock.runDir,'guard-turn.json'), {schema_version:'wiki_openclaw_guard_turn.v1',run_id:m.run_id,session_id:m.session_id,thread_id:turn.threadId,model:m.model,effort:m.effort,contract_sha256:lock.hash});
   lock.owner=owner;
   lock.route=route;lock.assertRouteCurrent=assertRouteCurrent;
-  threads.set(m.native_thread_id, lock);
+  threads.set(turn.threadId, lock);
   return () => current(lock);
 }
 export function bindTurn(runId, threadId, turnId) {
