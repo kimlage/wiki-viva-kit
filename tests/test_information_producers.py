@@ -177,3 +177,17 @@ def test_explicit_config_input_is_not_a_memory_page_or_permission(tmp_path):
     cfg=tmp_path/'wiki.config.yaml';cfg.write_text(cfg.read_text()+'\n# changed selected configuration\n')
     report=repository_report(tmp_path,config,base,today=TODAY)
     assert 'memories/system/input-stage.md' in {row['path'] for row in report['included']}
+
+
+
+def test_operational_pass_pending_order_is_a_consumed_input(tmp_path):
+    from wiki_core.paths import WikiPaths
+    config=WikiConfig();paths=WikiPaths(tmp_path,config)
+    queue=paths.pending_actions_file;queue.parent.mkdir(parents=True)
+    queue.write_text('---\npage_id: queue\npage_type: ontology_index\ntitle: Queue\ncontext: system\n---\n# Queue\n- `a`\n- `b`\n')
+    target=paths.operational_pass_page;target.parent.mkdir(parents=True,exist_ok=True)
+    target.write_text(build_operational_pass_page(tmp_path,config,updated_at='2026-10-30'))
+    base=authored_graph(tmp_path,config)
+    queue.write_text(queue.read_text().replace('- `a`\n- `b`','- `b`\n- `a`'))
+    report=evaluate_information_impact(authored_graph(tmp_path,config),base,{paths.rel(queue)},today=TODAY)
+    assert paths.rel(target) in {row['path'] for row in report['included']}

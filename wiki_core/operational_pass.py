@@ -509,6 +509,7 @@ def build_operational_pass_page(
         f"moc_parent: {config.paths['memory_root']}/index.md",
         *yaml.safe_dump({'projection_inputs':[
             *([{'paths':['wiki.config.yaml'],'fields':['body']}] if (root/'wiki.config.yaml').is_file() else []),
+            *([{'paths':[paths.rel(paths.pending_actions_file)],'fields':['body']}] if paths.pending_actions_file.is_file() else []),
             {'page_types':[],'contexts':list(contexts),'fields':['page_id','context','title','updated_at'], 'title_fallback':True,'exclude_paths':[paths.rel(paths.operational_pass_page)]},
             {'page_types':['claim','action'],'contexts':list(contexts),
              'fields':['body','title','context','status','action_state','actions','responsibilities']},
