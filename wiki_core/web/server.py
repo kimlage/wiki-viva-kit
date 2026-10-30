@@ -2092,6 +2092,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             session=session,
             session_manager=manager,
             session_token=token,
+            jobs=self.server.jobs,
         )
         if (self._mutation_owned and not result.get("ok")
                 and not result.get("affected_paths") and not result.get("snapshot_invalidated")):
@@ -2179,6 +2180,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             parent = jobs.get(job_id)
             if parent is None:
                 self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
+                return
+            if parent.get("kind") == "source_review":
+                self._send_json({"ok":False,"error":"source_review_requires_qualified_semantic_reader"}, status=HTTPStatus.BAD_REQUEST)
                 return
             brief = compose_return_brief(
                 self.server.root,

@@ -42,6 +42,15 @@ def test_missing_required_artifact_still_blocks_integrity():
     assert result['integrity_blockers'] == [{'path':'source0','reason':'missing_evidence'}]
     assert not result['ok']
 
+
+def test_removed_consumer_keeps_change_history_without_queueing_a_nonexistent_reader():
+    base=graph();current=graph()
+    for key in ['nodes','documents']:current[key].pop('review')
+    current['edges']=[edge for edge in current['edges'] if edge['source']!='review']
+    result=evaluate_information_impact(current,base,{'review'},today=TODAY)
+    assert 'review' in result['seeds']
+    assert all(row['path']!='review' for row in result['pending_reviews'])
+
 def test_parallel_consumptions_are_preserved_and_cycles_terminate():
     base=graph();current=graph()
     # Two distinct meanings between the same endpoints must coexist. A

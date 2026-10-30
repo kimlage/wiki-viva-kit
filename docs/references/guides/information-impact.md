@@ -96,5 +96,37 @@ Discovery, script completion and inventory review do not constitute factual
 verification or incorporation. Where no source/stream can be resolved, retain
 an explicit unresolved information requirement rather than inventing a source.
 
+The native `sources.review_pending` command projects the complete obligations
+into that queue and submits bounded deterministic work to the existing
+[job runner](../../../wiki_core/web/codex_jobs.py). It requires an explicit base,
+`max_sources`, `max_attempts` and `max_adapter_calls`. Only sources qualified by
+`audit.source_review_allowed_sources` may be selected; the default grants none.
+That qualification selects a declared adapter, not an account or credential.
+The budget counts adapter invocations, including the native preview recheck.
+It does not claim to count a provider's internal pagination or network requests;
+those limits belong to the reviewed adapter. No model is selected or invoked.
+
+The plan describes collection-wide inventory reads. Applying discovered records
+is restricted to the planned, existing streams; unrelated new records remain
+unselected. Work stays on a proposal branch. Scripts without a declared RAW
+scope and sources requiring a semantic reader or manual export remain explicit
+impediments. Deferred obligations remain visible instead of being inactivated.
+
+Native authority remains in RAM and is checked before each effect. Cancellation
+prevents the next effect, while a read already in progress must finish before
+its result is known. Restart does not restore authority or resend the job.
+Recovery binds an exact attempt, preview and configuration to a successful
+native receipt; missing or failed receipts cannot become successful collection.
+An unreconciled attempt bars another background operation on the same source,
+even after inputs or budgets change. A collected obligation needs factual
+review before another collection of that same obligation. Changing catalogue
+metadata or an attempt budget cannot satisfy it.
+
+Cursor and review updates share an atomic source-state transaction, preserving
+each other's fields. Unexpected edits are preserved and refused, including
+concurrent edits to a config file the native operation also writes. A job's
+output is not proof that arbitrary dirty files belong to it. No commit, push,
+merge, verification timestamp or current-fact acceptance is implied by delivery.
+
 The reader presents the recorded verification and intended temporal use.
 Reading alone performs no global refresh and grants no execution permission.

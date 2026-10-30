@@ -236,6 +236,22 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             raise ValueError("use-scoped impact does not accept per-proposal freshness waivers")
         from wiki_core.information_impact import evaluate_information_impact
         result = evaluate_information_impact(current, base, changed, today=today or dt.date.today())
+        from wiki_core.information_use import bind_verification_coverage, assess_information_use
+        qualified = bind_verification_coverage(root,current)
+        usage=[]
+        for path, values in current['nodes'].items():
+            if values.get('action_state') not in {'open','in_progress'}:continue
+            assessment=assess_information_use(qualified,path,now=dt.datetime.combine(today,dt.time(12),dt.timezone.utc)
+                if today is not None else dt.datetime.now(dt.timezone.utc))
+            if assessment['requirements']:
+                usage.append(assessment)
+                for requirement in assessment['requirements']:
+                    if not requirement['ready']:
+                        result['pending_reviews'].append({'path':path,'seed':requirement['target'],
+                            'fields':requirement['fields'],'causes':[],'chain':[],
+                            'state':'review_pending','priority':'immediate','reason':'current_information_unusable',
+                            'blockers':requirement['blockers'],'verification_performed':False})
+        result['information_use'] = usage
         result['blockers'] = [{**r, 'state': 'unknown', 'seed': r['path']} for r in result['integrity_blockers']]
         result['unrelated_debt'] = []  # ordinary age diagnostics remain in the frontmatter audit
         result['removed_pages'] = sorted(set(base['nodes']) - set(current['nodes']))

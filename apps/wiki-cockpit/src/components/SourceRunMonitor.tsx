@@ -40,7 +40,7 @@ export function SourceRunMonitor({
       const theme = `ingest-${sourceId}`;
       setJobs(
         listed
-          .filter((job) => job.theme === theme)
+          .filter((job) => job.theme === theme || (job.kind === "source_review" && job.source_id === sourceId))
           .sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")))
           .slice(0, 3)
       );
@@ -115,7 +115,7 @@ export function SourceRunMonitor({
             <article key={job.job_id}>
               <header>
                 <span className={`pill pill-${jobTone(job.status)}`}>{job.status}</span>
-                <strong>{job.agent || "agent"}</strong>
+                <strong>{job.kind === "source_review" ? t("information.collection") : job.agent || "agent"}</strong>
                 <code>{job.job_id}</code>
                 {ACTIVE_STATUSES.has(job.status) && onCancelJob && (
                   <button className="textButton" type="button" disabled={busy} onClick={() => void cancel(job.job_id)}>
@@ -123,6 +123,8 @@ export function SourceRunMonitor({
                   </button>
                 )}
               </header>
+              {job.reason && <p>{job.reason}</p>}
+              {job.factual_review_pending && <p>{t("information.factualReviewPending")}</p>}
               <div className="sourceRunSteps" aria-label={t("source.runs.steps")}>
                 {(job.steps ?? []).map((step) => (
                   <span key={step.id} data-status={step.status} title={step.label}>{step.label}</span>

@@ -688,6 +688,8 @@ def compose_return_brief(
     """Compose + save a FOLLOW-UP brief that continues a delivered job's branch
     with reviewer feedback (the "return, not restart" loop). Returns None if the
     parent has no branch to continue."""
+    if parent_job.get("kind") == "source_review":
+        return None  # Deterministic collection never grants a generic model fallback.
     branch = parent_job.get("branch")
     if not branch:
         return None

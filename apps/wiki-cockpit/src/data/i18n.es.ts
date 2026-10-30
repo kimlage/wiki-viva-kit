@@ -343,6 +343,8 @@ export const ES: Record<string, string> = {
   "reader.staticNotice": "texto completo disponible con el operador local",
   "reader.partial": "resumen parcial",
   "reader.noSummary": "No hay resumen disponible.",
+  "information.collection": "Recopilación de la fuente",
+  "information.factualReviewPending": "La recopilación requiere revisión factual e incorporación.",
   "information.title": "Información para este uso",
   "information.verified": "Verificación registrada: {when}",
   "information.noVerification": "No hay verificación factual registrada aquí.",

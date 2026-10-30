@@ -30,7 +30,8 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
         elif not requirement:
             reasons.append('information_use_scope_unspecified')
         else:
-            if requirement['temporal'] == 'current' and graph.get('verification_coverage', {}).get(path) is not True:
+            if requirement['temporal'] == 'current' and graph.get('verification_coverage', {}).get(coverage_key(path, requirement['fields']),
+                    graph.get('verification_coverage', {}).get(path)) is not True:
                 reasons.append('information_changed_since_verification')
             fields = requirement['fields']
             if any(f != 'body' and f not in values for f in fields):
@@ -132,3 +133,31 @@ def verification_covers_content(root, path: str, fields: list[str], evidence: li
         return True
     except (OSError,subprocess.SubprocessError,UnicodeError):
         return False
+
+
+def bind_verification_coverage(root, graph: dict) -> dict:
+    """Bind declared scopes to current authorized Git inputs, without a fetch."""
+    import json
+    nodes={path:dict(values) for path,values in graph['nodes'].items()}
+    by_id={}
+    for path,values in nodes.items():by_id.setdefault(values.get('page_id'),[]).append(path)
+    for values in nodes.values():
+        refs=values.get('evidence_refs')
+        if isinstance(refs,list):
+            values['evidence_refs']=[ref if ref in graph['documents'] else
+                by_id[ref][0] if isinstance(ref,str) and len(by_id.get(ref,[]))==1 else ref for ref in refs]
+    coverage={}
+    dependencies,_=dependency_edges(graph)
+    for edge in dependencies:
+        requirement=edge.get('requirement')
+        if edge['type']!='operational_prerequisite' or not requirement or requirement['temporal']!='current':continue
+        path=edge['prerequisite'];refs=nodes.get(path,{}).get('evidence_refs',[])
+        key=coverage_key(path,requirement['fields'])
+        coverage[key]=(isinstance(refs,list) and all(isinstance(ref,str) for ref in refs)
+            and verification_covers_content(root,path,requirement['fields'],refs))
+    return {**graph,'nodes':nodes,'verification_coverage':coverage}
+
+
+def coverage_key(path: str, fields: list[str]) -> str:
+    import json
+    return json.dumps([path,sorted(fields)],separators=(',',':'))

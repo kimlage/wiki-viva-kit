@@ -74,6 +74,8 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
         reason['causes'] = incoming[path]
     pending = []
     for path, reason in sorted(reasons.items()):
+        if path not in current['nodes']:
+            continue  # Removed consumers retain impact history, not a live review obligation.
         values = current['nodes'].get(path, {})
         age = freshness_state(values.get('updated_at'), values.get('stale_after_days'), today,
                               stale_exempt=is_stale_exempt(values.get('stale_exempt')))

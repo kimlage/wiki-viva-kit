@@ -294,28 +294,11 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
                    "Preserve STOP, waiting_human, terminal states and existing runtime reservations.",
                    "No automatic dispatch; runtime must validate context revisions and admission."]}
     if information_edges:
-        from wiki_core.information_use import assess_information_use, verification_covers_content
+        from wiki_core.information_use import assess_information_use, bind_verification_coverage
         information_graph = {'nodes': {p['path']: p['frontmatter'] for p in contents},
                              'documents': {p['path']: p['body'] for p in contents},
                              'edges': information_edges, 'errors': []}
-        for path, values in list(information_graph['nodes'].items()):
-            refs = values.get('evidence_refs')
-            if isinstance(refs, list):
-                normalized = []
-                for ref in refs:
-                    matches = resolve_information(ref) if isinstance(ref, str) else []
-                    normalized.append(matches[0] if len(matches) == 1 else ref)
-                information_graph['nodes'][path] = {**values, 'evidence_refs': normalized}
-        coverage = {}
-        for edge in information_edges:
-            requirement = edge.get('requirement')
-            if requirement and requirement['temporal'] == 'current':
-                values = information_graph['nodes'][edge['target']]
-                evidence = values.get('evidence_refs', [])
-                covered = isinstance(evidence, list) and verification_covers_content(
-                    root, edge['target'], requirement['fields'], evidence)
-                coverage[edge['target']] = coverage.get(edge['target'], True) and covered
-        information_graph['verification_coverage'] = coverage
+        information_graph = bind_verification_coverage(root, information_graph)
         # Preserve preparation of a refresh/history mission: readiness is a
         # separate assessment. The real dispatch boundary enforces it.
         packet['information_use'] = [assess_information_use(information_graph, by_id[action]['path'],

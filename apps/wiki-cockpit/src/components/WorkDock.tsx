@@ -282,7 +282,7 @@ export function WorkDock({
                     >
                       {openLog === job.job_id ? t("work.job.hideLog") : t("work.job.showLog")}
                     </button>
-                    {onReturn && job.status === "delivered" && (
+                    {onReturn && job.status === "delivered" && job.kind !== "source_review" && (
                       <button
                         className="textButton"
                         onClick={() => {
