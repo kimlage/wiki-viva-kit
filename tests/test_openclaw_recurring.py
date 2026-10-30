@@ -81,8 +81,14 @@ def test_native_http_wakeup_cli_deduplicates_and_drops_authentication(scheduled,
     from pathlib import Path
     runtime,_=scheduled;root,cfg,_,_,calls,_=runtime
     observe=runpy.run_path(str(Path(__file__).resolve().parents[1]/'scripts/wiki_openclaw_tick.py'))['observe']
+    from wiki_core.paths import WikiPaths
+    import json
+    jobs=WikiPaths(root,cfg).derived_root/'codex-jobs';jobs.mkdir(parents=True,exist_ok=True)
+    queued=jobs/'jsr-independent.json';queued.write_text(json.dumps({'job_id':'jsr-independent','kind':'source_review','status':'queued'}))
+    retained=queued.read_bytes()
     first=observe(root,'review')
     assert first['ok'] and first['new_dispatch'] and first['mode']=='dispatch', first
+    assert queued.read_bytes()==retained
     again=observe(root,'review')
     assert again['ok'] and again['mode']=='inspect' and not again['new_dispatch']
     assert len([v for m,v in calls if m=='chat.send'])==1

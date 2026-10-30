@@ -31,7 +31,9 @@ def observe(root, rule_id, *, dry_run=False):
         match = re.fullmatch(r'\[wiki-admin\] one-time unlock code: ([A-Z0-9-]+) \(.*\)', line)
         if match:
             code['value'] = match.group(1)
-    server = CockpitServer(('127.0.0.1', 0), root, config, admin_announce=announce)
+    # A bounded command client must not start/reconcile the persistent
+    # operator's source/job stream or acquire its independent worker authority.
+    server = CockpitServer(('127.0.0.1', 0), root, config, admin_announce=announce, start_jobs=False)
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     origin = 'http://127.0.0.1:' + str(server.server_address[1])

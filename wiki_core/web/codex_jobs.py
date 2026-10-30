@@ -90,6 +90,7 @@ class JobRunner:
         claude_cmd: list[str] | None = None,
         timeout_seconds: int = _DEFAULT_JOB_TIMEOUT,
         autostart: bool = True,
+        reconcile_retained: bool = True,
         on_change: Callable[[], None] | None = None,
     ) -> None:
         self.root = root
@@ -116,7 +117,7 @@ class JobRunner:
         # Reconcile retained source jobs once on startup. Persisted records
         # never restore native authority or restart an adapter.
         from wiki_core.web.source_review_jobs import reconcile_source_job
-        for record in self.list():
+        for record in self.list() if reconcile_retained else []:
             if record.get('kind') == 'source_review' and record.get('status') in {'queued','running'}:
                 reconcile_source_job(self,record)
         if autostart:
