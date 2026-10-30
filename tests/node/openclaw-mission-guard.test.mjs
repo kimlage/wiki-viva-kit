@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {authorizeChat,authorizeTurn,authorizeInference,bindTurn,recordTerminal,configureRuntime,loadedHook,registerInferenceBinding,registerInferenceRoute} from '../../scripts/openclaw/mission-guard.mjs';
+import {authorizeChat,authorizeTurn,authorizeInference,bindTurn,recordTerminal,configureRuntime,loadedHook,registerInferenceBinding,registerInferenceRoute,authorizeClientStart} from '../../scripts/openclaw/mission-guard.mjs';
 const sha=s=>crypto.createHash('sha256').update(s).digest('hex');
 configureRuntime(['synthetic-hook']);loadedHook('synthetic-hook');
 let count=0;
@@ -106,7 +106,7 @@ test('inference rejects a different native owner and rechecks logical revocation
 test('SDK facade refuses missing, mutable, copied, replaced or extra authority',async()=>{
  const {assertSharedSdkBridge}=await import('../../scripts/openclaw/mission-loader.mjs');
  const host=await import('../../scripts/openclaw/mission-guard.mjs');
- const keys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook','registerInferenceBinding','registerInferenceRoute'];
+ const keys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook','registerInferenceBinding','registerInferenceRoute','authorizeClientStart'];
  const bridge=Object.fromEntries(keys.map(key=>[key,host[key]]));
  assertSharedSdkBridge({wikiMissionBridge:Object.freeze({...bridge})});
  for(const value of [undefined,bridge,Object.freeze({...bridge,loadedHook:()=>{}}),Object.freeze({...bridge,configureRuntime:host.configureRuntime}),Object.freeze(Object.fromEntries(Object.entries(bridge).slice(1)))]){
@@ -145,3 +145,5 @@ test('route registration rejects promises and wrong native client/owner',()=>{
    assert.throws(()=>registerInferenceRoute(client,binding,route,owner),/inference_route_invalid/);
  }finally{n.dispose();clean(f);}
 });
+
+test("client startup refuses an unconfigured pin",()=>{assert.throws(()=>authorizeClientStart({}),/client_pin_required/);});

@@ -248,7 +248,7 @@ Only a separately reviewed new mission can follow; recovery never dispatches it.
 
 ### Shared guard through the native SDK
 
-The pinned loader exposes a frozen, nine-function mission facade through
+The pinned loader exposes a frozen, ten-function mission facade through
 `openclaw/plugin-sdk/process-runtime`. Captured plugin modules import that existing
 native SDK entry point; the SDK and core hooks retain the same host guard and
 native owner registry. Direct absolute imports from a captured plugin would be
@@ -291,3 +291,22 @@ Its client/account context and mission remain synthetic. It checks distinct
 captures, wrong client, changed route, client closure and native owner revocation;
 it performs admission checks without sending an inference request. This does not
 prove the complete live Gateway workflow or a useful model result.
+
+
+### Managed app-server identity
+
+The pinned plugin only owns the inference route when its native resolver selects
+a managed stdio app-server. An explicit `appServer.command` is an external command
+even when its bytes came from the official npm package; it must not be relabeled
+as managed. The qualified installation uses the plugin's own Codex 0.160.0
+package. Remove custom command/environment overrides only as a reviewed consumer
+configuration change, preserving the previous installation and native home.
+
+The overlay pins the official launcher and platform binary by package version,
+resolution and SHA256. Its startup hook checks the native `resolved-managed`
+selection and stdio arguments before each candidate starts, and rechecks bytes.
+A desktop fallback, external command, changed package or unsupported platform is
+refused before startup. It neither fabricates native ownership nor opens a custom
+inference proxy path. This additional qualification is currently Darwin ARM64;
+another platform requires its own reviewed pin. The live session and mission
+acceptance remain separate from installation and offline tests.

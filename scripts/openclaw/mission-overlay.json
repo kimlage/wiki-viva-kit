@@ -130,9 +130,30 @@
         [
           "\t\t\t\treturn createCodexInferenceProxy({\n\t\t\t\t\tupstream: target,\n\t\t\t\t\tassertCurrent: assertClient,\n\t\t\t\t\toauth: owner.oauth,\n\t\t\t\t\tpreserveAzureUrlFeatures,\n\t\t\t\t\tpreserveCodexBackendRoutes,\n\t\t\t\t\tbindModelExecution: createCodexInferenceModelBinding({\n\t\t\t\t\t\tclient,\n\t\t\t\t\t\tprovider,\n\t\t\t\t\t\tmodelPolicyEnforced,\n\t\t\t\t\t\tassertCurrent: assertClient,\n\t\t\t\t\t\tmemoryConfigured: () => owner.memoryConfigured,\n\t\t\t\t\t\tcaptureModelSource: native.codexNativeSubagentMonitorRuntime.captureModelSource,\n\t\t\t\t\t\tresolveModelThreadId: native.codexNativeSubagentMonitorRuntime.resolveModelThreadId\n\t\t\t\t\t})\n\t\t\t\t});",
           "\t\t\t\tconst wikiMissionBinding = createCodexInferenceModelBinding({\n\t\t\t\t\t\tclient,\n\t\t\t\t\t\tprovider,\n\t\t\t\t\t\tmodelPolicyEnforced,\n\t\t\t\t\t\tassertCurrent: assertClient,\n\t\t\t\t\t\tmemoryConfigured: () => owner.memoryConfigured,\n\t\t\t\t\t\tcaptureModelSource: native.codexNativeSubagentMonitorRuntime.captureModelSource,\n\t\t\t\t\t\tresolveModelThreadId: native.codexNativeSubagentMonitorRuntime.resolveModelThreadId\n\t\t\t\t\t});\n\t\t\t\tconst wikiMissionRouteOwner = wikiMissionGuard.captureOwner(import.meta.url);\n\t\t\t\tconst wikiMissionRoute = await createCodexInferenceProxy({\n\t\t\t\t\tupstream: target,\n\t\t\t\t\tassertCurrent: assertClient,\n\t\t\t\t\toauth: owner.oauth,\n\t\t\t\t\tpreserveAzureUrlFeatures,\n\t\t\t\t\tpreserveCodexBackendRoutes,\n\t\t\t\t\tbindModelExecution: wikiMissionBinding\n\t\t\t\t});\n\t\t\t\ttry { return wikiMissionGuard.registerInferenceRoute(client, wikiMissionBinding, wikiMissionRoute, wikiMissionRouteOwner); }\n\t\t\t\tcatch (error) { try { await wikiMissionRoute.close(); } finally { throw error; } }"
+        ],
+        [
+          "\tfor (const [index, startOptions] of startOptionsCandidates.entries()) {\n\t\tparams.assertCurrent?.();",
+          "\tfor (const [index, startOptions] of startOptionsCandidates.entries()) {\n\t\twikiMissionGuard.authorizeClientStart(startOptions);\n\t\tparams.assertCurrent?.();"
         ]
       ],
       "import_guard": true
     }
-  ]
+  ],
+  "app_server": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "launcher": {
+      "name": "@openai/codex",
+      "version": "0.160.0",
+      "file": "bin/codex.js",
+      "sha256": "61b0194f3bb6534439c8d26a3ed57d0805f84b884588b761795323eeb92fcf70"
+    },
+    "native": {
+      "name": "@openai/codex-darwin-arm64",
+      "version": "0.160.0-darwin-arm64",
+      "file": "vendor/aarch64-apple-darwin/bin/codex",
+      "sha256": "112fae7a5a1223e673c8a1791d32338f37df8b527ff1159bb8adac6c4dbf1b4b",
+      "manifest_name": "@openai/codex"
+    }
+  }
 }

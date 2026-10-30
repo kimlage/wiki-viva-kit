@@ -10,8 +10,9 @@ const TURN_HOOK='run-attempt-CGHsrfPB.mjs';
 const INFERENCE_HOOK='inference-dispatch-CO6tTs4q.mjs';
 const ROUTE_HOOK='shared-client-C0gEybHs.mjs';
 const hooks = new Set();
-let expectedHooks;
-export function configureRuntime(names) { require(!expectedHooks, 'runtime_already_configured'); expectedHooks = new Set(names); }
+let expectedHooks,clientAdmission;
+export function configureRuntime(names,admitClient) { require(!expectedHooks, 'runtime_already_configured'); expectedHooks = new Set(names); clientAdmission=admitClient; }
+export function authorizeClientStart(options) { require(typeof clientAdmission==='function','client_pin_required'); clientAdmission(options); }
 export function loadedHook(name,url) { require(expectedHooks?.has(name), 'unknown_hook'); markNativeHook(name,url); hooks.add(name); }
 export function assertRuntime() { require(expectedHooks?.size > 0 && hooks.size === expectedHooks.size && [...expectedHooks].every(name=>hooks.has(name)), 'incomplete_overlay'); }
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');

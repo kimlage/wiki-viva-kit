@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
+import {pinnedClientAdmission} from './mission-client.mjs';
 import {configureRuntime} from './mission-guard.mjs';
 import * as hostGuard from './mission-guard.mjs';
 import {NativeCaptureRegistry,configureNativeRegistry,qualifyNativeModule} from './mission-runtime.mjs';
@@ -43,12 +44,12 @@ export function transform(name,source) {
     ? `import {wikiMissionBridge as wikiMissionGuard} from "openclaw/plugin-sdk/process-runtime";\n`
     : `import * as wikiMissionGuard from ${JSON.stringify(guard)};\n`;
   const bridge=spec.relative==='dist/plugin-sdk/process-runtime.js'
-    ? `\nexport const wikiMissionBridge=Object.freeze({authorizeTurn:wikiMissionGuard.authorizeTurn,bindTurn:wikiMissionGuard.bindTurn,captureOwner:wikiMissionGuard.captureOwner,recordTerminal:wikiMissionGuard.recordTerminal,authorizeInference:wikiMissionGuard.authorizeInference,checkInferenceSelection:wikiMissionGuard.checkInferenceSelection,loadedHook:wikiMissionGuard.loadedHook,registerInferenceBinding:wikiMissionGuard.registerInferenceBinding,registerInferenceRoute:wikiMissionGuard.registerInferenceRoute});\n`
+    ? `\nexport const wikiMissionBridge=Object.freeze({authorizeTurn:wikiMissionGuard.authorizeTurn,bindTurn:wikiMissionGuard.bindTurn,captureOwner:wikiMissionGuard.captureOwner,recordTerminal:wikiMissionGuard.recordTerminal,authorizeInference:wikiMissionGuard.authorizeInference,checkInferenceSelection:wikiMissionGuard.checkInferenceSelection,loadedHook:wikiMissionGuard.loadedHook,registerInferenceBinding:wikiMissionGuard.registerInferenceBinding,registerInferenceRoute:wikiMissionGuard.registerInferenceRoute,authorizeClientStart:wikiMissionGuard.authorizeClientStart});\n`
     : '';
   return binding+source+bridge+`\nwikiMissionGuard.loadedHook(${JSON.stringify(name)},import.meta.url);\n`;
 }
 export function assertSharedSdkBridge(sdkModule) {
-  const bridgeKeys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook','registerInferenceBinding','registerInferenceRoute'];
+  const bridgeKeys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook','registerInferenceBinding','registerInferenceRoute','authorizeClientStart'];
   if(!sdkModule.wikiMissionBridge || !Object.isFrozen(sdkModule.wikiMissionBridge) ||
       Object.keys(sdkModule.wikiMissionBridge).length!==bridgeKeys.length ||
       !bridgeKeys.every(key=>sdkModule.wikiMissionBridge[key]===hostGuard[key])) throw new Error('wiki_mission_sdk_overlay_missing');
@@ -59,7 +60,7 @@ export async function install() {
   const sdk=createRequire(path.join(roots.plugin,'package.json')).resolve('openclaw/plugin-sdk/process-runtime');
   if(!fs.realpathSync(sdk).startsWith(roots.core+path.sep)) throw new Error('wiki_mission_sdk_root_changed');
   configureNativeRegistry(new NativeCaptureRegistry({pluginRoot:roots.plugin,coreRoot:roots.core,files:manifest.files.filter(f=>f.package==='plugin'),validatePackage:root=>validatePackage(root,manifest.packages.plugin)}));
-  configureRuntime(manifest.files.map(f=>f.name));
+  configureRuntime(manifest.files.map(f=>f.name),pinnedClientAdmission(roots.plugin,manifest.app_server));
   const expected=new Map(manifest.files.map(f=>[path.join(roots[f.package],f.relative),f]));
   registerHooks({load(url,context,nextLoad){
     const out=nextLoad(url,context);
