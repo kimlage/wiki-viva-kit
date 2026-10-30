@@ -117,7 +117,7 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
       <label>{language.startsWith("pt") ? "Modelo e esforço desta missão" : "Model and effort for this mission"}
         <select value={missionId} disabled={disabled || busy || Boolean(plan)} onChange={e => setMissionId(e.target.value)}>
           <option value="">{language.startsWith("pt") ? "Selecione uma configuração aprovada" : "Select an approved configuration"}</option>
-          {profile.runtime?.mission_options?.map(option => <option key={option.id} value={option.id}>{option.label} · {option.model} / {option.effort}</option>)}
+          {profile.runtime?.mission_options?.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
         </select>
       </label>
       <label>{copy.message}<textarea value={message} onChange={e => setMessage(e.target.value)} maxLength={12000} disabled={disabled || busy} /></label>

@@ -83,9 +83,9 @@
 .boardDialogue blockquote { margin: 8px 0; padding-left: 10px; border-left: 3px solid var(--wiki-accent); }
 
 .boardRuntime{border-top:1px solid var(--board-line);margin-top:20px;padding-top:12px;font-size:13px}
-.boardRuntime label{display:grid;gap:6px;margin:12px 0}
+.boardRuntime label{display:grid;gap:6px;margin:12px 0;min-width:0}
 .boardRuntime textarea{width:100%;min-height:110px;resize:vertical}
-.boardRuntime input{width:100%;min-width:0}
+.boardRuntime input,.boardRuntime select{width:100%;min-width:0;max-width:100%}
 .boardRuntime pre,.boardRuntime code{white-space:pre-wrap;overflow-wrap:anywhere}
 .boardRuntime ul{padding:0;list-style:none}
 .boardRuntime li{padding:10px 0;border-bottom:1px solid var(--board-line)}
