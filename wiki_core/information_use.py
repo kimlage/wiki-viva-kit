@@ -107,32 +107,27 @@ def verification_covers_content(root, path: str, fields: list[str], evidence: li
         verification=[i for i in range(1,end) if re.match(r'^verified_at:',lines[i])]
         if len(verification)!=1:
             return False
-        selected=set()
-        qualifying_fields = ['evidence_refs', 'confidence', 'valid_from', 'valid_to', 'source_refs']
-        covered_fields = list(dict.fromkeys(fields + [field for field in qualifying_fields
-                            if any(line.startswith(field + ':') for line in lines[1:end])]))
-        for field in covered_fields:
-            if field=='body':
-                selected.update(range(end+1,len(lines)))
-            else:
-                starts=[i for i in range(1,end) if lines[i].startswith(field+':')]
-                if len(starts)!=1:return False
-                first=starts[0];last=next((i for i in range(first+1,end) if re.match(r'^[a-zA-Z_][a-zA-Z_0-9]*:',lines[i])),end)
-                selected.update(range(first,last))
         origins=[];commit=None
         for line in git('blame','--line-porcelain','HEAD','--',path).splitlines():
             match=re.fullmatch(r'([0-9a-f]{40,64}) \d+ \d+(?: \d+)?',line)
             if match:commit=match.group(1)
             elif line.startswith('\t'):origins.append(commit)
-        if len(origins)!=len(lines) or not selected:
+        if len(origins)!=len(lines):
             return False
         verified_commit=origins[verification[0]]
-        commits={origins[i] for i in selected}
+        from wiki_core.frontmatter import parse_frontmatter
+        def projection(text):
+            values, body = parse_frontmatter(text)
+            selectors = set(fields) | {'evidence_refs','confidence','valid_from','valid_to','source_refs'}
+            return {field: (True, body) if field == 'body' else (field in values, values.get(field))
+                    for field in sorted(selectors)}
+        # Compare the complete selected meaning, including absent/deleted
+        # fields and deleted prose, at the actual verification declaration.
+        if projection(git('show',verified_commit+':'+path)) != projection(raw):
+            return False
         for ref in evidence:
-            if git('show','HEAD:'+ref)!=(root/ref).read_text():return False
-            commits.add(git('log','-1','--format=%H','HEAD','--',ref).strip())
-        for revision in commits:
-            if not revision or subprocess.run(['git','merge-base','--is-ancestor',revision,verified_commit],cwd=root,capture_output=True).returncode:
+            current=(root/ref).read_text()
+            if git('show','HEAD:'+ref)!=current or git('show',verified_commit+':'+ref)!=current:
                 return False
         return True
     except (OSError,subprocess.SubprocessError,UnicodeError):

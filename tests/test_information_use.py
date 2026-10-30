@@ -70,3 +70,15 @@ def test_replacing_evidence_or_promoting_confidence_requires_verification(tmp_pa
     p.write_text(p.read_text().replace('inferred','confirmed').replace('first.md','other.md'))
     git('add','.');git('commit','-qm','qualifiers changed without verification')
     assert not verification_covers_content(tmp_path,'claim.md',['body'],['other.md'])
+
+def test_deleting_expired_validity_or_fact_does_not_reuse_old_verification(tmp_path):
+    import subprocess
+    from wiki_core.information_use import verification_covers_content
+    def git(*args):subprocess.run(['git',*args],cwd=tmp_path,check=True,capture_output=True)
+    git('init');git('config','user.name','Synthetic');git('config','user.email','fixture@example.invalid')
+    (tmp_path/'evidence.md').write_text('Preserved observation.\n')
+    original='---\nverified_at: 2026-10-30\nconfidence: confirmed\nvalid_to: 2026-10-29\nevidence_refs: [evidence.md]\n---\nObserved fact.\nA material qualification.\n'
+    p=tmp_path/'claim.md';p.write_text(original);git('add','.');git('commit','-qm','original expired observation')
+    for updated in [original.replace('valid_to: 2026-10-29\n',''),original.replace('A material qualification.\n','')]:
+        p.write_text(updated);git('add','.');git('commit','-qm','deletion without new verification')
+        assert not verification_covers_content(tmp_path,'claim.md',['body'],['evidence.md'])
