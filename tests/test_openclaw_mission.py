@@ -57,3 +57,9 @@ def test_inference_turn_and_path_chain_required(runtime,field,value):
     file=oc.storage(root,cfg,plan['effect_key'])/'guard-inference.jsonl'
     item=json.loads(file.read_text());item[field]=value;file.write_text(json.dumps(item)+'\n')
     with pytest.raises(ValueError,match='selection_unproven'):oc.inspect(root,cfg,{**params,'effect_key':plan['effect_key']})
+
+
+def test_module_imports_without_posix_lock_backend():
+    import subprocess,sys
+    result=subprocess.run([sys.executable,'-c',"import sys;sys.modules['fcntl']=None;import wiki_core.web.openclaw"],capture_output=True,text=True)
+    assert result.returncode==0,result.stderr

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import datetime as dt
 import copy
-import fcntl
 from contextlib import contextmanager
 import hashlib
 import json
@@ -18,7 +17,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from wiki_core.action_transition import _assert_no_secrets, _parse_document
+from wiki_core.action_transition import _assert_no_secrets, _parse_document, _action_file_lock
 from wiki_core.config import load_config
 from wiki_core.coordination import context_packet, digest
 from wiki_core.paths import WikiPaths
@@ -328,13 +327,9 @@ def verify_mission_selection(directory, plan, message):
 @contextmanager
 def mission_mutex(directory):
     directory.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(directory.parent / "mission.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+    with _action_file_lock(directory.parent, "openclaw-mission"):
         yield
-    finally:
-        fcntl.flock(fd, fcntl.LOCK_UN)
-        os.close(fd)
+
 
 
 def release_mission_lock(directory, plan):
