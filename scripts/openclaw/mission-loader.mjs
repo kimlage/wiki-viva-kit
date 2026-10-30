@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {configureRuntime} from './mission-guard.mjs';
+import {NativeCaptureRegistry,configureNativeRegistry,qualifyNativeModule} from './mission-runtime.mjs';
 const manifest=JSON.parse(fs.readFileSync(new URL('./mission-overlay.json',import.meta.url),'utf8'));
 const guard=new URL('./mission-guard.mjs',import.meta.url).href;
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
@@ -37,13 +38,14 @@ export function transform(name,source) {
     if(source.split(before).length!==2) throw new Error('wiki_mission_overlay_shape_changed');
     source=source.replace(before,after);
   }
-  return `import * as wikiMissionGuard from ${JSON.stringify(guard)};\n`+source+`\nwikiMissionGuard.loadedHook(${JSON.stringify(name)});\n`;
+  return `import * as wikiMissionGuard from ${JSON.stringify(guard)};\n`+source+`\nwikiMissionGuard.loadedHook(${JSON.stringify(name)},import.meta.url);\n`;
 }
 export async function install() {
   const roots={core:process.env.WIKI_OPENCLAW_CORE_ROOT,plugin:process.env.WIKI_OPENCLAW_PLUGIN_ROOT};
   for(const [name,spec] of Object.entries(manifest.packages)) validatePackage(roots[name],spec);
   const sdk=createRequire(path.join(roots.plugin,'package.json')).resolve('openclaw/plugin-sdk/process-runtime');
   if(!fs.realpathSync(sdk).startsWith(roots.core+path.sep)) throw new Error('wiki_mission_sdk_root_changed');
+  configureNativeRegistry(new NativeCaptureRegistry({pluginRoot:roots.plugin,coreRoot:roots.core,files:manifest.files.filter(f=>f.package==='plugin'),validatePackage:root=>validatePackage(root,manifest.packages.plugin)}));
   configureRuntime(manifest.files.map(f=>f.name));
   const expected=new Map(manifest.files.map(f=>[path.join(roots[f.package],f.relative),f]));
   registerHooks({load(url,context,nextLoad){
@@ -51,11 +53,12 @@ export async function install() {
     if(!url.startsWith('file:')) return out;
     const file=fileURLToPath(url), name=path.basename(file);
     if(!manifest.files.some(f=>f.name===name)) return out;
-    if(!expected.has(file) || fs.realpathSync(file)!==file || new URL(url).search) throw new Error('wiki_mission_hook_root_changed');
+    const qualified=expected.has(file) || qualifyNativeModule(file);
+    if(!qualified || fs.realpathSync(file)!==file || new URL(url).search || new URL(url).hash) throw new Error('wiki_mission_hook_root_changed');
     return {...out,source:transform(name,typeof out.source==='string'?out.source:Buffer.from(out.source).toString('utf8'))};
   }});
   // Load the guarded plugin modules before the gateway admits a chat. The
-  // native loader subsequently shares their exact real URLs and ESM instances.
+  // native loader qualifies its captured copies separately before execution.
   for(const f of manifest.files.filter(f=>f.package==='plugin')) await import(pathToFileURL(path.join(roots.plugin,f.relative)).href);
 }
 // Importing helpers in a test does not activate a gateway or plugin.

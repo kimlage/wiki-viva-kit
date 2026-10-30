@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {guardTestOwner} from './native-capture-fixture.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -19,12 +20,13 @@ function fixture(){
  const chat={idempotencyKey:id,wikiMission:sha(raw),sessionKey:m.session_key,sessionId:m.session_id,thinking:m.effort,suppressCommandInterpretation:true,deliver:false,message:'Read synthetic status.'};
  const params={runId:id,sessionId:m.session_id,sessionKey:m.session_key,provider:m.provider,modelId:m.model};
  const turn={threadId:m.native_thread_id,model:m.model,effort:m.effort};
- const inference={path:'/responses',provider:'openai',body:{model:m.model,reasoning:{effort:m.effort}},metadata:{threadId:m.native_thread_id,turnId:'synthetic-turn'}};
- return {dir,runDir,m,chat,params,turn,inference};
+ const native=guardTestOwner();
+ const inference={owner:native.owner,path:'/responses',provider:'openai',body:{model:m.model,reasoning:{effort:m.effort}},metadata:{threadId:m.native_thread_id,turnId:'synthetic-turn'}};
+ return {dir,runDir,m,chat,params,turn,inference,owner:native.owner,native};
 }
-function clean(f){fs.rmSync(f.dir,{recursive:true,force:true});}
+function clean(f){f.native.dispose();fs.rmSync(f.dir,{recursive:true,force:true});}
 test('exact admission, inference, and revocation recheck',{concurrency:false},()=>{
- const f=fixture();try{authorizeChat(f.chat);authorizeTurn(f.params,f.turn);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');const current=authorizeInference(f.inference);current();
+ const f=fixture();try{authorizeChat(f.chat);authorizeTurn(f.params,f.turn,f.owner);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');const current=authorizeInference(f.inference);current();
  assert.equal(JSON.parse(fs.readFileSync(path.join(f.runDir,'guard-inference.jsonl'),'utf8')).model,'example-model');
  fs.unlinkSync(path.join(f.dir,'mission-active.json'));assert.throws(current);
  }finally{clean(f);}
@@ -33,24 +35,24 @@ for(const [field,value] of [['sessionId','other-session'],['sessionKey','other-k
  test(`send rejects changed ${field} before forwarding`,()=>{const f=fixture();let forwarded=0;try{assert.throws(()=>{authorizeChat({...f.chat,[field]:value});forwarded++;});assert.equal(forwarded,0);}finally{clean(f);}});
 }
 for(const mutate of [t=>({...t,model:'other-model'}),t=>({...t,effort:'ultra'}),t=>({...t,effort:undefined}),t=>({...t,threadId:'other-thread'}),t=>({...t,collaborationMode:{settings:{model:'other-model',reasoning_effort:'high'}}})]){
- test('turn rejects conflicting, missing, or inherited selection',()=>{const f=fixture();let forwarded=0;try{assert.throws(()=>{authorizeTurn(f.params,mutate(f.turn));forwarded++;});assert.equal(forwarded,0);assert.equal(fs.existsSync(path.join(f.runDir,'guard-turn.json')),false);}finally{clean(f);}});
+ test('turn rejects conflicting, missing, or inherited selection',()=>{const f=fixture();let forwarded=0;try{assert.throws(()=>{authorizeTurn(f.params,mutate(f.turn),f.owner);forwarded++;});assert.equal(forwarded,0);assert.equal(fs.existsSync(path.join(f.runDir,'guard-turn.json')),false);}finally{clean(f);}});
 }
 for(const mutate of [x=>({...x,body:{model:'other-model',reasoning:{effort:'high'}}}),x=>({...x,body:{model:'example-model',reasoning:{effort:'ultra'}}}),x=>({...x,body:{model:'example-model'}}),x=>({...x,path:'/guardian'}),x=>({...x,path:'/responses/compact',body:{model:'other-model'}}),x=>({...x,metadata:{...x.metadata,threadId:'another-thread'}}),x=>({...x,metadata:{...x.metadata,subagent:'review'}}),x=>({...x,metadata:{...x.metadata,turnId:'wrong-turn'}})]){
- test('inference mismatch has zero forwarding, including auxiliary paths',()=>{const f=fixture();let forwarded=0;try{authorizeTurn(f.params,f.turn);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');assert.throws(()=>{authorizeInference(mutate(f.inference));forwarded++;});assert.equal(forwarded,0);assert.equal(fs.existsSync(path.join(f.runDir,'guard-inference.jsonl')),false);}finally{clean(f);}});
+ test('inference mismatch has zero forwarding, including auxiliary paths',()=>{const f=fixture();let forwarded=0;try{authorizeTurn(f.params,f.turn,f.owner);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');assert.throws(()=>{authorizeInference(mutate(f.inference));forwarded++;});assert.equal(forwarded,0);assert.equal(fs.existsSync(path.join(f.runDir,'guard-inference.jsonl')),false);}finally{clean(f);}});
 }
 test('durable turn claim rejects retries and restarted process without inference',()=>{
- const f=fixture();try{authorizeTurn(f.params,f.turn);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');assert.throws(()=>authorizeTurn(f.params,f.turn));
- const code=`import {authorizeTurn} from ${JSON.stringify(new URL('../../scripts/openclaw/mission-guard.mjs',import.meta.url).href)}; authorizeTurn(${JSON.stringify(f.params)},${JSON.stringify(f.turn)});`;
+ const f=fixture();try{authorizeTurn(f.params,f.turn,f.owner);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');assert.throws(()=>authorizeTurn(f.params,f.turn,f.owner));
+ const code=`import {authorizeTurn} from ${JSON.stringify(new URL('../../scripts/openclaw/mission-guard.mjs',import.meta.url).href)}; import {guardTestOwner} from ${JSON.stringify(new URL("./native-capture-fixture.mjs",import.meta.url).href)}; authorizeTurn(${JSON.stringify(f.params)},${JSON.stringify(f.turn)},guardTestOwner().owner);`;
  const child=spawnSync(process.execPath,['--input-type=module','-e',code],{env:{...process.env},encoding:'utf8'});assert.notEqual(child.status,0);assert.equal(fs.existsSync(path.join(f.runDir,'guard-inference.jsonl')),false);
  }finally{clean(f);}
 });
 test('contract replacement and symlinks fail closed',()=>{const f=fixture();try{
- authorizeTurn(f.params,f.turn);fs.writeFileSync(path.join(f.runDir,'mission.json'),JSON.stringify({...f.m,effort:'max'}));assert.throws(()=>authorizeInference(f.inference));
+ authorizeTurn(f.params,f.turn,f.owner);fs.writeFileSync(path.join(f.runDir,'mission.json'),JSON.stringify({...f.m,effort:'max'}));assert.throws(()=>authorizeInference(f.inference));
  fs.unlinkSync(path.join(f.runDir,'mission.json'));fs.symlinkSync(path.join(f.dir,'mission-active.json'),path.join(f.runDir,'mission.json'));assert.throws(()=>authorizeChat(f.chat));
  }finally{clean(f);}});
 
 test('inference before native binding refuses; only exact accepted turn and terminal admit',()=>{
- const f=fixture();try{authorizeTurn(f.params,f.turn);assert.throws(()=>authorizeInference(f.inference),/turn_identity/);
+ const f=fixture();try{authorizeTurn(f.params,f.turn,f.owner);assert.throws(()=>authorizeInference(f.inference),/turn_identity/);
  bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');authorizeInference(f.inference);
  assert.throws(()=>recordTerminal(f.m.native_thread_id,{id:'wrong-turn',status:'completed'}));
  recordTerminal(f.m.native_thread_id,{id:'synthetic-turn',status:'completed'});
@@ -82,4 +84,14 @@ test('runtime package tree refuses replaced, missing and renamed modules',async(
  fs.unlinkSync(path.join(dir,'hook.mjs'));assert.throws(()=>validatePackage(dir,spec));
  assert.throws(()=>transform('inference-dispatch-CO6tTs4q.mjs','incompatible source'));
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('inference rejects a different native owner and rechecks logical revocation',()=>{
+ const f=fixture(),other=guardTestOwner();try{
+ authorizeTurn(f.params,f.turn,f.owner);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');
+ assert.throws(()=>authorizeInference({...f.inference,owner:other.owner}),/inference_owner_mismatch/);
+ const current=authorizeInference(f.inference);f.native.instance.owner.revoked=true;
+ assert.throws(current,/capture_owner_retired/);
+ }finally{other.dispose();clean(f);}
 });
