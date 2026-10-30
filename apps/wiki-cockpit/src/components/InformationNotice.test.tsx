@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { configureLanguage } from "../data/i18n";
 import { InformationNotice } from "./InformationNotice";
 
-afterEach(() => { cleanup(); configureLanguage("en"); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); configureLanguage("en"); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 it("keeps the original observation date and describes the current-use condition without refreshing", () => {
   configureLanguage("pt");
   const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
@@ -44,4 +44,17 @@ it("does not present an expired static assessment as ready", () => {
     requirements: [{ target: "claim", fields: ["body"], temporal: "current", verified_at: "2026-10-30",
       valid_until: "2026-10-31T12:00:00Z", blockers: [], ready: true }] }} />);
   expect(screen.getByText("Information pending verification for this use.")).toBeTruthy();
+});
+
+it("shows expiry while the same reader remains open without fetching", () => {
+  vi.useFakeTimers();vi.setSystemTime("2026-10-30T12:00:00Z");
+  const fetch=vi.fn();vi.stubGlobal("fetch",fetch);
+  render(<InformationNotice frontmatter={{}} assessment={{ consumer: "action", ready: true,
+    assessed_at: "2026-10-30T12:00:00Z", permission_granted: false, relation_errors: [],
+    requirements: [{ target: "claim", fields: ["body"], temporal: "current", verified_at: "2026-10-30",
+      valid_until: "2026-10-30T12:00:01Z", blockers: [], ready: true }] }} />);
+  expect(screen.getByText("The declared information met its requirements at assessment. Execution checks again.")).toBeTruthy();
+  act(() => vi.advanceTimersByTime(1002));
+  expect(screen.getByText("Information pending verification for this use.")).toBeTruthy();
+  expect(fetch).not.toHaveBeenCalled();
 });

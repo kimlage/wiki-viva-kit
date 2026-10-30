@@ -80,6 +80,15 @@ def test_missing_provenance_never_enters_a_filesystem_read(tmp_path,monkeypatch)
     assert not assess_information_use(bound,'action',now=NOW)['ready']
 
 
+def test_malformed_evidence_or_page_id_returns_an_impediment_instead_of_crashing(tmp_path):
+    from wiki_core.information_use import bind_verification_coverage
+    for invalid in [{'unexpected':'mapping'},['nested','list']]:
+        g=graph();g['nodes']['claim']['evidence_refs']=[invalid]
+        g['nodes']['claim']['page_id']=invalid
+        bound=bind_verification_coverage(tmp_path,g)
+        assert not assess_information_use(bound,'action',now=NOW)['ready']
+
+
 def test_replacing_evidence_or_promoting_confidence_requires_verification(tmp_path):
     import subprocess
     from wiki_core.information_use import verification_covers_content

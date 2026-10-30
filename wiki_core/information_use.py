@@ -168,11 +168,13 @@ def bind_verification_coverage(root, graph: dict) -> dict:
     import json
     nodes={path:dict(values) for path,values in graph['nodes'].items()}
     by_id={}
-    for path,values in nodes.items():by_id.setdefault(values.get('page_id'),[]).append(path)
+    for path,values in nodes.items():
+        page_id=values.get('page_id')
+        if isinstance(page_id,str):by_id.setdefault(page_id,[]).append(path)
     for values in nodes.values():
         refs=values.get('evidence_refs')
         if isinstance(refs,list):
-            values['evidence_refs']=[ref if ref in graph['documents'] else
+            values['evidence_refs']=[ref if not isinstance(ref,str) or ref in graph['documents'] else
                 by_id[ref][0] if isinstance(ref,str) and len(by_id.get(ref,[]))==1 else ref for ref in refs]
     coverage={}
     dependencies,_=dependency_edges(graph)
