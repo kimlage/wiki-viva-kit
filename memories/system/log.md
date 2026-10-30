@@ -1568,3 +1568,8 @@ The [OpenClaw contract](../../docs/references/guides/openclaw-card-runtime.md#re
 now distinguishes a received comment from a committed writer contribution linked
 to the original run. Recurring observation waits for the latter; the existing
 Git/action receipt chain supplies the proof without another registry.
+
+
+## 2026-10-30 — normalized optional recovery policy
+
+Native configuration normalization creates own optional exec keys with undefined values. The [mission guard](../../scripts/openclaw/mission-guard.mjs) now treats only undefined fields as absent policy, preserving refusal of every defined override. Synthetic tests cover normalization and null/false/empty/defined extensions. This corrects a pre-dispatch continuation refusal; no Gateway recovery or downstream activation is inferred from these tests.

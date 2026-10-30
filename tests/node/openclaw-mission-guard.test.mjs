@@ -1,3 +1,4 @@
+import {pathToFileURL} from 'node:url';
 import {test} from 'node:test';
 import {guardTestOwner} from './native-capture-fixture.mjs';
 import assert from 'node:assert/strict';
@@ -178,6 +179,39 @@ test('one native continuation retains original claim, selects explicitly and bin
  assert.equal(JSON.parse(fs.readFileSync(path.join(f.runDir,'guard-recovery-terminal.json'))).native_run_id,params.runId);
  assert.throws(()=>authorizeTurn(params,f.turn,f.owner,f.client,f.route,f.assertRouteCurrent),/EEXIST/);
  assert.throws(()=>f.recoveryGuard({...f.recoveryAgent,idempotencyKey:crypto.randomUUID()},f.m.run_id,f.cfg,()=>{}),/EEXIST/);
+ }finally{clean(f);}
+});
+test('native optional undefined exec defaults remain absent recovery policy',async()=>{
+ const f=await recoveryFixture();try{
+ f.cfg.agents.entries.worker.tools={exec:{mode:'ask',safeBinProfiles:undefined,safeBinTrustedDirs:undefined}};
+ f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{})();
+ assert.equal(f.recoveryAgent.model,'openai/example-model');
+ assert.equal(f.recoveryAgent.thinking,'high');
+ }finally{clean(f);}
+});
+test('pinned native config normalization admits the same bounded recovery',{skip:!process.env.WIKI_TEST_OPENCLAW_CORE_ROOT},async()=>{
+ const f=await recoveryFixture();const names=['OPENCLAW_CONFIG_PATH','OPENCLAW_STATE_DIR','OPENCLAW_HOME','OPENCLAW_PROFILE','OPENCLAW_CONFIG_READONLY'];
+ const previous=Object.fromEntries(names.map(k=>[k,process.env[k]]));try{
+ const cfgFile=path.join(f.dir,'synthetic-openclaw.json');
+ f.cfg.agents.ownership='explicit';f.cfg.agents.entries.worker.tools={exec:{mode:'ask'}};
+ fs.writeFileSync(cfgFile,JSON.stringify(f.cfg));
+ Object.assign(process.env,{OPENCLAW_CONFIG_PATH:cfgFile,OPENCLAW_STATE_DIR:f.dir,OPENCLAW_HOME:f.dir,OPENCLAW_PROFILE:'synthetic-recovery',OPENCLAW_CONFIG_READONLY:'1'});
+ const native=await import(pathToFileURL(path.join(process.env.WIKI_TEST_OPENCLAW_CORE_ROOT,'dist/io.runtime-B134MOMz.mjs')).href);
+ const normalized=native.i();
+ assert.ok(Object.hasOwn(normalized.agents.entries.worker.tools.exec,'safeBinProfiles'));
+ assert.equal(normalized.agents.entries.worker.tools.exec.safeBinProfiles,undefined);
+ f.recoveryGuard(f.recoveryAgent,f.m.run_id,normalized,()=>{})();
+ assert.equal(f.recoveryAgent.model,'openai/example-model');assert.equal(f.recoveryAgent.thinking,'high');
+ }finally{
+ for(const [k,v] of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
+ clean(f);
+ }
+});
+for(const value of [null,false,{},[],{cat:{}}])test('defined bootstrap policy additions still refuse recovery',async()=>{
+ const f=await recoveryFixture();try{
+ f.cfg.agents.entries.worker.tools={exec:{mode:'ask',safeBinProfiles:value}};
+ assert.throws(()=>f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{}),/recovery_tools_not_qualified/);
+ assert.equal(fs.existsSync(path.join(f.runDir,'guard-recovery.json')),false);
  }finally{clean(f);}
 });
 for(const mutate of [f=>{f.recoveryAgent.expectedExistingSessionId='changed';},f=>{f.recoveryAgent.internalExecutionIdentityRecoveryAttempt=2;},f=>{f.cfg.tools.allow.push('write');},f=>{f.cfg.agents.entries.worker.tools={allow:['exec']};},f=>{fs.appendFileSync(path.join(f.m.recovery.repo_root,'action.md'),'changed');},f=>{fs.writeFileSync(path.join(f.runDir,'guard-terminal.json'),JSON.stringify({status:'completed'}));}])test('native recovery refuses changed authority or consumed original before forwarding',async()=>{
