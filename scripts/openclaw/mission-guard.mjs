@@ -91,10 +91,13 @@ export function authorizeNativeRecovery(agent, sourceRunId, cfg, assertAdmission
   const safe=new Set(['read','ls','session_status']);
   const agentCfg=cfg?.agents?.entries?.[agent.agentId];
   const bootstrapOnly=agentCfg?.tools;
+  // Native normalization owns optional keys with undefined values. They are
+  // absent policy, unlike null/false/empty defined overrides.
+  const definedKeys=value=>Object.keys(value??{}).filter(key=>value[key]!==undefined);
   const sandbox=agentCfg?.sandbox;
   require(agentCfg && Array.isArray(cfg.tools?.allow) && cfg.tools.allow.length>0
     && cfg.tools.allow.every(t=>safe.has(t)) && !cfg.tools.alsoAllow && !cfg.tools.byProvider
-    && (!bootstrapOnly || Object.keys(bootstrapOnly).length===1 && Object.keys(bootstrapOnly.exec??{}).length===1 && bootstrapOnly.exec.mode==='ask')
+    && (!bootstrapOnly || definedKeys(bootstrapOnly).length===1 && definedKeys(bootstrapOnly.exec).length===1 && bootstrapOnly.exec.mode==='ask')
     && cfg.tools.fs?.workspaceOnly===true && sandbox?.mode==='all' && sandbox.workspaceAccess==='ro'
     && sandbox.backend==='docker' && sandbox.docker?.readOnlyRoot===true && sandbox.docker.network==='none',
     'recovery_tools_not_qualified');
