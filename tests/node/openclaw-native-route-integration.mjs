@@ -13,6 +13,18 @@ const {assertOwner}=await import('../../scripts/openclaw/mission-runtime.mjs');
 let route,turnInstance,inferenceInstance;
 try {
  await loader.install();
+ const {n:resolveOptions}=await import(pathToFileURL(path.join(plugin,'dist/.setup/config-runtime-BUH-IDVE.mjs')).href);
+ const {r:resolveManaged}=await import(pathToFileURL(path.join(plugin,'dist/.setup/managed-binary-Boj8_lWV.mjs')).href);
+ const external=resolveOptions({pluginConfig:{appServer:{command:'/synthetic/external-codex',homeScope:'agent'}},env:{}}).start;
+ assert.equal(external.commandSource,'config');assert.throws(()=>guard.authorizeClientStart(external),/client_selection_changed/);
+ const requested=resolveOptions({pluginConfig:{appServer:{homeScope:'agent'},computerUse:{enabled:false}},env:{}}).start;
+ assert.equal(requested.commandSource,'managed');
+ const managed=await resolveManaged(requested,{pluginRoot:plugin});guard.authorizeClientStart(managed);
+ const {a:ephemeral}=await import(pathToFileURL(path.join(plugin,'dist/.setup/auth-start-options-BPIPeEX8.mjs')).href);
+ const prepared=ephemeral({startOptions:managed,authProfileId:'synthetic-profile'});
+ assert.notDeepEqual(prepared.args,managed.args);guard.authorizeClientStart(prepared);
+ for(const command of managed.managedFallbackCommandPaths??[])assert.throws(()=>guard.authorizeClientStart({...managed,command}),/client_selection_changed/);
+
  const {n:PluginInstance,r:bind}=await import(pathToFileURL(path.join(core,'dist/plugin-setup-module-inWd3Rne.mjs')).href);
  const {t:createRegistry}=await import(pathToFileURL(path.join(core,'dist/registry-empty-mS6HujHb.mjs')).href);
  const {M:captureScope}=await import(pathToFileURL(path.join(core,'dist/plugin-generation-source-lookup-BCzbJZNI.mjs')).href);
@@ -58,7 +70,7 @@ try {
   const check=guard.authorizeInference({binding,path:'/responses',provider:'openai',body:{model:m.model,reasoning:{effort:'high'}},metadata:{threadId:m.native_thread_id,turnId:'synthetic-turn'}});check();
   closed=true;assert.throws(check);closed=false;
   await inferenceInstance.dispose(undefined,{waitForSettlement:true});assert.throws(check,/capture_owner_retired/);
-  console.log(JSON.stringify({distinct_native_captures:true,exact_transformed_async_route_body:true,actual_native_proxy_and_factory:true,wrong_client_refused:true,native_route_change_refused:true,client_close_refused:true,inference_owner_revocation_refused:true,synthetic_admission_only:true}));
+  console.log(JSON.stringify({native_managed_selection_verified:true,external_and_desktop_fallback_refused:true,distinct_native_captures:true,exact_transformed_async_route_body:true,actual_native_proxy_and_factory:true,wrong_client_refused:true,native_route_change_refused:true,client_close_refused:true,inference_owner_revocation_refused:true,synthetic_admission_only:true}));
  });
 } finally {
  if(route)await route.close();
