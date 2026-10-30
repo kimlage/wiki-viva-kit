@@ -2,6 +2,7 @@
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useLayoutEffect } from "react";
 import { App } from "./App";
 import { loadAgentCapabilities, loadSnapshotBundle } from "./data/snapshot";
 import { browserApplication } from "./infrastructure/browserApplication";
@@ -16,6 +17,26 @@ const mockSnapshotState = vi.hoisted(() => ({
   runtimeMode: "local_operator",
   source: "/api/snapshot"
 }));
+const initialSearchEdit = vi.hoisted(() => ({ value: "", observed: "" }));
+
+vi.mock("./components/world/CommandBar", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./components/world/CommandBar")>();
+  return {
+    CommandBar: (props: import("react").ComponentProps<typeof actual.CommandBar>) => {
+      useLayoutEffect(() => {
+        if (initialSearchEdit.value) {
+          const value = initialSearchEdit.value;
+          initialSearchEdit.value = "";
+          // Queue the public edit callback before the parent's passive effect.
+          // Dispatching a DOM event during React commit would itself be invalid.
+          props.onSearchDraft(value);
+          initialSearchEdit.observed = value;
+        }
+      }, []);
+      return <actual.CommandBar {...props} />;
+    }
+  };
+});
 
 const bundle: SnapshotBundle = {
   manifest: {
@@ -384,6 +405,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  initialSearchEdit.value = "";
+  initialSearchEdit.observed = "";
   mockSnapshotState.runtimeMode = "local_operator";
   mockSnapshotState.source = "/api/snapshot";
   cleanup();
@@ -499,6 +522,7 @@ describe("visual route contract", () => {
     expect(
       await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
     ).toBeTruthy();
+    expect((screen.getByRole("combobox", { name: "Search content" }) as HTMLInputElement).value).toBe("Source");
     expect(await screen.findByText(/1 result/)).toBeTruthy();
     const hit = screen.getByRole("option", { name: /Source Fixture/ });
     fireEvent.click(hit);
@@ -508,6 +532,22 @@ describe("visual route contract", () => {
       expect(window.location.search).toContain("page=source-fixture");
     });
     expect(window.location.search).toContain("reader=1");
+  });
+
+  it("preserves an edit queued before the initial route effect", async () => {
+    // Exercise the edit callback before the parent's passive route effect,
+    // without relying on scheduler speed or delaying the user.
+    // Warm the lazy scene explicitly so this ordering does not depend on
+    // another test having loaded it first.
+    await renderRoute("/w/radar");
+    await screen.findByRole("combobox", { name: "Search content" });
+    cleanup();
+    initialSearchEdit.value = "Sour";
+    await renderRoute("/w/radar");
+    const search = await screen.findByRole("combobox", { name: "Search content" });
+    expect(search.isConnected).toBe(true);
+    expect(initialSearchEdit.observed).toBe("Sour");
+    expect((search as HTMLInputElement).value).toBe("Sour");
   });
 
   it("preserves a newer search edit when its debounced URL write returns", async () => {

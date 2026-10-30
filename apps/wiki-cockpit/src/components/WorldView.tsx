@@ -588,6 +588,7 @@ export function WorldView({
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
   // scene events) must never replay a stale route and revert navigation.
   const [searchDraft, setSearchDraft] = useState(route.query.q);
+  const previousSearchRouteQueryRef = useRef(route.query.q);
   const searchRouteEchoRef = useRef<string | null>(null);
   const [activeHit, setActiveHit] = useState(0);
   // Keyboard events can arrive back-to-back before React commits the state
@@ -1142,6 +1143,10 @@ export function WorldView({
   // History/deep links own the draft, but an echo of our own debounce must
   // not overwrite a newer keystroke that arrived before the route committed.
   useEffect(() => {
+    // useState already hydrated the initial query. Replaying it from a passive
+    // mount effect can overwrite an edit queued after the input was committed.
+    if (previousSearchRouteQueryRef.current === route.query.q) return;
+    previousSearchRouteQueryRef.current = route.query.q;
     const ownQuery = searchRouteEchoRef.current;
     searchRouteEchoRef.current = null;
     if (route.query.q !== ownQuery) setSearchDraft(route.query.q);
