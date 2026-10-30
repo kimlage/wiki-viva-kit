@@ -507,6 +507,20 @@ def build_operational_pass_page(
         "sensitive_data_policy: private_sensitive_allowed",
         f'purpose: "{s["purpose"]}"',
         f"moc_parent: {config.paths['memory_root']}/index.md",
+        *yaml.safe_dump({'projection_inputs':[
+            *([{'paths':['wiki.config.yaml'],'fields':['body']}] if (root/'wiki.config.yaml').is_file() else []),
+            {'page_types':[],'contexts':list(contexts),'fields':['page_id','context','title','updated_at'], 'title_fallback':True,'exclude_paths':[paths.rel(paths.operational_pass_page)]},
+            {'page_types':['claim','action'],'contexts':list(contexts),
+             'fields':['body','title','context','status','action_state','actions','responsibilities']},
+            {'page_types':['decision'],'contexts':list(contexts),'fields':['context','status','actions']},
+            {'page_types':['decision'],'contexts':list(contexts),'fields':['body'],
+             'status_excludes':sorted(NON_PENDING_DECISION_STATUS_SLUGS),
+             'status_exclude_prefixes':list(CLOSED_STATUS_PREFIXES)},
+            {'page_types':['source','artifact'],'contexts':list(contexts),
+             'fields':['source_type','ingestion_state','structured_ingestion_state','context']},
+            {'page_types':['role','responsibility','assignment'],'contexts':list(contexts),
+             'fields':['context','roles','responsibilities','actions']},
+        ]},sort_keys=False).rstrip().splitlines(),
         "---",
         "",
         f"# {s['title']}",
@@ -1063,9 +1077,8 @@ def _status_is_closed(status: str) -> bool:
 
 
 def _status_slug(status: str) -> str:
-    normalized = unicodedata.normalize("NFKD", status)
-    ascii_status = normalized.encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[^a-z0-9]+", "_", ascii_status.lower()).strip("_")
+    from .action_state import normalize_status_label
+    return normalize_status_label(status)
 
 
 def _action_needs_attention(page: PageRecord) -> bool:

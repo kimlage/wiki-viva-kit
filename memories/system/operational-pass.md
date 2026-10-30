@@ -10,6 +10,101 @@ gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 purpose: "cross-context compilation of sources, actions, uncertainty and next steps"
 moc_parent: memories/index.md
+projection_inputs:
+- paths:
+  - wiki.config.yaml
+  fields:
+  - body
+- page_types: []
+  contexts: []
+  fields:
+  - page_id
+  - context
+  - title
+  - updated_at
+  title_fallback: true
+  exclude_paths:
+  - memories/system/operational-pass.md
+- page_types:
+  - claim
+  - action
+  contexts: []
+  fields:
+  - body
+  - title
+  - context
+  - status
+  - action_state
+  - actions
+  - responsibilities
+- page_types:
+  - decision
+  contexts: []
+  fields:
+  - context
+  - status
+  - actions
+- page_types:
+  - decision
+  contexts: []
+  fields:
+  - body
+  status_excludes:
+  - ''
+  - active
+  - ativa
+  - ativo
+  - closed
+  - complete
+  - completed
+  - concluded
+  - concluida
+  - concluido
+  - decided
+  - decidida
+  - decidido
+  - done
+  - resolved
+  - resolvida
+  - resolvido
+  status_exclude_prefixes:
+  - closed_at_
+  - closed_em_
+  - completed_at_
+  - completed_em_
+  - concluida_at_
+  - concluida_em_
+  - concluido_at_
+  - concluido_em_
+  - concluded_at_
+  - concluded_em_
+  - done_at_
+  - done_em_
+  - resolved_at_
+  - resolved_em_
+  - resolvida_at_
+  - resolvida_em_
+  - resolvido_at_
+  - resolvido_em_
+- page_types:
+  - source
+  - artifact
+  contexts: []
+  fields:
+  - source_type
+  - ingestion_state
+  - structured_ingestion_state
+  - context
+- page_types:
+  - role
+  - responsibility
+  - assignment
+  contexts: []
+  fields:
+  - context
+  - roles
+  - responsibilities
+  - actions
 ---
 
 # Operational pass - sources, actions and contexts

@@ -7,7 +7,7 @@ and recheck immediately before the actual effect.
 from __future__ import annotations
 
 import datetime as dt
-from wiki_core.information_relations import dependency_edges
+from wiki_core.information_relations import dependency_edges, semantic_equal
 from wiki_core.temporal import parse_temporal_value, TemporalEventError
 
 
@@ -152,7 +152,7 @@ def verification_covers_content(root, path: str, fields: list[str], evidence: li
                     for field in sorted(selectors)}
         # Compare the complete selected meaning, including absent/deleted
         # fields and deleted prose, at the actual verification declaration.
-        if projection(git('show',verified_commit+':'+path)) != projection(raw):
+        if not semantic_equal(projection(git('show',verified_commit+':'+path)),projection(raw)):
             return False
         for ref in evidence:
             current=(root/ref).read_text()

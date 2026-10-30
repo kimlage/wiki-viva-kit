@@ -55,6 +55,25 @@ visible. Missing evidence and relation integrity still fail. Per-proposal
 freshness waivers are not accepted by this mode. Source dates and schedules are
 not renewed to satisfy integration.
 
+## Producer input declarations
+
+Generated pages carry `projection_inputs` in their existing frontmatter. A
+selector names fields and either explicit repository `paths` or `page_types`,
+optionally restricted by context, namespace, depth, filename and the producer's
+selection predicates. Candidates remain inputs before they become displayed
+rows. A title using an H1 fallback consumes body; a completed item whose body is
+not read does not. The selector examines only loaded wiki metadata and grants
+no read, fetch or execution authority. Both base and current selections apply,
+so deletion, type changes and movement out of a selected scope remain visible.
+
+These declarations complement occurrence-specific projection links. They are
+not source verification or a per-proposal exception. Configuration and queue
+files actually read by a producer are explicit inputs. Strict typed comparison
+preserves changes such as `false` to `0` and removal of a qualifying field.
+Regenerate the four built-in projections during C3, preserving source dates;
+review authored index, log and triage occurrences individually rather than
+reclassifying an entire page type as navigation.
+
 ## Explicit current or historical consumption
 
 A consumer may declare a scoped requirement using existing page fields:

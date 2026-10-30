@@ -11,7 +11,7 @@ import datetime as dt
 import json
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.freshness import freshness_state, is_stale_exempt
-from wiki_core.information_relations import dependency_edges
+from wiki_core.information_relations import dependency_edges, semantic_equal
 
 
 def changed_fields(previous: str | None, current: str | None) -> set[str]:
@@ -19,7 +19,7 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
         return {'*'}
     before, before_body = parse_frontmatter(previous)
     after, after_body = parse_frontmatter(current)
-    fields = {field for field in set(before) | set(after) if before.get(field) != after.get(field)}
+    fields = {field for field in set(before) | set(after) if (field in before)!=(field in after) or not semantic_equal(before.get(field),after.get(field))}
     if before_body != after_body:
         fields.add('body')
     return fields

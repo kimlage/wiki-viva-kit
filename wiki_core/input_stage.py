@@ -7,6 +7,8 @@ stable catalog the agent can use before ingestion.
 
 from __future__ import annotations
 
+import yaml
+
 import datetime as dt
 import json
 import posixpath
@@ -404,6 +406,7 @@ def compile_input_stage(
     ]
     return {
         "schema_version": INPUT_STAGE_SCHEMA_VERSION,
+        "config_ref": "wiki.config.yaml" if (root/"wiki.config.yaml").is_file() else "",
         "generated_at": date_text,
         "root_entity": root_entity,
         "quadrant_map": DEFAULT_QUADRANT_MAP,
@@ -684,6 +687,16 @@ def render_input_stage_markdown(
         "gate: github_pr",
         "sensitive_data_policy: private_sensitive_allowed",
         f"moc_parent: {config.paths['memory_root']}/index.md",
+        *(yaml.safe_dump({'projection_inputs':[
+            *([{'paths':['wiki.config.yaml'],'fields':['body']}] if catalog.get('config_ref') else []),
+            {'page_types':sorted(SOURCE_PAGE_TYPES),'path_prefix':WikiPaths(Path('.'),config).sources_dir.as_posix(),
+             'fields':_source_fields(),'title_fallback':'blank'},
+            {'page_types':['input_channel'],'fields':_channel_fields(),'title_fallback':'blank'},
+            {'page_types':['root_entity'],'fields':['page_id','title','root_entity_type',
+                'perspective_bundle_required','perspective_bundle_optional'],'title_fallback':'blank'},
+            {'page_types':['source_config'],'fields':['page_id','source_refs','input_channel_ref','process_refs',
+                'target_pages','quadrants','perspectives_required','perspectives_optional','perspectives_skip_with_reason']},
+        ]},sort_keys=False).rstrip().splitlines() if _annotate_projections else []),
         "---",
         "",
         f"# {labels['title']}",

@@ -10,6 +10,157 @@ gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 purpose: daily operational resume cockpit of the wiki
 moc_parent: memories/index.md
+projection_inputs:
+- paths:
+  - wiki.config.yaml
+  fields:
+  - body
+- page_types:
+  - null
+  - decision
+  path_prefix: memories/decisions
+  path_depth: 1
+  exclude_names:
+  - completed.md
+  - concluidas.md
+  - index.md
+  fields:
+  - page_id
+  - page_type
+  - status
+- page_types:
+  - null
+  - decision
+  path_prefix: memories/decisions
+  path_depth: 1
+  exclude_names:
+  - completed.md
+  - concluidas.md
+  - index.md
+  fields:
+  - body
+  - context
+  status_excludes:
+  - ''
+  - active
+  - ativa
+  - ativo
+  - closed
+  - complete
+  - completed
+  - concluded
+  - concluida
+  - concluido
+  - decided
+  - decidida
+  - decidido
+  - done
+  - resolved
+  - resolvida
+  - resolvido
+  status_exclude_prefixes:
+  - closed_at_
+  - closed_em_
+  - completed_at_
+  - completed_em_
+  - concluida_at_
+  - concluida_em_
+  - concluido_at_
+  - concluido_em_
+  - concluded_at_
+  - concluded_em_
+  - decided_at_
+  - decided_em_
+  - decidida_at_
+  - decidida_em_
+  - decidido_at_
+  - decidido_em_
+  - done_at_
+  - done_em_
+  - resolved_at_
+  - resolved_em_
+  - resolvida_at_
+  - resolvida_em_
+  - resolvido_at_
+  - resolvido_em_
+- page_types:
+  - action
+  path_prefix: memories/actions
+  path_depth: 1
+  exclude_names:
+  - completed.md
+  - concluidas.md
+  - index.md
+  - pendentes.md
+  - pending.md
+  fields:
+  - page_type
+  - action_state
+- page_types:
+  - action
+  path_prefix: memories/actions
+  path_depth: 1
+  exclude_names:
+  - completed.md
+  - concluidas.md
+  - index.md
+  - pendentes.md
+  - pending.md
+  fields:
+  - body
+  - context
+  - page_id
+  action_state_excludes:
+  - done
+  - cancelled
+- page_types:
+  - action
+  path_prefix: memories/actions
+  path_depth: 1
+  exclude_names:
+  - completed.md
+  - concluidas.md
+  - index.md
+  - pendentes.md
+  - pending.md
+  fields:
+  - status
+  missing_fields:
+  - action_state
+- page_types:
+  - source
+  path_prefix: memories/sources
+  fields:
+  - page_id
+  - ingestion_state
+- page_types: []
+  path_prefix: memories/system/ingestion/events
+  exclude_names:
+  - index.md
+  - README.md
+  - readme.md
+  fields:
+  - page_type
+  - event_id
+  - page_id
+  - source_id
+  - source_refs
+  - source_ref
+  - consolidated_into
+  - claims
+  - decisions
+  - actions
+  - body
+- page_types:
+  - context_hub
+  path_prefix: memories
+  path_depth: 2
+  file_names:
+  - index.md
+  fields:
+  - context
+  - updated_at
+  - stale_after_days
 ---
 
 # Operations - wiki-viva-kit

@@ -10,6 +10,16 @@ sources_policy: memoria_consolidada
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 moc_parent: memories/index.md
+projection_inputs:
+- paths:
+  - wiki.config.yaml
+  fields:
+  - body
+- page_types:
+  - source
+  path_prefix: memories/sources
+  fields:
+  - page_type
 parent_projection:
   quadrant: q2
   sub_lens: evidencias
@@ -31,6 +41,6 @@ Each canonical source is a page (the hierarchical node that holds that source's 
 
 | Source | Type | State | Last update | Next refresh | Status | Policy | Config |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md) | `repository` | ingested | 2026-08-26 | — | not time-based | on_demand | [config](../sources/config/wiki-viva-methodology-v5.md) |
+| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md)<!-- wiki-link-role.v2 projection consumes:config_ref,ingestion_state,last_ingested_at,next_refresh_at,page_id,page_type,refresh_cadence_days,refresh_policy,source_type,stale_after_days,title,updated_at produces:body sha256:b6f6b20c7b26aa778cc2d50e7b076f85f6199eb5ae410f4570168d13cfb2a114 --> | `repository` | ingested | 2026-08-26 | — | not time-based | on_demand | [config](../sources/config/wiki-viva-methodology-v5.md)<!-- wiki-link-role.v2 projection consumes:body produces:body sha256:f7f59ed0e555f541cc643d881320e37ba65404bee4a237befe25eaebd352ade5 --> |
 
-Back to the index at [memories/index.md](../index.md).
+Back to the index at [memories/index.md](../index.md)<!-- wiki-link-role.v1 navigation sha256:5c6096601ed8df9237c28ba72e14ac7d7dcd7eaab60e30462f0a7e724f4e9484 -->.

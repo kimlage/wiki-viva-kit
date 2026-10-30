@@ -51,6 +51,12 @@ def test_removed_consumer_keeps_change_history_without_queueing_a_nonexistent_re
     assert 'review' in result['seeds']
     assert all(row['path']!='review' for row in result['pending_reviews'])
 
+
+def test_field_changes_preserve_type_and_absence_instead_of_coercing_them():
+    from wiki_core.information_impact import changed_fields
+    assert changed_fields('---\nobservation: {flag: false}\n---\n','---\nobservation: {flag: 0}\n---\n')=={'observation'}
+    assert changed_fields('---\npage_type: note\nobservation: null\n---\n','---\npage_type: note\n---\n')=={'observation'}
+
 def test_parallel_consumptions_are_preserved_and_cycles_terminate():
     base=graph();current=graph()
     # Two distinct meanings between the same endpoints must coexist. A

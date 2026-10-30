@@ -168,6 +168,7 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
             for b in paths_by_id[target]:
                 edges.append(dict(source=a, target=b, type=kind, direction=direction,
                                   basis=basis, path=path, field=field))
+    node_values={p.path:p.values for p in pages}
     for page in pages:
         file = root / page.path
         if file.is_symlink():
@@ -201,6 +202,7 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
         try:
             edges.extend(operational_consumption_edges(root, page.path, page.values, body,
                 lambda ref: [ref] if ref in by_path else paths_by_id.get(ref, [])))
+            edges.extend(projection_input_edges(page.path,page.values,node_values,default_context=config.default_context))
         except ValueError as exc:
             errors.append(f"{page.path}: {exc}")
         navigation_targets = {
@@ -215,6 +217,96 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
     return {"documents": {p.path: (root / p.path).read_bytes().decode("utf-8") for p in pages},
             "nodes": {p.path: p.values for p in pages}, "edges": edges,
             "errors": sorted(set(errors))}
+
+
+def semantic_equal(before: Any, after: Any) -> bool:
+    """Do not let bool/number coercion conceal a changed declared fact."""
+    if type(before) is not type(after):return False
+    if isinstance(before,dict):
+        return len(before)==len(after) and all(any(semantic_equal(k,other) and semantic_equal(v,value)
+            for other,value in after.items()) for k,v in before.items())
+    if isinstance(before,(list,tuple)):
+        return len(before)==len(after) and all(semantic_equal(a,b) for a,b in zip(before,after))
+    if isinstance(before,(set,frozenset)):
+        return len(before)==len(after) and all(any(semantic_equal(a,b) for b in after) for a in before)
+    return before==after
+
+
+def projection_input_edges(consumer: str, values: dict, nodes: dict, *, default_context: str = '') -> list[dict]:
+    """Compact producer inputs include candidates excluded by a display filter.
+
+    Selectors only inspect the already loaded wiki. They grant no read, fetch,
+    execution or verification capability and store no per-page hash registry.
+    """
+    declarations=values.get('projection_inputs',[])
+    if not isinstance(declarations,list) or len(declarations)>32:
+        raise ValueError('invalid projection inputs')
+    edges=[]
+    for declaration in declarations:
+        known={'page_types','paths','fields','contexts','path_prefix','title_fallback','path_depth','file_names',
+            'exclude_names','exclude_paths','status_excludes','status_exclude_prefixes','action_state_excludes','missing_fields'}
+        if (not isinstance(declaration,dict) or 'fields' not in declaration or
+            ('page_types' in declaration)==('paths' in declaration) or set(declaration)-known):
+            raise ValueError('invalid projection input selector')
+        for key in ('page_types','fields','contexts'):
+            items=declaration.get(key,[])
+            if (not isinstance(items,list) or len(items)>128
+                or any(not (item is None and key=='page_types') and (not isinstance(item,str)
+                    or not re.fullmatch(r'[a-z][a-z0-9_-]*',item)) for item in items)
+                or len(set(items))!=len(items)):
+                raise ValueError('invalid projection input fields')
+        if not declaration['fields']:raise ValueError('empty projection input fields')
+        if 'paths' in declaration:
+            refs=declaration['paths']
+            if set(declaration)-{'paths','fields'} or not isinstance(refs,list) or not refs or len(refs)>128:
+                raise ValueError('invalid explicit projection inputs')
+            for ref in refs:
+                if (not isinstance(ref,str) or not ref or urlsplit(ref).scheme or ref.startswith('/') or
+                    '\\' in ref or '..' in ref.split('/') or any(ord(c)<32 for c in ref) or posixpath.normpath(ref)!=ref):
+                    raise ValueError('invalid projection input path')
+                if ref!=consumer:
+                    edges.append(dict(source=consumer,target=ref,type='projection',direction='directed',
+                        basis='frontmatter',path=consumer,field='projection_inputs',
+                        consumed_fields=sorted(declaration['fields']),produced_fields=['body','collection']))
+            continue
+        fallback=declaration.get('title_fallback',False)
+        if type(fallback) is not bool and fallback!='blank':raise ValueError('invalid projection title fallback')
+        depth=declaration.get('path_depth')
+        if depth is not None and (type(depth) is not int or not 1<=depth<=32):raise ValueError('invalid projection path depth')
+        for key in ('file_names','exclude_names','exclude_paths','status_excludes','status_exclude_prefixes','action_state_excludes','missing_fields'):
+            items=declaration.get(key,[])
+            if not isinstance(items,list) or len(items)>128 or any(not isinstance(item,str) or any(ord(c)<32 for c in item) for item in items):
+                raise ValueError('invalid projection selection predicate')
+        prefix=declaration.get('path_prefix','')
+        if not isinstance(prefix,str) or (prefix and (prefix in {'.','..'} or prefix.startswith('/') or '..' in prefix.split('/') or '\\' in prefix
+            or any(ord(c)<32 for c in prefix) or posixpath.normpath(prefix)!=prefix.rstrip('/'))):
+            raise ValueError('invalid projection path prefix')
+        if depth is not None and not prefix:raise ValueError('projection path depth requires a prefix')
+        for name in declaration.get('file_names',[])+declaration.get('exclude_names',[]):
+            if not name or '/' in name or '\\' in name or name in {'.','..'}:raise ValueError('invalid projection file name')
+        if any(not p for p in declaration.get('status_exclude_prefixes',[])):
+            raise ValueError('empty projection status prefix')
+        for path,node in sorted(nodes.items()):
+            if (path==consumer or (declaration['page_types'] and node.get('page_type') not in declaration['page_types'])
+                or (declaration.get('contexts') and (node.get('context') or default_context) not in declaration['contexts'])
+                or (prefix and not path.startswith(prefix.rstrip('/')+'/'))
+                or (depth is not None and len(path[len(prefix.rstrip('/'))+1:].split('/'))!=depth)
+                or (declaration.get('file_names') and posixpath.basename(path) not in declaration['file_names'])
+                or path in declaration.get('exclude_paths',[]) or posixpath.basename(path) in declaration.get('exclude_names',[])
+                or any(field in node for field in declaration.get('missing_fields',[]))
+                or str(node.get('action_state') or '').strip() in declaration.get('action_state_excludes',[])):continue
+            if node.get('status'):
+                from wiki_core.action_state import normalize_status_label
+                status=normalize_status_label(node['status'])
+                if status in declaration.get('status_excludes',[]) or any(status.startswith(p) for p in declaration.get('status_exclude_prefixes',[])):continue
+            fields=set(declaration['fields']) | {'page_type'}
+            if declaration.get('contexts'):fields.add('context')
+            title=str(node.get('title') or '').strip() if fallback=='blank' else node.get('title')
+            if fallback and 'title' in fields and not title:fields.add('body')
+            edges.append(dict(source=consumer,target=path,type='projection',direction='directed',
+                basis='frontmatter',path=consumer,field='projection_inputs',
+                consumed_fields=sorted(fields),produced_fields=['body','collection']))
+    return edges
 
 
 

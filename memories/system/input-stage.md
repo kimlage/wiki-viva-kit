@@ -10,6 +10,61 @@ sources_policy: generated_from_root_entity_sources_and_configs
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 moc_parent: memories/index.md
+projection_inputs:
+- paths:
+  - wiki.config.yaml
+  fields:
+  - body
+- page_types:
+  - artifact
+  - source
+  - source_catalog
+  path_prefix: memories/sources
+  fields:
+  - page_id
+  - page_type
+  - title
+  - context
+  - source_type
+  - ingestion_state
+  - config_ref
+  title_fallback: blank
+- page_types:
+  - input_channel
+  fields:
+  - page_id
+  - page_type
+  - title
+  - channel_type
+  - input_status
+  - quadrants
+  - source_refs
+  - source_config_refs
+  - target_pages
+  - perspectives_required
+  - perspectives_optional
+  title_fallback: blank
+- page_types:
+  - root_entity
+  fields:
+  - page_id
+  - title
+  - root_entity_type
+  - perspective_bundle_required
+  - perspective_bundle_optional
+  title_fallback: blank
+- page_types:
+  - source_config
+  fields:
+  - page_id
+  - source_refs
+  - input_channel_ref
+  - process_refs
+  - target_pages
+  - quadrants
+  - perspectives_required
+  - perspectives_optional
+  - perspectives_skip_with_reason
 ---
 
 # Input stage

@@ -137,6 +137,11 @@ def _slug(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "_", ascii_value.lower()).strip("_")
 
 
+def normalize_status_label(value: Any) -> str:
+    """Shared label normalization; this does not resolve or grant lifecycle."""
+    return _slug(value)
+
+
 def _legacy_state(raw: str) -> str:
     slug = _slug(raw)
     if slug in _LEGACY_CANCELLED:

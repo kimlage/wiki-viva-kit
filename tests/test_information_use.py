@@ -89,6 +89,20 @@ def test_malformed_evidence_or_page_id_returns_an_impediment_instead_of_crashing
         assert not assess_information_use(bound,'action',now=NOW)['ready']
 
 
+def test_nested_type_change_cannot_inherit_an_unchanged_verification(tmp_path):
+    from tests.test_freshness_impact import git,commit
+    from wiki_core.information_use import verification_covers_content
+    git(tmp_path,'init','-q');git(tmp_path,'config','user.name','Synthetic')
+    git(tmp_path,'config','user.email','fixture@example.invalid')
+    (tmp_path/'evidence.md').write_text('Captured observation.\n')
+    claim=tmp_path/'claim.md';claim.write_text('---\nverified_at: 2026-10-30\n'
+        'confidence: confirmed\nevidence_refs: [evidence.md]\nobservation: {flag: false}\n---\nA fact.\n')
+    commit(tmp_path)
+    assert verification_covers_content(tmp_path,'claim.md',['observation'],['evidence.md'])
+    claim.write_text(claim.read_text().replace('flag: false','flag: 0'));commit(tmp_path)
+    assert not verification_covers_content(tmp_path,'claim.md',['observation'],['evidence.md'])
+
+
 def test_replacing_evidence_or_promoting_confidence_requires_verification(tmp_path):
     import subprocess
     from wiki_core.information_use import verification_covers_content

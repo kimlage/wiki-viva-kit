@@ -215,7 +215,10 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     tracked.update(run_git(["ls-files", "-z"], root=root).split("\0"))
     memory_paths = set(current["nodes"]) | set(base["nodes"])
     evidence = {e["target"] for g in (base, current) for e in g["edges"]
-                if e["type"] in REFERENCE | {"historical_support", "operational_prerequisite", "projection_state"} and e["target"] in tracked} - memory_paths
+                if e["type"] in REFERENCE | {"historical_support", "operational_prerequisite", "projection_state", "projection"} and e["target"] in tracked} - memory_paths
+    for edge in current['edges']:
+        if (edge['type']=='projection' and edge['target'] not in memory_paths and edge['target'] not in tracked):
+            current['errors'].append(f"{edge['path']}: projection input must be a tracked repository artifact: {edge['target']}")
     before.update({p: h for p, h in input_hashes(root, config, evidence).items() if p in evidence})
     for graph in (base, current):
         graph["evidence_paths"] = evidence
