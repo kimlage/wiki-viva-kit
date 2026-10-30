@@ -8,7 +8,7 @@ stale_after_days: 1
 sources_policy: memorias_fontes_acoes_contextos
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-purpose: cross-context compilation of sources, actions, uncertainty and next steps
+purpose: "cross-context compilation of sources, actions, uncertainty and next steps"
 moc_parent: memories/index.md
 projection_inputs:
 - paths:
