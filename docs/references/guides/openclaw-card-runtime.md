@@ -175,9 +175,11 @@ No automatic package update, installation, privilege grant or runtime activation
 is performed by the kit. Verify the selected plugin actually loads the guarded
 modules and perform a real native readback before claiming deployment.
 
-Only the pinned existing thread and one native turn are admitted. A durable
-claim blocks replay, live-switch retries and a restarted executor; recovery is
-inspection, not resending. Readback checks native result model and guard records
+By default, only the pinned existing thread and one native turn are admitted. A
+durable claim blocks replay, live-switch retries and a restarted executor. The
+[explicit restart-continuation mode](#opt-in-native-restart-continuation-and-recurring-observation)
+is the sole bounded exception; neither mode resends the original message.
+Readback checks native result model and guard records
 before releasing the active lock. A reviewed native terminal failure may also
 release that exact lock. Guard records contain IDs, model, effort and hashes,
 never prompts, credentials or request bodies. Selection admission is not proof
@@ -196,8 +198,9 @@ Set `WIKI_OPENCLAW_GUARD_BOOTSTRAP=1`, `WIKI_OPENCLAW_CORE_ROOT` and
 `WIKI_OPENCLAW_MISSION_DIR` to the real consumer derived OpenClaw directory.
 These are local service settings, never credentials. The bootstrap validates
 package identity, version and the complete JS/MJS/JSON tree (excluding nested
-node_modules), then validates each hook again when loaded. All seven hooks must
-execute before chat admission. A renamed or partial package is refused. Dependency
+node_modules), then validates each hook again when loaded. All eleven hooks in
+the current overlay must execute before chat admission, including the native
+store/writer hooks used for reviewed retirement. A renamed or partial package is refused. Dependency
 resolution and absence of startup side effects need a local smoke for each
 qualified installation; this is not a generic compatibility claim.
 
@@ -248,7 +251,7 @@ Only a separately reviewed new mission can follow; recovery never dispatches it.
 
 ### Shared guard through the native SDK
 
-The pinned loader exposes a frozen, ten-function mission facade through
+The pinned loader exposes a frozen, twelve-function mission facade through
 `openclaw/plugin-sdk/process-runtime`. Captured plugin modules import that existing
 native SDK entry point; the SDK and core hooks retain the same host guard and
 native owner registry. Direct absolute imports from a captured plugin would be
@@ -350,8 +353,10 @@ The default remains inspect-only recovery. A consumer may opt in with
 `recovery: {mode: read_only, max_continuations: 1}` under its OpenClaw config.
 The mission records the approved Git revision, action bytes and configuration.
 The version-qualified native recovery admission links its new native run to the
-original mission, physical session and original bound turn. It sets the original
-model and effort explicitly and narrows the native recovery tools. The fresh
+original mission, physical session and original bound turn. It requires the
+existing explicit user/session selection to match the original provider and model,
+passes the original effort explicitly, and narrows the native recovery tools.
+It grants no model/provider override to the internal caller. The fresh
 native client, owner and inference route must qualify normally; disk receipts
 cannot reconstruct those capabilities.
 
@@ -360,8 +365,12 @@ network-disabled workspace qualify. The app-server bootstrap exec setting may
 remain ask; this does not admit the exec tool to the model. No child, auxiliary
 inference, new account or external writer is granted. Changed Git/action/config,
 expired original validity, completed original turn, another recovery UUID or a
-second continuation refuse admission. A crash after claiming continuation but
-before its turn starts consumes that allowance and requires reconciliation.
+second continuation refuse admission. Preparation remains in RAM until fresh
+turn admission; a preflight refusal alone does not consume a durable model turn.
+Once the durable recovery and turn claims are written, a crash before turn/start
+consumes that allowance and requires reconciliation. A sole legacy preparation
+marker is eligible only for the narrowly reviewed expired-interrupted resolution
+described below; it is not evidence of an admitted recovery turn.
 Neither the original message nor chat.send is replayed. Original and continuation
 turn/terminal/inference records remain separate; the collector reports the actual
 native recovery run while retaining the original canonical effect identity.
