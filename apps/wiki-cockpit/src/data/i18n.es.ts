@@ -352,6 +352,8 @@ export const ES: Record<string, string> = {
   "information.reason.changed": "El contenido o la evidencia cambió después de la verificación.",
   "information.reason.missing": "Falta información o evidencia para este alcance, o se necesita actualizar la vista.",
   "information.reason.unconfirmed": "Este alcance aún necesita verificación factual confirmada.",
+  "information.reviewQueued": "Información pendiente de revisión",
+  "information.usedBy": "Utilizada por",
   "information.title": "Información para este uso",
   "information.verified": "Verificación registrada: {when}",
   "information.noVerification": "No hay verificación factual registrada aquí.",

@@ -27,6 +27,20 @@ it('recovers one stale content read from a fresh snapshot without writing',async
 const readSnapshot=(id:string,pages=[action('Async task')])=>({source:'/api/snapshot',runtime:{mode:'local_operator'},bundle:{manifest:{repo:{language:'en'},snapshot_id:id},pages:{pages},git:{current_branch:'wiki/test'}}} as SnapshotLoadResult);
 const staleRead=(expected:string,current:string)=>({ok:false,error:'page changed since snapshot; refresh required',error_code:'snapshot_revision_mismatch',expected_snapshot_id:expected,snapshot_id:current,read_status:409});
 
+it('shows the actual information impediment in the board before execution without writing',async()=>{
+  const loaded=readSnapshot('revision-a');loaded.bundle.manifest.repo.language='pt';
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(loaded),loadPageContent:vi.fn().mockResolvedValue({
+    ok:true,snapshot_id:'revision-a',frontmatter:{},body:'Original observation.',information_use:{
+      consumer:'memories/task.md',ready:false,permission_granted:false,assessed_at:'2026-10-30T12:00:00Z',relation_errors:[],
+      requirements:[{target:'memories/claim.md',fields:['body'],temporal:'current',verified_at:'2026-01-01',
+        valid_until:null,blockers:['information_verification_expired'],ready:false}]}})};
+  const save=vi.fn();render(<ActionBoard operator={operator} save={save}/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
+  expect(await screen.findByText('Informação pendente de verificação para este uso.')).toBeTruthy();
+  expect(screen.getByText('Verificação registrada: 2026-01-01')).toBeTruthy();
+  expect(save).not.toHaveBeenCalled();
+});
+
 it('stops after one read recovery and exposes only sanitized revision diagnostics',async()=>{
   const operator={
     loadSnapshotBundle:vi.fn().mockResolvedValueOnce(readSnapshot('revision-a')).mockResolvedValue(readSnapshot('revision-b')),

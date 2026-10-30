@@ -669,7 +669,10 @@ export type SourceStream = {
   target_pages: string[];
   skip_reason: string;
   cursor_age_days: number | null;
-  freshness_basis?: "stream_cursor" | "versioned_stream_receipt" | "source_receipt" | "versioned_source_sync" | "not_selected";
+  freshness_basis?: "stream_cursor" | "versioned_stream_receipt" | "source_receipt" | "versioned_source_sync" | "not_selected" | "processing_state";
+  information_review_pending?: boolean;
+  review_requests?: { request_id: string; scope: string; fields: string[]; consumers: string[];
+    priority: "immediate" | "active" | "on_demand"; status: string }[];
   cadence_days: number;
   breached: boolean;
   filters?: Record<string, unknown>;
