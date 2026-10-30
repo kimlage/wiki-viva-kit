@@ -101,3 +101,22 @@ def test_race_before_persistence_keeps_lock_and_no_resolution(runtime,monkeypatc
     monkeypatch.setattr(oc,'plan_failure_resolution',changing)
     with pytest.raises(ValueError):oc.resolve_failed(root,cfg,q,prepared)
     assert (d.parent/'mission-active.json').exists() and not (d/'failure-resolution.json').exists()
+
+
+@pytest.mark.parametrize('change',['queued','last_run','later_leaf'])
+def test_exact_leaf_or_later_complete_observation_race_refuses(runtime,monkeypatch,change):
+    import copy
+    root,cfg,_,h,_,_=runtime;_,d,q=interrupted(runtime,monkeypatch)
+    prepared=oc.plan_failure_resolution(root,cfg,q);original=oc.Gateway.call;seen=[]
+    def racing(self,method,params):
+        result=original(self,method,params)
+        if params.get('messageId'):
+            seen.append(1)
+            if change=='queued':result['pendingInputs']={'total':1,'queuedCount':1,'items':[{'id':'later','runId':'other','state':'queued'}]}
+            elif change=='last_run':result['sessionInfo']['lastRunId']='other'
+            else:h['sessionInfo']['activeLeafEntryId']='later'
+        return result
+    monkeypatch.setattr(oc.Gateway,'call',racing)
+    with pytest.raises(ValueError):oc.resolve_failed(root,cfg,q,prepared)
+    assert seen and (d.parent/'mission-active.json').exists()
+    assert not (d/'failure-resolution.json').exists()

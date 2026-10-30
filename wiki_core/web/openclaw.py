@@ -732,11 +732,19 @@ def interrupted_observation(gateway, history, plan):
             'openclaw_interrupted_native_state_changed')
     exact=gateway.history(messageId=leaf,maxChars=1,toolResultMaxChars=1)
     messages=exact.get('messages',[])
+    pending,_,_=pending_page(exact)
+    queued=pending.get('queuedCount',pending['total'])
+    require(type(queued) is int and queued == 0, 'openclaw_interrupted_native_state_changed')
     require(len(messages)==1 and exact['sessionInfo'].get('hasActiveRun') is False
             and exact['sessionInfo'].get('status') == 'interrupted'
             and exact['sessionInfo'].get('activeLeafEntryId') == leaf
+            and exact['sessionInfo'].get('lastRunId') == info.get('lastRunId')
             and messages[0].get('__openclaw',{}).get('id') == leaf
             and messages[0].get('__openclaw',{}).get('runId') == plan['effect_key'],
+            'openclaw_interrupted_native_state_changed')
+    latest=idle_history(gateway)
+    require(all(latest['sessionInfo'].get(k) == info.get(k)
+                for k in ('status','hasActiveRun','activeLeafEntryId','lastRunId')),
             'openclaw_interrupted_native_state_changed')
     return {'status':'interrupted','leaf_run_id':plan['effect_key']}
 
