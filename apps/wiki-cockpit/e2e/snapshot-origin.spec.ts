@@ -11,7 +11,7 @@ function crossesDemoBoundary(
 ): boolean {
   if (!Number.isFinite(boundary) || boundary <= 0 || !Number.isFinite(read.startTime) || read.startTime <= 0) return true;
   if (read.startTime >= boundary) return true;
-  if (read.state === "failed") return !(read.canceled && /aborted/i.test(read.failure));
+  if (read.state === "failed") return !(read.canceled && read.failure === "net::ERR_ABORTED");
   if (read.state !== "finished" || !Number.isFinite(read.responseEnd) || read.responseEnd < 0) return true;
   return read.startTime + read.responseEnd >= boundary;
 }
@@ -27,6 +27,7 @@ test("demo network timing distinguishes late observer delivery from a real bound
   expect(crossesDemoBoundary({ ...aborted, startTime: 1039 }, 1040)).toBe(false);
   expect(crossesDemoBoundary({ ...aborted, startTime: 1041 }, 1040)).toBe(true);
   expect(crossesDemoBoundary({ ...aborted, canceled: false }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...aborted, failure: "net::ERR_ABORTED_EXTRA" }, 1040)).toBe(true);
   expect(crossesDemoBoundary({ ...aborted, failure: "net::ERR_FAILED" }, 1040)).toBe(true);
   for (const startTime of [-1, 0, NaN]) {
     expect(crossesDemoBoundary({ ...aborted, startTime }, 1040)).toBe(true);
@@ -43,15 +44,19 @@ async function watchNativeOperatorBoundary(page: Page) {
     responseEnd: number; state: string; failure: string; canceled: boolean;
   }>();
   const ambiguousIds: string[] = [];
+  const seenIds = new Set<string>();
   session.on("Network.requestWillBeSent", (event) => {
     const path = new URL(event.request.url).pathname;
-    if (reads.has(event.requestId)) {
+    const operator = /^\/(api|operator)(\/|$)/.test(path);
+    const seen = seenIds.has(event.requestId);
+    seenIds.add(event.requestId);
+    if ((operator || reads.has(event.requestId)) && (seen || event.redirectResponse)) {
       // Redirect/reused IDs require a hop-aware proof; never silently replace
       // an earlier request with a later same-URL identity.
       ambiguousIds.push(event.requestId);
       return;
     }
-    if (!/^\/(api|operator)(\/|$)/.test(path)) return;
+    if (!operator) return;
     reads.set(event.requestId, {
       requestId: event.requestId, url: event.request.url,
       startTime: event.wallTime * 1000, monotonicStart: event.timestamp,
@@ -75,18 +80,21 @@ async function watchNativeOperatorBoundary(page: Page) {
   await session.send("Network.enable");
   return {
     async assertNoOperatorAfterBoundary(boundary: number, observedUrls: () => string[]) {
-      await expect.poll(() => [...reads.values()].every((read) => read.state !== "pending")).toBe(true);
-      expect(ambiguousIds).toEqual([]);
-      // Require coverage of every independently observed request, including
-      // duplicate URLs. The boundary decision itself uses each native ID.
-      await expect.poll(() => JSON.stringify([...reads.values()].map((read) => read.url).sort()) ===
-        JSON.stringify(observedUrls().sort())).toBe(true);
-      const violations = [...reads.values()].filter((read) =>
-        !read.requestId || !Number.isFinite(read.monotonicStart) || read.monotonicStart <= 0 ||
-        !Number.isFinite(read.responseEnd) || read.responseEnd < 0 ||
-        crossesDemoBoundary(read, boundary));
-      expect(violations).toEqual([]);
-      await session.detach();
+      try {
+        await expect.poll(() => [...reads.values()].every((read) => read.state !== "pending")).toBe(true);
+        expect(ambiguousIds).toEqual([]);
+        // Require coverage of every independently observed request, including
+        // duplicate URLs. The boundary decision itself uses each native ID.
+        await expect.poll(() => JSON.stringify([...reads.values()].map((read) => read.url).sort()) ===
+          JSON.stringify(observedUrls().sort())).toBe(true);
+        const violations = [...reads.values()].filter((read) =>
+          !read.requestId || !Number.isFinite(read.monotonicStart) || read.monotonicStart <= 0 ||
+          !Number.isFinite(read.responseEnd) || read.responseEnd < 0 ||
+          crossesDemoBoundary(read, boundary));
+        expect(violations).toEqual([]);
+      } finally {
+        await session.detach();
+      }
     }
   };
 }
@@ -192,6 +200,9 @@ function watchDemoNetwork(
     },
     operatorRequestUrls() {
       return [...operatorRequests];
+    },
+    assertNoWrites() {
+      expect(writes).toEqual([]);
     }
   };
 }
@@ -537,6 +548,7 @@ test("demo cockpit can still render the bundled sample universe", async ({ page 
   await expect(work).toContainText(/demo/i, { timeout: 20_000 });
   await page.waitForTimeout(2_700);
   await nativeBoundary.assertNoOperatorAfterBoundary(boundary, network.operatorRequestUrls);
+  network.assertNoWrites();
 });
 
 test("demo mutation surfaces are visibly disabled and emit zero write requests", async ({ page, browser }, testInfo) => {
