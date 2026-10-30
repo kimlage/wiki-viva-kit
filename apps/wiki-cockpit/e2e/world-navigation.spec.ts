@@ -3,6 +3,7 @@ import { inflateSync } from "node:zlib";
 import {
   expect,
   expectStablePerformanceBudgetFallback,
+  expectFallbackMapVisibility,
   test,
   waitForSettledRuntimePerformance
 } from "./fixtures";
@@ -101,6 +102,7 @@ async function expectNavigableWorld(page: Page, expectedCenter?: string): Promis
     } else {
       await expect(scene).toHaveAttribute("data-scene-fallback-reason", "performance_budget");
       await expect(page.locator(".sceneShell canvas")).toHaveCount(0);
+      await expectFallbackMapVisibility(page);
     }
     await expect(page.locator(".sceneShell .sceneFallback")).toHaveCount(1);
     observedNavigableWorldMode.set(page, "performance_budget");
