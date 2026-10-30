@@ -6,16 +6,13 @@ import { expect, test } from "./fixtures";
 type GenesisInputMode = "keyboard" | "pointer" | "touch";
 
 function crossesDemoBoundary(
-  read: { startTime: number; responseEnd: number; state: string; failure: string; observedBeforeBoundary?: boolean },
+  read: { startTime: number; responseEnd: number; state: string; failure: string; canceled?: boolean },
   boundary: number
 ): boolean {
-  // Chromium may omit all timing when a fetch is aborted before networking.
-  // Only a request event already observed before issuing the browser history
-  // transition supplies an independent ordering witness for that case.
-  if (read.startTime <= 0) return !(read.state === "failed" && /aborted/i.test(read.failure) && read.observedBeforeBoundary);
+  if (!Number.isFinite(boundary) || boundary <= 0 || !Number.isFinite(read.startTime) || read.startTime <= 0) return true;
   if (read.startTime >= boundary) return true;
-  if (read.state === "failed") return !/aborted/i.test(read.failure);
-  if (read.state !== "finished" || read.responseEnd < 0) return true;
+  if (read.state === "failed") return !(read.canceled && read.failure === "net::ERR_ABORTED");
+  if (read.state !== "finished" || !Number.isFinite(read.responseEnd) || read.responseEnd < 0) return true;
   return read.startTime + read.responseEnd >= boundary;
 }
 
@@ -24,17 +21,83 @@ test("demo network timing distinguishes late observer delivery from a real bound
   expect(crossesDemoBoundary(finished, 1040)).toBe(false);
   expect(crossesDemoBoundary({ ...finished, responseEnd: 50 }, 1040)).toBe(true);
   expect(crossesDemoBoundary({ ...finished, responseEnd: -1 }, 1040)).toBe(true);
-  const aborted = { ...finished, state: "failed", failure: "net::ERR_ABORTED" };
-  expect(crossesDemoBoundary(aborted, 1040)).toBe(false);
+  const aborted = { ...finished, state: "failed", failure: "net::ERR_ABORTED", canceled: true };
+  // Native initiation time remains authoritative even if Node receives the
+  // request event only after it has sent the history-transition command.
+  expect(crossesDemoBoundary({ ...aborted, startTime: 1039 }, 1040)).toBe(false);
   expect(crossesDemoBoundary({ ...aborted, startTime: 1041 }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...aborted, canceled: false }, 1040)).toBe(true);
+  expect(crossesDemoBoundary({ ...aborted, failure: "net::ERR_ABORTED_EXTRA" }, 1040)).toBe(true);
   expect(crossesDemoBoundary({ ...aborted, failure: "net::ERR_FAILED" }, 1040)).toBe(true);
-  expect(crossesDemoBoundary({ ...finished, startTime: -1 }, 1040)).toBe(true);
-  expect(crossesDemoBoundary({ ...aborted, startTime: 0 }, 1040)).toBe(true);
-  expect(crossesDemoBoundary({ ...aborted, startTime: 0, observedBeforeBoundary: true }, 1040)).toBe(false);
-  expect(crossesDemoBoundary({ ...finished, startTime: 0, observedBeforeBoundary: true }, 1040)).toBe(true);
-  expect(crossesDemoBoundary({ ...aborted, startTime: 1041, observedBeforeBoundary: true }, 1040)).toBe(true);
-  expect(crossesDemoBoundary({ ...aborted, startTime: 0, failure: "net::ERR_FAILED", observedBeforeBoundary: true }, 1040)).toBe(true);
+  for (const startTime of [-1, 0, NaN]) {
+    expect(crossesDemoBoundary({ ...aborted, startTime }, 1040)).toBe(true);
+  }
 });
+
+async function watchNativeOperatorBoundary(page: Page) {
+  // This journey belongs to the Chromium desktop project. CDP supplies native
+  // request identity and browser timestamps even for pre-network aborts, whose
+  // Playwright timing may be all zero/-1. No Node-delivery timestamp is used.
+  const session = await page.context().newCDPSession(page);
+  const reads = new Map<string, {
+    requestId: string; url: string; startTime: number; monotonicStart: number;
+    responseEnd: number; state: string; failure: string; canceled: boolean;
+  }>();
+  const ambiguousIds: string[] = [];
+  const seenIds = new Set<string>();
+  session.on("Network.requestWillBeSent", (event) => {
+    const path = new URL(event.request.url).pathname;
+    const operator = /^\/(api|operator)(\/|$)/.test(path);
+    const seen = seenIds.has(event.requestId);
+    seenIds.add(event.requestId);
+    if ((operator || reads.has(event.requestId)) && (seen || event.redirectResponse)) {
+      // Redirect/reused IDs require a hop-aware proof; never silently replace
+      // an earlier request with a later same-URL identity.
+      ambiguousIds.push(event.requestId);
+      return;
+    }
+    if (!operator) return;
+    reads.set(event.requestId, {
+      requestId: event.requestId, url: event.request.url,
+      startTime: event.wallTime * 1000, monotonicStart: event.timestamp,
+      responseEnd: -1, state: "pending", failure: "", canceled: false
+    });
+  });
+  session.on("Network.loadingFinished", (event) => {
+    const read = reads.get(event.requestId);
+    if (!read) return;
+    read.responseEnd = (event.timestamp - read.monotonicStart) * 1000;
+    read.state = "finished";
+  });
+  session.on("Network.loadingFailed", (event) => {
+    const read = reads.get(event.requestId);
+    if (!read) return;
+    read.responseEnd = (event.timestamp - read.monotonicStart) * 1000;
+    read.state = "failed";
+    read.failure = event.errorText;
+    read.canceled = event.canceled === true;
+  });
+  await session.send("Network.enable");
+  return {
+    async assertNoOperatorAfterBoundary(boundary: number, observedUrls: () => string[]) {
+      try {
+        await expect.poll(() => [...reads.values()].every((read) => read.state !== "pending")).toBe(true);
+        expect(ambiguousIds).toEqual([]);
+        // Require coverage of every independently observed request, including
+        // duplicate URLs. The boundary decision itself uses each native ID.
+        await expect.poll(() => JSON.stringify([...reads.values()].map((read) => read.url).sort()) ===
+          JSON.stringify(observedUrls().sort())).toBe(true);
+        const violations = [...reads.values()].filter((read) =>
+          !read.requestId || !Number.isFinite(read.monotonicStart) || read.monotonicStart <= 0 ||
+          !Number.isFinite(read.responseEnd) || read.responseEnd < 0 ||
+          crossesDemoBoundary(read, boundary));
+        expect(violations).toEqual([]);
+      } finally {
+        await session.detach();
+      }
+    }
+  };
+}
 
 const GENESIS_STAGE_TITLES: Record<number, RegExp> = {
   0: /Every world begins empty|Todo mundo começa vazio/i,
@@ -135,26 +198,11 @@ function watchDemoNetwork(
         { timeout: 5_000 }
       ).toBe(true);
     },
-    observeBeforeTransition() {
-      // Called synchronously in Node before page.evaluate initiates pushState.
-      return new Set(afterMark.keys());
+    operatorRequestUrls() {
+      return [...operatorRequests];
     },
-    async assertNoOperatorAfterMark(boundary: number, observedBeforeBoundary: Set<import("@playwright/test").Request>) {
-      await expect.poll(
-        () => [...afterMark.values()].every((request) => request.state !== "pending"),
-        { timeout: 5_000 }
-      ).toBe(true);
-      // requestfinished reaches Node after a transport hop. page.url() at
-      // delivery time can already be /demo although the browser completed
-      // the response earlier. Request timing and the history boundary below
-      // share browser epoch milliseconds; unavailable timing fails closed.
-      const violations = [...afterMark.entries()].flatMap(([key, request]) => {
-        const timing = key.timing();
-        return crossesDemoBoundary({ ...request, ...timing, observedBeforeBoundary: observedBeforeBoundary.has(key) }, boundary)
-          ? [{ ...request, timing, boundary }]
-          : [];
-      });
-      expect(violations).toEqual([]);
+    assertNoWrites() {
+      expect(writes).toEqual([]);
     }
   };
 }
@@ -460,6 +508,7 @@ test("non-demo cockpit blocks missing operator instead of rendering sample data"
 test("demo cockpit can still render the bundled sample universe", async ({ page }) => {
   test.setTimeout(45_000);
   const network = watchDemoNetwork(page, { operatorBases: ["/api", "/operator"] });
+  const nativeBoundary = await watchNativeOperatorBoundary(page);
   await installDelayedOperatorRuntime(page);
   await page.addInitScript(() => {
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
@@ -489,7 +538,6 @@ test("demo cockpit can still render the bundled sample universe", async ({ page 
   // This makes the Playwright-transport gap explicit: only the subsequent
   // history transition is the privacy boundary.
   await network.waitForRealOperatorCompletionAfterMark();
-  const observedBeforeBoundary = network.observeBeforeTransition();
   const boundary = await page.evaluate(() => {
     const at = performance.timeOrigin + performance.now();
     window.history.pushState({}, "", "/demo/w?center=root-alex-rivera&view=work&dock=work&visual=1&tour=0");
@@ -499,7 +547,8 @@ test("demo cockpit can still render the bundled sample universe", async ({ page 
   await expect(page).toHaveURL(/\/demo\/w/);
   await expect(work).toContainText(/demo/i, { timeout: 20_000 });
   await page.waitForTimeout(2_700);
-  await network.assertNoOperatorAfterMark(boundary, observedBeforeBoundary);
+  await nativeBoundary.assertNoOperatorAfterBoundary(boundary, network.operatorRequestUrls);
+  network.assertNoWrites();
 });
 
 test("demo mutation surfaces are visibly disabled and emit zero write requests", async ({ page, browser }, testInfo) => {

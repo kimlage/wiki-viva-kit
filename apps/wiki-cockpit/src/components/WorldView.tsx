@@ -53,6 +53,7 @@ import type { MissionRow } from "./world/MissionCard";
 import { PacketTray } from "./world/PacketTray";
 import { WorldNavigator } from "./world/WorldNavigator";
 import { useSurfacePresence } from "./world/useSurfacePresence";
+import { restoreSurfaceFocus } from "./world/restoreSurfaceFocus";
 import { isNativeWorldViewId } from "../world/experience";
 import {
   DEFAULT_VISUAL_CONTROL_CONFIG,
@@ -587,6 +588,7 @@ export function WorldView({
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
   // scene events) must never replay a stale route and revert navigation.
   const [searchDraft, setSearchDraft] = useState(route.query.q);
+  const previousSearchRouteQueryRef = useRef(route.query.q);
   const searchRouteEchoRef = useRef<string | null>(null);
   const [activeHit, setActiveHit] = useState(0);
   // Keyboard events can arrive back-to-back before React commits the state
@@ -750,8 +752,7 @@ export function WorldView({
     if (readerWasMountedRef.current && !readerPresence.mounted) {
       const restoreFocus = () => {
         const opener = readerOpenerRef.current;
-        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
-        else searchRef.current?.focus({ preventScroll: true });
+        restoreSurfaceFocus(opener, searchRef.current);
         readerOpenerRef.current = null;
       };
       // Presence keeps the closing reader mounted and the background inert
@@ -782,8 +783,7 @@ export function WorldView({
         // runs. Never steal focus back from that newly opened surface.
         if (routeRef.current.query.dock) return;
         const opener = dockOpenerRef.current;
-        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
-        else searchRef.current?.focus({ preventScroll: true });
+        restoreSurfaceFocus(opener, searchRef.current);
         dockOpenerRef.current = null;
       };
       dockFocusRestoreRef.current = typeof window.requestAnimationFrame === "function"
@@ -834,8 +834,7 @@ export function WorldView({
         const current = routeRef.current.query;
         if (current.tray || current.dock || current.reader) return;
         const opener = trayOpenerRef.current;
-        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
-        else searchRef.current?.focus({ preventScroll: true });
+        restoreSurfaceFocus(opener, searchRef.current);
         trayOpenerRef.current = null;
       };
       trayFocusTimerRef.current = typeof window.requestAnimationFrame === "function"
@@ -1144,6 +1143,10 @@ export function WorldView({
   // History/deep links own the draft, but an echo of our own debounce must
   // not overwrite a newer keystroke that arrived before the route committed.
   useEffect(() => {
+    // useState already hydrated the initial query. Replaying it from a passive
+    // mount effect can overwrite an edit queued after the input was committed.
+    if (previousSearchRouteQueryRef.current === route.query.q) return;
+    previousSearchRouteQueryRef.current = route.query.q;
     const ownQuery = searchRouteEchoRef.current;
     searchRouteEchoRef.current = null;
     if (route.query.q !== ownQuery) setSearchDraft(route.query.q);

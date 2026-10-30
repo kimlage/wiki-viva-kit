@@ -254,6 +254,46 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
   await attachViewportScreenshot(page, testInfo, "webkit-mobile-dense-search");
 });
 
+test("WebKit mobile preserves a new search intent before delayed dock focus restoration", async ({ page }) => {
+  await prepareMobileWorld(page);
+  await page.locator(".dockButton").filter({ hasText: /Create|Criar/ }).tap();
+  const close=page.locator(".seedTitle .questPlateClose");
+  await expect(close).toBeVisible();
+  // Retain the closing frame after the real tap has passed actionability.
+  // This deterministically exposes the gap between input focus/selection and
+  // native text insertion without changing navigation, timeouts or retries.
+  await close.evaluate(element => element.addEventListener("click", () => {
+    const raf=window.requestAnimationFrame.bind(window);
+    const cancel=window.cancelAnimationFrame.bind(window);
+    const pending=new Map<number, FrameRequestCallback>();
+    window.requestAnimationFrame=callback=>{
+      const id=raf(()=>{});cancel(id);pending.set(id,callback);return id;
+    };
+    window.cancelAnimationFrame=id=>{if(!pending.delete(id))cancel(id);};
+    (window as Window & {__releaseClosingFrames?:()=>number}).__releaseClosingFrames=()=>{
+      window.requestAnimationFrame=raf;window.cancelAnimationFrame=cancel;
+      const callbacks=[...pending.values()];pending.clear();
+      callbacks.forEach(callback=>callback(performance.now()));return callbacks.length;
+    };
+  }, {capture:true,once:true}));
+  await close.tap();
+  await expect(page.locator(".appDockPresence")).toHaveCount(0);
+  const input=page.locator(".commandSearch input");
+  await input.focus();
+  await input.evaluate(element=>(element as HTMLInputElement).select());
+  const count=await page.evaluate(()=>{
+    const w=window as Window & {__releaseClosingFrames?:()=>number};
+    const result=w.__releaseClosingFrames!();delete w.__releaseClosingFrames;return result;
+  });
+  expect(count).toBeGreaterThan(0);
+  const title="Evidence shelf clarifies source-backed work";
+  await page.keyboard.insertText(title);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(title);
+  await input.press("Enter");
+  await expect(page.locator(".readerHead h2")).toHaveText(title);
+});
+
 test("WebKit mobile opens a semantic quadrant collection and reaches a real center in two taps", async ({ page }, testInfo) => {
   await prepareMobileWorld(
     page,

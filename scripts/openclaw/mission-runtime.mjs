@@ -55,12 +55,14 @@ export class NativeCaptureRegistry {
   capture(url) {
     require(typeof url==='string' && url.startsWith('file:') && !new URL(url).search && !new URL(url).hash,'capture_url');
     const found=this.module(fileURLToPath(url));require(found,'capture_unqualified_code');
-    const {entry}=found;
+    const {entry,spec}=found;
     const current=new Set([...entry.owners.values()].map(r=>r.readInstance()));
     require(current.size===1,'capture_owner_ambiguous');
     const instance=[...current][0], record=entry.owners.get(instance);
     require(record,'capture_wrong_owner');
-    require(this.files.every(f=>entry.loaded.has(f.name)),'capture_hooks_incomplete');
+    // Native route/catalog setup may load inference before the turn module.
+    // Capture identity now; execution still requires every hook in assert().
+    require(entry.loaded.has(spec.name),'capture_hook_not_loaded');
     const cap=Object.freeze({record,instance});this.capabilities.add(cap);
     this.assert(cap,false);return cap;
   }
@@ -68,6 +70,7 @@ export class NativeCaptureRegistry {
     require(cap && this.capabilities.has(cap),'capture_capability_required');
     const {record,instance}=cap;
     require(record.active && record.entry.owners.get(instance)===record && !instance.owner?.revoked && instance.accepting===true && !instance.replacementReserved && !instance.forcedRetirement && instance.lifecycle?.signal?.aborted===false,'capture_owner_retired');
+    if(runtime)require(this.files.every(f=>record.entry.loaded.has(f.name)),'capture_hooks_incomplete');
     if(runtime)require(instance.owner?.instance===instance && instance.owner.record?.id==='codex' && instance.runtimeScope?.pluginTrustedOfficialInstall===true && typeof instance.owner.record.source==='string' && fs.realpathSync(instance.owner.record.source).startsWith(this.pluginRoot+path.sep),'capture_runtime_owner_required');
   }
 }
