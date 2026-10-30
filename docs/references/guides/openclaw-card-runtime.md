@@ -269,3 +269,11 @@ python3 -m pytest tests/test_openclaw_guard_runtime.py
 
 This offline proof does not replace the consumer's real mission, terminal return
 and reviewed incorporation into its Wiki.
+
+Native route/catalog setup can construct the inference binding before the turn
+module loads. Capturing that binding requires the caller's own guarded module,
+qualified artifact and live native owner. It grants no execution admission.
+Every turn, inference and retained execution check still requires all captured
+hooks and a runtime owner. The optional native `late` case proves that an early
+binding cannot admit a turn or inference until the second hook loads; revocation
+cannot be undone by late loading.

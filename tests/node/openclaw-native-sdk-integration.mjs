@@ -8,7 +8,7 @@ import {NativeCaptureRegistry,configureNativeRegistry} from '../../scripts/openc
 const core=process.env.WIKI_TEST_OPENCLAW_CORE_ROOT;assert(core,'Provide the pinned native core for this offline test');
 const manifest=JSON.parse(fs.readFileSync(new URL('../../scripts/openclaw/mission-overlay.json',import.meta.url)));
 validatePackage(core,manifest.packages.core);
-const mode=process.argv[2]||'bridge';assert(['bridge','absolute','preloaded','integrity'].includes(mode),'Unknown test case');
+const mode=process.argv[2]||'bridge';assert(['bridge','absolute','preloaded','integrity','late'].includes(mode),'Unknown test case');
 const scratch=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'wiki-native-sdk-')));
 process.env.OPENCLAW_STATE_DIR=path.join(scratch,'state');process.env.OPENCLAW_CONFIG_PATH=path.join(scratch,'config.json');
 fs.writeFileSync(process.env.OPENCLAW_CONFIG_PATH,'{}');
@@ -23,7 +23,7 @@ try {
   : 'import {wikiMissionBridge as bridge} from "openclaw/plugin-sdk/process-runtime";';
  fs.writeFileSync(path.join(plugin,'a.mjs'),`${binding}\nbridge.loadedHook('a.mjs',import.meta.url);export const capturedUrl=import.meta.url;export function capability(){return bridge.captureOwner(import.meta.url);}export function describe(){return {url:import.meta.url,frozen:Object.isFrozen(bridge),keys:Object.keys(bridge)}};`);
  fs.writeFileSync(path.join(plugin,'b.mjs'),`${binding}\nbridge.loadedHook('b.mjs',import.meta.url);`);
- const entry=path.join(plugin,'entry.mjs');fs.writeFileSync(entry,"import './b.mjs';export * from './a.mjs';");
+ const entry=path.join(plugin,'entry.mjs');fs.writeFileSync(entry,(mode==='late'?'':"import './b.mjs';")+"export * from './a.mjs';");
  const fixtureSpec={name:'synthetic-native-guard',version:'0.0.0',tree_sha256:treeHash(plugin)};
  const registry=new NativeCaptureRegistry({pluginRoot:plugin,coreRoot:core,files:['a.mjs','b.mjs'].map(name=>({name,relative:name})),validatePackage:root=>validatePackage(root,fixtureSpec)});
  configureNativeRegistry(registry);guard.configureRuntime(['a.mjs','b.mjs','process-runtime.js','plugin-setup-module-inWd3Rne.mjs']);
@@ -46,11 +46,17 @@ try {
    const wrapped=instance.loadModule(entry),description=wrapped.describe();
    assert.notEqual(description.url,pathToFileURL(path.join(plugin,'a.mjs')).href);assert(description.frozen);
    assert(!description.keys.includes('configureRuntime'));assert(!description.keys.includes('registerNativeArtifact'));
-   guard.assertRuntime();
    // loadModule already exercises native wrapping. Read its cached raw namespace
    // only to test capability identity; never replace the native invocation scope.
    const raw=instance.run(()=>instance.moduleLoader(entry));
-   const capability=instance.run(()=>raw.capability());registry.assert(capability);
+   const capability=instance.run(()=>raw.capability());
+   if(mode==='late') {
+    assert.throws(()=>registry.assert(capability),/capture_hooks_incomplete/);
+    assert.throws(()=>guard.authorizeTurn({}, {}, capability),/capture_hooks_incomplete/);
+    assert.throws(()=>guard.checkInferenceSelection({owner:capability}),/capture_hooks_incomplete/);
+    instance.loadModule(path.join(plugin,'b.mjs'));
+   }
+   guard.assertRuntime();registry.assert(capability);
    assert.throws(()=>guard.captureOwner(description.url),/capture_wrong_owner/);
    const another=createRegistry(),otherRecord={...record};another.plugins.push(otherRecord);other=new PluginInstance('codex',{record:otherRecord,registry:another});
    assert.throws(()=>other.run(()=>guard.captureOwner(description.url)),/capture_wrong_owner/);

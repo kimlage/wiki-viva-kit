@@ -17,7 +17,7 @@ def test_real_native_sdk_capture_opt_in():
         pytest.skip('Pinned native OpenClaw package not supplied')
     root = Path(__file__).resolve().parents[1]
     node = os.environ.get('WIKI_TEST_OPENCLAW_NODE') or shutil.which('node')
-    for case in ('absolute', 'bridge', 'preloaded', 'integrity'):
+    for case in ('absolute', 'bridge', 'preloaded', 'integrity', 'late'):
         result = subprocess.run(
             [node, 'tests/node/openclaw-native-sdk-integration.mjs', case],
             cwd=root, capture_output=True, text=True, timeout=60,

@@ -19,7 +19,24 @@ for(const [name,mutate,pattern] of [
  ['unavailable native artifact',c=>{c.artifact.assertModuleAvailable=()=>{throw Error('native unavailable');};},/native unavailable/],
  ['wrong SDK link',(c,f)=>{fs.unlinkSync(path.join(c.root,'node_modules/openclaw'));const wrong=path.join(f.base,'wrong-core');fs.cpSync(f.coreRoot,wrong,{recursive:true});fs.symlinkSync(wrong,path.join(c.root,'node_modules/openclaw'));},/sdk_changed/]
 ])check(name+' refuses registration',(f)=>{const c=f.candidate();mutate(c,f);assert.throws(c.register,pattern);assert.equal(f.registry.roots.size,0);});
-check('every hook must load from the captured artifact',f=>{const c=f.candidate();c.register();assert.throws(()=>f.registry.capture(c.url),/hooks_incomplete/);f.registry.loaded('run.mjs',c.url);assert.throws(()=>f.registry.capture(c.url),/hooks_incomplete/);c.load();f.registry.assert(f.registry.capture(c.url));});
+check('early native binding requires its own hook; execution requires all captured hooks',f=>{
+ const c=f.candidate();c.register();
+ assert.throws(()=>f.registry.capture(c.url),/hook_not_loaded/);
+ f.registry.loaded('inference.mjs',c.inferUrl);
+ assert.throws(()=>f.registry.capture(c.url),/hook_not_loaded/);
+ const cap=f.registry.capture(c.inferUrl);
+ assert.throws(()=>f.registry.assert(cap),/hooks_incomplete/);
+ c.load();f.registry.assert(cap);
+ // Readiness remains a runtime check, including retained capabilities.
+ f.registry.roots.get(c.root).loaded.delete('run.mjs');
+ assert.throws(()=>f.registry.assert(cap),/hooks_incomplete/);
+});
+check('revocation before late hook loading cannot reactivate an early capability',f=>{
+ const c=f.candidate(),dispose=c.register();f.registry.loaded('inference.mjs',c.inferUrl);
+ const cap=f.registry.capture(c.inferUrl);dispose();
+ assert.throws(()=>f.registry.loaded('run.mjs',c.url),/retired/);
+ assert.throws(()=>f.registry.assert(cap),/retired/);
+});
 check('URL variants and foreign invocation do not inherit authority',f=>{const c=f.candidate();c.register();c.load();for(const suffix of ['?copy=1','#copy'])assert.throws(()=>f.registry.capture(c.url+suffix),/capture_url/);c.setCurrent({...c.instance});assert.throws(()=>f.registry.capture(c.url),/wrong_owner/);});
 check('catalog/setup instance cannot execute a runtime mission',f=>{const c=f.candidate({runtime:false});c.register();c.load();const cap=f.registry.capture(c.url);assert.throws(()=>f.registry.assert(cap),/runtime_owner_required/);});
 for(const retire of [c=>{c.instance.owner.revoked=true;},c=>{c.instance.accepting=false;},c=>{c.instance.replacementReserved=true;},c=>{c.instance.forcedRetirement=true;},c=>c.control.abort()])check('native lifecycle revocation invalidates an issued capability',f=>{const c=f.candidate();c.register();c.load();const cap=f.registry.capture(c.url);retire(c);assert.throws(()=>f.registry.assert(cap),/owner_retired/);});
