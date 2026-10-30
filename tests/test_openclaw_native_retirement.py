@@ -34,10 +34,11 @@ def run(root,module,plan,d,change):
     return json.loads(result.stdout)
 
 
-def test_exact_reviewed_native_retirement_once_preserves_all_original_bytes(runtime,monkeypatch):
+@pytest.mark.parametrize('change',['valid','projected_summary'])
+def test_exact_reviewed_native_retirement_once_preserves_all_original_bytes(runtime,monkeypatch,change):
     root,module,p,d=fixture(runtime,monkeypatch)
     before={f.name:f.read_bytes() for f in d.iterdir()}
-    got=run(root,module,p,d,'valid')
+    got=run(root,module,p,d,change)
     assert got['ok'] and got['result']=='settled' and got['again'] is None and got['committed']==1
     assert all((d/name).read_bytes()==raw for name,raw in before.items())
     assert not (d/'result.json').exists() and not (d.parent/'mission-active.json').exists()

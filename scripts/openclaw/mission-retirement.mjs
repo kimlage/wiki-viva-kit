@@ -114,13 +114,26 @@ export function assertRetirableEntry(entry,proof){
     'custody_changed');
 }
 
+export function retirementObservationMatches(full,observed,projection='full'){
+  if(projection==='full')return isDeepStrictEqual(full,observed);
+  require(projection==='list','observation_projection');
+  // Exactly the three snapshots omitted by the pinned native list reader.
+  const list=structuredClone(full);
+  for(const key of ['sessionDiffBaseline','skillsSnapshot','systemPromptReport'])delete list[key];
+  return isDeepStrictEqual(list,observed);
+}
+
 /** APIs are supplied only by the version-qualified native recovery owner. */
 export async function retireReviewedFailure(params,api){
-  const proof=reviewedFailure(params.directory,params.entry,params.sessionKey);
+  if(typeof params.entry?.restartRecoveryDeliverySourceRunId!=='string'
+    ||!/^wiki-run-[a-f0-9]{32}$/.test(params.entry.restartRecoveryDeliverySourceRunId))return null;
+  const captured=api.load();
+  require(retirementObservationMatches(captured,params.entry,params.observationProjection),'observation_changed');
+  const proof=reviewedFailure(params.directory,captured,params.sessionKey);
   if(!proof)return null;
   return api.exclusive(async()=>{
     const entry=api.load();assertRetirableEntry(entry,proof);
-    require(isDeepStrictEqual(entry,params.entry),'observation_changed');
+    require(isDeepStrictEqual(entry,captured),'observation_changed');
     const snapshot=structuredClone(entry);
     const assertCurrent=()=>{
       api.assertCurrent();

@@ -10,6 +10,11 @@ const e={sessionId:'synthetic-session',status:'interrupted',abortedLastRun:true,
  mainRestartRecovery:{cycleId:'synthetic-cycle',revision:7,chargedAttempts:0}};
 let current=structuredClone(e),checks=0,committed=0;
 const change=input.change;
+let observed=e,projection='full';
+if(change==='projected_summary'){
+ e.systemPromptReport={synthetic:true};current=structuredClone(e);observed=structuredClone(e);
+ delete observed.systemPromptReport;projection='list';
+}
 if(change==='writer')current.activeWriterRunId='foreign';
 if(change==='claim')current.restartRecoveryDeliveryRunId='other-claim';
 if(change==='cycle')current.mainRestartRecovery.cycleId='other-cycle';
@@ -28,7 +33,7 @@ const api={exclusive:async run=>run(),load:()=>current,assertCurrent:()=>{checks
   if(change==='postcommit_crash')throw Error('simulated response lost after commit');
   return 'settled';
  }};
-try{const result=await retireReviewedFailure({directory:input.directory,entry:e,sessionKey:'agent:research:synthetic'},api);
+try{const result=await retireReviewedFailure({directory:input.directory,entry:observed,observationProjection:projection,sessionKey:'agent:research:synthetic'},api);
  const again=await retireReviewedFailure({directory:input.directory,entry:current,sessionKey:'agent:research:synthetic'},api);
  console.log(JSON.stringify({ok:true,result,again,committed,checks}));}
 catch(e){const again=committed?await retireReviewedFailure({directory:input.directory,entry:current,sessionKey:'agent:research:synthetic'},api):undefined;console.log(JSON.stringify({ok:false,committed,again,error:e.message}));}

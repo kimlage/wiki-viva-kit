@@ -13,13 +13,23 @@ const append=(await import(core+'/dist/transcript-CpqWjSbD.mjs')).t;
 const {n:expectedState}=await import(core+'/dist/session-transcript-turn-state-Bqkxfhzx.mjs');
 const scope={agentId:'research',sessionKey:'agent:research:synthetic-retirement'};
 const sessionId='00000000-0000-4000-8000-000000000002';
-const entry={sessionId,updatedAt:Date.now(),status:'interrupted',abortedLastRun:true,
+const entry={sessionId,systemPromptReport:{synthetic:true},updatedAt:Date.now(),status:'interrupted',abortedLastRun:true,
  restartRecoveryDeliveryRunId:'00000000-0000-4000-8000-000000000001',restartRecoveryDeliverySourceRunId:'wiki-run-'+'a'.repeat(32),
  mainRestartRecovery:{cycleId:'synthetic-cycle',revision:7,chargedAttempts:0}};
 let checks=0;
 try{
  const created=await mutations.r(scope,()=>({ok:true,entry}));assert.equal(created.ok,true,JSON.stringify(created));
  const snapshot=load(scope).entry;
+ const physicalForRead=(await import(core+'/dist/session-accessor.sqlite-scope-BkgwxatT.mjs')).s(scope);
+ const databaseForRead=(await import(core+'/dist/openclaw-agent-db.paths-BbmZlEP5.mjs')).l((await import(core+'/dist/session-accessor.sqlite-scope-helpers-CfDTAEsL.mjs')).i(physicalForRead));
+ const summaries=await(await import(core+'/dist/session-entry-read-runtime-BdnQjoL6.mjs')).a({agentId:scope.agentId,storePath:databaseForRead});
+ const summary=summaries.find(x=>x.sessionKey===scope.sessionKey).entry;
+ const {retirementObservationMatches}=await import('../../scripts/openclaw/mission-retirement.mjs');
+ assert.ok(snapshot.systemPromptReport);assert.equal(summary.systemPromptReport,undefined);
+ assert.equal(retirementObservationMatches(snapshot,summary,'list'),true);
+ assert.equal(retirementObservationMatches(snapshot,summary,'full'),false);
+ assert.equal(retirementObservationMatches(snapshot,{...summary,restartRecoveryDeliveryRunId:'foreign'},'list'),false);
+
  const attempt=async(snapshot,id,assertCurrent)=>append({...scope,expectedSessionId:sessionId,
   expectedLifecycleRevision:snapshot.lifecycleRevision??null,
   expectedSessionState:{...expectedState(snapshot),wikiMissionRetirementEntry:structuredClone(snapshot)},
