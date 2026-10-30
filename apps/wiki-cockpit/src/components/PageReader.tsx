@@ -827,7 +827,7 @@ export function PageReader({
               ].filter(Boolean).join(" · ")}
             </span>
           </div>
-          {content?.frontmatter && <InformationNotice frontmatter={content.frontmatter} />}
+          {content?.frontmatter && <InformationNotice frontmatter={content.frontmatter} assessment={content.information_use} />}
           {templateOpen && (
             <TemplateInspector
               spec={templateSpec(bundle, page.page_type)}

@@ -1317,6 +1317,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 self.server.config,
                 page_id,
                 snapshot,
+                include_information=True,
             )
             if result.get("error_code") in {
                 "snapshot_content_hash_missing",

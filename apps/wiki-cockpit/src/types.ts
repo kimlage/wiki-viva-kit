@@ -227,6 +227,23 @@ export type ResolvedSourceRef =
   | ({ ref: string; resolved: true } & PageBrief)
   | { ref: string; resolved: false };
 
+export type InformationUse = {
+  consumer: string;
+  ready: boolean;
+  assessed_at: string;
+  permission_granted: false;
+  relation_errors: unknown[];
+  requirements: {
+    target: string;
+    fields: string[];
+    temporal: "current" | "historical";
+    verified_at: string | null;
+    valid_until: string | null;
+    blockers: string[];
+    ready: boolean;
+  }[];
+};
+
 export type PageContent = {
   ok: boolean;
   error?: string;
@@ -246,6 +263,7 @@ export type PageContent = {
     moc_parent: string;
   };
   frontmatter?: Record<string, unknown>;
+  information_use?: InformationUse;
   body?: string;
   resolved_links?: ResolvedLink[];
   backlinks?: PageBacklink[];
