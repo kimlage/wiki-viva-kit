@@ -63,7 +63,7 @@ def test_incorporated_unchanged_scope_does_not_launch_periodic_model(scheduled,m
     runtime,clock=scheduled;root,cfg,params,h,calls,_=runtime
     p=recurring.plan_tick(root,cfg,{'rule_id':'review'});recurring.execute_tick(root,cfg,{'rule_id':'review'},p)
     complete(runtime,p['prepared']);oc.inspect(root,cfg,{**params,'effect_key':p['effect_key']})
-    monkeypatch.setattr(oc,'proposal_status',lambda *a:{'status':'received_in_main'})
+    monkeypatch.setattr(oc,'proposal_status',lambda *a:{'status':'received_in_main','content_incorporated_in_main':True})
     assert recurring.plan_tick(root,cfg,{'rule_id':'review'})['mode']=='already_observed'
     clock[0]+=dt.timedelta(hours=2)
     assert recurring.plan_tick(root,cfg,{'rule_id':'review'})['mode']=='unchanged'
@@ -115,4 +115,14 @@ def test_blocked_action_does_not_prevent_inspecting_retained_run(scheduled):
     p=recurring.plan_tick(root,cfg,{'rule_id':'review'});recurring.execute_tick(root,cfg,{'rule_id':'review'},p)
     snapshot['pages.json']['pages'][2]['action_state']='blocked'
     assert recurring.plan_tick(root,cfg,{'rule_id':'review'})['mode']=='inspect'
+    assert len([v for m,v in calls if m=='chat.send'])==1
+
+
+def test_receipt_comment_alone_keeps_recurring_result_unconsumed(scheduled,monkeypatch):
+    runtime,clock=scheduled;root,cfg,params,h,calls,_=runtime
+    p=recurring.plan_tick(root,cfg,{'rule_id':'review'});recurring.execute_tick(root,cfg,{'rule_id':'review'},p)
+    complete(runtime,p['prepared']);oc.inspect(root,cfg,{**params,'effect_key':p['effect_key']})
+    monkeypatch.setattr(oc,'proposal_status',lambda *a:{'status':'received_in_main','content_incorporated_in_main':False})
+    clock[0]+=dt.timedelta(hours=2)
+    assert recurring.plan_tick(root,cfg,{'rule_id':'review'})['mode']=='incorporation_required'
     assert len([v for m,v in calls if m=='chat.send'])==1

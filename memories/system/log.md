@@ -1561,3 +1561,10 @@ Documented [wiki_openclaw_tick.py](../../scripts/wiki_openclaw_tick.py) in the
 through the existing administrative bus with ephemeral authentication and no
 background job worker. Native continuation, reviewed failure resolution and
 recurrence remain opt-in; runtime qualification is separate from this kit change.
+
+## 2026-10-30 — recurring work waits for body incorporation
+
+The [OpenClaw contract](../../docs/references/guides/openclaw-card-runtime.md#receipt-and-incorporated-content-are-separate)
+now distinguishes a received comment from a committed writer contribution linked
+to the original run. Recurring observation waits for the latter; the existing
+Git/action receipt chain supplies the proof without another registry.
