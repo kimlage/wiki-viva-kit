@@ -1068,9 +1068,43 @@ def seed_action_proposal(root: Path, page: Path | str, committed: str, current: 
         _atomic_write(path, current)
 
 
+def _consolidated_body(body: str, records: Any) -> str:
+    """Only replace complete duplicated prose paragraphs with sibling links."""
+    if not isinstance(records, list) or not 1 <= len(records) <= 8:
+        raise ActionTransitionError("invalid_body_consolidation")
+    for item in records:
+        if not isinstance(item, dict) or set(item) != {"paragraph", "canonical_ref", "canonical_sha256", "label"}:
+            raise ActionTransitionError("invalid_body_consolidation")
+        paragraph, ref, label = item["paragraph"], item["canonical_ref"], item["label"]
+        if (not isinstance(paragraph, str) or not 120 <= len(paragraph) <= 16000
+                or paragraph not in [p.strip("\n") for p in re.split(r"\n\s*\n", body)] or body.count(paragraph) != 1
+                or any(line.lstrip().startswith(("#", "|", "```", "~~~")) for line in paragraph.splitlines())
+                or not isinstance(ref, str) or not re.fullmatch(r"[a-zA-Z0-9_/-]+\.md", ref)
+                or ".." in Path(ref).parts
+                or not isinstance(label, str) or not 3 <= len(label) <= 160
+                or any(c in label for c in "[]()\\\n\r")
+                or not _SHA256_RE.fullmatch(str(item["canonical_sha256"]))):
+            raise ActionTransitionError("invalid_body_consolidation")
+        body = body.replace(paragraph, f"[{label}]({Path(ref).name}).", 1)
+    return body
+
+
+def _verify_consolidation_sources(root: Path, path: Path, records: list[dict]) -> None:
+    for item in records:
+        target, _ = _contained_action_path(root, item["canonical_ref"])
+        if target == path or target.parent != path.parent:
+            raise ActionTransitionError("consolidation_requires_distinct_sibling_action")
+        raw = target.read_text(encoding="utf-8")
+        fm, body = _parse_document(raw)
+        if (_sha256_text(raw) != item["canonical_sha256"] or fm.get("page_type") != "action"
+                or item["paragraph"] not in [p.strip("\n") for p in re.split(r"\n\s*\n", body)]):
+            raise ActionTransitionError("consolidation_canonical_content_changed")
+
+
 def integrate_action_body(
     root: Path, page: Path | str, body: str, *, expected_sha256: str,
     contribution: Mapping[str, Any], recorded_at: str | None = None,
+    consolidations: list[dict] | None = None,
 ) -> dict[str, Any]:
     """Adopt one reviewed body inside a proposal, using the canonical writer.
 
@@ -1105,14 +1139,22 @@ def integrate_action_body(
         prior_date = _frontmatter_date(fm.get("updated_at"))
         if (last and instant <= last) or (prior_date and instant.date() < prior_date):
             raise ActionTransitionError("non_monotonic_recorded_at")
+        if "consolidations" in contribution:
+            raise ActionTransitionError("consolidation_requires_native_validation")
+        if consolidations is not None:
+            if _consolidated_body(old_body, consolidations) != body:
+                raise ActionTransitionError("consolidation_has_unrelated_body_changes")
+            _verify_consolidation_sources(root, path, consolidations)
         metadata = dict(contribution)
+        if consolidations is not None:
+            metadata["consolidations"] = consolidations
         metadata["before_body_sha256"] = _sha256_text(old_body)
         metadata["after_body_sha256"] = _sha256_text(body)
         metadata["before_body_revision"] = _revision_sha256(old_body)
         metadata["after_body_revision"] = _revision_sha256(body)
         entry = {
             "schema_version": ACTION_TRANSITION_RECEIPT_VERSION,
-            "kind": "body_integration", "page_id": fm["page_id"],
+            "kind": "body_consolidation" if consolidations is not None else "body_integration", "page_id": fm["page_id"],
             "from": state.state, "to": state.state, "at": at,
             "state_source": state.source, "before_sha256": expected_sha256,
             "before_revision": _revision_sha256(before),
@@ -1123,7 +1165,8 @@ def integrate_action_body(
         }
         entry["receipt_id"] = _receipt_id(entry)
         fm[_HISTORY_FIELD] = [*history, entry]
-        fm["updated_at"] = instant.astimezone(timezone.utc).date().isoformat()
+        if consolidations is None:
+            fm["updated_at"] = instant.astimezone(timezone.utc).date().isoformat()
         after = _render_document(fm, body)
         _assert_no_secrets(after)
         if action_transition_diagnostics(before, after):
@@ -1252,7 +1295,7 @@ def _receipt_entry_error(
         return "receipt chain starts from a state different from the prior action"
     kind = str(entry.get("kind") or "")
     if previous == target:
-        if kind not in {"legacy_canonicalization", "contract_update", "body_integration", "comment"}:
+        if kind not in {"legacy_canonicalization", "contract_update", "body_integration", "body_consolidation", "comment"}:
             return "state-preserving receipt has an invalid kind"
     else:
         if not valid_action_transition(previous, target):
@@ -1334,7 +1377,7 @@ def _receipt_entry_error(
             return "page edit fields do not match its projection"
     elif "page_edit" in entry:
         return "legacy receipt cannot bind page edits"
-    if kind == "body_integration":
+    if kind in {"body_integration", "body_consolidation"}:
         material = entry.get("contribution")
         if schema_version != ACTION_TRANSITION_RECEIPT_VERSION or not isinstance(material, dict):
             return "body integration is missing its material binding"
@@ -1343,6 +1386,13 @@ def _receipt_entry_error(
                 return "body integration has an invalid material hash"
         if not material.get("effect_key") or support_fields:
             return "body integration must preserve governed support fields"
+        if kind == "body_consolidation":
+            if target not in NON_TERMINAL_ACTION_STATES or previous != target:
+                return "consolidation must preserve a nonterminal state"
+            if not isinstance(material.get("consolidations"), list):
+                return "consolidation is missing its exact replacements"
+        elif "consolidations" in material:
+            return "factual integration cannot claim editorial consolidation"
         encoded = json.dumps(material, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
         if entry.get("payload_sha256") != _sha256_text(encoded):
             return "body integration payload does not match its material"
@@ -1523,11 +1573,24 @@ def action_transition_diagnostics(
     if not additions:
         return ()
 
-    content_events = [e for e in additions if e.get("page_edit") is not None or e.get("kind") == "body_integration"]
+    content_events = [e for e in additions if e.get("page_edit") is not None or e.get("kind") in {"body_integration", "body_consolidation"}]
+    if any(e.get("kind") == "body_consolidation" for e in content_events):
+        # Preserve exact body proof. A mixed factual body rewrite must be a
+        # separate approved change, not hidden in an editorial date exception.
+        if any(e.get("kind") != "body_consolidation" for e in content_events):
+            return (ActionTransitionDiagnostic("consolidation_mixed_body_changes", "review factual and editorial body changes separately"),)
+        rebuilt = previous_body
+        try:
+            for event in content_events:
+                rebuilt = _consolidated_body(rebuilt, (event.get("contribution") or {}).get("consolidations"))
+        except ActionTransitionError:
+            return (ActionTransitionDiagnostic("invalid_body_consolidation", "editorial receipt must bind exact paragraph replacements"),)
+        if rebuilt != current_body:
+            return (ActionTransitionDiagnostic("invalid_body_consolidation", "editorial receipt does not preserve the remaining body"),)
     if content_events:
         projection = _page_edit_projection(previous, previous_body)
         for event in content_events:
-            if event.get("kind") == "body_integration":
+            if event.get("kind") in {"body_integration", "body_consolidation"}:
                 material = event.get("contribution")
                 if not isinstance(material, dict):
                     return (ActionTransitionDiagnostic("invalid_action_transition_receipt",
@@ -1611,7 +1674,7 @@ def action_transition_diagnostics(
             return (ActionTransitionDiagnostic("invalid_action_transition_receipt",
                     "comment receipt requires its exact appended comment"),)
     if additions and expected_prior_at is not None:
-        factual = [entry for entry in additions if entry.get("kind") != "comment"]
+        factual = [entry for entry in additions if entry.get("kind") not in {"comment", "body_consolidation"}]
         receipt_date = (_parsed_transition_instant(factual[-1]["at"]).astimezone(timezone.utc).date()
                         if factual else previous_updated_at)
         if current_updated_at != receipt_date:

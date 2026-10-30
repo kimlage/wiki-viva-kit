@@ -22,7 +22,8 @@ def product(tmp_path,monkeypatch,request):
     _repo(tmp_path);action=_server_action(tmp_path)
     settings={'enabled':True,'node_binary':'/synthetic/node','entrypoint':'/synthetic/openclaw.mjs',
               'profile':'synthetic','state_dir':'/synthetic/state','gateway':'ws://127.0.0.1:19880',
-              'routes':{'research':{'session_key':'agent:research:synthetic','session_id':'synthetic-session','label':'Synthetic worker'}}}
+              'routes':{'research':{'session_key':'agent:research:synthetic','session_id':'synthetic-session','label':'Synthetic worker','native_thread_id':'synthetic-native-thread'}}}
+    settings['mission_options']={'execution':{'label':'Synthetic execution','model':'openai/example-model','effort':'high'}}
     cp=tmp_path/'wiki.config.yaml';cfg=yaml.safe_load(cp.read_text());cfg['openclaw']=settings;cp.write_text(yaml.safe_dump(cfg))
     (tmp_path/'wiki.coordination.yaml').write_text(yaml.safe_dump({'schema_version':'wiki_coordination.v1','profiles':{
        'research':{'label':'Research','scope':'Synthetic technical mission','action_ids':['action-server-synthetic']}}}))
@@ -44,8 +45,11 @@ def product(tmp_path,monkeypatch,request):
     def call(self,method,params):
         calls.append((method,copy.deepcopy(params)))
         if method=='chat.send':
+            from tests.test_openclaw_mission import simulate_guard
+            plan=oc.read_receipt(oc.storage(tmp_path,load_config(tmp_path),params['idempotencyKey'])/'intent.json')['plan']
+            simulate_guard(tmp_path,load_config(tmp_path),plan)
             h['sessionInfo'].update(lastRunId=params['idempotencyKey'],activeLeafEntryId='terminal')
-            h['messages']=[{'role':'assistant','stopReason':'stop','content':[{'type':'text','text':'Observed synthetic execution.'}],
+            h['messages']=[{'role':'assistant','model':'example-model','stopReason':'stop','content':[{'type':'text','text':'Observed synthetic execution.'}],
                             '__openclaw':{'id':'terminal','runId':params['idempotencyKey'],'runTerminal':True}}]
             return {'runId':params['idempotencyKey'],'status':'started'}
         return copy.deepcopy(h)
@@ -57,7 +61,7 @@ def product(tmp_path,monkeypatch,request):
         assert status==200,r
         return r['token']
     params={'profile':'research','action_id':'action-server-synthetic','action_sha256':hashlib.sha256(action.read_bytes()).hexdigest(),
-            'message':'Inspect synthetic status, return evidence, no data changes.'}
+            'mission_id':'execution','message':'Inspect synthetic status, return evidence, no data changes.'}
     try:yield srv,tmp_path,action,params,unlock,calls
     finally:srv.close()
 

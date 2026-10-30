@@ -73,7 +73,7 @@ ADMIN_COMMAND_SPECS: tuple[AdminCommandSpec, ...] = (
         id="agents.openclaw.dispatch", title="Dispatch this canonical action to OpenClaw",
         capability=("agents.execute",), risk_level="external_write", supports_dry_run=True,
         parameter_schema={"profile": {"required": True}, "action_id": {"required": True},
-                          "action_sha256": {"required": True}, "message": {"required": True}},
+                          "action_sha256": {"required": True}, "message": {"required": True}, "mission_id": {"required": True}},
         planner="openclaw_dispatch", executor="openclaw_dispatch", undo_strategy=None,
     ),
     AdminCommandSpec(

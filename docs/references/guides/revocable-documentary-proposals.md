@@ -120,3 +120,21 @@ cover live expiry, capability refusal and ordering. Controlled provider tests
 can verify dispatch/CAS/uncertainty semantics, but do not demonstrate an actual
 provider account, remote merge or consumer adoption. Each consumer still needs
 its own reviewed SHA adoption, full gates and served readback.
+
+## Editorial action consolidation
+
+A body contribution may additionally declare `consolidations`: up to eight
+objects with `paragraph`, `canonical_ref`, `canonical_sha256` and `label`.
+The native writer verifies the exact complete prose paragraph still exists in a
+distinct sibling action at the pinned hash, then replaces only that paragraph
+with the supplied label linking to that sibling. All remaining body bytes,
+factual dates, lifecycle and support fields remain unchanged. Terminal actions
+remain immutable; they may be the canonical destination. The real operation
+time is recorded in an append-only `body_consolidation` receipt.
+
+The submitted body must equal these replacements exactly. The audit replays
+them against the approved body, rejecting extra facts and date renewal. Mixing
+factual body rewrites and editorial consolidation in one reviewed base delta is
+unsupported; use separate reviewed changes. Normal proposal preview pins the
+canonical source as a real read input. This is not a generic freshness waiver
+and does not relax any quality, source or independent-review gate.

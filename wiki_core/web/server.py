@@ -1220,7 +1220,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     runtime = self.server.config.openclaw
                     for profile in payload["profiles"]:
                         route = runtime.get("routes", {}).get(profile["id"]) if runtime.get("enabled") else None
-                        profile["runtime"] = {"configured": bool(route), "label": route["label"] if route else "OpenClaw"}
+                        profile["runtime"] = {"configured": bool(route), "label": route["label"] if route else "OpenClaw", "mission_options": [{"id": key, **option} for key, option in runtime.get("mission_options", {}).items()]}
                     for action in payload["actions"]:
                         try:
                             action["runtime_attempts"] = attempts(self.server.root, self.server.config,

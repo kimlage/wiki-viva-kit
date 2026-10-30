@@ -125,3 +125,31 @@ def test_retired_pointer_cannot_change_policy(prepared):
     with pytest.raises(normal_proposal.ProposalError):
         normal_proposal.preview_proposal(root, srv.server.config, params)
     assert _state(root) == before
+
+
+def test_consolidation_runs_native_writer_and_pins_canonical_source(prepared):
+    from tests.test_action_consolidation import PARAGRAPH
+    from wiki_core.action_transition import _parse_document, _consolidated_body
+    srv, root, params, unlock, _clock = prepared
+    material = json.loads((root / params['material_path']).read_text())
+    action = root / material['action']['page_ref']
+    action.write_text(action.read_text() + '\n' + PARAGRAPH + '\n')
+    canonical = action.with_name('canonical.md')
+    canonical.write_text(action.read_text().replace('action-server-synthetic', 'action-canonical'))
+    _commit_inputs(root, params)
+    before = action.read_text(); fm, body = _parse_document(before)
+    records = [{'paragraph':PARAGRAPH,'canonical_ref':canonical.relative_to(root).as_posix(),
+                'canonical_sha256':_sha(canonical.read_bytes()),'label':'Canonical evidence'}]
+    def update(value):
+        value['action'].update(expected_sha256=_sha(action.read_bytes()),
+            body=_consolidated_body(body, records), consolidations=records)
+    _material(root, params, update)
+    token = unlock()
+    status, plan = _plan(srv, token, 'wiki.proposal.prepare', params=params)
+    assert status == 200, plan
+    status, result = _execute(srv, token, plan, confirmation=plan['plan']['confirmation']['text'])
+    assert status == 200, result
+    after, updated_body = _parse_document(action.read_text())
+    assert after['updated_at'] == fm['updated_at']
+    assert PARAGRAPH not in updated_body and '(canonical.md)' in updated_body
+    assert after['action_state_history'][-1]['kind'] == 'body_consolidation'
