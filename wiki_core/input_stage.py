@@ -7,6 +7,8 @@ stable catalog the agent can use before ingestion.
 
 from __future__ import annotations
 
+import yaml
+
 import datetime as dt
 import json
 import posixpath
@@ -404,6 +406,7 @@ def compile_input_stage(
     ]
     return {
         "schema_version": INPUT_STAGE_SCHEMA_VERSION,
+        "config_ref": "wiki.config.yaml" if (root/"wiki.config.yaml").is_file() else "",
         "generated_at": date_text,
         "root_entity": root_entity,
         "quadrant_map": DEFAULT_QUADRANT_MAP,
@@ -585,10 +588,13 @@ def _display_path(config: WikiConfig, path: str | None) -> str:
     return posixpath.relpath(path, _input_stage_dir(config))
 
 
-def _link(label: str, path: str | None, config: WikiConfig, *, role: str | None = None) -> str:
+def _link(label: str, path: str | None, config: WikiConfig, *, role: str | None = None, consumes: list[str] | None = None) -> str:
     if not path:
         return ""
     literal = f"[{label}]({_display_path(config, path)})"
+    if consumes:
+        from wiki_core.markdown_link_roles import declare_projection
+        return declare_projection(literal,consumes=consumes)
     if role:
         from wiki_core.markdown_link_roles import declare_link_role
         return declare_link_role(literal, role)
@@ -606,7 +612,7 @@ def _links(values: list[str] | tuple[str, ...] | None, config: WikiConfig, *, ro
 _WARNING_PATH_RE = re.compile(r"^(?P<path>.+?\.md)(?P<detail>:\s.*)$")
 
 
-def _warning_label(warning: Any, config: WikiConfig) -> str:
+def _warning_label(warning: Any, config: WikiConfig, *, annotated: bool = True) -> str:
     """Render a generated diagnostic without leaking a bare repo-local path.
 
     The catalog keeps its stable string warning contract for JSON consumers,
@@ -621,29 +627,42 @@ def _warning_label(warning: Any, config: WikiConfig) -> str:
     path = match.group("path")
     if "://" in path or path.startswith("/"):
         return text
-    return f"{_link(path, path, config)}{match.group('detail')}"
+    return f"{_link(path, path, config, role='review_record' if annotated else None)}{match.group('detail')}"
 
 
-def _source_config_label(source: dict[str, Any], config: WikiConfig) -> str:
+def _source_config_label(source: dict[str, Any], config: WikiConfig, *, annotated: bool = True) -> str:
     source_config = source.get("source_config")
     if not isinstance(source_config, dict):
         return ""
     path = str(source_config.get("path") or "")
-    return _link(str(source_config.get("page_id") or "config"), path, config)
+    return _link(str(source_config.get("page_id") or "config"), path, config,
+        consumes=['page_id','page_type','source_refs','perspectives_required','perspectives_optional',
+            'perspectives_skip_with_reason','input_channel_ref','process_refs','target_pages','quadrants'] if annotated else None)
 
 
-def _channel_label(channel: dict[str, Any] | None, config: WikiConfig) -> str:
+def _channel_label(channel: dict[str, Any] | None, config: WikiConfig, *, annotated: bool = True) -> str:
     if not channel:
         return ""
     return _link(
         str(channel.get("title") or channel.get("page_id") or "channel"),
         str(channel.get("path") or ""),
         config,
+        consumes=_channel_fields() if annotated else None,
     )
+
+
+def _channel_fields() -> list[str]:
+    return ['page_id','page_type','title','channel_type','input_status','quadrants','source_refs',
+        'source_config_refs','target_pages','perspectives_required','perspectives_optional']
+
+
+def _source_fields() -> list[str]:
+    return ['page_id','page_type','title','context','source_type','ingestion_state','config_ref']
 
 
 def render_input_stage_markdown(
     catalog: dict[str, Any], config: WikiConfig, *, _annotate_targets: bool = True,
+    _annotate_projections: bool = True,
 ) -> str:
     labels = _labels(config)
     root_entity = catalog.get("root_entity") if isinstance(catalog.get("root_entity"), dict) else None
@@ -652,6 +671,8 @@ def render_input_stage_markdown(
         str((root_entity or {}).get("title") or "Not configured"),
         str((root_entity or {}).get("path") or ""),
         config,
+        consumes=['page_id','page_type','title','root_entity_type','perspective_bundle_required',
+            'perspective_bundle_optional'] if _annotate_projections else None,
     )
     lines = [
         "---",
@@ -666,6 +687,16 @@ def render_input_stage_markdown(
         "gate: github_pr",
         "sensitive_data_policy: private_sensitive_allowed",
         f"moc_parent: {config.paths['memory_root']}/index.md",
+        *(yaml.safe_dump({'projection_inputs':[
+            *([{'paths':['wiki.config.yaml'],'fields':['body']}] if catalog.get('config_ref') else []),
+            {'page_types':sorted(SOURCE_PAGE_TYPES),'path_prefix':WikiPaths(Path('.'),config).sources_dir.as_posix(),
+             'fields':_source_fields(),'title_fallback':'blank'},
+            {'page_types':['input_channel'],'fields':_channel_fields(),'title_fallback':'blank'},
+            {'page_types':['root_entity'],'fields':['page_id','title','root_entity_type',
+                'perspective_bundle_required','perspective_bundle_optional'],'title_fallback':'blank'},
+            {'page_types':['source_config'],'fields':['page_id','source_refs','input_channel_ref','process_refs',
+                'target_pages','quadrants','perspectives_required','perspectives_optional','perspectives_skip_with_reason']},
+        ]},sort_keys=False).rstrip().splitlines() if _annotate_projections else []),
         "---",
         "",
         f"# {labels['title']}",
@@ -712,7 +743,8 @@ def render_input_stage_markdown(
     for channel in catalog.get("channels", []):
         lines.append(
             "| "
-            + _link(str(channel.get("title") or channel.get("page_id")), str(channel.get("path") or ""), config)
+            + _link(str(channel.get("title") or channel.get("page_id")), str(channel.get("path") or ""), config,
+                consumes=_channel_fields() if _annotate_projections else None)
             + f" | `{channel.get('channel_type') or ''}`"
             + f" | `{channel.get('input_status') or ''}`"
             + f" | {_join(channel.get('quadrants') or [])}"
@@ -734,10 +766,11 @@ def render_input_stage_markdown(
         required = source.get("resolved_perspectives", {}).get("required") or []
         lines.append(
             "| "
-            + _link(str(source.get("title") or source.get("source_page_id")), str(source.get("source_path") or ""), config)
+            + _link(str(source.get("title") or source.get("source_page_id")), str(source.get("source_path") or ""), config,
+                consumes=_source_fields() if _annotate_projections else None)
             + f" | `{source.get('input_status') or ''}`"
-            + f" | {_channel_label(source.get('input_channel'), config)}"
-            + f" | {_source_config_label(source, config)}"
+            + f" | {_channel_label(source.get('input_channel'), config, annotated=_annotate_projections)}"
+            + f" | {_source_config_label(source, config, annotated=_annotate_projections)}"
             + f" | {_join(required)}"
             + f" | {_links(source.get('target_pages') or [], config, role='change_target' if _annotate_targets else None)} |"
         )
@@ -756,7 +789,8 @@ def render_input_stage_markdown(
     for source in catalog.get("ready_inputs", []):
         lines.append(
             "| "
-            + _link(str(source.get("title") or source.get("source_page_id")), str(source.get("source_path") or ""), config)
+            + _link(str(source.get("title") or source.get("source_page_id")), str(source.get("source_path") or ""), config,
+                consumes=_source_fields() if _annotate_projections else None)
             + f" | `{source.get('input_status') or ''}` | {labels['ready_action']} |"
         )
     if not catalog.get("ready_inputs"):
@@ -766,7 +800,7 @@ def render_input_stage_markdown(
     warnings = catalog.get("warnings") or []
     if warnings:
         for warning in warnings:
-            lines.append(f"- {_warning_label(warning, config)}")
+            lines.append(f"- {_warning_label(warning, config, annotated=_annotate_projections)}")
     else:
         lines.append(f"- {labels['no_warnings']}")
 
@@ -801,8 +835,8 @@ def matching_input_stage_catalog(
     except (UnicodeError, ValueError):
         return None
     retained = {**catalog, "generated_at": date_text}
-    for annotated in (True, False):
-        expected = render_input_stage_markdown(retained, config, _annotate_targets=annotated)
+    for annotated, projections in ((True,True),(True,False),(False,False)):
+        expected = render_input_stage_markdown(retained, config, _annotate_targets=annotated,_annotate_projections=projections)
         if markdown == expected.encode("utf-8"):
             return retained
     return None

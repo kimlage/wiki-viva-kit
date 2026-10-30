@@ -26,6 +26,7 @@ import os
 import re
 import sys
 import unicodedata
+import yaml
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -430,9 +431,8 @@ NON_PENDING_DECISION_STATUS_PREFIXES = (
     "resolvido_em_",
 )
 def _status_slug(status: str) -> str:
-    normalized = unicodedata.normalize("NFKD", status)
-    ascii_status = normalized.encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[^a-z0-9]+", "_", ascii_status.lower()).strip("_")
+    from wiki_core.action_state import normalize_status_label
+    return normalize_status_label(status)
 
 
 def _decision_is_pending(values: dict[str, str], text: str) -> bool:
@@ -443,6 +443,11 @@ def _decision_is_pending(values: dict[str, str], text: str) -> bool:
     return slug not in NON_PENDING_DECISION_STATUS_SLUGS and not any(
         slug.startswith(prefix) for prefix in NON_PENDING_DECISION_STATUS_PREFIXES
     )
+
+
+def _projected_link(label: str, target: str, fields: list[str]) -> str:
+    from wiki_core.markdown_link_roles import declare_projection
+    return declare_projection(f"[{label}]({target})", consumes=fields)
 
 
 def collect_decisions(paths: WikiPaths) -> list[Decision]:
@@ -675,6 +680,33 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
         "sensitive_data_policy: private_sensitive_allowed",
         f"purpose: {s['purpose']}",
         f"moc_parent: {config.paths['memory_root']}/index.md",
+        *yaml.safe_dump({'projection_inputs':[
+            *([{'paths':['wiki.config.yaml'],'fields':['body']}] if (root/'wiki.config.yaml').is_file() else []),
+            {'page_types':[None,'decision'],'path_prefix':paths.rel(paths.decisions_dir),'path_depth':1,
+             'exclude_names':sorted(NON_ITEM_BASENAMES),'fields':['page_id','page_type','status']},
+            {'page_types':[None,'decision'],'path_prefix':paths.rel(paths.decisions_dir),'path_depth':1,
+             'exclude_names':sorted(NON_ITEM_BASENAMES),'fields':['body','context'],
+             'status_excludes':sorted(set(NON_PENDING_DECISION_STATUS_SLUGS)|{''}),
+             'status_exclude_prefixes':list(NON_PENDING_DECISION_STATUS_PREFIXES)},
+            {'page_types':['action'],'path_prefix':paths.rel(paths.actions_dir),'path_depth':1,
+             'exclude_names':sorted(NON_ITEM_BASENAMES|{paths.pending_actions_file.name,'pendentes.md','pending.md'}),
+             'fields':['page_type','action_state']},
+            {'page_types':['action'],'path_prefix':paths.rel(paths.actions_dir),'path_depth':1,
+             'exclude_names':sorted(NON_ITEM_BASENAMES|{paths.pending_actions_file.name,'pendentes.md','pending.md'}),
+             'fields':['body','context','page_id'],'action_state_excludes':['done','cancelled']},
+            {'page_types':['action'],'path_prefix':paths.rel(paths.actions_dir),'path_depth':1,
+             'exclude_names':sorted(NON_ITEM_BASENAMES|{paths.pending_actions_file.name,'pendentes.md','pending.md'}),
+             'fields':['status'],'missing_fields':['action_state']},
+            *([{'paths':[paths.rel(paths.pending_actions_file)],'fields':['body']}] if paths.pending_actions_file.is_file() else []),
+            {'page_types':['source'],'path_prefix':paths.rel(paths.sources_dir),
+             'fields':['page_id','ingestion_state']},
+            {'page_types':[],'path_prefix':paths.rel(paths.ingest_events_dir),
+             'exclude_names':['index.md','README.md','readme.md'],
+             'fields':['page_type','event_id','page_id','source_id','source_refs','source_ref',
+                'consolidated_into','claims','decisions','actions','body']},
+            {'page_types':['context_hub'],'path_prefix':paths.rel(paths.memory_root),'path_depth':2,
+             'file_names':['index.md'],'fields':['context','updated_at','stale_after_days']},
+        ]},sort_keys=False).rstrip().splitlines(),
         "---",
         "",
         f"# {s['title'].format(repo=repo_id)}",
@@ -697,7 +729,7 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
     if decisions:
         for decision in decisions:
             lines.append(
-                f"| [{decision.title}]({decision.rel_link}) | {decision.context} | "
+                f"| {_projected_link(decision.title, decision.rel_link, ['body', 'status', 'context', 'page_id', 'page_type'])} | {decision.context} | "
                 f"`{decision.page_id}` |"
             )
     else:
@@ -715,8 +747,8 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
         for action in actions:
             state = action.state or s["no_state"]
             lines.append(
-                f"| [{action.title}]({action.rel_link}) | {action.context} | {state} | "
-                f"[{action.page_id}]({action.rel_link}) |"
+                f"| {_projected_link(action.title, action.rel_link, ['body', 'action_state', 'status', 'context', 'page_id', 'page_type'])} | {action.context} | {state} | "
+                f"{_projected_link(action.page_id, action.rel_link, ['page_id'])} |"
             )
     else:
         lines.append(s["empty_actions"])
@@ -779,7 +811,7 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
             vit = s.get(f"vit_{row.vitality}", row.vitality)
             lines.append(
                 f"| {row.context} | {updated} | {window} | {vit} | "
-                f"[{row.rel_link}]({row.rel_link}) |"
+                f"{_projected_link(row.rel_link, row.rel_link, ['context', 'updated_at', 'stale_after_days', 'page_type'])} |"
             )
     else:
         lines.append(s["empty_vitality"])
@@ -818,9 +850,10 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
     )
     lines += ["", s["h_links"], ""]
     for label_key, target_path in resume_targets:
+        from wiki_core.markdown_link_roles import declare_link_role
         lines.append(
             f"- {s[label_key]}: "
-            f"[{paths.rel(target_path)}]({_rel_to_page_dir(target_path, page_dir)})"
+            + declare_link_role(f"[{paths.rel(target_path)}]({_rel_to_page_dir(target_path, page_dir)})",'navigation')
         )
     lines.append("")
     return "\n".join(lines)

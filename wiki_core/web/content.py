@@ -10,10 +10,12 @@ against the configured memory root — the reader never gets a file outside it.
 from __future__ import annotations
 
 import hashlib
+import datetime as dt
 import json
 import math
 import posixpath
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -172,6 +174,8 @@ def build_page_content(
     config: WikiConfig,
     page_id: str,
     snapshot: dict[str, dict[str, Any]],
+    *,
+    include_information: bool = False,
 ) -> dict[str, Any]:
     """Build the reader payload for one page, or an ``ok: False`` error record."""
     pages = snapshot.get("pages.json", {}).get("pages", [])
@@ -240,6 +244,8 @@ def build_page_content(
     if isinstance(dialogue, list):
         link_text.extend(event["text"] for event in dialogue
                          if isinstance(event, dict) and isinstance(event.get("text"), str))
+    information = (_reader_information(root, config, rel, values, body, snapshot)
+        if include_information and ("information_requirements" in values or "operational_prerequisite" in body) else None)
     return {
         "ok": True,
         "schema_version": PAGE_CONTENT_SCHEMA_VERSION,
@@ -254,7 +260,74 @@ def build_page_content(
                                            published_blob_links(root, snapshot.get("git.json", {}))),
         "backlinks": _backlinks(page, graph, index),
         "source_refs": _resolved_sources(page, index),
+        **({"information_use": information} if information else {}),
     }
+
+
+def _reader_information(root, config, path, values, body, snapshot):
+    """Passive assessment from exact snapshot pages, never a fetch or a grant.
+
+    This opt-in is only for the human reader/sidecars. Agent context continues
+    to authorize each required reference before reading it through its port.
+    """
+    from wiki_core.information_relations import operational_consumption_edges
+    from wiki_core.information_use import bind_verification_coverage, assess_information_use
+    def head():
+        try:
+            return subprocess.check_output(['git','rev-parse','--verify','HEAD'],cwd=root,
+                text=True,stderr=subprocess.DEVNULL).strip()
+        except (OSError,subprocess.SubprocessError):
+            return None
+    original_head=head()
+    pages=snapshot.get('pages.json',{}).get('pages',[])
+    def resolve(ref):
+        return sorted({p['path'] for p in pages if p.get('id')==ref or p.get('path')==ref})
+    graph={'nodes':{path:values},'documents':{path:body},'edges':[],'errors':[]}
+    try:
+        graph['edges']=operational_consumption_edges(root,path,values,body,resolve)
+        pending=[edge['target'] for edge in graph['edges']]
+        targets=set(pending)
+        while pending:
+            ref=pending.pop()
+            matches=resolve(ref)
+            if len(matches)!=1:
+                graph['errors'].append('information_reference_missing_or_ambiguous')
+                continue
+            target=matches[0]
+            if target in graph['nodes']:continue
+            content=build_page_content(root,config,target,snapshot,include_information=False)
+            if not content.get('ok'):
+                graph['errors'].append(content.get('error_code') or 'information_reference_unreadable')
+                continue
+            graph['nodes'][target]=content['frontmatter'];graph['documents'][target]=content['body']
+            if target in targets or content['frontmatter'].get('page_type')=='claim':
+                evidence=content['frontmatter'].get('evidence_refs',[])
+                if not isinstance(evidence,list) or any(not isinstance(item,str) for item in evidence):
+                    graph['errors'].append('information_evidence_invalid')
+                else:pending.extend(evidence)
+    except ValueError:
+        graph['errors'].append('information_requirement_invalid')
+    if not graph['edges'] and not graph['errors']:
+        return None
+    # Snapshot time is visible and deterministic in static exports. Actual
+    # execution evaluates its own current clock and authorized readset again.
+    recorded=snapshot.get('manifest.json',{}).get('generated_at')
+    try:
+        now=dt.datetime.fromisoformat(str(recorded).replace('Z','+00:00'))
+        if now.tzinfo is None:raise ValueError('timezone missing')
+    except ValueError:
+        now=dt.datetime.now(dt.timezone.utc)
+    qualified=bind_verification_coverage(root,graph)
+    # Coverage reads Git and source bytes independently. They must still be
+    # the exact snapshot revisions whose metadata is about to be presented.
+    for ref in graph['nodes']:
+        current=build_page_content(root,config,ref,snapshot,include_information=False)
+        if not current.get('ok'):
+            qualified['errors'].append(current.get('error_code') or 'information_reference_unreadable')
+    if head()!=original_head:
+        qualified['errors'].append('snapshot_revision_mismatch')
+    result=assess_information_use(qualified,path,now=now)
+    return {**result,'assessed_at':now.isoformat(),'permission_granted':False}
 
 
 def write_content_sidecars(
@@ -271,7 +344,7 @@ def write_content_sidecars(
         page_id = str(page.get("id") or page.get("path") or "")
         if not page_id:
             continue
-        payload = build_page_content(root, config, page_id, snapshot)
+        payload = build_page_content(root, config, page_id, snapshot, include_information=True)
         if not payload.get("ok"):
             raise ValueError(
                 f"cannot write content sidecar for {page_id!r}: "

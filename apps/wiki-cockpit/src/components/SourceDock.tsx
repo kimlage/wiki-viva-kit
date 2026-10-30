@@ -418,7 +418,7 @@ export function SourceDock({
                     privacy: stream.privacy
                   })}
                   className={[
-                    recurring && stream.breached ? "streamBreached" : stream.selected ? "" : "streamSkipped",
+                    stream.information_review_pending || (recurring && stream.breached) ? "streamBreached" : stream.selected ? "" : "streamSkipped",
                     focusedStreamId === stream.id ? "streamFocused" : "",
                     selectedStream?.id === stream.id ? "streamSelected" : ""
                   ]
@@ -440,7 +440,7 @@ export function SourceDock({
                   </td>
                   <td>
                     {stream.selected ? (
-                      <span className={recurring && stream.breached ? "streamStale" : "streamFresh"}>
+                      <span className={stream.information_review_pending || (recurring && stream.breached) ? "streamStale" : "streamFresh"}>
                         {streamFreshnessLabel(stream, source.schedule?.mode)}
                       </span>
                     ) : (
@@ -472,6 +472,18 @@ export function SourceDock({
                   <span className="sourceRecordStatus">{streamScopeLabel(selectedStream)}</span>
                 )}
               </header>
+              {Boolean(selectedStream.review_requests?.length) && <section aria-label={t("information.reviewQueued")}>
+                <h4>{t("information.reviewQueued")}</h4>
+                <ul>{selectedStream.review_requests?.map(request => <li key={request.request_id}>
+                  <strong>{request.scope}</strong> · {request.fields.join(", ")}
+                  <p>{t("information.usedBy")}</p>
+                  {request.consumers.map(consumer => {
+                    const page=bundle.pages?.pages.find(page => page.path===consumer || page.id===consumer);
+                    return <button key={consumer} type="button" className="textButton" disabled={!page || !onOpenPage}
+                      onClick={() => onOpenPage?.(page!.id)}>{page?.title || consumer}</button>;
+                  })}
+                </li>)}</ul>
+              </section>}
               <dl className="sourceRecordGrid">
                 <dt>{t("source.record.id")}</dt>
                 <dd><code>{selectedStream.id}</code></dd>

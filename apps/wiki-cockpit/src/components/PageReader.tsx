@@ -1,3 +1,4 @@
+import { InformationNotice } from "./InformationNotice";
 import { safeEvidenceUrl } from "./EvidenceMarkdown";
 import { restoreSurfaceFocus } from "./world/restoreSurfaceFocus";
 // PageReader: the DEEP reading surface of the cockpit — the second level of
@@ -826,6 +827,7 @@ export function PageReader({
               ].filter(Boolean).join(" · ")}
             </span>
           </div>
+          {content?.frontmatter && <InformationNotice frontmatter={content.frontmatter} assessment={content.information_use} />}
           {templateOpen && (
             <TemplateInspector
               spec={templateSpec(bundle, page.page_type)}

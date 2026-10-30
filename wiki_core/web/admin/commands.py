@@ -49,6 +49,14 @@ class AdminCommandSpec:
 # administration PR ships planners with proposal branches and typed targets.
 ADMIN_COMMAND_SPECS: tuple[AdminCommandSpec, ...] = (
     AdminCommandSpec(
+        id="sources.review_pending", title="Queue bounded source review work",
+        capability=("sources.plan", "sources.execute", "git.propose"),
+        risk_level="proposal_write", supports_dry_run=True,
+        parameter_schema={"base": {"required": True}, "max_sources": {"required": True},
+            "max_attempts": {"required": True}, "max_adapter_calls": {"required": True}},
+        planner="source_review", executor="source_review", undo_strategy=None,
+    ),
+    AdminCommandSpec(
         id="agents.openclaw.resolve_failed", title="Resolve a reviewed failed attempt without a result",
         capability=("agents.inspect", "agents.execute"), risk_level="proposal_write", supports_dry_run=True,
         parameter_schema={"profile": {"required": True}, "action_id": {"required": True},

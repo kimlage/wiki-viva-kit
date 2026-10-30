@@ -525,7 +525,18 @@ def build_admin_plan(
             "error_code": ERROR_INVALID_PARAMS,
             "detail": "command does not support dry run",
         }
-    if spec.planner == "proposal_adopt":
+    if spec.planner == "source_review":
+        from wiki_core.web.source_review_jobs import plan_source_review_jobs
+        try:
+            diff=plan_source_review_jobs(root,config,params)
+        except (ValueError,OSError,subprocess.SubprocessError) as exc:
+            return {"ok":False,"error_code":ERROR_INVALID_PARAMS,"detail":str(exc)}
+        planned={"summary":"Queue the declared source scope with bounded deterministic work; factual verification remains pending",
+            "effects":{"files_read":sorted({p for j in diff['jobs'] for p in j['input_paths']}),
+                "files_write":[] if dry_run else ["existing source-state and job records", "source proposal outputs"],
+                "external_calls":[] if dry_run else ["Inventory each qualified source collection through its declared adapter; apply only planned streams"],
+                "snapshot_invalidated":not dry_run},"targets":[],"diff":diff}
+    elif spec.planner == "proposal_adopt":
         from wiki_core.web.normal_proposal import adoption_target
         try:
             target = adoption_target(root, config, params)
@@ -807,6 +818,7 @@ def execute_admin_plan(
     session: dict[str, Any],
     session_manager: AdminSessionManager,
     session_token: str,
+    jobs=None,
 ) -> dict[str, Any]:
     """Execute one reviewed plan, revalidating EVERYTHING first (§9.3)."""
 
@@ -871,7 +883,17 @@ def execute_admin_plan(
             return {"ok": False, "error_code": ERROR_PLAN_ALREADY_EXECUTED}
         dry_run = bool(content.get("dry_run"))
         try:
-            if spec.executor == "proposal_adopt":
+            if spec.executor == "source_review":
+                from wiki_core.web.source_review_jobs import submit_source_jobs
+                if dry_run:
+                    outcome={"output":{"dry_run":True,"jobs":content['diff']['jobs']},"affected_paths":[]}
+                elif jobs is None:
+                    return {"ok":False,"error_code":"source_review_runner_unavailable"}
+                else:
+                    result=submit_source_jobs(jobs,content['diff'],manager=session_manager,
+                        token=session_token,session_id=str(record['session_id']))
+                    outcome={"output":result,"affected_paths":[],"snapshot_invalidated":True}
+            elif spec.executor == "proposal_adopt":
                 from wiki_core.web.normal_proposal import adopt_proposal
                 result = {"ok": True, "dry_run": True} if dry_run else adopt_proposal(
                     root, config, content["diff"], manager=session_manager, token=session_token,

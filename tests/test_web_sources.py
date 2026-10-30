@@ -607,3 +607,21 @@ recipe:
     assert discovered["breached"] is True
     assert source["pending_streams"] == 1
     assert source["next_due_days"] == expected_next_due
+
+
+def test_information_review_uses_existing_stream_queue_and_survives_discovery(tmp_path):
+    from wiki_core.source_state import read_state, merge_review_requests
+    config = _repo(tmp_path); paths = WikiPaths(tmp_path, config)
+    write_stream_cursor(paths.source_state,'source-slack-fin','#financeiro',cursor='fresh',updated_at=TODAY.isoformat())
+    state=read_state(paths.source_state,'source-slack-fin')
+    state=merge_review_requests(state,'#financeiro',[{'scope':'quarterly-claim','fields':['body'],
+        'consumer':'memories/claim.md','condition':'specific-observation-old','priority':'active'}])
+    statefile=paths.source_state/'source-slack-fin.json';statefile.write_text(json.dumps(state))
+    # A later discovery cursor is not a factual review acknowledgement.
+    write_stream_cursor(paths.source_state,'source-slack-fin','#financeiro',cursor='new-discovery',updated_at=TODAY.isoformat())
+    source=build_sources_payload(tmp_path,config,today=TODAY)['sources'][0]
+    stream=next(s for s in source['streams'] if s['id']=='#financeiro')
+    assert stream['cursor_age_days']==0 and stream['breached']
+    assert stream['information_review_pending'] and len(stream['review_requests'])==1
+    brief=compose_source_brief_spec(tmp_path,config,'source-slack-fin',today=TODAY)
+    assert 'quarterly-claim' in json.dumps(brief)

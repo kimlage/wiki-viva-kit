@@ -194,3 +194,65 @@ def test_invalid_result_never_releases_uncertain_attempt(runtime, payload):
     (oc.storage(root,cfg,p['effect_key'])/'result.json').write_text(payload)
     with pytest.raises(ValueError):oc.plan_dispatch(root,cfg,{**params,'message':'Another mission.'})
     assert len([c for c in calls if c[0]=='chat.send'])==1
+
+
+def _add_information_requirement(runtime, *, temporal='current'):
+    import datetime as dt
+    from wiki_core.frontmatter import parse_frontmatter
+    root,cfg,params,h,calls,snapshot=runtime
+    raw='---\npage_id: fact\npage_type: claim\nconfidence: confirmed\nverified_at: 2020-01-01\nevidence_refs: [memories/source.md]\n---\nSpecific old observation.\n'
+    (root/'memories/fact.md').write_text(raw)
+    snapshot['pages.json']['pages'].append({'id':'fact','path':'memories/fact.md','title':'Fact','page_type':'claim','content_sha256':hashlib.sha256(raw.encode()).hexdigest()})
+    target=root/'memories/task.md';fm,body=parse_frontmatter(target.read_text());fm['information_requirements']=[{'target':'fact','fields':['body'],'temporal':temporal,'max_age_days':1}]
+    text='---\n'+yaml.safe_dump(fm)+'---\n'+body;target.write_text(text)
+    record=next(p for p in snapshot['pages.json']['pages'] if p['id']=='task');record['content_sha256']=hashlib.sha256(text.encode()).hexdigest();params['action_sha256']=record['content_sha256']
+    subprocess.run(['git','add','.'],cwd=root,check=True,capture_output=True);subprocess.run(['git','commit','-qm','declare bounded factual use'],cwd=root,check=True,capture_output=True)
+
+
+def test_real_admission_refuses_old_information_before_gateway_dispatch(runtime):
+    _add_information_requirement(runtime)
+    root,cfg,params,h,calls,snapshot=runtime
+    with pytest.raises(ValueError,match='openclaw_current_information_unverified'):
+        oc.plan_dispatch(root,cfg,params)
+    assert not calls
+
+
+def test_history_read_can_dispatch_without_claiming_old_fact_is_current(runtime):
+    _add_information_requirement(runtime,temporal='historical')
+    root,cfg,params,h,calls,snapshot=runtime
+    plan=oc.plan_dispatch(root,cfg,params)
+    assert plan['effect_key'].startswith('wiki-run-')
+    assert all(method=='chat.history' for method,params in calls)
+
+
+def test_information_expiration_between_plan_and_dispatch_stops_before_send(runtime,monkeypatch):
+    import datetime as dt
+    _add_information_requirement(runtime)
+    root,cfg,params,h,calls,snapshot=runtime
+    base=dt.datetime(2026,10,30,12,tzinfo=dt.timezone.utc)
+    class Clock(dt.datetime):
+        current=base
+        @classmethod
+        def now(cls,tz=None):return cls.current.astimezone(tz) if tz else cls.current.replace(tzinfo=None)
+    p=root/'memories/fact.md';raw=p.read_text().replace('verified_at: 2020-01-01','verified_at: 2026-10-30\nvalid_to: 2026-10-30T12:00:05Z');p.write_text(raw)
+    next(x for x in snapshot['pages.json']['pages'] if x['id']=='fact')['content_sha256']=hashlib.sha256(raw.encode()).hexdigest()
+    subprocess.run(['git','add','.'],cwd=root,check=True,capture_output=True);subprocess.run(['git','commit','-qm','bounded current observation'],cwd=root,check=True,capture_output=True)
+    monkeypatch.setattr(dt,'datetime',Clock)
+    plan=oc.plan_dispatch(root,cfg,params)
+    assert dt.datetime.fromisoformat(plan['binding']['information_valid_until'])==base+dt.timedelta(seconds=5)
+    Clock.current=base+dt.timedelta(seconds=10)
+    with pytest.raises(ValueError,match='current_information_unverified'):
+        oc.dispatch(root,cfg,plan)
+    assert not any(method=='chat.send' for method,params in calls)
+    assert not (oc.storage(root,cfg,plan['effect_key'])/'intent.json').exists()
+
+
+def test_body_operational_requirement_cannot_disappear_from_admission(runtime):
+    from wiki_core.markdown_link_roles import declare_link_role
+    root,cfg,params,h,calls,snapshot=runtime
+    target=root/'memories/task.md';raw=target.read_text()+'\n'+declare_link_role('[Required fact](source.md)','operational_prerequisite')+'\n';target.write_text(raw)
+    record=next(p for p in snapshot['pages.json']['pages'] if p['id']=='task');record['content_sha256']=hashlib.sha256(raw.encode()).hexdigest();params['action_sha256']=record['content_sha256']
+    subprocess.run(['git','add','.'],cwd=root,check=True,capture_output=True);subprocess.run(['git','commit','-qm','explicit operational body requirement'],cwd=root,check=True,capture_output=True)
+    with pytest.raises(ValueError,match='current_information_unverified'):
+        oc.plan_dispatch(root,cfg,params)
+    assert not calls

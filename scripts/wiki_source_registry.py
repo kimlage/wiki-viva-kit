@@ -277,6 +277,7 @@ def _nested_source_allowlist(root: Path) -> set[str] | None:
 
 
 def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
+    from wiki_core.markdown_link_roles import declare_projection,declare_link_role
     s = _strings(config.language)
     reg_path = paths.source_registry_page
     reg_dir = reg_path.parent
@@ -302,6 +303,10 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
         "gate: github_pr",
         "sensitive_data_policy: private_sensitive_allowed",
         f"moc_parent: {index_rel}",
+        *yaml.safe_dump({'projection_inputs':[
+            *([{'paths':['wiki.config.yaml'],'fields':['body']}] if (ROOT/'wiki.config.yaml').is_file() else []),
+            {'page_types':sorted(SOURCE_PAGE_TYPES),
+            'path_prefix':paths.rel(paths.sources_dir),'fields':['page_type']}]},sort_keys=False).rstrip().splitlines(),
         "parent_projection:",
         "  quadrant: q2",
         "  sub_lens: evidencias",
@@ -327,16 +332,21 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
             next_refresh = r["next_refresh"] or s["state_default"]
             refresh_status = r["refresh_status"] or s["state_default"]
             refresh_policy = r["refresh_policy"] or s["state_default"]
-            config = f"[{s['config_label']}]({link_to(r['config'])})" if r["config"] else s["state_default"]
+            config_link = declare_projection(f"[{s['config_label']}]({link_to(r['config'])})",consumes=['body']) if r["config"] else s["state_default"]
+            source_link=declare_projection(f"[{_cell(r['title'])}]({link_to(r['rel'])})",consumes=[
+                'page_id','page_type','title','source_type','ingestion_state','last_ingested_at','updated_at',
+                'config_ref','next_refresh_at','refresh_cadence_days','stale_after_days','refresh_policy'])
             body.append(
-                f"| [{_cell(r['title'])}]({link_to(r['rel'])}) | `{_cell(r['type'])}` | {_cell(state)} | "
+                f"| {source_link} | `{_cell(r['type'])}` | {_cell(state)} | "
                 f"{_cell(updated)} | {_cell(next_refresh)} | {_cell(refresh_status)} | "
-                f"{_cell(refresh_policy)} | {config} |"
+                f"{_cell(refresh_policy)} | {config_link} |"
             )
     else:
         body.append(s["empty"])
     body.append("")
-    body.append(s["back"].format(index=index_rel, index_link=link_to(index_rel)))
+    back_link=f"[{index_rel}]({link_to(index_rel)})"
+    body.append(s["back"].format(index=index_rel, index_link=link_to(index_rel))
+        .replace(back_link,declare_link_role(back_link,'navigation')))
     body.append("")
     return "\n".join(body)
 

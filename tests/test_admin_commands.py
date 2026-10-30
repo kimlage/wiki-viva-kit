@@ -123,6 +123,7 @@ def test_catalog_grants_follow_session_role(server: _Server) -> None:
     assert granted == {"system.inspect", "config.inspect", "agents.openclaw.inspect"}
     denied = {e["id"]: e["reason"] for e in partial["commands"] if not e["granted"]}
     assert denied == {
+        "sources.review_pending": "role_not_authorized",
         "agents.openclaw.dispatch": "role_not_authorized",
         "agents.openclaw.resolve_failed": "role_not_authorized",
         "agents.openclaw.receipt": "role_not_authorized",

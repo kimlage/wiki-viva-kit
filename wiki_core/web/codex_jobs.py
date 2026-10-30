@@ -108,9 +108,17 @@ class JobRunner:
         self._queue: "queue.Queue[str]" = queue.Queue()
         self._lock = threading.Lock()
         self._procs: dict[str, subprocess.Popen] = {}
+        self._source_review_authorities: dict[str, Any] = {}
+        self._source_review_batches: dict[str, dict] = {}
         self._cancelled: set[str] = set()
         self._running_id: str | None = None  # the job the worker has claimed
         self._worker: threading.Thread | None = None
+        # Reconcile retained source jobs once on startup. Persisted records
+        # never restore native authority or restart an adapter.
+        from wiki_core.web.source_review_jobs import reconcile_source_job
+        for record in self.list():
+            if record.get('kind') == 'source_review' and record.get('status') in {'queued','running'}:
+                reconcile_source_job(self,record)
         if autostart:
             self.start()
 
@@ -338,6 +346,7 @@ class JobRunner:
         # on a job that actually runs).
         with self._lock:
             if job_id in self._cancelled:
+                self._source_review_authorities.pop(job_id,None)
                 return self._set_status(record, "cancelled", reason="cancelled before start")
             self._running_id = job_id
         # ONE checkout, one writer: hold the checkout lock for the WHOLE job so
@@ -347,6 +356,9 @@ class JobRunner:
         from wiki_core.web.git_workflows import CHECKOUT_LOCK
 
         with CHECKOUT_LOCK:
+            if record.get('kind') == 'source_review':
+                from wiki_core.web.source_review_jobs import run_source_job
+                return run_source_job(self, record)
             return self._run_job_locked(job_id, record)
 
     def _run_job_locked(self, job_id: str, record: dict[str, Any]) -> dict[str, Any]:

@@ -114,6 +114,22 @@ afterEach(() => {
 });
 
 describe("SourceDock operational workspace", () => {
+  it("keeps information review visible for historical streams and links its consumer", async () => {
+    const source=sourceFixture({schedule:{mode:"one_shot",cadence_days:0,cron_hint:""}});
+    source.streams=[{...source.streams[0],freshness_basis:"processing_state",information_review_pending:true,
+      review_requests:[{request_id:"r1",scope:"inbox",fields:["body"],consumers:["memories/task.md"],
+        priority:"immediate",status:"review_pending"}]}];
+    const bundle=bundleWith(source);
+    bundle.pages={pages:[{id:"task",path:"memories/task.md",title:"Current dependent task"}]} as SnapshotBundle["pages"];
+    const onOpenPage=vi.fn();const refresh=vi.fn();
+    render(<SourceDock bundle={bundle} sourceId={source.source_id} onNotice={noop} onClose={noop}
+      onOpenPage={onOpenPage} onPreviewRefresh={refresh}/>);
+    expect(screen.getAllByText("Information awaiting review").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("row",{name:/Stream inbox: Information awaiting review/}));
+    fireEvent.click(await screen.findByRole("button",{name:"Current dependent task"}));
+    expect(onOpenPage).toHaveBeenCalledWith("task");
+    expect(refresh).not.toHaveBeenCalled();
+  });
   it("expands the registry while keeping a readable visual name and representative platform icon", () => {
     render(
       <SourceWorkspace

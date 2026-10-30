@@ -78,6 +78,7 @@ export function streamFreshnessLabel(
   stream: SourceEntity["streams"][number],
   scheduleMode: string | undefined
 ): string {
+  if (stream.information_review_pending) return t("information.reviewQueued");
   if (!stream.selected) return streamScopeLabel(stream);
   const processingState = String(stream.filters?.processing_state ?? "").trim().toLowerCase();
   if (processingState === "discovered" || processingState === "changed" || processingState === "pending" || processingState === "queued") {

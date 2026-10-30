@@ -829,7 +829,10 @@ def run_source_refresh(
     selected_external_ids: Any = None,
     *,
     timeout_seconds: int = 300,
+    request_id: str | None = None,
 ) -> dict[str, Any]:
+    if request_id is not None and not re.fullmatch(r"[a-zA-Z0-9_-]{1,96}",request_id):
+        raise ValueError("source_refresh_request_id_invalid")
     preview = preview_source_refresh(root, config, source_id, stream_id, raw_path)
     mode = str(preview.get("execution", {}).get("mode") or "")
     if mode not in {"script", "deterministic_connector"}:
@@ -860,11 +863,13 @@ def run_source_refresh(
             raise ValueError("source_operation_recipe_block_missing")
         patched, changes = _apply_inventory_to_recipe(recipe, source, discovery, selected)
         changed_files: list[str] = []
+        expected_config_sha256 = _sha(current)
         if changes:
             validation = validate_recipe(parse_recipe(patched))
             if validation:
                 raise ValueError("source_operation_invalid_result:" + ",".join(validation))
             rendered = _replace_recipe(current, patched)
+            expected_config_sha256 = _sha(rendered)
             temporary = config_path.with_name(f".{config_path.name}.{uuid.uuid4().hex}.tmp")
             try:
                 temporary.write_text(rendered, encoding="utf-8")
@@ -902,6 +907,9 @@ def run_source_refresh(
                 "applied": len(changes),
             },
         }
+        if request_id is not None:
+            receipt.update(request_id=request_id,config_sha256=preview["config_sha256"],
+                config_sha256_after=expected_config_sha256)
         receipt_dir = WikiPaths(root, config).derived_root / "source-operations"
         receipt_dir.mkdir(parents=True, exist_ok=True)
         receipt_path = receipt_dir / f"{operation_id}.json"
@@ -956,6 +964,9 @@ def run_source_refresh(
         "status": "script_complete" if returncode == 0 else "script_failed",
         "changes": [],
     }
+    if request_id is not None:
+        receipt.update(request_id=request_id,config_sha256=preview["config_sha256"],
+                config_sha256_after=preview["config_sha256"])
     receipt_dir = WikiPaths(root, config).derived_root / "source-operations"
     receipt_dir.mkdir(parents=True, exist_ok=True)
     receipt_path = receipt_dir / f"{operation_id}.json"

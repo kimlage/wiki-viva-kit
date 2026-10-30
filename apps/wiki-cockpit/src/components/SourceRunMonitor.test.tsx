@@ -28,6 +28,16 @@ afterEach(() => {
 });
 
 describe("SourceRunMonitor", () => {
+  it("shows deterministic collection for its source while retaining factual review", async () => {
+    const job: CodexJobRecord = { job_id: "source-review-a", kind: "source_review", source_id: "source-gmail",
+      agent: "deterministic_source", status: "delivered", factual_review_pending: true,
+      reason: "Source collected on proposal", branch: "wiki/source-review-a", steps: [] };
+    render(<SourceRunMonitor sourceId="source-gmail" demo={false} onListJobs={async () => [job]} />);
+    expect(await screen.findByText("source-review-a")).toBeTruthy();
+    expect(screen.getByText("Source collection")).toBeTruthy();
+    expect(screen.getByText("Collection awaits factual review and incorporation.")).toBeTruthy();
+    expect(screen.getByText("Source collected on proposal")).toBeTruthy();
+  });
   it("shows only the selected source run and exposes its safe live log", async () => {
     const onListJobs = vi.fn(async () => [
       sourceJob,

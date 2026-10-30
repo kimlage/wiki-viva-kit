@@ -6,6 +6,7 @@ runtime. Preparing context is not evidence that an agent read or acted on it.
 """
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import json
 import re
@@ -205,11 +206,56 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
     # Expand the action's explicit context, parent and source relations one hop.
     # Do not recurse through a root hub and silently ingest the entire wiki.
     unresolved = []
+    information_edges = []
     for action in selected:
         content = build_page_content(root, config, action, snapshot)
         if not content.get("ok"):
             raise CoordinationError("action revision changed; refresh")
         fm = content["frontmatter"]
+        from wiki_core.information_relations import operational_consumption_edges
+        def resolve_information(ref):
+            matches = [p['path'] for p in pages if p['path'] == ref or p['id'] == ref]
+            return sorted(set(matches))
+        try:
+            consumption = operational_consumption_edges(root, by_id[action]['path'], fm, content['body'], resolve_information)
+        except ValueError as exc:
+            raise CoordinationError(str(exc)) from exc
+        for requirement in consumption:
+            matches = resolve_information(requirement['target'])
+            if len(matches) != 1:
+                raise CoordinationError('information target missing or ambiguous')
+            target = by_path[matches[0]]
+            if authorize_ref:
+                authorize_ref(target['path'], target['content_sha256'])
+            required[target['id']] = target
+            target_content = build_page_content(root, config, target['id'], snapshot)
+            if not target_content.get('ok'):
+                raise CoordinationError('information revision changed; refresh')
+            evidence_refs = target_content['frontmatter'].get('evidence_refs', [])
+            if not isinstance(evidence_refs, list) or any(not isinstance(ref, str) for ref in evidence_refs):
+                raise CoordinationError('invalid information evidence references')
+            pending_evidence=list(evidence_refs)
+            loaded_evidence={target['path']}
+            while pending_evidence:
+                ref=pending_evidence.pop()
+                matches = resolve_information(ref)
+                if len(matches) != 1:
+                    raise CoordinationError('information evidence missing or ambiguous')
+                evidence = by_path[matches[0]]
+                required[evidence['id']] = evidence
+                if evidence['path'] in loaded_evidence:continue
+                loaded_evidence.add(evidence['path'])
+                if authorize_ref:
+                    authorize_ref(evidence['path'],evidence['content_sha256'])
+                evidence_content=build_page_content(root,config,evidence['id'],snapshot)
+                if not evidence_content.get('ok'):
+                    raise CoordinationError('information evidence revision changed; refresh')
+                if evidence_content['frontmatter'].get('page_type')=='claim':
+                    further=evidence_content['frontmatter'].get('evidence_refs',[])
+                    if not isinstance(further,list) or any(not isinstance(item,str) for item in further):
+                        raise CoordinationError('invalid information evidence references')
+                    pending_evidence.extend(further)
+            information_edges.append({**requirement, 'target': target['path']})
         for field in ("source_refs", "related_pages", "related_holons", "roles", "responsibilities", "claims", "decisions", "evidence_refs", "moc_parent"):
             values = fm.get(field, [])
             if isinstance(values, str):
@@ -262,6 +308,16 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
                    "Coordinator is not the domain owner or executor.",
                    "Preserve STOP, waiting_human, terminal states and existing runtime reservations.",
                    "No automatic dispatch; runtime must validate context revisions and admission."]}
+    if information_edges:
+        from wiki_core.information_use import assess_information_use, bind_verification_coverage
+        information_graph = {'nodes': {p['path']: p['frontmatter'] for p in contents},
+                             'documents': {p['path']: p['body'] for p in contents},
+                             'edges': information_edges, 'errors': []}
+        information_graph = bind_verification_coverage(root, information_graph)
+        # Preserve preparation of a refresh/history mission: readiness is a
+        # separate assessment. The real dispatch boundary enforces it.
+        packet['information_use'] = [assess_information_use(information_graph, by_id[action]['path'],
+            now=dt.datetime.now(dt.timezone.utc)) for action in selected]
     # Refuse mixed revisions, including a policy/procedure edit during composition.
     if hashlib.sha256(_read(root, POLICY_FILE)).hexdigest() != policy_sha:
         raise CoordinationError("coordination policy changed; refresh")

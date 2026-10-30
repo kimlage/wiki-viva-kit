@@ -289,13 +289,27 @@ export async function waitForSettledRuntimePerformance(
   return waitForRuntimePerformance(page, { minimumSamples: 0, timeout: 5_000 });
 }
 
+export async function expectFallbackMapVisibility(page: Page): Promise<void> {
+  const workspace = page.locator(".worldWorkspace");
+  await expect(workspace).toHaveAttribute("data-primary-surface-open", /^(true|false)$/);
+  const fallbackTitle = page.getByText(/Performance-safe map|Mapa seguro para este dispositivo/);
+  await expect(fallbackTitle).toHaveCount(1);
+  // Primary surfaces intentionally hide the background map. Verify that
+  // foreground contract as well as the latched renderer state above.
+  if (await workspace.getAttribute("data-primary-surface-open") === "true") {
+    await expect(fallbackTitle).toBeHidden();
+  } else {
+    await expect(fallbackTitle).toBeVisible();
+  }
+}
+
 export async function expectStablePerformanceBudgetFallback(page: Page): Promise<void> {
   const scene = page.locator(".sceneShell");
   await expect(scene).toHaveClass(/fallbackMode/);
   await expect(scene).toHaveAttribute("data-scene-fallback-reason", "performance_budget");
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-fallback-active", "true");
   await expect(page.locator(".sceneShell canvas")).toHaveCount(0);
-  await expect(page.getByText(/Performance-safe map|Mapa seguro para este dispositivo/)).toBeVisible();
+  await expectFallbackMapVisibility(page);
 
   // The session verdict outranks a later media toggle and must never oscillate
   // back to the renderer that the complete bounded window rejected.

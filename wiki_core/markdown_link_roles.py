@@ -12,9 +12,13 @@ import re
 from markdown_it import MarkdownIt
 from markdown_it.rules_inline import html_inline, link
 
-ROLES = frozenset({"navigation", "change_target"})
+ROLES = frozenset({"navigation", "change_target", "factual_support", "operational_prerequisite",
+                   "projection_state", "review_record", "historical_support", "projection"})
 _MARKER = re.compile(
-    r"<!-- wiki-link-role\.v1 (navigation|change_target) sha256:([0-9a-f]{64}) -->"
+    r"<!-- wiki-link-role\.v1 (" + "|".join(sorted(ROLES)) + r") sha256:([0-9a-f]{64}) -->"
+)
+_PROJECTION_MARKER = re.compile(
+    r"<!-- wiki-link-role\.v2 projection consumes:([a-z][a-z0-9_]*(?:,[a-z][a-z0-9_]*)*) produces:([a-z][a-z0-9_]*(?:,[a-z][a-z0-9_]*)*) sha256:([0-9a-f]{64}) -->"
 )
 _SPAN = "_wiki_link_span"
 _ABSOLUTE_SPAN = "_wiki_body_link_span"
@@ -41,6 +45,17 @@ def declare_link_role(markdown: str, role: str) -> str:
         raise ValueError("unsupported Markdown occurrence role")
     digest = hashlib.sha256(markdown.encode("utf-8")).hexdigest()
     return markdown + f"<!-- wiki-link-role.v1 {role} sha256:{digest} -->"
+
+
+def declare_projection(markdown: str, *, consumes: list[str], produces: list[str] | None = None) -> str:
+    """A generated occurrence declares its input/output fields, never grants."""
+    produces = produces or ['body']
+    for fields in (consumes, produces):
+        if not fields or len(fields) > 64 or any(not re.fullmatch(r'[a-z][a-z0-9_]*', field) for field in fields):
+            raise ValueError('invalid projection fields')
+    digest = hashlib.sha256(markdown.encode('utf-8')).hexdigest()
+    return (markdown + '<!-- wiki-link-role.v2 projection consumes:' + ','.join(sorted(set(consumes)))
+            + ' produces:' + ','.join(sorted(set(produces))) + ' sha256:' + digest + ' -->')
 
 
 def _tracked_link(state, silent):
@@ -95,10 +110,11 @@ def parse_role_markdown(body: str):
             if child.type != "html_inline" or index == 0:
                 continue
             marker = _MARKER.fullmatch(child.content)
+            projection = _PROJECTION_MARKER.fullmatch(child.content)
             closing = children[index - 1]
             span = closing.meta.get(_SPAN) if closing.type == "link_close" else None
             marker_span = child.meta.get(_SPAN)
-            if not marker or not span or not marker_span or span[1] != marker_span[0]:
+            if (not marker and not projection) or not span or not marker_span or span[1] != marker_span[0]:
                 continue
             if _has_following_declaration(children, index):
                 continue
@@ -109,14 +125,17 @@ def parse_role_markdown(body: str):
                 continue
             literal = token.content[span[0]:span[1]]
             digest = hashlib.sha256(literal.encode("utf-8")).hexdigest()
-            if digest != marker.group(2):
+            if digest != (projection.group(3) if projection else marker.group(2)):
                 continue
             body_span = (absolute + span[0], absolute + span[1])
             if body[body_span[0]:body_span[1]] != literal:
                 continue
             opening.meta[_ABSOLUTE_SPAN] = body_span
             roles[body_span] = {
-                "schema_version": "wiki_link_role.v1", "role": marker.group(1),
+                "schema_version": "wiki_link_role.v2" if projection else "wiki_link_role.v1",
+                "role": "projection" if projection else marker.group(1),
+                **({"consumed_fields": projection.group(1).split(","),
+                    "produced_fields": projection.group(2).split(",")} if projection else {}),
                 "link_sha256": digest, "body_marker_offset": absolute + marker_span[0],
             }
     return tokens, roles
@@ -126,8 +145,12 @@ def project_link_role(edge: dict, declaration: dict | None) -> dict:
     """Use the existing nonfactual relation vocabulary in the same projector."""
     if declaration is None:
         return edge
-    return {**edge,
-            "type": "navigation_link" if declaration["role"] == "navigation"
-            else "record_context_reference",
+    kinds = {"navigation": "navigation_link", "change_target": "record_context_reference",
+             "factual_support": "markdown_link", "operational_prerequisite": "operational_prerequisite",
+             "projection_state": "projection_state", "projection": "projection", "review_record": "review_record",
+             "historical_support": "historical_support"}
+    return {**edge, "type": kinds[declaration["role"]],
+            **({"consumed_fields": declaration["consumed_fields"], "produced_fields": declaration["produced_fields"]}
+               if declaration.get("schema_version") == "wiki_link_role.v2" else {}),
             "classification": "authored_occurrence_role",
             "authored_role": declaration["role"], "role_declaration": dict(declaration)}

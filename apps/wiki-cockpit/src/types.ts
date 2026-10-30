@@ -227,6 +227,23 @@ export type ResolvedSourceRef =
   | ({ ref: string; resolved: true } & PageBrief)
   | { ref: string; resolved: false };
 
+export type InformationUse = {
+  consumer: string;
+  ready: boolean;
+  assessed_at: string;
+  permission_granted: false;
+  relation_errors: unknown[];
+  requirements: {
+    target: string;
+    fields: string[];
+    temporal: "current" | "historical";
+    verified_at: string | null;
+    valid_until: string | null;
+    blockers: string[];
+    ready: boolean;
+  }[];
+};
+
 export type PageContent = {
   ok: boolean;
   error?: string;
@@ -246,6 +263,7 @@ export type PageContent = {
     moc_parent: string;
   };
   frontmatter?: Record<string, unknown>;
+  information_use?: InformationUse;
   body?: string;
   resolved_links?: ResolvedLink[];
   backlinks?: PageBacklink[];
@@ -651,7 +669,10 @@ export type SourceStream = {
   target_pages: string[];
   skip_reason: string;
   cursor_age_days: number | null;
-  freshness_basis?: "stream_cursor" | "versioned_stream_receipt" | "source_receipt" | "versioned_source_sync" | "not_selected";
+  freshness_basis?: "stream_cursor" | "versioned_stream_receipt" | "source_receipt" | "versioned_source_sync" | "not_selected" | "processing_state";
+  information_review_pending?: boolean;
+  review_requests?: { request_id: string; scope: string; fields: string[]; consumers: string[];
+    priority: "immediate" | "active" | "on_demand"; status: string }[];
   cadence_days: number;
   breached: boolean;
   filters?: Record<string, unknown>;
@@ -994,11 +1015,16 @@ export type CodexJobRecord = {
   ok?: boolean;
   error?: string;
   reason?: string;
-  agent?: "codex" | "claude";
+  agent?: "codex" | "claude" | "deterministic_source";
+  kind?: "source_review";
+  source_id?: string;
+  factual_review_pending?: boolean;
+  adapter_calls?: number;
+  model_calls?: number;
   job_id: string;
-  brief_id: string;
-  brief_sha: string;
-  parent_job_id: string | null;
+  brief_id?: string;
+  brief_sha?: string;
+  parent_job_id?: string | null;
   created_at?: string;
   updated_at?: string;
   started_at?: string | null;
@@ -1011,7 +1037,7 @@ export type CodexJobRecord = {
   steps: CodexJobStep[];
   branch: string | null;
   branch_mode?: "fresh" | "resume" | "continue_current" | string | null;
-  draft_pr_url: string | null;
+  draft_pr_url?: string | null;
   log_path?: string;
   human_gate_state?: string | null;
 };

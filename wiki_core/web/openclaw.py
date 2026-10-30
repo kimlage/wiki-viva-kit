@@ -106,13 +106,21 @@ def binding(root, config, profile, action_id, *, admissible=True):
     action = packet["actions"][0]
     fm, _ = _parse_document((root / action["path"]).read_text())
     if admissible:
+        require(all(row['ready'] for row in packet.get('information_use', [])),
+                "openclaw_current_information_unverified")
         require(action["state"] in {"open", "in_progress"} and not action["dialogue"]["pending_question_ids"]
                 and not fm.get("blocked_by") and not fm.get("blocker_reason"), "openclaw_action_not_admissible")
-    return {"repo_id": config.repo_id, "base_head": git(root, "rev-parse", "HEAD"),
+    result = {"repo_id": config.repo_id, "base_head": git(root, "rev-parse", "HEAD"),
             "action_id": action_id, "action_path": action["path"], "action_sha256": action["content_sha256"],
             "profile": profile, "policy_sha256": packet["policy_sha256"],
             "context_sha256": digest({k: v for k, v in packet.items() if k not in {"snapshot_id", "context_sha256"}}),
             "context_exported": False}
+    validity = [r['valid_until'] for assessment in packet.get('information_use', [])
+                for r in assessment['requirements'] if r.get('valid_until')]
+    if validity:
+        result['information_valid_until'] = min(validity,
+            key=lambda value: dt.datetime.fromisoformat(value))
+    return result
 
 
 def storage(root, config, effect):
@@ -280,6 +288,10 @@ def dispatch(root, config, prepared):
         "effort": mission["effort"], "message_sha256": prepared["message_sha256"],
         "plan_sha256": digest(prepared), "action_id": b["action_id"], "action_sha256": b["action_sha256"],
         "expires_at": (dt.datetime.now(dt.timezone.utc)+dt.timedelta(minutes=15)).isoformat()}
+    if b.get('information_valid_until'):
+        deadline = dt.datetime.fromisoformat(b['information_valid_until'])
+        require(deadline > dt.datetime.now(dt.timezone.utc), "openclaw_current_information_expired")
+        contract['expires_at'] = min(dt.datetime.fromisoformat(contract['expires_at']), deadline).isoformat()
     if bootstrap:
         contract["native_thread_binding"] = "first_turn"
     write_new(directory / "mission.json", contract)

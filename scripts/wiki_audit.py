@@ -1000,6 +1000,9 @@ def audit_freshness_budget(
     The daily cron (manual addition) reuses this same gate.
     """
     scope = config.audit.get("freshness_scope", "global")
+    if config.audit.get('information_impact') == 'use_scoped' and scope != 'impact':
+        errors.append('use-scoped information impact requires an explicit impact review base')
+        return
     if scope not in ("global", "impact"):
         errors.append("config: audit.freshness_scope must be global or impact")
         return
@@ -1793,6 +1796,9 @@ def _impact_ack_added(config: WikiConfig, affected_rel: str) -> bool:
 
 
 def audit_impact(errors: list[str], config: WikiConfig) -> None:
+    if config.audit.get('information_impact') == 'use_scoped':
+        return audit_freshness_budget(errors, [], config,
+            base_ref=str(config.audit.get('freshness_base') or ''))
     if not config.audit.get("impact_check", False):
         return
     graph = build_page_graph(ROOT, config)
@@ -2470,9 +2476,10 @@ class AuditContext:
     positional/keyword arguments the old hand-written main() used.
     """
 
-    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews")
+    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited")
 
     def __init__(self, config: WikiConfig, public_export: bool = False) -> None:
+        self.information_audited = False
         self.errors: list[str] = []
         self.warnings: list[str] = []
         self.config = config
@@ -2481,6 +2488,25 @@ class AuditContext:
         self.freshness_report: Path | None = None
         self.documentary_only: dict[str, str] = {}
         self.freshness_reviews: dict[str, dict[str, str]] = {}
+
+
+def _run_freshness_check(ctx):
+    scoped = ctx.config.audit.get('information_impact') == 'use_scoped'
+    if scoped and ctx.information_audited:
+        return
+    audit_freshness_budget(ctx.errors, ctx.warnings, ctx.config,
+        base_ref=ctx.freshness_base, report_path=ctx.freshness_report,
+        documentary_only=ctx.documentary_only, freshness_reviews=ctx.freshness_reviews)
+    if scoped:
+        ctx.information_audited = True
+
+
+def _run_impact_check(ctx):
+    if ctx.config.audit.get('information_impact') == 'use_scoped':
+        # The same authority also runs with --only impact. No backlinks/ACK
+        # fallback can bypass or contradict scoped information obligations.
+        return _run_freshness_check(ctx)
+    return audit_impact(ctx.errors, ctx.config)
 
 
 # Declarative audit registry: ordered (name, runner) pairs. The order and the
@@ -2499,8 +2525,7 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
     ("action_state_transitions", lambda ctx: audit_action_state_transitions(ctx.errors)),
     ("source_lifecycle_transitions", lambda ctx: audit_source_lifecycle_transitions(ctx.errors)),
     ("stale_coverage", lambda ctx: audit_stale_coverage(ctx.warnings, ctx.config)),
-    ("freshness_budget", lambda ctx: audit_freshness_budget(ctx.errors, ctx.warnings, ctx.config,
-        base_ref=ctx.freshness_base, report_path=ctx.freshness_report, documentary_only=ctx.documentary_only, freshness_reviews=ctx.freshness_reviews)),
+    ("freshness_budget", _run_freshness_check),
     ("drive_artifact_links", lambda ctx: (audit_drive_artifact_links(ctx.warnings, ctx.config),
                                         audit_wiki_text_storage(ctx.errors, ctx.config))),
     ("command_reference", lambda ctx: audit_command_reference(ctx.errors, ctx.config)),
@@ -2515,7 +2540,7 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
     ("duplicate_entity_names", lambda ctx: audit_duplicate_entity_names(ctx.errors, ctx.config)),
     ("entity_mention_links", lambda ctx: audit_entity_mention_links(ctx.warnings, ctx.config, ctx.errors)),
     ("operational_concept_links", lambda ctx: audit_operational_concept_links(ctx.errors, ctx.config)),
-    ("impact", lambda ctx: audit_impact(ctx.errors, ctx.config)),
+    ("impact", _run_impact_check),
     ("operation_page", lambda ctx: audit_operation_page(ctx.errors, ctx.warnings, ctx.config)),
     ("ingestion_events", lambda ctx: audit_ingestion_events(ctx.errors, ctx.config)),
     ("consolidation", lambda ctx: audit_consolidation(ctx.errors, ctx.warnings, ctx.config)),
