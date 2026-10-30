@@ -112,7 +112,7 @@ try {
   guard.authorizeTurn(rp,rt,turnOwner,client,route,assertRoute);guard.bindTurn(recoveryId,rt.threadId,'source-turn');
   const agent={agentId:'worker',sessionKey:m.session_key,expectedExistingSessionId:m.session_id,idempotencyKey:crypto.randomUUID(),internalRuntimeHandoffId:'native-handoff',internalExecutionIdentityRecoveryAttempt:1,inputProvenance:{kind:'internal_system'},deliver:false};
   const cfg={agents:{entries:{worker:{sandbox:{mode:'all',workspaceAccess:'ro',backend:'docker',docker:{readOnlyRoot:true,network:'none'}}}}},tools:{allow:['read','ls','session_status'],fs:{workspaceOnly:true}}};
-  guard.authorizeNativeRecovery(agent,recoveryId,cfg,()=>{})();
+  guard.authorizeNativeRecovery(agent,recoveryId,cfg,()=>{},()=>({session_id:agent.expectedExistingSessionId,source:'session',override_source:'user',automatic:false,provider:'openai',model:'synthetic-model',effort:'high'}))();
   const lcSpec=allHooks.files.find(f=>f.name===lifecycleName);
   const nativeLifecycle=loader.transform(lifecycleName,fs.readFileSync(path.join(plugin,lcSpec.relative),'utf8'));
   assert(nativeLifecycle.includes(lcSpec.edits[0][1]));

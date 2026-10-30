@@ -138,3 +138,40 @@ def test_native_exact_snapshot_unset_leaf_uses_live_identity_before_and_after(ru
         p=oc.plan_failure_resolution(root,cfg,q);r=oc.resolve_failed(root,cfg,q,p)
         assert r['status']=='resolved_without_result' and not r['result_available']
         assert not (d.parent/'mission-active.json').exists()
+
+
+def preparation(directory,plan,native='00000000-0000-4000-8000-000000000001'):
+    bound=oc.read_receipt(directory/'guard-bound-turn.json')
+    claim={'schema_version':'wiki_openclaw_recovery.v1','run_id':plan['effect_key'],
+      'native_run_id':native,'session_id':plan['route']['session_id'],
+      'thread_id':plan['mission']['native_thread_id'],'source_turn_id':bound['turn_id'],
+      'contract_sha256':bound['contract_sha256'],'model':plan['mission']['model'].split('/')[1],
+      'effort':plan['mission']['effort']}
+    oc.write_new(directory/'guard-recovery.json',claim)
+    return claim
+
+
+def test_expired_preparation_only_is_not_a_fabricated_terminal_or_model_result(runtime,monkeypatch):
+    root,cfg,_,_,calls,_=runtime;plan,d,q=interrupted(runtime,monkeypatch)
+    claim=preparation(d,plan);before={p.name:p.read_bytes() for p in d.iterdir()}
+    prepared=oc.plan_failure_resolution(root,cfg,q);got=oc.resolve_failed(root,cfg,q,prepared)
+    obs=got['resolution']['observation']['recovery_preparation']
+    assert obs['native_run_id']==claim['native_run_id']
+    assert obs['sha256']==hashlib.sha256((d/'guard-recovery.json').read_bytes()).hexdigest()
+    assert all((d/k).read_bytes()==v for k,v in before.items())
+    assert got['status']=='resolved_without_result' and not got['new_dispatch']
+    assert got['resolution']['external_effects']=='not_determined_by_this_receipt'
+    assert not (d.parent/'mission-active.json').exists() and not (d/'result.json').exists()
+    assert len([1 for method,_ in calls if method=='chat.send'])==1
+    oc.verified_failure_resolution(d,plan,root)
+
+
+@pytest.mark.parametrize('change',['turn','inference','terminal','foreign_turn','changed_preparation'])
+def test_preparation_resolution_refuses_model_claims_or_marker_drift(runtime,monkeypatch,change):
+    root,cfg,_,_,_,_=runtime;plan,d,q=interrupted(runtime,monkeypatch);preparation(d,plan)
+    prepared=oc.plan_failure_resolution(root,cfg,q)
+    if change in {'turn','inference','terminal'}:(d/('guard-recovery-'+change+'.json')).write_text('{}')
+    else:
+        f=d/'guard-recovery.json';v=json.loads(f.read_text());v['source_turn_id' if change=='foreign_turn' else 'native_run_id']='changed';f.write_text(json.dumps(v))
+    with pytest.raises((ValueError,OSError)):oc.resolve_failed(root,cfg,q,prepared)
+    assert (d.parent/'mission-active.json').exists() and not (d/'failure-resolution.json').exists()

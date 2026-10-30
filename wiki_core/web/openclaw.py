@@ -702,8 +702,7 @@ def validate_expired_interrupted(directory, plan, evidence, root):
             and not plan['mission'].get('native_thread_binding')
             and plan['mission'].get('recovery') == {'mode':'read_only','max_continuations':1}
             and not (directory/'result.json').exists()
-            and not (directory/'guard-terminal.json').exists()
-            and not any(directory.glob('guard-recovery*')),
+            and not (directory/'guard-terminal.json').exists(),
             'openclaw_interrupted_mission_not_eligible')
     validate_expired_contract(directory, plan, evidence, root)
     accepted=read_receipt(directory/'accepted.json')
@@ -724,6 +723,23 @@ def validate_expired_interrupted(directory, plan, evidence, root):
         require(all(item.get(k) == claim.get(k) for k in ('run_id','thread_id','contract_sha256','model','effort'))
                 and item.get('turn_id') == bound['turn_id'] and item.get('path') in {'/responses','/responses/compact'}
                 and not item.get('native_run_id'), 'openclaw_mission_selection_unproven')
+    interrupted_recovery_preparation(directory, plan)
+
+
+def interrupted_recovery_preparation(directory, plan):
+    """A sole preparation is not a terminal or evidence of admitted model work."""
+    files = list(directory.glob('guard-recovery*'))
+    if not files:
+        return None
+    require({p.name for p in files} == {'guard-recovery.json'},
+            'openclaw_interrupted_mission_not_eligible')
+    claim = recovery_claim(directory, plan)
+    require(set(claim) == {'schema_version','run_id','native_run_id','session_id','thread_id',
+                          'source_turn_id','contract_sha256','model','effort'}, 'openclaw_recovery_lineage_unproven')
+    require(re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', claim['native_run_id'])
+            and claim['native_run_id'] != plan['effect_key'], 'openclaw_recovery_lineage_unproven')
+    return {'native_run_id': claim['native_run_id'],
+            'sha256': hashlib.sha256(receipt_bytes(directory/'guard-recovery.json')).hexdigest()}
 
 
 def interrupted_observation(gateway, history, plan):
@@ -777,6 +793,8 @@ def verified_failure_resolution(directory, plan, root=None):
                 and value['observation'].get('leaf_run_id') == plan['effect_key']
                 and value['observation'].get('session_id') == plan['route']['session_id'],
                 'openclaw_failure_resolution_changed')
+        require(value.get('observation',{}).get('recovery_preparation') ==
+                interrupted_recovery_preparation(directory, plan), 'openclaw_failure_resolution_changed')
     raw = value.get("evidence_raw")
     require(isinstance(raw, str) and hashlib.sha256(raw.encode()).hexdigest() == review.get("evidence_sha256")
             and parse_receipt(raw) == value["evidence"], "openclaw_failure_resolution_changed")
@@ -830,6 +848,10 @@ def plan_failure_resolution(root, config, params):
                    "last_run": history["sessionInfo"].get("lastRunId"),
                    "pending": [{k: row.get(k) for k in ("id", "runId", "state")}
                                for row in history["pendingInputs"].get("items", [])]}
+    if expired_interrupted:
+        preparation = interrupted_recovery_preparation(directory, plan)
+        if preparation:
+            observation['recovery_preparation'] = preparation
     return {"plan": plan, "review": review, "evidence": evidence, "evidence_raw": evidence_raw, "observation": observation,
             "canonical_write": False, "new_dispatch": False,
             "external_effects": "not_determined_by_this_receipt"}

@@ -176,11 +176,11 @@
       "edits": [
         [
           "import { l as normalizeOptionalString }",
-          "import {v as wikiExclusiveMutation,l as wikiCompetingAdmission} from \"./session-lifecycle-admission-B5CJ-emz.mjs\";\nimport {n as wikiReadOnlyDatabase} from \"./openclaw-agent-db-readonly-DAqV3tqr.mjs\";\nimport {s as wikiSqliteScope} from \"./session-accessor.sqlite-scope-BkgwxatT.mjs\";\nimport {i as wikiDatabaseOptions} from \"./session-accessor.sqlite-scope-helpers-CfDTAEsL.mjs\";\nimport {t as wikiPendingHistory} from \"./session-pending-input-history.kernel-CgrSkTB7.mjs\";\nimport { l as normalizeOptionalString }"
+          "import {r as wikiStoredModel} from \"./stored-model-overrides-D2ZOkBxi.mjs\";\nimport {T as wikiAutoSelection,w as wikiAutoFallback} from \"./agent-scope-bJOokm5r.mjs\";\nimport {v as wikiExclusiveMutation,l as wikiCompetingAdmission} from \"./session-lifecycle-admission-B5CJ-emz.mjs\";\nimport {n as wikiReadOnlyDatabase} from \"./openclaw-agent-db-readonly-DAqV3tqr.mjs\";\nimport {s as wikiSqliteScope} from \"./session-accessor.sqlite-scope-BkgwxatT.mjs\";\nimport {i as wikiDatabaseOptions} from \"./session-accessor.sqlite-scope-helpers-CfDTAEsL.mjs\";\nimport {t as wikiPendingHistory} from \"./session-pending-input-history.kernel-CgrSkTB7.mjs\";\nimport { l as normalizeOptionalString }"
         ],
         [
           "\t\tif (deliveryContext) {\n\t\t\tagentParams.channel = deliveryContext.channel;",
-          "\t\tconst assertWikiRecovery = wikiMissionGuard.authorizeNativeRecovery(agentParams, sourceRunId, params.cfg, () => { if (params.shouldContinue?.() === false || !taskRemainsOwed()) throw new Error(\"wiki_mission_recovery_admission_changed\"); });\n\t\tif (deliveryContext) {\n\t\t\tagentParams.channel = deliveryContext.channel;"
+          "\t\tconst assertWikiRecovery = wikiMissionGuard.authorizeNativeRecovery(agentParams, sourceRunId, params.cfg, () => { if (params.shouldContinue?.() === false || !taskRemainsOwed()) throw new Error(\"wiki_mission_recovery_admission_changed\"); }, () => { const entry=loadSessionEntryReadOnly(target); const selected=wikiStoredModel({sessionEntry:entry,sessionKey:dispatchSessionKey,defaultProvider:entry?.providerOverride,allowPluginNormalization:false}); return {session_id:entry?.sessionId,source:selected?.source,provider:selected?.provider,model:selected?.model,override_source:entry?.modelOverrideSource,automatic:wikiAutoSelection(entry)||wikiAutoFallback(entry),effort:entry?.thinkingLevel}; });\n\t\tif (deliveryContext) {\n\t\t\tagentParams.channel = deliveryContext.channel;"
         ],
         [
           "\t\t\tassertAdmissionCurrent: () => {\n\t\t\t\tif (params.shouldContinue?.() === false || !taskRemainsOwed())",

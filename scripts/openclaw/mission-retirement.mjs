@@ -62,8 +62,11 @@ export function reviewedFailure(directory,entry,sessionKey){
     &&typeof r.author==='string'&&typeof r.reviewer==='string'&&r.author.trim()!==r.reviewer.trim()
     &&[r.author,r.reviewer,r.reason,r.limits].every(v=>typeof v==='string'&&v.trim().length>=8)
     &&/^[a-f0-9]{40}$/.test(r.head)&&/^[a-f0-9]{64}$/.test(r.action_sha256),'review_changed');
-  require(!fs.existsSync(path.join(dir,'result.json'))&&!fs.existsSync(path.join(dir,'guard-terminal.json'))
-    &&!fs.readdirSync(dir).some(name=>name.startsWith('guard-recovery')),'result_or_continuation');
+  require(!fs.existsSync(path.join(dir,'result.json'))&&!fs.existsSync(path.join(dir,'guard-terminal.json')),
+    'result_or_continuation');
+  const recoveryFiles=fs.readdirSync(dir).filter(name=>name.startsWith('guard-recovery'));
+  require(recoveryFiles.length===0||recoveryFiles.length===1&&recoveryFiles[0]==='guard-recovery.json',
+    'result_or_continuation');
   const accepted=json(path.join(dir,'accepted.json')),turn=json(path.join(dir,'guard-turn.json')),
     bound=json(path.join(dir,'guard-bound-turn.json'));
   require(accepted.run_id===run&&accepted.plan_sha256===digest(plan)
@@ -75,6 +78,17 @@ export function reviewedFailure(directory,entry,sessionKey){
   require(lines.length>0&&lines.every(line=>{const i=JSON.parse(line);return !i.native_run_id
     &&['run_id','thread_id','contract_sha256','model','effort'].every(key=>i[key]===turn[key])
     &&i.turn_id===bound.turn_id&&['/responses','/responses/compact'].includes(i.path); }),'inference_changed');
+  let preparation;
+  if(recoveryFiles.length){
+    const raw=read(path.join(dir,'guard-recovery.json')),c=JSON.parse(raw);
+    const expected={schema_version:'wiki_openclaw_recovery.v1',run_id:run,native_run_id:c.native_run_id,
+      session_id:m.session_id,thread_id:m.native_thread_id,source_turn_id:bound.turn_id,
+      contract_sha256:hash,model:m.model,effort:m.effort};
+    require(isDeepStrictEqual(c,expected)&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(c.native_run_id),
+      'preparation_changed');
+    preparation={native_run_id:c.native_run_id,sha256:sha(raw)};
+  }
+  require(isDeepStrictEqual(receipt.observation?.recovery_preparation,preparation),'preparation_changed');
   const root=repositoryRoot;
   require(m.recovery.repo_root===root,'root');
   const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();
@@ -98,7 +112,7 @@ export function reviewedFailure(directory,entry,sessionKey){
   require(isDeepStrictEqual(m,expected)&&isDeepStrictEqual(plan.mission.recovery,{mode:'read_only',max_continuations:1})
     &&Object.keys(e).sort().join(',')==='contract_sha256,expires_at,runId,status','contract_changed');
   return {run_id:run,receipt_sha256:sha(bytes),contract_sha256:hash,session_id:m.session_id,
-    thread_id:m.native_thread_id};
+    thread_id:m.native_thread_id,...(preparation?{prepared_native_run_id:preparation.native_run_id}:{})};
 }
 
 export function assertRetirableEntry(entry,proof){
@@ -106,6 +120,7 @@ export function assertRetirableEntry(entry,proof){
   require(entry.sessionId===proof.session_id&&entry.abortedLastRun===true&&entry.status==='interrupted'
     &&entry.restartRecoveryDeliverySourceRunId===proof.run_id
     &&typeof entry.restartRecoveryDeliveryRunId==='string'&&entry.restartRecoveryDeliveryRunId!==proof.run_id
+    &&(!proof.prepared_native_run_id||entry.restartRecoveryDeliveryRunId===proof.prepared_native_run_id)
     &&state&&typeof state.cycleId==='string'&&Number.isInteger(state.revision)
     &&!state.reservation&&!state.foregroundClaims&&!state.tombstone
     &&!entry.activeWriterRunId&&!entry.pendingFinalDelivery&&!entry.restartRecoveryHarnessCompletion

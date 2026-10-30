@@ -63,7 +63,7 @@ function current(lock, permission=true) {
     lock.assertRouteCurrent();
   }
   const now = load(lock.m.run_id,permission); require(now.hash === lock.hash, 'contract_changed');
-  if(permission && lock.recovery) assertRecoveryContext(lock);
+  if(permission && lock.recovery) { assertRecoveryContext(lock); lock.assertNativeSelection(); }
 }
 
 function assertRecoveryContext(lock) {
@@ -80,11 +80,21 @@ function assertRecoveryContext(lock) {
 /** Only the version-qualified core calls this inside its live recovery admission.
  * A continuation gets a new native run/turn; the original mission is never sent again.
  */
-export function authorizeNativeRecovery(agent, sourceRunId, cfg, assertAdmissionCurrent) {
+export function authorizeNativeRecovery(agent, sourceRunId, cfg, assertAdmissionCurrent, readNativeSelection) {
   assertRuntime();
   const lock=load(sourceRunId),m=lock.m;
   require(typeof assertAdmissionCurrent==='function','recovery_admission_required');
   assertAdmissionCurrent();
+  require(typeof readNativeSelection==='function','recovery_selection_required');
+  const assertNativeSelection=()=>{
+    const selected=readNativeSelection();
+    require(selected?.session_id===m.session_id && selected.source==='session'
+      && selected.override_source==='user' && selected.automatic===false
+      && selected.provider===m.provider && selected.model===m.model && selected.effort===m.effort,
+      'recovery_selection_changed');
+  };
+  assertNativeSelection();
+  require(agent.model===undefined && agent.provider===undefined,'recovery_override_forbidden');
   const id=agent.idempotencyKey;
   require(typeof id==='string' && /^[a-f0-9-]{36}$/.test(id) && id!==sourceRunId
     && agent.sessionKey===m.session_key && agent.expectedExistingSessionId===m.session_id
@@ -104,7 +114,7 @@ export function authorizeNativeRecovery(agent, sourceRunId, cfg, assertAdmission
     && cfg.tools.fs?.workspaceOnly===true && sandbox?.mode==='all' && sandbox.workspaceAccess==='ro'
     && sandbox.backend==='docker' && sandbox.docker?.readOnlyRoot===true && sandbox.docker.network==='none',
     'recovery_tools_not_qualified');
-  lock.recovery={native_run_id:id};assertRecoveryContext(lock);
+  lock.recovery={native_run_id:id};lock.assertNativeSelection=assertNativeSelection;assertRecoveryContext(lock);
   const original=JSON.parse(read(path.join(lock.runDir,'guard-bound-turn.json')));
   require(original.run_id===sourceRunId && original.thread_id===m.native_thread_id
     && original.contract_sha256===lock.hash && typeof original.turn_id==='string' && original.turn_id.length>0
@@ -117,11 +127,12 @@ export function authorizeNativeRecovery(agent, sourceRunId, cfg, assertAdmission
   if(recoveries.has(id)) {
     require(recoveries.get(id).hash===lock.hash,'recovery_changed');
   } else {
-    // No reconstruction of a consumed admission from disk after another crash.
-    writeExclusive(path.join(lock.runDir,'guard-recovery.json'),claim);
-    recoveries.set(id,lock);
+    // Preparation is RAM-only, not proof of native admission or model execution.
+    require(!fs.existsSync(path.join(lock.runDir,'guard-recovery.json'))
+      && ![...recoveries.values()].some(r=>r.m.run_id===sourceRunId),'recovery_already_prepared');
+    lock.recoveryClaim=claim;recoveries.set(id,lock);
   }
-  agent.model=`${m.provider}/${m.model}`;agent.thinking=m.effort;
+  agent.thinking=m.effort;
   agent.forceRestartSafeTools=true;
   return ()=>{assertAdmissionCurrent();current(lock);};
 }
@@ -209,6 +220,7 @@ export function authorizeTurn(params, turn, owner,client,handle,assertRouteCurre
   if (turn.collaborationMode != null) require(turn.collaborationMode.settings?.model === m.model && turn.collaborationMode.settings?.reasoning_effort === m.effort, 'collaboration_mismatch');
   // Durable claim prevents a restarted process or a live model switch from
   // admitting another turn under the same mission. Recovery is inspect-only.
+  if(lock.recovery)writeExclusive(path.join(lock.runDir,'guard-recovery.json'),lock.recoveryClaim);
   writeExclusive(path.join(lock.runDir,lock.recovery?'guard-recovery-turn.json':'guard-turn.json'), {schema_version:'wiki_openclaw_guard_turn.v1',run_id:m.run_id,...lock.recovery,session_id:m.session_id,thread_id:turn.threadId,model:m.model,effort:m.effort,contract_sha256:lock.hash});
   lock.owner=owner;
   lock.route=route;lock.assertRouteCurrent=assertRouteCurrent;

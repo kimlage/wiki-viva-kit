@@ -456,3 +456,20 @@ commit together. The local notice explicitly records no result, unknown external
 effects and retirement time; that time is not a fabricated model completion.
 New missions still need separate normal admission and their own immutable
 model, effort, context and expiry. No new RPC or scheduler is introduced.
+
+Recovery keeps the mission's persisted **user** model override. The pinned
+native stored-model resolver must return the same session/provider/model with
+no automatic fallback provenance; last-observed `modelProvider/model` alone do
+not suffice. The internal recovery RPC does not request a provider/model
+override or gain permission to change it. Thinking remains explicit; the actual
+resolved native turn and every inference must still match the immutable mission.
+
+A continuation preparation stays in RAM until the guarded native turn boundary.
+Only then are the durable recovery and turn claims written before turn/start.
+A native preflight refusal therefore does not by itself consume a durable model
+turn. A sole legacy preparation marker may be reconciled after the original
+expiry with independent review, fresh interrupted/idle native state and the
+original exact transcript leaf. The receipt binds its exact bytes/native UUID;
+any recovery turn, inference, terminal or changed marker refuses this path.
+The marker is preserved. Its absence of a turn is not proof that no RPC or
+external effect occurred; the resolution still says no result/effects unknown.
