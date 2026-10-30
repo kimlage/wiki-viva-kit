@@ -2,11 +2,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import {assertOwner,markNativeHook} from './mission-runtime.mjs';
+export {captureOwner,registerNativeArtifact} from './mission-runtime.mjs';
 const threads = new Map();
 const hooks = new Set();
 let expectedHooks;
 export function configureRuntime(names) { require(!expectedHooks, 'runtime_already_configured'); expectedHooks = new Set(names); }
-export function loadedHook(name) { require(expectedHooks?.has(name), 'unknown_hook'); hooks.add(name); }
+export function loadedHook(name,url) { require(expectedHooks?.has(name), 'unknown_hook'); markNativeHook(name,url); hooks.add(name); }
 export function assertRuntime() { require(expectedHooks?.size > 0 && hooks.size === expectedHooks.size && [...expectedHooks].every(name=>hooks.has(name)), 'incomplete_overlay'); }
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const require = (test, code) => { if (!test) throw new Error(`wiki_mission_${code}`); };
@@ -42,6 +44,7 @@ function load(runId) {
   return {m, hash:sha(raw), runDir};
 }
 function current(lock) {
+  if(lock.owner) assertOwner(lock.owner);
   const now = load(lock.m.run_id); require(now.hash === lock.hash, 'contract_changed');
 }
 export function authorizeChat(params) {
@@ -50,13 +53,15 @@ export function authorizeChat(params) {
   require(params.wikiMission === lock.hash && params.sessionKey === m.session_key && params.sessionId === m.session_id && params.thinking === m.effort && params.suppressCommandInterpretation === true && params.deliver === false && sha(params.message) === m.message_sha256, 'send_mismatch');
   return lock;
 }
-export function authorizeTurn(params, turn) {
+export function authorizeTurn(params, turn, owner) {
+  assertOwner(owner);
   const lock=load(params.runId), m=lock.m;
   require(params.sessionKey === m.session_key && params.sessionId === m.session_id && params.provider === m.provider && params.modelId === m.model && turn.threadId === m.native_thread_id && turn.model === m.model && turn.effort === m.effort, 'turn_mismatch');
   if (turn.collaborationMode != null) require(turn.collaborationMode.settings?.model === m.model && turn.collaborationMode.settings?.reasoning_effort === m.effort, 'collaboration_mismatch');
   // Durable claim prevents a restarted process or a live model switch from
   // admitting another turn under the same mission. Recovery is inspect-only.
   writeExclusive(path.join(lock.runDir,'guard-turn.json'), {schema_version:'wiki_openclaw_guard_turn.v1',run_id:m.run_id,session_id:m.session_id,thread_id:m.native_thread_id,model:m.model,effort:m.effort,contract_sha256:lock.hash});
+  lock.owner=owner;
   threads.set(m.native_thread_id, lock);
 }
 export function bindTurn(runId, threadId, turnId) {
@@ -71,10 +76,12 @@ export function recordTerminal(threadId, turn) {
   if(fs.existsSync(file)) require(JSON.stringify(JSON.parse(read(file)))===JSON.stringify(value),'terminal_changed');
   else writeExclusive(file,value);
 }
-export function checkInferenceSelection({path: endpoint,body,metadata,provider}) {
+export function checkInferenceSelection({path: endpoint,body,metadata,provider,owner}) {
+  assertOwner(owner);
   const threadId = metadata?.threadId;
   const lock=threads.get(threadId);
   require(lock, 'unbound_inference'); current(lock);
+  require(owner.record===lock.owner.record, 'inference_owner_mismatch');
   const m=lock.m;
   require(['/responses','/responses/compact'].includes(endpoint) && provider === m.provider && body?.model === m.model && body?.reasoning?.effort === m.effort, 'inference_mismatch');
   require(!metadata.parentThreadId && !metadata.parentTurnId && !metadata.subagent && !['memory','prewarm'].includes(metadata.requestKind), 'auxiliary_inference_not_admitted');

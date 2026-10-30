@@ -14,6 +14,19 @@
   "upstream": "OpenClaw and @openclaw/codex 2026.10.9",
   "files": [
     {
+      "name": "plugin-setup-module-inWd3Rne.mjs",
+      "package": "core",
+      "relative": "dist/plugin-setup-module-inWd3Rne.mjs",
+      "sha256": "9196065cbe781656c693657f2d1b41707363eb61a89e19f5ecae7a1f30313ccc",
+      "edits": [
+        [
+          "\t\tallowedParentRoots: [artifact.boundaryRoot],\n\t\tpluginSdkResolution: params.pluginSdkResolution\n\t});\n\tif (!useNodeModuleHooks()) {",
+          "\t\tallowedParentRoots: [artifact.boundaryRoot],\n\t\tpluginSdkResolution: params.pluginSdkResolution\n\t});\n\tparams.instance.onModuleDispose(wikiMissionGuard.registerNativeArtifact(params, artifact, () => pluginInstanceInvocation.getStore()?.instance));\n\tif (!useNodeModuleHooks()) {"
+        ]
+      ],
+      "import_guard": true
+    },
+    {
       "name": "sessions-CLLc4meF.mjs",
       "package": "core",
       "relative": "dist/sessions-CLLc4meF.mjs",
@@ -47,7 +60,7 @@
       "edits": [
         [
           "\t\t\tconst startedTurn = assertCodexTurnStartResponse(await turnClient.request(\"turn/start\", turnStartParams, {",
-          "\t\t\twikiMissionGuard.authorizeTurn(params, turnStartParams);\n\t\t\tconst startedTurn = assertCodexTurnStartResponse(await turnClient.request(\"turn/start\", turnStartParams, {"
+          "\t\t\twikiMissionGuard.authorizeTurn(params, turnStartParams, wikiMissionGuard.captureOwner(import.meta.url));\n\t\t\tconst startedTurn = assertCodexTurnStartResponse(await turnClient.request(\"turn/start\", turnStartParams, {"
         ],
         [
           "\t\t\tacceptedTurnId = startedTurn.turn.id;",
@@ -68,11 +81,15 @@
       "edits": [
         [
           "\t\tconst reviewer = metadata.subagent === \"guardian\"",
-          "\t\twikiMissionGuard.checkInferenceSelection({path,body,metadata,provider});\n\t\tconst reviewer = metadata.subagent === \"guardian\""
+          "\t\twikiMissionGuard.checkInferenceSelection({path,body,metadata,provider,owner:wikiMissionOwner});\n\t\tconst reviewer = metadata.subagent === \"guardian\""
+        ],
+        [
+          "function createCodexInferenceModelBinding(params) {",
+          "function createCodexInferenceModelBinding(params) {\n\tconst wikiMissionOwner = wikiMissionGuard.captureOwner(import.meta.url);"
         ],
         [
           "\t\t\tcaptured.assertCurrent();\n\t\t\tsignal.throwIfAborted();",
-          "\t\t\tcaptured.assertCurrent();\n\t\t\tsignal.throwIfAborted();\n\t\t\tconst assertWikiMission = wikiMissionGuard.authorizeInference({path,body,metadata,provider});"
+          "\t\t\tcaptured.assertCurrent();\n\t\t\tsignal.throwIfAborted();\n\t\t\tconst assertWikiMission = wikiMissionGuard.authorizeInference({path,body,metadata,provider,owner:wikiMissionOwner});"
         ],
         [
           "\t\t\tconst assertExecution = () => {\n\t\t\t\tassertClient();",

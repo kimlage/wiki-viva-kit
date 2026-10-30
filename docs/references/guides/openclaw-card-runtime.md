@@ -196,7 +196,7 @@ Set `WIKI_OPENCLAW_GUARD_BOOTSTRAP=1`, `WIKI_OPENCLAW_CORE_ROOT` and
 `WIKI_OPENCLAW_MISSION_DIR` to the real consumer derived OpenClaw directory.
 These are local service settings, never credentials. The bootstrap validates
 package identity, version and the complete JS/MJS/JSON tree (excluding nested
-node_modules), then validates each hook again when loaded. All four hooks must
+node_modules), then validates each hook again when loaded. All five hooks must
 execute before chat admission. A renamed or partial package is refused. Dependency
 resolution and absence of startup side effects need a local smoke for each
 qualified installation; this is not a generic compatibility claim.
@@ -207,3 +207,14 @@ no first-event binding is allowed. Terminal notification and inference receipts
 must agree on the same ID before a result can be incorporated. A crash or missing
 response remains uncertain and blocks replay. Creating and releasing the mission
 lock share a filesystem mutex; reading an older result preserves any newer lock.
+
+Native plugin captures are qualified through the native artifact's exact original
+path, inverse mapping and module root, followed by full package and SDK-root
+validation. The guard does not trust a capture-directory name. Both execution
+hooks must actually load from that qualified capture. A capability binds the
+current native invocation to its plugin instance; an inference binding retains
+that owner across asynchronous callbacks and must match the turn's owner. Every
+execution assertion rechecks native revocation, retirement and disposal. Shared
+artifacts keep separate owner associations, so disposing a catalog instance
+does not revoke a different active runtime instance. Native custody, resolver,
+authorization and model-source release remain in force.
