@@ -20,6 +20,9 @@ try {
  const requested=resolveOptions({pluginConfig:{appServer:{homeScope:'agent'},computerUse:{enabled:false}},env:{}}).start;
  assert.equal(requested.commandSource,'managed');
  const managed=await resolveManaged(requested,{pluginRoot:plugin});guard.authorizeClientStart(managed);
+ const {a:ephemeral}=await import(pathToFileURL(path.join(plugin,'dist/.setup/auth-start-options-BPIPeEX8.mjs')).href);
+ const prepared=ephemeral({startOptions:managed,authProfileId:'synthetic-profile'});
+ assert.notDeepEqual(prepared.args,managed.args);guard.authorizeClientStart(prepared);
  for(const command of managed.managedFallbackCommandPaths??[])assert.throws(()=>guard.authorizeClientStart({...managed,command}),/client_selection_changed/);
 
  const {n:PluginInstance,r:bind}=await import(pathToFileURL(path.join(core,'dist/plugin-setup-module-inWd3Rne.mjs')).href);

@@ -305,6 +305,9 @@ configuration change, preserving the previous installation and native home.
 The overlay pins the official launcher and platform binary by package version,
 resolution and SHA256. Its startup hook checks the native `resolved-managed`
 selection and stdio arguments before each candidate starts, and rechecks bytes.
+The sole additional argument form admitted is the native auth bridge's exact
+`cli_auth_credentials_store="ephemeral"` override; file storage and other overrides
+remain refused.
 A desktop fallback, external command, changed package or unsupported platform is
 refused before startup. It neither fabricates native ownership nor opens a custom
 inference proxy path. This additional qualification is currently Darwin ARM64;

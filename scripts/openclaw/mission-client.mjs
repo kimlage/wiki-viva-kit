@@ -21,8 +21,10 @@ export function pinnedClientAdmission(pluginRoot,spec) {
     require(fs.realpathSync(createRequire(launcher.manifest).resolve(spec.native.name+'/package.json'))===native.manifest,'client_dependency_changed');
   };
   verify();
+  const args=['app-server','--listen','stdio://'];
+  const admittedArgs=[args,['-c','cli_auth_credentials_store="ephemeral"',...args]].map(value=>JSON.stringify(value));
   return options=>{
-    require(options?.commandSource==='resolved-managed' && options.transport==='stdio' && options.command===launcher.file && JSON.stringify(options.args)===JSON.stringify(['app-server','--listen','stdio://']),'client_selection_changed');
+    require(options?.commandSource==='resolved-managed' && options.transport==='stdio' && options.command===launcher.file && admittedArgs.includes(JSON.stringify(options.args)),'client_selection_changed');
     verify();
   };
 }

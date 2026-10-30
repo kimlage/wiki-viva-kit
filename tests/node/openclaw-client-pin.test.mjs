@@ -14,6 +14,8 @@ function fixture(){
 }
 test('only exact managed selection admits; package and native bytes are rechecked',()=>{const f=fixture();try{
  const admit=pinnedClientAdmission(f.root,f.spec);admit(f.options);
+ admit({...f.options,args:['-c','cli_auth_credentials_store="ephemeral"',...f.options.args]});
+ assert.throws(()=>admit({...f.options,args:['-c','cli_auth_credentials_store="file"',...f.options.args]}),/client_selection_changed/);
  for(const patch of [{commandSource:'config'},{commandSource:'env'},{transport:'websocket'},{command:'/Applications/Example.app/codex'},{args:['app-server','--listen','ws://127.0.0.1:0']}])assert.throws(()=>admit({...f.options,...patch}),/client_selection_changed/);
  fs.writeFileSync(path.join(f.root,'node_modules/@openai/synthetic-platform/native'),'replaced');assert.throws(()=>admit(f.options),/client_bytes_changed/);
  }finally{f.clean();}});
