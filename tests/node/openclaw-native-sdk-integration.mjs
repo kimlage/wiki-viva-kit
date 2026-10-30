@@ -52,8 +52,8 @@ try {
    const capability=instance.run(()=>raw.capability());
    if(mode==='late') {
     assert.throws(()=>registry.assert(capability),/capture_hooks_incomplete/);
-    assert.throws(()=>guard.authorizeTurn({}, {}, capability),/capture_hooks_incomplete/);
-    assert.throws(()=>guard.checkInferenceSelection({owner:capability}),/capture_hooks_incomplete/);
+    assert.throws(()=>guard.authorizeTurn({}, {}, capability),/capture_role_hook_required/);
+    assert.throws(()=>guard.checkInferenceSelection({owner:capability}),/inference_binding_required/);
     instance.loadModule(path.join(plugin,'b.mjs'));
    }
    guard.assertRuntime();registry.assert(capability);

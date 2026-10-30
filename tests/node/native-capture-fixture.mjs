@@ -1,12 +1,12 @@
 import fs from 'node:fs';import path from 'node:path';import os from 'node:os';import {pathToFileURL} from 'node:url';
 import {NativeCaptureRegistry,configureNativeRegistry} from '../../scripts/openclaw/mission-runtime.mjs';
 import {treeHash,validatePackage} from '../../scripts/openclaw/mission-loader.mjs';
-export function createFixtureRegistry() {
+export function createFixtureRegistry(names=['run.mjs','inference.mjs']) {
  const base=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'wiki-capture-'))),pluginRoot=path.join(base,'plugin'),coreRoot=path.join(base,'core');
  fs.mkdirSync(path.join(pluginRoot,'dist'),{recursive:true});fs.mkdirSync(coreRoot);
  fs.writeFileSync(path.join(coreRoot,'package.json'),JSON.stringify({name:'openclaw',version:'1',exports:{'./plugin-sdk/process-runtime':'./runtime.js'}}));fs.writeFileSync(path.join(coreRoot,'runtime.js'),'');
  fs.writeFileSync(path.join(pluginRoot,'package.json'),JSON.stringify({name:'@openclaw/codex',version:'1'}));
- const files=[{name:'run.mjs',relative:'dist/run.mjs'},{name:'inference.mjs',relative:'dist/inference.mjs'}];
+ const files=names.map(name=>({name,relative:'dist/'+name}));
  for(const f of files)fs.writeFileSync(path.join(pluginRoot,f.relative),'export const synthetic=true;');
  fs.writeFileSync(path.join(pluginRoot,'dist/index.js'),'');fs.mkdirSync(path.join(pluginRoot,'node_modules'));fs.symlinkSync(coreRoot,path.join(pluginRoot,'node_modules/openclaw'),'dir');
  const spec={name:'@openclaw/codex',version:'1',tree_sha256:treeHash(pluginRoot)};
@@ -29,6 +29,6 @@ export function createFixtureRegistry() {
 }
 let shared;
 export function guardTestOwner() {
- if(!shared){shared=createFixtureRegistry();configureNativeRegistry(shared.registry);}
- const c=shared.candidate();c.dispose=c.register();c.load();return {...c,owner:shared.registry.capture(c.url)};
+ if(!shared){shared=createFixtureRegistry(['run-attempt-CGHsrfPB.mjs','inference-dispatch-CO6tTs4q.mjs','shared-client-C0gEybHs.mjs']);configureNativeRegistry(shared.registry);}
+ const c=shared.candidate();c.dispose=c.register();c.load();return {...c,owner:shared.registry.capture(c.url),inferenceOwner:shared.registry.capture(c.inferUrl),routeOwner:shared.registry.capture(pathToFileURL(path.join(c.root,shared.files[2].relative)).href)};
 }

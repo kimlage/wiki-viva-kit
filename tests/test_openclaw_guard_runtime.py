@@ -23,3 +23,17 @@ def test_real_native_sdk_capture_opt_in():
             cwd=root, capture_output=True, text=True, timeout=60,
         )
         assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_real_native_route_custody_opt_in():
+    """Real captured modules and async proxy; synthetic mission, no model call."""
+    import os
+    import shutil
+    import pytest
+    if not (os.environ.get('WIKI_TEST_OPENCLAW_CORE_ROOT') and os.environ.get('WIKI_TEST_OPENCLAW_PLUGIN_ROOT')):
+        pytest.skip('Both pinned native packages not supplied')
+    root = Path(__file__).resolve().parents[1]
+    node = os.environ.get('WIKI_TEST_OPENCLAW_NODE') or shutil.which('node')
+    result = subprocess.run([node, 'tests/node/openclaw-native-route-integration.mjs'],
+                            cwd=root, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr

@@ -196,7 +196,7 @@ Set `WIKI_OPENCLAW_GUARD_BOOTSTRAP=1`, `WIKI_OPENCLAW_CORE_ROOT` and
 `WIKI_OPENCLAW_MISSION_DIR` to the real consumer derived OpenClaw directory.
 These are local service settings, never credentials. The bootstrap validates
 package identity, version and the complete JS/MJS/JSON tree (excluding nested
-node_modules), then validates each hook again when loaded. All five hooks must
+node_modules), then validates each hook again when loaded. All seven hooks must
 execute before chat admission. A renamed or partial package is refused. Dependency
 resolution and absence of startup side effects need a local smoke for each
 qualified installation; this is not a generic compatibility claim.
@@ -210,10 +210,13 @@ lock share a filesystem mutex; reading an older result preserves any newer lock.
 
 Native plugin captures are qualified through the native artifact's exact original
 path, inverse mapping and module root, followed by full package and SDK-root
-validation. The guard does not trust a capture-directory name. Both execution
-hooks must actually load from that qualified capture. A capability binds the
-current native invocation to its plugin instance; an inference binding retains
-that owner across asynchronous callbacks and must match the turn's owner. Every
+validation. The guard does not trust a capture-directory name. Each participating hook must load from its own qualified capture. A capability
+binds the current native invocation to its plugin instance. The native client
+can retain a route across distinct plugin instances: the turn and inference
+owners need not be identical. The guard registers the exact inference function,
+client object and asynchronous proxy handle, then admits a turn only against
+that same client and route. Each function can belong to only one route; metadata
+or matching provider strings cannot establish this association. Every
 execution assertion rechecks native revocation, retirement and disposal. Shared
 artifacts keep separate owner associations, so disposing a catalog instance
 does not revoke a different active runtime instance. Native custody, resolver,
@@ -245,13 +248,13 @@ Only a separately reviewed new mission can follow; recovery never dispatches it.
 
 ### Shared guard through the native SDK
 
-The pinned loader exposes a frozen, seven-function mission facade through
+The pinned loader exposes a frozen, nine-function mission facade through
 `openclaw/plugin-sdk/process-runtime`. Captured plugin modules import that existing
 native SDK entry point; the SDK and core hooks retain the same host guard and
 native owner registry. Direct absolute imports from a captured plugin would be
 captured again, producing an unconfigured second guard. Package and hook hashes,
 native capture custody, instance identity and revocation checks remain mandatory.
-The SDK is the sixth required hook; an SDK loaded before the overlay is refused.
+The SDK and native shared-client route factory are required hooks; an SDK loaded before the overlay is refused.
 The facade exposes no runtime configuration or artifact registration function.
 
 The ordinary guard tests cover facade identity and fail-closed selection. With the
@@ -273,7 +276,18 @@ and reviewed incorporation into its Wiki.
 Native route/catalog setup can construct the inference binding before the turn
 module loads. Capturing that binding requires the caller's own guarded module,
 qualified artifact and live native owner. It grants no execution admission.
-Every turn, inference and retained execution check still requires all captured
-hooks and a runtime owner. The optional native `late` case proves that an early
-binding cannot admit a turn or inference until the second hook loads; revocation
-cannot be undone by late loading.
+Execution requires the turn hook in the turn owner's capture, and the inference
+and shared-client hooks in the route owner's capture. All participating owners
+must be live trusted runtime owners. A retained execution callback rechecks both
+owners, the client, proxy and exact native thread-to-route association. The native
+request callback repeats this check immediately before sending `turn/start`,
+after any queue or custody wait. Failed route registration closes the newly
+created proxy. Revocation cannot be undone by late module loading.
+
+With `WIKI_TEST_OPENCLAW_PLUGIN_ROOT` also set to the pinned plugin package, the
+optional native route test uses two actual `PluginInstance` captures, the actual
+async proxy and inference factory, and the exact transformed route callback body.
+Its client/account context and mission remain synthetic. It checks distinct
+captures, wrong client, changed route, client closure and native owner revocation;
+it performs admission checks without sending an inference request. This does not
+prove the complete live Gateway workflow or a useful model result.

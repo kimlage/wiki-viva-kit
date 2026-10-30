@@ -63,14 +63,15 @@ export class NativeCaptureRegistry {
     // Native route/catalog setup may load inference before the turn module.
     // Capture identity now; execution still requires every hook in assert().
     require(entry.loaded.has(spec.name),'capture_hook_not_loaded');
-    const cap=Object.freeze({record,instance});this.capabilities.add(cap);
+    const cap=Object.freeze({record,instance,hook:spec.name});this.capabilities.add(cap);
     this.assert(cap,false);return cap;
   }
-  assert(cap,runtime=true) {
+  assert(cap,runtime=true,hook) {
     require(cap && this.capabilities.has(cap),'capture_capability_required');
     const {record,instance}=cap;
     require(record.active && record.entry.owners.get(instance)===record && !instance.owner?.revoked && instance.accepting===true && !instance.replacementReserved && !instance.forcedRetirement && instance.lifecycle?.signal?.aborted===false,'capture_owner_retired');
-    if(runtime)require(this.files.every(f=>record.entry.loaded.has(f.name)),'capture_hooks_incomplete');
+    if(hook)require(cap.hook===hook && record.entry.loaded.has(hook),'capture_role_hook_required');
+    else if(runtime)require(this.files.every(f=>record.entry.loaded.has(f.name)),'capture_hooks_incomplete');
     if(runtime)require(instance.owner?.instance===instance && instance.owner.record?.id==='codex' && instance.runtimeScope?.pluginTrustedOfficialInstall===true && typeof instance.owner.record.source==='string' && fs.realpathSync(instance.owner.record.source).startsWith(this.pluginRoot+path.sep),'capture_runtime_owner_required');
   }
 }
@@ -80,4 +81,5 @@ export function registerNativeArtifact(params,artifact,readInstance){require(reg
 export function qualifyNativeModule(file){return registry?.module(file);}
 export function markNativeHook(name,url){registry?.loaded(name,url);}
 export function captureOwner(url){require(registry,'capture_registry_required');return registry.capture(url);}
-export function assertOwner(cap){require(registry,'capture_registry_required');registry.assert(cap);}
+export function assertOwner(cap,hook){require(registry,'capture_registry_required');registry.assert(cap,true,hook);}
+export function assertCapture(cap,hook){require(registry,'capture_registry_required');registry.assert(cap,false,hook);}
