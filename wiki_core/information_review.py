@@ -78,4 +78,3 @@ def enqueue_review_work(root: Path, config, plan: dict) -> dict:
         if before!=after:affected.append(source_id)
     return {'source_ids':affected,'groups':len(plan['groups']),
             'unresolved':plan['unresolved'],'provider_calls':0,'model_calls':0}
-
