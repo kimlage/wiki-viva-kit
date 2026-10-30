@@ -183,7 +183,7 @@ def pending_page(history):
     return pending, items, cursor
 
 
-def idle_leaf(history):
+def idle_leaf(history, *, allow_empty=False):
     pending, items, cursor = pending_page(history)
     info = history["sessionInfo"]
     # Current Gateways include cancelled/interrupted history in total. Only
@@ -196,11 +196,16 @@ def idle_leaf(history):
     require(pending["total"] == len(items) and len({item["id"] for item in items}) == len(items),
             "openclaw_pending_inputs_incomplete")
     leaf = info.get("activeLeafEntryId")
+    if allow_empty and leaf is None:
+        require(not info.get("lastRunId") and history.get("totalMessages") == 0
+                and history.get("messages") == [] and history.get("hasMore") is False
+                and pending["total"] == 0, "openclaw_bootstrap_not_empty")
+        return None
     require(isinstance(leaf, str) and bool(leaf), "openclaw_session_leaf_missing")
     return leaf
 
 
-def idle_history(gateway):
+def idle_history(gateway, *, allow_empty=False):
     """Read the complete bounded pending-input history, without exporting it."""
     first = gateway.history(limit=20)
     pending, initial, cursor = pending_page(first)
@@ -217,7 +222,7 @@ def idle_history(gateway):
                 "openclaw_session_changed_reconcile")
         items.extend(next_items)
     first["pendingInputs"] = {**pending, "items": items, "nextBefore": None}
-    idle_leaf(first)
+    idle_leaf(first, allow_empty=allow_empty)
     return first
 
 
@@ -230,8 +235,11 @@ def plan_dispatch(root, config, params):
     _assert_no_secrets(message)
     runtime, route = route_for(config, profile)
     option = runtime.get("mission_options", {}).get(params.get("mission_id"))
-    require(option is not None and route.get("native_thread_id"), "openclaw_mission_policy_required")
-    mission = {"id": params["mission_id"], **option, "native_thread_id": route["native_thread_id"]}
+    bootstrap = route.get("native_thread_binding") == "first_turn"
+    require(option is not None and (route.get("native_thread_id") or bootstrap), "openclaw_mission_policy_required")
+    mission = {"id": params["mission_id"], **option, "native_thread_id": route.get("native_thread_id")}
+    if bootstrap:
+        mission["native_thread_binding"] = "first_turn"
     canonical = binding(root, config, profile, action)
     require(canonical["action_sha256"] == params["action_sha256"], "openclaw_action_revision_changed")
     effect = "wiki-run-" + digest({"action": canonical, "message": message, "route": route, "mission": mission})[:32]
@@ -240,7 +248,8 @@ def plan_dispatch(root, config, params):
     require(not any(not item["reconciled"] for item in attempts(root, config, profile, action)),
             "openclaw_uncollected_attempt_reconcile")
     require(not (directory.parent / "mission-active.json").exists(), "openclaw_mission_lock_reconcile")
-    leaf = idle_leaf(idle_history(Gateway(runtime, route)))
+    leaf = idle_leaf(idle_history(Gateway(runtime, route), allow_empty=bootstrap), allow_empty=bootstrap)
+    require(not bootstrap or leaf is None, "openclaw_bootstrap_not_empty")
     return {"binding": canonical, "route": route, "route_sha256": digest(runtime), "message": message,
             "message_sha256": hashlib.sha256(message.encode()).hexdigest(), "expected_leaf": leaf,
             "effect_key": effect, "mission": mission, "canonical_write": False}
@@ -255,7 +264,8 @@ def dispatch(root, config, prepared):
     require(digest(runtime) == prepared["route_sha256"] and route == prepared["route"], "openclaw_route_changed")
     require(binding(root, config, b["profile"], b["action_id"]) == b, "openclaw_context_changed")
     gateway = Gateway(runtime, route)
-    require(idle_leaf(idle_history(gateway)) == prepared["expected_leaf"], "openclaw_session_changed_reconcile")
+    bootstrap = prepared["mission"].get("native_thread_binding") == "first_turn"
+    require(idle_leaf(idle_history(gateway, allow_empty=bootstrap), allow_empty=bootstrap) == prepared["expected_leaf"], "openclaw_session_changed_reconcile")
     directory = storage(root, config, prepared["effect_key"])
     require(not (directory / "intent.json").exists(), "openclaw_intent_exists_reconcile")
     require(not any(not item["reconciled"] for item in attempts(root, config, b["profile"], b["action_id"])),
@@ -270,6 +280,8 @@ def dispatch(root, config, prepared):
         "effort": mission["effort"], "message_sha256": prepared["message_sha256"],
         "plan_sha256": digest(prepared), "action_id": b["action_id"], "action_sha256": b["action_sha256"],
         "expires_at": (dt.datetime.now(dt.timezone.utc)+dt.timedelta(minutes=15)).isoformat()}
+    if bootstrap:
+        contract["native_thread_binding"] = "first_turn"
     write_new(directory / "mission.json", contract)
     contract_sha = hashlib.sha256(receipt_bytes(directory / "mission.json")).hexdigest()
     with mission_mutex(directory):
@@ -312,12 +324,29 @@ def retained_intent(root, config, params):
     # A legacy result can still be inspected after adding a guard. Only the
     # additive mission policy is ignored, never a changed destination/runtime.
     previous_runtime = copy.deepcopy(runtime)
+    collected_bootstrap = None
     if "mission" not in plan:
         previous_runtime.pop("mission_options", None)
         for prior_route in previous_runtime["routes"].values():
             prior_route.pop("native_thread_id", None)
+    elif (plan["mission"].get("native_thread_binding") == "first_turn"
+          and route.get("native_thread_id") and "native_thread_binding" not in route):
+        require((directory / "result.json").exists(), "openclaw_route_changed")
+        claim = read_receipt(directory / "guard-turn.json")
+        require(route["native_thread_id"] == claim.get("thread_id"), "openclaw_route_changed")
+        collected_bootstrap = read_receipt(directory / "result.json")
+        prior_route = previous_runtime["routes"][params["profile"]]
+        prior_route.pop("native_thread_id")
+        prior_route["native_thread_binding"] = "first_turn"
     require(digest(previous_runtime) == plan["route_sha256"]
             and previous_runtime["routes"][params["profile"]] == plan["route"], "openclaw_route_changed")
+    if collected_bootstrap is not None:
+        message_id = collected_bootstrap.get("message_id")
+        require(isinstance(message_id, str) and bool(message_id), "openclaw_exact_result_missing")
+        data = Gateway(runtime, route).history(messageId=message_id, maxChars=64000, maxBytes=128000)
+        verified = verified_result_message(directory, plan, route, message_id, data)
+        require({k: v for k, v in collected_bootstrap.items() if k != "captured_at"} ==
+                {k: v for k, v in verified.items() if k != "captured_at"}, "openclaw_retained_result_changed")
     if (directory / "accepted.json").exists():
         accepted = read_receipt(directory / "accepted.json")
         require(accepted["plan_sha256"] == intent["plan_sha256"] and accepted["run_id"] == plan["effect_key"],
@@ -332,9 +361,21 @@ def verify_mission_selection(directory, plan, message):
     sha = hashlib.sha256(receipt_bytes(directory / "mission.json")).hexdigest()
     selected = plan["mission"]
     claim = read_receipt(directory / "guard-turn.json")
+    thread_id = claim.get("thread_id")
+    bootstrap = selected.get("native_thread_binding") == "first_turn"
+    require(isinstance(thread_id, str) and len(thread_id) > 8
+            and (bootstrap or thread_id == selected["native_thread_id"]), "openclaw_mission_selection_unproven")
+    if bootstrap:
+        require(selected["native_thread_id"] is None and plan["expected_leaf"] is None
+                and contract.get("native_thread_binding") == "first_turn" and contract.get("native_thread_id") is None, "openclaw_bootstrap_unproven")
+        for name in ("guard-bootstrap-admission.json", "guard-bootstrap-start.json", "guard-bootstrap-thread.json"):
+            proof = read_receipt(directory / name)
+            require(proof.get("run_id") == plan["effect_key"] and proof.get("session_id") == plan["route"]["session_id"]
+                    and proof.get("contract_sha256") == sha, "openclaw_bootstrap_unproven")
+            if name == "guard-bootstrap-thread.json":
+                require(proof.get("thread_id") == thread_id and proof.get("model") == claim.get("model"), "openclaw_bootstrap_unproven")
     require(contract["plan_sha256"] == digest(plan) and claim.get("contract_sha256") == sha
             and claim.get("run_id") == plan["effect_key"] and claim.get("session_id") == plan["route"]["session_id"]
-            and claim.get("thread_id") == selected["native_thread_id"]
             and claim.get("model") == selected["model"].split("/", 1)[1]
             and claim.get("effort") == selected["effort"]
             and message.get("model") == claim["model"], "openclaw_mission_selection_unproven")
@@ -351,10 +392,29 @@ def verify_mission_selection(directory, plan, message):
     for line in lines:
         item = json.loads(line)
         require(item.get("contract_sha256") == sha and item.get("run_id") == plan["effect_key"]
-                and item.get("thread_id") == selected["native_thread_id"]
+                and item.get("thread_id") == thread_id
                 and item.get("model") == claim["model"] and item.get("effort") == claim["effort"]
                 and item.get("turn_id") == bound["turn_id"] and item.get("path") in {"/responses", "/responses/compact"},
                 "openclaw_mission_selection_unproven")
+
+
+def verified_result_message(directory, plan, route, message_id, data):
+    """Verify the exact native message and guard chain before trusting a receipt."""
+    require(len(data.get("messages", [])) == 1, "openclaw_exact_result_missing")
+    message = data["messages"][0]
+    meta = message.get("__openclaw", {})
+    require(message.get("role") == "assistant" and meta.get("runId") == plan["effect_key"]
+            and meta.get("id") == message_id and meta.get("runTerminal") and not meta.get("truncated")
+            and message.get("stopReason") == "stop" and not message.get("errorMessage"), "openclaw_result_not_complete")
+    verify_mission_selection(directory, plan, message)
+    content = message.get("content", [])
+    require(content and all(c.get("type") == "text" for c in content), "openclaw_text_result_required")
+    text = "\n".join(c["text"] for c in content)
+    _assert_no_secrets(text)
+    return {"action_id": plan["binding"]["action_id"], "effect_key": plan["effect_key"], "run_id": plan["effect_key"],
+            "plan_sha256": digest(plan), "session_id": route["session_id"], "message_id": message_id,
+            "text": text, "text_sha256": hashlib.sha256(text.encode()).hexdigest(),
+            "captured_at": dt.datetime.now(dt.timezone.utc).isoformat()}
 
 
 @contextmanager
@@ -404,21 +464,7 @@ def inspect(root, config, params):
         return {**observed, "result_available": False}
     message_id = old["message_id"] if old else info.get("activeLeafEntryId")
     data = gateway.history(messageId=message_id, maxChars=64000, maxBytes=128000)
-    require(len(data.get("messages", [])) == 1, "openclaw_exact_result_missing")
-    message = data["messages"][0]
-    meta = message.get("__openclaw", {})
-    require(message.get("role") == "assistant" and meta.get("runId") == plan["effect_key"]
-            and meta.get("id") == message_id and meta.get("runTerminal") and not meta.get("truncated")
-            and message.get("stopReason") == "stop" and not message.get("errorMessage"), "openclaw_result_not_complete")
-    verify_mission_selection(directory, plan, message)
-    content = message.get("content", [])
-    require(content and all(c.get("type") == "text" for c in content), "openclaw_text_result_required")
-    text = "\n".join(c["text"] for c in content)
-    _assert_no_secrets(text)
-    result = {"action_id": params["action_id"], "effect_key": plan["effect_key"], "run_id": plan["effect_key"],
-              "plan_sha256": digest(plan), "session_id": route["session_id"], "message_id": message_id,
-              "text": text, "text_sha256": hashlib.sha256(text.encode()).hexdigest(),
-              "captured_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+    result = verified_result_message(directory, plan, route, message_id, data)
     if old:
         require({k: v for k, v in old.items() if k != "captured_at"} ==
                 {k: v for k, v in result.items() if k != "captured_at"}, "openclaw_retained_result_changed")
@@ -532,6 +578,8 @@ def validate_expired_unaccepted(directory, plan, evidence):
         "message_sha256": plan["message_sha256"], "plan_sha256": digest(plan),
         "action_id": plan["binding"]["action_id"], "action_sha256": plan["binding"]["action_sha256"],
         "expires_at": evidence["expires_at"]}
+    if plan["mission"].get("native_thread_binding") == "first_turn":
+        expected["native_thread_binding"] = "first_turn"
     require(contract == expected and hashlib.sha256(raw).hexdigest() == evidence["contract_sha256"],
             "openclaw_expired_mission_changed")
 
@@ -587,14 +635,15 @@ def plan_failure_resolution(root, config, params):
     else:
         require((directory / "accepted.json").exists(), "openclaw_failure_resolution_not_eligible")
     gateway = Gateway(runtime, route)
-    history = idle_history(gateway)
+    allow_empty = expired_unaccepted and plan["mission"].get("native_thread_binding") == "first_turn"
+    history = idle_history(gateway, allow_empty=allow_empty)
     if expired_unaccepted:
-        require(idle_leaf(history) == plan["expected_leaf"]
+        require(idle_leaf(history, allow_empty=allow_empty) == plan["expected_leaf"]
                 and history["sessionInfo"].get("lastRunId") != plan["effect_key"]
                 and not any(row.get("runId") == plan["effect_key"]
                             for row in history["pendingInputs"].get("items", [])),
                 "openclaw_unaccepted_native_state_changed")
-    observation = {"leaf": idle_leaf(history), "session_id": history["sessionId"],
+    observation = {"leaf": idle_leaf(history, allow_empty=allow_empty), "session_id": history["sessionId"],
                    "last_run": history["sessionInfo"].get("lastRunId"),
                    "pending": [{k: row.get(k) for k in ("id", "runId", "state")}
                                for row in history["pendingInputs"].get("items", [])]}

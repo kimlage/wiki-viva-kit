@@ -313,3 +313,33 @@ refused before startup. It neither fabricates native ownership nor opens a custo
 inference proxy path. This additional qualification is currently Darwin ARM64;
 another platform requires its own reviewed pin. The live session and mission
 acceptance remain separate from installation and offline tests.
+
+### First mission on an empty native home
+
+A new OpenClaw session can exist before its Codex thread exists. Configure that
+one-time route with `native_thread_binding: first_turn` instead of
+`native_thread_id`. This is an explicit bootstrap mode, not a fallback for a
+missing or incompatible existing thread. Preserve an older native home rather
+than opening its newer databases with an older pinned client.
+
+The planner and executor require an empty transcript, no prior run, no pending
+input and the exact physical session. The native final admission transaction
+also requires an exact empty active path; its usual allowance for an empty
+ancestor cannot admit concurrent activity. Before lifecycle preparation, the
+captured native owner must observe no saved binding. Only the canonical fresh
+`thread/start` branch can register its returned ID, under the same client and
+live owner. Resumes, rotations, replacements and auxiliary branches cannot
+satisfy bootstrap admission.
+
+The selected model and effort remain immutable in `mission.json`. Exclusive
+admission, creation and turn records bind the observed thread ID to that contract
+before `turn/start`; inference and terminal receipts must agree on that ID and
+the returned turn. A restart after a claim cannot restart bootstrap. Reconcile
+the preserved attempt, never resend it. After a successful result is collected,
+pin its independently verified native thread ID in a reviewed consumer update
+before another mission. The bootstrap route refuses subsequent activity.
+
+An already collected bootstrap result remains readable after that exact pin.
+The reader revalidates the native message and complete guard chain, and ignores
+only the binding-mode-to-observed-ID change. A different physical session,
+policy, runtime, thread or result is not accepted as the same route.

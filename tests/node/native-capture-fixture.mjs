@@ -29,6 +29,6 @@ export function createFixtureRegistry(names=['run.mjs','inference.mjs']) {
 }
 let shared;
 export function guardTestOwner() {
- if(!shared){shared=createFixtureRegistry(['run-attempt-CGHsrfPB.mjs','inference-dispatch-CO6tTs4q.mjs','shared-client-C0gEybHs.mjs']);configureNativeRegistry(shared.registry);}
- const c=shared.candidate();c.dispose=c.register();c.load();return {...c,owner:shared.registry.capture(c.url),inferenceOwner:shared.registry.capture(c.inferUrl),routeOwner:shared.registry.capture(pathToFileURL(path.join(c.root,shared.files[2].relative)).href)};
+ if(!shared){shared=createFixtureRegistry(['run-attempt-CGHsrfPB.mjs','inference-dispatch-CO6tTs4q.mjs','shared-client-C0gEybHs.mjs','thread-lifecycle-run-BHM-L-56.mjs']);configureNativeRegistry(shared.registry);}
+ const c=shared.candidate();c.dispose=c.register();c.load();return {...c,owner:shared.registry.capture(c.url),inferenceOwner:shared.registry.capture(c.inferUrl),routeOwner:shared.registry.capture(pathToFileURL(path.join(c.root,shared.files[2].relative)).href),creationOwner:shared.registry.capture(pathToFileURL(path.join(c.root,shared.files[3].relative)).href)};
 }

@@ -13,6 +13,8 @@ const {assertOwner}=await import('../../scripts/openclaw/mission-runtime.mjs');
 let route,turnInstance,inferenceInstance;
 try {
  await loader.install();
+ const allHooks=JSON.parse(fs.readFileSync(new URL('../../scripts/openclaw/mission-overlay.json',import.meta.url)));
+ for(const f of allHooks.files.filter(f=>f.package==='core'))await import(pathToFileURL(path.join(core,f.relative)).href);
  const {n:resolveOptions}=await import(pathToFileURL(path.join(plugin,'dist/.setup/config-runtime-BUH-IDVE.mjs')).href);
  const {r:resolveManaged}=await import(pathToFileURL(path.join(plugin,'dist/.setup/managed-binary-Boj8_lWV.mjs')).href);
  const external=resolveOptions({pluginConfig:{appServer:{command:'/synthetic/external-codex',homeScope:'agent'}},env:{}}).start;
@@ -68,9 +70,38 @@ try {
   selected={};assert.throws(beforeWrite);selected=route;
   guard.bindTurn(id,m.native_thread_id,'synthetic-turn');
   const check=guard.authorizeInference({binding,path:'/responses',provider:'openai',body:{model:m.model,reasoning:{effort:'high'}},metadata:{threadId:m.native_thread_id,turnId:'synthetic-turn'}});check();
+  const firstId='wiki-run-'+'b'.repeat(32),firstDir=path.join(dir,firstId);fs.mkdirSync(firstDir);
+  const first={...m,run_id:firstId,native_thread_id:null,native_thread_binding:'first_turn'};
+  const firstRaw=JSON.stringify(first),firstHash=crypto.createHash('sha256').update(firstRaw).digest('hex');
+  fs.writeFileSync(path.join(firstDir,'mission.json'),firstRaw);fs.writeFileSync(path.join(dir,'mission-active.json'),JSON.stringify({run_id:firstId,contract_sha256:firstHash}));
+  const chat={idempotencyKey:firstId,wikiMission:firstHash,sessionKey:first.session_key,sessionId:first.session_id,thinking:'high',suppressCommandInterpretation:true,deliver:false,message:'synthetic',expectedLeafEntryId:null};
+  const chatName='chat-send-handler-B0jivtwJ.mjs';
+  const nativeChat=loader.transform(chatName,fs.readFileSync(path.join(core,'dist',chatName),'utf8'));
+  const start=nativeChat.indexOf('function assertExpectedLeafActive('),end=nativeChat.indexOf('//#endregion',start);assert(start>0&&end>start);
+  let relation='ancestor';
+  const admission=new Function('readSessionTranscriptActivePathEntryRelation','wikiMissionGuard','ACTIVE_LEAF_CHANGED_ERROR_REASON','return ('+nativeChat.slice(start,end)+')')(()=>relation,guard,'active-leaf-changed');
+  const session={entry:{sessionId:first.session_id},canonicalKey:first.session_key};
+  let forwarded=0;
+  assert.throws(()=>{admission(session,'synthetic-agent',null,first.session_id,{allowEmptyAncestor:true,wikiMissionParams:chat});forwarded++;},/bootstrap_not_empty/);assert.equal(forwarded,0);
+  relation='exact';admission(session,'synthetic-agent',null,first.session_id,{allowEmptyAncestor:true,wikiMissionParams:chat});
+  const lifecycleName='thread-lifecycle-run-BHM-L-56.mjs';
+  const lifecycleFile=path.join(path.dirname(turnFile),lifecycleName);
+  const lifecycleOwner=turnInstance.run(()=>guard.captureOwner(pathToFileURL(lifecycleFile).href));
+  const firstParams={...params,runId:firstId};
+  assert.throws(()=>guard.beginBootstrapThread(firstParams,client,{threadId:'prior-thread'},lifecycleOwner,()=>{}),/bootstrap_existing_binding/);
+  const creation=guard.beginBootstrapThread(firstParams,client,null,lifecycleOwner,()=>{});
+  const created={threadId:'synthetic-bootstrap-thread',model:first.model,modelProvider:first.provider,lifecycle:{action:'started'}};
+  guard.completeBootstrapThread(creation,created);
+  const firstTurn={...turn,threadId:created.threadId};
+  guard.authorizeTurn(firstParams,firstTurn,turnOwner,client,route,assertRoute)();
+  guard.bindTurn(firstId,created.threadId,'synthetic-first-turn');
+  guard.authorizeInference({binding,path:'/responses',provider:'openai',body:{model:first.model,reasoning:{effort:'high'}},metadata:{threadId:created.threadId,turnId:'synthetic-first-turn'}})();
+  assert.throws(()=>guard.beginBootstrapThread(firstParams,client,null,lifecycleOwner,()=>{}));
+  // Restore the earlier contract solely for the existing route-revocation regression.
+  fs.writeFileSync(path.join(dir,'mission-active.json'),JSON.stringify({run_id:id,contract_sha256:crypto.createHash('sha256').update(rawMission).digest('hex')}));
   closed=true;assert.throws(check);closed=false;
   await inferenceInstance.dispose(undefined,{waitForSettlement:true});assert.throws(check,/capture_owner_retired/);
-  console.log(JSON.stringify({native_managed_selection_verified:true,external_and_desktop_fallback_refused:true,distinct_native_captures:true,exact_transformed_async_route_body:true,actual_native_proxy_and_factory:true,wrong_client_refused:true,native_route_change_refused:true,client_close_refused:true,inference_owner_revocation_refused:true,synthetic_admission_only:true}));
+  console.log(JSON.stringify({native_final_admission_race_refused:true,captured_bootstrap_custody_verified:true,native_managed_selection_verified:true,external_and_desktop_fallback_refused:true,distinct_native_captures:true,exact_transformed_async_route_body:true,actual_native_proxy_and_factory:true,wrong_client_refused:true,native_route_change_refused:true,client_close_refused:true,inference_owner_revocation_refused:true,synthetic_admission_only:true}));
  });
 } finally {
  if(route)await route.close();
