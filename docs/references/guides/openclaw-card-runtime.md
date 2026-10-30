@@ -415,6 +415,10 @@ terminal guard or recovery artifact, intact accepted/turn/bound/inference lineag
 and a fresh idle physical session whose current leaf belongs to that original run.
 A native queue, another leaf, a partial continuation, an unexpired contract or a
 changed mission lock refuses this route.
+Exact messageId reads use a native physical-snapshot projection which can leave
+activeLeafEntryId unset. The exact message must still match its physical session,
+id and original run; complete live observations before and after bind current
+leaf, status, last run and queue. An explicit foreign snapshot leaf is refused.
 
 Independent review still binds the exact approved head, action, contract/evidence
 and original run. Resolution rechecks native state and retained bytes under the

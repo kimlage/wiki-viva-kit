@@ -120,3 +120,21 @@ def test_exact_leaf_or_later_complete_observation_race_refuses(runtime,monkeypat
     with pytest.raises(ValueError):oc.resolve_failed(root,cfg,q,prepared)
     assert seen and (d.parent/'mission-active.json').exists()
     assert not (d/'failure-resolution.json').exists()
+
+
+@pytest.mark.parametrize('snapshot_leaf',[None,'foreign'])
+def test_native_exact_snapshot_unset_leaf_uses_live_identity_before_and_after(runtime,monkeypatch,snapshot_leaf):
+    root,cfg,_,_,_,_=runtime;_,d,q=interrupted(runtime,monkeypatch)
+    original=oc.Gateway.call
+    def snapshot(self,method,params):
+        result=original(self,method,params)
+        if params.get('messageId'):result['sessionInfo']['activeLeafEntryId']=snapshot_leaf
+        return result
+    monkeypatch.setattr(oc.Gateway,'call',snapshot)
+    if snapshot_leaf=='foreign':
+        with pytest.raises(ValueError):oc.plan_failure_resolution(root,cfg,q)
+        assert (d.parent/'mission-active.json').exists()
+    else:
+        p=oc.plan_failure_resolution(root,cfg,q);r=oc.resolve_failed(root,cfg,q,p)
+        assert r['status']=='resolved_without_result' and not r['result_available']
+        assert not (d.parent/'mission-active.json').exists()

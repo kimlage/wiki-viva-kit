@@ -737,7 +737,9 @@ def interrupted_observation(gateway, history, plan):
     require(type(queued) is int and queued == 0, 'openclaw_interrupted_native_state_changed')
     require(len(messages)==1 and exact['sessionInfo'].get('hasActiveRun') is False
             and exact['sessionInfo'].get('status') == 'interrupted'
-            and exact['sessionInfo'].get('activeLeafEntryId') == leaf
+            # Native messageId reads use a physical snapshot projection with
+            # no active leaf. Current liveness belongs to both complete live reads.
+            and exact['sessionInfo'].get('activeLeafEntryId') in (None,leaf)
             and exact['sessionInfo'].get('lastRunId') == info.get('lastRunId')
             and messages[0].get('__openclaw',{}).get('id') == leaf
             and messages[0].get('__openclaw',{}).get('runId') == plan['effect_key'],
