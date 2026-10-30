@@ -14,6 +14,13 @@
   "upstream": "OpenClaw and @openclaw/codex 2026.10.9",
   "files": [
     {
+      "name": "process-runtime.js",
+      "package": "core",
+      "relative": "dist/plugin-sdk/process-runtime.js",
+      "sha256": "232496e401b67130700489914b9d9a5a75e786e4c915a511c95763243da200fd",
+      "edits": []
+    },
+    {
       "name": "plugin-setup-module-inWd3Rne.mjs",
       "package": "core",
       "relative": "dist/plugin-setup-module-inWd3Rne.mjs",
