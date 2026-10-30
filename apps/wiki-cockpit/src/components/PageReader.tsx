@@ -1,4 +1,5 @@
 import { safeEvidenceUrl } from "./EvidenceMarkdown";
+import { restoreSurfaceFocus } from "./world/restoreSurfaceFocus";
 // PageReader: the DEEP reading surface of the cockpit — the second level of
 // the two-level read (the anchored WorldPlate summary comes first; opening the
 // page docks this reader inside the 3D shell). It doubles as the 2D/static
@@ -562,11 +563,7 @@ export function PageReader({
     return () => {
       const restoreFocus = () => {
         const opener = openerRef.current;
-        if (opener?.isConnected && !opener.closest("[inert]")) {
-          opener.focus();
-          return;
-        }
-        document.querySelector<HTMLElement>(".commandSearch input")?.focus();
+        restoreSurfaceFocus(opener, document.querySelector<HTMLElement>(".commandSearch input"));
       };
       if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(restoreFocus);
       else window.setTimeout(restoreFocus, 0);

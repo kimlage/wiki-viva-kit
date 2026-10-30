@@ -53,6 +53,7 @@ import type { MissionRow } from "./world/MissionCard";
 import { PacketTray } from "./world/PacketTray";
 import { WorldNavigator } from "./world/WorldNavigator";
 import { useSurfacePresence } from "./world/useSurfacePresence";
+import { restoreSurfaceFocus } from "./world/restoreSurfaceFocus";
 import { isNativeWorldViewId } from "../world/experience";
 import {
   DEFAULT_VISUAL_CONTROL_CONFIG,
@@ -750,8 +751,7 @@ export function WorldView({
     if (readerWasMountedRef.current && !readerPresence.mounted) {
       const restoreFocus = () => {
         const opener = readerOpenerRef.current;
-        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
-        else searchRef.current?.focus({ preventScroll: true });
+        restoreSurfaceFocus(opener, searchRef.current);
         readerOpenerRef.current = null;
       };
       // Presence keeps the closing reader mounted and the background inert
@@ -782,8 +782,7 @@ export function WorldView({
         // runs. Never steal focus back from that newly opened surface.
         if (routeRef.current.query.dock) return;
         const opener = dockOpenerRef.current;
-        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
-        else searchRef.current?.focus({ preventScroll: true });
+        restoreSurfaceFocus(opener, searchRef.current);
         dockOpenerRef.current = null;
       };
       dockFocusRestoreRef.current = typeof window.requestAnimationFrame === "function"
@@ -834,8 +833,7 @@ export function WorldView({
         const current = routeRef.current.query;
         if (current.tray || current.dock || current.reader) return;
         const opener = trayOpenerRef.current;
-        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
-        else searchRef.current?.focus({ preventScroll: true });
+        restoreSurfaceFocus(opener, searchRef.current);
         trayOpenerRef.current = null;
       };
       trayFocusTimerRef.current = typeof window.requestAnimationFrame === "function"
