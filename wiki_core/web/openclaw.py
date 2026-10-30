@@ -516,17 +516,21 @@ def release_mission_lock(directory, plan):
     if "mission" not in plan:
         return
     with mission_mutex(directory):
-        active = directory.parent / "mission-active.json"
-        if not active.exists():
-            return
-        value = read_receipt(active)
-        # Later receipt reads can finish a crash between capture and release.
-        # They must never release a different mission's lock.
-        if value.get("run_id") != plan["effect_key"]:
-            return
-        require(value.get("contract_sha256") == hashlib.sha256(receipt_bytes(directory / "mission.json")).hexdigest(),
-                "openclaw_mission_lock_changed")
-        active.unlink()
+        _release_mission_lock_locked(directory, plan)
+
+
+def _release_mission_lock_locked(directory, plan):
+    if "mission" not in plan:
+        return
+    active = directory.parent / "mission-active.json"
+    if not active.exists():
+        return
+    value = read_receipt(active)
+    if value.get("run_id") != plan["effect_key"]:
+        return
+    require(value.get("contract_sha256") == hashlib.sha256(receipt_bytes(directory / "mission.json")).hexdigest(),
+            "openclaw_mission_lock_changed")
+    active.unlink()
 
 
 def inspect(root, config, params):
@@ -629,7 +633,7 @@ def validate_failure_review(review, plan, head, action_sha256):
 
 def validate_failure_evidence(evidence, plan, directory=None):
     require(isinstance(evidence, dict), "openclaw_preserved_terminal_error_required")
-    if evidence.get("status") == "expired_unaccepted":
+    if evidence.get("status") in {"expired_unaccepted", "expired_interrupted"}:
         require(set(evidence) == {"status", "runId", "contract_sha256", "expires_at"}
                 and evidence["runId"] == plan["effect_key"] and "mission" in plan
                 and isinstance(evidence["contract_sha256"], str)
@@ -660,6 +664,10 @@ def validate_expired_unaccepted(directory, plan, evidence, root=None):
             and not (directory / "accepted.json").exists()
             and not (directory / "result.json").exists()
             and not any(directory.glob("guard-*")), "openclaw_unaccepted_mission_not_eligible")
+    validate_expired_contract(directory, plan, evidence, root)
+
+
+def validate_expired_contract(directory, plan, evidence, root):
     raw = receipt_bytes(directory / "mission.json")
     contract = parse_receipt(raw.decode())
     expected = {"schema_version": "wiki_openclaw_mission.v1", "run_id": plan["effect_key"],
@@ -686,6 +694,63 @@ def validate_expired_unaccepted(directory, plan, evidence, root=None):
             "openclaw_expired_mission_changed")
 
 
+
+def validate_expired_interrupted(directory, plan, evidence, root):
+    """Expired admitted original, no continuation or manufactured terminal."""
+    validate_failure_evidence(evidence, plan)
+    require(evidence.get('status') == 'expired_interrupted' and 'mission' in plan
+            and not plan['mission'].get('native_thread_binding')
+            and plan['mission'].get('recovery') == {'mode':'read_only','max_continuations':1}
+            and not (directory/'result.json').exists()
+            and not (directory/'guard-terminal.json').exists()
+            and not any(directory.glob('guard-recovery*')),
+            'openclaw_interrupted_mission_not_eligible')
+    validate_expired_contract(directory, plan, evidence, root)
+    accepted=read_receipt(directory/'accepted.json')
+    require(accepted.get('plan_sha256') == digest(plan) and accepted.get('run_id') == plan['effect_key'],
+            'openclaw_acceptance_changed')
+    claim=read_receipt(directory/'guard-turn.json');bound=read_receipt(directory/'guard-bound-turn.json')
+    selected=plan['mission'];sha=evidence['contract_sha256']
+    require(claim.get('run_id') == plan['effect_key'] and claim.get('session_id') == plan['route']['session_id']
+            and claim.get('thread_id') == selected['native_thread_id'] and claim.get('contract_sha256') == sha
+            and claim.get('model') == selected['model'].split('/',1)[1] and claim.get('effort') == selected['effort']
+            and bound.get('run_id') == plan['effect_key'] and bound.get('thread_id') == claim['thread_id']
+            and bound.get('contract_sha256') == sha and isinstance(bound.get('turn_id'),str) and bool(bound['turn_id']),
+            'openclaw_mission_selection_unproven')
+    lines=receipt_bytes(directory/'guard-inference.jsonl').decode().splitlines()
+    require(bool(lines),'openclaw_mission_inference_unproven')
+    for line in lines:
+        item=json.loads(line)
+        require(all(item.get(k) == claim.get(k) for k in ('run_id','thread_id','contract_sha256','model','effort'))
+                and item.get('turn_id') == bound['turn_id'] and item.get('path') in {'/responses','/responses/compact'}
+                and not item.get('native_run_id'), 'openclaw_mission_selection_unproven')
+
+
+def interrupted_observation(gateway, history, plan):
+    info=history['sessionInfo'];leaf=idle_leaf(history)
+    require(info.get('status') == 'interrupted' and info.get('lastRunId') in (None,plan['effect_key']),
+            'openclaw_interrupted_native_state_changed')
+    exact=gateway.history(messageId=leaf,maxChars=1,toolResultMaxChars=1)
+    messages=exact.get('messages',[])
+    pending,_,_=pending_page(exact)
+    queued=pending.get('queuedCount',pending['total'])
+    require(type(queued) is int and queued == 0, 'openclaw_interrupted_native_state_changed')
+    require(len(messages)==1 and exact['sessionInfo'].get('hasActiveRun') is False
+            and exact['sessionInfo'].get('status') == 'interrupted'
+            # Native messageId reads use a physical snapshot projection with
+            # no active leaf. Current liveness belongs to both complete live reads.
+            and exact['sessionInfo'].get('activeLeafEntryId') in (None,leaf)
+            and exact['sessionInfo'].get('lastRunId') == info.get('lastRunId')
+            and messages[0].get('__openclaw',{}).get('id') == leaf
+            and messages[0].get('__openclaw',{}).get('runId') == plan['effect_key'],
+            'openclaw_interrupted_native_state_changed')
+    latest=idle_history(gateway)
+    require(all(latest['sessionInfo'].get(k) == info.get(k)
+                for k in ('status','hasActiveRun','activeLeafEntryId','lastRunId')),
+            'openclaw_interrupted_native_state_changed')
+    return {'status':'interrupted','leaf_run_id':plan['effect_key']}
+
+
 def verified_failure_resolution(directory, plan, root=None):
     value = read_receipt(directory / "failure-resolution.json")
     require(not (directory / "result.json").exists() and
@@ -706,6 +771,12 @@ def verified_failure_resolution(directory, plan, root=None):
     validate_failure_evidence(value.get("evidence"), plan, directory)
     if value["evidence"].get("status") == "expired_unaccepted":
         validate_expired_unaccepted(directory, plan, value["evidence"], root)
+    elif value['evidence'].get('status') == 'expired_interrupted':
+        validate_expired_interrupted(directory, plan, value['evidence'], root)
+        require(value.get('observation',{}).get('status') == 'interrupted'
+                and value['observation'].get('leaf_run_id') == plan['effect_key']
+                and value['observation'].get('session_id') == plan['route']['session_id'],
+                'openclaw_failure_resolution_changed')
     raw = value.get("evidence_raw")
     require(isinstance(raw, str) and hashlib.sha256(raw.encode()).hexdigest() == review.get("evidence_sha256")
             and parse_receipt(raw) == value["evidence"], "openclaw_failure_resolution_changed")
@@ -731,6 +802,15 @@ def plan_failure_resolution(root, config, params):
     require(evidence_path.is_relative_to(derived), "openclaw_evidence_must_be_derived")
     evidence, evidence_raw = reviewed_receipt(evidence_path, review["evidence_sha256"])
     validate_failure_evidence(evidence, plan, directory)
+    expired_interrupted = evidence.get('status') == 'expired_interrupted'
+    if expired_interrupted:
+        validate_expired_interrupted(directory, plan, evidence, root)
+        if (directory/'failure-resolution.json').exists():
+            verified_failure_resolution(directory, plan, root)
+        else:
+            active=read_receipt(directory.parent/'mission-active.json')
+            require(active == {'run_id':plan['effect_key'],'contract_sha256':evidence['contract_sha256']},
+                    'openclaw_mission_lock_changed')
     expired_unaccepted = evidence.get("status") == "expired_unaccepted"
     if expired_unaccepted:
         validate_expired_unaccepted(directory, plan, evidence, root)
@@ -745,7 +825,8 @@ def plan_failure_resolution(root, config, params):
                 and not any(row.get("runId") == plan["effect_key"]
                             for row in history["pendingInputs"].get("items", [])),
                 "openclaw_unaccepted_native_state_changed")
-    observation = {"leaf": idle_leaf(history, allow_empty=allow_empty), "session_id": history["sessionId"],
+    interrupted = interrupted_observation(gateway, history, plan) if expired_interrupted else {}
+    observation = {**interrupted, "leaf": idle_leaf(history, allow_empty=allow_empty), "session_id": history["sessionId"],
                    "last_run": history["sessionInfo"].get("lastRunId"),
                    "pending": [{k: row.get(k) for k in ("id", "runId", "state")}
                                for row in history["pendingInputs"].get("items", [])]}
@@ -757,30 +838,32 @@ def plan_failure_resolution(root, config, params):
 def resolve_failed(root, config, params, prepared):
     # Current native authority surrounds this entire effect. Changed evidence,
     # physical session, queue or canonical inputs refuse before persistence.
-    current = plan_failure_resolution(root, config, params)
-    require(current == prepared, "openclaw_failure_resolution_inputs_changed")
-    directory = storage(root, config, params["effect_key"])
-    plan = current["plan"]
-    if (directory / "failure-resolution.json").exists():
-        value = verified_failure_resolution(directory, plan, root)
-        require(value["review"] == current["review"] and value["evidence"] == current["evidence"],
-                "openclaw_failure_resolution_changed")
-    else:
-        value = {"schema_version": "wiki_openclaw_failure_resolution.v1", "status": "resolved_without_result",
-                 "effect_key": plan["effect_key"], "action_id": plan["binding"]["action_id"],
-                 "session_id": plan["route"]["session_id"], "plan_sha256": digest(plan),
-                 "evidence_basis": "preserved_observation_independently_reviewed",
-                 "external_effects": "not_determined_by_this_receipt", "review": current["review"],
-                 "review_sha256": digest(current["review"]), "evidence": current["evidence"],
-                 "evidence_sha256": digest(current["evidence"]), "evidence_raw": current["evidence_raw"], "observation": current["observation"],
-                 "recorded_at": dt.datetime.now(dt.timezone.utc).isoformat()}
-        # Re-read immediately before the atomic local receipt; no provider write.
-        require(plan_failure_resolution(root, config, params) == current, "openclaw_failure_resolution_inputs_changed")
-        write_new(directory / "failure-resolution.json", value)
-    release_mission_lock(directory, plan)
-    return {"action_id": params["action_id"], "effect_key": params["effect_key"], "reconciled": True,
-            "status": "resolved_without_result", "result_available": False, "new_dispatch": False,
-            "canonical_write": False, "resolution": value}
+    directory = storage(root, config, params['effect_key'])
+    with mission_mutex(directory):
+        current = plan_failure_resolution(root, config, params)
+        require(current == prepared, "openclaw_failure_resolution_inputs_changed")
+        directory = storage(root, config, params["effect_key"])
+        plan = current["plan"]
+        if (directory / "failure-resolution.json").exists():
+            value = verified_failure_resolution(directory, plan, root)
+            require(value["review"] == current["review"] and value["evidence"] == current["evidence"],
+                    "openclaw_failure_resolution_changed")
+        else:
+            value = {"schema_version": "wiki_openclaw_failure_resolution.v1", "status": "resolved_without_result",
+                     "effect_key": plan["effect_key"], "action_id": plan["binding"]["action_id"],
+                     "session_id": plan["route"]["session_id"], "plan_sha256": digest(plan),
+                     "evidence_basis": "preserved_observation_independently_reviewed",
+                     "external_effects": "not_determined_by_this_receipt", "review": current["review"],
+                     "review_sha256": digest(current["review"]), "evidence": current["evidence"],
+                     "evidence_sha256": digest(current["evidence"]), "evidence_raw": current["evidence_raw"], "observation": current["observation"],
+                     "recorded_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+            # Re-read immediately before the atomic local receipt; no provider write.
+            require(plan_failure_resolution(root, config, params) == current, "openclaw_failure_resolution_inputs_changed")
+            write_new(directory / "failure-resolution.json", value)
+        _release_mission_lock_locked(directory, plan)
+        return {"action_id": params["action_id"], "effect_key": params["effect_key"], "reconciled": True,
+                "status": "resolved_without_result", "result_available": False, "new_dispatch": False,
+                "canonical_write": False, "resolution": value}
 
 
 def _main_body_progress(root, plan, received, current):
