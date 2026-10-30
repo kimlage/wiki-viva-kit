@@ -105,8 +105,8 @@ unqualified account.
 
 A native failure can outlive the Gateway's transient terminal-error cache. An
 integrator may use **Review resolution without a result** after inspecting the
-retained attempt. This requires a preserved terminal error and an independent
-review bound to the original plan/run/physical session, current action revision
+retained attempt. This requires a preserved terminal error or the strictly
+qualified expired-contract evidence described below, and an independent review bound to the original plan/run/physical session, current action revision
 and approved HEAD. The review names its author, distinct reviewer, reason and
 limits. Its decision is `resolve_without_result`, never success or completion.
 A native terminal failure may carry `error: null`; this preserves an absent
