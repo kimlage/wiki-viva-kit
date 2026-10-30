@@ -166,6 +166,23 @@
         ]
       ],
       "import_guard": true
+    },
+    {
+      "name": "main-session-restart-recovery-CZnv65GP.mjs",
+      "package": "core",
+      "relative": "dist/main-session-restart-recovery-CZnv65GP.mjs",
+      "sha256": "29042ad63b7e60b56f5a9359b8d09423470767038b822ee978cc7b2d74c3b95b",
+      "import_guard": true,
+      "edits": [
+        [
+          "\t\tif (deliveryContext) {\n\t\t\tagentParams.channel = deliveryContext.channel;",
+          "\t\tconst assertWikiRecovery = wikiMissionGuard.authorizeNativeRecovery(agentParams, sourceRunId, params.cfg, () => { if (params.shouldContinue?.() === false || !taskRemainsOwed()) throw new Error(\"wiki_mission_recovery_admission_changed\"); });\n\t\tif (deliveryContext) {\n\t\t\tagentParams.channel = deliveryContext.channel;"
+        ],
+        [
+          "\t\t\tassertAdmissionCurrent: () => {\n\t\t\t\tif (params.shouldContinue?.() === false || !taskRemainsOwed())",
+          "\t\t\tassertAdmissionCurrent: () => {\n\t\t\t\tassertWikiRecovery();\n\t\t\t\tif (params.shouldContinue?.() === false || !taskRemainsOwed())"
+        ]
+      ]
     }
   ],
   "app_server": {

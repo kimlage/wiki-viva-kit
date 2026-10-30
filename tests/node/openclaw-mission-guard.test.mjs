@@ -147,3 +147,55 @@ test('route registration rejects promises and wrong native client/owner',()=>{
 });
 
 test("client startup refuses an unconfigured pin",()=>{assert.throws(()=>authorizeClientStart({}),/client_pin_required/);});
+
+async function recoveryFixture(){
+ const f=fixture();
+ const repo=path.join(f.dir,'repository');fs.mkdirSync(repo);
+ fs.writeFileSync(path.join(repo,'action.md'),'Read-only maintenance action.\n');
+ fs.writeFileSync(path.join(repo,'wiki.config.yaml'),'repo_id: synthetic\n');
+ for(const args of [['init','-b','main'],['config','user.name','Synthetic'],['config','user.email','synthetic@example.test'],['add','.'],['commit','-qm','fixture']])assert.equal(spawnSync('git',args,{cwd:repo}).status,0);
+ f.m.recovery={mode:'read_only',max_continuations:1,repo_root:repo,approved_head:spawnSync('git',['rev-parse','HEAD'],{cwd:repo,encoding:'utf8'}).stdout.trim(),action_path:'action.md',action_sha256:sha(fs.readFileSync(path.join(repo,'action.md'))),config_sha256:sha(fs.readFileSync(path.join(repo,'wiki.config.yaml')))};
+ const raw=JSON.stringify(f.m);fs.writeFileSync(path.join(f.runDir,'mission.json'),raw);fs.writeFileSync(path.join(f.dir,'mission-active.json'),JSON.stringify({run_id:f.m.run_id,contract_sha256:sha(raw)}));
+ authorizeTurn(f.params,f.turn,f.owner,f.client,f.route,f.assertRouteCurrent);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');authorizeInference(f.inference);
+ f.recoveryAgent={idempotencyKey:crypto.randomUUID(),sessionKey:f.m.session_key,expectedExistingSessionId:f.m.session_id,internalRuntimeHandoffId:'native-current-handoff',internalExecutionIdentityRecoveryAttempt:1,inputProvenance:{kind:'internal_system'},deliver:false,agentId:'worker'};
+ f.cfg={agents:{entries:{worker:{sandbox:{mode:'all',workspaceAccess:'ro',backend:'docker',docker:{readOnlyRoot:true,network:'none'}}}}},tools:{allow:['read','ls','session_status'],fs:{workspaceOnly:true}}};
+ f.recoveryGuard=(await import('../../scripts/openclaw/mission-guard.mjs')).authorizeNativeRecovery;
+ return f;
+}
+test('one native continuation retains original claim, selects explicitly and binds its own turn',async()=>{
+ const f=await recoveryFixture();try{
+ const original=fs.readFileSync(path.join(f.runDir,'guard-turn.json'));
+ const live=f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{});live();
+ assert.equal(f.recoveryAgent.model,'openai/example-model');assert.equal(f.recoveryAgent.thinking,'high');assert.equal(f.recoveryAgent.forceRestartSafeTools,true);
+ const params={...f.params,runId:f.recoveryAgent.idempotencyKey};
+ authorizeTurn(params,f.turn,f.owner,f.client,f.route,f.assertRouteCurrent);bindTurn(params.runId,f.m.native_thread_id,'continuation-turn');
+ authorizeInference({...f.inference,metadata:{...f.inference.metadata,turnId:'continuation-turn'}});
+ recordTerminal(f.m.native_thread_id,{id:'continuation-turn',status:'completed'});
+ assert.deepEqual(fs.readFileSync(path.join(f.runDir,'guard-turn.json')),original);
+ assert.equal(JSON.parse(fs.readFileSync(path.join(f.runDir,'guard-recovery-terminal.json'))).native_run_id,params.runId);
+ assert.throws(()=>authorizeTurn(params,f.turn,f.owner,f.client,f.route,f.assertRouteCurrent),/EEXIST/);
+ assert.throws(()=>f.recoveryGuard({...f.recoveryAgent,idempotencyKey:crypto.randomUUID()},f.m.run_id,f.cfg,()=>{}),/EEXIST/);
+ }finally{clean(f);}
+});
+for(const mutate of [f=>{f.recoveryAgent.expectedExistingSessionId='changed';},f=>{f.recoveryAgent.internalExecutionIdentityRecoveryAttempt=2;},f=>{f.cfg.tools.allow.push('write');},f=>{f.cfg.agents.entries.worker.tools={allow:['exec']};},f=>{fs.appendFileSync(path.join(f.m.recovery.repo_root,'action.md'),'changed');},f=>{fs.writeFileSync(path.join(f.runDir,'guard-terminal.json'),JSON.stringify({status:'completed'}));}])test('native recovery refuses changed authority or consumed original before forwarding',async()=>{
+ const f=await recoveryFixture();try{mutate(f);assert.throws(()=>f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{}));assert.equal(fs.existsSync(path.join(f.runDir,'guard-recovery.json')),false);}finally{clean(f);}
+});
+test('continuation rechecks canonical context and native admission, without extending expiry',async()=>{
+ const f=await recoveryFixture();try{
+ let admitted=true;const live=f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{assert.ok(admitted);});
+ admitted=false;assert.throws(live);admitted=true;
+ authorizeTurn({...f.params,runId:f.recoveryAgent.idempotencyKey},f.turn,f.owner,f.client,f.route,f.assertRouteCurrent);
+ bindTurn(f.recoveryAgent.idempotencyKey,f.m.native_thread_id,'continuation-turn');
+ const request={...f.inference,metadata:{...f.inference.metadata,turnId:'continuation-turn'}};
+ const current=authorizeInference(request);fs.appendFileSync(path.join(f.m.recovery.repo_root,'wiki.config.yaml'),'changed');assert.throws(current,/recovery_context_changed/);
+ }finally{clean(f);}
+});
+test('expiry refuses new inference but permits observation of the bound native terminal',()=>{
+ const f=fixture(),clock=Date.now;try{
+ authorizeTurn(f.params,f.turn,f.owner,f.client,f.route,f.assertRouteCurrent);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');
+ Date.now=()=>clock()+120000;
+ assert.throws(()=>authorizeInference(f.inference),/expired/);
+ recordTerminal(f.m.native_thread_id,{id:'synthetic-turn',status:'completed'});
+ assert.equal(JSON.parse(fs.readFileSync(path.join(f.runDir,'guard-terminal.json'))).status,'completed');
+ }finally{Date.now=clock;clean(f);}
+});

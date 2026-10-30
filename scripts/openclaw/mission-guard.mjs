@@ -2,11 +2,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import {execFileSync} from 'node:child_process';
 import {assertOwner,assertCapture,markNativeHook} from './mission-runtime.mjs';
 export {captureOwner,registerNativeArtifact} from './mission-runtime.mjs';
 const threads = new Map();
 const creations = new WeakSet(), createdThreads = new Map();
 const bindings = new WeakMap(), routes = new WeakMap();
+const recoveries = new Map();
 const TURN_HOOK='run-attempt-CGHsrfPB.mjs';
 const INFERENCE_HOOK='inference-dispatch-CO6tTs4q.mjs';
 const ROUTE_HOOK='shared-client-C0gEybHs.mjs';
@@ -37,26 +39,84 @@ function writeExclusive(file, value) {
   try { fs.writeFileSync(fd, JSON.stringify(value)+'\n'); fs.fsyncSync(fd); }
   finally { fs.closeSync(fd); }
 }
-function load(runId) {
+function load(runId, permission=true) {
   require(typeof runId === 'string' && /^wiki-run-[a-f0-9]{32}$/.test(runId), 'invalid_run');
   const dir = directory(), runDir = path.join(dir, runId);
   require(fs.realpathSync(runDir) === runDir, 'run_symlink');
   const raw = read(path.join(runDir, 'mission.json'));
   const m = JSON.parse(raw), active = JSON.parse(read(path.join(dir, 'mission-active.json')));
   require(m.schema_version === 'wiki_openclaw_mission.v1' && m.run_id === runId && active.run_id === runId && active.contract_sha256 === sha(raw), 'contract_changed');
-  require(typeof m.expires_at === 'string' && Date.parse(m.expires_at) > Date.now(), 'expired');
+  require(typeof m.expires_at === 'string' && Number.isFinite(Date.parse(m.expires_at))
+    && (!permission || Date.parse(m.expires_at) > Date.now()), 'expired');
   require(m.provider === 'openai' && typeof m.model === 'string' && /^[a-zA-Z0-9._-]+$/.test(m.model) && ['high','max'].includes(m.effort), 'selection_invalid');
   require((m.native_thread_binding === 'first_turn' ? m.native_thread_id === null : m.native_thread_binding === undefined && typeof m.native_thread_id === 'string' && m.native_thread_id.length > 8) && typeof m.session_id === 'string' && typeof m.session_key === 'string', 'identity_required');
   require(/^[a-f0-9]{64}$/.test(m.message_sha256), 'message_digest_required');
   return {m, hash:sha(raw), runDir};
 }
-function current(lock) {
+function current(lock, permission=true) {
   if(lock.owner) {
     assertOwner(lock.owner,TURN_HOOK);
     assertRoute(lock.route);
     lock.assertRouteCurrent();
   }
-  const now = load(lock.m.run_id); require(now.hash === lock.hash, 'contract_changed');
+  const now = load(lock.m.run_id,permission); require(now.hash === lock.hash, 'contract_changed');
+  if(permission && lock.recovery) assertRecoveryContext(lock);
+}
+
+function assertRecoveryContext(lock) {
+  const r=lock.m.recovery;
+  require(r?.mode==='read_only' && r.max_continuations===1 && path.isAbsolute(r.repo_root)
+    && fs.realpathSync(r.repo_root)===r.repo_root,'recovery_policy_required');
+  const git=(...args)=>execFileSync('git',args,{cwd:r.repo_root,encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();
+  require(git('rev-parse','HEAD')===r.approved_head && git('status','--porcelain','--untracked-files=all')==='', 'recovery_context_changed');
+  require(typeof r.action_path==='string' && !path.isAbsolute(r.action_path) && !r.action_path.split('/').includes('..'), 'recovery_context_changed');
+  require(sha(read(path.join(r.repo_root,r.action_path)))===r.action_sha256
+    && sha(read(path.join(r.repo_root,'wiki.config.yaml')))===r.config_sha256,'recovery_context_changed');
+}
+
+/** Only the version-qualified core calls this inside its live recovery admission.
+ * A continuation gets a new native run/turn; the original mission is never sent again.
+ */
+export function authorizeNativeRecovery(agent, sourceRunId, cfg, assertAdmissionCurrent) {
+  assertRuntime();
+  const lock=load(sourceRunId),m=lock.m;
+  require(typeof assertAdmissionCurrent==='function','recovery_admission_required');
+  assertAdmissionCurrent();
+  const id=agent.idempotencyKey;
+  require(typeof id==='string' && /^[a-f0-9-]{36}$/.test(id) && id!==sourceRunId
+    && agent.sessionKey===m.session_key && agent.expectedExistingSessionId===m.session_id
+    && typeof agent.internalRuntimeHandoffId==='string' && agent.internalRuntimeHandoffId.length>0
+    && agent.internalExecutionIdentityRecoveryAttempt===1 && agent.inputProvenance?.kind==='internal_system'
+    && agent.deliver===false,'recovery_identity_mismatch');
+  const safe=new Set(['read','ls','session_status']);
+  const agentCfg=cfg?.agents?.entries?.[agent.agentId];
+  const bootstrapOnly=agentCfg?.tools;
+  const sandbox=agentCfg?.sandbox;
+  require(agentCfg && Array.isArray(cfg.tools?.allow) && cfg.tools.allow.length>0
+    && cfg.tools.allow.every(t=>safe.has(t)) && !cfg.tools.alsoAllow && !cfg.tools.byProvider
+    && (!bootstrapOnly || Object.keys(bootstrapOnly).length===1 && Object.keys(bootstrapOnly.exec??{}).length===1 && bootstrapOnly.exec.mode==='ask')
+    && cfg.tools.fs?.workspaceOnly===true && sandbox?.mode==='all' && sandbox.workspaceAccess==='ro'
+    && sandbox.backend==='docker' && sandbox.docker?.readOnlyRoot===true && sandbox.docker.network==='none',
+    'recovery_tools_not_qualified');
+  lock.recovery={native_run_id:id};assertRecoveryContext(lock);
+  const original=JSON.parse(read(path.join(lock.runDir,'guard-bound-turn.json')));
+  require(original.run_id===sourceRunId && original.thread_id===m.native_thread_id
+    && original.contract_sha256===lock.hash && typeof original.turn_id==='string','recovery_original_turn_required');
+  const terminalFile=path.join(lock.runDir,'guard-terminal.json');
+  require(!fs.existsSync(terminalFile) || JSON.parse(read(terminalFile)).status!=='completed','recovery_already_completed');
+  const claim={schema_version:'wiki_openclaw_recovery.v1',run_id:sourceRunId,native_run_id:id,
+    session_id:m.session_id,thread_id:m.native_thread_id,source_turn_id:original.turn_id,
+    contract_sha256:lock.hash,model:m.model,effort:m.effort};
+  if(recoveries.has(id)) {
+    require(recoveries.get(id).hash===lock.hash,'recovery_changed');
+  } else {
+    // No reconstruction of a consumed admission from disk after another crash.
+    writeExclusive(path.join(lock.runDir,'guard-recovery.json'),claim);
+    recoveries.set(id,lock);
+  }
+  agent.model=`${m.provider}/${m.model}`;agent.thinking=m.effort;
+  agent.forceRestartSafeTools=true;
+  return ()=>{assertAdmissionCurrent();current(lock);};
 }
 export function authorizeChat(params) {
   assertRuntime();
@@ -125,7 +185,8 @@ export function authorizeTurn(params, turn, owner,client,handle,assertRouteCurre
   const route=routes.get(handle);assertRoute(route);
   require(route.binding.client===client && typeof assertRouteCurrent==='function','turn_route_mismatch');
   assertRouteCurrent();
-  const lock=load(params.runId), m=lock.m;
+  const lock=recoveries.get(params.runId) ?? load(params.runId), m=lock.m;
+  if(lock.recovery) current(lock);
   if(m.native_thread_binding==='first_turn') {
     const creation=createdThreads.get(turn.threadId);currentCreation(creation);
     require(creation.lock.hash===lock.hash && creation.client===client && creation.owner.record===owner.record,'bootstrap_turn_mismatch');
@@ -134,21 +195,21 @@ export function authorizeTurn(params, turn, owner,client,handle,assertRouteCurre
   if (turn.collaborationMode != null) require(turn.collaborationMode.settings?.model === m.model && turn.collaborationMode.settings?.reasoning_effort === m.effort, 'collaboration_mismatch');
   // Durable claim prevents a restarted process or a live model switch from
   // admitting another turn under the same mission. Recovery is inspect-only.
-  writeExclusive(path.join(lock.runDir,'guard-turn.json'), {schema_version:'wiki_openclaw_guard_turn.v1',run_id:m.run_id,session_id:m.session_id,thread_id:turn.threadId,model:m.model,effort:m.effort,contract_sha256:lock.hash});
+  writeExclusive(path.join(lock.runDir,lock.recovery?'guard-recovery-turn.json':'guard-turn.json'), {schema_version:'wiki_openclaw_guard_turn.v1',run_id:m.run_id,...lock.recovery,session_id:m.session_id,thread_id:turn.threadId,model:m.model,effort:m.effort,contract_sha256:lock.hash});
   lock.owner=owner;
   lock.route=route;lock.assertRouteCurrent=assertRouteCurrent;
   threads.set(turn.threadId, lock);
   return () => current(lock);
 }
 export function bindTurn(runId, threadId, turnId) {
-  const lock=threads.get(threadId); require(lock && lock.m.run_id===runId && !lock.turnId && typeof turnId==='string' && turnId.length>0, 'turn_binding_mismatch'); current(lock);
-  writeExclusive(path.join(lock.runDir,'guard-bound-turn.json'), {run_id:runId,thread_id:threadId,turn_id:turnId,contract_sha256:lock.hash});
+  const lock=threads.get(threadId); require(lock && (lock.recovery?.native_run_id ?? lock.m.run_id)===runId && !lock.turnId && typeof turnId==='string' && turnId.length>0, 'turn_binding_mismatch'); current(lock);
+  writeExclusive(path.join(lock.runDir,lock.recovery?'guard-recovery-bound-turn.json':'guard-bound-turn.json'), {run_id:lock.m.run_id,...lock.recovery,thread_id:threadId,turn_id:turnId,contract_sha256:lock.hash});
   lock.turnId=turnId;
 }
 export function recordTerminal(threadId, turn) {
-  const lock=threads.get(threadId); require(lock && lock.turnId===turn.id, 'terminal_mismatch'); current(lock);
-  const value={run_id:lock.m.run_id,thread_id:threadId,turn_id:turn.id,status:turn.status,contract_sha256:lock.hash};
-  const file=path.join(lock.runDir,'guard-terminal.json');
+  const lock=threads.get(threadId); require(lock && lock.turnId===turn.id, 'terminal_mismatch'); current(lock,false);
+  const value={run_id:lock.m.run_id,...lock.recovery,thread_id:threadId,turn_id:turn.id,status:turn.status,contract_sha256:lock.hash};
+  const file=path.join(lock.runDir,lock.recovery?'guard-recovery-terminal.json':'guard-terminal.json');
   if(fs.existsSync(file)) require(JSON.stringify(JSON.parse(read(file)))===JSON.stringify(value),'terminal_changed');
   else writeExclusive(file,value);
 }
@@ -167,9 +228,9 @@ export function authorizeInference(input) {
   const lock=checkInferenceSelection(input), m=lock.m;
   const {path:endpoint,body,metadata}=input, threadId=metadata.threadId;
   require(lock.turnId && metadata.turnId === lock.turnId, 'turn_identity_mismatch');
-  const record={run_id:m.run_id,thread_id:threadId,turn_id:metadata.turnId,model:body.model,effort:body.reasoning.effort,path:endpoint,contract_sha256:lock.hash};
+  const record={run_id:m.run_id,...lock.recovery,thread_id:threadId,turn_id:metadata.turnId,model:body.model,effort:body.reasoning.effort,path:endpoint,contract_sha256:lock.hash};
   require(typeof record.turn_id === 'string' && record.turn_id.length > 0, 'turn_identity_required');
-  const fd=fs.openSync(path.join(lock.runDir,'guard-inference.jsonl'),fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_APPEND|fs.constants.O_NOFOLLOW,0o600);
+  const fd=fs.openSync(path.join(lock.runDir,lock.recovery?'guard-recovery-inference.jsonl':'guard-inference.jsonl'),fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_APPEND|fs.constants.O_NOFOLLOW,0o600);
   try {fs.writeFileSync(fd,JSON.stringify(record)+'\n');fs.fsyncSync(fd);} finally {fs.closeSync(fd);}
   // This records selection admission, not network completion or billed usage.
   return () => current(lock);

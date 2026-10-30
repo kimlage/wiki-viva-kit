@@ -574,6 +574,25 @@ def build_admin_plan(
                         "snapshot_invalidated": not dry_run},
             "targets": [], "diff": {"expected_head": params["expected_head"]},
         }
+    elif spec.planner == "openclaw_tick":
+        from wiki_core.web.openclaw_recurring import plan_tick
+        try:
+            tick = plan_tick(root, config, params)
+        except (ValueError, OSError, KeyError, subprocess.SubprocessError) as exc:
+            return {"ok": False, "error_code": ERROR_INVALID_PARAMS,
+                    "detail": getattr(exc, "code", "openclaw_precondition_failed")}
+        from wiki_core.web.openclaw import storage
+        tick_writes = ([tick["occurrence_path"], str(storage(root, config, tick["effect_key"]).relative_to(root)),
+                        str((storage(root, config, tick["effect_key"]).parent / "mission-active.json").relative_to(root))]
+                       if tick["mode"] == "dispatch" else
+                       [str(storage(root, config, tick["effect_key"]).relative_to(root))] if tick["mode"] == "inspect" else [])
+        planned = {"summary": "Observe the configured occurrence; reconcile retained work before a single eligible dispatch; incorporation requires independent review",
+            "effects": {"files_read": [tick["binding"]["action_path"]],
+                        "files_write": [] if dry_run else tick_writes,
+                        "external_calls": [] if dry_run else (["OpenClaw sessions.patch", "OpenClaw chat.send"] if tick["mode"] == "dispatch" else ["OpenClaw chat.history"] if tick["mode"] == "inspect" else []),
+                        "snapshot_invalidated": False},
+            "targets": [tick["binding"]["action_path"]], "diff": tick,
+            "validation": {"canonical_write": False, "documentary_integration": "separate reviewed proposal"}}
     elif spec.planner in {"openclaw_dispatch", "openclaw_inspect", "openclaw_receipt", "openclaw_resolve_failed"}:
         from wiki_core.web.openclaw import plan_dispatch, retained_intent, storage, receipt_source, plan_failure_resolution
         try:
@@ -920,6 +939,14 @@ def execute_admin_plan(
                 if not result.get("ok"):
                     return {"ok": False, "error_code": ERROR_COMMAND_FAILED, "output": _redact_output(result)}
                 outcome = {"output": result, "affected_paths": [], "snapshot_invalidated": False}
+            elif spec.executor == "openclaw_tick":
+                from wiki_core.web.openclaw_recurring import execute_tick
+                admitted = session_manager.execute_current(session_token, str(record["session_id"]), spec.capability,
+                    lambda: {"dry_run": True, "new_dispatch": False, "canonical_write": False} if dry_run
+                    else execute_tick(root, config, content["params"], content["diff"]))
+                if not admitted.get("ok"):
+                    return admitted
+                outcome = {"output": admitted["result"], "affected_paths": [], "snapshot_invalidated": False}
             elif spec.executor in {"openclaw_dispatch", "openclaw_inspect", "openclaw_receipt", "openclaw_resolve_failed"}:
                 from wiki_core.web.openclaw import dispatch, inspect, prepare_receipt_material, resolve_failed
                 def runtime_effect():
