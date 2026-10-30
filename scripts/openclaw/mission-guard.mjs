@@ -5,6 +5,9 @@ import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {assertOwner,assertCapture,markNativeHook} from './mission-runtime.mjs';
 export {captureOwner,registerNativeArtifact} from './mission-runtime.mjs';
+export {retirementWorkerArguments} from './mission-retirement.mjs';
+import {retireReviewedFailure as retireReviewed} from './mission-retirement.mjs';
+export function retireReviewedFailure(params,api){assertRuntime();return retireReviewed(params,api);}
 const threads = new Map();
 const creations = new WeakSet(), createdThreads = new Map();
 const bindings = new WeakMap(), routes = new WeakMap();

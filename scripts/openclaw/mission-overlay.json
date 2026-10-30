@@ -175,12 +175,50 @@
       "import_guard": true,
       "edits": [
         [
+          "import { l as normalizeOptionalString }",
+          "import {v as wikiExclusiveMutation,l as wikiCompetingAdmission} from \"./session-lifecycle-admission-B5CJ-emz.mjs\";\nimport {n as wikiReadOnlyDatabase} from \"./openclaw-agent-db-readonly-DAqV3tqr.mjs\";\nimport {s as wikiSqliteScope} from \"./session-accessor.sqlite-scope-BkgwxatT.mjs\";\nimport {i as wikiDatabaseOptions} from \"./session-accessor.sqlite-scope-helpers-CfDTAEsL.mjs\";\nimport {t as wikiPendingHistory} from \"./session-pending-input-history.kernel-CgrSkTB7.mjs\";\nimport { l as normalizeOptionalString }"
+        ],
+        [
           "\t\tif (deliveryContext) {\n\t\t\tagentParams.channel = deliveryContext.channel;",
           "\t\tconst assertWikiRecovery = wikiMissionGuard.authorizeNativeRecovery(agentParams, sourceRunId, params.cfg, () => { if (params.shouldContinue?.() === false || !taskRemainsOwed()) throw new Error(\"wiki_mission_recovery_admission_changed\"); });\n\t\tif (deliveryContext) {\n\t\t\tagentParams.channel = deliveryContext.channel;"
         ],
         [
           "\t\t\tassertAdmissionCurrent: () => {\n\t\t\t\tif (params.shouldContinue?.() === false || !taskRemainsOwed())",
           "\t\t\tassertAdmissionCurrent: () => {\n\t\t\t\tassertWikiRecovery();\n\t\t\t\tif (params.shouldContinue?.() === false || !taskRemainsOwed())"
+        ],
+        [
+          "\t\t\tif (stopped()) return result;\n\t\t\tconst observed = await commitMainSessionRecovery({",
+          "\t\t\tif (stopped()) return result;\n\t\t\tconst wikiRetired = await wikiMissionGuard.retireReviewedFailure({directory:process.env.WIKI_OPENCLAW_MISSION_DIR,entry,sessionKey,observationProjection:params.expectedTarget?\"full\":\"list\"}, {\n\t\t\t\texclusive:run=>wikiExclusiveMutation(\"wiki-reviewed-retirement\",{scope:target.storePath,identities:[sessionKey,dispatchSessionKey,entry.sessionId],kind:\"wiki-reviewed-retirement\",run}),\n\t\t\t\tload:()=>loadExactSessionEntry({...target,readConsistency:\"latest\"})?.entry,\n\t\t\t\tassertCurrent:()=>{if(stopped() || !isAgentEventLifecycleGenerationCurrent(lifecycleGeneration))throw new Error(\"wiki_mission_retirement_admission_changed\");},\n\t\t\t\tcompeting:()=>Boolean(wikiCompetingAdmission({scope:target.storePath,identities:[sessionKey,dispatchSessionKey,entry.sessionId]})),\n\t\t\t\tliveOwner:()=>createCurrentProcessOwnerLookup({})(entry,sessionKey),\n\t\t\t\tpendingEmpty:()=>{const scope=wikiSqliteScope({...target,sessionId:entry.sessionId});const read=wikiReadOnlyDatabase(db=>wikiPendingHistory(db,{sessionKey:scope.sessionKey,sessionId:entry.sessionId,limit:20}),wikiDatabaseOptions(scope));return read.found&&read.value.total===0;},\n\t\t\t\tsettle:(current,reviewed)=>settleInterruptedRestartRecovery({...target,entry:current,reason:reviewed.reason,wikiReviewedRetirement:reviewed})\n\t\t\t});\n\t\t\tif(wikiRetired!==null){if(wikiRetired===\"settled\"){result.settled++;params.handledSessionKeys.add(resumeDedupeKey);decision={decision:\"settled\",reason:\"reviewed-without-result\",nextOwner:\"none\"};}else skip(\"reviewed_retirement_changed\");continue;}\n\t\t\tconst observed = await commitMainSessionRecovery({"
+        ],
+        [
+          "\t\texpectedSessionState: buildRestartRecoveryExpectedState(entry, params.observation),\n\t\tidempotencyKey:",
+          "\t\texpectedSessionState: {...buildRestartRecoveryExpectedState(entry, params.observation),...(params.wikiReviewedRetirement?{wikiMissionRetirementEntry:params.wikiReviewedRetirement.snapshot}:{})},\n\t\tassertCurrent: params.wikiReviewedRetirement?.assertCurrent,\n\t\tidempotencyKey:"
+        ]
+      ]
+    },
+    {
+      "name": "session-transcript-turn-state-Bqkxfhzx.mjs",
+      "package": "core",
+      "relative": "dist/session-transcript-turn-state-Bqkxfhzx.mjs",
+      "sha256": "afdb98f4052bcb0e92f0c3331510f43a43a5829224510580d28107df635822e7",
+      "import_guard": true,
+      "edits": [
+        [
+          "return Boolean(selected && selected.entry.sessionId === expected.expectedSessionId",
+          "return Boolean(selected && (!expectedState || !Object.hasOwn(expectedState,\"wikiMissionRetirementEntry\") || isDeepStrictEqual(selected.entry,expectedState.wikiMissionRetirementEntry)) && selected.entry.sessionId === expected.expectedSessionId"
+        ]
+      ]
+    },
+    {
+      "name": "sqlite-worker-store-C0QRqven.mjs",
+      "package": "core",
+      "relative": "dist/sqlite-worker-store-C0QRqven.mjs",
+      "sha256": "4773a992b53f5452adbddc80455af1200138ed212e716f3a75ebdd17d2f2f095",
+      "import_guard": true,
+      "edits": [
+        [
+          "execArgv: resolveRuntimeWorkerThreadExecArgv(carrierUrl),",
+          "execArgv: wikiMissionGuard.retirementWorkerArguments(resolveRuntimeWorkerThreadExecArgv(carrierUrl),carrierUrl,runtimeSource,options.runtimeGeneration),"
         ]
       ]
     }
