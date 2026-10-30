@@ -218,3 +218,27 @@ execution assertion rechecks native revocation, retirement and disposal. Shared
 artifacts keep separate owner associations, so disposing a catalog instance
 does not revoke a different active runtime instance. Native custody, resolver,
 authorization and model-source release remain in force.
+
+### Native mission transport and unaccepted recovery
+
+The mission transport uses the version-bound native CLI facade with the existing
+configured identity and authentication resolver. Command-suppressed `chat.send`
+requires `operator.admin`; the generic CLI's least-privilege write scope is
+insufficient. Only that mission call requests the required scope. Read/selection
+calls retain native scope selection. No grants, credentials, exec attribution,
+authentication or native permission checks are changed; a denied scope stays denied.
+Requests travel over stdin. Safe structured error enums are retained with the
+selection/send stage; arbitrary provider messages, details and stderr are omitted.
+
+An intent without acceptance is not proof of non-execution. Recovery never
+replays it or manufactures a terminal error. The existing explicit, independently
+reviewed `agents.openclaw.resolve_failed` also accepts an `expired_unaccepted`
+evidence record containing the exact run, contract digest and original expiry.
+It requires an actually expired guarded contract, no acceptance/result/guard-turn
+or inference artifacts, the same physical session and original leaf, and no
+active run or pending input for that run. Inputs and complete queue observations
+are checked again before the receipt. The expired contract cannot admit a later
+turn; releasing its exact lock does not release another mission. Original intent,
+contract and diagnostics remain intact. The receipt says resolved without result,
+not successful execution, a reconstructed rejection, or absence of external effects.
+Only a separately reviewed new mission can follow; recovery never dispatches it.
