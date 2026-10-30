@@ -242,3 +242,30 @@ turn; releasing its exact lock does not release another mission. Original intent
 contract and diagnostics remain intact. The receipt says resolved without result,
 not successful execution, a reconstructed rejection, or absence of external effects.
 Only a separately reviewed new mission can follow; recovery never dispatches it.
+
+### Shared guard through the native SDK
+
+The pinned loader exposes a frozen, seven-function mission facade through
+`openclaw/plugin-sdk/process-runtime`. Captured plugin modules import that existing
+native SDK entry point; the SDK and core hooks retain the same host guard and
+native owner registry. Direct absolute imports from a captured plugin would be
+captured again, producing an unconfigured second guard. Package and hook hashes,
+native capture custody, instance identity and revocation checks remain mandatory.
+The SDK is the sixth required hook; an SDK loaded before the overlay is refused.
+The facade exposes no runtime configuration or artifact registration function.
+
+The ordinary guard tests cover facade identity and fail-closed selection. With the
+pinned OpenClaw package available, the optional offline integration additionally
+uses the real native capture resolver and `PluginInstance`, a synthetic plugin
+and isolated temporary configuration. It reproduces the absolute-import failure,
+checks the shared bridge and native revocation, and refuses altered package bytes
+and a preloaded unguarded SDK. It does not start a Gateway or call a model:
+
+```sh
+WIKI_TEST_OPENCLAW_CORE_ROOT=/absolute/path/to/pinned/openclaw \
+WIKI_TEST_OPENCLAW_NODE=/absolute/path/to/compatible/node \
+python3 -m pytest tests/test_openclaw_guard_runtime.py
+```
+
+This offline proof does not replace the consumer's real mission, terminal return
+and reviewed incorporation into its Wiki.

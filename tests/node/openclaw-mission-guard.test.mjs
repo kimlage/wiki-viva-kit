@@ -95,3 +95,15 @@ test('inference rejects a different native owner and rechecks logical revocation
  assert.throws(current,/capture_owner_retired/);
  }finally{other.dispose();clean(f);}
 });
+
+// The SDK facade must expose only the exact frozen host functions.
+test('SDK facade refuses missing, mutable, copied, replaced or extra authority',async()=>{
+ const {assertSharedSdkBridge}=await import('../../scripts/openclaw/mission-loader.mjs');
+ const host=await import('../../scripts/openclaw/mission-guard.mjs');
+ const keys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook'];
+ const bridge=Object.fromEntries(keys.map(key=>[key,host[key]]));
+ assertSharedSdkBridge({wikiMissionBridge:Object.freeze({...bridge})});
+ for(const value of [undefined,bridge,Object.freeze({...bridge,loadedHook:()=>{}}),Object.freeze({...bridge,configureRuntime:host.configureRuntime}),Object.freeze(Object.fromEntries(Object.entries(bridge).slice(1)))]){
+  assert.throws(()=>assertSharedSdkBridge({wikiMissionBridge:value}),/sdk_overlay_missing/);
+ }
+});

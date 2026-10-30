@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {configureRuntime} from './mission-guard.mjs';
+import * as hostGuard from './mission-guard.mjs';
 import {NativeCaptureRegistry,configureNativeRegistry,qualifyNativeModule} from './mission-runtime.mjs';
 const manifest=JSON.parse(fs.readFileSync(new URL('./mission-overlay.json',import.meta.url),'utf8'));
 const guard=new URL('./mission-guard.mjs',import.meta.url).href;
@@ -38,7 +39,19 @@ export function transform(name,source) {
     if(source.split(before).length!==2) throw new Error('wiki_mission_overlay_shape_changed');
     source=source.replace(before,after);
   }
-  return `import * as wikiMissionGuard from ${JSON.stringify(guard)};\n`+source+`\nwikiMissionGuard.loadedHook(${JSON.stringify(name)},import.meta.url);\n`;
+  const binding=spec.package==='plugin'
+    ? `import {wikiMissionBridge as wikiMissionGuard} from "openclaw/plugin-sdk/process-runtime";\n`
+    : `import * as wikiMissionGuard from ${JSON.stringify(guard)};\n`;
+  const bridge=spec.relative==='dist/plugin-sdk/process-runtime.js'
+    ? `\nexport const wikiMissionBridge=Object.freeze({authorizeTurn:wikiMissionGuard.authorizeTurn,bindTurn:wikiMissionGuard.bindTurn,captureOwner:wikiMissionGuard.captureOwner,recordTerminal:wikiMissionGuard.recordTerminal,authorizeInference:wikiMissionGuard.authorizeInference,checkInferenceSelection:wikiMissionGuard.checkInferenceSelection,loadedHook:wikiMissionGuard.loadedHook});\n`
+    : '';
+  return binding+source+bridge+`\nwikiMissionGuard.loadedHook(${JSON.stringify(name)},import.meta.url);\n`;
+}
+export function assertSharedSdkBridge(sdkModule) {
+  const bridgeKeys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook'];
+  if(!sdkModule.wikiMissionBridge || !Object.isFrozen(sdkModule.wikiMissionBridge) ||
+      Object.keys(sdkModule.wikiMissionBridge).length!==bridgeKeys.length ||
+      !bridgeKeys.every(key=>sdkModule.wikiMissionBridge[key]===hostGuard[key])) throw new Error('wiki_mission_sdk_overlay_missing');
 }
 export async function install() {
   const roots={core:process.env.WIKI_OPENCLAW_CORE_ROOT,plugin:process.env.WIKI_OPENCLAW_PLUGIN_ROOT};
@@ -57,6 +70,8 @@ export async function install() {
     if(!qualified || fs.realpathSync(file)!==file || new URL(url).search || new URL(url).hash) throw new Error('wiki_mission_hook_root_changed');
     return {...out,source:transform(name,typeof out.source==='string'?out.source:Buffer.from(out.source).toString('utf8'))};
   }});
+  const sdkModule=await import(pathToFileURL(sdk).href);
+  assertSharedSdkBridge(sdkModule);
   // Load the guarded plugin modules before the gateway admits a chat. The
   // native loader qualifies its captured copies separately before execution.
   for(const f of manifest.files.filter(f=>f.package==='plugin')) await import(pathToFileURL(path.join(roots.plugin,f.relative)).href);
