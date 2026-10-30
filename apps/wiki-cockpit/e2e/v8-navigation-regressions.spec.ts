@@ -431,6 +431,11 @@ test("semantic motion distinguishes a world morph from an overlay resolve", asyn
   expect(viewDuration).toBeLessThanOrEqual(1_100);
   await expectRememberedCanvas(page);
 
+  // The route intent commits before the layout worker returns. Capture the
+  // Radar geometry only after that exact spatial transaction has settled;
+  // otherwise this comparison can accidentally use the old Quadrants layout.
+  await expectSceneInteractionsSettled(page);
+  await expect(scene).toHaveAttribute("data-scene-perspective", "radar");
   const geometryBeforeOverlay = await scene.getAttribute("data-layout-position-signature");
   await page.getByLabel("Overlay", { exact: true }).selectOption("evidence");
   await expect(scene).toHaveAttribute("data-motion-intent", "overlay");

@@ -531,20 +531,28 @@ describe("visual route contract", () => {
     render(<App ports={{ ...browserApplication, navigation }} />);
     const search = await screen.findByRole("combobox", { name: "Search content" });
     search.focus();
-    fireEvent.change(search, { target: { value: "Sour" } });
-    await waitFor(() => {
+    // Advance the two actual debounce deadlines explicitly. Wall-clock polling
+    // made the interleaving itself depend on concurrent-suite CPU scheduling.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      fireEvent.change(search, { target: { value: "Sour" } });
+      expect((search as HTMLInputElement).value).toBe("Sour");
+      await act(async () => { await vi.advanceTimersByTimeAsync(250); });
       expect(interleaved).toBe(true);
       expect((search as HTMLInputElement).value).toBe("Source Fixture");
+      await act(async () => { await vi.advanceTimersByTimeAsync(250); });
       expect(new URLSearchParams(window.location.search).get("q")).toBe("Source Fixture");
-    });
-    // External history still owns the draft, even while the input is focused.
-    act(() => {
-      window.history.replaceState({}, "", "/w/radar?q=Root");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-    await waitFor(() => expect((search as HTMLInputElement).value).toBe("Root"));
-    fireEvent.keyDown(search, { key: "Enter" });
-    await waitFor(() => expect(new URLSearchParams(window.location.search).get("page")).toBe("root"));
+      // External history still owns the draft, even while the input is focused.
+      act(() => {
+        window.history.replaceState({}, "", "/w/radar?q=Root");
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      expect((search as HTMLInputElement).value).toBe("Root");
+      fireEvent.keyDown(search, { key: "Enter" });
+      expect(new URLSearchParams(window.location.search).get("page")).toBe("root");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps the search surface operable over the temporal view with URL-owned facets", async () => {
