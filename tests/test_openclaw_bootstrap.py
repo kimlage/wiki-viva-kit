@@ -102,3 +102,69 @@ def test_route_refuses_ambiguous_or_unknown_binding(runtime):
     with pytest.raises(ValueError, match='invalid_route'): oc.validated_config(settings)
     route.pop('native_thread_id'); route['native_thread_binding'] = 'automatic'
     with pytest.raises(ValueError, match='invalid_route'): oc.validated_config(settings)
+
+
+def collected_bootstrap(runtime):
+    root, cfg, params, h, calls, _ = fresh(runtime)
+    plan = oc.plan_dispatch(root, cfg, params); oc.dispatch(root, cfg, plan)
+    d = oc.storage(root, cfg, plan['effect_key'])
+    sha = hashlib.sha256((d / 'mission.json').read_bytes()).hexdigest()
+    common = {'run_id': plan['effect_key'], 'session_id': plan['route']['session_id'], 'contract_sha256': sha}
+    thread = {**common, 'thread_id': 'synthetic-created-thread', 'model': 'example-model'}
+    claim = {**thread, 'schema_version': 'wiki_openclaw_guard_turn.v1', 'effort': 'high'}
+    bound = {**claim, 'turn_id': 'synthetic-turn'}
+    for name, value in [('guard-bootstrap-admission.json', common), ('guard-bootstrap-start.json', common),
+                        ('guard-bootstrap-thread.json', thread), ('guard-turn.json', claim),
+                        ('guard-bound-turn.json', bound), ('guard-terminal.json', {**bound, 'status': 'completed'})]:
+        oc.write_new(d / name, value)
+    (d / 'guard-inference.jsonl').write_text(json.dumps({**bound, 'path': '/responses'}) + '\n')
+    h['sessionInfo'].update(lastRunId=plan['effect_key'], activeLeafEntryId='terminal', status='done')
+    h.update(totalMessages=1, messages=[{'role': 'assistant', 'model': 'example-model', 'stopReason': 'stop',
+        'content': [{'type': 'text', 'text': 'Synthetic useful result.'}],
+        '__openclaw': {'id': 'terminal', 'runId': plan['effect_key'], 'runTerminal': True}}])
+    query = {'profile': 'research', 'action_id': 'task', 'effect_key': plan['effect_key']}
+    captured = oc.inspect(root, cfg, query)['result']
+    settings = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    route = settings['openclaw']['routes']['research']
+    route.pop('native_thread_binding'); route['native_thread_id'] = thread['thread_id']
+    return root, params, h, calls, d, query, captured, settings
+
+
+def save_pin(root, settings):
+    (root / 'wiki.config.yaml').write_text(yaml.safe_dump(settings))
+    subprocess.run(['git', 'add', '.'], cwd=root, check=True, capture_output=True)
+    subprocess.run(['git', 'commit', '-qm', 'synthetic observed pin'], cwd=root, check=True, capture_output=True)
+    return load_config(root)
+
+
+def test_collected_bootstrap_remains_readable_after_exact_pin_without_dispatch(runtime):
+    root, _, h, calls, d, query, captured, settings = collected_bootstrap(runtime)
+    cfg = save_pin(root, settings)
+    before = len([m for m, _ in calls if m == 'chat.send'])
+    observed = oc.inspect(root, cfg, query)
+    assert observed['result'] == captured and observed['new_dispatch'] is False
+    assert len([m for m, _ in calls if m == 'chat.send']) == before
+    assert not (d.parent / 'mission-active.json').exists()
+    assert any(m == 'chat.history' and p.get('messageId') == 'terminal' for m, p in calls)
+
+
+@pytest.mark.parametrize('change', ['uncollected', 'wrong_thread', 'physical', 'policy', 'receipt', 'native_text', 'native_model', 'native_terminal', 'guard_thread'])
+def test_pin_read_compatibility_does_not_accept_other_changes(runtime, change):
+    root, _, h, calls, d, query, _, settings = collected_bootstrap(runtime)
+    route = settings['openclaw']['routes']['research']
+    if change == 'uncollected': (d / 'result.json').unlink()
+    if change == 'wrong_thread': route['native_thread_id'] = 'another-native-thread'
+    if change == 'physical': route['session_id'] = 'another-physical-session'
+    if change == 'policy': settings['openclaw']['mission_options']['execution']['effort'] = 'max'
+    if change == 'receipt':
+        r = oc.read_receipt(d / 'result.json'); r['text'] = 'Corrupted local result.'
+        (d / 'result.json').write_text(json.dumps(r))
+    if change == 'native_text': h['messages'][0]['content'][0]['text'] = 'Changed native result.'
+    if change == 'native_model': h['messages'][0]['model'] = 'other-model'
+    if change == 'native_terminal': h['messages'][0]['__openclaw']['runTerminal'] = False
+    if change == 'guard_thread':
+        r = oc.read_receipt(d / 'guard-bootstrap-thread.json'); r['thread_id'] = 'wrong-thread'
+        (d / 'guard-bootstrap-thread.json').write_text(json.dumps(r))
+    cfg = save_pin(root, settings)
+    with pytest.raises(ValueError): oc.inspect(root, cfg, query)
+    assert len([m for m, _ in calls if m == 'chat.send']) == 1

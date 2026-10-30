@@ -338,3 +338,8 @@ the returned turn. A restart after a claim cannot restart bootstrap. Reconcile
 the preserved attempt, never resend it. After a successful result is collected,
 pin its independently verified native thread ID in a reviewed consumer update
 before another mission. The bootstrap route refuses subsequent activity.
+
+An already collected bootstrap result remains readable after that exact pin.
+The reader revalidates the native message and complete guard chain, and ignores
+only the binding-mode-to-observed-ID change. A different physical session,
+policy, runtime, thread or result is not accepted as the same route.

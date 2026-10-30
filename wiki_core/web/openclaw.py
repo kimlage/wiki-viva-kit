@@ -324,12 +324,29 @@ def retained_intent(root, config, params):
     # A legacy result can still be inspected after adding a guard. Only the
     # additive mission policy is ignored, never a changed destination/runtime.
     previous_runtime = copy.deepcopy(runtime)
+    collected_bootstrap = None
     if "mission" not in plan:
         previous_runtime.pop("mission_options", None)
         for prior_route in previous_runtime["routes"].values():
             prior_route.pop("native_thread_id", None)
+    elif (plan["mission"].get("native_thread_binding") == "first_turn"
+          and route.get("native_thread_id") and "native_thread_binding" not in route):
+        require((directory / "result.json").exists(), "openclaw_route_changed")
+        claim = read_receipt(directory / "guard-turn.json")
+        require(route["native_thread_id"] == claim.get("thread_id"), "openclaw_route_changed")
+        collected_bootstrap = read_receipt(directory / "result.json")
+        prior_route = previous_runtime["routes"][params["profile"]]
+        prior_route.pop("native_thread_id")
+        prior_route["native_thread_binding"] = "first_turn"
     require(digest(previous_runtime) == plan["route_sha256"]
             and previous_runtime["routes"][params["profile"]] == plan["route"], "openclaw_route_changed")
+    if collected_bootstrap is not None:
+        message_id = collected_bootstrap.get("message_id")
+        require(isinstance(message_id, str) and bool(message_id), "openclaw_exact_result_missing")
+        data = Gateway(runtime, route).history(messageId=message_id, maxChars=64000, maxBytes=128000)
+        verified = verified_result_message(directory, plan, route, message_id, data)
+        require({k: v for k, v in collected_bootstrap.items() if k != "captured_at"} ==
+                {k: v for k, v in verified.items() if k != "captured_at"}, "openclaw_retained_result_changed")
     if (directory / "accepted.json").exists():
         accepted = read_receipt(directory / "accepted.json")
         require(accepted["plan_sha256"] == intent["plan_sha256"] and accepted["run_id"] == plan["effect_key"],
@@ -381,6 +398,25 @@ def verify_mission_selection(directory, plan, message):
                 "openclaw_mission_selection_unproven")
 
 
+def verified_result_message(directory, plan, route, message_id, data):
+    """Verify the exact native message and guard chain before trusting a receipt."""
+    require(len(data.get("messages", [])) == 1, "openclaw_exact_result_missing")
+    message = data["messages"][0]
+    meta = message.get("__openclaw", {})
+    require(message.get("role") == "assistant" and meta.get("runId") == plan["effect_key"]
+            and meta.get("id") == message_id and meta.get("runTerminal") and not meta.get("truncated")
+            and message.get("stopReason") == "stop" and not message.get("errorMessage"), "openclaw_result_not_complete")
+    verify_mission_selection(directory, plan, message)
+    content = message.get("content", [])
+    require(content and all(c.get("type") == "text" for c in content), "openclaw_text_result_required")
+    text = "\n".join(c["text"] for c in content)
+    _assert_no_secrets(text)
+    return {"action_id": plan["binding"]["action_id"], "effect_key": plan["effect_key"], "run_id": plan["effect_key"],
+            "plan_sha256": digest(plan), "session_id": route["session_id"], "message_id": message_id,
+            "text": text, "text_sha256": hashlib.sha256(text.encode()).hexdigest(),
+            "captured_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+
+
 @contextmanager
 def mission_mutex(directory):
     directory.parent.mkdir(parents=True, exist_ok=True)
@@ -428,21 +464,7 @@ def inspect(root, config, params):
         return {**observed, "result_available": False}
     message_id = old["message_id"] if old else info.get("activeLeafEntryId")
     data = gateway.history(messageId=message_id, maxChars=64000, maxBytes=128000)
-    require(len(data.get("messages", [])) == 1, "openclaw_exact_result_missing")
-    message = data["messages"][0]
-    meta = message.get("__openclaw", {})
-    require(message.get("role") == "assistant" and meta.get("runId") == plan["effect_key"]
-            and meta.get("id") == message_id and meta.get("runTerminal") and not meta.get("truncated")
-            and message.get("stopReason") == "stop" and not message.get("errorMessage"), "openclaw_result_not_complete")
-    verify_mission_selection(directory, plan, message)
-    content = message.get("content", [])
-    require(content and all(c.get("type") == "text" for c in content), "openclaw_text_result_required")
-    text = "\n".join(c["text"] for c in content)
-    _assert_no_secrets(text)
-    result = {"action_id": params["action_id"], "effect_key": plan["effect_key"], "run_id": plan["effect_key"],
-              "plan_sha256": digest(plan), "session_id": route["session_id"], "message_id": message_id,
-              "text": text, "text_sha256": hashlib.sha256(text.encode()).hexdigest(),
-              "captured_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+    result = verified_result_message(directory, plan, route, message_id, data)
     if old:
         require({k: v for k, v in old.items() if k != "captured_at"} ==
                 {k: v for k, v in result.items() if k != "captured_at"}, "openclaw_retained_result_changed")
