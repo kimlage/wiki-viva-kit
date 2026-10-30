@@ -823,9 +823,10 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
     )
     lines += ["", s["h_links"], ""]
     for label_key, target_path in resume_targets:
+        from wiki_core.markdown_link_roles import declare_link_role
         lines.append(
             f"- {s[label_key]}: "
-            f"[{paths.rel(target_path)}]({_rel_to_page_dir(target_path, page_dir)})"
+            + declare_link_role(f"[{paths.rel(target_path)}]({_rel_to_page_dir(target_path, page_dir)})",'navigation')
         )
     lines.append("")
     return "\n".join(lines)

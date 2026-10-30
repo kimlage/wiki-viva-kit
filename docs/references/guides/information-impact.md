@@ -22,6 +22,15 @@ input to [impact evaluation](../../../wiki_core/information_impact.py) and
 - A review record documents a judgment, not a new observation of every linked
   source. Historical support preserves its temporal scope and evidence.
 
+The [operational pass](../../../wiki_core/operational_pass.py) and
+[input stage](../../../wiki_core/input_stage.py) also declare their actual
+metadata inputs. Title and legacy-state fallbacks retain body consumption where
+they really parse it. Resume links remain navigation; diagnostic links record a
+review. The compiler checks still detect additions, deletions and membership
+changes, including pages not previously rendered as individual rows. Existing
+publications can retain their date and visible text while reviewed occurrence
+declarations are migrated. This does not verify source contents.
+
 [Markdown occurrence roles](../../../wiki_core/markdown_link_roles.py) bind a
 literal link to a declaration. That digest is neither proof of semantics nor
 permission. Role changes require normal content review; the impact evaluator

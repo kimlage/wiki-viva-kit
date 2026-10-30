@@ -76,8 +76,8 @@ Score events: 2 | total karma (with decay): 5.98.
 
 ## Resume links
 
-- Wiki: [memories/index.md](index.md)
-- Log: [memories/system/log.md](system/log.md)
-- Operational pass: [memories/system/operational-pass.md](system/operational-pass.md)
-- Coverage: [memories/system/wiki-coverage.md](system/wiki-coverage.md)
-- Methodology coverage: [memories/system/methodology-coverage-v5.md](system/methodology-coverage-v5.md)
+- Wiki: [memories/index.md](index.md)<!-- wiki-link-role.v1 navigation sha256:456ae0cee33645380621827903d34bbd58f6a94b0f84e51ca09075876db0e506 -->
+- Log: [memories/system/log.md](system/log.md)<!-- wiki-link-role.v1 navigation sha256:e8033b99fd558e73f3a5c0f46cb5d6ae48700eb396ba7ecce41b5953cd963435 -->
+- Operational pass: [memories/system/operational-pass.md](system/operational-pass.md)<!-- wiki-link-role.v1 navigation sha256:c60e3ff9befccfafde3ce4d9e0670cc0c7c78dff9ba8a6fc2cb11d585de242a8 -->
+- Coverage: [memories/system/wiki-coverage.md](system/wiki-coverage.md)<!-- wiki-link-role.v1 navigation sha256:d966bd786416d668d2508332f71fdd199feac9d8827d9008c71e67ad440db3f0 -->
+- Methodology coverage: [memories/system/methodology-coverage-v5.md](system/methodology-coverage-v5.md)<!-- wiki-link-role.v1 navigation sha256:af9d1bdbb945c80b948501235071164a3b9c93b161f88cf47ea4759a554a4814 -->

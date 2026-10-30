@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -431,10 +432,12 @@ source_refs:
 
     catalog = compile_input_stage(tmp_path, cfg, generated_at="2026-06-25")
     md = render_input_stage_markdown(catalog, cfg)
+    assert "wiki-link-role.v1 review_record" in md
+    md = re.sub(r"<!-- wiki-link-role\.v[12] .*? -->", "", md)
 
     assert (
         "- [memories/sources/team-handbook.md](../sources/team-handbook.md): "
-        "no source_config linked" in md
+        "no source_config linked" in re.sub(r"<!-- wiki-link-role\.v[12] .*? -->", "", md)
     )
     assert (
         "- [memories/sources/team-handbook.md](../sources/team-handbook.md): "
@@ -506,7 +509,7 @@ def _published_stage(tmp_path, cfg, *, legacy=False):
     paths = WikiPaths(tmp_path, cfg)
     if legacy:
         paths.input_stage_page.write_text(
-            render_input_stage_markdown(catalog, cfg, _annotate_targets=False), encoding="utf-8")
+            render_input_stage_markdown(catalog, cfg, _annotate_targets=False,_annotate_projections=False), encoding="utf-8")
     return paths
 
 

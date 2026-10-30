@@ -528,7 +528,7 @@ def build_operational_pass_page(
     ]
     if report.context_rows:
         for row in report.context_rows:
-            hub = _page_link(row.hub, page_dir) if row.hub else s["none"]
+            hub = _page_link(row.hub, page_dir, consumes=['updated_at','stale_after_days','context']) if row.hub else s["none"]
             next_steps = _render_context_next_steps(row, report, page_dir, s)
             lines.append(
                 f"| {_escape(row.context)} | {hub} | {s.get('vital_' + row.vitality, row.vitality)} | "
@@ -554,7 +554,7 @@ def build_operational_pass_page(
         for row in report.sources:
             actions = ", ".join(f"`{a}`" for a in row.page.actions) if row.page.actions else s["none"]
             lines.append(
-                f"| {_page_link(row.page, page_dir)} | {_escape(row.page.context)} | "
+                f"| {_page_link(row.page, page_dir, consumes=_source_fields(row.page))} | {_escape(row.page.context)} | "
                 f"`{_escape(row.ingestion_state or s['unknown'])}` | {_escape(row.last_update or s['none'])} | "
                 f"{_escape(row.next_refresh or s['none'])} | {_escape(row.refresh_status or s['unknown'])} | {actions} |"
             )
@@ -566,7 +566,7 @@ def build_operational_pass_page(
         for action in report.actions:
             sources = ", ".join(f"`{r}`" for r in action.source_refs) if action.source_refs else s["none"]
             lines.append(
-                f"| {_page_link(action, page_dir)} | {_escape(action.context)} | "
+                f"| {_page_link(action, page_dir, consumes=['context','action_state','status','body','updated_at','source_refs'])} | {_escape(action.context)} | "
                 f"`{_escape(_action_display_state(action) or s['unknown'])}` | {_escape(action.updated_at or s['none'])} | "
                 f"{sources} | {_escape(_attention_reason(action) or s['ok'])} |"
             )
@@ -578,7 +578,7 @@ def build_operational_pass_page(
         for decision in report.pending_decisions:
             actions = ", ".join(f"`{a}`" for a in decision.actions) if decision.actions else s["none"]
             lines.append(
-                f"| {_page_link(decision, page_dir)} | {_escape(decision.context)} | "
+                f"| {_page_link(decision, page_dir, consumes=['context','status','body','updated_at','actions'])} | {_escape(decision.context)} | "
                 f"`{_escape(decision.status or s['unknown'])}` | {_escape(decision.updated_at or s['none'])} | "
                 f"{actions} | {_escape(_attention_reason(decision) or s['ok'])} |"
             )
@@ -588,7 +588,7 @@ def build_operational_pass_page(
     lines += ["", s["h_decision_blocks"], "", s["th_decision_blocks"], "| --- | --- | --- | --- | --- |"]
     if report.decision_action_blockers:
         for blocker in report.decision_action_blockers:
-            action_link = _page_link(blocker.action, page_dir) if blocker.action else f"`{_escape(blocker.action_id)}`"
+            action_link = _page_link(blocker.action, page_dir, consumes=['context','action_state','status','body']) if blocker.action else f"`{_escape(blocker.action_id)}`"
             action_context = blocker.action.context if blocker.action else blocker.decision.context
             action_status = (
                 _action_display_state(blocker.action)
@@ -596,7 +596,7 @@ def build_operational_pass_page(
                 else s["missing_action"]
             )
             lines.append(
-                f"| {_page_link(blocker.decision, page_dir)} | {action_link} | {_escape(action_context)} | "
+                f"| {_page_link(blocker.decision, page_dir, consumes=['context','status','body','actions'])} | {action_link} | {_escape(action_context)} | "
                 f"`{_escape(blocker.decision.status or s['unknown'])}` | "
                 f"`{_escape(action_status or s['unknown'])}` |"
             )
@@ -608,7 +608,7 @@ def build_operational_pass_page(
         for row in report.attention:
             lines.append(
                 f"| {_escape(row.context)} | {_escape(row.page.page_type)} | "
-                f"{_page_link(row.page, page_dir)} | {_escape(row.reason)} |"
+                f"{_page_link(row.page, page_dir, consumes=_attention_fields(row.page))} | {_escape(row.reason)} |"
             )
     else:
         lines.append(s["empty_attention"])
@@ -639,7 +639,7 @@ def _render_short_term_memory(
     lines: list[str] = []
     review_items = [
         f"- **{_escape(row.context)} / {_escape(row.page.page_type)}:** "
-        f"{_page_link(row.page, page_dir)} — {_escape(row.reason)}"
+        f"{_page_link(row.page, page_dir, consumes=_attention_fields(row.page))} — {_escape(row.reason)}"
         for row in _balanced_attention_rows(report, SHORT_TERM_LIMIT)
     ]
     lines.extend(_short_block(s["short_review_now"], review_items, s["short_no_review"]))
@@ -657,21 +657,21 @@ def _render_short_term_memory(
             action_candidates.append(action)
     selected_actions = _balanced_page_rows(report, action_candidates, SHORT_TERM_LIMIT)
     action_items = [
-        f"- **{_escape(action.context)}:** {_page_link(action, page_dir)} "
+        f"- **{_escape(action.context)}:** {_page_link(action, page_dir, consumes=['context','action_state','status','body'])} "
         f"({_escape(_action_display_state(action) or s['unknown'])})"
         for action in selected_actions
     ]
     lines.extend(_short_block(s["short_actions"], action_items, s["short_no_actions"]))
 
     decision_items = [
-        f"- **{_escape(decision.context)}:** {_page_link(decision, page_dir)} "
+        f"- **{_escape(decision.context)}:** {_page_link(decision, page_dir, consumes=['context','status','body'])} "
         f"({_escape(decision.status or s['unknown'])})"
         for decision in report.pending_decisions[:SHORT_TERM_LIMIT]
     ]
     lines.extend(_short_block(s["short_decisions"], decision_items, s["short_no_decisions"]))
 
     recent_items = [
-        f"- **{_escape(page.context)}:** {_page_link(page, page_dir)} "
+        f"- **{_escape(page.context)}:** {_page_link(page, page_dir, consumes=['context','updated_at'])} "
         f"({_escape(page.updated_at or s['unknown'])})"
         for page in _recent_pages(report)[:SHORT_TERM_LIMIT]
     ]
@@ -787,28 +787,28 @@ def _render_operational_model(
         for role_node in row.roles:
             role_health = s.get("health_" + role_node.health, role_node.health)
             lines.append(
-                f"- **{s['role_label']}:** {_page_link(role_node.page, page_dir)} "
+                f"- **{s['role_label']}:** {_page_link(role_node.page, page_dir, consumes=['context','responsibilities'])} "
                 f"— {s['role_health_label']} `{role_health}`"
             )
             if role_node.assignment is not None:
                 lines.append(
-                    f"  - {s['assignment_label']}: {_page_link(role_node.assignment, page_dir)}"
+                    f"  - {s['assignment_label']}: {_page_link(role_node.assignment, page_dir, consumes=['roles'])}"
                 )
             for resp_node in role_node.responsibilities:
                 resp_health = s.get("health_" + resp_node.health, resp_node.health)
                 if resp_node.health == "sem_acao":
                     lines.append(
                         f"  - **{s['responsibility_label']}:** "
-                        f"{_page_link(resp_node.page, page_dir)} — {s['responsibility_no_action']}"
+                        f"{_page_link(resp_node.page, page_dir, consumes=['actions','roles'])} — {s['responsibility_no_action']}"
                     )
                     continue
                 lines.append(
                     f"  - **{s['responsibility_label']}:** "
-                    f"{_page_link(resp_node.page, page_dir)} — {s['responsibility_health_label']} `{resp_health}`"
+                    f"{_page_link(resp_node.page, page_dir, consumes=['actions','roles'])} — {s['responsibility_health_label']} `{resp_health}`"
                 )
                 for action in resp_node.open_actions:
                     lines.append(
-                        f"    - {s['action_label']}: {_page_link(action, page_dir)} "
+                        f"    - {s['action_label']}: {_page_link(action, page_dir, consumes=['action_state','status','body','responsibilities'])} "
                         f"`{_escape(_action_display_state(action) or s['unknown'])}`"
                     )
                     for step in parse_next_steps(action.body):
@@ -1444,12 +1444,12 @@ def _render_context_next_steps(
         for action in context_actions:
             status = _action_display_state(action) or "state unknown"
             if step == f"{action.title} ({status})":
-                linked = f"{_page_link(action, page_dir)} ({_escape(status)})"
+                linked = f"{_page_link(action, page_dir, consumes=['context','action_state','status','body'])} ({_escape(status)})"
                 break
         if not linked:
             for source in context_sources:
                 if step == f"refresh source: {source.page.title} ({source.refresh_status})":
-                    linked = f"refresh source: {_page_link(source.page, page_dir)} ({_escape(source.refresh_status)})"
+                    linked = f"refresh source: {_page_link(source.page, page_dir, consumes=_source_fields(source.page))} ({_escape(source.refresh_status)})"
                     break
         rendered.append(linked or _escape(step))
     return "<br>".join(rendered)
@@ -1742,16 +1742,32 @@ def _rel(path: Path, page_dir: Path) -> str:
     return os.path.relpath(path, page_dir).replace(os.sep, "/")
 
 
-def _page_link(page: PageRecord | None, page_dir: Path) -> str:
+def _source_fields(page: PageRecord) -> list[str]:
+    fields=['context','source_type','ingestion_state','structured_ingestion_state','status','last_ingested_at',
+        'updated_at','next_refresh_at','refresh_cadence_days','stale_after_days','actions']
+    if not any(page.frontmatter.get(key) for key in ('status','ingestion_state','structured_ingestion_state')):
+        fields.append('body')
+    return fields
+
+
+def _attention_fields(page: PageRecord) -> list[str]:
+    return _source_fields(page) if _is_operational_source(page) else ['context','status','action_state','body']
+
+
+def _page_link(page: PageRecord | None, page_dir: Path, *, consumes: list[str] | None = None) -> str:
     if page is None:
         return "-"
-    return f"[{_escape(page.title or page.page_id)}]({_rel(page.path, page_dir)})"
+    from .markdown_link_roles import declare_projection
+    fields=['page_id','page_type','title',*(consumes or [])]
+    if not page.frontmatter.get('title'):fields.append('body')
+    return declare_projection(f"[{_escape(page.title or page.page_id)}]({_rel(page.path, page_dir)})",consumes=fields)
 
 
 def _resume_line(label: str, path: Path, paths: WikiPaths, page_dir: Path, s: dict[str, str]) -> str:
     if not path.exists():
         return f"- {label}: {s['none']}"
-    return f"- {label}: [{paths.rel(path)}]({_rel(path, page_dir)})"
+    from .markdown_link_roles import declare_link_role
+    return f"- {label}: " + declare_link_role(f"[{paths.rel(path)}]({_rel(path, page_dir)})",'navigation')
 
 
 def _escape(value: object) -> str:

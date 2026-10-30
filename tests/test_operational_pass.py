@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 import sys
 from pathlib import Path
 
@@ -336,7 +337,7 @@ def test_operational_pass_first_write_excludes_existing_self_from_recent_updates
     latest_updates = first_render.split("### Latest updates\n\n", 1)[1].split(
         "\n\n", 1
     )[0]
-    assert latest_updates.splitlines() == [
+    assert re.sub(r"<!-- wiki-link-role\.v[12] .*? -->", "", latest_updates).splitlines() == [
         "- **system:** [Command reference](wiki/command-reference.md) (2026-06-13)",
     ]
 
@@ -360,7 +361,7 @@ def test_operational_pass_first_write_is_idempotent_when_target_is_missing(
     latest_updates = first_render.split("### Latest updates\n\n", 1)[1].split(
         "\n\n", 1
     )[0]
-    assert latest_updates.splitlines() == [
+    assert re.sub(r"<!-- wiki-link-role\.v[12] .*? -->", "", latest_updates).splitlines() == [
         "- **system:** [Command reference](wiki/command-reference.md) (2026-06-13)",
     ]
 
@@ -1130,7 +1131,7 @@ def test_operational_pass_preserves_body_only_action_resolution(tmp_path: Path):
     page = build_operational_pass_page(
         tmp_path, config, updated_at="2026-06-12"
     )
-    assert "| [Body only](../actions/body-only.md) | fin | `completed` |" in page
+    assert "| [Body only](../actions/body-only.md) | fin | `completed` |" in re.sub(r"<!-- wiki-link-role\.v[12] .*? -->", "", page)
 
 
 def test_operational_model_marks_preventive_and_roleless(tmp_path: Path):

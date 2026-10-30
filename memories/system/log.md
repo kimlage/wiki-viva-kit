@@ -14,6 +14,22 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-10-30] Scoped information dependencies and source review
+
+The [shared contract](../../docs/references/guides/information-impact.md)
+separates integration integrity, dependent review and readiness for declared
+current use. The [input stage](input-stage.md), [operational pass](operational-pass.md)
+and [operation cockpit](../operations.md) declare their actual projection fields;
+navigation and diagnostic records keep their separate meanings. These producer
+declarations preserve the visible publication text and dates. No source was
+refreshed or factually verified by this migration.
+
+The public wiki exercises the shared scoped policy with no source executor
+qualified by default. The existing native source queue retains obligations,
+attempts and unresolved provenance; collection cannot clear factual review.
+The reader reports verification scope, observation date and concrete impediments.
+Execution retains its own revision-bound admission and explicit model policy.
+
 ## [2026-10-29] Count unrelated freshness debt once
 
 The [auditor](../../scripts/wiki_audit.py) enriches an existing stale-page warning
