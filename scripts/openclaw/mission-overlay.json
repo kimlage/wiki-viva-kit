@@ -134,6 +134,10 @@
         [
           "\tfor (const [index, startOptions] of startOptionsCandidates.entries()) {\n\t\tparams.assertCurrent?.();",
           "\tfor (const [index, startOptions] of startOptionsCandidates.entries()) {\n\t\twikiMissionGuard.authorizeClientStart(startOptions);\n\t\tparams.assertCurrent?.();"
+        ],
+        [
+          "CodexAppServerClient.start(startOptions, () => {\n\t\t\t\t\tassertStartupCurrent();\n\t\t\t\t\tresolveRemainingAcquireTimeout(timeoutMs, acquireStartedAt);\n\t\t\t\t})",
+          "CodexAppServerClient.start(startOptions, () => {\n\t\t\t\t\tassertStartupCurrent();\n\t\t\t\t\twikiMissionGuard.authorizeClientStart(startOptions);\n\t\t\t\t\tresolveRemainingAcquireTimeout(timeoutMs, acquireStartedAt);\n\t\t\t\t})"
         ]
       ],
       "import_guard": true

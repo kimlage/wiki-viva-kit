@@ -23,3 +23,15 @@ test('changed launcher, package version and unsupported platform fail closed',()
  if(change==='version'){const p=path.join(f.root,'node_modules/@openai/codex/package.json');fs.writeFileSync(p,JSON.stringify({name:'@openai/codex',version:'2.0.0'}));assert.throws(()=>admit(f.options),/client_package_changed/);}
  if(change==='platform')assert.throws(()=>pinnedClientAdmission(f.root,{...f.spec,platform:'unsupported'}),/client_platform_unsupported/);
  }finally{f.clean();}}});
+test('exact native startup callback rejects replacement after asynchronous process registration',async()=>{
+ const f=fixture();try{
+  const admit=pinnedClientAdmission(f.root,f.spec);admit(f.options);
+  const manifest=JSON.parse(fs.readFileSync(new URL('../../scripts/openclaw/mission-overlay.json',import.meta.url)));
+  const callback=manifest.files.find(f=>f.name==='shared-client-C0gEybHs.mjs').edits.find(([before])=>before.startsWith('CodexAppServerClient.start('))[1];
+  const invoke=new Function('CodexAppServerClient','startOptions','assertStartupCurrent','resolveRemainingAcquireTimeout','timeoutMs','acquireStartedAt','wikiMissionGuard','return '+callback);
+  let started=0;
+  const client={start:async(options,assertCurrent)=>{await Promise.resolve();fs.writeFileSync(path.join(f.root,'node_modules/@openai/synthetic-platform/native'),'replaced after registration');assertCurrent();started++;}};
+  await assert.rejects(invoke(client,f.options,()=>{},()=>{},1000,0,{authorizeClientStart:admit}),/client_bytes_changed/);
+  assert.equal(started,0);
+ }finally{f.clean();}
+});
