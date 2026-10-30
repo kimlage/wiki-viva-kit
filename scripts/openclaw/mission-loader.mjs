@@ -43,12 +43,12 @@ export function transform(name,source) {
     ? `import {wikiMissionBridge as wikiMissionGuard} from "openclaw/plugin-sdk/process-runtime";\n`
     : `import * as wikiMissionGuard from ${JSON.stringify(guard)};\n`;
   const bridge=spec.relative==='dist/plugin-sdk/process-runtime.js'
-    ? `\nexport const wikiMissionBridge=Object.freeze({authorizeTurn:wikiMissionGuard.authorizeTurn,bindTurn:wikiMissionGuard.bindTurn,captureOwner:wikiMissionGuard.captureOwner,recordTerminal:wikiMissionGuard.recordTerminal,authorizeInference:wikiMissionGuard.authorizeInference,checkInferenceSelection:wikiMissionGuard.checkInferenceSelection,loadedHook:wikiMissionGuard.loadedHook});\n`
+    ? `\nexport const wikiMissionBridge=Object.freeze({authorizeTurn:wikiMissionGuard.authorizeTurn,bindTurn:wikiMissionGuard.bindTurn,captureOwner:wikiMissionGuard.captureOwner,recordTerminal:wikiMissionGuard.recordTerminal,authorizeInference:wikiMissionGuard.authorizeInference,checkInferenceSelection:wikiMissionGuard.checkInferenceSelection,loadedHook:wikiMissionGuard.loadedHook,registerInferenceBinding:wikiMissionGuard.registerInferenceBinding,registerInferenceRoute:wikiMissionGuard.registerInferenceRoute});\n`
     : '';
   return binding+source+bridge+`\nwikiMissionGuard.loadedHook(${JSON.stringify(name)},import.meta.url);\n`;
 }
 export function assertSharedSdkBridge(sdkModule) {
-  const bridgeKeys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook'];
+  const bridgeKeys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook','registerInferenceBinding','registerInferenceRoute'];
   if(!sdkModule.wikiMissionBridge || !Object.isFrozen(sdkModule.wikiMissionBridge) ||
       Object.keys(sdkModule.wikiMissionBridge).length!==bridgeKeys.length ||
       !bridgeKeys.every(key=>sdkModule.wikiMissionBridge[key]===hostGuard[key])) throw new Error('wiki_mission_sdk_overlay_missing');

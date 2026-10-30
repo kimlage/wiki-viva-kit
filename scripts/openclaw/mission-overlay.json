@@ -67,7 +67,7 @@
       "edits": [
         [
           "\t\t\tconst startedTurn = assertCodexTurnStartResponse(await turnClient.request(\"turn/start\", turnStartParams, {",
-          "\t\t\twikiMissionGuard.authorizeTurn(params, turnStartParams, wikiMissionGuard.captureOwner(import.meta.url));\n\t\t\tconst startedTurn = assertCodexTurnStartResponse(await turnClient.request(\"turn/start\", turnStartParams, {"
+          "\t\t\tconst assertWikiMissionTurn = wikiMissionGuard.authorizeTurn(params, turnStartParams, wikiMissionGuard.captureOwner(import.meta.url), turnClient, inferenceRoute, () => { assertTurnCurrent(); if (getCodexInferenceThread(turnClient, threadId) !== inferenceRoute) throw new Error(\"wiki_mission_native_route_changed\"); });\n\t\t\tconst startedTurn = assertCodexTurnStartResponse(await turnClient.request(\"turn/start\", turnStartParams, {"
         ],
         [
           "\t\t\tacceptedTurnId = startedTurn.turn.id;",
@@ -76,6 +76,10 @@
         [
           "\t\t\tprojector.settlement.terminalReceipt = completedTurn;",
           "\t\t\tprojector.settlement.terminalReceipt = completedTurn;\n\t\t\twikiMissionGuard.recordTerminal(resourceState.thread.threadId, completedTurn);"
+        ],
+        [
+          "\t\t\t\t\tassertTurnCurrent();\n\t\t\t\t\tcontinuation?.dispatch();",
+          "\t\t\t\t\tassertTurnCurrent();\n\t\t\t\t\tcontinuation?.dispatch();\n\t\t\t\t\tassertWikiMissionTurn();"
         ]
       ],
       "import_guard": true
@@ -88,7 +92,7 @@
       "edits": [
         [
           "\t\tconst reviewer = metadata.subagent === \"guardian\"",
-          "\t\twikiMissionGuard.checkInferenceSelection({path,body,metadata,provider,owner:wikiMissionOwner});\n\t\tconst reviewer = metadata.subagent === \"guardian\""
+          "\t\twikiMissionGuard.checkInferenceSelection({path,body,metadata,provider,binding:wikiMissionBinding});\n\t\tconst reviewer = metadata.subagent === \"guardian\""
         ],
         [
           "function createCodexInferenceModelBinding(params) {",
@@ -96,11 +100,36 @@
         ],
         [
           "\t\t\tcaptured.assertCurrent();\n\t\t\tsignal.throwIfAborted();",
-          "\t\t\tcaptured.assertCurrent();\n\t\t\tsignal.throwIfAborted();\n\t\t\tconst assertWikiMission = wikiMissionGuard.authorizeInference({path,body,metadata,provider,owner:wikiMissionOwner});"
+          "\t\t\tcaptured.assertCurrent();\n\t\t\tsignal.throwIfAborted();\n\t\t\tconst assertWikiMission = wikiMissionGuard.authorizeInference({path,body,metadata,provider,binding:wikiMissionBinding});"
         ],
         [
           "\t\t\tconst assertExecution = () => {\n\t\t\t\tassertClient();",
           "\t\t\tconst assertExecution = () => {\n\t\t\t\tassertClient();\n\t\t\t\tassertWikiMission();"
+        ],
+        [
+          "\treturn async ({ path, body, metadata, signal, transport }) => {",
+          "\tconst wikiMissionBinding = async ({ path, body, metadata, signal, transport }) => {"
+        ],
+        [
+          "\t};\n}\n/** One preparation path binds both HTTP requests and reusable WebSocket frames. */",
+          "\t};\n\treturn wikiMissionGuard.registerInferenceBinding(wikiMissionBinding, params.client, provider, wikiMissionOwner, assertClient);\n}\n/** One preparation path binds both HTTP requests and reusable WebSocket frames. */"
+        ]
+      ],
+      "import_guard": true
+    },
+    {
+      "name": "shared-client-C0gEybHs.mjs",
+      "package": "plugin",
+      "relative": "dist/.setup/shared-client-C0gEybHs.mjs",
+      "sha256": "e015c74808d171e17c4e8cfa09b033ffbda9fd998f0e25c5c9bc969fa37f41d0",
+      "edits": [
+        [
+          "\t\t\t]).then(([{ createCodexInferenceProxy }, native, { createCodexInferenceModelBinding }]) => {",
+          "\t\t\t]).then(async ([{ createCodexInferenceProxy }, native, { createCodexInferenceModelBinding }]) => {"
+        ],
+        [
+          "\t\t\t\treturn createCodexInferenceProxy({\n\t\t\t\t\tupstream: target,\n\t\t\t\t\tassertCurrent: assertClient,\n\t\t\t\t\toauth: owner.oauth,\n\t\t\t\t\tpreserveAzureUrlFeatures,\n\t\t\t\t\tpreserveCodexBackendRoutes,\n\t\t\t\t\tbindModelExecution: createCodexInferenceModelBinding({\n\t\t\t\t\t\tclient,\n\t\t\t\t\t\tprovider,\n\t\t\t\t\t\tmodelPolicyEnforced,\n\t\t\t\t\t\tassertCurrent: assertClient,\n\t\t\t\t\t\tmemoryConfigured: () => owner.memoryConfigured,\n\t\t\t\t\t\tcaptureModelSource: native.codexNativeSubagentMonitorRuntime.captureModelSource,\n\t\t\t\t\t\tresolveModelThreadId: native.codexNativeSubagentMonitorRuntime.resolveModelThreadId\n\t\t\t\t\t})\n\t\t\t\t});",
+          "\t\t\t\tconst wikiMissionBinding = createCodexInferenceModelBinding({\n\t\t\t\t\t\tclient,\n\t\t\t\t\t\tprovider,\n\t\t\t\t\t\tmodelPolicyEnforced,\n\t\t\t\t\t\tassertCurrent: assertClient,\n\t\t\t\t\t\tmemoryConfigured: () => owner.memoryConfigured,\n\t\t\t\t\t\tcaptureModelSource: native.codexNativeSubagentMonitorRuntime.captureModelSource,\n\t\t\t\t\t\tresolveModelThreadId: native.codexNativeSubagentMonitorRuntime.resolveModelThreadId\n\t\t\t\t\t});\n\t\t\t\tconst wikiMissionRouteOwner = wikiMissionGuard.captureOwner(import.meta.url);\n\t\t\t\tconst wikiMissionRoute = await createCodexInferenceProxy({\n\t\t\t\t\tupstream: target,\n\t\t\t\t\tassertCurrent: assertClient,\n\t\t\t\t\toauth: owner.oauth,\n\t\t\t\t\tpreserveAzureUrlFeatures,\n\t\t\t\t\tpreserveCodexBackendRoutes,\n\t\t\t\t\tbindModelExecution: wikiMissionBinding\n\t\t\t\t});\n\t\t\t\ttry { return wikiMissionGuard.registerInferenceRoute(client, wikiMissionBinding, wikiMissionRoute, wikiMissionRouteOwner); }\n\t\t\t\tcatch (error) { try { await wikiMissionRoute.close(); } finally { throw error; } }"
         ]
       ],
       "import_guard": true
