@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 import copy
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -16,7 +17,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from wiki_core.action_transition import _assert_no_secrets, _parse_document
+from wiki_core.action_transition import _assert_no_secrets, _parse_document, _action_file_lock
 from wiki_core.config import load_config
 from wiki_core.coordination import context_packet, digest
 from wiki_core.paths import WikiPaths
@@ -40,7 +41,7 @@ class Gateway:
         self.runtime, self.route = runtime, route
 
     def call(self, method, params):
-        require(method in {"chat.history", "chat.send"}, "openclaw_method_not_allowed")
+        require(method in {"chat.history", "chat.send", "sessions.patch"}, "openclaw_method_not_allowed")
         env = os.environ.copy()
         state = str(Path(self.runtime["state_dir"]).expanduser())
         env.update(OPENCLAW_PROFILE=self.runtime["profile"], OPENCLAW_STATE_DIR=state,
@@ -203,17 +204,21 @@ def plan_dispatch(root, config, params):
     require(0 < len(message.strip()) <= 12000, "openclaw_message_size")
     _assert_no_secrets(message)
     runtime, route = route_for(config, profile)
+    option = runtime.get("mission_options", {}).get(params.get("mission_id"))
+    require(option is not None and route.get("native_thread_id"), "openclaw_mission_policy_required")
+    mission = {"id": params["mission_id"], **option, "native_thread_id": route["native_thread_id"]}
     canonical = binding(root, config, profile, action)
     require(canonical["action_sha256"] == params["action_sha256"], "openclaw_action_revision_changed")
-    effect = "wiki-run-" + digest({"action": canonical, "message": message, "route": route})[:32]
+    effect = "wiki-run-" + digest({"action": canonical, "message": message, "route": route, "mission": mission})[:32]
     directory = storage(root, config, effect)
     require(not (directory / "intent.json").exists(), "openclaw_intent_exists_reconcile")
     require(not any(not item["reconciled"] for item in attempts(root, config, profile, action)),
             "openclaw_uncollected_attempt_reconcile")
+    require(not (directory.parent / "mission-active.json").exists(), "openclaw_mission_lock_reconcile")
     leaf = idle_leaf(idle_history(Gateway(runtime, route)))
     return {"binding": canonical, "route": route, "route_sha256": digest(runtime), "message": message,
             "message_sha256": hashlib.sha256(message.encode()).hexdigest(), "expected_leaf": leaf,
-            "effect_key": effect, "canonical_write": False}
+            "effect_key": effect, "mission": mission, "canonical_write": False}
 
 
 def dispatch(root, config, prepared):
@@ -232,10 +237,27 @@ def dispatch(root, config, prepared):
             "openclaw_uncollected_attempt_reconcile")
     write_new(directory / "intent.json", {"plan": prepared, "plan_sha256": digest(prepared),
               "attempted_at": dt.datetime.now(dt.timezone.utc).isoformat()})
+    mission = prepared["mission"]
+    provider, model = mission["model"].split("/", 1)
+    contract = {"schema_version": "wiki_openclaw_mission.v1", "run_id": prepared["effect_key"],
+        "session_key": route["session_key"], "session_id": route["session_id"],
+        "native_thread_id": mission["native_thread_id"], "provider": provider, "model": model,
+        "effort": mission["effort"], "message_sha256": prepared["message_sha256"],
+        "plan_sha256": digest(prepared), "action_id": b["action_id"], "action_sha256": b["action_sha256"],
+        "expires_at": (dt.datetime.now(dt.timezone.utc)+dt.timedelta(minutes=15)).isoformat()}
+    write_new(directory / "mission.json", contract)
+    contract_sha = hashlib.sha256(receipt_bytes(directory / "mission.json")).hexdigest()
+    with mission_mutex(directory):
+        write_new(directory.parent / "mission-active.json", {"run_id": prepared["effect_key"], "contract_sha256": contract_sha})
+    # Selection is followed by actual native turn/inference guards. This patch
+    # alone is not a model lock. Physical-session CAS preserves the route.
+    gateway.call("sessions.patch", {"key": route["session_key"], "expectedSessionId": route["session_id"],
+                                   "model": mission["model"], "thinkingLevel": mission["effort"]})
     # An uncertain transport leaves durable intent. Never retry chat.send.
     result = gateway.call("chat.send", {"sessionKey": route["session_key"], "message": prepared["message"],
         "expectedLeafEntryId": prepared["expected_leaf"], "idempotencyKey": prepared["effect_key"],
-        "queueMode": "followup", "deliver": False})
+        "queueMode": "followup", "deliver": False, "sessionId": route["session_id"],
+        "thinking": mission["effort"], "suppressCommandInterpretation": True, "wikiMission": contract_sha})
     require(result.get("runId") == prepared["effect_key"], "openclaw_unexpected_run_reconcile")
     receipt = {"effect_key": prepared["effect_key"], "action_id": b["action_id"],
                "run_id": result["runId"], "status": result.get("status"), "plan_sha256": digest(prepared)}
@@ -254,12 +276,77 @@ def retained_intent(root, config, params):
     require(plan["binding"]["profile"] == params["profile"] and plan["binding"]["action_id"] == params["action_id"],
             "openclaw_wrong_action")
     runtime, route = route_for(config, params["profile"])
-    require(digest(runtime) == plan["route_sha256"] and route == plan["route"], "openclaw_route_changed")
+    # A legacy result can still be inspected after adding a guard. Only the
+    # additive mission policy is ignored, never a changed destination/runtime.
+    previous_runtime = copy.deepcopy(runtime)
+    if "mission" not in plan:
+        previous_runtime.pop("mission_options", None)
+        for prior_route in previous_runtime["routes"].values():
+            prior_route.pop("native_thread_id", None)
+    require(digest(previous_runtime) == plan["route_sha256"]
+            and previous_runtime["routes"][params["profile"]] == plan["route"], "openclaw_route_changed")
     if (directory / "accepted.json").exists():
         accepted = read_receipt(directory / "accepted.json")
         require(accepted["plan_sha256"] == intent["plan_sha256"] and accepted["run_id"] == plan["effect_key"],
                 "openclaw_acceptance_changed")
     return directory, plan, runtime, route
+
+
+def verify_mission_selection(directory, plan, message):
+    if "mission" not in plan:
+        return
+    contract = read_receipt(directory / "mission.json")
+    sha = hashlib.sha256(receipt_bytes(directory / "mission.json")).hexdigest()
+    selected = plan["mission"]
+    claim = read_receipt(directory / "guard-turn.json")
+    require(contract["plan_sha256"] == digest(plan) and claim.get("contract_sha256") == sha
+            and claim.get("run_id") == plan["effect_key"] and claim.get("session_id") == plan["route"]["session_id"]
+            and claim.get("thread_id") == selected["native_thread_id"]
+            and claim.get("model") == selected["model"].split("/", 1)[1]
+            and claim.get("effort") == selected["effort"]
+            and message.get("model") == claim["model"], "openclaw_mission_selection_unproven")
+    bound = read_receipt(directory / "guard-bound-turn.json")
+    terminal = read_receipt(directory / "guard-terminal.json")
+    require(isinstance(bound.get("turn_id"), str) and bool(bound["turn_id"]), "openclaw_mission_turn_unproven")
+    for record in (bound, terminal):
+        require(record.get("run_id") == plan["effect_key"] and record.get("thread_id") == claim["thread_id"]
+                and record.get("contract_sha256") == sha and record.get("turn_id") == bound["turn_id"],
+                "openclaw_mission_turn_unproven")
+    require(terminal.get("status") == "completed", "openclaw_mission_terminal_unproven")
+    lines = receipt_bytes(directory / "guard-inference.jsonl").decode().splitlines()
+    require(bool(lines), "openclaw_mission_inference_unproven")
+    for line in lines:
+        item = json.loads(line)
+        require(item.get("contract_sha256") == sha and item.get("run_id") == plan["effect_key"]
+                and item.get("thread_id") == selected["native_thread_id"]
+                and item.get("model") == claim["model"] and item.get("effort") == claim["effort"]
+                and item.get("turn_id") == bound["turn_id"] and item.get("path") in {"/responses", "/responses/compact"},
+                "openclaw_mission_selection_unproven")
+
+
+@contextmanager
+def mission_mutex(directory):
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    with _action_file_lock(directory.parent, "openclaw-mission"):
+        yield
+
+
+
+def release_mission_lock(directory, plan):
+    if "mission" not in plan:
+        return
+    with mission_mutex(directory):
+        active = directory.parent / "mission-active.json"
+        if not active.exists():
+            return
+        value = read_receipt(active)
+        # Later receipt reads can finish a crash between capture and release.
+        # They must never release a different mission's lock.
+        if value.get("run_id") != plan["effect_key"]:
+            return
+        require(value.get("contract_sha256") == hashlib.sha256(receipt_bytes(directory / "mission.json")).hexdigest(),
+                "openclaw_mission_lock_changed")
+        active.unlink()
 
 
 def inspect(root, config, params):
@@ -290,6 +377,7 @@ def inspect(root, config, params):
     require(message.get("role") == "assistant" and meta.get("runId") == plan["effect_key"]
             and meta.get("id") == message_id and meta.get("runTerminal") and not meta.get("truncated")
             and message.get("stopReason") == "stop" and not message.get("errorMessage"), "openclaw_result_not_complete")
+    verify_mission_selection(directory, plan, message)
     content = message.get("content", [])
     require(content and all(c.get("type") == "text" for c in content), "openclaw_text_result_required")
     text = "\n".join(c["text"] for c in content)
@@ -304,6 +392,7 @@ def inspect(root, config, params):
         result = old
     else:
         write_new(directory / "result.json", result)
+    release_mission_lock(directory, plan)
     try:
         current = binding(root, config, params["profile"], params["action_id"])
         hold = None if current == plan["binding"] else "canonical_context_changed"
@@ -458,6 +547,7 @@ def resolve_failed(root, config, params, prepared):
         # Re-read immediately before the atomic local receipt; no provider write.
         require(plan_failure_resolution(root, config, params) == current, "openclaw_failure_resolution_inputs_changed")
         write_new(directory / "failure-resolution.json", value)
+    release_mission_lock(directory, plan)
     return {"action_id": params["action_id"], "effect_key": params["effect_key"], "reconciled": True,
             "status": "resolved_without_result", "result_available": False, "new_dispatch": False,
             "canonical_write": False, "resolution": value}

@@ -1,0 +1,85 @@
+{
+  "packages": {
+    "core": {
+      "name": "openclaw",
+      "version": "2026.10.9",
+      "tree_sha256": "877654d03566bfcc56af5b0949829490eb3a723074a2c0abaff84cc027c7a151"
+    },
+    "plugin": {
+      "name": "@openclaw/codex",
+      "version": "2026.10.9",
+      "tree_sha256": "bc0bc794970d492f7c3b905e508d4f6cb0828d972e9c6e2a6e5ab240ca7d52b8"
+    }
+  },
+  "upstream": "OpenClaw and @openclaw/codex 2026.10.9",
+  "files": [
+    {
+      "name": "sessions-CLLc4meF.mjs",
+      "package": "core",
+      "relative": "dist/sessions-CLLc4meF.mjs",
+      "sha256": "7eeb8e72c6e72fbc400b1296db090eeeea5361b7e3a0ec09dacb10ec7d864a8b",
+      "edits": [
+        [
+          "const ChatSendParamsSchema = closedObject({",
+          "const ChatSendParamsSchema = closedObject({\n\twikiMission: Type.Optional(NonEmptyString),"
+        ]
+      ],
+      "import_guard": true
+    },
+    {
+      "name": "chat-send-handler-B0jivtwJ.mjs",
+      "package": "core",
+      "relative": "dist/chat-send-handler-B0jivtwJ.mjs",
+      "sha256": "496e4dd3478b22cbd134839dc9861e0528d2ddacb1bc281423b673add9e2e1b5",
+      "edits": [
+        [
+          "async function handleChatSendWithOptions(handlerOptions, onAdmissionOwned, externalAuthorityAdmission, options) {",
+          "async function handleChatSendWithOptions(handlerOptions, onAdmissionOwned, externalAuthorityAdmission, options) {\n\twikiMissionGuard.authorizeChat(handlerOptions.params);"
+        ]
+      ],
+      "import_guard": true
+    },
+    {
+      "name": "run-attempt-CGHsrfPB.mjs",
+      "package": "plugin",
+      "relative": "dist/.setup/run-attempt-CGHsrfPB.mjs",
+      "sha256": "ceccb5e197f4b725b6fe90c1cf25adfe080d92525db30a5116132d4eec8e381a",
+      "edits": [
+        [
+          "\t\t\tconst startedTurn = assertCodexTurnStartResponse(await turnClient.request(\"turn/start\", turnStartParams, {",
+          "\t\t\twikiMissionGuard.authorizeTurn(params, turnStartParams);\n\t\t\tconst startedTurn = assertCodexTurnStartResponse(await turnClient.request(\"turn/start\", turnStartParams, {"
+        ],
+        [
+          "\t\t\tacceptedTurnId = startedTurn.turn.id;",
+          "\t\t\tacceptedTurnId = startedTurn.turn.id;\n\t\t\twikiMissionGuard.bindTurn(params.runId, threadId, acceptedTurnId);"
+        ],
+        [
+          "\t\t\tprojector.settlement.terminalReceipt = completedTurn;",
+          "\t\t\tprojector.settlement.terminalReceipt = completedTurn;\n\t\t\twikiMissionGuard.recordTerminal(resourceState.thread.threadId, completedTurn);"
+        ]
+      ],
+      "import_guard": true
+    },
+    {
+      "name": "inference-dispatch-CO6tTs4q.mjs",
+      "package": "plugin",
+      "relative": "dist/.setup/inference-dispatch-CO6tTs4q.mjs",
+      "sha256": "b2c7e2d6a12101ab7b83a854ae711c98b498fdbf4939f84185a1a1f50a81136f",
+      "edits": [
+        [
+          "\t\tconst reviewer = metadata.subagent === \"guardian\"",
+          "\t\twikiMissionGuard.checkInferenceSelection({path,body,metadata,provider});\n\t\tconst reviewer = metadata.subagent === \"guardian\""
+        ],
+        [
+          "\t\t\tcaptured.assertCurrent();\n\t\t\tsignal.throwIfAborted();",
+          "\t\t\tcaptured.assertCurrent();\n\t\t\tsignal.throwIfAborted();\n\t\t\tconst assertWikiMission = wikiMissionGuard.authorizeInference({path,body,metadata,provider});"
+        ],
+        [
+          "\t\t\tconst assertExecution = () => {\n\t\t\t\tassertClient();",
+          "\t\t\tconst assertExecution = () => {\n\t\t\t\tassertClient();\n\t\t\t\tassertWikiMission();"
+        ]
+      ],
+      "import_guard": true
+    }
+  ]
+}

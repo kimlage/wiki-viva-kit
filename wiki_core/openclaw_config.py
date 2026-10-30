@@ -19,11 +19,11 @@ def validated_config(value):
         return {"enabled": False}
     require(isinstance(value, dict), "openclaw_invalid_config")
     fields = {"enabled", "node_binary", "entrypoint", "profile", "state_dir", "gateway", "routes"}
-    require(not set(value) - fields and isinstance(value.get("enabled", False), bool), "openclaw_invalid_config")
+    require(not set(value) - fields - {"mission_options"} and isinstance(value.get("enabled", False), bool), "openclaw_invalid_config")
     if not value.get("enabled"):
         require(set(value) <= {"enabled"}, "openclaw_disabled_config_has_settings")
         return {"enabled": False}
-    require(set(value) == fields, "openclaw_incomplete_config")
+    require(set(value) - {"mission_options"} == fields, "openclaw_incomplete_config")
     for key in fields - {"enabled", "routes"}:
         require(isinstance(value[key], str) and 0 < len(value[key]) < 1024
                 and not any(ord(c) < 32 for c in value[key]), "openclaw_invalid_config")
@@ -37,7 +37,16 @@ def validated_config(value):
     require(isinstance(value["routes"], dict) and bool(value["routes"]), "openclaw_routes_required")
     for profile, route in value["routes"].items():
         require(isinstance(profile, str) and re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", profile)
-                and isinstance(route, dict) and set(route) == {"session_key", "session_id", "label"}, "openclaw_invalid_route")
+                and isinstance(route, dict) and set(route) - {"native_thread_id"} == {"session_key", "session_id", "label"}, "openclaw_invalid_route")
         require(all(isinstance(v, str) and 0 < len(v) <= 240 and not any(ord(c) < 32 for c in v)
                     for v in route.values()), "openclaw_invalid_route")
+    options = value.get("mission_options", {})
+    require(isinstance(options, dict), "openclaw_invalid_mission_policy")
+    for key, option in options.items():
+        require(isinstance(key, str) and re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", key)
+                and isinstance(option, dict) and set(option) == {"label", "model", "effort"}
+                and all(isinstance(v, str) for v in option.values())
+                and 0 < len(option["label"]) < 120 and not any(ord(c) < 32 for c in option["label"])
+                and re.fullmatch(r"openai/[a-zA-Z0-9._-]+", option["model"])
+                and option["effort"] in {"high", "max"}, "openclaw_invalid_mission_policy")
     return value

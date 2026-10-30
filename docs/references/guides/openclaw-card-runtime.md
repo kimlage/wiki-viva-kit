@@ -21,11 +21,17 @@ openclaw:
   profile: example
   state_dir: /home/example/.openclaw-example
   gateway: ws://127.0.0.1:19880
+  mission_options:
+    execution:
+      label: Example execution
+      model: openai/example-model
+      effort: high
   routes:
     research:
       session_key: agent:research:example
       session_id: existing-physical-session-id
       label: Example coordinator
+      native_thread_id: existing-native-codex-thread-id
 ```
 
 `research` must already own the action in the consumer's coordination policy.
@@ -139,3 +145,65 @@ and no-effect replay. [Card tests](https://github.com/kimlage/wiki-viva-kit/blob
 verify typed review and recovery controls. These fixtures do not prove a live
 account, real model response, hosted wiki or autonomous operation. A consumer
 must qualify those through its adopted product entry and approved sources.
+
+## Explicit mission selection and native inference guard
+
+New dispatches require an operator-selected `mission_id` from the consumer's
+reviewed `openclaw.mission_options` mapping (`label`, `model`, `effort`). Effort
+is `high` or `max`; the consumer supplies its approved OpenAI model names. Each
+route also pins an independently observed `native_thread_id`. Existing results
+remain inspectable after adding these fields, but an unconfigured dispatch is
+refused. The browser cannot supply a model, executable or native thread.
+
+The plan includes this selection. An immutable mission contract and exclusive
+active lock precede the session-selection patch and send. `sessions.patch` uses
+physical-session CAS; it is not itself an atomic model lock. `chat.send` carries
+the effort, physical session and contract digest, with command interpretation
+disabled. The version-bound guard checks the actual turn and each inference
+body immediately before the installed native boundaries. A mismatch refuses
+execution instead of substituting a different model or effort.
+
+The optional [loader](../../../scripts/openclaw/mission-loader.mjs) applies the
+[explicit overlay](../../../scripts/openclaw/mission-overlay.json) in memory to
+OpenClaw and Codex plugin 2026.10.9. Installed package bytes are untouched;
+matched modules must have the exact upstream hashes. Enable it explicitly in
+the reviewed Gateway process arguments with Node's `--import`, setting
+`WIKI_OPENCLAW_MISSION_DIR` to the existing derived OpenClaw directory. The
+[guard](../../../scripts/openclaw/mission-guard.mjs) contains no credentials. An
+unmodified Gateway rejects the new send field rather than running unguarded.
+No automatic package update, installation, privilege grant or runtime activation
+is performed by the kit. Verify the selected plugin actually loads the guarded
+modules and perform a real native readback before claiming deployment.
+
+Only the pinned existing thread and one native turn are admitted. A durable
+claim blocks replay, live-switch retries and a restarted executor; recovery is
+inspection, not resending. Readback checks native result model and guard records
+before releasing the active lock. A reviewed native terminal failure may also
+release that exact lock. Guard records contain IDs, model, effort and hashes,
+never prompts, credentials or request bodies. Selection admission is not proof
+of network completion or billed usage.
+
+This deliberately narrow mode refuses auxiliary/child/guardian inference and
+requests that omit or conflict with the mission's exact selection. It does not
+disable native authorization, guardian, sandbox or approval checks: a required
+unsupported route fails instead of receiving an exemption. Compact requests
+are accepted only with the same exact thread, model and explicit effort. Broader
+autonomy and other runtime versions remain outside this qualified contract.
+
+The guarded gateway starts Node with `--import /absolute/path/mission-loader.mjs`.
+Set `WIKI_OPENCLAW_GUARD_BOOTSTRAP=1`, `WIKI_OPENCLAW_CORE_ROOT` and
+`WIKI_OPENCLAW_PLUGIN_ROOT` to the two real package roots, and
+`WIKI_OPENCLAW_MISSION_DIR` to the real consumer derived OpenClaw directory.
+These are local service settings, never credentials. The bootstrap validates
+package identity, version and the complete JS/MJS/JSON tree (excluding nested
+node_modules), then validates each hook again when loaded. All four hooks must
+execute before chat admission. A renamed or partial package is refused. Dependency
+resolution and absence of startup side effects need a local smoke for each
+qualified installation; this is not a generic compatibility claim.
+
+The returned native turn ID is persisted before releasing native custody to
+inference. Inference waits for that existing custody, then checks the exact ID;
+no first-event binding is allowed. Terminal notification and inference receipts
+must agree on the same ID before a result can be incorporated. A crash or missing
+response remains uncertain and blocks replay. Creating and releasing the mission
+lock share a filesystem mutex; reading an older result preserves any newer lock.

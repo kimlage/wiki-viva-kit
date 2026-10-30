@@ -47,6 +47,7 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
 }) {
   const copy = COPY[language.startsWith("pt") ? "pt" : "en"];
   const [message, setMessage] = useState("");
+  const [missionId, setMissionId] = useState(profile.runtime?.mission_options?.[0]?.id || "");
   const [busy, setBusy] = useState(false);
   const [unlock, setUnlock] = useState(false);
   const [plan, setPlan] = useState<AdminPlan | null>(null);
@@ -113,9 +114,15 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
       <AdminStatusStrip lockAdminSession={admin.lockAdminSession} renewAdminSession={admin.renewAdminSession} onNotice={setNotice} />
       <button type="button" disabled={disabled || busy} onClick={() => setUnlock(true)}>{copy.unlock}</button>
       <p>{copy.scope}</p>
+      <label>{language.startsWith("pt") ? "Modelo e esforço desta missão" : "Model and effort for this mission"}
+        <select value={missionId} disabled={disabled || busy || Boolean(plan)} onChange={e => setMissionId(e.target.value)}>
+          <option value="">{language.startsWith("pt") ? "Selecione uma configuração aprovada" : "Select an approved configuration"}</option>
+          {profile.runtime?.mission_options?.map(option => <option key={option.id} value={option.id}>{option.label} · {option.model} / {option.effort}</option>)}
+        </select>
+      </label>
       <label>{copy.message}<textarea value={message} onChange={e => setMessage(e.target.value)} maxLength={12000} disabled={disabled || busy} /></label>
-      <button type="button" disabled={disabled || busy || !message.trim() || Boolean(plan)} onClick={() => void request("agents.openclaw.dispatch", {
-        action_sha256: action.content_sha256 || "", message
+      <button type="button" disabled={disabled || busy || !message.trim() || !missionId || Boolean(plan)} onClick={() => void request("agents.openclaw.dispatch", {
+        action_sha256: action.content_sha256 || "", message, mission_id: missionId
       })}>{copy.dispatch}</button>
       <p>{copy.noRetry}</p>
       <ul>{known.map(item => <li key={item.effect_key}><code>{item.effect_key}</code> {item.attempted_at} {item.resolved_without_result && <span>{copy.resolved}</span>}

@@ -168,7 +168,8 @@ def _write_action(root: Path, action: dict, *, expected_policy: bytes | None = N
     expected_action = action["expected_sha256"]
     if "body" in action:
         written = integrate_action_body(root, ref, action["body"], expected_sha256=expected_action,
-                                        contribution=action["contribution"], recorded_at=action["recorded_at"])
+                                        contribution=action["contribution"], recorded_at=action["recorded_at"],
+                                        consolidations=action.get("consolidations"))
         expected_action = written["after_sha256"]
     if "transition" in action:
         transition_action_page(root, ref, expected_sha256=expected_action,
@@ -236,7 +237,7 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
     readset[cache] = _bytes(root, cache)
     action = material["action"]
     _closed(action, {"page_ref", "page_id", "effect_key", "run_id", "expected_sha256"},
-            {"body", "contribution", "recorded_at", "transition"})
+            {"body", "contribution", "recorded_at", "transition", "consolidations"})
     action_ref = action["page_ref"]
     action_path = _safe(root, action_ref)
     if not action_path.is_relative_to(paths.actions_dir):
@@ -252,6 +253,8 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
     frontmatter, _ = parse_frontmatter(action_path)
     if frontmatter.get("page_id") != action["page_id"] or not action["effect_key"] or not action["run_id"]:
         raise ProposalError("proposal_canonical_identity_mismatch")
+    if "consolidations" in action and ("body" not in action or "transition" in action):
+        raise ProposalError("proposal_consolidation_requires_only_body")
     if "body" in action and not action.get("recorded_at"):
         raise ProposalError("proposal_writer_requires_recorded_at")
     if "body" in action and (not isinstance(action.get("contribution"), dict)

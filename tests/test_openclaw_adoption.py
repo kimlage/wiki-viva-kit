@@ -62,7 +62,7 @@ def test_card_adopts_exact_approved_commit_and_replay_only_observes(adoption, cl
     action = root/'memories/actions/action-server-synthetic.md'
     status, planned = _plan(srv,token,'agents.openclaw.dispatch',params={
         'profile':'research','action_id':query['action_id'],'action_sha256':hashlib.sha256(action.read_bytes()).hexdigest(),
-        'message':'Next distinct mission after approved adoption.'})
+        'mission_id':'execution','message':'Next distinct mission after approved adoption.'})
     assert status==200,planned
 
 

@@ -10,7 +10,7 @@ import { ActionRuntime } from './ActionRuntime';
 
 afterEach(()=>{cleanup();clearAdminSession();});
 const action={id:'synthetic-action',content_sha256:'a'.repeat(64)} as PageRecord;
-const profile={id:'research',label:'Research',scope:'Synthetic',action_ids:['synthetic-action'],runtime:{configured:true,label:'Synthetic worker'}};
+const profile={id:'research',label:'Research',scope:'Synthetic',action_ids:['synthetic-action'],runtime:{configured:true,label:'Synthetic worker',mission_options:[{id:'execution',label:'Execution',model:'openai/example-model',effort:'high'}]}};
 function setup(over: Partial<React.ComponentProps<typeof ActionRuntime>>={}) {
   configureLanguage('en');
   const plan:AdminPlan={planId:'plan-exact',planSha:'sha256:'+'b'.repeat(64),commandId:'agents.openclaw.dispatch',title:'Dispatch this action',riskLevel:'external_write',dryRun:false,
@@ -27,7 +27,7 @@ it('reviews exact card identity and message before an admitted dispatch, then of
   fireEvent.change(screen.getByLabelText('Exact message to the executor'),{target:{value:'Inspect synthetic status.'}});
   fireEvent.click(screen.getByRole('button',{name:'Review dispatch'}));
   await waitFor(()=>expect(admin.planAdminCommand).toHaveBeenCalledWith('agents.openclaw.dispatch',{
-    profile:'research',action_id:action.id,action_sha256:action.content_sha256,message:'Inspect synthetic status.'}));
+    profile:'research',action_id:action.id,action_sha256:action.content_sha256,message:'Inspect synthetic status.',mission_id:'execution'}));
   expect(admin.executeAdminPlan).not.toHaveBeenCalled();
   fireEvent.change(await screen.findByLabelText(t('admin.plan.typeToConfirm',{text:plan.confirmation.text!})),{target:{value:plan.confirmation.text}});
   fireEvent.click(screen.getByRole('button',{name:t('admin.plan.execute')}));

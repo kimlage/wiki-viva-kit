@@ -594,8 +594,8 @@ def build_admin_plan(
                        "Send the displayed message for this action once; receipt is not completion" if dispatching else
                        "Recover the exact existing run; never dispatch or mark the action done",
             "effects": {"files_read": [prepared["binding"]["action_path"]] + ([params["review_path"], diff["review"]["evidence_path"]] if spec.planner == "openclaw_resolve_failed" else []),
-                        "files_write": [] if dry_run else [str(directory.relative_to(root))],
-                        "external_calls": [] if dry_run or spec.planner == "openclaw_receipt" else ["OpenClaw chat.send" if dispatching else "OpenClaw chat.history"],
+                        "files_write": [] if dry_run else [str(directory.relative_to(root))] + ([str((directory.parent / "mission-active.json").relative_to(root))] if dispatching else []),
+                        "external_calls": [] if dry_run or spec.planner == "openclaw_receipt" else (["OpenClaw sessions.patch", "OpenClaw chat.send"] if dispatching else ["OpenClaw chat.history"]),
                         "snapshot_invalidated": False},
             "diff": diff, "targets": [prepared["binding"]["action_path"]],
             "validation": {"canonical_write": False, "documentary_integration": "separate reviewed proposal"},

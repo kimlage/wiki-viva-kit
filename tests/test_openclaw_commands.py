@@ -16,10 +16,11 @@ from wiki_core.web import openclaw as oc
 @pytest.fixture
 def runtime(tmp_path, monkeypatch):
     _, snapshot, _ = fixture(tmp_path)
-    route = {'session_key': 'agent:research:synthetic', 'session_id': 'synthetic-session', 'label': 'Synthetic worker'}
+    route = {'session_key': 'agent:research:synthetic', 'session_id': 'synthetic-session', 'label': 'Synthetic worker', 'native_thread_id': 'synthetic-native-thread'}
     settings = {'enabled': True, 'node_binary': '/synthetic/node', 'entrypoint': '/synthetic/openclaw.mjs',
                 'profile': 'synthetic', 'state_dir': '/synthetic/state', 'gateway': 'ws://127.0.0.1:19880',
                 'routes': {'research': route}}
+    settings['mission_options']={'execution':{'label':'Synthetic execution','model':'openai/example-model','effort':'high'}}
     (tmp_path/'wiki.config.yaml').write_text(yaml.safe_dump({'repo_id':'synthetic','openclaw':settings}))
     (tmp_path/'.gitignore').write_text('data/\n')
     for args in [('init','-b','main'),('config','user.name','Synthetic'),('config','user.email','fixture@example.test'),('add','.'),('commit','-qm','fixture')]:
@@ -36,14 +37,16 @@ def runtime(tmp_path, monkeypatch):
     monkeypatch.setattr(oc.Gateway,'call',call)
     config=load_config(tmp_path)
     params={'profile':'research','action_id':'task','action_sha256':snapshot['pages.json']['pages'][2]['content_sha256'],
-            'message':'Inspect the synthetic status and return findings. Do not change data.'}
+            'mission_id':'execution','message':'Inspect the synthetic status and return findings. Do not change data.'}
     return tmp_path,config,params,observed,calls,snapshot
 
 
 def complete(runtime,plan):
-    _,_,_,h,_,_=runtime
+    root,cfg,_,h,_,_=runtime
+    from tests.test_openclaw_mission import simulate_guard
+    simulate_guard(root, cfg, plan)
     h['sessionInfo'].update(lastRunId=plan['effect_key'],activeLeafEntryId='terminal',status='done')
-    h['messages']=[{'role':'assistant','stopReason':'stop','content':[{'type':'text','text':'Synthetic result.'}],
+    h['messages']=[{'role':'assistant','model':'example-model','stopReason':'stop','content':[{'type':'text','text':'Synthetic result.'}],
                     '__openclaw':{'id':'terminal','runId':plan['effect_key'],'runTerminal':True}}]
 
 

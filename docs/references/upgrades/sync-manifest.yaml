@@ -7,6 +7,8 @@ portable:
     - scripts/wiki_*.py
     - scripts/_common.py
     - scripts/README.md
+    - scripts/openclaw/*.mjs
+    - scripts/openclaw/mission-overlay.json
     - apps/wiki-cockpit/src/**
     - apps/wiki-cockpit/public/**
     - apps/wiki-cockpit/assets/**
