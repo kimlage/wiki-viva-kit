@@ -10,7 +10,7 @@ from tests.test_openclaw_interrupted_resolution import interrupted
 from wiki_core.web import openclaw as oc
 
 
-def fixture(runtime,monkeypatch):
+def fixture(runtime,monkeypatch,prepared_only=False):
     root,cfg,*_=runtime
     # C1 source lives in the consuming checkout, just as the qualified loader.
     module=root/'scripts/openclaw/mission-retirement.mjs';module.parent.mkdir(parents=True)
@@ -18,6 +18,9 @@ def fixture(runtime,monkeypatch):
     for args in (['add','.'],['commit','-qm','Synthetic adapter adoption']):
         subprocess.run(['git',*args],cwd=root,check=True,capture_output=True)
     plan,d,q=interrupted(runtime,monkeypatch)
+    if prepared_only:
+        from tests.test_openclaw_interrupted_resolution import preparation
+        preparation(d,plan)
     prepared=oc.plan_failure_resolution(root,cfg,q);oc.resolve_failed(root,cfg,q,prepared)
     inference=d/'guard-inference.jsonl'
     inference.write_text(inference.read_text()*2) # Two actual JSONL records, as the failed live turn.
@@ -105,3 +108,11 @@ def test_sqlite_worker_source_and_integrity_refusals():
     got=subprocess.run(['node','--test','tests/node/openclaw-retirement-workers.test.mjs'],cwd=root,
                        capture_output=True,text=True,timeout=20)
     assert got.returncode==0,got.stdout+got.stderr
+
+
+def test_reviewed_preparation_marker_preserved_and_bound_to_exact_native_claim(runtime,monkeypatch):
+    root,module,p,d=fixture(runtime,monkeypatch,prepared_only=True)
+    before=(d/'guard-recovery.json').read_bytes()
+    got=run(root,module,p,d,'valid');assert got['ok'] and got['committed']==1
+    assert (d/'guard-recovery.json').read_bytes()==before
+    got=run(root,module,p,d,'claim');assert not got['ok'] and got['committed']==0

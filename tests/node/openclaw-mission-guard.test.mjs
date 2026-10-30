@@ -160,14 +160,16 @@ async function recoveryFixture(){
  authorizeTurn(f.params,f.turn,f.owner,f.client,f.route,f.assertRouteCurrent);bindTurn(f.m.run_id,f.m.native_thread_id,'synthetic-turn');authorizeInference(f.inference);
  f.recoveryAgent={idempotencyKey:crypto.randomUUID(),sessionKey:f.m.session_key,expectedExistingSessionId:f.m.session_id,internalRuntimeHandoffId:'native-current-handoff',internalExecutionIdentityRecoveryAttempt:1,inputProvenance:{kind:'internal_system'},deliver:false,agentId:'worker'};
  f.cfg={agents:{entries:{worker:{sandbox:{mode:'all',workspaceAccess:'ro',backend:'docker',docker:{readOnlyRoot:true,network:'none'}}}}},tools:{allow:['read','ls','session_status'],fs:{workspaceOnly:true}}};
- f.recoveryGuard=(await import('../../scripts/openclaw/mission-guard.mjs')).authorizeNativeRecovery;
+ f.nativeSelection={session_id:f.m.session_id,source:'session',override_source:'user',automatic:false,provider:f.m.provider,model:f.m.model,effort:f.m.effort};
+ const nativeGuard=(await import('../../scripts/openclaw/mission-guard.mjs')).authorizeNativeRecovery;
+ f.recoveryGuard=(...args)=>nativeGuard(...args,()=>f.nativeSelection);
  return f;
 }
 test('one native continuation retains original claim, selects explicitly and binds its own turn',async()=>{
  const f=await recoveryFixture();try{
  const original=fs.readFileSync(path.join(f.runDir,'guard-turn.json'));
  const live=f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{});live();
- assert.equal(f.recoveryAgent.model,'openai/example-model');assert.equal(f.recoveryAgent.thinking,'high');assert.equal(f.recoveryAgent.forceRestartSafeTools,true);
+ assert.equal(f.recoveryAgent.model,undefined);assert.equal(f.recoveryAgent.thinking,'high');assert.equal(f.recoveryAgent.forceRestartSafeTools,true);
  const params={...f.params,runId:f.recoveryAgent.idempotencyKey};
  const lifecycle=(await import('../../scripts/openclaw/mission-guard.mjs')).beginBootstrapThread;
  assert.throws(()=>lifecycle(params,f.client,null,f.native.creationOwner,()=>{}),/recovery_existing_thread_required/);
@@ -178,14 +180,14 @@ test('one native continuation retains original claim, selects explicitly and bin
  assert.deepEqual(fs.readFileSync(path.join(f.runDir,'guard-turn.json')),original);
  assert.equal(JSON.parse(fs.readFileSync(path.join(f.runDir,'guard-recovery-terminal.json'))).native_run_id,params.runId);
  assert.throws(()=>authorizeTurn(params,f.turn,f.owner,f.client,f.route,f.assertRouteCurrent),/EEXIST/);
- assert.throws(()=>f.recoveryGuard({...f.recoveryAgent,idempotencyKey:crypto.randomUUID()},f.m.run_id,f.cfg,()=>{}),/EEXIST/);
+ assert.throws(()=>f.recoveryGuard({...f.recoveryAgent,idempotencyKey:crypto.randomUUID()},f.m.run_id,f.cfg,()=>{}),/recovery_already_prepared/);
  }finally{clean(f);}
 });
 test('native optional undefined exec defaults remain absent recovery policy',async()=>{
  const f=await recoveryFixture();try{
  f.cfg.agents.entries.worker.tools={exec:{mode:'ask',safeBinProfiles:undefined,safeBinTrustedDirs:undefined}};
  f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{})();
- assert.equal(f.recoveryAgent.model,'openai/example-model');
+ assert.equal(f.recoveryAgent.model,undefined);
  assert.equal(f.recoveryAgent.thinking,'high');
  }finally{clean(f);}
 });
@@ -201,7 +203,7 @@ test('pinned native config normalization admits the same bounded recovery',{skip
  assert.ok(Object.hasOwn(normalized.agents.entries.worker.tools.exec,'safeBinProfiles'));
  assert.equal(normalized.agents.entries.worker.tools.exec.safeBinProfiles,undefined);
  f.recoveryGuard(f.recoveryAgent,f.m.run_id,normalized,()=>{})();
- assert.equal(f.recoveryAgent.model,'openai/example-model');assert.equal(f.recoveryAgent.thinking,'high');
+ assert.equal(f.recoveryAgent.model,undefined);assert.equal(f.recoveryAgent.thinking,'high');
  }finally{
  for(const [k,v] of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
  clean(f);
@@ -235,4 +237,31 @@ test('expiry refuses new inference but permits observation of the bound native t
  recordTerminal(f.m.native_thread_id,{id:'synthetic-turn',status:'completed'});
  assert.equal(JSON.parse(fs.readFileSync(path.join(f.runDir,'guard-terminal.json'))).status,'completed');
  }finally{Date.now=clock;clean(f);}
+});
+for(const [field,value]of [['source','parent'],['override_source','default'],['automatic',true],['model','other-model'],['provider','other-provider'],['effort','ultra'],['session_id','other-session']])test('recovery refuses inherited, automatic or changed native selection before preparation',async()=>{
+ const f=await recoveryFixture();try{
+  f.nativeSelection[field]=value;
+  assert.throws(()=>f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{}),/recovery_selection_changed/);
+  assert.equal(fs.existsSync(path.join(f.runDir,'guard-recovery.json')),false);
+ }finally{clean(f);}
+});
+test('native RPC preparation neither asks for model override nor consumes a durable continuation',async()=>{
+ const f=await recoveryFixture();try{
+  const current=f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{});current();
+  assert.equal(f.recoveryAgent.model,undefined);assert.equal(f.recoveryAgent.provider,undefined);
+  assert.equal(fs.existsSync(path.join(f.runDir,'guard-recovery.json')),false);
+  // A rejected native request may prepare again in this process; no disk replay.
+  f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{})();
+  assert.equal(fs.existsSync(path.join(f.runDir,'guard-recovery.json')),false);
+  f.nativeSelection.model='other-model';assert.throws(current,/recovery_selection_changed/);
+ }finally{clean(f);}
+});
+test('native persisted resolver distinguishes last observation from explicit future selection',{skip:!process.env.WIKI_TEST_OPENCLAW_CORE_ROOT},async()=>{
+ const f=await recoveryFixture();try{
+  const resolver=(await import(pathToFileURL(path.join(process.env.WIKI_TEST_OPENCLAW_CORE_ROOT,'dist/stored-model-overrides-D2ZOkBxi.mjs')).href)).r;
+  const native=resolver({sessionEntry:{modelProvider:'openai',model:f.m.model,providerOverride:'openai',modelOverride:'other-model',modelOverrideSource:'user'},sessionKey:f.m.session_key,defaultProvider:'openai',allowPluginNormalization:false});
+  assert.equal(native.model,'other-model');
+  f.nativeSelection={...f.nativeSelection,...native};
+  assert.throws(()=>f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{}),/recovery_selection_changed/);
+ }finally{clean(f);}
 });
