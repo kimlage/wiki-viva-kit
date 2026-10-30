@@ -316,16 +316,31 @@ def main(argv=None) -> int:
                 "deleted memory paths were not represented in the exact base graph: "
                 + ", ".join(unrepresented_deletions)
             )
-        result = compute_impact(
-            graph,
-            set(changes.paths),
-            exempt_types=set(audit_config.get("impact_exempt_types") or []),
-            base_graph=base_graph,
-        )
+        information_report = None
+        if audit_config.get('information_impact') == 'use_scoped':
+            from wiki_core.freshness_impact import repository_report
+            from wiki_core.graph.page_graph import ImpactResult
+            information_report = repository_report(ROOT, config, base_sha)
+            affected = {row['path']: row for row in information_report['pending_reviews'] if row['causes']}
+            result = ImpactResult(changed_pages=tuple(information_report['seeds']),
+                removed_pages=tuple(information_report['removed_pages']),
+                affected_pages=tuple(sorted(affected)),
+                references={path: tuple(sorted({edge['prerequisite'] for edge in row['causes']}))
+                            for path,row in affected.items()})
+            errors.extend('information integrity: '+row['path'] for row in information_report['blockers'])
+            errors.extend(information_report['relation_errors'])
+        else:
+            result = compute_impact(
+                graph,
+                set(changes.paths),
+                exempt_types=set(audit_config.get("impact_exempt_types") or []),
+                base_graph=base_graph,
+            )
         print(
             json.dumps(
                 {
                     "schema_version": "wiki_page_graph_impact.v1",
+                    **({"information_impact": information_report} if information_report else {}),
                     "base": args.base,
                     "base_sha": base_sha,
                     "head_sha": head_sha,

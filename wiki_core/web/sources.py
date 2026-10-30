@@ -285,7 +285,9 @@ def _source_record(
             and stream_cadence
             and (age is None or age > stream_cadence)
         )
-        breached = workflow_pending or cadence_breached
+        review_requests = [r for r in cursor.get("review_requests", [])
+                           if isinstance(r, dict) and r.get("status") in {"review_pending", "blocked"}]
+        breached = workflow_pending or cadence_breached or bool(review_requests)
         if processing_state:
             freshness_basis = "processing_state"
         if breached:
@@ -299,6 +301,8 @@ def _source_record(
                 "freshness_basis": freshness_basis,
                 "cadence_days": stream_cadence,
                 "breached": breached,
+                **({"review_requests": review_requests,
+                    "information_review_pending": True} if review_requests else {}),
             }
         )
 
@@ -540,6 +544,11 @@ def compose_source_brief_spec(
         + (f" → {', '.join(s['target_pages'])}" if s.get("target_pages") else "")
         for s in stale
     ]
+    review_lines = []
+    for stream in stale:
+        for request in stream.get("review_requests", []):
+            review_lines.append(f"- {stream['id']} / {request['scope']}: fields "
+                + ", ".join(request['fields']) + "; consumers " + ", ".join(request['consumers']))
     auth = source.get("auth") or None
     auth_line = ""
     if isinstance(auth, dict) and auth.get("method") and auth.get("method") != "none":
@@ -553,6 +562,8 @@ def compose_source_brief_spec(
         f"Ingest the source `{source_id}` ({source['platform']} · {source['locator']}).",
         f"Streams to refresh (past cadence): {channels}.",
         filter_lines and "Per-stream slice:\n" + "\n".join(filter_lines) or "",
+        review_lines and "Information review obligations (discovery alone does not verify facts):\n"
+        + "\n".join(review_lines) or "",
         auth_line,
         source["how_to_export"] and f"How to export:\n{source['how_to_export']}" or "",
         # The single honesty line: the sandbox cannot reach the network.

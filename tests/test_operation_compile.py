@@ -16,6 +16,7 @@ Production code is not modified.
 from __future__ import annotations
 
 import datetime as dt
+import re
 import importlib.util
 import sys
 from pathlib import Path
@@ -24,6 +25,12 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPILE_PATH = ROOT / "scripts" / "wiki_operation_compile.py"
+
+
+def visible_projection(page: str) -> str:
+    """Presentation assertions ignore invisible, separately tested relation metadata."""
+    return re.sub(r"<!-- wiki-link-role\.v2 projection consumes:[a-z0-9_,]+ produces:[a-z0-9_,]+ sha256:[0-9a-f]{64} -->", "", page)
+
 
 
 def _load_module():
@@ -306,8 +313,8 @@ def test_canonical_action_state_controls_inclusion_despite_editorial_status(
 
     page = compile_mod.build_page(minimal_repo, config)
 
-    assert "Canonical done" not in page
-    assert "| [Canonical open](actions/canonical-open.md) | sistema | open |" in page
+    assert "Canonical done" not in visible_projection(page)
+    assert "| [Canonical open](actions/canonical-open.md) | sistema | open |" in visible_projection(page)
 
 
 def test_body_only_legacy_action_state_controls_inclusion_and_display(
@@ -336,8 +343,8 @@ def test_body_only_legacy_action_state_controls_inclusion_and_display(
 
     page = compile_mod.build_page(minimal_repo, config)
 
-    assert "| [Body blocked](actions/body-blocked.md) | sistema | blocked |" in page
-    assert "Body completed" not in page
+    assert "| [Body blocked](actions/body-blocked.md) | sistema | blocked |" in visible_projection(page)
+    assert "Body completed" not in visible_projection(page)
 
 
 def test_build_page_extracts_state_before_inline_detail(compile_mod, config, minimal_repo):
@@ -360,8 +367,8 @@ def test_build_page_extracts_state_before_inline_detail(compile_mod, config, min
         ),
     )
     page = compile_mod.build_page(minimal_repo, config)
-    assert "| [Acompanhar bloqueio](actions/terceira.md) | sistema | pendente |" in page
-    assert "detalhe operacional que nao deve virar estado" not in page
+    assert "| [Acompanhar bloqueio](actions/terceira.md) | sistema | pendente |" in visible_projection(page)
+    assert "detalhe operacional que nao deve virar estado" not in visible_projection(page)
 
 
 def test_build_page_lists_pending_action_ids(compile_mod, config, minimal_repo):
@@ -664,11 +671,11 @@ def test_action_without_state_uses_language_fallback(compile_mod, config, minima
         "# Acao - Sem linha de estado\n\nCorpo.\n",
     )
     page_pt = compile_mod.build_page(minimal_repo, config)
-    assert "| [Sem linha de estado](actions/terceira.md) | sistema | sem estado |" in page_pt
+    assert "| [Sem linha de estado](actions/terceira.md) | sistema | sem estado |" in visible_projection(page_pt)
     en = compile_mod.WikiConfig(repo_id="acme-wiki", owner_label="Owner", language="en")
     page_en = compile_mod.build_page(minimal_repo, en)
-    assert "| [Sem linha de estado](actions/terceira.md) | sistema | no state |" in page_en
-    assert "sem estado" not in page_en
+    assert "| [Sem linha de estado](actions/terceira.md) | sistema | no state |" in visible_projection(page_en)
+    assert "sem estado" not in visible_projection(page_en)
 
 
 def test_state_parser_accepts_estado_and_state(compile_mod, config, minimal_repo):
@@ -684,9 +691,9 @@ def test_state_parser_accepts_estado_and_state(compile_mod, config, minimal_repo
     assert compile_mod.first_state("Estado: `pendente`.") == "pendente"
     assert compile_mod.first_state("State: `recurring`.") == "recurring"
     page = compile_mod.build_page(minimal_repo, config)
-    assert "| [Review backlog](actions/english.md) | sistema | recurring |" in page
+    assert "| [Review backlog](actions/english.md) | sistema | recurring |" in visible_projection(page)
     # The pt pages of the fixture keep working side by side.
-    assert "| [Revisar cobertura](actions/primeira.md) | sistema | recorrente |" in page
+    assert "| [Revisar cobertura](actions/primeira.md) | sistema | recorrente |" in visible_projection(page)
 
 
 def test_clean_title_strips_bilingual_prefixes(compile_mod, config, minimal_repo):
@@ -707,8 +714,8 @@ def test_clean_title_strips_bilingual_prefixes(compile_mod, config, minimal_repo
         "# Decision - Adopt the kit\n\nBody.\n",
     )
     page = compile_mod.build_page(minimal_repo, config)
-    assert "| [Adopt the kit](decisions/gamma.md) | sistema |" in page
-    assert "Decision - Adopt the kit" not in page
+    assert "| [Adopt the kit](decisions/gamma.md) | sistema |" in visible_projection(page)
+    assert "Decision - Adopt the kit" not in visible_projection(page)
 
 
 def test_build_page_with_pt_pinned_layout(compile_mod, tmp_path):
@@ -764,3 +771,15 @@ def test_build_page_with_pt_pinned_layout(compile_mod, tmp_path):
     ) in page
     # No English layout names leak into the pt-pinned cockpit body.
     assert "memories/" not in page
+
+
+def test_generated_projection_declares_real_inputs_without_consuming_action_sources(compile_mod,minimal_repo):
+    from wiki_core.config import load_config
+    from wiki_core.markdown_link_roles import parse_role_markdown
+    page=compile_mod.build_page(minimal_repo,load_config(minimal_repo))
+    _tokens,roles=parse_role_markdown(page)
+    projections=[role for role in roles.values() if role['role']=='projection']
+    assert projections
+    assert all(role['produced_fields']==['body'] for role in projections)
+    assert any('action_state' in role['consumed_fields'] for role in projections)
+    assert all('source_refs' not in role['consumed_fields'] for role in projections)

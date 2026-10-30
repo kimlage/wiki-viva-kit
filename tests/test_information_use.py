@@ -1,0 +1,72 @@
+import datetime as dt
+from copy import deepcopy
+from wiki_core.information_use import assess_information_use
+
+NOW=dt.datetime(2026,10,30,12,tzinfo=dt.timezone.utc)
+
+def graph():
+    return {'verification_coverage': {'claim':True}, 'nodes':{'claim':{'page_type':'claim','confidence':'confirmed','verified_at':'2026-10-30',
+                             'evidence_refs':['evidence']}},
+            'documents':{'claim':'A specific observed fact.','evidence':'Preserved source observation.'},
+            'errors':[], 'edges':[{'source':'action','target':'claim','type':'operational_prerequisite',
+                                 'requirement':{'fields':['body'],'temporal':'current','max_age_days':1}}]}
+
+def test_specific_claim_keeps_day_precision_and_explicit_evidence():
+    r=assess_information_use(graph(),'action',now=NOW)
+    assert r['ready'] and r['requirements'][0]['verification_precision']=='day'
+    assert r['requirements'][0]['verified_at']=='2026-10-30'
+
+def test_discovery_timestamp_is_not_claim_verification():
+    g=graph();g['nodes']['claim'].pop('verified_at');g['nodes']['claim']['sync']={'last_sync_success_at':'2026-10-30'}
+    assert not assess_information_use(g,'action',now=NOW)['ready']
+
+def test_future_expired_missing_unconfirmed_and_catalogue_are_not_usable():
+    for delta in [{'verified_at':'2026-10-31'},{'verified_at':'2026-01-01'}, {'confidence':'inferred'},
+                  {'evidence_refs':['absent']},{'page_type':'source'},{'valid_to':'2026-10-29'},
+                  {'verified_at':'2026-10'},{'valid_from':'2026-11-01'}]:
+        g=graph();g['nodes']['claim'].update(delta)
+        assert not assess_information_use(g,'action',now=NOW)['ready'],delta
+
+def test_historical_use_can_inspect_an_old_observation_without_freshening_it():
+    g=graph();g['nodes']['claim']['verified_at']='2026-01-01';g['edges'][0]['requirement']['temporal']='historical'
+    assert assess_information_use(g,'action',now=NOW)['ready']
+    assert g['nodes']['claim']['verified_at']=='2026-01-01'
+
+def test_validity_is_rechecked_when_time_advances():
+    g=graph();g['nodes']['claim']['valid_to']='2026-10-30T12:00:05Z'
+    assert assess_information_use(g,'action',now=NOW)['ready']
+    assert not assess_information_use(g,'action',now=NOW+dt.timedelta(seconds=10))['ready']
+
+def test_factual_change_after_verification_is_not_covered_by_retained_date(tmp_path):
+    import subprocess
+    from wiki_core.information_use import verification_covers_content
+    def git(*args):subprocess.run(['git',*args],cwd=tmp_path,check=True,capture_output=True)
+    git('init');git('config','user.name','Synthetic');git('config','user.email','fixture@example.invalid')
+    (tmp_path/'evidence.md').write_text('Specific captured observation.\n')
+    p=tmp_path/'claim.md';p.write_text('---\nverified_at: 2026-10-30\nlabel: first\n---\nObserved fact.\n')
+    git('add','.');git('commit','-qm','fact and verification')
+    assert verification_covers_content(tmp_path,'claim.md',['body'],['evidence.md'])
+    p.write_text(p.read_text().replace('label: first','label: other'))
+    git('add','.');git('commit','-qm','editorial label')
+    assert verification_covers_content(tmp_path,'claim.md',['body'],['evidence.md'])
+    p.write_text(p.read_text().replace('Observed fact.','Different fact.'))
+    git('add','.');git('commit','-qm','changed fact without verification')
+    assert not verification_covers_content(tmp_path,'claim.md',['body'],['evidence.md'])
+
+def test_current_use_without_revision_coverage_is_not_verified():
+    g=graph();g.pop('verification_coverage')
+    assert not assess_information_use(g,'action',now=NOW)['ready']
+
+
+def test_replacing_evidence_or_promoting_confidence_requires_verification(tmp_path):
+    import subprocess
+    from wiki_core.information_use import verification_covers_content
+    def git(*args):subprocess.run(['git',*args],cwd=tmp_path,check=True,capture_output=True)
+    git('init');git('config','user.name','Synthetic');git('config','user.email','fixture@example.invalid')
+    for name in ['first.md','other.md']:(tmp_path/name).write_text('Captured evidence.\n')
+    p=tmp_path/'claim.md';p.write_text('---\nverified_at: 2026-10-30\nconfidence: inferred\nevidence_refs: [first.md]\n---\nAn observation.\n')
+    git('add','.');git('commit','-qm','original observation')
+    assert verification_covers_content(tmp_path,'claim.md',['body'],['first.md'])
+    p.write_text(p.read_text().replace('inferred','confirmed').replace('first.md','other.md'))
+    git('add','.');git('commit','-qm','qualifiers changed without verification')
+    assert not verification_covers_content(tmp_path,'claim.md',['body'],['other.md'])

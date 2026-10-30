@@ -57,6 +57,7 @@ def write_stream_cursor(
     state_root.mkdir(parents=True, exist_ok=True)
     state = read_state(state_root, source_id)
     state["streams"][stream_id] = {
+        **stream_cursor(state, stream_id),
         "cursor": cursor,
         "last_unit": last_unit,
         "updated_at": updated_at,
@@ -66,3 +67,67 @@ def write_stream_cursor(
     tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
     tmp.replace(file)
     return state
+
+
+def merge_review_requests(state: dict, stream_id: str, requests: list[dict]) -> dict:
+    """Coalesce information obligations in the existing stream cursor state.
+
+    This pure merge performs no fetch and no factual acknowledgement. Discovery
+    or a successful script cannot clear a review request. Callers persist this
+    through the source-state writer under their existing mutation authority.
+    """
+    import copy
+    import hashlib
+    merged = copy.deepcopy(state)
+    streams = merged.setdefault('streams', {})
+    stream = streams.setdefault(stream_id, {})
+    current = {r['request_id']: r for r in stream.get('review_requests', [])}
+    projected = {}
+    for request in requests:
+        if (not isinstance(request, dict)
+                or set(request) != {'scope', 'fields', 'consumer', 'condition', 'priority'}
+                or not all(isinstance(request[k], str) and request[k] for k in ('scope','consumer','condition'))
+                or not isinstance(request['fields'], list) or not request['fields']
+                or any(not isinstance(f, str) or not f for f in request['fields'])
+                or request['priority'] not in {'immediate','active','on_demand'}):
+            raise ValueError('invalid source review request')
+        fields = sorted(set(request['fields']))
+        key = hashlib.sha256(json.dumps([merged['source_id'], stream_id, request['scope'], fields],
+                                       separators=(',', ':')).encode()).hexdigest()
+        previous = current.get(key, {})
+        active = projected.get(key, {})
+        consumers = sorted(set(active.get('consumers', [])) | {request['consumer']})
+        conditions = sorted(set(active.get('conditions', [])) | {request['condition']})
+        order = {'immediate':0,'active':1,'on_demand':2}
+        priority = min([request['priority'],active.get('priority',request['priority'])],key=order.get)
+        fulfilled = {a.get('condition') for a in previous.get('attempts', []) if a.get('status') == 'verified'}
+        if previous.get('status') == 'verified':
+            fulfilled.update(previous.get('conditions', []))
+        status = 'verified' if set(conditions) <= fulfilled else 'review_pending'
+        if status != 'verified' and conditions and all(any(a.get('condition') == c and a.get('status') == 'blocked' for a in previous.get('attempts', [])) for c in conditions):
+            status = 'blocked'
+        projected[key] = {**previous, 'request_id':key,'scope':request['scope'],'fields':fields,
+                        'consumers':consumers,'conditions':conditions,'priority':priority,
+                        'status':status}
+    # The input is the complete active projection for this source/stream.
+    # Retain attempt history, but do not keep closed consumers urgent forever.
+    for key, previous in current.items():
+        if key not in projected:
+            projected[key] = {**previous, 'consumers': [], 'conditions': [],
+                              'priority': 'on_demand', 'status': 'inactive'}
+    current = projected
+    stream['review_requests'] = sorted(current.values(),key=lambda r:({'immediate':0,'active':1,'on_demand':2}[r['priority']],r['request_id']))
+    return merged
+
+
+def review_attempt_allowed(request: dict, condition: str, *, max_attempts: int) -> bool:
+    """A repeated blocker is not a retry budget; require a changed condition.
+
+    No implicit attempt budget is granted. The existing executor still owns
+    credentials, previews, authorization and receipts for the actual work.
+    """
+    if type(max_attempts) is not int or max_attempts <= 0 or not isinstance(condition,str) or not condition:
+        return False
+    attempts = request.get('attempts', [])
+    return (len(attempts) < max_attempts
+            and not any(a.get('condition') == condition and a.get('status') == 'blocked' for a in attempts))

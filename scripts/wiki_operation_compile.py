@@ -445,6 +445,11 @@ def _decision_is_pending(values: dict[str, str], text: str) -> bool:
     )
 
 
+def _projected_link(label: str, target: str, fields: list[str]) -> str:
+    from wiki_core.markdown_link_roles import declare_projection
+    return declare_projection(f"[{label}]({target})", consumes=fields)
+
+
 def collect_decisions(paths: WikiPaths) -> list[Decision]:
     decisions_dir = paths.decisions_dir
     if not decisions_dir.is_dir():
@@ -697,7 +702,7 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
     if decisions:
         for decision in decisions:
             lines.append(
-                f"| [{decision.title}]({decision.rel_link}) | {decision.context} | "
+                f"| {_projected_link(decision.title, decision.rel_link, ['body', 'status', 'context', 'page_id', 'page_type'])} | {decision.context} | "
                 f"`{decision.page_id}` |"
             )
     else:
@@ -715,8 +720,8 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
         for action in actions:
             state = action.state or s["no_state"]
             lines.append(
-                f"| [{action.title}]({action.rel_link}) | {action.context} | {state} | "
-                f"[{action.page_id}]({action.rel_link}) |"
+                f"| {_projected_link(action.title, action.rel_link, ['body', 'action_state', 'status', 'context', 'page_id', 'page_type'])} | {action.context} | {state} | "
+                f"{_projected_link(action.page_id, action.rel_link, ['page_id'])} |"
             )
     else:
         lines.append(s["empty_actions"])
@@ -779,7 +784,7 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
             vit = s.get(f"vit_{row.vitality}", row.vitality)
             lines.append(
                 f"| {row.context} | {updated} | {window} | {vit} | "
-                f"[{row.rel_link}]({row.rel_link}) |"
+                f"{_projected_link(row.rel_link, row.rel_link, ['context', 'updated_at', 'stale_after_days', 'page_type'])} |"
             )
     else:
         lines.append(s["empty_vitality"])

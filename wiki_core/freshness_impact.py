@@ -25,190 +25,10 @@ from wiki_core.semantic_inventory import (
     RELATION_DIRECTIONS, _authored_pages, _expected_relations, _page_indexes,
 )
 
-# These are relation semantics, never exemptions for whole pages or contexts.
-STRUCTURAL = frozenset({"moc_parent", "collection_member", "ownership", "participation"})
-ASSOCIATION = frozenset({"related_page", "related_holon", "navigation_link", "record_context_reference"})
-REFERENCE = frozenset({"source_ref", "markdown_link", "untyped_reference"})
-NAVIGATION_HEADINGS = frozenset({"related", "relacionados", "navigation", "navegação"})
-
-
-def _path_from_link(root: Path, source_rel: str, href: str) -> str | None:
-    """Lexical repository link; never follow a symlink while discovering sources."""
-    parsed = urlsplit(href)
-    if parsed.scheme or parsed.netloc or not parsed.path or parsed.path.endswith("/"):
-        return None
-    path = unquote(parsed.path)
-    if "\\" in path or any(ord(c) < 32 for c in path):
-        return None
-    relative = posixpath.normpath(path.lstrip("/") if path.startswith("/")
-                                 else posixpath.join(posixpath.dirname(source_rel), path))
-    return relative if relative != ".." and not relative.startswith("../") else None
-
-
-def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[str]):
-    """Exclude only complete, positively parsed navigation list items.
-
-    Keep the existing conservative link inventory (including uncertain syntax)
-    and use CommonMark block/inline structure solely to prove navigation. A
-    nested heading cannot change the enclosing section, and a factual occurrence
-    elsewhere in the same page is never suppressed by matching endpoints.
-    """
-    tokens, authored_roles = parse_role_markdown(body)
-    sections = []
-    navigation_ranges = []
-    section = ""
-    top_list = None
-    for index, token in enumerate(tokens):
-        if token.type == "heading_open" and token.level == 0:
-            section = tokens[index + 1].content.strip().casefold()
-            sections.append((token.map[0], section))
-        if token.level == 0 and token.type in {"bullet_list_open", "ordered_list_open"}:
-            top_list = token.type
-        if token.level == 0 and token.type in {"bullet_list_close", "ordered_list_close"}:
-            top_list = None
-        if not (token.type == "list_item_open" and token.level == 1
-                and top_list == "bullet_list_open" and section in NAVIGATION_HEADINGS):
-            continue
-        end = index + 1
-        while not (tokens[end].type == "list_item_close" and tokens[end].level == 1):
-            end += 1
-        item = tokens[index + 1:end]
-        if [part.type for part in item] != ["paragraph_open", "inline", "paragraph_close"]:
-            continue
-        depth = 0
-        links = 0
-        link_only = True
-        children = item[1].children or []
-        # Existing MOC conventions also declare structural navigation in the
-        # body. This is an exact relation label, not arbitrary text before ':';
-        # Evidence/Source/Responsibility labels do not receive this treatment.
-        explicit_moc = (bool(children) and children[0].type == "text"
-                        and children[0].content.strip().casefold()
-                        in {"moc:", "parent moc:", "moc pai:"})
-        for child in children[1:] if explicit_moc else children:
-            if child.type == "link_open":
-                depth += 1
-                links += 1
-            elif child.type == "link_close":
-                depth -= 1
-            elif depth:
-                continue  # Labels may contain formatting; they are still labels.
-            elif child.type in {"softbreak", "hardbreak"}:
-                continue
-            elif child.type != "text" or re.sub(r"[\s,;.·|/()—–-]", "", child.content):
-                link_only = False
-        if link_only and links and depth == 0:
-            navigation_ranges.append((*token.map, explicit_moc,
-                                      children[0].content.strip() if explicit_moc else None))
-
-    for match in MARKDOWN_LINK_RE.finditer(body):
-        target = _path_from_link(root, path, match.group(1))
-        if not target:
-            continue
-        line = body[:match.start()].count("\n")
-        section = next((title for start, title in reversed(sections) if start <= line), "")
-        matched = [(explicit, label) for start, end, explicit, label in navigation_ranges
-                   if start <= line < end]
-        explicit_moc = any(explicit for explicit, _label in matched)
-        navigation = bool(matched) and (explicit_moc or target in navigation_targets)
-        edge = dict(source=path, target=target,
-                   type="navigation_link" if navigation else "markdown_link",
-                   direction="directed", basis="markdown_body", path=path, field="body",
-                   body_line=line + 1, body_offset=match.start(), section=section,
-                   body_relation_label=next((label for explicit, label in matched if explicit), None),
-                   classification=("explicit_body_moc_navigation" if navigation and explicit_moc
-                                   else "local_typed_navigation_item" if navigation
-                                   else "conservative_citation"))
-        yield project_link_role(edge, authored_roles.get((match.start(), match.end())))
-
-    # Reference-style links are real dependencies too. Their destination is
-    # stored in a definition elsewhere, so the legacy inline regex misses them.
-    for token_index, token in enumerate(tokens):
-        if token.type != "inline" or token.map is None:
-            continue
-        for child_index, child in enumerate(token.children or []):
-            if child.type != "link_open" or "label" not in child.meta:
-                continue
-            target = _path_from_link(root, path, child.attrGet("href") or "")
-            if not target:
-                continue
-            # Conservative occurrence location is the entire inline block.
-            # Reference-definition edits are separately a whole-page delta.
-            edge = dict(source=path, target=target, type="markdown_link",
-                       direction="directed", basis="markdown_body", path=path, field="body",
-                       body_line=token.map[0] + 1,
-                       body_offset=f"commonmark:{token_index}:{child_index}",
-                       section=next((title for start, title in reversed(sections)
-                                     if start <= token.map[0]), ""),
-                       classification="reference_style_citation")
-            yield project_link_role(edge, authored_roles.get(child.meta.get("_wiki_body_link_span")))
-
-
-def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
-    """Project the existing semantic-inventory model plus real Markdown body links."""
-    pages = _authored_pages(root, config)
-    _unique_by_id, by_path, duplicates = _page_indexes(pages)
-    # Current duplicates block as integrity errors. Historical duplicates must
-    # still be readable when the proposed change repairs them. Resolve ambiguous
-    # IDs conservatively to every authored path instead of dropping their edges.
-    by_id = {p.page_id: p for p in reversed(pages)}
-    paths_by_id: dict[str, list[str]] = defaultdict(list)
-    for page in pages:
-        paths_by_id[page.page_id].append(page.path)
-    # Source emission duplicates the source_ref dependency in the same direction;
-    # the inventory's optional event expansion is unnecessary for this closure.
-    relations, unresolved = _expected_relations(pages, by_id, by_path, {})
-    edges = []
-    errors = list(duplicates) + list(unresolved)
-    for source, target, kind, direction, basis, _pid, path, field in sorted(relations):
-        if direction != RELATION_DIRECTIONS[kind]:
-            errors.append(f"{path}: invalid relation direction in {field}")
-            continue
-        for a in paths_by_id[source]:
-            for b in paths_by_id[target]:
-                edges.append(dict(source=a, target=b, type=kind, direction=direction,
-                                  basis=basis, path=path, field=field))
-    for page in pages:
-        file = root / page.path
-        if file.is_symlink():
-            errors.append(f"{page.path}: symlink memory cannot establish freshness evidence")
-        _values, body = parse_frontmatter(file)
-        represented = {e["field"] for e in edges if e["path"] == page.path}
-        for field in FRONTMATTER_REF_FIELDS:
-            if field in represented:
-                continue
-            targets = set()
-            for ref in list_values(page.values.get(field)):
-                targets.update([ref] if ref in by_path else paths_by_id.get(ref, []))
-            for target in sorted(targets):
-                if field == "related_holons":
-                    # The authored template-block contract uses this field for
-                    # contextual reach (relations/culture), separately from
-                    # source_refs/evidence. It does not assert factual support.
-                    edges.append(dict(source=page.path, target=target, type="related_holon",
-                                      direction="directed", basis="frontmatter", path=page.path,
-                                      field=field))
-                    continue
-                if field == "owner":
-                    edges.append(dict(source=target, target=page.path, type="ownership",
-                                      direction="directed", basis="frontmatter", path=page.path,
-                                      field=field))
-                    continue
-                # Untyped reachability metadata is not silently discarded.
-                edges.append(dict(source=page.path, target=target, type="untyped_reference",
-                                  direction="directed", basis="frontmatter", path=page.path,
-                                  field=field))
-        navigation_targets = {
-            e["target"] if e["source"] == page.path else e["source"]
-            for e in edges if e["path"] == page.path
-            and e["type"] in STRUCTURAL | {"related_page", "related_holon"}
-            and page.path in {e["source"], e["target"]}
-        }
-        for occurrence in _body_occurrences(root, page.path, body, navigation_targets):
-            edges.append(occurrence)
-    return {"documents": {p.path: (root / p.path).read_bytes().decode("utf-8") for p in pages},
-            "nodes": {p.path: p.values for p in pages}, "edges": edges,
-            "errors": sorted(set(errors))}
+from wiki_core.information_relations import (
+    STRUCTURAL, ASSOCIATION, REFERENCE, NAVIGATION_HEADINGS,
+    _path_from_link, _body_occurrences, authored_graph, dependency_edges,
+)
 
 
 def factual_changes(current: dict, base: dict, changed: set[str]) -> tuple[set[str], list[dict]]:
@@ -264,19 +84,9 @@ def evaluate_impact(
     edges: list[dict[str, Any]] = []
     nonpropagating = []
     for origin, graph in (("base", base), ("current", current)):
-        for raw in graph["edges"]:
-            edge = {**raw, "origin": origin}
-            kind = edge["type"]
-            if kind in STRUCTURAL:
-                nonpropagating.append({**edge, "reason": "structural_relation"})
-                continue
-            if kind in ASSOCIATION:
-                nonpropagating.append({**edge, "reason": "association_or_explicit_navigation"})
-                continue
-            # Normalize factual dependency as prerequisite -> dependent.
-            a, b = edge["source"], edge["target"]
-            prerequisite, dependent = (b, a) if kind in REFERENCE else (a, b)
-            edges.append({**edge, "prerequisite": prerequisite, "dependent": dependent})
+        dependencies, contextual = dependency_edges(graph, origin=origin)
+        edges.extend(dependencies)
+        nonpropagating.extend(contextual)
     edges.sort(key=lambda e: (e["prerequisite"], e["dependent"], e["type"],
                               e["path"], e["field"], e["origin"]))
     downstream: dict[str, list[dict]] = defaultdict(list)
@@ -405,7 +215,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     tracked.update(run_git(["ls-files", "-z"], root=root).split("\0"))
     memory_paths = set(current["nodes"]) | set(base["nodes"])
     evidence = {e["target"] for g in (base, current) for e in g["edges"]
-                if e["type"] in REFERENCE and e["target"] in tracked} - memory_paths
+                if e["type"] in REFERENCE | {"historical_support", "operational_prerequisite", "projection_state"} and e["target"] in tracked} - memory_paths
     before.update({p: h for p, h in input_hashes(root, config, evidence).items() if p in evidence})
     for graph in (base, current):
         graph["evidence_paths"] = evidence
@@ -418,8 +228,25 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     }
     if config.audit.get("freshness_records"):
         raise ValueError("freshness_records is retired; remove the pointer after reviewing the migration diff")
-    result = evaluate_impact(current, base, changed, today=today or dt.date.today(),
-                             documentary_only=documentary_only, freshness_reviews=freshness_reviews)
+    information_policy = config.audit.get("information_impact", "legacy")
+    if information_policy not in {"legacy", "shadow", "use_scoped"}:
+        raise ValueError("information_impact must be legacy, shadow or use_scoped")
+    if information_policy == "use_scoped":
+        if documentary_only or freshness_reviews:
+            raise ValueError("use-scoped impact does not accept per-proposal freshness waivers")
+        from wiki_core.information_impact import evaluate_information_impact
+        result = evaluate_information_impact(current, base, changed, today=today or dt.date.today())
+        result['blockers'] = [{**r, 'state': 'unknown', 'seed': r['path']} for r in result['integrity_blockers']]
+        result['unrelated_debt'] = []  # ordinary age diagnostics remain in the frontmatter audit
+        result['removed_pages'] = sorted(set(base['nodes']) - set(current['nodes']))
+        result['evaluated_on'] = (today or dt.date.today()).isoformat()
+    else:
+        result = evaluate_impact(current, base, changed, today=today or dt.date.today(),
+                                 documentary_only=documentary_only, freshness_reviews=freshness_reviews)
+        if information_policy == "shadow":
+            from wiki_core.information_impact import evaluate_information_impact
+            result["information_impact"] = evaluate_information_impact(
+                current, base, changed, today=today or dt.date.today())
     if (before != input_hashes(root, config, evidence)
             or changes != collect_git_changes(base_sha, root=root)
             or head != run_git(["rev-parse", "--verify", "HEAD"], root=root).strip()):
