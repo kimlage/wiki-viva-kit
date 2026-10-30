@@ -428,3 +428,31 @@ original evidence, records external effects as undetermined, creates no final
 answer and never dispatches. Repeated reads of the resolution are separate from a
 new mission. Recurrence keeps its consumed occurrence and requires a genuinely
 changed watched condition before a future eligible occurrence.
+
+### Reviewed expiry with a retained native recovery claim
+
+An expired, admitted original can lack both a terminal result and an admitted
+continuation. `expired_interrupted` reconciles that exact observation after
+independent incident review; it does not assert model completion or external
+success. The original occurrence stays consumed and its timestamps stay intact.
+
+The version-qualified native startup adapter can then retire the matching native
+claim without replay. This narrow path supports an approved, clean `main` equal
+to its fetched remote ref. It reconstructs the original contract from its plan
+and approved Git base, checks the immutable reviewed resolution and original
+turn/inference lineage, and refuses any result or partial continuation. A
+changed claim, session, cycle, revision, writer, pending input, admission or
+delivery custody prevents retirement. It does not clear a queue or interrupt
+another run to satisfy those conditions.
+
+Settlement uses the native exclusive lifecycle mutation and atomic local
+interruption notice/claim cleanup. The writer compares the complete native entry
+at commit, including inside the native SQLite worker. Unknown captured worker
+generations are refused rather than running without this check. The live guard rechecks the receipt, native owners and the pure
+pending-input query. The ordinary history API is deliberately not used for this
+precondition because it may reconcile orphaned queued inputs. A lost response
+after commit cannot retire another claim: the native source fences and cleanup
+commit together. The local notice explicitly records no result, unknown external
+effects and retirement time; that time is not a fabricated model completion.
+New missions still need separate normal admission and their own immutable
+model, effort, context and expiry. No new RPC or scheduler is introduced.
