@@ -343,3 +343,50 @@ An already collected bootstrap result remains readable after that exact pin.
 The reader revalidates the native message and complete guard chain, and ignores
 only the binding-mode-to-observed-ID change. A different physical session,
 policy, runtime, thread or result is not accepted as the same route.
+
+## Opt-in native restart continuation and recurring observation
+
+The default remains inspect-only recovery. A consumer may opt in with
+`recovery: {mode: read_only, max_continuations: 1}` under its OpenClaw config.
+The mission records the approved Git revision, action bytes and configuration.
+The version-qualified native recovery admission links its new native run to the
+original mission, physical session and original bound turn. It sets the original
+model and effort explicitly and narrows the native recovery tools. The fresh
+native client, owner and inference route must qualify normally; disk receipts
+cannot reconstruct those capabilities.
+
+Only the configured read/ls/session_status tool surface and Docker read-only,
+network-disabled workspace qualify. The app-server bootstrap exec setting may
+remain ask; this does not admit the exec tool to the model. No child, auxiliary
+inference, new account or external writer is granted. Changed Git/action/config,
+expired original validity, completed original turn, another recovery UUID or a
+second continuation refuse admission. A crash after claiming continuation but
+before its turn starts consumes that allowance and requires reconciliation.
+Neither the original message nor chat.send is replayed. Original and continuation
+turn/terminal/inference records remain separate; the collector reports the actual
+native recovery run while retaining the original canonical effect identity.
+
+A consumer may declare a finite `recurring` rule mapping with profile, action_id,
+mission_id, message, interval_minutes and watch_paths. Each wake invokes the fixed
+administrative command `agents.openclaw.tick` with only rule_id. The existing live
+session capabilities, plan confirmation and single-writer admission still apply.
+The command does not install a scheduler or persist administrative credentials.
+An authorized scheduler wakes the existing coordinator; it does not own tasks.
+The action remains canonical and the coordinator prepares only its approved
+technical context package, using `{approved_head}` in the configured message.
+
+UTC slots derived by the backend give stable occurrence identity. A consumed slot
+is not reset by retries, restart or a changed HEAD. Uncertain retained work is
+inspected first; completed material waits for reviewed incorporation through the
+normal proposal port. A receipt comment alone is not factual consolidation.
+Subsequent unchanged watched Git content causes no mission/model dispatch. The
+watch list selects tracked repository content, never external sources or ignored
+caches. A proposal/config change invalidates a prepared plan; absence of a native
+result does not imply permission to try another occurrence.
+
+Qualification requires native Gateway interruption, one bounded continuation,
+useful reviewed incorporation and served readback, plus repeated wake-up without
+duplicate dispatch. Passing synthetic tests or installing a wake-up schedule does
+not establish those operational outcomes. Updating core/plugin/client/overlay is
+still a reviewed, separately installed candidate with the previous release and
+state preserved for compatible rollback; do not enable blind native auto-update.

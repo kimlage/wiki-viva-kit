@@ -225,7 +225,8 @@ class _AdminEffectRefused(Exception):
 
 class CockpitServer(ThreadingHTTPServer):
     def __init__(self, server_address: tuple[str, int], root: Path, config: WikiConfig,
-                 *, admin_announce: Callable[[str], None] | None = None) -> None:
+                 *, admin_announce: Callable[[str], None] | None = None,
+                 start_jobs: bool = True) -> None:
         # CORS is a startup trust decision. Invalid or remote origins must fail
         # before the operator opens a listening socket, and environment changes
         # only take effect after an intentional restart.
@@ -256,7 +257,8 @@ class CockpitServer(ThreadingHTTPServer):
         self._attempt_lock = threading.Lock()
         self._attempt_receipts: OrderedDict[str, dict[str, Any]] = OrderedDict()
         # One serialized Codex job stream per operator process.
-        self.jobs = JobRunner(root, config, on_change=self.invalidate_snapshot_cache)
+        self.jobs = JobRunner(root, config, on_change=self.invalidate_snapshot_cache,
+                              autostart=start_jobs, reconcile_retained=start_jobs)
         # Local admin sessions (god-mode plan §13, PR3). Constructing the
         # manager prints the single-use unlock code to this process's stdout;
         # the in-memory store dies with the process, so a restart revokes

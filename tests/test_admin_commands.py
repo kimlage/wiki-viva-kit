@@ -125,6 +125,7 @@ def test_catalog_grants_follow_session_role(server: _Server) -> None:
     assert denied == {
         "sources.review_pending": "role_not_authorized",
         "agents.openclaw.dispatch": "role_not_authorized",
+        "agents.openclaw.tick": "role_not_authorized",
         "agents.openclaw.resolve_failed": "role_not_authorized",
         "agents.openclaw.receipt": "role_not_authorized",
         "config.validate": "role_not_authorized",

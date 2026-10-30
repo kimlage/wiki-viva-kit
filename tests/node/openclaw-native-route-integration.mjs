@@ -1,6 +1,6 @@
 /** Opt-in: actual pinned capture, async proxy and factory; synthetic mission only. */
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import crypto from 'node:crypto';
-import {pathToFileURL} from 'node:url';import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';import {spawnSync} from 'node:child_process';import assert from 'node:assert/strict';
 const core=process.env.WIKI_TEST_OPENCLAW_CORE_ROOT,plugin=process.env.WIKI_TEST_OPENCLAW_PLUGIN_ROOT;
 assert(core&&plugin,'Provide both pinned packages');
 const scratch=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'wiki-native-route-')));
@@ -97,11 +97,35 @@ try {
   guard.bindTurn(firstId,created.threadId,'synthetic-first-turn');
   guard.authorizeInference({binding,path:'/responses',provider:'openai',body:{model:first.model,reasoning:{effort:'high'}},metadata:{threadId:created.threadId,turnId:'synthetic-first-turn'}})();
   assert.throws(()=>guard.beginBootstrapThread(firstParams,client,null,lifecycleOwner,()=>{}));
+  // Exercise the actual transformed native lifecycle admission with a saved
+  // binding and the core-created continuation alias, before the native turn.
+  const recoveryRepo=path.join(scratch,'recovery-repo');fs.mkdirSync(recoveryRepo);
+  fs.writeFileSync(path.join(recoveryRepo,'action.md'),'Synthetic maintenance.\n');
+  fs.writeFileSync(path.join(recoveryRepo,'wiki.config.yaml'),'repo_id: synthetic\n');
+  for(const args of [['init','-b','main'],['config','user.name','Synthetic'],['config','user.email','synthetic@example.test'],['add','.'],['commit','-qm','fixture']])assert.equal(spawnSync('git',args,{cwd:recoveryRepo}).status,0);
+  const hash=x=>crypto.createHash('sha256').update(x).digest('hex');
+  const recoveryId='wiki-run-'+'c'.repeat(32),recoveryDir=path.join(dir,recoveryId);fs.mkdirSync(recoveryDir);
+  const recoveryMission={...m,run_id:recoveryId,native_thread_id:'synthetic-recovery-thread',recovery:{mode:'read_only',max_continuations:1,repo_root:recoveryRepo,approved_head:spawnSync('git',['rev-parse','HEAD'],{cwd:recoveryRepo,encoding:'utf8'}).stdout.trim(),action_path:'action.md',action_sha256:hash(fs.readFileSync(path.join(recoveryRepo,'action.md'))),config_sha256:hash(fs.readFileSync(path.join(recoveryRepo,'wiki.config.yaml')))}};
+  const recoveryRaw=JSON.stringify(recoveryMission),recoveryHash=hash(recoveryRaw);
+  fs.writeFileSync(path.join(recoveryDir,'mission.json'),recoveryRaw);fs.writeFileSync(path.join(dir,'mission-active.json'),JSON.stringify({run_id:recoveryId,contract_sha256:recoveryHash}));
+  const rp={...params,runId:recoveryId},rt={...turn,threadId:recoveryMission.native_thread_id};
+  guard.authorizeTurn(rp,rt,turnOwner,client,route,assertRoute);guard.bindTurn(recoveryId,rt.threadId,'source-turn');
+  const agent={agentId:'worker',sessionKey:m.session_key,expectedExistingSessionId:m.session_id,idempotencyKey:crypto.randomUUID(),internalRuntimeHandoffId:'native-handoff',internalExecutionIdentityRecoveryAttempt:1,inputProvenance:{kind:'internal_system'},deliver:false};
+  const cfg={agents:{entries:{worker:{sandbox:{mode:'all',workspaceAccess:'ro',backend:'docker',docker:{readOnlyRoot:true,network:'none'}}}}},tools:{allow:['read','ls','session_status'],fs:{workspaceOnly:true}}};
+  guard.authorizeNativeRecovery(agent,recoveryId,cfg,()=>{})();
+  const lcSpec=allHooks.files.find(f=>f.name===lifecycleName);
+  const nativeLifecycle=loader.transform(lifecycleName,fs.readFileSync(path.join(plugin,lcSpec.relative),'utf8'));
+  assert(nativeLifecycle.includes(lcSpec.edits[0][1]));
+  const lifecycleAdmission=new Function('wikiMissionGuard','input','saved','authority',lcSpec.edits[0][1].replaceAll('import.meta.url','input.moduleUrl')+'\nreturn wikiBootstrap;');
+  const resumed={...rp,runId:agent.idempotencyKey};
+  assert.equal(turnInstance.run(()=>lifecycleAdmission(guard,{params:resumed,client,moduleUrl:pathToFileURL(lifecycleFile).href},{threadId:rt.threadId},{assertCurrent:()=>{}})),null);
+  guard.authorizeTurn(resumed,rt,turnOwner,client,route,assertRoute)();guard.bindTurn(agent.idempotencyKey,rt.threadId,'recovery-turn');
+  guard.authorizeInference({binding,path:'/responses',provider:'openai',body:{model:m.model,reasoning:{effort:'high'}},metadata:{threadId:rt.threadId,turnId:'recovery-turn'}})();
   // Restore the earlier contract solely for the existing route-revocation regression.
   fs.writeFileSync(path.join(dir,'mission-active.json'),JSON.stringify({run_id:id,contract_sha256:crypto.createHash('sha256').update(rawMission).digest('hex')}));
   closed=true;assert.throws(check);closed=false;
   await inferenceInstance.dispose(undefined,{waitForSettlement:true});assert.throws(check,/capture_owner_retired/);
-  console.log(JSON.stringify({native_final_admission_race_refused:true,captured_bootstrap_custody_verified:true,native_managed_selection_verified:true,external_and_desktop_fallback_refused:true,distinct_native_captures:true,exact_transformed_async_route_body:true,actual_native_proxy_and_factory:true,wrong_client_refused:true,native_route_change_refused:true,client_close_refused:true,inference_owner_revocation_refused:true,synthetic_admission_only:true}));
+  console.log(JSON.stringify({native_recovery_lifecycle_and_turn_verified:true,native_final_admission_race_refused:true,captured_bootstrap_custody_verified:true,native_managed_selection_verified:true,external_and_desktop_fallback_refused:true,distinct_native_captures:true,exact_transformed_async_route_body:true,actual_native_proxy_and_factory:true,wrong_client_refused:true,native_route_change_refused:true,client_close_refused:true,inference_owner_revocation_refused:true,synthetic_admission_only:true}));
  });
 } finally {
  if(route)await route.close();
