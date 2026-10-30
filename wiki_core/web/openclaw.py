@@ -783,6 +783,76 @@ def resolve_failed(root, config, params, prepared):
             "canonical_write": False, "resolution": value}
 
 
+def _main_body_progress(root, plan, received, current):
+    """Derive approved body incorporation from existing writer/Git transitions.
+
+    Received material is a native communication, never a factual contribution.
+    Validate real Git segments so an integration followed by an editorial
+    consolidation in a later commit does not require relaxing their validator.
+    """
+    from wiki_core.action_transition import action_transition_diagnostics, operational_comment_receipt
+    old, old_body = _parse_document(received)
+    new, new_body = _parse_document(current)
+    history = old.get("action_state_history", [])
+    if (new.get("page_id") != plan["binding"]["action_id"]
+            or new.get("action_state_history", [])[:len(history)] != history
+            or new.get("action_dialogue", [])[:len(old.get("action_dialogue", []))] != old.get("action_dialogue", [])):
+        return False, False
+    sha = lambda text: hashlib.sha256(text.encode()).hexdigest()
+    states = {sha(received): False}
+    action = plan["binding"]["action_path"]
+    revisions = git(root, "rev-list", "--reverse", "--topo-order", "--full-history",
+                    plan["binding"]["base_head"] + "..HEAD", "--", action).splitlines()
+    # Only changes of this action count; unrelated repository history does not.
+    require(len(revisions) <= 1024, "openclaw_incorporation_history_budget")
+    def blob(revision):
+        return subprocess.check_output(["git", "show", revision + ":" + action],
+            cwd=root, stderr=subprocess.DEVNULL).decode()
+    for revision in revisions:
+        after = blob(revision)
+        if sha(after) in states:
+            continue
+        for parent in git(root, "show", "-s", "--format=%P", revision).split():
+            before = blob(parent)
+            if sha(before) not in states:
+                # The normal proposal may commit the receipt and its later
+                # curation together. The virtual boundary is exact native bytes.
+                if operational_comment_receipt(before, received) is None:
+                    continue
+                before = received
+            if action_transition_diagnostics(before, after):
+                continue
+            previous, before_body = _parse_document(before)
+            next_fm, after_body = _parse_document(after)
+            additions = next_fm.get("action_state_history", [])[len(previous.get("action_state_history", [])):]
+            content = [e for e in additions if e.get("kind") in {"body_integration", "body_consolidation"}
+                       or e.get("page_edit") is not None]
+            incorporated = False
+            identities_consistent = True
+            for event in content:
+                metadata = event.get("contribution", {})
+                structured = metadata.get("run_ref")
+                flat = metadata.get("run_id")
+                nested = structured.get("run_id") if isinstance(structured, dict) else None
+                if flat is not None and nested is not None and flat != nested:
+                    identities_consistent = False
+            if len(content) == 1 and content[0].get("kind") in {"body_integration", "body_consolidation"}:
+                material = content[0].get("contribution", {})
+                run_ref = material.get("run_ref")
+                run = material.get("run_id") or (run_ref.get("run_id") if isinstance(run_ref, dict) else None)
+                incorporated = (identities_consistent and run == plan["effect_key"] and before_body != after_body
+                    and material.get("before_body_sha256") == sha(before_body)
+                    and material.get("after_body_sha256") == sha(after_body)
+                    and material.get("before_body_revision") != material.get("after_body_revision"))
+            # General action diagnostics permit ordinary unreceipted prose
+            # edits. They cannot carry this narrower material provenance.
+            carry = states[sha(before)] and (before_body == after_body or bool(content)) and identities_consistent
+            states[sha(after)] = carry or incorporated
+            break
+    valid = sha(current) in states
+    return valid, bool(valid and states[sha(current)] and new_body != old_body)
+
+
 def proposal_status(root, config, directory, plan):
     """Read the existing material/Git outcome; never retry a write on reload."""
     manifest = directory / "receipt-material-integrity.json"
@@ -829,8 +899,8 @@ def proposal_status(root, config, directory, plan):
     require(bool(proof) and proof["event_id"] == "received-" + plan["effect_key"],
             "openclaw_receipt_semantics_changed")
     historical = False
+    incorporated = False
     if not matched and branch == str(config.approval.get("default_branch") or "main"):
-        from wiki_core.action_transition import action_transition_diagnostics
         current_text = subprocess.check_output(["git", "show", "HEAD:" + action], cwd=root).decode()
         old_fm, _ = _parse_document(after)
         current_fm, _ = _parse_document(current_text)
@@ -842,14 +912,20 @@ def proposal_status(root, config, directory, plan):
             # A revocation after switching to main can leave its old approved
             # revision selected. The receipt is still awaiting adoption.
             proof_bytes = None
+        valid, incorporated = _main_body_progress(root, plan, after, current_text)
         historical = (proof_bytes is not None
                       and current_fm.get("action_dialogue", [])[:len(events)] == events
-                      and not action_transition_diagnostics(after, current_text)
+                      and valid
                       and hashlib.sha256(proof_bytes).hexdigest() == expected[proof_doc])
     status = "received_in_main" if historical else ("received_in_main" if branch == str(config.approval.get("default_branch") or "main")
               else "prepared") if matched else "awaiting_adoption" if prepared else "material_ready" if (
                   head == material["base_head"] and branch == material["branch"]) else "reconciliation_required"
-    return {"status": status, "head": head, "approved_base": material["base_head"],
+    if incorporated and str(config.approval.get("gate") or "github_pr") == "github_pr":
+        approved = "refs/remotes/origin/" + str(config.approval.get("default_branch") or "main")
+        incorporated = subprocess.run(["git", "merge-base", "--is-ancestor", "HEAD", approved], cwd=root,
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    return {"status": status, "content_incorporated_in_main": status == "received_in_main" and incorporated,
+            "head": head, "approved_base": material["base_head"],
             "proposal_head": proposal_head, "branch": branch,
             "material_path": saved["material_path"], "material_sha256": saved["material_sha256"]}
 

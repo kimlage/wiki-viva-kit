@@ -53,6 +53,8 @@ def plan_tick(root, config, params):
             proposal = oc.proposal_status(root, config, directory, plan)
             if not proposal or proposal["status"] != "received_in_main":
                 return {**base, "mode": "review_required", "effect_key": plan["effect_key"]}
+            if not proposal.get("content_incorporated_in_main"):
+                return {**base, "mode": "incorporation_required", "effect_key": plan["effect_key"]}
         old.append(plan)
     if occurrence.exists():
         claim = oc.read_receipt(occurrence)

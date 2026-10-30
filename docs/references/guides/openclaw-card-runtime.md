@@ -390,3 +390,16 @@ duplicate dispatch. Passing synthetic tests or installing a wake-up schedule doe
 not establish those operational outcomes. Updating core/plugin/client/overlay is
 still a reviewed, separately installed candidate with the previous release and
 state preserved for compatible rollback; do not enable blind native auto-update.
+
+### Receipt and incorporated content are separate
+
+`received_in_main` proves the normal receipt comment, not useful incorporation.
+The derived `content_incorporated_in_main` flag additionally requires a real
+committed action-body change from the canonical writer on approved main (published for the GitHub PR gate), associated with the
+original effect's run_id (flat contribution metadata or run_ref). The proof uses
+the actual before/after body bytes and validated Git transitions, not a formatted
+material hash or a caller-provided flag. A separate later editorial consolidation
+is checked as its own committed segment; the mixed-change refusal is preserved.
+The recurring command returns `incorporation_required` until this proof exists.
+Independent PR review still assesses usefulness and factual accuracy; byte and
+writer provenance cannot determine whether arbitrary prose is true.
