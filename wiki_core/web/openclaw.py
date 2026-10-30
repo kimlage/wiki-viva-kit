@@ -36,6 +36,26 @@ def route_for(config, profile):
     return runtime, runtime["routes"][profile]
 
 
+class GatewayRequestError(RuntimeErrorCode):
+    def __init__(self, diagnostic):
+        self.diagnostic = diagnostic
+        super().__init__("openclaw_rpc_rejected_reconcile" if diagnostic["type"] == "rpc_rejection"
+                         else "openclaw_transport_failed_reconcile")
+
+
+def rpc_diagnostic(value):
+    """Retain only closed, non-secret error enums, never arbitrary provider text."""
+    error = value.get("error") if isinstance(value, dict) else None
+    if not isinstance(error, dict):
+        return None
+    if (set(error) == {"type", "code", "reason"}
+            and error["type"] in {"rpc_rejection", "transport_or_local"}
+            and error["code"] in {"INVALID_REQUEST", "UNAVAILABLE", "FORBIDDEN", "UNAUTHORIZED", "NOT_FOUND", "TIMEOUT", "UNKNOWN"}
+            and error["reason"] in {"system_provenance_requires_admin", "native_call_failed"}):
+        return error
+    return None
+
+
 class Gateway:
     def __init__(self, runtime, route):
         self.runtime, self.route = runtime, route
@@ -46,14 +66,19 @@ class Gateway:
         state = str(Path(self.runtime["state_dir"]).expanduser())
         env.update(OPENCLAW_PROFILE=self.runtime["profile"], OPENCLAW_STATE_DIR=state,
                    OPENCLAW_CONFIG_PATH=str(Path(state) / "openclaw.json"))
-        argv = [str(Path(self.runtime["node_binary"]).expanduser()),
-                str(Path(self.runtime["entrypoint"]).expanduser()),
-                "gateway", "call", "--expect-url", self.runtime["gateway"],
-                "--json", "--timeout", "20000", method, "--params", json.dumps(params)]
+        helper = Path(__file__).resolve().parents[2] / "scripts/openclaw/mission-rpc.mjs"
+        argv = [str(Path(self.runtime["node_binary"]).expanduser()), str(helper),
+                str(Path(self.runtime["entrypoint"]).expanduser().parent)]
+        request = json.dumps({"method": method, "params": params, "expectUrl": self.runtime["gateway"]})
         try:
-            result = subprocess.run(argv, env=env, capture_output=True, text=True, timeout=35)
-            require(result.returncode == 0, "openclaw_transport_failed_reconcile")
+            result = subprocess.run(argv, input=request, env=env, capture_output=True, text=True, timeout=35)
+            require(len(result.stdout) <= 512_000, "openclaw_invalid_response")
             value = json.loads(result.stdout)
+            if result.returncode:
+                diagnostic = rpc_diagnostic(value)
+                if diagnostic:
+                    raise GatewayRequestError(diagnostic)
+                raise RuntimeErrorCode("openclaw_transport_failed_reconcile")
             require(isinstance(value, dict), "openclaw_invalid_response")
             return value
         except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
@@ -251,13 +276,21 @@ def dispatch(root, config, prepared):
         write_new(directory.parent / "mission-active.json", {"run_id": prepared["effect_key"], "contract_sha256": contract_sha})
     # Selection is followed by actual native turn/inference guards. This patch
     # alone is not a model lock. Physical-session CAS preserves the route.
-    gateway.call("sessions.patch", {"key": route["session_key"], "expectedSessionId": route["session_id"],
-                                   "model": mission["model"], "thinkingLevel": mission["effort"]})
-    # An uncertain transport leaves durable intent. Never retry chat.send.
-    result = gateway.call("chat.send", {"sessionKey": route["session_key"], "message": prepared["message"],
-        "expectedLeafEntryId": prepared["expected_leaf"], "idempotencyKey": prepared["effect_key"],
-        "queueMode": "followup", "deliver": False, "sessionId": route["session_id"],
-        "thinking": mission["effort"], "suppressCommandInterpretation": True, "wikiMission": contract_sha})
+    stage = "selection"
+    try:
+        gateway.call("sessions.patch", {"key": route["session_key"], "expectedSessionId": route["session_id"],
+                                       "model": mission["model"], "thinkingLevel": mission["effort"]})
+        # An uncertain transport leaves durable intent. Never retry chat.send.
+        stage = "send"
+        result = gateway.call("chat.send", {"sessionKey": route["session_key"], "message": prepared["message"],
+            "expectedLeafEntryId": prepared["expected_leaf"], "idempotencyKey": prepared["effect_key"],
+            "queueMode": "followup", "deliver": False, "sessionId": route["session_id"],
+            "thinking": mission["effort"], "suppressCommandInterpretation": True, "wikiMission": contract_sha})
+    except GatewayRequestError as exc:
+        write_new(directory / "dispatch-error.json", {"schema_version": "wiki_openclaw_dispatch_error.v1",
+            "run_id": prepared["effect_key"], "plan_sha256": digest(prepared), "stage": stage,
+            "diagnostic": exc.diagnostic, "observed_at": dt.datetime.now(dt.timezone.utc).isoformat()})
+        raise
     require(result.get("runId") == prepared["effect_key"], "openclaw_unexpected_run_reconcile")
     receipt = {"effect_key": prepared["effect_key"], "action_id": b["action_id"],
                "run_id": result["runId"], "status": result.get("status"), "plan_sha256": digest(prepared)}
@@ -460,6 +493,19 @@ def validate_failure_review(review, plan, head, action_sha256):
 
 def validate_failure_evidence(evidence, plan):
     require(isinstance(evidence, dict), "openclaw_preserved_terminal_error_required")
+    if evidence.get("status") == "expired_unaccepted":
+        require(set(evidence) == {"status", "runId", "contract_sha256", "expires_at"}
+                and evidence["runId"] == plan["effect_key"] and "mission" in plan
+                and isinstance(evidence["contract_sha256"], str)
+                and re.fullmatch(r"[a-f0-9]{64}", evidence["contract_sha256"])
+                and isinstance(evidence["expires_at"], str), "openclaw_expired_mission_evidence_required")
+        try:
+            expires = dt.datetime.fromisoformat(evidence["expires_at"].replace("Z", "+00:00"))
+            require(expires.tzinfo is not None and expires <= dt.datetime.now(dt.timezone.utc),
+                    "openclaw_mission_not_expired")
+        except (TypeError, ValueError):
+            raise RuntimeErrorCode("openclaw_mission_not_expired") from None
+        return
     require(set(evidence) == {"status", "runId", "startedAt", "endedAt", "error"} and
             evidence["status"] == "error" and evidence["runId"] == plan["effect_key"] and
             type(evidence["startedAt"]) is int and type(evidence["endedAt"]) is int and
@@ -467,6 +513,27 @@ def validate_failure_evidence(evidence, plan):
             (evidence["error"] is None or
              isinstance(evidence["error"], str) and 0 < len(evidence["error"]) <= 2048),
             "openclaw_preserved_terminal_error_required")
+
+
+def validate_expired_unaccepted(directory, plan, evidence):
+    """No fabricated terminal: a now-unadmittable contract with no guarded turn."""
+    validate_failure_evidence(evidence, plan)
+    require(evidence.get("status") == "expired_unaccepted"
+            and not (directory / "accepted.json").exists()
+            and not (directory / "result.json").exists()
+            and not any(directory.glob("guard-*")), "openclaw_unaccepted_mission_not_eligible")
+    raw = receipt_bytes(directory / "mission.json")
+    contract = parse_receipt(raw.decode())
+    expected = {"schema_version": "wiki_openclaw_mission.v1", "run_id": plan["effect_key"],
+        "session_key": plan["route"]["session_key"], "session_id": plan["route"]["session_id"],
+        "native_thread_id": plan["mission"]["native_thread_id"],
+        "provider": plan["mission"]["model"].split("/", 1)[0],
+        "model": plan["mission"]["model"].split("/", 1)[1], "effort": plan["mission"]["effort"],
+        "message_sha256": plan["message_sha256"], "plan_sha256": digest(plan),
+        "action_id": plan["binding"]["action_id"], "action_sha256": plan["binding"]["action_sha256"],
+        "expires_at": evidence["expires_at"]}
+    require(contract == expected and hashlib.sha256(raw).hexdigest() == evidence["contract_sha256"],
+            "openclaw_expired_mission_changed")
 
 
 def verified_failure_resolution(directory, plan):
@@ -487,6 +554,8 @@ def verified_failure_resolution(directory, plan):
     require(isinstance(review, dict), "openclaw_failure_resolution_changed")
     validate_failure_review(review, plan, review.get("head"), review.get("action_sha256"))
     validate_failure_evidence(value.get("evidence"), plan)
+    if value["evidence"].get("status") == "expired_unaccepted":
+        validate_expired_unaccepted(directory, plan, value["evidence"])
     raw = value.get("evidence_raw")
     require(isinstance(raw, str) and hashlib.sha256(raw.encode()).hexdigest() == review.get("evidence_sha256")
             and parse_receipt(raw) == value["evidence"], "openclaw_failure_resolution_changed")
@@ -499,8 +568,7 @@ def verified_failure_resolution(directory, plan):
 def plan_failure_resolution(root, config, params):
     """An explicit reviewed recovery, not a reconstructed native final answer."""
     directory, plan, runtime, route = retained_intent(root, config, params)
-    require((directory / "accepted.json").exists() and not (directory / "result.json").exists(),
-            "openclaw_failure_resolution_not_eligible")
+    require(not (directory / "result.json").exists(), "openclaw_failure_resolution_not_eligible")
     current = binding(root, config, params["profile"], params["action_id"])
     require(git(root, "branch", "--show-current") == str(config.approval.get("default_branch") or "main"),
             "openclaw_resolution_requires_approved_checkout")
@@ -513,8 +581,19 @@ def plan_failure_resolution(root, config, params):
     require(evidence_path.is_relative_to(derived), "openclaw_evidence_must_be_derived")
     evidence, evidence_raw = reviewed_receipt(evidence_path, review["evidence_sha256"])
     validate_failure_evidence(evidence, plan)
+    expired_unaccepted = evidence.get("status") == "expired_unaccepted"
+    if expired_unaccepted:
+        validate_expired_unaccepted(directory, plan, evidence)
+    else:
+        require((directory / "accepted.json").exists(), "openclaw_failure_resolution_not_eligible")
     gateway = Gateway(runtime, route)
     history = idle_history(gateway)
+    if expired_unaccepted:
+        require(idle_leaf(history) == plan["expected_leaf"]
+                and history["sessionInfo"].get("lastRunId") != plan["effect_key"]
+                and not any(row.get("runId") == plan["effect_key"]
+                            for row in history["pendingInputs"].get("items", [])),
+                "openclaw_unaccepted_native_state_changed")
     observation = {"leaf": idle_leaf(history), "session_id": history["sessionId"],
                    "last_run": history["sessionInfo"].get("lastRunId"),
                    "pending": [{k: row.get(k) for k in ("id", "runId", "state")}
