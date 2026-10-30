@@ -1553,3 +1553,11 @@ the observer mark and rejects new requests or completed reads crossing demo.
 - Extended existing ingestion, action and sync integration scenarios to prove
   consolidation provenance, safe reingestion, board readback and Git rollback.
   [Release scope](../../docs/references/releases/operating-core-simplification-2026-10-28.md).
+
+## 2026-10-30 — bounded OpenClaw observation command
+
+Documented [wiki_openclaw_tick.py](../../scripts/wiki_openclaw_tick.py) in the
+[command reference](wiki/command-reference.md). It observes a configured rule
+through the existing administrative bus with ephemeral authentication and no
+background job worker. Native continuation, reviewed failure resolution and
+recurrence remain opt-in; runtime qualification is separate from this kit change.

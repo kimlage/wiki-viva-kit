@@ -53,6 +53,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_okf_export.py](../../../scripts/wiki_okf_export.py) | Export an OKF bundle |
 | [wiki_okf_import.py](../../../scripts/wiki_okf_import.py) | Preview an OKF import |
 | [wiki_okf_visualize.py](../../../scripts/wiki_okf_visualize.py) | Build an OKF viewer |
+| [wiki_openclaw_tick.py](../../../scripts/wiki_openclaw_tick.py) | Observe one configured recurring rule through a fresh native admin session; no persistent credentials or background job worker |
 | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) | Compile the daily cockpit |
 | [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py) | Compile sources/actions/contexts |
 | [wiki_pack.py](../../../scripts/wiki_pack.py) | Validate/operate experience packs |
