@@ -403,3 +403,24 @@ is checked as its own committed segment; the mixed-change refusal is preserved.
 The recurring command returns `incorporation_required` until this proof exists.
 Independent PR review still assesses usefulness and factual accuracy; byte and
 writer provenance cannot determine whether arbitrary prose is true.
+
+
+### Interrupted admitted turn without a preserved native terminal
+
+A Gateway restart can leave an admitted original turn `interrupted` while
+`agent.wait` reports `timeout`. Neither observation is a terminal error or a
+successful result. The failure resolver accepts a separate `expired_interrupted`
+evidence mode only after the immutable original contract expires, with no result,
+terminal guard or recovery artifact, intact accepted/turn/bound/inference lineage,
+and a fresh idle physical session whose current leaf belongs to that original run.
+A native queue, another leaf, a partial continuation, an unexpired contract or a
+changed mission lock refuses this route.
+
+Independent review still binds the exact approved head, action, contract/evidence
+and original run. Resolution rechecks native state and retained bytes under the
+same cross-process mission mutex used by creation, immediately before recording
+`resolved_without_result` and releasing only that mission's lock. It preserves
+original evidence, records external effects as undetermined, creates no final
+answer and never dispatches. Repeated reads of the resolution are separate from a
+new mission. Recurrence keeps its consumed occurrence and requires a genuinely
+changed watched condition before a future eligible occurrence.

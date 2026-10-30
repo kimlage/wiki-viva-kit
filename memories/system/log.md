@@ -1573,3 +1573,8 @@ Git/action receipt chain supplies the proof without another registry.
 ## 2026-10-30 — normalized optional recovery policy
 
 Native configuration normalization creates own optional exec keys with undefined values. The [mission guard](../../scripts/openclaw/mission-guard.mjs) now treats only undefined fields as absent policy, preserving refusal of every defined override. Synthetic tests cover normalization and null/false/empty/defined extensions. This corrects a pre-dispatch continuation refusal; no Gateway recovery or downstream activation is inferred from these tests.
+
+
+## 2026-10-30 — expired interrupted original without a native terminal
+
+A separate [failure reconciliation](../../docs/references/guides/openclaw-card-runtime.md#interrupted-admitted-turn-without-a-preserved-native-terminal) preserves an admitted original and distinguishes native interruption/timeout from terminal error. Expiry, intact guard lineage, no continuation, a fresh idle original leaf and independent exact review are required; recording and own-lock release share the mission mutex. It creates no result or automatic retry. Synthetic race, wrong-lock, partial-continuation and state/selection regressions are included; no personal live recovery is claimed here.
