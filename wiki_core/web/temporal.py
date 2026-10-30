@@ -568,6 +568,7 @@ def _adapt_pages(
                     "legacy_canonicalization": "action_state_canonicalized",
                     "contract_update": "action_contract_updated",
                     "body_integration": "action_contract_updated",
+                    "body_consolidation": "action_contract_updated",
                     "comment": "activity_recorded",
                 }.get(receipt_kind, "")
                 if not event_kind:

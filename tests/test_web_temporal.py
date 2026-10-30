@@ -527,7 +527,8 @@ def test_untrusted_action_receipt_id_never_emits_confirmed_history(
     )
 
 
-def test_state_preserving_receipts_use_truthful_kinds_and_reject_unknown_kind() -> None:
+@pytest.mark.parametrize("kind", ["contract_update", "body_integration", "body_consolidation"])
+def test_state_preserving_receipts_use_truthful_kinds_and_reject_unknown_kind(kind) -> None:
     first_receipt = "sha256:" + "1" * 64
     second_receipt = "sha256:" + "2" * 64
     pages = {
@@ -556,7 +557,7 @@ def test_state_preserving_receipts_use_truthful_kinds_and_reject_unknown_kind() 
                         {
                             "receipt_id": second_receipt,
                             "prior_receipt_id": first_receipt,
-                            "receipt_kind": "contract_update",
+                            "receipt_kind": kind,
                             "previous_state": "open",
                             "next_state": "open",
                             "recorded_at": "2026-07-11T11:00:00Z",

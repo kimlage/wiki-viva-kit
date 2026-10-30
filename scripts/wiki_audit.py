@@ -288,12 +288,15 @@ LIST_STALE_GAPS = False
 
 def run_git(args: list[str]) -> str:
     try:
-        return subprocess.check_output(
+        output = subprocess.check_output(
             ["git", *args],
             cwd=ROOT,
             text=True,
             stderr=subprocess.DEVNULL,
-        ).strip()
+        )
+        # Blob contents participate in exact receipt replay. Only command
+        # metadata may be trimmed; git show must retain terminal newlines.
+        return output if args and args[0] == "show" else output.strip()
     except subprocess.CalledProcessError:
         return ""
 

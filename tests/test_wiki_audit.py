@@ -2290,3 +2290,39 @@ def test_text_at_audit_base_preserves_trailing_newline(tmp_path, monkeypatch, au
     audit._text_at_audit_base.cache_clear()
 
     assert audit._text_at_audit_base("receipt.yaml") == "schema_version: receipt.v1\n"
+
+
+def test_editorial_receipt_audits_real_git_blob_without_trimming(tmp_path, monkeypatch):
+    audit = _load_wiki_audit()
+    from tests.test_action_consolidation import fixture, apply
+    from wiki_core.action_transition import _parse_document
+    from wiki_core.page_types import _action_history_shape_errors
+    p, _, records = fixture(tmp_path)
+    before = p.read_text()
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, text=True, stderr=subprocess.DEVNULL)
+    git('init', '-b', 'main')
+    git('config', 'user.email', 'synthetic@example.invalid')
+    git('config', 'user.name', 'Synthetic test')
+    git('add', '.')
+    git('commit', '-m', 'Synthetic editorial base')
+    apply(tmp_path, p, records)
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    rel = p.relative_to(tmp_path).as_posix()
+    assert audit._action_candidate_texts_by_path_at_ref('main')[rel] == before
+    errors = []
+    audit.audit_action_state_transitions(errors)
+    assert errors == []
+    fm, _ = _parse_document(p.read_text())
+    assert _action_history_shape_errors(rel, fm, fm['action_state']) == []
+    from copy import deepcopy
+    from wiki_core.action_transition import _receipt_id
+    malformed = deepcopy(fm)
+    event = malformed['action_state_history'][-1]
+    del event['contribution']['consolidations']
+    event['receipt_id'] = _receipt_id(event)
+    assert any('missing its exact replacements' in e for e in
+               _action_history_shape_errors(rel, malformed, malformed['action_state']))
+    p.write_text(p.read_text() + '\nUnreviewed statement.\n')
+    audit.audit_action_state_transitions(errors)
+    assert any('invalid_body_consolidation' in e for e in errors)
