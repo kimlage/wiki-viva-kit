@@ -69,3 +69,17 @@ def test_literal_mention_without_consumption_does_not_claim_readiness(tmp_path):
     page.write_text(page.read_text()+'The operational_prerequisite vocabulary is described elsewhere.\n')
     result=build_page_content(tmp_path,config,'evidence',snapshot(tmp_path,config),include_information=True)
     assert 'information_use' not in result
+
+
+def test_requirement_loaded_first_as_an_aliased_evidence_still_expands_its_own_evidence(tmp_path):
+    config,_,_=fixture(tmp_path)
+    original=(tmp_path/'memories/index.md').read_text().replace('verified_at: 2026-01-01','verified_at: 2026-10-30')
+    (tmp_path/'memories/b.md').write_text(original.replace('page_id: claim','page_id: b'))
+    (tmp_path/'memories/index.md').write_text(original.replace('memories/evidence.md','b'))
+    action=tmp_path/'memories/action.md'
+    action.write_text(action.read_text().replace('information_requirements:\n',
+        'information_requirements:\n- target: memories/b.md\n  fields: [body]\n  temporal: current\n  max_age_days: 1\n'))
+    commit(tmp_path)
+    result=build_page_content(tmp_path,config,'action',snapshot(tmp_path,config),include_information=True)['information_use']
+    assert result['ready'],result
+    assert [row['target'] for row in result['requirements']]==['memories/b.md','memories/index.md']

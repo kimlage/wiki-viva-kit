@@ -292,7 +292,7 @@ def _reader_information(root, config, path, values, body, snapshot):
                 graph['errors'].append(content.get('error_code') or 'information_reference_unreadable')
                 continue
             graph['nodes'][target]=content['frontmatter'];graph['documents'][target]=content['body']
-            if ref in targets:
+            if target in targets:
                 evidence=content['frontmatter'].get('evidence_refs',[])
                 if not isinstance(evidence,list) or any(not isinstance(item,str) for item in evidence):
                     graph['errors'].append('information_evidence_invalid')
