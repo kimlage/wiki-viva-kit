@@ -15,6 +15,7 @@ import json
 import math
 import posixpath
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -271,6 +272,13 @@ def _reader_information(root, config, path, values, body, snapshot):
     """
     from wiki_core.information_relations import operational_consumption_edges
     from wiki_core.information_use import bind_verification_coverage, assess_information_use
+    def head():
+        try:
+            return subprocess.check_output(['git','rev-parse','--verify','HEAD'],cwd=root,
+                text=True,stderr=subprocess.DEVNULL).strip()
+        except (OSError,subprocess.SubprocessError):
+            return None
+    original_head=head()
     pages=snapshot.get('pages.json',{}).get('pages',[])
     def resolve(ref):
         return sorted({p['path'] for p in pages if p.get('id')==ref or p.get('path')==ref})
@@ -292,7 +300,7 @@ def _reader_information(root, config, path, values, body, snapshot):
                 graph['errors'].append(content.get('error_code') or 'information_reference_unreadable')
                 continue
             graph['nodes'][target]=content['frontmatter'];graph['documents'][target]=content['body']
-            if target in targets:
+            if target in targets or content['frontmatter'].get('page_type')=='claim':
                 evidence=content['frontmatter'].get('evidence_refs',[])
                 if not isinstance(evidence,list) or any(not isinstance(item,str) for item in evidence):
                     graph['errors'].append('information_evidence_invalid')
@@ -309,7 +317,16 @@ def _reader_information(root, config, path, values, body, snapshot):
         if now.tzinfo is None:raise ValueError('timezone missing')
     except ValueError:
         now=dt.datetime.now(dt.timezone.utc)
-    result=assess_information_use(bind_verification_coverage(root,graph),path,now=now)
+    qualified=bind_verification_coverage(root,graph)
+    # Coverage reads Git and source bytes independently. They must still be
+    # the exact snapshot revisions whose metadata is about to be presented.
+    for ref in graph['nodes']:
+        current=build_page_content(root,config,ref,snapshot,include_information=False)
+        if not current.get('ok'):
+            qualified['errors'].append(current.get('error_code') or 'information_reference_unreadable')
+    if head()!=original_head:
+        qualified['errors'].append('snapshot_revision_mismatch')
+    result=assess_information_use(qualified,path,now=now)
     return {**result,'assessed_at':now.isoformat(),'permission_granted':False}
 
 

@@ -58,6 +58,28 @@ def test_current_use_without_revision_coverage_is_not_verified():
     assert not assess_information_use(g,'action',now=NOW)['ready']
 
 
+def test_self_evidence_or_closed_claim_cycle_cannot_certify_current_use():
+    g=graph();g['nodes']['claim']['evidence_refs']=['claim']
+    result=assess_information_use(g,'action',now=NOW)
+    assert not result['ready']
+    assert 'information_evidence_self_reference' in result['requirements'][0]['blockers']
+    g=graph();g['nodes']['other']={'page_type':'claim','evidence_refs':['claim']}
+    g['nodes']['claim']['evidence_refs']=['other'];g['documents']['other']='Another assertion.'
+    result=assess_information_use(g,'action',now=NOW)
+    assert not result['ready'] and 'information_evidence_closed_claim_cycle' in result['requirements'][0]['blockers']
+    g['nodes']['other']['evidence_refs'].append('evidence')
+    assert assess_information_use(g,'action',now=NOW)['ready']
+
+
+def test_missing_provenance_never_enters_a_filesystem_read(tmp_path,monkeypatch):
+    import wiki_core.information_use as information
+    g=graph();g['nodes']['claim']['evidence_refs']=['../../unapproved.md']
+    def forbidden(*args,**kwargs):raise AssertionError('Unloaded evidence must not be read')
+    monkeypatch.setattr(information,'verification_covers_content',forbidden)
+    bound=information.bind_verification_coverage(tmp_path,g)
+    assert not assess_information_use(bound,'action',now=NOW)['ready']
+
+
 def test_replacing_evidence_or_promoting_confidence_requires_verification(tmp_path):
     import subprocess
     from wiki_core.information_use import verification_covers_content

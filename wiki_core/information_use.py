@@ -11,6 +11,32 @@ from wiki_core.information_relations import dependency_edges
 from wiki_core.temporal import parse_temporal_value, TemporalEventError
 
 
+def _evidence_issues(graph: dict, claim: str) -> set[str]:
+    """A closed claim cycle is not an independent observation.
+
+    Only inspect the caller's already authorized graph. Missing provenance is
+    an impediment, never permission to fetch another source implicitly.
+    """
+    issues=set();visited=set();has_observation=False
+    pending=[claim]
+    while pending:
+        path=pending.pop()
+        if path in visited:continue
+        visited.add(path)
+        if path not in graph['documents']:
+            issues.add('information_evidence_missing');continue
+        values=graph['nodes'].get(path,{})
+        if values.get('page_type')!='claim':
+            has_observation=True;continue
+        refs=values.get('evidence_refs',[])
+        if not isinstance(refs,list) or not refs or any(not isinstance(ref,str) for ref in refs):
+            issues.add('information_evidence_missing');continue
+        if path in refs:issues.add('information_evidence_self_reference')
+        pending.extend(refs)
+    if not has_observation:issues.add('information_evidence_closed_claim_cycle')
+    return issues
+
+
 def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> dict:
     if now.tzinfo is None:
         raise ValueError('information use requires an explicit timezone')
@@ -47,6 +73,8 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
                     or any(not isinstance(p, str) or p not in graph['documents'] for p in evidence)):
                 reasons.append('information_evidence_missing')
                 evidence = []
+            else:
+                reasons.extend(_evidence_issues(graph,path))
             try:
                 verified = parse_temporal_value(str(values.get('verified_at') or ''))
                 # Keep precision: month/year cannot establish day-scale freshness.
@@ -153,8 +181,20 @@ def bind_verification_coverage(root, graph: dict) -> dict:
         if edge['type']!='operational_prerequisite' or not requirement or requirement['temporal']!='current':continue
         path=edge['prerequisite'];refs=nodes.get(path,{}).get('evidence_refs',[])
         key=coverage_key(path,requirement['fields'])
-        coverage[key]=(isinstance(refs,list) and all(isinstance(ref,str) for ref in refs)
-            and verification_covers_content(root,path,requirement['fields'],refs))
+        pending=list(refs) if isinstance(refs,list) else [];expanded=set();valid=isinstance(refs,list)
+        while pending:
+            ref=pending.pop()
+            if not isinstance(ref,str) or ref not in graph['documents']:
+                valid=False;continue
+            if ref==path or ref in expanded:continue
+            expanded.add(ref)
+            if nodes.get(ref,{}).get('page_type')=='claim':
+                further=nodes[ref].get('evidence_refs',[])
+                if not isinstance(further,list):valid=False
+                else:pending.extend(further)
+        # Only authorized, loaded provenance may enter a filesystem/Git read.
+        # A changed leaf cannot inherit the verification of its unchanged claim.
+        coverage[key]=(valid and verification_covers_content(root,path,requirement['fields'],sorted(expanded)))
     return {**graph,'nodes':nodes,'verification_coverage':coverage}
 
 

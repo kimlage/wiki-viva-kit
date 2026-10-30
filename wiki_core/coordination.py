@@ -234,12 +234,27 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
             evidence_refs = target_content['frontmatter'].get('evidence_refs', [])
             if not isinstance(evidence_refs, list) or any(not isinstance(ref, str) for ref in evidence_refs):
                 raise CoordinationError('invalid information evidence references')
-            for ref in evidence_refs:
+            pending_evidence=list(evidence_refs)
+            loaded_evidence={target['path']}
+            while pending_evidence:
+                ref=pending_evidence.pop()
                 matches = resolve_information(ref)
                 if len(matches) != 1:
                     raise CoordinationError('information evidence missing or ambiguous')
                 evidence = by_path[matches[0]]
                 required[evidence['id']] = evidence
+                if evidence['path'] in loaded_evidence:continue
+                loaded_evidence.add(evidence['path'])
+                if authorize_ref:
+                    authorize_ref(evidence['path'],evidence['content_sha256'])
+                evidence_content=build_page_content(root,config,evidence['id'],snapshot)
+                if not evidence_content.get('ok'):
+                    raise CoordinationError('information evidence revision changed; refresh')
+                if evidence_content['frontmatter'].get('page_type')=='claim':
+                    further=evidence_content['frontmatter'].get('evidence_refs',[])
+                    if not isinstance(further,list) or any(not isinstance(item,str) for item in further):
+                        raise CoordinationError('invalid information evidence references')
+                    pending_evidence.extend(further)
             information_edges.append({**requirement, 'target': target['path']})
         for field in ("source_refs", "related_pages", "related_holons", "roles", "responsibilities", "claims", "decisions", "evidence_refs", "moc_parent"):
             values = fm.get(field, [])
