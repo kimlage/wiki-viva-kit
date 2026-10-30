@@ -353,8 +353,10 @@ The default remains inspect-only recovery. A consumer may opt in with
 `recovery: {mode: read_only, max_continuations: 1}` under its OpenClaw config.
 The mission records the approved Git revision, action bytes and configuration.
 The version-qualified native recovery admission links its new native run to the
-original mission, physical session and original bound turn. It sets the original
-model and effort explicitly and narrows the native recovery tools. The fresh
+original mission, physical session and original bound turn. It requires the
+existing explicit user/session selection to match the original provider and model,
+passes the original effort explicitly, and narrows the native recovery tools.
+It grants no model/provider override to the internal caller. The fresh
 native client, owner and inference route must qualify normally; disk receipts
 cannot reconstruct those capabilities.
 
