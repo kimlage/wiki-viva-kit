@@ -168,6 +168,9 @@ test('one native continuation retains original claim, selects explicitly and bin
  const live=f.recoveryGuard(f.recoveryAgent,f.m.run_id,f.cfg,()=>{});live();
  assert.equal(f.recoveryAgent.model,'openai/example-model');assert.equal(f.recoveryAgent.thinking,'high');assert.equal(f.recoveryAgent.forceRestartSafeTools,true);
  const params={...f.params,runId:f.recoveryAgent.idempotencyKey};
+ const lifecycle=(await import('../../scripts/openclaw/mission-guard.mjs')).beginBootstrapThread;
+ assert.throws(()=>lifecycle(params,f.client,null,f.native.creationOwner,()=>{}),/recovery_existing_thread_required/);
+ assert.equal(lifecycle(params,f.client,{threadId:f.m.native_thread_id},f.native.creationOwner,()=>{}),null);
  authorizeTurn(params,f.turn,f.owner,f.client,f.route,f.assertRouteCurrent);bindTurn(params.runId,f.m.native_thread_id,'continuation-turn');
  authorizeInference({...f.inference,metadata:{...f.inference.metadata,turnId:'continuation-turn'}});
  recordTerminal(f.m.native_thread_id,{id:'continuation-turn',status:'completed'});

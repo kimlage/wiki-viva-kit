@@ -21,9 +21,7 @@ def plan_tick(root, config, params):
     rule_id = params["rule_id"]
     rule = runtime.get("recurring", {}).get(rule_id)
     require(rule is not None, "openclaw_recurring_not_configured")
-    b = oc.binding(root, config, rule["profile"], rule["action_id"])
-    require(oc.git(root, "branch", "--show-current") == str(config.approval.get("default_branch") or "main"),
-            "openclaw_dispatch_requires_approved_checkout")
+    b = oc.binding(root, config, rule["profile"], rule["action_id"], admissible=False, require_clean=False)
     slot = int(now().timestamp()) // (rule["interval_minutes"] * 60)
     parent = oc.storage(root, config, "wiki-run-" + "0" * 32).parent
     occurrence = oc._safe(root, (parent / "occurrences" / rule_id / (str(slot) + ".json")).relative_to(root).as_posix())
@@ -49,9 +47,12 @@ def plan_tick(root, config, params):
         directory, _, _, _ = oc.retained_intent(root, config, query)
         if not (directory / "result.json").exists() and not (directory / "failure-resolution.json").exists():
             return {**base, "mode": "inspect", "query": query, "effect_key": plan["effect_key"]}
-        proposal = oc.proposal_status(root, config, directory, plan)
-        if not proposal or proposal["status"] != "received_in_main":
-            return {**base, "mode": "review_required", "effect_key": plan["effect_key"]}
+        if (directory / "failure-resolution.json").exists():
+            oc.verified_failure_resolution(directory, plan, root)
+        else:
+            proposal = oc.proposal_status(root, config, directory, plan)
+            if not proposal or proposal["status"] != "received_in_main":
+                return {**base, "mode": "review_required", "effect_key": plan["effect_key"]}
         old.append(plan)
     if occurrence.exists():
         claim = oc.read_receipt(occurrence)

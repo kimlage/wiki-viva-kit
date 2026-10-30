@@ -98,9 +98,10 @@ def git(root, *args):
     return subprocess.check_output(["git", *args], cwd=root, text=True, stderr=subprocess.DEVNULL).strip()
 
 
-def binding(root, config, profile, action_id, *, admissible=True):
+def binding(root, config, profile, action_id, *, admissible=True, require_clean=True):
     require(load_config(root) == config, "openclaw_operator_config_changed_restart")
-    require(not git(root, "status", "--porcelain", "--untracked-files=all"), "openclaw_checkout_not_clean")
+    if require_clean:
+        require(not git(root, "status", "--porcelain", "--untracked-files=all"), "openclaw_checkout_not_clean")
     packet = context_packet(root, config, build_snapshot(root, config), profile, action_id)
     require(len(packet["actions"]) == 1, "openclaw_exact_action_required")
     action = packet["actions"][0]
@@ -248,6 +249,8 @@ def plan_dispatch(root, config, params):
     mission = {"id": params["mission_id"], **option, "native_thread_id": route.get("native_thread_id")}
     if bootstrap:
         mission["native_thread_binding"] = "first_turn"
+    elif runtime.get("recovery"):
+        mission["recovery"] = copy.deepcopy(runtime["recovery"])
     canonical = binding(root, config, profile, action)
     require(canonical["action_sha256"] == params["action_sha256"], "openclaw_action_revision_changed")
     effect = "wiki-run-" + digest({"action": canonical, "message": message, "route": route, "mission": mission})[:32]
@@ -259,7 +262,7 @@ def plan_dispatch(root, config, params):
     leaf = idle_leaf(idle_history(Gateway(runtime, route), allow_empty=bootstrap), allow_empty=bootstrap)
     require(not bootstrap or leaf is None, "openclaw_bootstrap_not_empty")
     return {"binding": canonical, "route": route, "route_sha256": digest(runtime), "message": message,
-            "runtime_identity_sha256": digest({k: v for k, v in runtime.items() if k not in {"mission_options", "recovery", "recurring"}}),
+            "runtime_identity_sha256": digest({k: v for k, v in runtime.items() if k not in {"recovery", "recurring"}}),
             "message_sha256": hashlib.sha256(message.encode()).hexdigest(), "expected_leaf": leaf,
             "effect_key": effect, "mission": mission, "canonical_write": False}
 
@@ -295,8 +298,8 @@ def dispatch(root, config, prepared):
         contract['expires_at'] = min(dt.datetime.fromisoformat(contract['expires_at']), deadline).isoformat()
     if bootstrap:
         contract["native_thread_binding"] = "first_turn"
-    elif runtime.get("recovery"):
-        contract["recovery"] = {**runtime["recovery"], "repo_root": str(root.resolve()),
+    elif mission.get("recovery"):
+        contract["recovery"] = {**mission["recovery"], "repo_root": str(root.resolve()),
             "approved_head": b["base_head"], "action_path": b["action_path"],
             "action_sha256": b["action_sha256"],
             "config_sha256": hashlib.sha256((root / "wiki.config.yaml").read_bytes()).hexdigest()}
@@ -356,7 +359,7 @@ def retained_intent(root, config, params):
         prior_route = previous_runtime["routes"][params["profile"]]
         prior_route.pop("native_thread_id")
         prior_route["native_thread_binding"] = "first_turn"
-    identity = {k: v for k, v in previous_runtime.items() if k not in {"mission_options", "recovery", "recurring"}}
+    identity = {k: v for k, v in previous_runtime.items() if k not in {"recovery", "recurring"}}
     legacy_addition = {k: v for k, v in previous_runtime.items() if k not in {"recovery", "recurring"}}
     require((digest(previous_runtime) == plan["route_sha256"]
              or digest(legacy_addition) == plan["route_sha256"]
@@ -392,6 +395,11 @@ def recovery_claim(directory, plan):
             and claim.get("session_id") == plan["route"]["session_id"]
             and claim.get("thread_id") == selected["native_thread_id"]
             and claim.get("source_turn_id") == original.get("turn_id")
+            and isinstance(original.get("turn_id"), str) and bool(original["turn_id"])
+            and original.get("run_id") == plan["effect_key"]
+            and original.get("thread_id") == selected["native_thread_id"]
+            and original.get("contract_sha256") == sha
+            and original.get("session_id", plan["route"]["session_id"]) == plan["route"]["session_id"]
             and claim.get("contract_sha256") == sha
             and claim.get("model") == selected["model"].split("/", 1)[1]
             and claim.get("effort") == selected["effort"]
@@ -525,7 +533,7 @@ def inspect(root, config, params):
     """Reconcile one retained run, including after an operator restart."""
     directory, plan, runtime, route = retained_intent(root, config, params)
     if (directory / "failure-resolution.json").exists():
-        resolution = verified_failure_resolution(directory, plan)
+        resolution = verified_failure_resolution(directory, plan, root)
         return {"action_id": params["action_id"], "effect_key": params["effect_key"],
                 "status": "resolved_without_result", "reconciled": True, "result_available": False,
                 "resolution": resolution, "new_dispatch": False, "canonical_write": False}
@@ -584,7 +592,7 @@ def attempts(root, config, profile, action_id):
                 verified_result(path.parent, plan)
             resolved = (path.parent / "failure-resolution.json").exists()
             if resolved:
-                verified_failure_resolution(path.parent, plan)
+                verified_failure_resolution(path.parent, plan, root)
             found.append({"effect_key": plan["effect_key"], "attempted_at": intent["attempted_at"],
                           "has_result": has_result, "reconciled": has_result or resolved,
                           "resolved_without_result": resolved,
@@ -619,7 +627,7 @@ def validate_failure_review(review, plan, head, action_sha256):
             review["author"].strip() != review["reviewer"].strip(), "openclaw_independent_failure_review_required")
 
 
-def validate_failure_evidence(evidence, plan):
+def validate_failure_evidence(evidence, plan, directory=None):
     require(isinstance(evidence, dict), "openclaw_preserved_terminal_error_required")
     if evidence.get("status") == "expired_unaccepted":
         require(set(evidence) == {"status", "runId", "contract_sha256", "expires_at"}
@@ -634,8 +642,10 @@ def validate_failure_evidence(evidence, plan):
         except (TypeError, ValueError):
             raise RuntimeErrorCode("openclaw_mission_not_expired") from None
         return
+    recovery = recovery_claim(directory, plan) if directory is not None else None
+    expected_run = recovery["native_run_id"] if recovery else plan["effect_key"]
     require(set(evidence) == {"status", "runId", "startedAt", "endedAt", "error"} and
-            evidence["status"] == "error" and evidence["runId"] == plan["effect_key"] and
+            evidence["status"] == "error" and evidence["runId"] == expected_run and
             type(evidence["startedAt"]) is int and type(evidence["endedAt"]) is int and
             0 < evidence["startedAt"] <= evidence["endedAt"] <= int(dt.datetime.now(dt.timezone.utc).timestamp()*1000) and
             (evidence["error"] is None or
@@ -643,7 +653,7 @@ def validate_failure_evidence(evidence, plan):
             "openclaw_preserved_terminal_error_required")
 
 
-def validate_expired_unaccepted(directory, plan, evidence):
+def validate_expired_unaccepted(directory, plan, evidence, root=None):
     """No fabricated terminal: a now-unadmittable contract with no guarded turn."""
     validate_failure_evidence(evidence, plan)
     require(evidence.get("status") == "expired_unaccepted"
@@ -662,11 +672,21 @@ def validate_expired_unaccepted(directory, plan, evidence):
         "expires_at": evidence["expires_at"]}
     if plan["mission"].get("native_thread_binding") == "first_turn":
         expected["native_thread_binding"] = "first_turn"
+    elif plan["mission"].get("recovery"):
+        b = plan["binding"]
+        require(root is not None, "openclaw_recovery_root_required")
+        original_config = subprocess.check_output(["git", "show", b["base_head"] + ":wiki.config.yaml"],
+                                                   cwd=root, stderr=subprocess.DEVNULL)
+        # The root recorded in this immutable contract is compared to the
+        # original approved checkout by the planner's independently reviewed bytes.
+        expected["recovery"] = {**plan["mission"]["recovery"], "repo_root": str(root.resolve()),
+            "approved_head": b["base_head"], "action_path": b["action_path"], "action_sha256": b["action_sha256"],
+            "config_sha256": hashlib.sha256(original_config).hexdigest()}
     require(contract == expected and hashlib.sha256(raw).hexdigest() == evidence["contract_sha256"],
             "openclaw_expired_mission_changed")
 
 
-def verified_failure_resolution(directory, plan):
+def verified_failure_resolution(directory, plan, root=None):
     value = read_receipt(directory / "failure-resolution.json")
     require(not (directory / "result.json").exists() and
             value.get("schema_version") == "wiki_openclaw_failure_resolution.v1" and
@@ -683,9 +703,9 @@ def verified_failure_resolution(directory, plan):
     review = value.get("review")
     require(isinstance(review, dict), "openclaw_failure_resolution_changed")
     validate_failure_review(review, plan, review.get("head"), review.get("action_sha256"))
-    validate_failure_evidence(value.get("evidence"), plan)
+    validate_failure_evidence(value.get("evidence"), plan, directory)
     if value["evidence"].get("status") == "expired_unaccepted":
-        validate_expired_unaccepted(directory, plan, value["evidence"])
+        validate_expired_unaccepted(directory, plan, value["evidence"], root)
     raw = value.get("evidence_raw")
     require(isinstance(raw, str) and hashlib.sha256(raw.encode()).hexdigest() == review.get("evidence_sha256")
             and parse_receipt(raw) == value["evidence"], "openclaw_failure_resolution_changed")
@@ -710,10 +730,10 @@ def plan_failure_resolution(root, config, params):
     evidence_path = _safe(root, review["evidence_path"])
     require(evidence_path.is_relative_to(derived), "openclaw_evidence_must_be_derived")
     evidence, evidence_raw = reviewed_receipt(evidence_path, review["evidence_sha256"])
-    validate_failure_evidence(evidence, plan)
+    validate_failure_evidence(evidence, plan, directory)
     expired_unaccepted = evidence.get("status") == "expired_unaccepted"
     if expired_unaccepted:
-        validate_expired_unaccepted(directory, plan, evidence)
+        validate_expired_unaccepted(directory, plan, evidence, root)
     else:
         require((directory / "accepted.json").exists(), "openclaw_failure_resolution_not_eligible")
     gateway = Gateway(runtime, route)
@@ -742,7 +762,7 @@ def resolve_failed(root, config, params, prepared):
     directory = storage(root, config, params["effect_key"])
     plan = current["plan"]
     if (directory / "failure-resolution.json").exists():
-        value = verified_failure_resolution(directory, plan)
+        value = verified_failure_resolution(directory, plan, root)
         require(value["review"] == current["review"] and value["evidence"] == current["evidence"],
                 "openclaw_failure_resolution_changed")
     else:

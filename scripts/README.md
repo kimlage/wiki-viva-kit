@@ -136,3 +136,13 @@ Directory source identities hash visible regular-file paths and content, not
 file sizes or checkout timestamps. Dotfiles remain excluded; unreadable entries
 and symbolic links fail explicitly. New captures can receive a different ID;
 existing manifests and references are preserved.
+
+### Bounded OpenClaw wake-up
+
+[wiki_openclaw_tick.py](wiki_openclaw_tick.py) invokes only the configured recurring
+rule through the native administrative bus. The authorized local coordinator
+runs `python3 scripts/wiki_openclaw_tick.py --rule <rule-id>` in the approved
+checkout. Each invocation uses an ephemeral loopback operator/session and drops
+startup authentication in memory on exit; no credential is saved for a scheduler.
+It does not expose arbitrary RPC, direct dispatch or a task queue. See the
+[mission and recurring contract](../docs/references/guides/openclaw-card-runtime.md#opt-in-native-restart-continuation-and-recurring-observation).

@@ -101,7 +101,8 @@ export function authorizeNativeRecovery(agent, sourceRunId, cfg, assertAdmission
   lock.recovery={native_run_id:id};assertRecoveryContext(lock);
   const original=JSON.parse(read(path.join(lock.runDir,'guard-bound-turn.json')));
   require(original.run_id===sourceRunId && original.thread_id===m.native_thread_id
-    && original.contract_sha256===lock.hash && typeof original.turn_id==='string','recovery_original_turn_required');
+    && original.contract_sha256===lock.hash && typeof original.turn_id==='string' && original.turn_id.length>0
+    && (original.session_id===undefined || original.session_id===m.session_id),'recovery_original_turn_required');
   const terminalFile=path.join(lock.runDir,'guard-terminal.json');
   require(!fs.existsSync(terminalFile) || JSON.parse(read(terminalFile)).status!=='completed','recovery_already_completed');
   const claim={schema_version:'wiki_openclaw_recovery.v1',run_id:sourceRunId,native_run_id:id,
@@ -132,7 +133,14 @@ export function authorizeAdmission(params, relation, sessionId) {
   writeExclusive(path.join(lock.runDir,'guard-bootstrap-admission.json'),{run_id:lock.m.run_id,session_id:sessionId,contract_sha256:lock.hash});
 }
 export function beginBootstrapThread(params,client,saved,owner,assertCurrent) {
-  const lock=load(params.runId),m=lock.m;
+  const lock=recoveries.get(params.runId) ?? load(params.runId),m=lock.m;
+  if(lock.recovery) {
+    assertOwner(owner,CREATION_HOOK);current(lock);assertCurrent();
+    require(saved && saved.threadId===m.native_thread_id && params.sessionId===m.session_id
+      && params.sessionKey===m.session_key && params.provider===m.provider && params.modelId===m.model,
+      'recovery_existing_thread_required');
+    return null;
+  }
   if(m.native_thread_binding !== 'first_turn') return null;
   assertOwner(owner,CREATION_HOOK);
   require(!saved && client && typeof assertCurrent==='function' && params.sessionId===m.session_id && params.sessionKey===m.session_key && params.provider===m.provider && params.modelId===m.model,'bootstrap_existing_binding');

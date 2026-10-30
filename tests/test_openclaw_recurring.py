@@ -74,3 +74,39 @@ def test_no_arbitrary_nonce_or_unconfigured_rule(scheduled):
     runtime,_=scheduled;root,cfg,*_=runtime
     for params in [{'rule_id':'other'},{'rule_id':'review','nonce':'arbitrary'}]:
         with pytest.raises(ValueError):recurring.plan_tick(root,cfg,params)
+
+
+def test_native_http_wakeup_cli_deduplicates_and_drops_authentication(scheduled,capsys):
+    import runpy
+    from pathlib import Path
+    runtime,_=scheduled;root,cfg,_,_,calls,_=runtime
+    observe=runpy.run_path(str(Path(__file__).resolve().parents[1]/'scripts/wiki_openclaw_tick.py'))['observe']
+    first=observe(root,'review')
+    assert first['ok'] and first['new_dispatch'] and first['mode']=='dispatch', first
+    again=observe(root,'review')
+    assert again['ok'] and again['mode']=='inspect' and not again['new_dispatch']
+    assert len([v for m,v in calls if m=='chat.send'])==1
+    captured=capsys.readouterr()
+    assert 'unlock code' not in captured.out+captured.err
+    assert not ({'token','nonce','code','text','message'} & first.keys())
+
+
+def test_reviewed_failure_waits_for_changed_scope_instead_of_nonexistent_result(scheduled):
+    from tests.test_openclaw_failure import review_inputs
+    runtime,clock=scheduled;root,cfg,params,h,calls,_=runtime
+    p=recurring.plan_tick(root,cfg,{'rule_id':'review'});recurring.execute_tick(root,cfg,{'rule_id':'review'},p)
+    q,_,_=review_inputs(root,cfg,p['prepared'])
+    h['sessionInfo']['status']='failed'
+    resolution=oc.plan_failure_resolution(root,cfg,q);oc.resolve_failed(root,cfg,q,resolution)
+    clock[0]+=dt.timedelta(hours=2)
+    assert recurring.plan_tick(root,cfg,{'rule_id':'review'})['mode']=='unchanged'
+    # An unrelated tick/clock change is not a changed failure condition.
+    assert len([v for m,v in calls if m=='chat.send'])==1
+
+
+def test_blocked_action_does_not_prevent_inspecting_retained_run(scheduled):
+    runtime,_=scheduled;root,cfg,params,h,calls,snapshot=runtime
+    p=recurring.plan_tick(root,cfg,{'rule_id':'review'});recurring.execute_tick(root,cfg,{'rule_id':'review'},p)
+    snapshot['pages.json']['pages'][2]['action_state']='blocked'
+    assert recurring.plan_tick(root,cfg,{'rule_id':'review'})['mode']=='inspect'
+    assert len([v for m,v in calls if m=='chat.send'])==1
