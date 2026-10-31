@@ -80,7 +80,7 @@ async function syntheticOperator(page: Page) {
     if (path === "/operator/coordination") {
       await route.fulfill({ json: { schema_version: "wiki_coordination.v1", configured: true, snapshot_id: manifest.snapshot_id,
         profiles: [{ id: "synthetic", label: "Synthetic coordinator", scope: "Historical synthesis only. Assignment does not authorize resumption.", action_ids: [action.id] }], actions: [], front_warnings: [],
-        fronts: state.frontsEmpty ? [] : [{ page_id: front.id, path: front.path, title: front.title, page_type: front.page_type, context: front.context, declared_status: "paused", recorded_at: "2026-10-29", owner_ref: "Synthetic owner", coordinators: ["synthetic"], action_ids: [action.id], active_action_ids: [action.id], evidence_refs: [action.id], source_refs: [source.source_id], next_action: "Review the recorded pause before any resumption", blocker_reason: "Paused by the operator; assignment is context only", summary: "Synthetic paused front derived from an existing public hub reference", content_sha256: front.content_sha256, live_execution: "unknown" }] } }); return;
+        fronts: state.frontsEmpty ? [] : [{ page_id: front.id, path: front.path, title: front.title, page_type: front.page_type, context: front.context, declared_status: "paused", recorded_at: "2026-10-29", owner_ref: "Synthetic owner", coordinators: ["synthetic"], action_ids: [action.id], active_action_ids: [action.id], evidence_refs: [action.id], source_refs: [source.source_id], next_action: "Review the recorded pause before any resumption", blocker_reason: "Paused by the operator; assignment is context only", summary: `Synthetic paused front; retained commit ${"a".repeat(64)} and artifact synthetic_record_${"b".repeat(64)}`, content_sha256: front.content_sha256, live_execution: "unknown" }] } }); return;
     }
     if (path === "/operator/runtime/observations") { await route.fulfill(state.failed ? { status: 503, json: { ok: false, error_code: "synthetic_observation_unavailable" } } : { json: observation }); return; }
     if (path === "/operator/codex/jobs") { await route.fulfill({ json: { ok: true, jobs: [] } }); return; }
@@ -198,6 +198,12 @@ test("390px selection returns from a low card to visible focused detail and keep
   await expect(card).toBeFocused();
   await expect(card).toBeInViewport();
   await noHorizontalOverflow(page, page.locator(".actionBoard"));
+
+  await page.getByRole("link", { name: "Work fronts", exact: true }).click();
+  const fronts = page.getByRole("region", { name: "Work fronts" });
+  await expect(fronts).toContainText("a".repeat(64));
+  await noHorizontalOverflow(page, fronts);
+  await attachViewportScreenshot(page, testInfo, "narrow-fronts-long-retained-identifiers");
 
   await page.goto(`/w?dock=source&src=${source.source_id}&visual=1&tour=0`);
   const sourceDock = page.locator(".sourceDock");
