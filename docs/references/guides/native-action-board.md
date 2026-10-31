@@ -108,9 +108,17 @@ Demo and static readers do not offer writes.
 
 Both writes use the existing loopback/origin, nonce, bounded JSON and attempt
 key protections. Edits use the same action lock, CAS, atomic replacement and
-append-only receipt chain. Existing writes and reviewed contributions keep
-receipt v4; effective page edits emit v5 with hashes of the edited projection.
-Audit accepts v1–v4 and verifies interleaved edits, dialogue and contributions
+append-only receipt chain. New factual writes and reviewed contributions emit
+v6, binding the operator's local UTC offset at the recorded instant. The instant
+is unchanged; `updated_at` uses that local calendar, matching freshness checks.
+Replay uses the captured offset, independently of the auditor's host timezone.
+Comments and editorial consolidations remain v4 and preserve factual dates.
+Historical v1–v5 receipts retain their UTC calendar. A new factual receipt may
+normalize a legacy UTC-generated future day only when the previous date exactly
+matches its last factual receipt, the new instant is strictly later, and the new
+local day is no earlier than that prior instant in the captured calendar. A v6
+date or an unreceipted date cannot use this exception. History is never rewritten.
+Audit accepts v1–v6 and verifies interleaved edits, dialogue and contributions
 without treating an operator edit as an independently reviewed contribution.
 The operator advertises `wiki_web_server.v9` and `action_page_authoring_v1`;
 the browser handshake detects an old running process before a mutation.
