@@ -170,3 +170,33 @@ def test_normalization_does_not_allow_equal_or_earlier_instant(tmp_path):
     with local_zone('Etc/GMT+3'), pytest.raises(writer.ActionTransitionError):
         write(tmp_path, path, 'body', AT)
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize('kind', ['comment', 'consolidation'])
+@pytest.mark.parametrize('editorial_zone', ['Etc/GMT-3', 'Etc/GMT+3'])
+def test_editorial_after_local_midnight_preserves_proved_date_across_zones(tmp_path, kind, editorial_zone):
+    from test_action_consolidation import fixture
+    path, _, records = fixture(tmp_path)
+    with local_zone('Etc/GMT-3'):
+        write(tmp_path, path, 'transition', '2026-07-10T23:40:00Z')
+    before = path.read_text()
+    prior, body = parse(path)
+    assert prior['updated_at'] == '2026-07-11'
+    at = '2026-07-10T23:41:00Z'
+    with local_zone(editorial_zone):
+        if kind == 'comment':
+            writer.transition_action_page(tmp_path, path, 'in_progress', recorded_at=at,
+                dialogue_event={'event_id':'synthetic-comment', 'kind':'comment',
+                    'coordinator':'example', 'text':'Received.'}, dialogue_actor='coordinator:example')
+        else:
+            writer.integrate_action_body(tmp_path, path, writer._consolidated_body(body, records),
+                expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                contribution={'effect_key':'synthetic-editorial', 'material_sha256':'a'*64},
+                recorded_at=at, consolidations=records)
+    fm, _ = parse(path)
+    assert fm['updated_at'] == prior['updated_at']
+    assert fm['action_state_history'][:-1] == prior['action_state_history']
+    entry = fm['action_state_history'][-1]
+    assert entry['schema_version'] == 'wiki_action_transition_receipt.v4'
+    assert entry['at'] == at and 'calendar_utc_offset_minutes' not in entry
+    assert writer.action_transition_diagnostics(before, path.read_text()) == ()

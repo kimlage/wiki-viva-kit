@@ -581,22 +581,25 @@ def _receipt_calendar_date(entry: Mapping[str, Any]) -> date | None:
     return _calendar_date(instant, offset)
 
 
-def _prior_calendar_date(frontmatter: Mapping[str, Any], history: list[dict], offset: int, current_day: date) -> date | None:
-    """Rebase only a date proved by the last factual receipt's same instant.
+def _prior_calendar_date(frontmatter: Mapping[str, Any], history: list[dict], offset: int,
+                         current_day: date, *, preserve_date: bool = False) -> date | None:
+    """Keep date monotonicity, except a proved legacy UTC-future correction.
 
-    This permits an old UTC-generated day to become the operator day without
-    editing history or accepting a free-form date regression.
+    Editorial writes preserve the date. Once its factual receipt proves it,
+    strict instant monotonicity is sufficient, even after a timezone change.
     """
     previous = _frontmatter_date(frontmatter.get("updated_at"))
     factual = [e for e in history if e.get("kind") not in {"comment", "body_consolidation"}]
-    if (factual and previous is not None and previous > current_day
-            and factual[-1].get("schema_version") in {
-                _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION, _V2_ACTION_TRANSITION_RECEIPT_VERSION,
-                _V3_ACTION_TRANSITION_RECEIPT_VERSION, ACTION_TRANSITION_RECEIPT_VERSION,
-                _PAGE_EDIT_RECEIPT_VERSION,
-            }
-            and _receipt_calendar_date(factual[-1]) == previous
-            and factual[-1].get("receipt_id") == _receipt_id(factual[-1])):
+    bound = (factual and previous is not None
+             and _receipt_calendar_date(factual[-1]) == previous
+             and factual[-1].get("receipt_id") == _receipt_id(factual[-1]))
+    if bound and preserve_date:
+        return None
+    if (bound and previous > current_day and factual[-1].get("schema_version") in {
+            _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION, _V2_ACTION_TRANSITION_RECEIPT_VERSION,
+            _V3_ACTION_TRANSITION_RECEIPT_VERSION, ACTION_TRANSITION_RECEIPT_VERSION,
+            _PAGE_EDIT_RECEIPT_VERSION,
+    }):
         instant = _parsed_transition_instant(factual[-1].get("at"))
         if instant is not None:
             return _calendar_date(instant, offset)
@@ -911,9 +914,9 @@ def _transition_action_page_locked(
                 current_state=current,
                 next_state=target,
             )
-        calendar_offset = 0 if comment_only else _local_calendar_offset_minutes(parsed_at)
-        prior_updated_at = (_frontmatter_date(frontmatter.get("updated_at")) if comment_only
-                            else _prior_calendar_date(frontmatter, history, calendar_offset, _calendar_date(parsed_at, calendar_offset)))
+        calendar_offset = _local_calendar_offset_minutes(parsed_at)
+        prior_updated_at = _prior_calendar_date(frontmatter, history, calendar_offset,
+            _calendar_date(parsed_at, calendar_offset), preserve_date=comment_only)
         transition_date = _calendar_date(parsed_at, calendar_offset)
         if prior_updated_at is not None and transition_date < prior_updated_at:
             raise ActionTransitionError(
@@ -1194,9 +1197,9 @@ def integrate_action_body(
             raise ActionTransitionError("contribution_effect_already_recorded")
         at, instant = _transition_instant(recorded_at)
         last = _history_last_instant(history)
-        calendar_offset = 0 if consolidations is not None else _local_calendar_offset_minutes(instant)
-        prior_date = (_frontmatter_date(fm.get("updated_at")) if consolidations is not None
-                      else _prior_calendar_date(fm, history, calendar_offset, _calendar_date(instant, calendar_offset)))
+        calendar_offset = _local_calendar_offset_minutes(instant)
+        prior_date = _prior_calendar_date(fm, history, calendar_offset,
+            _calendar_date(instant, calendar_offset), preserve_date=consolidations is not None)
         if (last and instant <= last) or (prior_date and _calendar_date(instant, calendar_offset) < prior_date):
             raise ActionTransitionError("non_monotonic_recorded_at")
         if "consolidations" in contribution:
