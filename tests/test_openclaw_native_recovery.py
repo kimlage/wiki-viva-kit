@@ -47,6 +47,9 @@ def test_native_recovery_captures_actual_run_and_retains_original_identity(runti
     got=oc.inspect(root,cfg,{**params,'effect_key':p['effect_key']})
     assert got['result_available'] and got['same_run'] and not got['new_dispatch']
     assert got['result']['run_id']==p['effect_key'] and got['result']['native_run_id']==native
+    observed=oc.runtime_observations(root,cfg)['attempts'][0]
+    assert observed['guard_admission']['status']=='retained_chain_verified'
+    assert observed['run_id']==p['effect_key'] and observed['authorization']['status']=='not_observed'
     assert len([v for m,v in calls if m=='chat.send'])==1
     repeated=oc.inspect(root,cfg,{**params,'effect_key':p['effect_key']})
     assert repeated['idempotent_read'] and repeated['result']==got['result']

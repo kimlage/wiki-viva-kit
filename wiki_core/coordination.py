@@ -18,6 +18,7 @@ import yaml
 from wiki_core.web.content import build_page_content
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.action_dialogue import dialogue_summary
+from wiki_core.web.fronts import fronts_projection
 
 POLICY_FILE = "wiki.coordination.yaml"
 SCHEMA = "wiki_coordination.v1"
@@ -97,13 +98,23 @@ def load_policy(root: Path) -> tuple[dict[str, Any], str] | None:
                 raise CoordinationError(f"multiple primary coordinators: {action}")
             claimed.add(action)
         _strings(profile.get("context_pages", []), "context_pages")
+        _strings(profile.get("front_refs", []), "front_refs")
         access = profile.get("access_requirements", [])
         if not isinstance(access, list):
             raise CoordinationError("access_requirements must be a list")
         for requirement in access:
-            if (not isinstance(requirement, dict) or set(requirement) != {"service", "expected_identity", "method", "source_ref"}
-                or any(not isinstance(v, str) or not v.strip() for v in requirement.values())):
+            required = {"service", "expected_identity", "method", "source_ref"}
+            descriptive = required | {"operation", "resource", "recovery"}
+            if (not isinstance(requirement, dict)
+                or not required <= set(requirement)
+                or set(requirement) - descriptive - {"action_ids"}
+                or any(not isinstance(v, str) or not v.strip()
+                       for key, v in requirement.items() if key in descriptive)):
                 raise CoordinationError("invalid access requirement")
+            if "action_ids" in requirement:
+                scoped = _strings(requirement["action_ids"], "access action_ids")
+                if not scoped or not set(scoped) <= set(profile.get("action_ids", [])):
+                    raise CoordinationError("access requirement belongs to another coordinator")
         _strings(profile.get("required_tools", []), "required_tools")
         if not isinstance(profile.get("scope"), str) or not profile["scope"].strip():
             raise CoordinationError("profile scope is required")
@@ -118,11 +129,14 @@ def coordination_index(root: Path, snapshot: dict[str, Any], *,
         "runtime_connected": False, "execution_ready": False,
         "profiles": [], "actions": [], "unmapped_action_ids": [],
         "snapshot_id": snapshot.get("manifest.json", {}).get("snapshot_id", "")}
+    pages = snapshot.get("pages.json", {}).get("pages", [])
+    # A protected one-action context must not expand its authorized readset.
+    if _authorize_ref is None and _profile_id is None:
+        result.update(fronts_projection(root, pages, loaded[0]["profiles"] if loaded else {}, _read))
     if not loaded:
         return result
     policy, policy_sha = loaded
     result["policy_sha256"] = policy_sha
-    pages = snapshot.get("pages.json", {}).get("pages", [])
     by_id = {p["id"]: p for p in pages}
     if len(by_id) != len(pages):
         raise CoordinationError("duplicate canonical page identity")
@@ -130,6 +144,7 @@ def coordination_index(root: Path, snapshot: dict[str, Any], *,
     for name, profile in policy["profiles"].items():
         result["profiles"].append({"id": name, "label": profile["label"],
                                    "scope": profile["scope"], "action_ids": profile.get("action_ids", []),
+                                   "front_refs": profile.get("front_refs", []),
                                    "access_requirements": profile.get("access_requirements", []),
                                    "required_tools": profile.get("required_tools", []), "access_verified": False})
         for action in profile.get("action_ids", []):

@@ -21,7 +21,8 @@ def runtime(tmp_path, monkeypatch):
                 'profile': 'synthetic', 'state_dir': '/synthetic/state', 'gateway': 'ws://127.0.0.1:19880',
                 'routes': {'research': route}}
     settings['mission_options']={'execution':{'label':'Synthetic execution','model':'openai/example-model','effort':'high'}}
-    (tmp_path/'wiki.config.yaml').write_text(yaml.safe_dump({'repo_id':'synthetic','openclaw':settings}))
+    (tmp_path/'wiki.config.yaml').write_text(yaml.safe_dump({'repo_id':'synthetic','openclaw':settings,
+        'codex':{'enabled':False},'claude':{'enabled':False}}))
     (tmp_path/'.gitignore').write_text('data/\n')
     for args in [('init','-b','main'),('config','user.name','Synthetic'),('config','user.email','fixture@example.test'),('add','.'),('commit','-qm','fixture')]:
         subprocess.run(['git',*args],cwd=tmp_path,check=True,capture_output=True)

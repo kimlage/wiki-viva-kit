@@ -9,6 +9,7 @@ import type {
   AdminSessionResult
 } from "../data/admin";
 import type { RuntimeConfig } from "../data/runtimeConfig";
+import type { RuntimeObservationReader } from "../data/runtimeObservations";
 import type { Route, WorldPatch, WorldRoute } from "../router";
 import type {
   OperatorCommandRunResult,
@@ -62,6 +63,7 @@ export type SourceBriefResult = { ok: boolean; spec?: BriefSpec; pending?: numbe
 // surfaces receive the port (or a narrower member) and can be tested without a
 // browser transport; they never import the operator client itself.
 export interface OperatorPort {
+  loadRuntimeObservations?: RuntimeObservationReader;
   loadSnapshotBundle(options?: SnapshotLoadOptions): Promise<SnapshotLoadResult>;
   loadPageContent(pageId: string, options?: ContentLoadOptions): Promise<PageContent>;
   loadTemporalGraph(

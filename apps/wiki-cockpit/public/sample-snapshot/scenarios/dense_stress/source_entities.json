@@ -51,6 +51,7 @@
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "demo-sha:product-analytics-accepted",
@@ -105,7 +106,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "ok",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Product analytics export",
       "update_route": {
@@ -114,12 +116,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -172,7 +180,8 @@
         "last_run_at": "2026-05-04",
         "last_status": "ok",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Support tickets export",
       "update_route": {
@@ -181,7 +190,12 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     }
   ],
   "summary": {

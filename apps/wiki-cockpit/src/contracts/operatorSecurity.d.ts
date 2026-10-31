@@ -17,13 +17,14 @@ export type OperatorSecurityEvidence = Omit<OperatorSecurityContract, "nonce"> &
   nonce_present: true;
 };
 
-export const REQUIRED_OPERATOR_SERVER_VERSION: "wiki_web_server.v10";
+export const REQUIRED_OPERATOR_SERVER_VERSION: "wiki_web_server.v11";
 export const REQUIRED_OPERATOR_SECURITY_VERSION: "wiki_operator_security.v2";
 export const REQUIRED_OPERATOR_NONCE_HEADER: "X-Wiki-Operator-Nonce";
 export const REQUIRED_OPERATOR_ATTEMPT_HEADER: "X-Wiki-Attempt-Key";
 export const REQUIRED_OPERATOR_MAX_BODY_BYTES: 1048576;
 export const REQUIRED_OPERATOR_CAPABILITIES: readonly [
   "revocable_documentary_proposals_v1",
+  "runtime_observations_v1",
   "operator_security_v2",
   "cors_default_deny_v1",
   "action_state_transitions_v1",

@@ -76,21 +76,34 @@ def test_no_arbitrary_nonce_or_unconfigured_rule(scheduled):
         with pytest.raises(ValueError):recurring.plan_tick(root,cfg,params)
 
 
-def test_native_http_wakeup_cli_deduplicates_and_drops_authentication(scheduled,capsys):
+def test_native_http_wakeup_cli_deduplicates_and_drops_authentication(scheduled,capsys,monkeypatch):
     import runpy
     from pathlib import Path
-    runtime,_=scheduled;root,cfg,_,_,calls,_=runtime
+    runtime,clock=scheduled;root,cfg,_,_,calls,_=runtime
     observe=runpy.run_path(str(Path(__file__).resolve().parents[1]/'scripts/wiki_openclaw_tick.py'))['observe']
     from wiki_core.paths import WikiPaths
     import json
     jobs=WikiPaths(root,cfg).derived_root/'codex-jobs';jobs.mkdir(parents=True,exist_ok=True)
     queued=jobs/'jsr-independent.json';queued.write_text(json.dumps({'job_id':'jsr-independent','kind':'source_review','status':'queued'}))
     retained=queued.read_bytes()
+    preview=observe(root,'review',dry_run=True)
+    assert preview['ok'] and preview['dry_run'] and not preview['new_dispatch']
+    assert recurring.latest_wakes(root,cfg)==({},'openclaw_wake_not_recorded')
     first=observe(root,'review')
     assert first['ok'] and first['new_dispatch'] and first['mode']=='dispatch', first
     assert queued.read_bytes()==retained
     again=observe(root,'review')
     assert again['ok'] and again['mode']=='inspect' and not again['new_dispatch']
+    assert recurring.latest_wakes(root,cfg)[0]['review']['mode']=='inspect'
+    plan=oc.read_receipt(oc.storage(root,cfg,first['effect_key'])/'intent.json')['plan']
+    complete(runtime,plan)
+    assert observe(root,'review')['result_available']
+    monkeypatch.setattr(oc,'proposal_status',lambda *a:{'status':'received_in_main','content_incorporated_in_main':True})
+    clock[0]+=dt.timedelta(hours=2)
+    unchanged=observe(root,'review')
+    assert unchanged['ok'] and unchanged['mode']=='unchanged' and not unchanged['new_dispatch']
+    wake=recurring.latest_wakes(root,cfg)[0]['review']
+    assert wake['mode']=='unchanged' and wake['new_dispatch'] is False and wake['status']=='success'
     assert len([v for m,v in calls if m=='chat.send'])==1
     captured=capsys.readouterr()
     assert 'unlock code' not in captured.out+captured.err

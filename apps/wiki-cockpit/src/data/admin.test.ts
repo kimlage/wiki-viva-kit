@@ -46,7 +46,7 @@ import {
 function v7Health() {
   return {
     ok: true,
-    server_version: "wiki_web_server.v10",
+    server_version: "wiki_web_server.v11",
     schema_capabilities: [
       "operator_security_v2",
       "cors_default_deny_v1",
@@ -54,7 +54,7 @@ function v7Health() {
       "action_page_authoring_v1",
       "admin_capabilities_v1",
       "admin_session_v1",
-      "admin_commands_v1", "revocable_documentary_proposals_v1"
+      "admin_commands_v1", "revocable_documentary_proposals_v1", "runtime_observations_v1"
     ],
     operator_security: {
       version: "wiki_operator_security.v2",
@@ -465,6 +465,15 @@ async function unlockForBus(token: string) {
 }
 
 describe("command bus client (§11, §12.2)", () => {
+  it("retains preparatory observations on a dry-run plan and on a planning refusal", async () => {
+    const observations = ["OpenClaw history read during planning; reconciliation possible"];
+    const parsed = parseAdminPlan(planPayload({ dry_run: true, effects: { files_read: [], files_write: [], external_calls: [], preparatory_observations: observations, snapshot_invalidated: false } }));
+    expect(parsed?.effects.preparatoryObservations).toEqual(observations);
+    expect(parsed?.effects.externalCalls).toEqual([]);
+    await unlockForBus("tok-preparatory");
+    operatorPost.mockResolvedValueOnce(jsonResponse(409, { ok: false, error_code: "admin_invalid_params", preparatory_observations: observations }));
+    expect(await planAdminCommand("agents.openclaw.dispatch")).toMatchObject({ ok: false, preparatoryObservations: observations });
+  });
   it("planAdminCommand refuses locally without a session — no request leaves", async () => {
     const result = await planAdminCommand("system.inspect");
     expect(result).toEqual({ ok: false, errorCode: "admin_session_invalid" });

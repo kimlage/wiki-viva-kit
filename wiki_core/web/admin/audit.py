@@ -1,7 +1,7 @@
 """Append-only administrative audit trail (god-mode plan §18, PR3).
 
 One JSONL file per repo — ``<derived_root>/admin/audit.jsonl`` — written
-only by the operator process, hash-chained so tampering is evident
+only by operator command paths, hash-chained so tampering is evident
 (``prev_hash``/``event_hash``), redacted BEFORE anything touches disk
 (§18.3 never-audit list) and bounded by ``admin.audit.retain_events``.
 
@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from wiki_core.action_transition import _action_file_lock
 from wiki_core.config import WikiConfig
 from wiki_core.paths import WikiPaths
 
@@ -63,8 +64,9 @@ NEVER_AUDIT_KEYS = frozenset(
     }
 )
 
-# One writer lock per process: the operator server is the only writer, and
-# its request threads serialize here so the chain never forks.
+# Request threads serialize here. The existing filesystem lock also protects
+# the whole read-tail -> append/retention transaction across operator processes,
+# including ephemeral CLI operators that share this same journal.
 _APPEND_LOCK = threading.Lock()
 
 
@@ -158,7 +160,7 @@ def append_admin_audit_event(
     }
 
     path = audit_log_path(root, config)
-    with _APPEND_LOCK:
+    with _APPEND_LOCK, _action_file_lock(root, "admin-audit:" + path.relative_to(root).as_posix()):
         path.parent.mkdir(parents=True, exist_ok=True)
         lines = _read_lines(path)
         prev_hash = AUDIT_CHAIN_GENESIS

@@ -222,6 +222,46 @@ def test_health_carries_codex_capability(server: _Server) -> None:
     assert set(body["codex"]) >= {"installed", "authed", "usable", "enabled"}
 
 
+def test_core_http_reads_work_without_gateway_model_or_credentials(tmp_path, monkeypatch):
+    """Real local HTTP over a synthetic wiki; external adapters are forbidden.
+
+    This does not stop or reuse any personal operator, source or scheduler.
+    """
+    import wiki_core.web.codex_probe as codex_probe
+    import wiki_core.web.openclaw as openclaw
+
+    _repo(tmp_path)
+    cfg = tmp_path / "wiki.config.yaml"
+    cfg.write_text(cfg.read_text() + "claude:\n  enabled: false\n")
+    _server_action(tmp_path)
+    _write(tmp_path / 'memories/project.md',
+           '---\npage_id: synthetic-project\npage_type: project\nstatus: paused\n'
+           'owner: human\nactions: [action-server-synthetic]\n---\n# Synthetic front\n')
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('core read attempted an external adapter or credential')
+
+    monkeypatch.setattr(codex_probe, '_probe_auth', forbidden)
+    monkeypatch.setattr(openclaw.Gateway, 'call', forbidden)
+    monkeypatch.setattr(server_module, 'list_agent_connectors', forbidden)
+    srv = _Server(tmp_path, load_config(tmp_path))
+    try:
+        for route in ('/api/health', '/api/agents/capability', '/api/snapshot/manifest.json',
+                      '/api/snapshot/pages.json', '/api/sources', '/api/coordination',
+                      '/api/pages/root/content', '/api/runtime/observations'):
+            status, payload = srv.get(route)
+            assert status == 200, (route, payload)
+        status, coordination = srv.get('/api/coordination')
+        assert coordination['configured'] is False
+        assert coordination['fronts'][0]['declared_status'] == 'paused'
+        assert coordination['fronts'][0]['action_ids'] == ['action-server-synthetic']
+        status, health = srv.get('/api/health')
+        assert health['codex']['enabled'] is False and health['codex']['usable'] is False
+        assert health['claude']['enabled'] is False and health['claude']['usable'] is False
+    finally:
+        srv.close()
+
+
 def test_operator_refuses_non_loopback_bind_before_loading_repo(
     tmp_path: Path,
 ) -> None:
@@ -237,7 +277,7 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     status, body = server.get("/api/health")
     assert status == 200
     # The handshake lets the cockpit detect a stale operator (old process).
-    assert body["server_version"] == "wiki_web_server.v10"
+    assert body["server_version"] == "wiki_web_server.v11"
     assert "codex" in body["schema_capabilities"]
     assert "briefs" in body["schema_capabilities"]
     assert "operator_security_v2" in body["schema_capabilities"]
@@ -250,6 +290,7 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     assert "admin_session_v1" in body["schema_capabilities"]
     assert "admin_commands_v1" in body["schema_capabilities"]
     assert "revocable_documentary_proposals_v1" in body["schema_capabilities"]
+    assert "runtime_observations_v1" in body["schema_capabilities"]
     assert "operator_security_v1" not in body["schema_capabilities"]
     assert body["operator_security"]["version"] == "wiki_operator_security.v2"
     assert body["operator_security"]["nonce"] == server.server.operator_nonce
@@ -337,7 +378,7 @@ def test_operator_restart_rotates_nonce_and_refuses_the_stale_process_nonce(
         assert second_status == 200
         new_nonce = second_health["operator_security"]["nonce"]
         assert new_nonce != old_nonce
-        assert second_health["server_version"] == "wiki_web_server.v10"
+        assert second_health["server_version"] == "wiki_web_server.v11"
         assert second_health["operator_security"]["version"] == (
             "wiki_operator_security.v2"
         )

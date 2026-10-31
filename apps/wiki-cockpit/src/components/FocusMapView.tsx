@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { OperationalLinks } from "./OperationalLinks";
 import type { CSSProperties } from "react";
 import type { NavigationPort, OperatorPort } from "../application/ports";
 import type { RuntimeConfig } from "../data/runtimeConfig";
@@ -146,6 +147,7 @@ export function FocusMapView({ bundle, runtime, route, navigation, loadPageConte
     <header className="focusMapHeader">
       <div><span className="focusMapEyebrow">Wiki Viva · protótipo local</span><h1>Explorar conexões</h1></div>
       <div className="focusMapHeaderActions">
+        <OperationalLinks demo={route.demo} />
         <span className="focusMapReadOnly">{route.demo ? "Demo sintética · leitura" : "Snapshot · leitura"}</span>
         <AppearanceControl />
         <button type="button" onClick={() => patch({ projection: null, mapMode: null, mapFocus: null, mapExpanded: [], mapColor: null, mapEdge: null })}>Cockpit original ↗</button>

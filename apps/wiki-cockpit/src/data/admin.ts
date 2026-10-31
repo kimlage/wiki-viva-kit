@@ -423,6 +423,7 @@ export type AdminPlanEffects = {
   filesRead: string[];
   filesWrite: string[];
   externalCalls: string[];
+  preparatoryObservations?: string[];
   snapshotInvalidated: boolean;
 };
 
@@ -475,7 +476,7 @@ export type AdminCatalogResult =
 
 export type AdminPlanResult =
   | { ok: true; plan: AdminPlan }
-  | { ok: false; errorCode: AdminCommandErrorCode; detail?: string };
+  | { ok: false; errorCode: AdminCommandErrorCode; detail?: string; preparatoryObservations?: string[] };
 
 export type AdminExecuteResult =
   | { ok: true; outcome: AdminExecuteOutcome }
@@ -577,6 +578,7 @@ export function parseAdminPlan(payload: unknown): AdminPlan | null {
       filesRead: stringList(rawEffects.files_read),
       filesWrite: stringList(rawEffects.files_write),
       externalCalls: stringList(rawEffects.external_calls),
+      preparatoryObservations: stringList(rawEffects.preparatory_observations),
       snapshotInvalidated: rawEffects.snapshot_invalidated === true
     },
     diff: typeof plan.diff === "string" ? plan.diff : null,
@@ -678,7 +680,9 @@ export async function planAdminCommand(
     const plan = parseAdminPlan(payload);
     if (response.ok && plan) return { ok: true, plan };
     const detail = typeof payload.detail === "string" && /^openclaw_[a-z_]+$/.test(payload.detail) ? payload.detail : undefined;
-    return { ok: false, errorCode: commandErrorCodeOf(payload), ...(detail ? { detail } : {}) };
+    const preparatoryObservations = stringList(payload.preparatory_observations);
+    return { ok: false, errorCode: commandErrorCodeOf(payload), ...(detail ? { detail } : {}),
+      ...(preparatoryObservations.length ? { preparatoryObservations } : {}) };
   } catch {
     return { ok: false, errorCode: "operator_unreachable" };
   }

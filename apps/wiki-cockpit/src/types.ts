@@ -728,12 +728,15 @@ export type SourceEntity = {
   stewards: { ref?: string; kind?: string; via?: string }[];
   config_ref: string;
   updated_at: string;
+  verification?: { recorded_at: string | null; evidence_refs: string[]; live_access: "unknown" };
+  freshness_applicable?: boolean;
   sync: {
     last_run_at: string;
     last_status: string;
     last_event_ref: string;
     derived_from_event?: boolean;
     streams_fresh: number;
+    streams_without_pending?: number;
     streams_total: number;
     event_closure?: SourceEventClosure;
   };

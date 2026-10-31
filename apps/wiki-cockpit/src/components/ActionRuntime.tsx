@@ -6,6 +6,7 @@ import type { AdminPlan, AdminExecuteOutcome } from "../data/admin";
 import { AdminPlanReview } from "./AdminPlanReview";
 import { AdminUnlockDialog } from "./AdminUnlockDialog";
 import { AdminStatusStrip } from "./AdminStatusStrip";
+import { PreparatoryObservations } from "./PreparatoryObservations";
 
 const COPY = {
   en: { title: "Execute this action", configure: "No runtime is configured for this coordinator. Integration must configure and verify this route first.",
@@ -52,6 +53,7 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
   const [unlock, setUnlock] = useState(false);
   const [plan, setPlan] = useState<AdminPlan | null>(null);
   const [notice, setNotice] = useState("");
+  const [preparatoryObservations, setPreparatoryObservations] = useState<string[]>([]);
   const [output, setOutput] = useState<Record<string, unknown> | null>(null);
   const [known, setKnown] = useState(attempts);
   const latest = [...attempts].sort((a,b) => b.attempted_at.localeCompare(a.attempted_at))[0];
@@ -73,12 +75,12 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
       setProposal(known.find(item => item.effect_key === params.effect_key)?.proposal || null);
       setPr("");setReviewPath("");setReviewHash("");
     }
-    setBusy(true); setNotice("");
+    setBusy(true); setNotice(""); setPreparatoryObservations([]);
     try {
       const supplied = command.startsWith("agents.openclaw.") ? { profile: profile.id, action_id: action.id, ...params } : params;
       const result = await admin.planAdminCommand(command, supplied);
       if (result.ok) setPlan(result.plan);
-      else setNotice(`${copy.error} (${result.detail || result.errorCode})`);
+      else { setNotice(`${copy.error} (${result.detail || result.errorCode})`); setPreparatoryObservations(result.preparatoryObservations || []); }
     } catch { setNotice(copy.error); }
     finally { setBusy(false); }
   };
@@ -130,6 +132,7 @@ export function ActionRuntime({ admin, action, profile, attempts, recoveryError,
       </li>)}</ul>
     </>}
     {notice && <p role="status">{notice}</p>}
+    <PreparatoryObservations observations={preparatoryObservations} />
     {result && typeof result.text === "string" && <details open><summary>{copy.result}</summary><pre>{result.text}</pre></details>}
     {result && !output?.integration_hold && typeof output?.effect_key === "string" && <button type="button" disabled={disabled || busy || Boolean(plan)}
       onClick={() => void request("agents.openclaw.receipt", { effect_key: String(output.effect_key) })}>{copy.prepare}</button>}

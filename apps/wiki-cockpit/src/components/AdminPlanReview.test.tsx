@@ -70,6 +70,14 @@ afterEach(() => {
 });
 
 describe("AdminPlanReview — reviewed plan is the executed plan", () => {
+  it("separates already performed planning observations from future external calls in dry run", () => {
+    const reviewed = plan({ dryRun: true, effects: { filesRead: [], filesWrite: [], externalCalls: [], preparatoryObservations: ["OpenClaw history read during planning; reconciliation possible"], snapshotInvalidated: false } });
+    render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={reviewed} onClose={() => undefined} />);
+    expect(screen.getByRole("region", { name: "Preparatory observations already performed" }).textContent).toContain("already occurred");
+    expect(screen.getByText("OpenClaw history read during planning; reconciliation possible")).toBeTruthy();
+    expect(screen.getByText("External calls on execution")).toBeTruthy();
+    expect(executeAdminPlan).not.toHaveBeenCalled();
+  });
   it("renders the contract line, effects, risk and preconditions", () => {
     render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={plan()} onClose={() => undefined} />);
     expect(screen.getByText(t("admin.plan.contract"))).toBeTruthy();

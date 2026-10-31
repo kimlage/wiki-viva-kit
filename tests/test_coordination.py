@@ -169,6 +169,17 @@ def test_access_requirements_are_context_not_verified_credentials(tmp_path):
     packet = context_packet(tmp_path, config, snapshot, 'research', 'task')
     assert packet['access_requirements'][0]['expected_identity'] == 'research@example.test'
     assert not packet['access_verified']
+    requirement = policy['profiles']['research']['access_requirements'][0]
+    requirement.update(action_ids=['task'], operation='read', resource='Review inbox',
+                       recovery='Select the expected account; do not create grants')
+    (tmp_path / 'wiki.coordination.yaml').write_text(yaml.safe_dump(policy))
+    packet = context_packet(tmp_path, config, snapshot, 'research', 'task')
+    assert packet['access_requirements'][0]['operation'] == 'read'
+    assert not packet['access_verified']
+    requirement['action_ids'] = ['foreign-action']
+    (tmp_path / 'wiki.coordination.yaml').write_text(yaml.safe_dump(policy))
+    with pytest.raises(CoordinationError, match='another coordinator'):
+        coordination_index(tmp_path, snapshot)
 
 @pytest.mark.parametrize('dialogue', [['broken'], [{'kind': 'question'}], {}, False, 0])
 def test_malformed_dialogue_has_controlled_error(tmp_path, dialogue):
@@ -179,3 +190,59 @@ def test_malformed_dialogue_has_controlled_error(tmp_path, dialogue):
     next(p for p in snapshot['pages.json']['pages'] if p['id'] == 'task')['content_sha256'] = hashlib.sha256(raw.encode()).hexdigest()
     with pytest.raises(CoordinationError, match='invalid_action_dialogue'):
         coordination_index(tmp_path, snapshot)
+
+
+def _front(root, snapshot, name, kind, fields):
+    values = {"page_id": name, "page_type": kind, **fields}
+    raw = "---\n" + yaml.safe_dump(values) + "---\n# Synthetic front\nExisting scope.\n"
+    path = f"memories/{name}.md"
+    (root / path).write_text(raw)
+    page = {"id": name, "path": path, "title": name, "page_type": kind,
+            "updated_at": "2026-07-01", "summary": "Existing scope.",
+            "content_sha256": hashlib.sha256(raw.encode()).hexdigest()}
+    snapshot['pages.json']['pages'].append(page)
+    return page
+
+
+def test_fronts_project_existing_pages_without_reopening_or_inventing_work(tmp_path):
+    _, snapshot, policy = fixture(tmp_path)
+    project = _front(tmp_path, snapshot, 'project', 'project',
+                     {'status': 'paused', 'actions': ['task', 'archived'], 'owner': 'human',
+                      'verified_at': '2026-06-30', 'next_action': 'Await existing decision'})
+    _front(tmp_path, snapshot, 'context', 'context_note', {'tags': ['status/active']})
+    policy['profiles']['research']['front_refs'] = ['context', 'missing-front']
+    (tmp_path / 'wiki.coordination.yaml').write_text(yaml.safe_dump(policy))
+    before = {p: p.read_bytes() for p in tmp_path.rglob('*') if p.is_file()}
+    payload = coordination_index(tmp_path, snapshot)
+    fronts = {f['page_id']: f for f in payload['fronts']}
+    assert set(fronts) == {'project', 'context'}
+    assert fronts['project']['declared_status'] == 'paused'
+    assert fronts['project']['active_action_ids'] == ['task']
+    assert fronts['project']['action_ids'] == ['archived', 'task']
+    assert fronts['project']['recorded_at'] == '2026-06-30'
+    assert fronts['project']['live_execution'] == 'unknown'
+    assert fronts['context']['declared_status'] == 'unknown'
+    assert fronts['context']['action_ids'] == []
+    assert payload['front_warnings'] == [{'code': 'front_reference_unresolved', 'ref': 'missing-front'}]
+    assert all(p.read_bytes() == raw for p, raw in before.items())
+    assert set(before) == {p for p in tmp_path.rglob('*') if p.is_file()}
+    # Without any coordinator or executor, projects remain discoverable.
+    (tmp_path / 'wiki.coordination.yaml').unlink()
+    unconfigured = coordination_index(tmp_path, snapshot)
+    assert not unconfigured['configured']
+    assert [f['page_id'] for f in unconfigured['fronts']] == ['project']
+    assert project['content_sha256'] == fronts['project']['content_sha256']
+
+
+def test_front_drift_is_visible_without_expanding_protected_action_context(tmp_path):
+    config, snapshot, policy = fixture(tmp_path)
+    page = _front(tmp_path, snapshot, 'project', 'project', {})
+    (tmp_path / page['path']).write_text('Changed outside this snapshot')
+    payload = coordination_index(tmp_path, snapshot)
+    assert payload['fronts'] == []
+    assert payload['front_warnings'] == [{'code': 'front_revision_changed', 'ref': 'project'}]
+    reads = []
+    packet = context_packet(tmp_path, config, snapshot, 'research', 'task',
+                            authorize_ref=lambda path, sha: reads.append(path))
+    assert packet['actions'][0]['action_id'] == 'task'
+    assert page['path'] not in reads

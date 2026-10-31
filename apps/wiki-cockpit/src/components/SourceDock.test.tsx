@@ -727,7 +727,7 @@ describe("SourceDock lifecycle parity (§13.1)", () => {
     expect(screen.getByText("Lifecycle")).toBeTruthy();
     expect(screen.getByText("consolidated")).toBeTruthy();
     expect(screen.getByText("gate_pending")).toBeTruthy();
-    expect(screen.getByText("adopted")).toBeTruthy();
+    expect(screen.getByText("adopted", { selector: ".sourceLifecycle code" })).toBeTruthy();
     expect(screen.getByText("success")).toBeTruthy();
     // Emitted census is honest counts from the projection.
     expect(screen.getByText("Emitted: 7 page(s) · 1 action(s) · 1 proposal(s)")).toBeTruthy();

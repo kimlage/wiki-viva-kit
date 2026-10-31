@@ -576,12 +576,14 @@ def build_admin_plan(
         }
     elif spec.planner == "openclaw_tick":
         from wiki_core.web.openclaw_recurring import plan_tick
+        from wiki_core.web.openclaw import preparatory_observations, preparation_effects, storage
         try:
-            tick = plan_tick(root, config, params)
+            with preparatory_observations() as observed:
+                tick = plan_tick(root, config, params)
         except (ValueError, OSError, KeyError, subprocess.SubprocessError) as exc:
             return {"ok": False, "error_code": ERROR_INVALID_PARAMS,
-                    "detail": getattr(exc, "code", "openclaw_precondition_failed")}
-        from wiki_core.web.openclaw import storage
+                    "detail": getattr(exc, "code", "openclaw_precondition_failed"),
+                    "preparatory_observations": preparation_effects(observed)}
         tick_writes = ([tick["occurrence_path"], str(storage(root, config, tick["effect_key"]).relative_to(root)),
                         str((storage(root, config, tick["effect_key"]).parent / "mission-active.json").relative_to(root))]
                        if tick["mode"] == "dispatch" else
@@ -589,34 +591,40 @@ def build_admin_plan(
         planned = {"summary": "Observe the configured occurrence; reconcile retained work before a single eligible dispatch; incorporation requires independent review",
             "effects": {"files_read": [tick["binding"]["action_path"]],
                         "files_write": [] if dry_run else tick_writes,
-                        "external_calls": [] if dry_run else (["OpenClaw sessions.patch", "OpenClaw chat.send"] if tick["mode"] == "dispatch" else ["OpenClaw chat.history"] if tick["mode"] == "inspect" else []),
+                        "preparatory_observations": preparation_effects(observed),
+                        "external_calls": [] if dry_run else
+                            (["OpenClaw chat.history", "OpenClaw sessions.patch", "OpenClaw chat.send"] if tick["mode"] == "dispatch" else ["OpenClaw chat.history"] if tick["mode"] == "inspect" else []),
                         "snapshot_invalidated": False},
             "targets": [tick["binding"]["action_path"]], "diff": tick,
-            "validation": {"canonical_write": False, "documentary_integration": "separate reviewed proposal"}}
+            "validation": {"canonical_write": False, "documentary_integration": "separate reviewed proposal",
+                           "dry_run_scope": "execution only; preparatory native history may reconcile orphan inputs"}}
     elif spec.planner in {"openclaw_dispatch", "openclaw_inspect", "openclaw_receipt", "openclaw_resolve_failed"}:
-        from wiki_core.web.openclaw import plan_dispatch, retained_intent, storage, receipt_source, plan_failure_resolution
+        from wiki_core.web.openclaw import (plan_dispatch, retained_intent, storage, receipt_source,
+            plan_failure_resolution, preparatory_observations, preparation_effects)
         try:
-            if spec.planner == "openclaw_dispatch":
-                prepared = plan_dispatch(root, config, params)
-                effect = prepared["effect_key"]
-                diff = prepared
-            else:
-                directory, prepared, _, _ = retained_intent(root, config, params)
-                if spec.planner == "openclaw_receipt":
-                    _, _, receipt = receipt_source(root, config, params)
-                effect = prepared["effect_key"]
-                diff = {"action_id": params["action_id"], "effect_key": effect,
-                        "message_sha256": prepared["message_sha256"], "new_dispatch": False}
-                if spec.planner == "openclaw_resolve_failed":
-                    diff = plan_failure_resolution(root, config, params)
-                if spec.planner == "openclaw_receipt":
-                    diff["result"] = receipt
-                    from wiki_core.web.git_workflows import _proposal_branch
-                    diff["proposal_branch"] = _proposal_branch(config, "runtime-return-" + effect.removeprefix("wiki-run-")) if current_branch(root) == str(config.approval.get("default_branch") or "main") else current_branch(root)
-            directory = storage(root, config, effect)
+            with preparatory_observations() as observed:
+                if spec.planner == "openclaw_dispatch":
+                    prepared = plan_dispatch(root, config, params)
+                    effect = prepared["effect_key"]
+                    diff = prepared
+                else:
+                    directory, prepared, _, _ = retained_intent(root, config, params)
+                    if spec.planner == "openclaw_receipt":
+                        _, _, receipt = receipt_source(root, config, params)
+                    effect = prepared["effect_key"]
+                    diff = {"action_id": params["action_id"], "effect_key": effect,
+                            "message_sha256": prepared["message_sha256"], "new_dispatch": False}
+                    if spec.planner == "openclaw_resolve_failed":
+                        diff = plan_failure_resolution(root, config, params)
+                    if spec.planner == "openclaw_receipt":
+                        diff["result"] = receipt
+                        from wiki_core.web.git_workflows import _proposal_branch
+                        diff["proposal_branch"] = _proposal_branch(config, "runtime-return-" + effect.removeprefix("wiki-run-")) if current_branch(root) == str(config.approval.get("default_branch") or "main") else current_branch(root)
+                directory = storage(root, config, effect)
         except (ValueError, OSError, KeyError, subprocess.SubprocessError) as exc:
             return {"ok": False, "error_code": ERROR_INVALID_PARAMS,
-                    "detail": getattr(exc, "code", "openclaw_precondition_failed")}
+                    "detail": getattr(exc, "code", "openclaw_precondition_failed"),
+                    "preparatory_observations": preparation_effects(observed)}
         dispatching = spec.planner == "openclaw_dispatch"
         planned = {
             "summary": "Resolve this failed attempt from preserved independently reviewed evidence; no result, task completion or automatic retry; external effects remain outside this receipt" if spec.planner == "openclaw_resolve_failed" else
@@ -625,10 +633,13 @@ def build_admin_plan(
                        "Recover the exact existing run; never dispatch or mark the action done",
             "effects": {"files_read": [prepared["binding"]["action_path"]] + ([params["review_path"], diff["review"]["evidence_path"]] if spec.planner == "openclaw_resolve_failed" else []),
                         "files_write": [] if dry_run else [str(directory.relative_to(root))] + ([str((directory.parent / "mission-active.json").relative_to(root))] if dispatching else []),
-                        "external_calls": [] if dry_run or spec.planner == "openclaw_receipt" else (["OpenClaw sessions.patch", "OpenClaw chat.send"] if dispatching else ["OpenClaw chat.history"]),
+                        "preparatory_observations": preparation_effects(observed),
+                        "external_calls": [] if dry_run or spec.planner == "openclaw_receipt" else
+                            (["OpenClaw chat.history", "OpenClaw sessions.patch", "OpenClaw chat.send"] if dispatching else ["OpenClaw chat.history"]),
                         "snapshot_invalidated": False},
             "diff": diff, "targets": [prepared["binding"]["action_path"]],
-            "validation": {"canonical_write": False, "documentary_integration": "separate reviewed proposal"},
+            "validation": {"canonical_write": False, "documentary_integration": "separate reviewed proposal",
+                           "dry_run_scope": "execution only; preparatory native history may reconcile orphan inputs"},
         }
     elif spec.planner == "normal_proposal":
         from wiki_core.web.normal_proposal import ProposalError, preview_proposal
