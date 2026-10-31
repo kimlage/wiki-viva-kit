@@ -1837,7 +1837,7 @@ def test_board_single_page_create_edit_move_and_stale_cas(tmp_path: Path) -> Non
                               "owner_kind": "agent", "owner_ref": "synthetic-coordinator"}}
         status, receipt = server.post("/api/actions/transition", edit)
         assert status == 200 and receipt["changed"], receipt
-        assert receipt["schema_version"] == "wiki_action_transition_receipt.v5"
+        assert receipt["schema_version"] == "wiki_action_transition_receipt.v6"
         edited = path.read_text()
         after, after_body = parse_frontmatter(edited)
         assert after["page_id"] == fm["page_id"] and path.name == "synthetic-task-one-page.md"
