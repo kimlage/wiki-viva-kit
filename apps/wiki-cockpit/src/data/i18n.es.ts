@@ -1030,7 +1030,7 @@ export const ES: Record<string, string> = {
   "source.stream.today": "hoy",
   "source.stream.daysAgo": "{n}hace d",
   "source.manual.title": "Cómo exportar/ingerir",
-  "source.brief.upToDate": "Todos los canales son nuevos.",
+  "source.brief.upToDate": "No hay activadores registrados pendientes; la actualidad no está verificada",
   "source.brief.failed": "No se pudo redactar el escrito: {error}",
   "source.openConfig": "Abrir configuración",
   "source.record.title": "Detalles del registro seleccionado",

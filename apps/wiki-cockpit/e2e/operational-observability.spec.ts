@@ -203,6 +203,7 @@ test("390px selection returns from a low card to visible focused detail and keep
   const fronts = page.getByRole("region", { name: "Work fronts" });
   await expect(fronts).toContainText("a".repeat(64));
   await noHorizontalOverflow(page, fronts);
+  await fronts.locator("article > p").first().scrollIntoViewIfNeeded();
   await attachViewportScreenshot(page, testInfo, "narrow-fronts-long-retained-identifiers");
 
   await page.goto(`/w?dock=source&src=${source.source_id}&visual=1&tour=0`);
@@ -212,6 +213,7 @@ test("390px selection returns from a low card to visible focused detail and keep
   await expect(evidence).toContainText("2026-10-09");
   await expect(evidence).toContainText("2026-10-29");
   await expect(evidence).toContainText("Current access / effective identity");
+  await expect(sourceDock.getByRole("button", { name: "Sync with Codex", exact: true })).toHaveAttribute("title", "No recorded trigger pending; live freshness is not verified");
   await noHorizontalOverflow(page, sourceDock);
   await sourceDock.getByRole("button", { name: "History", exact: true }).click();
   await expect(sourceDock).toContainText("review found no change");
