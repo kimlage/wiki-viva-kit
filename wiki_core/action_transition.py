@@ -29,7 +29,7 @@ import tempfile
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
@@ -59,6 +59,7 @@ from wiki_core.frontmatter import FRONTMATTER_RE
 
 ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v4"
 _PAGE_EDIT_RECEIPT_VERSION = "wiki_action_transition_receipt.v5"
+_CALENDAR_RECEIPT_VERSION = "wiki_action_transition_receipt.v6"
 _PAGE_EDIT_FIELDS = ("title", "owner_kind", "owner_ref", "body")
 _PAGE_EDIT_HASH_FIELDS = ("title_sha256", "owner_kind_sha256", "owner_ref_sha256", "body_revision")
 _V3_ACTION_TRANSITION_RECEIPT_VERSION = "wiki_action_transition_receipt.v3"
@@ -550,6 +551,61 @@ def _parsed_transition_instant(value: Any) -> datetime | None:
     return parsed if parsed.tzinfo is not None else None
 
 
+def _local_calendar_offset_minutes(instant: datetime) -> int:
+    """Capture the operator calendar without changing the recorded instant.
+
+    Freshness defaults to the operator's local calendar. Persist its offset so
+    receipt replay never depends on the auditor's host timezone.
+    """
+    offset = instant.astimezone().utcoffset()
+    seconds = offset.total_seconds() if offset is not None else 0
+    if seconds % 60 or abs(seconds) > 14 * 3600:
+        raise ActionTransitionError("unsupported_calendar_offset")
+    return int(seconds // 60)
+
+
+def _calendar_date(instant: datetime, offset: int) -> date:
+    return instant.astimezone(timezone(timedelta(minutes=offset))).date()
+
+
+def _receipt_calendar_date(entry: Mapping[str, Any]) -> date | None:
+    instant = _parsed_transition_instant(entry.get("at"))
+    if instant is None:
+        return None
+    offset = entry.get("calendar_utc_offset_minutes")
+    if entry.get("schema_version") == _CALENDAR_RECEIPT_VERSION:
+        if type(offset) is not int or not -840 <= offset <= 840:
+            return None
+    else:
+        offset = 0  # Historical v1-v5 dates keep their UTC interpretation.
+    return _calendar_date(instant, offset)
+
+
+def _prior_calendar_date(frontmatter: Mapping[str, Any], history: list[dict], offset: int,
+                         current_day: date, *, preserve_date: bool = False) -> date | None:
+    """Keep date monotonicity, except a proved legacy UTC-future correction.
+
+    Editorial writes preserve the date. Once its factual receipt proves it,
+    strict instant monotonicity is sufficient, even after a timezone change.
+    """
+    previous = _frontmatter_date(frontmatter.get("updated_at"))
+    factual = [e for e in history if e.get("kind") not in {"comment", "body_consolidation"}]
+    bound = (factual and previous is not None
+             and _receipt_calendar_date(factual[-1]) == previous
+             and factual[-1].get("receipt_id") == _receipt_id(factual[-1]))
+    if bound and preserve_date:
+        return None
+    if (bound and previous > current_day and factual[-1].get("schema_version") in {
+            _LEGACY_ACTION_TRANSITION_RECEIPT_VERSION, _V2_ACTION_TRANSITION_RECEIPT_VERSION,
+            _V3_ACTION_TRANSITION_RECEIPT_VERSION, ACTION_TRANSITION_RECEIPT_VERSION,
+            _PAGE_EDIT_RECEIPT_VERSION,
+    }):
+        instant = _parsed_transition_instant(factual[-1].get("at"))
+        if instant is not None:
+            return _calendar_date(instant, offset)
+    return previous
+
+
 def _history_last_instant(history: list[dict[str, Any]]) -> datetime | None:
     previous: datetime | None = None
     for entry in history:
@@ -559,6 +615,7 @@ def _history_last_instant(history: list[dict[str, Any]]) -> datetime | None:
             _V2_ACTION_TRANSITION_RECEIPT_VERSION,
             _V3_ACTION_TRANSITION_RECEIPT_VERSION,
             _PAGE_EDIT_RECEIPT_VERSION,
+            _CALENDAR_RECEIPT_VERSION,
             ACTION_TRANSITION_RECEIPT_VERSION,
         }:
             raise ActionTransitionError("invalid_action_state_history")
@@ -857,8 +914,10 @@ def _transition_action_page_locked(
                 current_state=current,
                 next_state=target,
             )
-        prior_updated_at = _frontmatter_date(frontmatter.get("updated_at"))
-        transition_date = parsed_at.astimezone(timezone.utc).date()
+        calendar_offset = _local_calendar_offset_minutes(parsed_at)
+        prior_updated_at = _prior_calendar_date(frontmatter, history, calendar_offset,
+            _calendar_date(parsed_at, calendar_offset), preserve_date=comment_only)
+        transition_date = _calendar_date(parsed_at, calendar_offset)
         if prior_updated_at is not None and transition_date < prior_updated_at:
             raise ActionTransitionError(
                 "recorded_at_before_updated_at",
@@ -926,7 +985,7 @@ def _transition_action_page_locked(
         )
     )
     entry: dict[str, Any] = {
-        "schema_version": _PAGE_EDIT_RECEIPT_VERSION if edit_binding else ACTION_TRANSITION_RECEIPT_VERSION,
+        "schema_version": ACTION_TRANSITION_RECEIPT_VERSION if comment_only else _CALENDAR_RECEIPT_VERSION,
         "kind": kind,
         "page_id": page_id,
         "from": current,
@@ -943,6 +1002,8 @@ def _transition_action_page_locked(
     }
     if edit_binding:
         entry["page_edit"] = edit_binding
+    if not comment_only:
+        entry["calendar_utc_offset_minutes"] = calendar_offset
     entry["receipt_id"] = _receipt_id(entry)
     if reason_text:
         entry["reason"] = reason_text
@@ -951,7 +1012,7 @@ def _transition_action_page_locked(
     history.append(entry)
     updated[_HISTORY_FIELD] = history
     if not comment_only:
-        updated["updated_at"] = parsed_at.astimezone(timezone.utc).date().isoformat()
+        updated["updated_at"] = _calendar_date(parsed_at, calendar_offset).isoformat()
     after_text = _render_document(updated, edited_body)
     _assert_no_secrets(after_text)
     directory_synced = _atomic_write(path, after_text)
@@ -1136,8 +1197,10 @@ def integrate_action_body(
             raise ActionTransitionError("contribution_effect_already_recorded")
         at, instant = _transition_instant(recorded_at)
         last = _history_last_instant(history)
-        prior_date = _frontmatter_date(fm.get("updated_at"))
-        if (last and instant <= last) or (prior_date and instant.date() < prior_date):
+        calendar_offset = _local_calendar_offset_minutes(instant)
+        prior_date = _prior_calendar_date(fm, history, calendar_offset,
+            _calendar_date(instant, calendar_offset), preserve_date=consolidations is not None)
+        if (last and instant <= last) or (prior_date and _calendar_date(instant, calendar_offset) < prior_date):
             raise ActionTransitionError("non_monotonic_recorded_at")
         if "consolidations" in contribution:
             raise ActionTransitionError("consolidation_requires_native_validation")
@@ -1153,7 +1216,7 @@ def integrate_action_body(
         metadata["before_body_revision"] = _revision_sha256(old_body)
         metadata["after_body_revision"] = _revision_sha256(body)
         entry = {
-            "schema_version": ACTION_TRANSITION_RECEIPT_VERSION,
+            "schema_version": ACTION_TRANSITION_RECEIPT_VERSION if consolidations is not None else _CALENDAR_RECEIPT_VERSION,
             "kind": "body_consolidation" if consolidations is not None else "body_integration", "page_id": fm["page_id"],
             "from": state.state, "to": state.state, "at": at,
             "state_source": state.source, "before_sha256": expected_sha256,
@@ -1163,10 +1226,12 @@ def integrate_action_body(
             "prior_receipt_id": _last_receipt_id(history), "reason_recorded": False,
             "contribution": metadata,
         }
+        if consolidations is None:
+            entry["calendar_utc_offset_minutes"] = calendar_offset
         entry["receipt_id"] = _receipt_id(entry)
         fm[_HISTORY_FIELD] = [*history, entry]
         if consolidations is None:
-            fm["updated_at"] = instant.astimezone(timezone.utc).date().isoformat()
+            fm["updated_at"] = _calendar_date(instant, calendar_offset).isoformat()
         after = _render_document(fm, body)
         _assert_no_secrets(after)
         if action_transition_diagnostics(before, after):
@@ -1279,6 +1344,7 @@ def _receipt_entry_error(
         _V2_ACTION_TRANSITION_RECEIPT_VERSION,
         _V3_ACTION_TRANSITION_RECEIPT_VERSION,
         _PAGE_EDIT_RECEIPT_VERSION,
+        _CALENDAR_RECEIPT_VERSION,
         ACTION_TRANSITION_RECEIPT_VERSION,
     }:
         return "receipt schema is missing or unsupported"
@@ -1313,6 +1379,13 @@ def _receipt_entry_error(
     parsed_at = _parsed_transition_instant(entry.get("at"))
     if parsed_at is None:
         return "receipt has an invalid timestamp"
+    if schema_version == _CALENDAR_RECEIPT_VERSION:
+        if ("calendar_utc_offset_minutes" not in entry
+                or _receipt_calendar_date(entry) is None
+                or kind in {"comment", "body_consolidation"}):
+            return "receipt has an invalid factual calendar binding"
+    elif "calendar_utc_offset_minutes" in entry:
+        return "legacy receipt cannot change its UTC calendar basis"
     if expected_prior_at is not None and (
         parsed_at < expected_prior_at
         or (
@@ -1355,7 +1428,7 @@ def _receipt_entry_error(
         or "page_edit" in entry or "contribution" in entry
     ):
         return "comment receipt must preserve lifecycle and bind only dialogue"
-    if schema_version == _PAGE_EDIT_RECEIPT_VERSION:
+    if schema_version == _PAGE_EDIT_RECEIPT_VERSION or (schema_version == _CALENDAR_RECEIPT_VERSION and "page_edit" in entry):
         edit = entry.get("page_edit")
         required = {"fields", "before", "after"}
         if not isinstance(edit, dict) or not required <= set(edit) or set(edit) - required - {"body_bytes"}:
@@ -1379,7 +1452,7 @@ def _receipt_entry_error(
         return "legacy receipt cannot bind page edits"
     if kind in {"body_integration", "body_consolidation"}:
         material = entry.get("contribution")
-        if schema_version != ACTION_TRANSITION_RECEIPT_VERSION or not isinstance(material, dict):
+        if schema_version not in {ACTION_TRANSITION_RECEIPT_VERSION, _CALENDAR_RECEIPT_VERSION} or not isinstance(material, dict):
             return "body integration is missing its material binding"
         for field in ("material_sha256", "before_body_sha256", "after_body_sha256", "before_body_revision", "after_body_revision"):
             if not _SHA256_RE.fullmatch(str(material.get(field) or "")):
@@ -1659,12 +1732,17 @@ def action_transition_diagnostics(
         and current_updated_at is not None
         and current_updated_at < previous_updated_at
     ):
-        return (
-            ActionTransitionDiagnostic(
-                "action_updated_at_regressed",
-                "action updated_at regressed across an audited lifecycle change",
-            ),
-        )
+        first_factual = next((e for e in additions if e.get("kind") not in {"comment", "body_consolidation"}), None)
+        normalized_previous = (_prior_calendar_date(previous, previous_history, first_factual["calendar_utc_offset_minutes"], _receipt_calendar_date(first_factual))
+                               if first_factual and first_factual.get("schema_version") == _CALENDAR_RECEIPT_VERSION
+                               else previous_updated_at)
+        if normalized_previous is None or current_updated_at < normalized_previous:
+            return (
+                ActionTransitionDiagnostic(
+                    "action_updated_at_regressed",
+                    "action updated_at regressed across an audited lifecycle change",
+                ),
+            )
     comments = [entry for entry in additions if entry.get("kind") == "comment"]
     for entry in comments:
         matches = [event for event in new_dialogue[len(old_dialogue):]
@@ -1675,7 +1753,7 @@ def action_transition_diagnostics(
                     "comment receipt requires its exact appended comment"),)
     if additions and expected_prior_at is not None:
         factual = [entry for entry in additions if entry.get("kind") not in {"comment", "body_consolidation"}]
-        receipt_date = (_parsed_transition_instant(factual[-1]["at"]).astimezone(timezone.utc).date()
+        receipt_date = (_receipt_calendar_date(factual[-1])
                         if factual else previous_updated_at)
         if current_updated_at != receipt_date:
             return (

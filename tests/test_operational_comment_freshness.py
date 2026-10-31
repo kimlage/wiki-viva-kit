@@ -122,10 +122,11 @@ def test_comment_and_lifecycle_receipts_keep_their_distinct_dates(repo):
     action = setup(repo)
     original = action.read_text()
     transition_action_page(repo, action, 'in_progress', recorded_at='2026-10-26T01:00:00Z')
+    factual_date = _parse_document(action.read_text())[0]['updated_at']
     transition_action_page(repo, action, 'in_progress', recorded_at=AT,
         dialogue_event=dict(event_id='received-run-0001', kind='comment', coordinator='research', text='Received.'))
     fm, _ = _parse_document(action.read_text())
-    assert fm['updated_at'] == '2026-10-26'
+    assert fm['updated_at'] == factual_date
     assert action_transition_diagnostics(original, action.read_text()) == ()
     assert operational_comment_receipt(original, action.read_text()) is None
 

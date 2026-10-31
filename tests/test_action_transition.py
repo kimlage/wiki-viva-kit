@@ -164,7 +164,8 @@ def test_valid_transition_is_atomic_receipted_and_auditable(tmp_path: Path) -> N
     assert values["updated_at"] == "2026-07-11"
     assert values["action_state_history"] == [
         {
-            "schema_version": ACTION_TRANSITION_RECEIPT_VERSION,
+            "schema_version": "wiki_action_transition_receipt.v6",
+            "calendar_utc_offset_minutes": transition_module._local_calendar_offset_minutes(transition_module._parsed_transition_instant(FIXED_AT)),
             "kind": "transition",
             "page_id": "action-synthetic-review",
             "from": "open",
@@ -680,7 +681,7 @@ def test_writer_rejects_first_receipt_before_existing_updated_at(
             tmp_path,
             path,
             "in_progress",
-            recorded_at="1900-01-01T00:00:00Z",
+            recorded_at="2026-07-09T12:00:00Z",
         )
 
     assert raised.value.code == "recorded_at_before_updated_at"
@@ -989,6 +990,7 @@ def test_legacy_v1_receipt_remains_readable_but_cannot_bind_v2_only_fields(
     )
     entry = values["action_state_history"][-1]
     entry["schema_version"] = "wiki_action_transition_receipt.v1"
+    entry.pop("calendar_utc_offset_minutes")
     entry["governed_support_sha256"] = transition_module._governed_support_sha256(
         values,
         schema_version="wiki_action_transition_receipt.v1",
@@ -1168,9 +1170,15 @@ def test_v2_receipt_can_be_followed_by_v3_priority_update(tmp_path, monkeypatch)
     path = _write_action(tmp_path)
     before = path.read_text()
     with monkeypatch.context() as patch:
-        patch.setattr(transition_module, "ACTION_TRANSITION_RECEIPT_VERSION", "wiki_action_transition_receipt.v2")
+        patch.setattr(transition_module, "_CALENDAR_RECEIPT_VERSION", "wiki_action_transition_receipt.v2")
+        patch.setattr(transition_module, "_local_calendar_offset_minutes", lambda _: 0)
         patch.setattr(transition_module, "_SUPPORT_FIELDS", transition_module._SUPPORT_FIELDS_V2)
         transition_action_page(tmp_path, path, "in_progress", recorded_at=FIXED_AT)
+    values, body = transition_module._parse_document(path.read_text())
+    entry = values["action_state_history"][-1]
+    entry.pop("calendar_utc_offset_minutes")
+    entry["receipt_id"] = transition_module._receipt_id(entry)
+    path.write_text(transition_module._render_document(values, body))
     v2 = path.read_text()
     assert action_transition_diagnostics(before, v2) == ()
     transition_action_page(tmp_path, path, "in_progress", priority="high", recorded_at="2026-07-11T14:31:00Z")
@@ -1178,7 +1186,7 @@ def test_v2_receipt_can_be_followed_by_v3_priority_update(tmp_path, monkeypatch)
 
 
 @pytest.mark.parametrize("contribution_first", [False, True])
-def test_page_edits_interleave_with_v4_contribution_and_dialogue(tmp_path: Path, contribution_first: bool) -> None:
+def test_page_edits_interleave_with_legacy_v4_contribution_and_dialogue(tmp_path: Path, contribution_first: bool) -> None:
     from wiki_core.action_transition import integrate_action_body
     path = _write_action(tmp_path)
     base = path.read_text()
@@ -1186,6 +1194,12 @@ def test_page_edits_interleave_with_v4_contribution_and_dialogue(tmp_path: Path,
     def contribution(at):
         integrate_action_body(tmp_path, path, "# Reviewed synthetic body\n", expected_sha256=digest(),
             contribution={"effect_key": "synthetic-mixed-edit", "material_sha256": "a" * 64}, recorded_at=at)
+        fm, body = transition_module._parse_document(path.read_text())
+        entry = fm["action_state_history"][-1]
+        entry["schema_version"] = "wiki_action_transition_receipt.v4"
+        entry.pop("calendar_utc_offset_minutes")
+        entry["receipt_id"] = transition_module._receipt_id(entry)
+        path.write_text(transition_module._render_document(fm, body))
     def edit(at):
         transition_action_page(tmp_path, path, "open", expected_sha256=digest(), recorded_at=at,
             page_edit={"title": "Edited title", "body": "# Operator text\n", "owner_kind": "human", "owner_ref": "synthetic-owner"})
@@ -1200,7 +1214,7 @@ def test_page_edits_interleave_with_v4_contribution_and_dialogue(tmp_path: Path,
     assert action_transition_diagnostics(base, current) == ()
     values, _ = parse_frontmatter(current)
     assert {e["schema_version"] for e in values["action_state_history"]} == {
-        "wiki_action_transition_receipt.v4", "wiki_action_transition_receipt.v5"}
+        "wiki_action_transition_receipt.v4", "wiki_action_transition_receipt.v6"}
     # An unreceipted body overwrite cannot hide behind either kind of receipt.
     tampered = current + "\nUnbound content.\n"
     assert action_transition_diagnostics(base, tampered)[0].code == "action_body_integration_mismatch"
@@ -1262,6 +1276,8 @@ def test_page_edit_keeps_previous_v5_receipts_and_validates_exact_body_binding(t
     # V5 receipts issued before exact-byte witnesses remain valid unchanged.
     legacy = copy.deepcopy(fm)
     entry = legacy["action_state_history"][-1]
+    entry["schema_version"] = "wiki_action_transition_receipt.v5"
+    entry.pop("calendar_utc_offset_minutes")
     entry["page_edit"].pop("body_bytes")
     entry["page_edit"]["fields"].remove("body_bytes")
     entry["receipt_id"] = transition_module._receipt_id(entry)

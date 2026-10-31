@@ -117,9 +117,15 @@ def test_v3_receipt_then_v4_dialogue_is_writable_and_auditable(tmp_path, monkeyp
     path = _write_action(tmp_path, extra={"source_refs": ["source-synthetic"]})
     original = path.read_text()
     with monkeypatch.context() as patch:
-        patch.setattr(module, "ACTION_TRANSITION_RECEIPT_VERSION", "wiki_action_transition_receipt.v3")
+        patch.setattr(module, "_CALENDAR_RECEIPT_VERSION", "wiki_action_transition_receipt.v3")
+        patch.setattr(module, "_local_calendar_offset_minutes", lambda _: 0)
         patch.setattr(module, "_SUPPORT_FIELDS", module._SUPPORT_FIELDS_V3)
         transition_action_page(tmp_path, path, "open", priority="high")
+    fm, body = module._parse_document(path.read_text())
+    entry = fm["action_state_history"][-1]
+    entry.pop("calendar_utc_offset_minutes")
+    entry["receipt_id"] = module._receipt_id(entry)
+    path.write_text(module._render_document(fm, body))
     v3 = path.read_text()
     assert parse_frontmatter(v3)[0]["action_state_history"][-1]["schema_version"].endswith(".v3")
     write(tmp_path, path, event(), "coordinator:research")

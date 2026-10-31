@@ -50,6 +50,7 @@ _ACTION_RECEIPT_SCHEMAS = {
     "wiki_action_transition_receipt.v3",
     "wiki_action_transition_receipt.v4",
     "wiki_action_transition_receipt.v5",
+    "wiki_action_transition_receipt.v6",
 }
 _ACTION_SUPPORT_FIELDS_V1 = {
     "next_action",
@@ -557,7 +558,7 @@ def _action_history_shape_errors(
         allowed_support = (
             _ACTION_SUPPORT_FIELDS_V1
             if schema_version == "wiki_action_transition_receipt.v1"
-            else (_ACTION_SUPPORT_FIELDS_V2 | {"priority", "action_dialogue"} if schema_version in {"wiki_action_transition_receipt.v4", "wiki_action_transition_receipt.v5"}
+            else (_ACTION_SUPPORT_FIELDS_V2 | {"priority", "action_dialogue"} if schema_version in {"wiki_action_transition_receipt.v4", "wiki_action_transition_receipt.v5", "wiki_action_transition_receipt.v6"}
                   else _ACTION_SUPPORT_FIELDS_V2 | {"priority"} if schema_version == "wiki_action_transition_receipt.v3" else _ACTION_SUPPORT_FIELDS_V2)
         )
         if (
@@ -567,7 +568,7 @@ def _action_history_shape_errors(
         ):
             errors.append(f"{label} has invalid governed support fields")
 
-        if kind in {"body_integration", "body_consolidation", "comment"} or schema_version == "wiki_action_transition_receipt.v5" or "page_edit" in entry:
+        if kind in {"body_integration", "body_consolidation", "comment"} or schema_version in {"wiki_action_transition_receipt.v5", "wiki_action_transition_receipt.v6"} or "page_edit" in entry or "calendar_utc_offset_minutes" in entry:
             from wiki_core.action_transition import _receipt_entry_error
             error = _receipt_entry_error(entry, expected_from=previous,
                 expected_page_id=page_id, expected_prior_receipt_id=prior_receipt_id,
@@ -587,7 +588,7 @@ def _action_history_shape_errors(
         elif prior_at is not None and (
             parsed_at < prior_at
             or (
-                schema_version in {"wiki_action_transition_receipt.v2", "wiki_action_transition_receipt.v3", "wiki_action_transition_receipt.v4", "wiki_action_transition_receipt.v5"}
+                schema_version in {"wiki_action_transition_receipt.v2", "wiki_action_transition_receipt.v3", "wiki_action_transition_receipt.v4", "wiki_action_transition_receipt.v5", "wiki_action_transition_receipt.v6"}
                 and parsed_at == prior_at
             )
         ):
