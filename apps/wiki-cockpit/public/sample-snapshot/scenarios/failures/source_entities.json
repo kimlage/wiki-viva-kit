@@ -51,6 +51,7 @@
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -101,7 +102,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "parser_error",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Error trace export",
       "update_route": {
@@ -110,12 +112,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "sistema",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -166,7 +174,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "failed",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Health checks output",
       "update_route": {
@@ -175,7 +184,12 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     }
   ],
   "summary": {

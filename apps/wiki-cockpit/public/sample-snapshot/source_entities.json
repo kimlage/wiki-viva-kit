@@ -79,6 +79,7 @@
       "auth": null,
       "config_ref": "",
       "context": "sistema",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -127,7 +128,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Action ledger export",
       "update_route": {
@@ -136,12 +138,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "pessoal",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "demo-sha:agenda-accepted",
@@ -198,7 +206,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "ok",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Agenda",
       "update_route": {
@@ -207,12 +216,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "financeiro",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -271,7 +286,8 @@
         "last_run_at": "2026-05-04",
         "last_status": "ok",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Extrato do Banco",
       "update_route": {
@@ -280,12 +296,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-05-04"
+      "updated_at": "2026-05-04",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "pessoal",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -334,7 +356,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Calendar archive",
       "update_route": {
@@ -343,12 +366,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -397,7 +426,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Call recordings archive",
       "update_route": {
@@ -406,12 +436,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -464,7 +500,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "ok",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Export do Chat",
       "update_route": {
@@ -473,12 +510,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -527,7 +570,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Clearpath billing feed",
       "update_route": {
@@ -536,12 +580,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -590,7 +640,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Clearpath risk log",
       "update_route": {
@@ -599,12 +650,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -653,7 +710,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Clearpath roadmap archive",
       "update_route": {
@@ -662,12 +720,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -716,7 +780,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Clearpath support feed",
       "update_route": {
@@ -725,12 +790,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -781,7 +852,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "needs_auth",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "CRM accounts export",
       "update_route": {
@@ -790,12 +862,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "sistema",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "demo-sha:decision-log-no-change",
@@ -846,7 +924,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "ok",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Decision log export",
       "update_route": {
@@ -855,12 +934,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -911,7 +996,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "parser_error",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Error trace export",
       "update_route": {
@@ -920,12 +1006,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "sistema",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -974,7 +1066,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Evidence ledger export",
       "update_route": {
@@ -983,12 +1076,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1037,7 +1136,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Feature flag audit",
       "update_route": {
@@ -1046,12 +1146,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "sistema",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1102,7 +1208,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "failed",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Health checks output",
       "update_route": {
@@ -1111,12 +1218,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "pessoal",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1165,7 +1278,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Inbox capture stream",
       "update_route": {
@@ -1174,12 +1288,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "pessoal",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1228,7 +1348,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Notes vault index",
       "update_route": {
@@ -1237,12 +1358,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1291,7 +1418,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "NPS survey export",
       "update_route": {
@@ -1300,12 +1428,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "demo-sha:product-analytics-accepted",
@@ -1362,7 +1496,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "ok",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Product analytics export",
       "update_route": {
@@ -1371,12 +1506,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "sistema",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1427,7 +1568,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "secret_blocked",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Publication queue",
       "update_route": {
@@ -1436,12 +1578,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "estudio",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1490,7 +1638,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Reading queue export",
       "update_route": {
@@ -1499,12 +1648,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "estudio",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1553,7 +1708,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Reference folder mirror",
       "update_route": {
@@ -1562,12 +1718,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "pessoal",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1616,7 +1778,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Relation cadence export",
       "update_route": {
@@ -1625,12 +1788,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1685,7 +1854,8 @@
         "last_run_at": "2026-07-03",
         "last_status": "running",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Release notes archive",
       "update_route": {
@@ -1694,12 +1864,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1748,7 +1924,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Sales pipeline export",
       "update_route": {
@@ -1757,12 +1934,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1815,7 +1998,8 @@
         "last_run_at": "2026-05-04",
         "last_status": "ok",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Support tickets export",
       "update_route": {
@@ -1824,12 +2008,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "sistema",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1878,7 +2068,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Template registry snapshot",
       "update_route": {
@@ -1887,12 +2078,18 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     },
     {
       "auth": null,
       "config_ref": "",
       "context": "clientes",
+      "freshness_applicable": false,
       "how_to_export": "",
       "lifecycle": {
         "accepted_ref": "",
@@ -1941,7 +2138,8 @@
         "last_run_at": "",
         "last_status": "never",
         "streams_fresh": 0,
-        "streams_total": 0
+        "streams_total": 0,
+        "streams_without_pending": 0
       },
       "title": "Usage warehouse extract",
       "update_route": {
@@ -1950,7 +2148,12 @@
         "requires_agent": false,
         "runnable": false
       },
-      "updated_at": "2026-07-03"
+      "updated_at": "2026-07-03",
+      "verification": {
+        "evidence_refs": [],
+        "live_access": "unknown",
+        "recorded_at": null
+      }
     }
   ],
   "summary": {

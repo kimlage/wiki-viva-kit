@@ -9,13 +9,16 @@ from __future__ import annotations
 import datetime as dt
 import copy
 from contextlib import contextmanager
+from contextvars import ContextVar
 import hashlib
 import json
 import os
 import re
+import socket
 import subprocess
 import tempfile
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from wiki_core.action_transition import _assert_no_secrets, _parse_document, _action_file_lock
 from wiki_core.config import load_config
@@ -28,6 +31,25 @@ from wiki_core.web.snapshot import build_snapshot
 from wiki_core.openclaw_config import RuntimeErrorCode, require, validated_config
 
 MAX_RECEIPT_BYTES = 256_000
+MAX_RESULT_EXCERPT_CHARS = 1_600
+_PREPARATORY_OBSERVATIONS = ContextVar("openclaw_preparatory_observations", default=None)
+
+
+@contextmanager
+def preparatory_observations():
+    """Describe calls already made while planning, including a dry run."""
+    observed = []
+    token = _PREPARATORY_OBSERVATIONS.set(observed)
+    try:
+        yield observed
+    finally:
+        _PREPARATORY_OBSERVATIONS.reset(token)
+
+
+def preparation_effects(observed):
+    return ([f"OpenClaw chat.history during planning ({len(observed)} calls); native orphan reconciliation is possible"]
+            if observed else [])
+
 
 def route_for(config, profile):
     runtime = validated_config(config.openclaw)
@@ -89,13 +111,17 @@ class Gateway:
                   "toolResultMaxChars": 1, **extra}
         if params.get("messageId"):
             params["sessionId"] = self.route["session_id"]
+        observed = _PREPARATORY_OBSERVATIONS.get()
+        if observed is not None:
+            observed.append("chat.history")
         value = self.call("chat.history", params)
         require(value.get("sessionId") == self.route["session_id"], "openclaw_session_identity_changed")
         return value
 
 
 def git(root, *args):
-    return subprocess.check_output(["git", *args], cwd=root, text=True, stderr=subprocess.DEVNULL).strip()
+    return subprocess.check_output(["git", *args], cwd=root, text=True, stderr=subprocess.DEVNULL,
+                                   env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"}).strip()
 
 
 def binding(root, config, profile, action_id, *, admissible=True, require_clean=True):
@@ -415,7 +441,8 @@ def recovery_claim(directory, plan):
     return claim
 
 
-def verify_mission_selection(directory, plan, message, native_run_id=None):
+def verified_mission_guard(directory, plan, native_run_id=None):
+    """Verify the retained turn/inference/terminal chain without native calls."""
     if "mission" not in plan:
         return
     contract = read_receipt(directory / "mission.json")
@@ -438,8 +465,7 @@ def verify_mission_selection(directory, plan, message, native_run_id=None):
     require(contract["plan_sha256"] == digest(plan) and claim.get("contract_sha256") == sha
             and claim.get("run_id") == plan["effect_key"] and claim.get("session_id") == plan["route"]["session_id"]
             and claim.get("model") == selected["model"].split("/", 1)[1]
-            and claim.get("effort") == selected["effort"]
-            and message.get("model") == claim["model"], "openclaw_mission_selection_unproven")
+            and claim.get("effort") == selected["effort"], "openclaw_mission_selection_unproven")
     recovered = native_run_id is not None and native_run_id != plan["effect_key"]
     recovery = recovery_claim(directory, plan) if recovered else None
     require(not recovered or recovery and recovery["native_run_id"] == native_run_id,
@@ -480,6 +506,13 @@ def verify_mission_selection(directory, plan, message, native_run_id=None):
                     and item.get("model") == claim["model"] and item.get("effort") == claim["effort"]
                     and item.get("path") in {"/responses", "/responses/compact"},
                     "openclaw_mission_selection_unproven")
+    return claim
+
+
+def verify_mission_selection(directory, plan, message, native_run_id=None):
+    claim = verified_mission_guard(directory, plan, native_run_id)
+    if claim is not None:
+        require(message.get("model") == claim["model"], "openclaw_mission_selection_unproven")
 
 
 def verified_result_message(directory, plan, route, message_id, data):
@@ -575,6 +608,40 @@ def inspect(root, config, params):
             "idempotent_read": old is not None, "documentary_integration": "pending_review"}
 
 
+def retained_attempt(root, config, path, intent, *, include_details=False):
+    """Verify one local attempt for both command preflight and observation."""
+    plan = intent["plan"]
+    require(digest(plan) == intent.get("plan_sha256") and plan["effect_key"] == path.parent.name,
+            "openclaw_intent_changed")
+    require(isinstance(intent.get("attempted_at"), str), "openclaw_receipt_corrupt_reconcile")
+    directory = storage(root, config, plan["effect_key"])
+    result = verified_result(directory, plan) if (directory / "result.json").exists() else None
+    resolved = (directory / "failure-resolution.json").exists()
+    resolution = verified_failure_resolution(directory, plan, root) if resolved else None
+    value = {"effect_key": plan["effect_key"], "attempted_at": intent["attempted_at"],
+            "has_result": result is not None, "reconciled": result is not None or resolved,
+            "resolved_without_result": resolved, "result_captured_at": result.get("captured_at") if result else None,
+            "proposal": proposal_status(root, config, directory, plan)}
+    if not include_details:
+        return value
+    guard = {"status": "not_observed", "model": None, "effort": None, "error_code": None}
+    if "mission" in plan and any(directory.glob("guard-*.json")):
+        try:
+            # A complete retained chain proves historical guard admission, not
+            # current execution or a currently valid administrative grant.
+            claim = verified_mission_guard(directory, plan, result.get("native_run_id") if result else None)
+            guard.update(status="retained_chain_verified", model=claim["model"], effort=claim["effort"])
+        except (ValueError, KeyError, TypeError, AttributeError, OSError):
+            guard.update(status="unavailable", error_code="retained_guard_chain_unavailable")
+    return {**value, "run_id": plan["effect_key"],
+        "action_path": _safe(root, plan["binding"]["action_path"]).relative_to(root).as_posix(),
+        "result": {"excerpt": result["text"][:MAX_RESULT_EXCERPT_CHARS], "text_sha256": result["text_sha256"],
+                   "truncated": len(result["text"]) > MAX_RESULT_EXCERPT_CHARS} if result else None,
+        "authorization": {"status": "not_observed"}, "guard_admission": guard,
+        "review": {"status": "failure_resolution_reviewed" if resolution else "not_observed",
+                   "head": resolution["review"]["head"] if resolution else None}}
+
+
 def attempts(root, config, profile, action_id):
     """Discovery of recovery evidence, not readiness or a second task list."""
     parent = WikiPaths(root, config).derived_root / "openclaw"
@@ -590,18 +657,87 @@ def attempts(root, config, profile, action_id):
         plan = intent["plan"]
         require(digest(plan) == intent.get("plan_sha256"), "openclaw_intent_changed")
         if plan["binding"]["profile"] == profile and plan["binding"]["action_id"] == action_id:
-            result_path = path.parent / "result.json"
-            has_result = result_path.exists()
-            if has_result:
-                verified_result(path.parent, plan)
-            resolved = (path.parent / "failure-resolution.json").exists()
-            if resolved:
-                verified_failure_resolution(path.parent, plan, root)
-            found.append({"effect_key": plan["effect_key"], "attempted_at": intent["attempted_at"],
-                          "has_result": has_result, "reconciled": has_result or resolved,
-                          "resolved_without_result": resolved,
-                          "proposal": proposal_status(root, config, path.parent, plan)})
+            found.append(retained_attempt(root, config, path, intent))
     return found
+
+
+def transport_observation(config):
+    """Connect to the allowlisted loopback port, without protocol bytes or auth.
+
+    A TCP listener is not proof of Gateway identity, readiness or model activity.
+    Native chat.history can reconcile; sessions.describe can certify SQLite
+    canonical readiness. Neither is admitted to this read-only observation.
+    """
+    runtime = validated_config(config.openclaw)
+    value = {"status": "not_configured", "scope": "loopback_tcp_only",
+             "observed_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+    if not runtime["enabled"]:
+        return value
+    address = urlsplit(runtime["gateway"])
+    try:
+        with socket.create_connection((address.hostname, address.port), timeout=2):
+            pass
+        value["status"] = "reachable"
+    except OSError:
+        value["status"] = "unreachable"
+    return value
+
+
+def runtime_observations(root, config):
+    """Project retained evidence only. Never call native APIs or any writer."""
+    from wiki_core.web.openclaw_recurring import latest_wakes
+    runtime = validated_config(config.openclaw)
+    value = {"configured": runtime["enabled"], "observation_scope": "retained_local_evidence",
+             "gateway_status": "not_observed", "active_run": None, "pending_inputs": None,
+             "usage": {"status": "not_measured", "tokens": None, "cost": None},
+             "attempts": [], "rules": [], "native_observations": [], "errors": []}
+    if not runtime["enabled"]:
+        return value
+    value["native_observations"] = [
+        {"profile": profile, "observed_at": None, "status": "unavailable",
+         "has_active_run": None, "active_run_ids": None, "session_status": None,
+         "error_code": "native_read_api_may_write"} for profile in runtime["routes"]]
+    try:
+        parent = storage(root, config, "wiki-run-" + "0" * 32).parent
+    except (OSError, ValueError):
+        value["errors"].append("openclaw_receipt_unavailable_reconcile")
+        parent = None
+    for path in sorted(parent.glob("wiki-run-*/intent.json")) if parent else ():
+        try:
+            _safe(root, path.relative_to(root).as_posix())
+            intent = read_receipt(path)
+            plan = intent["plan"]
+            require(digest(plan) == intent["plan_sha256"], "openclaw_intent_changed")
+            profile, action_id = plan["binding"]["profile"], plan["binding"]["action_id"]
+            require(isinstance(profile, str) and isinstance(action_id, str), "openclaw_receipt_corrupt_reconcile")
+            if profile in runtime["routes"]:
+                attempt = retained_attempt(root, config, path, intent, include_details=True)
+                # Timestamps are observations, never a liveness assertion.
+                for timestamp in (attempt["attempted_at"], attempt["result_captured_at"]):
+                    if timestamp is not None:
+                        require(dt.datetime.fromisoformat(timestamp.replace("Z", "+00:00")).tzinfo is not None,
+                                "openclaw_receipt_corrupt_reconcile")
+                value["attempts"].append({**attempt, "profile": profile, "action_id": action_id,
+                    "status": "result_retained" if attempt["has_result"] else
+                              "resolved_without_result" if attempt["resolved_without_result"] else "awaiting_reconciliation"})
+        except (ValueError, KeyError, TypeError, AttributeError, OSError, subprocess.SubprocessError):
+            value["errors"].append("openclaw_receipt_unavailable_reconcile")
+    value["attempts"].sort(key=lambda row: row["attempted_at"], reverse=True)
+    wakes, error = latest_wakes(root, config) if runtime.get("recurring") else ({}, None)
+    if error:
+        value["errors"].append(error)
+    for rule_id, rule in runtime.get("recurring", {}).items():
+        wake = wakes.get(rule_id)
+        expected = None
+        if wake:
+            expected = (dt.datetime.fromisoformat(wake["observed_at"].replace("Z", "+00:00"))
+                        + dt.timedelta(minutes=rule["interval_minutes"])).isoformat()
+        value["rules"].append({"rule_id": rule_id, "profile": rule["profile"],
+            "action_id": rule["action_id"], "interval_minutes": rule["interval_minutes"],
+            "last_wake": wake, "next_expected_observation_at": expected,
+            "scheduler_status": "not_observed"})
+    value["errors"] = sorted(set(value["errors"]))
+    return value
 
 
 def verified_result(directory, plan):
@@ -1029,10 +1165,12 @@ def proposal_status(root, config, directory, plan):
         approved = "refs/remotes/origin/" + str(config.approval.get("default_branch") or "main")
         incorporated = subprocess.run(["git", "merge-base", "--is-ancestor", "HEAD", approved], cwd=root,
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    result_path = _safe(root, material["documents"][0]["path"]).relative_to(root).as_posix()
     return {"status": status, "content_incorporated_in_main": status == "received_in_main" and incorporated,
             "head": head, "approved_base": material["base_head"],
             "proposal_head": proposal_head, "branch": branch,
-            "material_path": saved["material_path"], "material_sha256": saved["material_sha256"]}
+            "material_path": saved["material_path"], "material_sha256": saved["material_sha256"],
+            "result_path": result_path}
 
 
 def receipt_source(root, config, params):

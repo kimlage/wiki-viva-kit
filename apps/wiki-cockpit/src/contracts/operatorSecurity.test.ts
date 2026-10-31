@@ -8,7 +8,7 @@ import {
 function validHealth() {
   return {
     ok: true,
-    server_version: "wiki_web_server.v10",
+    server_version: "wiki_web_server.v11",
     schema_capabilities: [...REQUIRED_OPERATOR_CAPABILITIES, "codex"],
     operator_security: {
       version: "wiki_operator_security.v2",
@@ -89,6 +89,11 @@ describe("shared operator security contract", () => {
       "missing revocable proposal effects",
       { schema_capabilities: REQUIRED_OPERATOR_CAPABILITIES.filter(value => value !== "revocable_documentary_proposals_v1") },
       "revocable_documentary_proposals_v1"
+    ],
+    [
+      "missing runtime observation contract",
+      { schema_capabilities: REQUIRED_OPERATOR_CAPABILITIES.filter(value => value !== "runtime_observations_v1") },
+      "runtime_observations_v1"
     ],
     [
       "malformed capability list",

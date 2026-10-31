@@ -30,6 +30,7 @@ from wiki_core.source_recipe import (
 )
 from wiki_core.source_lifecycle import SOURCE_SYNC_STATES, resolve_source_lifecycle
 from wiki_core.source_state import read_state, stream_cursor
+from wiki_core.temporal import TemporalEventError, parse_temporal_value
 from wiki_core.web.source_groups import build_source_groups_payload
 
 SOURCE_ENTITIES_SCHEMA_VERSION = "wiki_web_source_entities.v1"
@@ -380,6 +381,15 @@ def _source_record(
         else "manual_export"
     )
 
+    verification_at = None
+    if not unsafe_recipe and values.get("verified_at"):
+        try:
+            verification = parse_temporal_value(str(values["verified_at"]))
+            if verification.precision in {"day", "instant"}:
+                verification_at = verification.value
+        except TemporalEventError:
+            pass  # Invalid authoring cannot become a verification claim.
+
     record = {
         "source_id": source_id,
         "path": rel,
@@ -412,6 +422,9 @@ def _source_record(
             # (no machine sync block yet) — the UI can say so honestly.
             "derived_from_event": sync_derived,
             "streams_fresh": fresh,
+            # Compatibility retains streams_fresh, whose historical meaning is
+            # only "no pending trigger". It is not proof of factual freshness.
+            "streams_without_pending": fresh,
             "streams_total": selected_total,
             "event_closure": {
                 "consolidated_into": list(event_closure.get("consolidated_into") or []),
@@ -471,6 +484,12 @@ def _source_record(
         "pipelines": pipelines,
         "streams": streams_out,
         "pending_streams": pending,
+        "freshness_applicable": time_based_freshness,
+        "verification": {
+            "recorded_at": verification_at,
+            "evidence_refs": list_values(values.get("evidence_refs")) if not unsafe_recipe else [],
+            "live_access": "unknown",
+        },
         # Rich config (v2): the auth POINTER (never a value), the sync schedule,
         # and days until the next scheduled sync (negative = overdue).
         "auth": recipe_json.get("auth") or None,

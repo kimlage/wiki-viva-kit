@@ -8255,6 +8255,13 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
    command bar are real pointer surfaces. Fit the WebGL viewport between them
    so semantic nodes never sit behind controls that intercept touch. */
 @media (max-width: 620px) {
+  /* Keep the work links visible above an open surface without spending the
+     palette's usable height on gaps between inactive HUD rows. */
+  .worldWorkspace[data-primary-surface-open="true"] .worldTopStrip {
+    gap: 2px 8px;
+    padding-block: 2px;
+  }
+
   .worldWorkspace .sceneShell:not(.fallbackMode) .sceneCanvasFrame {
     inset:
       calc(var(--world-top-strip-height, 148px) + 62px)
@@ -8287,6 +8294,18 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
    status/destination controls, and leave the overview's phone-wide landmark
    contract intact inside the resulting safe area. */
 @media (max-width: 620px) and (max-height: 720px) {
+  /* Work links and navigator controls retain 44px targets. Reclaim only
+     noninteractive spacing; the measured strip still defines the map inset. */
+  .worldWorkspace .worldTopStrip {
+    gap: 2px 8px;
+    padding-block: 2px;
+  }
+
+  .worldWorkspace .worldNavigator .worldRuntimeControls {
+    gap: 0;
+    padding: 0;
+  }
+
   .worldWorkspace[data-world-fallback-active="false"] .conditionStrip,
   .worldWorkspace[data-world-fallback-active="false"] .worldMeta,
   .worldWorkspace[data-world-fallback-active="false"] .quadrantSeed,

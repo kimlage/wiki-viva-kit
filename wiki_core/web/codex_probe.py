@@ -103,13 +103,13 @@ def probe_codex(
         "reason": "",
     }
 
-    authed, auth_mode = _probe_auth(codex_home)
-    record["authed"] = authed
-    record["auth_mode"] = auth_mode
-
     if not enabled:
         record["reason"] = "Codex is turned off for this wiki (codex.enabled: false)."
         return record
+
+    authed, auth_mode = _probe_auth(codex_home)
+    record["authed"] = authed
+    record["auth_mode"] = auth_mode
 
     installed = shutil.which(binary) is not None
     record["installed"] = installed

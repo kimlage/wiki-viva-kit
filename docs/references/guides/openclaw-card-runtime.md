@@ -7,6 +7,89 @@ There is no standalone mission command, shell input, arbitrary RPC selector,
 new scheduler or second task queue. OpenClaw retains runs; the wiki retains
 action authority and reviewed results.
 
+## Read-only operational observation
+
+`GET /api/runtime/observations` (`runtime_observations_v1`) is separate from
+the administrative command bus. It verifies retained intent/result/proposal
+receipts and projects the last typed recurrence wake from the existing
+administrative audit. It never invokes `inspect`, releases a mission lock,
+reconciles pending native inputs, dispatches a model, opens account credentials,
+appends an audit entry or builds a snapshot. Invalid local evidence produces
+typed unknown/unavailable states without exposing corrupt receipt bytes or provider
+diagnostics. Missing evidence does not mean that no useful work occurred.
+
+The only live OpenClaw check is a TCP connection to its configured loopback
+port, with a two-second timeout and no protocol bytes or authentication. Its
+timestamped result is cached in process memory for 30 seconds. A reachable
+listener proves neither Gateway identity nor authorization, readiness or session
+activity. Current activity and pending inputs remain `null`, with
+`native_read_api_may_write` for the unavailable native observation. Retained
+attempts, terminal results, receipt comments and incorporated content remain
+distinct. Token usage and costs are `not_measured`/`null`, never inferred as zero
+from absent receipts or from the number of guard admissions.
+
+Each retained attempt links its canonical run ID and repository-relative action
+path. A verified local result supplies at most 1,600 characters, its full-text
+SHA-256 and an explicit truncation flag; reading it never requires `inspect`.
+The shared guard verifier can separately prove a complete retained
+turn/inference/terminal chain. Missing or damaged guard evidence remains
+unobserved/unavailable even when the independently verified result is readable.
+That historical admission does not prove a current administrative grant:
+`authorization.status` remains `not_observed`. A validated failure-resolution
+receipt can establish its own independent review; a normal receipt or content
+incorporation does not manufacture a normal-review record. Material and result
+references remain repository-relative, without native session or host paths.
+
+This limitation is deliberate for the qualified OpenClaw `2026.10.9` package:
+`chat.history` can reconcile orphaned inputs. `sessions.describe` is also
+ineligible for a pure GET: `sessions-read-DenbZWtx.mjs` calls
+`withReadySessionRows` in `session-row-prepared-read-BEDhe5gP.mjs`; a pending
+readiness certificate then enters `certifySessionCanonicalValidationPending`
+in `session-canonical-validation-readiness-sJ8Uy9SS.mjs`, which can call
+`withSqliteMutationWorkerLifetime`, `runExclusiveSqliteSessionWrite` and
+`runCanonicalValidation`. The RPC allowlist is unchanged. A genuinely read-only,
+qualified native API is still required before current run or queue state can be
+shown; the product does not work around this boundary with direct SQLite reads.
+
+An executed `agents.openclaw.tick`, including `unchanged`, `already_observed` and
+review/incorporation waits, enriches its existing audit event's `output_summary`
+with `wiki_openclaw_wake.v1`. There is no extra journal, queue or writer. Planning
+and dry-run entries are excluded. A failed execution records its intended mode
+and a closed error code, with `new_dispatch: null` because failure alone cannot
+prove absence of a send. The read model verifies the retained audit hash chain
+before projecting any wake. Disabled, unverified, corrupt, partial, absent or
+oversized audit evidence remains unknown. Retention can remove older wakes.
+New typed wakes are also bound to the exact configured rule hash; a reused rule
+ID or legacy entry without that hash cannot supply the current rule's timestamp.
+The existing audit writer serializes its complete read-tail/append/retention
+transaction through the canonical filesystem-lock primitive as well as its
+thread lock. This prevents separate updated operator processes from forking the
+chain. An unavailable lock refuses the append; it does not undo an administrative
+effect already completed before auditing. At the HTTP boundary this exception
+becomes a sanitized `500/internal_operator_error`, replayable under the same
+attempt key; that response does not prove absence of the preceding effect.
+All cooperating writers must use the
+updated implementation. This change neither repairs nor rehashes historical
+forks, and the read model continues to mark such retained history unavailable.
+The next expected observation is the last recorded wake plus its configured
+interval; it is an expectation, not evidence that a scheduler is running.
+
+OpenClaw planning can already call `chat.history`, including when the plan uses
+dry-run. `effects.preparatory_observations` reports these calls after they happen,
+including the possible native reconciliation; `effects.external_calls` describes
+future execution effects. A refused plan retains its preparatory observations in
+the error response as well. Dry-run suppresses command execution, not these
+existing preparatory observations. The pure GET is the browsing observation port.
+
+The operator reports its startup time, code checkout HEAD at startup and now,
+separate Python code fingerprints, and the current content checkout HEAD. A
+Python/config change requires restart; an ordinary content/documentation commit
+does not. A startup checkout SHA is not a bytecode attestation, especially for a
+dirty checkout; the fingerprints retain that distinction. The frontend field
+identifies the currently served `index.html` bytes by SHA-256. Its source commit
+is unknown because the bundle carries no source provenance; the backend never
+substitutes the content HEAD for a bundle version.
+
 ## Consumer setup
 
 The consumer integrator supplies existing local installation and session

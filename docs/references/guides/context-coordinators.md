@@ -27,6 +27,16 @@ profiles:
 
 Use real page IDs and existing memory pages. Common procedures may also reference explicit `.skills/.../SKILL.md` files. Paths outside the repository, symlinks and arbitrary files such as environment credentials are refused. Assign one primary coordinator per action; missing routes remain visible instead of assigning an arbitrary bot. A profile may coordinate a context with no current action; never create tasks to fill it.
 
+The board's **Fronts** view derives projects and initiatives from canonical
+pages, including fronts without an active action. Optional `front_refs` on a
+profile selects existing page IDs or paths for differently typed contexts.
+These references add navigation, not copied statuses or another task store.
+Declared status, documentary date, owner, explicit action links and evidence
+stay on the source page. Historical tags, coordinator assignment and open
+actions never prove live execution or override a paused front. Missing and
+changed references remain visible as projection warnings. Protected single-action
+context packets do not expand their authorized readset to this inventory.
+
 `common_context` is the shared entry point for **every** profile. Include the
 consumer's current approval policy, operational contract, ingestion process and
 router there; replace the example paths with that consumer's existing pages.
@@ -156,6 +166,13 @@ Profiles may declare `required_tools` (a list of descriptions) and
 `access_requirements` (each with `service`, `expected_identity`, `method` and a
 canonical `source_ref`). Source configuration pages enter the context packet.
 These are requirements, not access grants: `access_verified` remains false.
+Each requirement may additionally declare `action_ids` belonging to that
+profile, plus `operation`, `resource` and `recovery` descriptions. The board
+separates action-specific requirements from profile-wide requirements. A
+requirement without `action_ids` is not evidence that every action needs that
+service. Check the effective account identity, not a browser's numeric account
+index; changing `/u/N` can select another signed-in account. Recovery uses the
+existing authenticated flow and grants no new permission.
 The canonical source/configuration page can specify the expected host and
 environment without adding credential fields to this policy. The executing
 instance checks its own tools, host/session, effective account and resource

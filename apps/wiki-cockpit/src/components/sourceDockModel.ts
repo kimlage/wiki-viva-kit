@@ -88,10 +88,12 @@ export function streamFreshnessLabel(
     const lifecycle = scheduleMode === "recurring" && stream.cadence_days
       ? t("source.streams.cadence", { n: stream.cadence_days })
       : scheduleModeLabel(scheduleMode);
-    return `${t("source.streams.completed")} / ${lifecycle}`;
+    const recorded = ["complete", "completed", "consolidated", "processed", "ingested"].includes(processingState)
+      ? t("source.streams.completed") : processingState;
+    return `${recorded} / ${lifecycle}`;
   }
   if (scheduleMode === "one_shot") {
-    return `${t("source.streams.completed")} / ${scheduleModeLabel(scheduleMode)}`;
+    return `${stream.cursor_age_days === null ? t("source.stream.never") : t("source.streams.completed")} / ${scheduleModeLabel(scheduleMode)}`;
   }
   const cadence = scheduleMode === "recurring" && stream.cadence_days
     ? t("source.streams.cadence", { n: stream.cadence_days })
@@ -179,7 +181,7 @@ export function formatBytes(value: unknown): string {
 
 export function sourceTelemetry(sources: SourceEntity[]): DockTelemetryItem[] {
   const totalStreams = sources.reduce((sum, source) => sum + source.sync.streams_total, 0);
-  const freshStreams = sources.reduce((sum, source) => sum + source.sync.streams_fresh, 0);
+  const freshStreams = sources.reduce((sum, source) => sum + (source.sync.streams_without_pending ?? source.sync.streams_fresh), 0);
   const pending = sources.reduce((sum, source) => sum + source.pending_streams, 0);
   const brokenRecipes = sources.filter((source) => !source.recipe_ok).length;
   return [
@@ -195,7 +197,7 @@ export function sourceTelemetry(sources: SourceEntity[]): DockTelemetryItem[] {
       key: "fresh",
       label: t("source.telemetry.fresh"),
       value: `${freshStreams}/${totalStreams}`,
-      tone: totalStreams > 0 && freshStreams === totalStreams ? "good" : pending > 0 ? "warn" : "muted",
+      tone: pending > 0 ? "warn" : "muted",
       ratio: totalStreams > 0 ? freshStreams / totalStreams : 0,
       detail: t("source.health.fresh", { fresh: freshStreams, total: totalStreams })
     },
@@ -203,7 +205,7 @@ export function sourceTelemetry(sources: SourceEntity[]): DockTelemetryItem[] {
       key: "pending",
       label: t("source.telemetry.pending"),
       value: pending,
-      tone: pending > 0 ? "warn" : "good",
+      tone: pending > 0 ? "warn" : "muted",
       ratio: sources.length > 0 ? pending / Math.max(totalStreams, 1) : 0,
       detail: pending > 0 ? t("source.list.pending", { n: pending }) : t("source.telemetry.none")
     },

@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ClipboardCheck, Play, X } from "lucide-react";
 import { t } from "../data/i18n";
+import { PreparatoryObservations } from "./PreparatoryObservations";
 import type { AdminPort } from "../application/ports";
 import type {
   AdminCommandErrorCode,
@@ -132,6 +133,7 @@ export function AdminPlanReview({
         {/* §11.3 — the contract line, always visible. */}
         <p className="adminPlanContract">{t("admin.plan.contract")}</p>
         <p className="adminPlanSummary">{plan.summary}</p>
+        <PreparatoryObservations observations={plan.effects.preparatoryObservations} dryRun={plan.dryRun} />
         <p className="adminDetail">
           <code>{plan.planId}</code> · <code>{plan.planSha.slice(0, 23)}…</code>
         </p>

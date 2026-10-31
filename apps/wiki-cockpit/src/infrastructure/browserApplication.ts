@@ -52,6 +52,7 @@ import {
   worldFromRoute
 } from "../router";
 import type { AdminPort, ApplicationPorts, NavigationPort, OperatorPort } from "../application/ports";
+import { loadRuntimeObservations } from "../world/clients/operationalClient";
 
 // Concrete admin transport, injected from this composition root only — the
 // session token itself never passes through here (it lives in the in-memory
@@ -68,6 +69,7 @@ const admin: AdminPort = {
 };
 
 const operator: OperatorPort = {
+  loadRuntimeObservations,
   loadSnapshotBundle,
   loadPageContent,
   loadTemporalGraph: (bundle, options) => loadTemporalGraphForBundle(bundle, options?.signal),

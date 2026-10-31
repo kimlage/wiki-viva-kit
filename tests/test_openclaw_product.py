@@ -24,7 +24,8 @@ def product(tmp_path,monkeypatch,request):
               'profile':'synthetic','state_dir':'/synthetic/state','gateway':'ws://127.0.0.1:19880',
               'routes':{'research':{'session_key':'agent:research:synthetic','session_id':'synthetic-session','label':'Synthetic worker','native_thread_id':'synthetic-native-thread'}}}
     settings['mission_options']={'execution':{'label':'Synthetic execution','model':'openai/example-model','effort':'high'}}
-    cp=tmp_path/'wiki.config.yaml';cfg=yaml.safe_load(cp.read_text());cfg['openclaw']=settings;cp.write_text(yaml.safe_dump(cfg))
+    cp=tmp_path/'wiki.config.yaml';cfg=yaml.safe_load(cp.read_text());cfg['openclaw']=settings
+    cfg['claude']={'enabled':False};cp.write_text(yaml.safe_dump(cfg))
     (tmp_path/'wiki.coordination.yaml').write_text(yaml.safe_dump({'schema_version':'wiki_coordination.v1','profiles':{
        'research':{'label':'Research','scope':'Synthetic technical mission','action_ids':['action-server-synthetic']}}}))
     with (tmp_path/'.gitignore').open('a') as f:f.write('\ndata/derived/\n')
@@ -94,6 +95,11 @@ def test_product_dispatch_reconcile_receipt_and_native_proposal(product):
     fm,body=parse_frontmatter(action);old,oldbody=parse_frontmatter(before)
     assert body==oldbody and fm['updated_at']==old['updated_at'] and fm['action_state']=='open'
     assert len(fm['action_dialogue'])==1 and fm['action_dialogue'][0]['kind']=='comment'
+    observed=oc.runtime_observations(root,srv.server.config)['attempts'][0]
+    assert observed['result']['excerpt']=='Observed synthetic execution.'
+    assert observed['review']=={'status':'not_observed','head':None}
+    assert observed['proposal']['result_path'].startswith('docs/references/runtime-returns/')
+    assert observed['action_path']=='memories/actions/action-server-synthetic.md'
     assert oc.git(root,'rev-parse','main')==main
     assert len([x for x in calls if x[0]=='chat.send'])==1
     status, denied = _plan(srv,token,'agents.openclaw.dispatch',params={**params,'message':'Next mission.'})
@@ -144,11 +150,23 @@ def test_receipt_manifest_utf8_limit_precedes_publication(product, characters, a
 def test_product_dry_run_sends_nothing_and_unknown_route_stays_closed(product):
     srv,root,_,params,unlock,calls=product;token=unlock()
     status,p=_plan(srv,token,'agents.openclaw.dispatch',params=params,dry_run=True);assert status==200,p
+    assert all(method=='chat.history' for method,_ in calls) and calls
+    assert p['plan']['effects']['external_calls']==[]
+    assert 'native orphan reconciliation is possible' in p['plan']['effects']['preparatory_observations'][0]
+    assert p['plan']['validation']['dry_run_scope'].startswith('execution only')
     status,r=_execute(srv,token,p,confirmation=p['plan']['confirmation']['text'])
     assert status==200 and r['output']['dry_run']
     assert not any(x[0]=='chat.send' for x in calls)
     status,r=_plan(srv,token,'agents.openclaw.dispatch',params={**params,'profile':'another'})
     assert status==400 and r['error_code']=='admin_invalid_params'
+
+
+def test_failed_plan_reports_the_native_preparation_that_already_happened(product,monkeypatch):
+    srv,_,_,params,unlock,_=product;token=unlock()
+    monkeypatch.setattr(oc.Gateway,'call',lambda *args:{'sessionId':'changed-synthetic-session'})
+    status,result=_plan(srv,token,'agents.openclaw.dispatch',params=params,dry_run=True)
+    assert status==400 and result['detail']=='openclaw_session_identity_changed'
+    assert 'chat.history during planning (1 calls)' in result['preparatory_observations'][0]
 
 
 def test_reviewed_result_cannot_be_replaced_before_receipt_effect(product):

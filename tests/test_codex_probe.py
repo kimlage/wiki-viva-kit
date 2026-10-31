@@ -87,9 +87,12 @@ def test_probe_apikey_auth_mode(tmp_path: Path) -> None:
     assert record["usable"] is True
 
 
-def test_probe_disabled_short_circuits(tmp_path: Path) -> None:
+def test_probe_disabled_short_circuits(tmp_path: Path, monkeypatch) -> None:
     binary = _runnable_codex(tmp_path)
     home = _auth_home(tmp_path, {"auth_mode": "chatgpt", "tokens": {"access_token": "x"}})
+    def forbidden_auth_read(*args, **kwargs):
+        raise AssertionError("disabled adapter must not inspect credentials")
+    monkeypatch.setattr("wiki_core.web.codex_probe._probe_auth", forbidden_auth_read)
     record = probe_codex(binary=str(binary), codex_home=home, enabled=False)
     assert record["enabled"] is False
     assert record["usable"] is False

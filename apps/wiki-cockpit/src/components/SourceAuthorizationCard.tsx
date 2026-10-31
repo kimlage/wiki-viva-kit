@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, KeyRound, LockKeyhole } from "lucide-react";
-import { t } from "../data/i18n";
+import { t, uiLanguage } from "../data/i18n";
 import type { SourceEntity, SourceOperationPreview } from "../types";
 
 type UpdateRoute = NonNullable<SourceEntity["update_route"]> | NonNullable<SourceOperationPreview["execution"]>;
@@ -37,7 +37,9 @@ export function SourceAuthorizationCard({
           : authDeclared
             ? "configured"
             : "undeclared";
-  const healthy = ["verified", "ready", "notRequired"].includes(status);
+  const healthy = status === "verified";
+  const identityLabel = uiLanguage() === "pt" ? "Identidade efetiva / acesso atual" : uiLanguage() === "es" ? "Identidad efectiva / acceso actual" : "Effective identity / current access";
+  const unknown = uiLanguage() === "pt" ? "Não verificados para esta operação" : uiLanguage() === "es" ? "No verificados para esta operación" : "Not verified for this operation";
   const StatusIcon = healthy ? CheckCircle2 : AlertTriangle;
   const detail = status === "blocked"
     ? t("source.auth.status.blockedDetail", { agent: agentName, connector: route?.mcp_hint || "MCP" })
@@ -56,6 +58,7 @@ export function SourceAuthorizationCard({
         </span>
       </header>
       <dl>
+        <dt>{identityLabel}</dt><dd>{unknown}</dd>
         <dt>{t("source.auth.method")}</dt>
         <dd>{auth?.method && auth.method !== "none" ? auth.method : t("source.auth.none")}</dd>
         <dt>{t("source.auth.pointer")}</dt>

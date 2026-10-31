@@ -51,6 +51,7 @@ import { useSourceOperations } from "./useSourceOperations";
 import { SourceRunMonitor } from "./SourceRunMonitor";
 import { SourcePlatformIcon } from "./SourcePlatformIcon";
 import { SourceAuthorizationCard } from "./SourceAuthorizationCard";
+import { SourceObservationSummary } from "./SourceObservationSummary";
 
 export function SourceDock({
   bundle,
@@ -326,6 +327,7 @@ export function SourceDock({
           )}
         </div>
 
+        <SourceObservationSummary source={source} pages={bundle.pages?.pages} open={onOpenPage} />
         <nav className="sourceWorkspaceTabs" aria-label={t("source.workspace.aria")}>
           {([
             ["records", File, "source.workspace.records"],
@@ -440,7 +442,7 @@ export function SourceDock({
                   </td>
                   <td>
                     {stream.selected ? (
-                      <span className={stream.information_review_pending || (recurring && stream.breached) ? "streamStale" : "streamFresh"}>
+                      <span className={stream.information_review_pending || (recurring && stream.breached) ? "streamStale" : recurring ? "streamFresh" : "streamRecorded"}>
                         {streamFreshnessLabel(stream, source.schedule?.mode)}
                       </span>
                     ) : (

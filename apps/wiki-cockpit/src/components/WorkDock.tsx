@@ -12,6 +12,8 @@ import { codexUnavailableReason, t } from "../data/i18n";
 import type { BriefRecord, CodexCapability, CodexJobRecord } from "../types";
 import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import type { OperatorPort } from "../application/ports";
+import { RuntimeObservationPanel } from "./RuntimeObservationPanel";
+import { useRuntimeObservations } from "./useRuntimeObservations";
 
 type PillTone = "good" | "warn" | "bad" | "info" | "muted";
 
@@ -106,7 +108,7 @@ export function WorkDock({
 }: {
   capability: CodexCapability;
   demo: boolean;
-  operator: Pick<OperatorPort, "cancelCodexJob" | "discardBrief" | "listBriefs" | "listCodexJobs" | "streamCodexLog">;
+  operator: Pick<OperatorPort, "cancelCodexJob" | "discardBrief" | "listBriefs" | "listCodexJobs" | "streamCodexLog" | "loadRuntimeObservations">;
   onResumeBrief: (briefId: string) => void;
   onReturn?: (jobId: string, feedback: string) => void;
   onDiagnose?: () => void;
@@ -114,6 +116,7 @@ export function WorkDock({
   onClose: () => void;
 }) {
   const { cancelCodexJob, discardBrief, listBriefs, listCodexJobs, streamCodexLog } = operator;
+  const runtime = useRuntimeObservations(operator.loadRuntimeObservations, demo);
   const [jobs, setJobs] = useState<CodexJobRecord[]>([]);
   const [drafts, setDrafts] = useState<BriefRecord[]>([]);
   const [openLog, setOpenLog] = useState<string | null>(null);
@@ -225,19 +228,21 @@ export function WorkDock({
             ) : (
               <span className="pill pill-muted">{t("work.unavailable")}</span>
             ))}
-          <button className="textButton" onClick={() => void load()} title={t("work.refresh")} type="button">
+          <button className="textButton" onClick={() => { void load(); void runtime.refresh(); }} title={t("work.refresh")} type="button">
             <RefreshCw size={13} />
           </button>
           <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>
+        <p className="dockIntro">{t("work.scope")}</p>
         <DockTelemetryRail label={t("work.telemetry.aria")} items={workTelemetry(jobs, drafts, offline)} />
 
         {demo ? (
           <p className="workEmpty">{t("work.demoOff")}</p>
         ) : (
           <div className="workBody">
+            <RuntimeObservationPanel observation={runtime.observation} unavailable={runtime.unavailable} versions />
             <section className="workSection">
               <h4>{t("work.tab.jobs")}</h4>
               {jobs.map((job) => (

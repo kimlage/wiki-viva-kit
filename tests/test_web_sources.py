@@ -534,6 +534,28 @@ def test_event_driven_discovered_record_is_pending_without_becoming_time_stale(t
     assert source["pending_streams"] == 1
 
 
+def test_source_verification_is_separate_from_capture_trigger_and_adoption(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    recipe = tmp_path / "memories/sources/config/slack-fin.md"
+    recipe.write_text(recipe.read_text().replace(
+        "schedule: {mode: recurring, cadence_days: 7}",
+        "schedule: {mode: event_driven, cadence_days: 0}"))
+    page = tmp_path / "memories/sources/slack-fin.md"
+    page.write_text(page.read_text().replace(
+        "updated_at: 2026-07-01", "updated_at: 2026-07-01\nverified_at: 2026-07-02\nevidence_refs: [memories/evidence.md]\nsource_pipeline_stage: gate_pending\nsource_adoption_state: pending"))
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+    assert source['freshness_applicable'] is False
+    assert source['sync']['streams_without_pending'] == 2
+    assert dt.datetime.fromisoformat(source['sync']['last_run_at']) == dt.datetime(2026, 7, 1, 10, tzinfo=dt.timezone.utc)
+    assert source['verification'] == {'recorded_at': '2026-07-02',
+                                      'evidence_refs': ['memories/evidence.md'], 'live_access': 'unknown'}
+    assert source['lifecycle']['pipeline_stage'] == 'gate_pending'
+    assert source['lifecycle']['adoption_state'] == 'pending'
+    # An editorial date is never used as a substitute for source verification.
+    page.write_text(page.read_text().replace('verified_at: 2026-07-02\n', ''))
+    assert build_sources_payload(tmp_path, config, today=TODAY)['sources'][0]['verification']['recorded_at'] is None
+
+
 @pytest.mark.parametrize(
     ("schedule", "expected_next_due"),
     [

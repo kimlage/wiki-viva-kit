@@ -35,9 +35,21 @@ export type RuntimeProposal = {
   status: "material_ready" | "prepared" | "received_in_main" | "awaiting_adoption" | "reconciliation_required";
   head: string; proposal_head: string; approved_base: string; branch: string; material_path: string; material_sha256: string;
 };
+export type WorkFront = {
+  page_id: string; path: string; title: string; page_type: string; context: string;
+  declared_status: string; recorded_at: string | null; owner_ref: string;
+  coordinators: string[]; action_ids: string[]; active_action_ids: string[];
+  evidence_refs: string[]; source_refs: string[]; next_action: string | null;
+  blocker_reason: string | null; summary: string; content_sha256: string; live_execution: "unknown";
+};
+export type AccessRequirement = {
+  service: string; expected_identity: string; method: string; source_ref: string;
+  action_ids?: string[]; operation?: string; resource?: string; recovery?: string;
+};
 export type CoordinationIndex = {
   schema_version: string; configured: boolean; snapshot_id: string;
-  profiles: { runtime?: {configured: boolean; label: string; mission_options?: {id: string; label: string; model: string; effort: string}[]}; id: string; label: string; scope: string; action_ids: string[]; access_requirements?: {service: string; expected_identity: string; method: string; source_ref: string}[] }[];
+  fronts?: WorkFront[]; front_warnings?: { code: string; ref: string }[];
+  profiles: { runtime?: {configured: boolean; label: string; mission_options?: {id: string; label: string; model: string; effort: string}[]}; id: string; label: string; scope: string; action_ids: string[]; access_requirements?: AccessRequirement[] }[];
   actions: { runtime_error?: string; runtime_attempts?: {effect_key: string; attempted_at: string; has_result: boolean; reconciled?: boolean; resolved_without_result?: boolean; proposal?: RuntimeProposal | null}[]; action_id: string; coordinator: string | null; content_sha256: string; dialogue?: {pending_question_ids: string[]} }[];
 };
 

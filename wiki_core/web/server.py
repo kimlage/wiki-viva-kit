@@ -15,6 +15,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from functools import partial
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -56,6 +57,7 @@ from wiki_core.web.schemas import (
     SCHEMA_CAPABILITIES,
     WEB_OPERATOR_SECURITY_VERSION,
     WEB_SERVER_VERSION,
+    WEB_RUNTIME_OBSERVATIONS_VERSION,
 )
 from wiki_core.web.snapshot import (
     build_snapshot,
@@ -84,6 +86,48 @@ ATTEMPT_RECEIPT_TTL_S = 3_600
 ATTEMPT_KEY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 SNAPSHOT_EXTERNAL_FRESHNESS_VERSION = "wiki_snapshot_external_freshness.v1"
+
+
+def _operator_code_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _source_commit(root: Path) -> str | None:
+    try:
+        value = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True,
+            stderr=subprocess.DEVNULL, timeout=3, env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"}).strip()
+        return value if re.fullmatch(r"[a-f0-9]{40,64}", value) else None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _operator_code_digest(root: Path) -> str | None:
+    """Fingerprint only Python code, so a content commit never demands restart.
+
+    This records the startup files, not an attestation of Python bytecode or
+    a source revision for a separately built frontend. It never reads auth or
+    arbitrary repository data, and refuses symlinked code inputs.
+    """
+    try:
+        core = root / "wiki_core"
+        files = sorted(core.rglob("*.py"))
+        launcher = root / "scripts/wiki_web_server.py"
+        if launcher.exists():
+            files.append(launcher)
+        if not files or core.is_symlink():
+            return None
+        digest = hashlib.sha256()
+        for path in files:
+            if any(parent.is_symlink() for parent in (path, *path.parents) if parent != root and root in parent.parents):
+                return None
+            with path.open("rb") as stream:
+                raw = stream.read(4_000_001)
+            if len(raw) > 4_000_000:
+                return None
+            digest.update(path.relative_to(root).as_posix().encode() + b"\0" + raw + b"\0")
+        return digest.hexdigest()
+    except OSError:
+        return None
 
 
 @dataclass(frozen=True)
@@ -236,6 +280,12 @@ class CockpitServer(ThreadingHTTPServer):
         self.frame_origins: tuple[str, ...] = ()
         self.root = root
         self.config = config
+        self.started_at = datetime.now(timezone.utc).isoformat()
+        self._code_root = _operator_code_root()
+        self.boot_source_commit = _source_commit(self._code_root)
+        self._boot_code_sha256 = _operator_code_digest(self._code_root)
+        self._runtime_observation_lock = threading.Lock()
+        self._transport_observation_cache: tuple[float, dict[str, Any]] | None = None
         # Command activation is a startup trust decision. Card text and live
         # policy edits cannot silently replace an enabled local observer.
         try:
@@ -269,6 +319,53 @@ class CockpitServer(ThreadingHTTPServer):
         # plan, so nothing can execute against a reality the operator no
         # longer inhabits.
         self.admin_plans = AdminPlanStore()
+
+    def runtime_observations(self) -> dict[str, Any]:
+        """A pure local projection plus one bounded, payload-free TCP probe.
+
+        It never enters the command bus, scheduler, native history, credentials,
+        lock reconciliation or snapshot builders. Only the transport check is
+        cached (in RAM); a newly retained result or wake is visible immediately.
+        """
+        from wiki_core.web.openclaw import runtime_observations, transport_observation
+        observed_at = datetime.now(timezone.utc).isoformat()
+        current_digest = _operator_code_digest(self._code_root)
+        try:
+            config_changed = load_config(self.root) != self.config
+        except Exception:  # noqa: BLE001 - malformed or unavailable startup config is unknown
+            config_changed = True
+        restart = (True if config_changed else None if current_digest is None or self._boot_code_sha256 is None
+                   else current_digest != self._boot_code_sha256)
+        frontend = {"status": "not_served", "entry_sha256": None, "source_commit": None}
+        if self.frontend_dir is not None:
+            frontend["status"] = "unavailable"
+            try:
+                target = self.frontend_dir / "index.html"
+                if not target.is_symlink() and target.resolve().is_relative_to(self.frontend_dir.resolve()):
+                    with target.open("rb") as stream:
+                        raw = stream.read(4_000_001)
+                    if len(raw) <= 4_000_000:
+                        frontend.update(status="observed", entry_sha256=hashlib.sha256(raw).hexdigest())
+            except OSError:
+                pass
+        local = runtime_observations(self.root, self.config)
+        if config_changed:
+            transport = {"status": "unavailable", "scope": "loopback_tcp_only", "observed_at": None}
+            local["errors"].append("openclaw_operator_config_changed_restart")
+        else:
+            with self._runtime_observation_lock:
+                cached = self._transport_observation_cache
+                if cached is None or time.monotonic() - cached[0] >= 30:
+                    transport = transport_observation(self.config)
+                    self._transport_observation_cache = (time.monotonic(), transport)
+                else:
+                    transport = cached[1]
+        return {"ok": True, "schema_version": WEB_RUNTIME_OBSERVATIONS_VERSION, "observed_at": observed_at,
+            "operator": {"started_at": self.started_at, "boot_source_commit": self.boot_source_commit,
+                "current_source_commit": _source_commit(self._code_root), "content_source_commit": _source_commit(self.root),
+                "boot_code_sha256": self._boot_code_sha256, "current_code_sha256": current_digest,
+                "restart_required": restart, "server_version": WEB_SERVER_VERSION, "frontend": frontend},
+            "openclaw": {**local, "transport": transport}}
 
     def claim_attempt(self, key: str, path: str, payload_sha256: str) -> tuple[str, dict[str, Any] | None]:
         """Claim a mutating request or return its prior deterministic receipt.
@@ -1048,6 +1145,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         path = unquote(parsed.path)
         if self._serve_frontend(path):
             return
+        if path == "/api/runtime/observations":
+            self._send_json(self.server.runtime_observations())
+            return
         if path == "/api/health":
             self._send_json(
                 {
@@ -1146,12 +1246,12 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             with ThreadPoolExecutor(max_workers=4) as pool:
                 codex_future = pool.submit(probe_codex_for, self.server.config)
                 claude_future = pool.submit(probe_claude_for, self.server.config)
-                codex_connectors = pool.submit(list_agent_connectors, "codex", binary=codex_binary)
-                claude_connectors = pool.submit(list_agent_connectors, "claude", binary=claude_binary)
                 codex = codex_future.result()
                 claude = claude_future.result()
-                codex["connectors"] = codex_connectors.result()
-                claude["connectors"] = claude_connectors.result()
+                codex_connectors = pool.submit(list_agent_connectors, "codex", binary=codex_binary) if codex.get("enabled") else None
+                claude_connectors = pool.submit(list_agent_connectors, "claude", binary=claude_binary) if claude.get("enabled") else None
+                codex["connectors"] = codex_connectors.result() if codex_connectors else []
+                claude["connectors"] = claude_connectors.result() if claude_connectors else []
             self._send_json({
                 "ok": True,
                 "agents": {
@@ -1963,6 +2063,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         capabilities: list[str],
         risk_level: str,
         session_id: str | None,
+        content: dict[str, Any] | None = None,
     ) -> None:
         """One audit event per bus interaction, linked to its plan (§11.4).
 
@@ -1975,6 +2076,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             if result.get("ok")
             else f"{stage} refused ({result.get('error_code') or 'failure'})"
         )
+        if stage == "execute" and command_id == "agents.openclaw.tick" and content:
+            from wiki_core.web.openclaw_recurring import wake_summary
+            summary = wake_summary(content, result) or summary
         undo = result.get("undo")
         append_admin_audit_event(
             self.server.root,
@@ -2068,6 +2172,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         record = self.server.admin_plans.peek(plan_id)
         will_write = False
         command_id = ""
+        content = {}
         capabilities: list[str] = []
         risk_level = "read"
         if record is not None:
@@ -2112,6 +2217,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             capabilities=capabilities,
             risk_level=risk_level,
             session_id=session_id,
+            content=content,
         )
         self._send_json(result, status=self._admin_command_status(result))
 

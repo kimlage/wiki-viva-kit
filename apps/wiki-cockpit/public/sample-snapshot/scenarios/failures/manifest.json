@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "30b57d7d65dbf1039f764c0b5029b7964090fb1365c61d721429b5ee7b37d63b",
+  "bundle_hash": "f912681b4d7da0f013f6b7de59ad00b0b5bfb4b7907792fbef676887ab6f2aaf",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -89,19 +89,19 @@
     },
     "content/action-region-sync-support.5f1f5ac0.json": {
       "bytes": 1543,
-      "sha256": "509d81c68322d1fbe33aafba1304dc9c1fa160d7881eea3ae8e559e0e9853c63"
+      "sha256": "585fd33d6cbaaa70f855d338ccfb3f1c349ec7846aa1b9b458a90fae4bc314ec"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2225,
-      "sha256": "c0c80ae1ea3f40f82d5f253c1e01eab4bcfb5f87cd074bead50a9d039d7f4cdf"
+      "sha256": "3f9172779d543b60911eb3af8b3a2ae968d6523c19a96845141af5996783f7d6"
     },
     "content/source-error-traces.42cb8fa8.json": {
       "bytes": 2443,
-      "sha256": "04560b5655527ed0b601b8f3c9f7a15524689c03ffcc34c273566ca5d0c6bb65"
+      "sha256": "5925979dea8b214edf880e0ce288a37852824aa7610ab37ff4ab149fb5e31d1e"
     },
     "content/source-health-checks.9ebc3675.json": {
       "bytes": 2012,
-      "sha256": "ef41f0df2e645382c99da1c31b4d77e463d0ab475198c866a229dd49ad0c46ab"
+      "sha256": "7c6daafd516cbfcd7574e15ebb2146d9a4dedcc37341627f1480ab1ed8046b2b"
     },
     "decisions.json": {
       "bytes": 57,
@@ -164,8 +164,8 @@
       "sha256": "b435a3466935d9f33398a0c245b9d27c58f09685efb2fa71f2edcbb44c0fb9b1"
     },
     "source_entities.json": {
-      "bytes": 3440,
-      "sha256": "4fd55239c2735f330faf9047269a54d2490303a162782bb42d824d90736a6a72"
+      "bytes": 3712,
+      "sha256": "07c6fc2920c7035f68774bd4643f748073344f33400292bd4470d13241195404"
     },
     "source_lifecycle.json": {
       "bytes": 1452,
@@ -204,9 +204,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-30b57d7d65dbf103",
+  "snapshot_id": "wiki-viva-demo-f912681b4d7da0f0",
   "source_commit": null,
-  "source_sha": "uncommitted:1ee68761e4738593b909e199a084c7d51aa3b7392317fd948d60fbac35cb0ea3",
+  "source_sha": "uncommitted:6853214209443ec0a5a8e629464524f02fec0dd88954a7ec31794a87d817ea6f",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

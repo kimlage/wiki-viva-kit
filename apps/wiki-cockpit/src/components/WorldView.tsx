@@ -43,6 +43,7 @@ import type { SceneGuide, ScenePatch, SceneSeed } from "./SystemScene";
 import { CommandBar } from "./world/CommandBar";
 import { FoundingFallback } from "./world/FoundingFallback";
 import { GuideFallback } from "./world/GuideFallback";
+import { OperationalLinks } from "./OperationalLinks";
 import {
   MissionCard,
   SEARCH_RESULTS_ID,
@@ -2197,6 +2198,7 @@ export function WorldView({
               </span>
             ))}
           </nav>
+          <OperationalLinks demo={route.demo} />
           <WorldNavigator
             registryKernel={worldRuntime.kernel}
             view={navigatorView}

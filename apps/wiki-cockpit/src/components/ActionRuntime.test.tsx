@@ -45,6 +45,15 @@ it('restores run identity from server discovery without dispatching on mount',()
   expect(admin.planAdminCommand).not.toHaveBeenCalled();
   expect(admin.executeAdminPlan).not.toHaveBeenCalled();
 });
+it('shows already performed observations even when planning refuses and never executes the refusal',async()=>{
+  const {admin}=setup();
+  vi.mocked(admin.planAdminCommand).mockResolvedValue({ok:false,errorCode:'admin_invalid_params',preparatoryObservations:['Native history was read before refusal.']});
+  fireEvent.change(screen.getByLabelText('Exact message to the executor'),{target:{value:'Inspect synthetic status.'}});
+  fireEvent.click(screen.getByRole('button',{name:'Review dispatch'}));
+  expect(await screen.findByText('Native history was read before refusal.')).toBeTruthy();
+  expect(screen.getByRole('region',{name:'Preparatory observations already performed'})).toBeTruthy();
+  expect(admin.executeAdminPlan).not.toHaveBeenCalled();
+});
 it('does not offer dispatch with no configured route or corrupt recovery evidence',()=>{
   const {admin}=setup({recoveryError:'openclaw_receipt_unavailable_reconcile'});
   expect(screen.queryByRole('button',{name:'Review dispatch'})).toBeNull();

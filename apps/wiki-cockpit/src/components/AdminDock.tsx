@@ -28,6 +28,7 @@ import {
   subscribeAdminCommandIntent
 } from "../application/adminCommandIntent";
 import { AdminPlanReview } from "./AdminPlanReview";
+import { PreparatoryObservations } from "./PreparatoryObservations";
 import { AdminUnlockDialog } from "./AdminUnlockDialog";
 import {
   REQUIRED_OPERATOR_SERVER_VERSION
@@ -86,6 +87,7 @@ export function AdminDock({
   const [planningId, setPlanningId] = useState<string | null>(null);
   const [dryRunIds, setDryRunIds] = useState<ReadonlySet<string>>(new Set());
   const [activePlan, setActivePlan] = useState<AdminPlan | null>(null);
+  const [preparatoryObservations, setPreparatoryObservations] = useState<string[]>([]);
   // Any session transition (unlock, renew, lock, expiry) re-probes so the
   // dock always shows the server's CURRENT answer, never a hopeful one.
   const localSession = useSyncExternalStore(
@@ -162,6 +164,7 @@ export function AdminDock({
     }
     if (planningId !== null) return;
     setPlanningId(entry.id);
+    setPreparatoryObservations([]);
     void admin.planAdminCommand(entry.id, {}, { dryRun }).then((result) => {
       setPlanningId(null);
       if (result.ok) {
@@ -169,6 +172,7 @@ export function AdminDock({
         return;
       }
       onNotice?.(t(`admin.plan.error.${result.errorCode}`));
+      setPreparatoryObservations(result.preparatoryObservations || []);
     });
   };
 
@@ -213,6 +217,7 @@ export function AdminDock({
             <X size={16} />
           </button>
         </header>
+        <PreparatoryObservations observations={preparatoryObservations} />
         <p className="dockIntro">{t("admin.dock.readOnlyNote")}</p>
 
         <section className="adminSection" aria-label={t("admin.section.overview")}>

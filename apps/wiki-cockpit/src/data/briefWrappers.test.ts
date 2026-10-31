@@ -20,7 +20,7 @@ beforeEach(() => {
           status: 200,
           json: async () => ({
             ok: true,
-            server_version: "wiki_web_server.v10",
+            server_version: "wiki_web_server.v11",
             schema_capabilities: [
               "operator_security_v2",
               "cors_default_deny_v1",
@@ -28,7 +28,7 @@ beforeEach(() => {
       "action_page_authoring_v1",
               "admin_capabilities_v1",
               "admin_session_v1",
-              "admin_commands_v1", "revocable_documentary_proposals_v1"
+              "admin_commands_v1", "revocable_documentary_proposals_v1", "runtime_observations_v1"
             ],
             operator_security: {
               version: "wiki_operator_security.v2",
