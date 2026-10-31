@@ -28,12 +28,14 @@ it("brings a selected low card into view on narrow screens, persists selection a
   const card = await screen.findByRole("button", { name: /Task second/ });
   fireEvent.click(card);
   const panel = await screen.findByRole("complementary", { name: "Page and evidence" });
-  expect(document.activeElement).toBe(panel);
+  // The panel mounts before its asynchronous body read completes; focus is
+  // deliberately transferred only after that read, so await the behavior.
+  await waitFor(() => expect(document.activeElement).toBe(panel));
   expect(scroll).toHaveBeenCalledWith({ block: "start" });
   expect(window.location.search).toBe("?action=second");
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(window.location.search).toBe("");
-  expect(document.activeElement).toBe(card);
+  await waitFor(() => expect(document.activeElement).toBe(card));
   expect(props.save).not.toHaveBeenCalled();
 });
 
