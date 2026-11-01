@@ -146,7 +146,7 @@ test("world links lead to Kanban and recorded fronts; back, reload and unavailab
   await expect(observation).toContainText("Resident session owners");
   await expect(observation.locator("dl > div").filter({ has: page.getByText("Active runs", { exact: true }) })).toContainText("0");
   await expect(observation.locator("dl > div").filter({ has: page.getByText("Resident queued turns", { exact: true }) })).toContainText("3");
-  await expect(observation.locator("dl > div").filter({ has: page.getByText("Live execution / pending inputs", { exact: true }) })).toContainText("Not observed");
+  await expect(observation.locator("dl > div").filter({ has: page.getByText("Global execution / pending inputs", { exact: true }) })).toContainText("Not observed");
   await expect(observation).toContainText("persisted queue and global readiness are unobserved");
   await attachViewportScreenshot(page, testInfo, "desktop-resident-observation-with-global-state-unknown");
 

@@ -45,7 +45,7 @@ it("scopes retained attempts to the selected action and keeps reachability, live
   expect(field("Retained status")).toContain("live execution unknown");
   expect(field("Result captured")).toBe("Not observed");
   expect(field("Tokens / cost")).toBe("Not measured");
-  expect(field("Live execution / pending inputs")).toBe("Not observed");
+  expect(field("Global execution / pending inputs")).toBe("Not observed");
   expect(field("Local TCP transport only")).toBe("Listener reachable");
   expect(screen.getByText(/does not verify Gateway identity/)).toBeTruthy();
   expect(field("Content checkout")).toBe("content-current");
@@ -72,7 +72,7 @@ it("shows resident phases and observation time while keeping global activity and
   expect(field("Resident queued turns")).toBe("3");
   expect(field("Pending admissions")).toBe("4");
   expect(field("Gateway process")).toBe("synthetic-process");
-  expect(field("Live execution / pending inputs")).toBe("Not observed");
+  expect(field("Global execution / pending inputs")).toBe("Not observed");
   expect(field("Tokens / cost")).toBe("Not measured");
   expect(screen.getByText(/persisted queue and global readiness are unobserved/)).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
