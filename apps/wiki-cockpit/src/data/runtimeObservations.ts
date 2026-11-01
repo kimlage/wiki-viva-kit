@@ -11,6 +11,7 @@ export type RuntimeAttemptObservation = {
   guard_admission?: { status: "retained_chain_verified" | "not_observed" | "unavailable"; model: string | null; effort: string | null; error_code: string | null };
   review?: { status: "not_observed" | "failure_resolution_reviewed"; head: string | null };
   proposal?: (RuntimeProposal & { content_incorporated_in_main?: boolean; result_path?: string }) | null;
+  proposal_error_code?: "openclaw_proposal_unavailable_reconcile";
 };
 export type RuntimeObservations = {
   ok: boolean; schema_version: "wiki_runtime_observations.v1"; observed_at: string;

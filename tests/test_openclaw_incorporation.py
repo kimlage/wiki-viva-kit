@@ -93,6 +93,55 @@ def test_later_separately_committed_consolidation_preserves_valid_incorporation(
     assert got['status']=='received_in_main' and got['content_incorporated_in_main']
 
 
+@pytest.mark.parametrize('damage,error', [('missing', r'receipt-material\.json'), ('corrupt', 'openclaw_material_changed')])
+def test_observation_preserves_valid_result_when_proposal_material_is_unavailable(received, monkeypatch, damage, error):
+    root, cfg, action, directory, plan = received
+    result = oc.verified_result(directory, plan)
+    assert status(received)['status'] == 'received_in_main'
+    params = {'profile': plan['binding']['profile'], 'action_id': plan['binding']['action_id'],
+              'action_sha256': hashlib.sha256(action.read_bytes()).hexdigest(),
+              'mission_id': plan['mission']['id'], 'message': 'A distinct synthetic follow-up.'}
+    prepared = oc.plan_dispatch(root, cfg, params)
+    material = directory / 'receipt-material.json'
+    if damage == 'missing':
+        material.unlink()
+    else:
+        material.write_text('Corrupt synthetic proposal material.')
+    before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in directory.iterdir() if p.is_file()}
+    native_call = oc.Gateway.call
+    def forbidden(*args, **kwargs):
+        raise AssertionError('observation entered a native API or writer')
+    monkeypatch.setattr(oc.Gateway, 'call', forbidden)
+    for name in ('inspect', 'write_new', 'release_mission_lock'):
+        monkeypatch.setattr(oc, name, forbidden)
+
+    observed = oc.runtime_observations(root, cfg)
+    assert len(observed['attempts']) == 1
+    attempt = observed['attempts'][0]
+    assert attempt['run_id'] == attempt['effect_key'] == plan['effect_key']
+    assert attempt['action_id'] == params['action_id'] and attempt['profile'] == params['profile']
+    assert attempt['status'] == 'result_retained' and attempt['result_captured_at'] == result['captured_at']
+    assert attempt['result'] == {'excerpt': result['text'][:oc.MAX_RESULT_EXCERPT_CHARS],
+        'text_sha256': result['text_sha256'], 'truncated': len(result['text']) > oc.MAX_RESULT_EXCERPT_CHARS}
+    assert attempt['proposal'] is None
+    assert attempt['proposal_error_code'] == 'openclaw_proposal_unavailable_reconcile'
+    assert observed['errors'] == ['openclaw_proposal_unavailable_reconcile']
+    assert before == {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in directory.iterdir() if p.is_file()}
+
+    # The observational fallback must not relax either execution admission path.
+    with pytest.raises((OSError, ValueError), match=error):
+        oc.attempts(root, cfg, params['profile'], params['action_id'])
+    with pytest.raises((OSError, ValueError), match=error):
+        oc.plan_dispatch(root, cfg, params)
+    def history_only(self, method, payload):
+        assert method == 'chat.history', 'corrupt proposal admitted an execution effect'
+        return native_call(self, method, payload)
+    monkeypatch.setattr(oc.Gateway, 'call', history_only)
+    with pytest.raises((OSError, ValueError), match=error):
+        oc.dispatch(root, cfg, prepared)
+    assert not (oc.storage(root, cfg, prepared['effect_key']) / 'intent.json').exists()
+
+
 def test_unpublished_main_body_is_not_approved_incorporation(received):
     curate(received);commit(received[0],'Local unreviewed body',published=False)
     assert not status(received)['content_incorporated_in_main']

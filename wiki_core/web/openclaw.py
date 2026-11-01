@@ -609,7 +609,7 @@ def inspect(root, config, params):
 
 
 def retained_attempt(root, config, path, intent, *, include_details=False):
-    """Verify one local attempt for both command preflight and observation."""
+    """Verify identity/result strictly; detailed observation may lack a proposal."""
     plan = intent["plan"]
     require(digest(plan) == intent.get("plan_sha256") and plan["effect_key"] == path.parent.name,
             "openclaw_intent_changed")
@@ -620,8 +620,15 @@ def retained_attempt(root, config, path, intent, *, include_details=False):
     resolution = verified_failure_resolution(directory, plan, root) if resolved else None
     value = {"effect_key": plan["effect_key"], "attempted_at": intent["attempted_at"],
             "has_result": result is not None, "reconciled": result is not None or resolved,
-            "resolved_without_result": resolved, "result_captured_at": result.get("captured_at") if result else None,
-            "proposal": proposal_status(root, config, directory, plan)}
+            "resolved_without_result": resolved, "result_captured_at": result.get("captured_at") if result else None}
+    try:
+        value["proposal"] = proposal_status(root, config, directory, plan)
+    except (ValueError, KeyError, TypeError, AttributeError, OSError, subprocess.SubprocessError):
+        if not include_details:
+            raise
+        # A lost proposal does not invalidate a separately verified result.
+        # Only observation degrades; command admission retains strict checks.
+        value.update(proposal=None, proposal_error_code="openclaw_proposal_unavailable_reconcile")
     if not include_details:
         return value
     guard = {"status": "not_observed", "model": None, "effort": None, "error_code": None}
@@ -720,6 +727,8 @@ def runtime_observations(root, config):
                 value["attempts"].append({**attempt, "profile": profile, "action_id": action_id,
                     "status": "result_retained" if attempt["has_result"] else
                               "resolved_without_result" if attempt["resolved_without_result"] else "awaiting_reconciliation"})
+                if attempt.get("proposal_error_code"):
+                    value["errors"].append(attempt["proposal_error_code"])
         except (ValueError, KeyError, TypeError, AttributeError, OSError, subprocess.SubprocessError):
             value["errors"].append("openclaw_receipt_unavailable_reconcile")
     value["attempts"].sort(key=lambda row: row["attempted_at"], reverse=True)
