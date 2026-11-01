@@ -146,8 +146,8 @@ the error response as well. Dry-run suppresses command execution, not these
 existing preparatory observations. The pure GET is the browsing observation port.
 
 The operator reports its startup time, code checkout HEAD at startup and now,
-separate Python code fingerprints, and the current content checkout HEAD. A
-Python/config change requires restart; an ordinary content/documentation commit
+separate operator-code fingerprints (Python and the native facade/overlay), and
+the current content checkout HEAD. A code/config change requires restart; an ordinary content/documentation commit
 does not. A startup checkout SHA is not a bytecode attestation, especially for a
 dirty checkout; the fingerprints retain that distinction. The frontend field
 identifies the currently served `index.html` bytes by SHA-256. Its source commit

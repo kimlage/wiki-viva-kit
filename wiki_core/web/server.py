@@ -102,7 +102,7 @@ def _source_commit(root: Path) -> str | None:
 
 
 def _operator_code_digest(root: Path) -> str | None:
-    """Fingerprint only Python code, so a content commit never demands restart.
+    """Fingerprint operator code and its native facade, excluding wiki content.
 
     This records the startup files, not an attestation of Python bytecode or
     a source revision for a separately built frontend. It never reads auth or
@@ -114,7 +114,10 @@ def _operator_code_digest(root: Path) -> str | None:
         launcher = root / "scripts/wiki_web_server.py"
         if launcher.exists():
             files.append(launcher)
-        if not files or core.is_symlink():
+        native = root / "scripts/openclaw"
+        files.extend(sorted(native.glob("*.mjs")))
+        files.extend(sorted(native.glob("*.json")))
+        if not files or core.is_symlink() or native.is_symlink():
             return None
         digest = hashlib.sha256()
         for path in files:

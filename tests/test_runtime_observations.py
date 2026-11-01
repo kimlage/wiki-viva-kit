@@ -104,6 +104,40 @@ def test_native_facade_uses_closed_params_existing_auth_and_bounded_timeout(runt
     assert len(recorded) == 1
 
 
+@pytest.mark.parametrize("filename", ["mission-rpc.mjs", "mission-overlay.json"])
+@pytest.mark.parametrize("during", [False, True])
+def test_native_code_change_before_or_during_query_discards_counts(runtime, monkeypatch, tmp_path_factory, filename, during):
+    root, *_ = runtime
+    cfg = enable_native_observation(root)
+    code = tmp_path_factory.mktemp("synthetic-native-code")
+    (code / "wiki_core").mkdir()
+    (code / "wiki_core/operator.py").write_text("version = 1\n")
+    folder = code / "scripts/openclaw"
+    folder.mkdir(parents=True)
+    helper = folder / filename
+    helper.write_text("synthetic version 1")
+    monkeypatch.setattr(web, "_operator_code_root", lambda: code)
+    monkeypatch.setattr(oc, "transport_observation", lambda config: {"status": "reachable", "scope": "loopback_tcp_only", "observed_at": None})
+    calls = []
+    def native(*args):
+        calls.append(True)
+        helper.write_text("synthetic version 2")
+        return resident_payload()
+    monkeypatch.setattr(oc.Gateway, "call", native)
+    srv = _Server(root, cfg)
+    try:
+        if not during:
+            helper.write_text("synthetic version 2")
+        payload = srv.get("/api/runtime/observations")[1]
+        assert payload["operator"]["restart_required"] is True
+        assert payload["openclaw"]["native_observations"][0]["status"] == "unavailable"
+        assert len(calls) == int(during)
+        srv.get("/api/runtime/observations")
+        assert len(calls) == int(during)
+    finally:
+        srv.close()
+
+
 @pytest.mark.parametrize("legacy", [False, True])
 def test_observation_policy_does_not_reidentify_retained_execution(runtime, legacy):
     root, cfg, params, *_ = runtime
