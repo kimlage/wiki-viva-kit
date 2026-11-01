@@ -35,14 +35,13 @@ async function main() {
     let raw='';for await(const part of process.stdin) {raw+=part;if(raw.length>131072)throw new Error('input_too_large');}
     const input=JSON.parse(raw),{opts,extra}=requestOptions(input);
     const root=process.argv[2],manifest=JSON.parse(fs.readFileSync(new URL('./mission-overlay.json',import.meta.url),'utf8'));
-    validatePackage(root,manifest.packages.core);
     if(input.method==='sessions.describe') {
       installObservationClient(root);
       // This native reader resolves files/includes but never starts shell-env
       // fallback. The call hook declines secret providers and nonlocal routes.
       const config=await import(pathToFileURL(path.join(root,'dist/gateway-dispatch-config-DSayH5yx.mjs')).href);
       opts.config=config.t();
-    }
+    } else validatePackage(root,manifest.packages.core);
     const native=await import(pathToFileURL(path.join(root,'dist/gateway-rpc.runtime.js')).href);
     const result=await native.callGatewayFromCliRuntime(input.method,opts,input.params,extra);
     process.stdout.write(JSON.stringify(result)+'\n');

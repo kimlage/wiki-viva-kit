@@ -11,7 +11,7 @@ import { WorkFronts } from "./WorkFronts";
 import { ActionAccessRequirements } from "./ActionAccessRequirements";
 import { sourceTelemetry, streamFreshnessLabel } from "./sourceDockModel";
 
-afterEach(() => { cleanup(); configureLanguage("en"); });
+afterEach(() => { cleanup(); configureLanguage("en"); vi.useRealTimers(); });
 const field = (label: string) => screen.getByText(label, { selector: "dt" }).nextElementSibling?.textContent;
 
 it("keeps event-driven no-pending telemetry neutral without inventing a recurring cadence or completed capture", () => {
@@ -76,6 +76,27 @@ it("shows resident phases and observation time while keeping global activity and
   expect(field("Tokens / cost")).toBe("Not measured");
   expect(screen.getByText(/persisted queue and global readiness are unobserved/)).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
+});
+
+it.each([
+  ["en", "Age at last update (s)"],
+  ["pt", "Idade na última atualização (s)"],
+  ["es", "Edad en la última actualización (s)"]
+] as const)("labels the frozen age as the last update in %s after time passes", (language, label) => {
+  configureLanguage(language);
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-31T12:00:10Z"));
+  const value = observation();
+  value.openclaw.native_observations = [{ profile: "research", session_status: null, status: "observed", observed_at: "2026-10-31T12:00:00Z",
+    scope: "resident_gateway_owners", complete: false, resident_complete: true, persisted_queue_count: null, error_code: null,
+    process_instance_id: "synthetic-process", has_active_run: false, active_run_ids: [], ids_truncated: false,
+    active_count: 0, terminal_persistence_count: 0, terminal_cleanup_count: 0, queued_turn_count: 0, pending_admission_count: 0 }];
+  const { rerender } = render(<RuntimeObservationPanel observation={value} />);
+  expect(field(label)).toBe("10");
+  vi.advanceTimersByTime(60_000);
+  expect(field(label)).toBe("10");
+  rerender(<RuntimeObservationPanel observation={value} />);
+  expect(field(label)).toBe("70");
 });
 
 it("keeps receipt adoption distinct from content incorporation and a failed wake distinct from no dispatch", () => {

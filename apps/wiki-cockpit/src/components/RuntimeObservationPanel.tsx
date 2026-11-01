@@ -30,9 +30,9 @@ export function RuntimeObservationPanel({ observation, unavailable = false, acti
     : ["Code SHA-256 at process start", "Current code SHA-256"];
   const attempt = latestAttempt(observation, actionId);
   const residentCopy = {
-    pt: ["Owners residentes da sessão", "Execuções ativas", "Persistência terminal pendente", "Limpeza terminal pendente", "Turns na fila residente", "Admissões pendentes", "Processo do Gateway", "Idade da observação (s)", "Recorte da memória residente; fila persistida e prontidão global não observadas."],
-    en: ["Resident session owners", "Active runs", "Pending terminal persistence", "Pending terminal cleanup", "Resident queued turns", "Pending admissions", "Gateway process", "Observation age (s)", "Resident memory only; persisted queue and global readiness are unobserved."],
-    es: ["Owners residentes de la sesión", "Ejecuciones activas", "Persistencia terminal pendiente", "Limpieza terminal pendiente", "Turns en la cola residente", "Admisiones pendientes", "Proceso de Gateway", "Edad de la observación (s)", "Solo memoria residente; cola persistida y disponibilidad global no observadas."]
+    pt: ["Owners residentes da sessão", "Execuções ativas", "Persistência terminal pendente", "Limpeza terminal pendente", "Turns na fila residente", "Admissões pendentes", "Processo do Gateway", "Idade na última atualização (s)", "Recorte da memória residente; fila persistida e prontidão global não observadas."],
+    en: ["Resident session owners", "Active runs", "Pending terminal persistence", "Pending terminal cleanup", "Resident queued turns", "Pending admissions", "Gateway process", "Age at last update (s)", "Resident memory only; persisted queue and global readiness are unobserved."],
+    es: ["Owners residentes de la sesión", "Ejecuciones activas", "Persistencia terminal pendiente", "Limpieza terminal pendiente", "Turns en la cola residente", "Admisiones pendientes", "Proceso de Gateway", "Edad en la última actualización (s)", "Solo memoria residente; cola persistida y disponibilidad global no observadas."]
   }[uiLanguage()];
   const rules = observation?.openclaw.rules.filter(rule => !actionId || rule.action_id === actionId) || [];
   const field = (label: string, value?: string | null) => <div key={label}><dt>{label}</dt><dd>{value || copy.unknown}</dd></div>;
