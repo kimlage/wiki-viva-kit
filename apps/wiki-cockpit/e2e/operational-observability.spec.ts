@@ -137,6 +137,19 @@ test("world links lead to Kanban and recorded fronts; back, reload and unavailab
   await expect(observation.locator("dl > div").filter({ has: page.getByText("Independent review", { exact: true }) })).toContainText("Not observed");
   await attachViewportScreenshot(page, testInfo, "desktop-retained-result-without-inspection");
 
+  retained.openclaw.native_observations = [{ profile: "synthetic", session_status: null, status: "observed",
+    observed_at: "2026-10-31T12:00:00Z", error_code: null, scope: "resident_gateway_owners", complete: false,
+    resident_complete: true, persisted_queue_count: null, process_instance_id: "synthetic-gateway-process",
+    has_active_run: false, active_run_ids: [], ids_truncated: false, active_count: 0,
+    terminal_persistence_count: 1, terminal_cleanup_count: 2, queued_turn_count: 3, pending_admission_count: 4 }];
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(observation).toContainText("Resident session owners");
+  await expect(observation.locator("dl > div").filter({ has: page.getByText("Active runs", { exact: true }) })).toContainText("0");
+  await expect(observation.locator("dl > div").filter({ has: page.getByText("Resident queued turns", { exact: true }) })).toContainText("3");
+  await expect(observation.locator("dl > div").filter({ has: page.getByText("Global execution / pending inputs", { exact: true }) })).toContainText("Not observed");
+  await expect(observation).toContainText("persisted queue and global readiness are unobserved");
+  await attachViewportScreenshot(page, testInfo, "desktop-resident-observation-with-global-state-unknown");
+
   await page.getByRole("link", { name: "Work fronts", exact: true }).click();
   await expect(page).toHaveURL(/\/board\?view=fronts$/);
   const fronts = page.getByRole("region", { name: "Work fronts" });

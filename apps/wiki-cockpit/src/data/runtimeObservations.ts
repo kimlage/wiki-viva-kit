@@ -1,6 +1,16 @@
 import type { RuntimeProposal } from "./actionBoard";
 
-// This endpoint observes retained evidence. It never claims live Gateway state.
+// Resident observations qualify one exact session; global readiness stays unknown.
+export type NativeRuntimeObservation = {
+  profile: string; session_status: null;
+} & ({ status: "unavailable"; observed_at: null; has_active_run: null; active_run_ids: null;
+  error_code: "native_read_api_may_write" | "native_observation_unavailable";
+} | { status: "observed"; observed_at: string; error_code: null;
+  scope: "resident_gateway_owners"; complete: false; resident_complete: true; persisted_queue_count: null;
+  process_instance_id: string; has_active_run: boolean; active_run_ids: string[]; ids_truncated: boolean;
+  active_count: number; terminal_persistence_count: number; terminal_cleanup_count: number;
+  queued_turn_count: number; pending_admission_count: number;
+});
 export type RuntimeAttemptObservation = {
   profile: string; action_id: string; effect_key: string; attempted_at: string;
   result_captured_at: string | null;
@@ -26,8 +36,7 @@ export type RuntimeObservations = {
     configured: boolean; observation_scope: "retained_local_evidence"; gateway_status: "not_observed";
     active_run: null; pending_inputs: null; usage: { status: "not_measured"; tokens: null; cost: null };
     transport?: { status: "reachable" | "unreachable" | "not_configured" | "unavailable"; scope: "loopback_tcp_only"; observed_at: string | null };
-    native_observations: { profile: string; observed_at: null; status: "unavailable";
-      has_active_run: null; active_run_ids: null; session_status: null; error_code: "native_read_api_may_write" }[];
+    native_observations: NativeRuntimeObservation[];
     attempts: RuntimeAttemptObservation[];
     rules: { rule_id: string; profile: string; action_id: string; interval_minutes: number;
       last_wake: { observed_at: string; slot: number; mode: string; effect_key: string | null;

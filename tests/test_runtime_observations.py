@@ -1,5 +1,6 @@
 """Pure runtime projection: synthetic evidence, no native account or RPC."""
 import datetime as dt
+import copy
 import hashlib
 import json
 import subprocess
@@ -13,6 +14,150 @@ from tests.test_openclaw_recurring import scheduled
 from tests.test_web_server import _Server
 from wiki_core.web import openclaw as oc, openclaw_recurring as recurring, server as web
 from wiki_core.web.admin.audit import append_admin_audit_event, audit_log_path
+from wiki_core.config import load_config
+
+_REAL_GATEWAY_CALL = oc.Gateway.call
+
+
+def enable_native_observation(root):
+    config = yaml.safe_load((root / "wiki.config.yaml").read_text())
+    config["openclaw"]["observation"] = {"mode": "resident", "profile": "research"}
+    (root / "wiki.config.yaml").write_text(yaml.safe_dump(config))
+    return load_config(root)
+
+
+def resident_payload():
+    return {"schema_version": "wiki_resident_observation.v1", "agentId": "research", "sessionKey": "agent:research:synthetic",
+        "sessionId": "synthetic-session", "process_instance_id": "synthetic-process", "observed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "scope": "resident_gateway_owners", "complete": False, "resident_complete": True, "persisted_queue_count": None,
+        "status": "observed", "has_active_run": True, "active_run_ids": ["synthetic-active"], "ids_truncated": False,
+        "active_count": 1, "terminal_persistence_count": 2, "terminal_cleanup_count": 3, "queued_turn_count": 4,
+        "pending_admission_count": 5, "error_code": None}
+
+
+def test_get_qualifies_one_native_session_caches_in_ram_and_keeps_domain_writers_unreachable(runtime, monkeypatch):
+    root, _, *_ = runtime
+    cfg = enable_native_observation(root)
+    native_calls = []
+    def native(self, method, params):
+        native_calls.append((method, params))
+        assert method == "sessions.describe" and params == {"key": "agent:research:synthetic", "agentId": "research",
+            "wikiObservation": {"version": 1, "sessionId": "synthetic-session"}}
+        return resident_payload()
+    monkeypatch.setattr(oc.Gateway, "call", native)
+    monkeypatch.setattr(oc, "transport_observation", lambda config: {"status": "reachable", "scope": "loopback_tcp_only", "observed_at": None})
+    for name in ("dispatch", "inspect", "release_mission_lock", "write_new"):
+        monkeypatch.setattr(oc, name, forbidden)
+    srv = _Server(root, cfg)
+    before = {str(path): path.read_bytes() for path in root.rglob("*") if path.is_file()}
+    try:
+        payload = srv.get("/api/runtime/observations")[1]
+        observed = payload["openclaw"]["native_observations"][0]
+        assert observed["status"] == "observed" and observed["active_count"] == 1 and observed["terminal_cleanup_count"] == 3
+        assert observed["complete"] is False and observed["persisted_queue_count"] is None
+        assert payload["openclaw"]["active_run"] is None and payload["openclaw"]["pending_inputs"] is None
+        assert srv.get("/api/runtime/observations")[1]["openclaw"]["native_observations"][0] == observed
+        assert len(native_calls) == 1
+        srv.server._native_observation_cache = None
+        monkeypatch.setattr(oc.Gateway, "call", lambda *a: {**resident_payload(), "sessionId": "rebound"})
+        unknown = srv.get("/api/runtime/observations")[1]["openclaw"]["native_observations"][0]
+        assert unknown["status"] == "unavailable" and unknown["active_count"] is None
+        assert before == {str(path): path.read_bytes() for path in root.rglob("*") if path.is_file()}
+    finally:
+        srv.close()
+
+
+@pytest.mark.parametrize("change", [
+    {"sessionId": "another-session"}, {"agentId": "another-agent"}, {"sessionKey": "agent:research:alias"},
+    {"complete": True}, {"resident_complete": False}, {"persisted_queue_count": 0}, {"active_count": True},
+    {"has_active_run": False}, {"active_run_ids": []}, {"ids_truncated": True}, {"unknown": "untrusted"},
+    {"observed_at": "2020-01-01T00:00:00Z"}, {"observed_at": "2026-01-01T00:00:00"}, {"process_instance_id": "invalid/path"},
+])
+def test_native_response_fails_closed_without_fallback_or_stale_idle(runtime, monkeypatch, change):
+    root, *_ = runtime
+    cfg = enable_native_observation(root)
+    calls = []
+    monkeypatch.setattr(oc.Gateway, "call", lambda self, method, params: calls.append(method) or {**resident_payload(), **change})
+    row = oc.native_runtime_observation(cfg)
+    assert row["status"] == "unavailable" and row["active_run_ids"] is None and row["queued_turn_count"] is None
+    assert calls == ["sessions.describe"]
+
+
+def test_native_facade_uses_closed_params_existing_auth_and_bounded_timeout(runtime, monkeypatch):
+    root, *_ = runtime
+    cfg = enable_native_observation(root)
+    recorded = []
+    def run(argv, **kwargs):
+        recorded.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 0, json.dumps(resident_payload()), "")
+    monkeypatch.setattr(oc.Gateway, "call", _REAL_GATEWAY_CALL)
+    monkeypatch.setattr(oc.subprocess, "run", run)
+    assert oc.native_runtime_observation(cfg)["status"] == "observed"
+    argv, options = recorded[0]
+    assert argv[0] == "/synthetic/node" and argv[1].endswith("/scripts/openclaw/mission-rpc.mjs")
+    assert options["timeout"] == 12
+    assert set(json.loads(options["input"])) == {"method", "params", "expectUrl"}
+    assert "synthetic-session" not in " ".join(argv)
+    gateway = oc.Gateway(cfg.openclaw, cfg.openclaw["routes"]["research"])
+    with pytest.raises(ValueError, match="method_not_allowed"):
+        gateway.call("sessions.describe", {"key": "agent:research:synthetic"})
+    assert len(recorded) == 1
+
+
+@pytest.mark.parametrize("filename", ["mission-rpc.mjs", "mission-overlay.json"])
+@pytest.mark.parametrize("during", [False, True])
+def test_native_code_change_before_or_during_query_discards_counts(runtime, monkeypatch, tmp_path_factory, filename, during):
+    root, *_ = runtime
+    cfg = enable_native_observation(root)
+    code = tmp_path_factory.mktemp("synthetic-native-code")
+    (code / "wiki_core").mkdir()
+    (code / "wiki_core/operator.py").write_text("version = 1\n")
+    folder = code / "scripts/openclaw"
+    folder.mkdir(parents=True)
+    helper = folder / filename
+    helper.write_text("synthetic version 1")
+    monkeypatch.setattr(web, "_operator_code_root", lambda: code)
+    monkeypatch.setattr(oc, "transport_observation", lambda config: {"status": "reachable", "scope": "loopback_tcp_only", "observed_at": None})
+    calls = []
+    def native(*args):
+        calls.append(True)
+        helper.write_text("synthetic version 2")
+        return resident_payload()
+    monkeypatch.setattr(oc.Gateway, "call", native)
+    srv = _Server(root, cfg)
+    try:
+        if not during:
+            helper.write_text("synthetic version 2")
+        payload = srv.get("/api/runtime/observations")[1]
+        assert payload["operator"]["restart_required"] is True
+        assert payload["openclaw"]["native_observations"][0]["status"] == "unavailable"
+        assert len(calls) == int(during)
+        srv.get("/api/runtime/observations")
+        assert len(calls) == int(during)
+    finally:
+        srv.close()
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_observation_policy_does_not_reidentify_retained_execution(runtime, legacy):
+    root, cfg, params, *_ = runtime
+    plan = oc.plan_dispatch(root, cfg, params)
+    if legacy:
+        plan.pop("runtime_identity_sha256")
+    oc.dispatch(root, cfg, plan)
+    query = {"profile": "research", "action_id": "task", "effect_key": plan["effect_key"]}
+    changed = enable_native_observation(root)
+    oc.retained_intent(root, changed, query)
+    data = yaml.safe_load((root / "wiki.config.yaml").read_text())
+    data["openclaw"].pop("observation")
+    (root / "wiki.config.yaml").write_text(yaml.safe_dump(data))
+    oc.retained_intent(root, load_config(root), query)
+    for key in ("node_binary", "entrypoint", "gateway"):
+        altered = copy.deepcopy(data)
+        altered["openclaw"][key] = "ws://127.0.0.1:19881" if key == "gateway" else "/synthetic/replacement"
+        (root / "wiki.config.yaml").write_text(yaml.safe_dump(altered))
+        with pytest.raises(ValueError, match="route_changed"):
+            oc.retained_intent(root, load_config(root), query)
 
 
 def forbidden(*args, **kwargs):

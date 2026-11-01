@@ -32,9 +32,10 @@ export function validatePackage(root,spec) {
   const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
   if(pkg.name!==spec.name || pkg.version!==spec.version || treeHash(root)!==spec.tree_sha256) throw new Error('wiki_mission_unsupported_package');
 }
-export function transform(name,source) {
+export function transform(name,source,{observationClient=false}={}) {
   const spec=manifest.files.find(f=>f.name===name);
   if(!spec) throw new Error('wiki_mission_unknown_hook');
+  if(observationClient && spec.observation!=='client') throw new Error('wiki_observation_client_hook_required');
   if(sha(source)!==spec.sha256) throw new Error('wiki_mission_unsupported_runtime_bytes');
   for(const [before,after] of spec.edits) {
     if(source.split(before).length!==2) throw new Error('wiki_mission_overlay_shape_changed');
@@ -46,7 +47,23 @@ export function transform(name,source) {
   const bridge=spec.relative==='dist/plugin-sdk/process-runtime.js'
     ? `\nexport const wikiMissionBridge=Object.freeze({authorizeTurn:wikiMissionGuard.authorizeTurn,bindTurn:wikiMissionGuard.bindTurn,captureOwner:wikiMissionGuard.captureOwner,recordTerminal:wikiMissionGuard.recordTerminal,authorizeInference:wikiMissionGuard.authorizeInference,checkInferenceSelection:wikiMissionGuard.checkInferenceSelection,loadedHook:wikiMissionGuard.loadedHook,registerInferenceBinding:wikiMissionGuard.registerInferenceBinding,registerInferenceRoute:wikiMissionGuard.registerInferenceRoute,authorizeClientStart:wikiMissionGuard.authorizeClientStart,beginBootstrapThread:wikiMissionGuard.beginBootstrapThread,completeBootstrapThread:wikiMissionGuard.completeBootstrapThread});\n`
     : '';
-  return binding+source+bridge+`\nwikiMissionGuard.loadedHook(${JSON.stringify(name)},import.meta.url);\n`;
+  return binding+source+bridge+(observationClient?'':`\nwikiMissionGuard.loadedHook(${JSON.stringify(name)},import.meta.url);\n`);
+}
+/** The CLI uses the same pinned overlay, without initializing a Gateway/plugin. */
+export function installObservationClient(root) {
+  validatePackage(root,manifest.packages.core);
+  const files=manifest.files.filter(f=>f.observation==='client');
+  if(files.length!==3)throw new Error('wiki_observation_client_hooks_incomplete');
+  const expected=new Map(files.map(f=>[path.join(root,f.relative),f]));
+  for(const [file,spec] of expected)transform(spec.name,fs.readFileSync(file,'utf8'),{observationClient:true});
+  registerHooks({load(url,context,nextLoad){
+    const out=nextLoad(url,context);
+    if(!url.startsWith('file:'))return out;
+    const file=fileURLToPath(url),spec=expected.get(file);
+    if(!spec)return out;
+    if(fs.realpathSync(file)!==file || new URL(url).search || new URL(url).hash)throw new Error('wiki_observation_client_root_changed');
+    return {...out,source:transform(spec.name,typeof out.source==='string'?out.source:Buffer.from(out.source).toString('utf8'),{observationClient:true})};
+  }});
 }
 export function assertSharedSdkBridge(sdkModule) {
   const bridgeKeys=['authorizeTurn','bindTurn','captureOwner','recordTerminal','authorizeInference','checkInferenceSelection','loadedHook','registerInferenceBinding','registerInferenceRoute','authorizeClientStart','beginBootstrapThread','completeBootstrapThread'];
@@ -60,7 +77,7 @@ export async function install() {
   const sdk=createRequire(path.join(roots.plugin,'package.json')).resolve('openclaw/plugin-sdk/process-runtime');
   if(!fs.realpathSync(sdk).startsWith(roots.core+path.sep)) throw new Error('wiki_mission_sdk_root_changed');
   configureNativeRegistry(new NativeCaptureRegistry({pluginRoot:roots.plugin,coreRoot:roots.core,files:manifest.files.filter(f=>f.package==='plugin'),validatePackage:root=>validatePackage(root,manifest.packages.plugin)}));
-  configureRuntime(manifest.files.map(f=>f.name),pinnedClientAdmission(roots.plugin,manifest.app_server));
+  configureRuntime(manifest.files.map(f=>f.name),pinnedClientAdmission(roots.plugin,manifest.app_server),manifest.files.filter(f=>f.observation).map(f=>f.name));
   const expected=new Map(manifest.files.map(f=>[path.join(roots[f.package],f.relative),f]));
   registerHooks({load(url,context,nextLoad){
     const out=nextLoad(url,context);
@@ -76,6 +93,8 @@ export async function install() {
   // Load the guarded plugin modules before the gateway admits a chat. The
   // native loader qualifies its captured copies separately before execution.
   for(const f of manifest.files.filter(f=>f.package==='plugin')) await import(pathToFileURL(path.join(roots.plugin,f.relative)).href);
+  // Advertise the restricted handshake only once its complete pinned path is loaded.
+  for(const f of manifest.files.filter(f=>f.observation)) await import(pathToFileURL(path.join(roots.core,f.relative)).href);
 }
 // Importing helpers in a test does not activate a gateway or plugin.
 if(process.env.WIKI_OPENCLAW_GUARD_BOOTSTRAP==='1') await install();

@@ -19,7 +19,7 @@ def validated_config(value):
         return {"enabled": False}
     require(isinstance(value, dict), "openclaw_invalid_config")
     fields = {"enabled", "node_binary", "entrypoint", "profile", "state_dir", "gateway", "routes"}
-    optional = {"mission_options", "recovery", "recurring"}
+    optional = {"mission_options", "recovery", "recurring", "observation"}
     require(not set(value) - fields - optional and isinstance(value.get("enabled", False), bool), "openclaw_invalid_config")
     if not value.get("enabled"):
         require(set(value) <= {"enabled"}, "openclaw_disabled_config_has_settings")
@@ -48,6 +48,14 @@ def validated_config(value):
                 "openclaw_invalid_route")
         require(all(isinstance(v, str) and 0 < len(v) <= 240 and not any(ord(c) < 32 for c in v)
                     for v in route.values()), "openclaw_invalid_route")
+    if "observation" in value:
+        observation = value["observation"]
+        require(isinstance(observation, dict) and set(observation) == {"mode", "profile"}
+                and observation["mode"] == "resident" and isinstance(observation["profile"], str)
+                and observation["profile"] in value["routes"], "openclaw_invalid_observation_policy")
+        key = value["routes"][observation["profile"]]["session_key"]
+        require(re.fullmatch(r"agent:[a-z0-9][a-z0-9_-]*:[^\s]+", key)
+                and ":incognito:" not in key, "openclaw_invalid_observation_target")
     options = value.get("mission_options", {})
     require(isinstance(options, dict), "openclaw_invalid_mission_policy")
     for key, option in options.items():

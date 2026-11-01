@@ -5,6 +5,12 @@ import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {assertOwner,assertCapture,markNativeHook} from './mission-runtime.mjs';
 export {captureOwner,registerNativeArtifact} from './mission-runtime.mjs';
+export {RESIDENT_OBSERVATION_CAPABILITY,hasResidentObservation,isResidentObservationConnect,
+  assertResidentObservationChallenge,assertResidentObservationConnect,assertResidentObservationRequest,
+  authorizeResidentObservation,respondResidentObservation,assertResidentObservationCall} from './mission-runtime.mjs';
+export {residentObservationClientGuard,checkResidentObservationClientChallenge} from './mission-runtime.mjs';
+export {assertResidentObservationMethod} from './mission-runtime.mjs';
+import {RESIDENT_OBSERVATION_CAPABILITY} from './mission-runtime.mjs';
 export {retirementWorkerArguments} from './mission-retirement.mjs';
 import {retireReviewedFailure as retireReviewed} from './mission-retirement.mjs';
 export function retireReviewedFailure(params,api){assertRuntime();return retireReviewed(params,api);}
@@ -17,8 +23,9 @@ const INFERENCE_HOOK='inference-dispatch-CO6tTs4q.mjs';
 const ROUTE_HOOK='shared-client-C0gEybHs.mjs';
 const CREATION_HOOK='thread-lifecycle-run-BHM-L-56.mjs';
 const hooks = new Set();
-let expectedHooks,clientAdmission;
-export function configureRuntime(names,admitClient) { require(!expectedHooks, 'runtime_already_configured'); expectedHooks = new Set(names); clientAdmission=admitClient; }
+let expectedHooks,clientAdmission,observationHooks=[];
+export function configureRuntime(names,admitClient,observationNames=[]) { require(!expectedHooks, 'runtime_already_configured'); expectedHooks = new Set(names); clientAdmission=admitClient; observationHooks=[...observationNames]; }
+export function residentObservationCapabilities() { return observationHooks.length>0 && observationHooks.every(name=>hooks.has(name)) ? [RESIDENT_OBSERVATION_CAPABILITY] : []; }
 export function authorizeClientStart(options) { require(typeof clientAdmission==='function','client_pin_required'); clientAdmission(options); }
 export function loadedHook(name,url) { require(expectedHooks?.has(name), 'unknown_hook'); markNativeHook(name,url); hooks.add(name); }
 export function assertRuntime() { require(expectedHooks?.size > 0 && hooks.size === expectedHooks.size && [...expectedHooks].every(name=>hooks.has(name)), 'incomplete_overlay'); }
