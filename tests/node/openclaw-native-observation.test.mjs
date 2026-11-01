@@ -1,11 +1,143 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {readResidentNativeActivity} from '../../scripts/openclaw/mission-runtime.mjs';
+import {readResidentNativeActivity,RESIDENT_OBSERVATION_CAPABILITY as cap,validateResidentObservation,
+  residentObservationClientGuard,checkResidentObservationClientChallenge,assertResidentObservationCall,
+  assertResidentObservationConnect,assertResidentObservationRequest,assertResidentObservationMethod,
+  authorizeResidentObservation,respondResidentObservation} from '../../scripts/openclaw/mission-runtime.mjs';
 
 const target={agentId:'example',sessionKey:'agent:example:observation-fixture',sessionId:'fixture-session'};
 const generation=Symbol('fixture-generation');
 const scope={scope:'resident_gateway_owners',complete:false,persisted_queue_count:null};
+const observationParams=()=>({key:target.sessionKey,agentId:target.agentId,wikiObservation:{version:1,sessionId:target.sessionId}});
+function authorizedFixture() {
+  const f=fixture(), events=[];
+  const cfg={}, row={canonicalKey:target.sessionKey,agentId:target.agentId,generation,
+    entry:{sessionId:target.sessionId,lifecycleRevision:1}};
+  const source={agentId:target.agentId,path:'/synthetic/session.sqlite',databaseIdentity:Symbol(),databaseBirthtime:1};
+  const membership=new Set(['synthetic-member']);
+  const projection={sharingRevision:1,getPolicyConfig:()=>cfg,sharingTargetState:()=>({status:'ready',target:row}),
+    readSource:()=>({...source}),readMembership:()=>new Set(membership)};
+  for(const key of ['state','describe','capture','prepareMembership','observeGeneration'])Object.defineProperty(projection,key,{get(){throw new Error('forbidden_domain_preparation');}});
+  const client={connect:{client:{id:'cli',mode:'cli'},role:'operator',scopes:['operator.read'],caps:[cap]},
+    usesSharedGatewayAuth:true,internal:{operatorRoleActor:{kind:'system'},authenticatedOperator:true,isLocalClient:true},
+    authPolicy:{generation:'native-auth'},connectionSignal:new AbortController().signal};
+  Object.assign(f.context,{getRuntimeConfig:()=>cfg,getCommittedRuntimeConfig:()=>cfg,
+    ensureSessionRowProjection:()=>{throw new Error('forbidden_domain_preparation');}});
+  const params={method:'sessions.describe',requestParams:observationParams(),client,context:f.context,
+    hasCurrentClientAuthority:()=>true,assertInvocationCurrent:()=>events.push('native-authority')};
+  const native={authorizeMethod:()=>{events.push('native-method');return {error:null};},uploadPolicy:()=>null,
+    resolveAgent:()=>({ok:true,agentId:target.agentId}),
+    authorizeProfile:async()=>{events.push('native-profile');return null;},getProjection:()=>projection,
+    isIncognito:()=>false,permissionPending:()=>false,authorizeSession:request=>{
+      events.push('native-session');assert.equal(request.sessionRowRead.describe({key:target.sessionKey,agentId:target.agentId}).entry,row.entry);
+      return {error:null};},authorizeIncognito:()=>null,prepareSharing:()=>({entryFilter:()=>true}),hasBoundary:()=>false};
+  return {...f,events,cfg,row,source,membership,projection,client,params,native,
+    authorize:()=>authorizeResidentObservation(params,native),
+    respond:authorization=>respondResidentObservation(params.requestParams,authorization,f.context,
+      {...f.native,processInstanceId:()=> 'synthetic-process'})};
+}
+
+test('qualified router authority reaches exact resident response through native policy callbacks',async()=>{
+  const f=authorizedFixture(), req={method:'sessions.describe',params:f.params.requestParams};
+  assertResidentObservationRequest(req,f.client,{isWebchatConnect:p=>p.client.mode==='webchat'});
+  const auth=await f.authorize();assert.equal(auth.error,null);
+  const result=f.respond(auth.wikiObservationAuthorization);
+  assert.equal(result.status,'observed');assert.equal(result.sessionId,target.sessionId);
+  assert.equal(result.process_instance_id,'synthetic-process');assert.equal(result.complete,false);
+  for(const effect of ['native-method','native-profile','native-session','native-authority'])assert.ok(f.events.includes(effect));
+});
+test('presence of a malformed option never falls through to native preparing describe',async()=>{
+  for(const value of [null,false,{}, {version:2,sessionId:target.sessionId}]) {
+    const f=authorizedFixture();f.params.requestParams.wikiObservation=value;
+    assert.throws(()=>validateResidentObservation('sessions.describe',f.params.requestParams));
+    assert.equal((await f.authorize()).error.code,'UNAVAILABLE');assert.deepEqual(f.events,[]);
+  }
+  for(const key of ['includeLastMessage','includeDerivedTitles','unknown']) {
+    const f=authorizedFixture();f.params.requestParams[key]=false;
+    assert.equal((await f.authorize()).error.code,'UNAVAILABLE');
+  }
+});
+test('connection scope cannot call another method, bind a profile or use synthetic/run authority',()=>{
+  for(const mutate of [f=>f.req.method='chat.send',f=>delete f.req.params.wikiObservation,
+    f=>f.req.expectedProfileId='human',f=>f.client.preparedSessionProfile={},
+    f=>f.client.authenticatedGitHubIdentitySync=()=>{throw new Error('must not sync');},
+    f=>f.client.internal.operatorRoleActor={kind:'operator',profileId:'human'},
+    f=>f.client.internal.syntheticClient=true,f=>f.client.internal.operatorRunAuthority={},
+    f=>f.client.invalidated=true,f=>f.options.prepareDispatchCurrent=()=>{},
+    f=>f.options.isWebchatConnect=()=>true]) {
+    const f=authorizedFixture();f.req={method:'sessions.describe',params:f.params.requestParams};f.options={};mutate(f);
+    assert.throws(()=>assertResidentObservationRequest(f.req,f.client,f.options));
+  }
+});
+test('cold, pending, aliased or rebound native owners remain unavailable',async()=>{
+  for(const mutate of [f=>f.native.getProjection=()=>null,f=>f.projection.sharingRevision=undefined,
+    f=>f.projection.sharingTargetState=()=>({status:'pending'}),f=>f.row.canonicalKey='agent:example:alias',
+    f=>f.row.entry.sessionId='replacement',f=>f.native.permissionPending=()=>true,
+    f=>f.context.agentDatabaseStartup={hasPendingAgents:true},f=>f.context.unavailableGatewayMethods=new Set(['sessions.describe']),
+    f=>f.projection.readMembership=()=>undefined]) {
+    const f=authorizedFixture();mutate(f);assert.equal((await f.authorize()).error.code,'UNAVAILABLE');
+  }
+});
+test('native permission refusals and visibility are retained',async()=>{
+  for(const point of ['authorizeMethod','authorizeProfile','authorizeSession','authorizeIncognito','uploadPolicy']) {
+    const f=authorizedFixture(), error={code:'FORBIDDEN',message:'native-denial'};
+    f.native[point]=()=>['authorizeMethod','authorizeSession'].includes(point)?{error}:error;
+    assert.deepEqual((await f.authorize()).error,error);
+  }
+  const f=authorizedFixture();f.native.hasBoundary=()=>true;f.native.prepareSharing=()=>({entryFilter:()=>false});
+  assert.equal((await f.authorize()).error.code,'UNAVAILABLE');
+});
+test('authorization is rechecked after native profile await and before response delivery',async()=>{
+  for(const mutate of [f=>f.client.invalidated=true,f=>f.client.connect.scopes=[],f=>f.client.authPolicy={},
+    f=>f.client.preparedSessionProfile={},f=>f.params.hasCurrentClientAuthority=()=>false,
+    f=>f.row.entry.sessionId='replacement',f=>f.row.entry.lifecycleRevision++,f=>f.row.generation=Symbol(),
+    f=>f.projection.sharingRevision++,f=>f.source.databaseIdentity=Symbol(),f=>f.membership.clear()]) {
+    const f=authorizedFixture(),auth=await f.authorize();assert.equal(auth.error,null);mutate(f);
+    assert.throws(()=>f.respond(auth.wikiObservationAuthorization));
+  }
+  const f=authorizedFixture();f.native.authorizeProfile=async()=>{await Promise.resolve();f.client.preparedSessionProfile={};return null;};
+  assert.equal((await f.authorize()).error.code,'UNAVAILABLE');assert.equal(f.events.includes('native-session'),false);
+});
+test('core handler, observation lifetime and no read-sharing are mandatory',()=>{
+  const f=authorizedFixture(),handler=()=>{},req={method:'sessions.describe',params:f.params.requestParams};
+  const registry={getHandler:()=>handler,getScope:()=> 'operator.read',isObservation:()=>true,getReadSharing:()=>undefined};
+  assertResidentObservationMethod(req,f.client,registry,handler);
+  for(const change of [{getHandler:()=>()=>{}},{getScope:()=> 'operator.admin'},{isObservation:()=>false},{getReadSharing:()=>({})}])
+    assert.throws(()=>assertResidentObservationMethod(req,f.client,{...registry,...change},handler));
+});
+test('native client normalization retains original read-only proof and rejects legacy challenge before connect',()=>{
+  const options={caps:[cap],deviceIdentity:null,sharedStateMode:'read-only',mode:'cli',clientName:'cli'};
+  const inner={caps:options.caps,deviceIdentity:undefined,wikiObservationChallengeGuard:residentObservationClientGuard(options)};
+  assert.throws(()=>checkResidentObservationClientChallenge(inner,[]));
+  checkResidentObservationClientChallenge(inner,[cap]);
+  options.sharedStateMode='read-write';assert.throws(()=>checkResidentObservationClientChallenge(inner,[cap]));
+  for(const change of [{deviceIdentity:undefined},{deviceIdentity:{}},{mode:'backend'},{sharedStateMode:undefined}])
+    assert.throws(()=>residentObservationClientGuard({...options,sharedStateMode:'read-only',...change}));
+});
+test('client preflight refuses cold credentials, remote, shell fallback and scope/identity shortcuts',()=>{
+  const input={caps:[cap],method:'sessions.describe',params:observationParams(),config:{gateway:{auth:{mode:'token'}}},
+    clientName:'cli',mode:'cli',deviceIdentity:null,sharedStateMode:'read-only',expectUrl:'ws://127.0.0.1:19880'};
+  let reads=0;const facts={authMode:'token',secretRefCanWin:false,readCredentials:()=>{reads++;return {token:'synthetic-local-auth'};}};
+  assertResidentObservationCall(input,facts);assert.equal(reads,1);
+  for(const change of [{secretRefCanWin:true},{authMode:'none'},{urlOverrideSource:'env'}]) {
+    assert.throws(()=>assertResidentObservationCall(input,{...facts,...change}));assert.equal(reads,1);
+  }
+  for(const change of [{config:undefined},{url:'ws://127.0.0.1:19880'},{deviceIdentity:undefined},
+    {config:{gateway:{mode:'remote'}}},{config:{gateway:{remote:{url:'ws://example.test'}}}},{useStoredDeviceAuth:true}])
+    assert.throws(()=>assertResidentObservationCall({...input,...change}));
+});
+test('restricted connect admits existing local shared authentication only',()=>{
+  const context={connectParams:{client:{id:'cli',mode:'cli'},role:'operator',caps:['ultrafast',cap],auth:{token:'synthetic-local-auth'}},
+    isLocalClient:true,pendingNodePairingCleanup:{},handler:{remoteAddr:'127.0.0.1',getResolvedAuth:()=>({mode:'token'}),
+      isClosed:()=>false,connectionWork:{signal:new AbortController().signal}}};
+  const state={role:'operator',authMethod:'token',authResult:{},sessionUsesSharedGatewayAuth:true};
+  assertResidentObservationConnect(context,state);
+  for(const change of [{device:{}},{authResult:{user:'human'}},{authMethod:'none'},{sessionUsesSharedGatewayAuth:false},{deviceToken:{}}])
+    assert.throws(()=>assertResidentObservationConnect(context,{...state,...change}));
+  for(const change of [{hasProxyHeaders:true},{hasBrowserOriginHeader:true},{isLocalClient:false},
+    {connectParams:{...context.connectParams,modelCatalog:{}}}])assert.throws(()=>assertResidentObservationConnect({...context,...change},state));
+});
 function fixture() {
   const context={chatAbortControllers:new Map(),chatQueuedTurns:new Map(),dedupe:new Map()};
   const native={assertCurrent:()=>{},isGenerationCurrent:value=>value===generation,

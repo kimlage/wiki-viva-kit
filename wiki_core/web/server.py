@@ -286,6 +286,7 @@ class CockpitServer(ThreadingHTTPServer):
         self._boot_code_sha256 = _operator_code_digest(self._code_root)
         self._runtime_observation_lock = threading.Lock()
         self._transport_observation_cache: tuple[float, dict[str, Any]] | None = None
+        self._native_observation_cache: tuple[float, dict[str, Any] | None] | None = None
         # Command activation is a startup trust decision. Card text and live
         # policy edits cannot silently replace an enabled local observer.
         try:
@@ -321,13 +322,13 @@ class CockpitServer(ThreadingHTTPServer):
         self.admin_plans = AdminPlanStore()
 
     def runtime_observations(self) -> dict[str, Any]:
-        """A pure local projection plus one bounded, payload-free TCP probe.
+        """Retained evidence, TCP reachability and an optional restricted native read.
 
-        It never enters the command bus, scheduler, native history, credentials,
-        lock reconciliation or snapshot builders. Only the transport check is
-        cached (in RAM); a newly retained result or wake is visible immediately.
+        No domain preparation, history reconciliation or agent dispatch. Native
+        authentication/security events remain intact. Probes are cached in RAM;
+        newly retained results and wakes remain visible immediately.
         """
-        from wiki_core.web.openclaw import runtime_observations, transport_observation
+        from wiki_core.web.openclaw import runtime_observations, transport_observation, native_runtime_observation
         observed_at = datetime.now(timezone.utc).isoformat()
         current_digest = _operator_code_digest(self._code_root)
         try:
@@ -360,6 +361,25 @@ class CockpitServer(ThreadingHTTPServer):
                     self._transport_observation_cache = (time.monotonic(), transport)
                 else:
                     transport = cached[1]
+                if restart is False:
+                    native_cached = self._native_observation_cache
+                    if native_cached is None or time.monotonic() - native_cached[0] >= 30:
+                        native = native_runtime_observation(self.config)
+                        self._native_observation_cache = (time.monotonic(), native)
+                    else:
+                        native = native_cached[1]
+                    try:
+                        still_current = load_config(self.root) == self.config and _operator_code_digest(self._code_root) == current_digest
+                    except Exception:  # noqa: BLE001 - authority changed or became unreadable while awaiting native RPC
+                        still_current = False
+                    if not still_current:
+                        native = None
+                        self._native_observation_cache = None
+                        restart = True
+                        local["errors"].append("openclaw_operator_config_changed_restart")
+                    if native:
+                        local["native_observations"] = [native if row["profile"] == native["profile"] else row
+                                                        for row in local["native_observations"]]
         return {"ok": True, "schema_version": WEB_RUNTIME_OBSERVATIONS_VERSION, "observed_at": observed_at,
             "operator": {"started_at": self.started_at, "boot_source_commit": self.boot_source_commit,
                 "current_source_commit": _source_commit(self._code_root), "content_source_commit": _source_commit(self.root),

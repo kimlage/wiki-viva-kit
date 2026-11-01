@@ -14,9 +14,20 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-01] Closed resident observation with native security effects preserved
+
+The [existing OpenClaw path](../../docs/references/guides/openclaw-card-runtime.md#closed-native-resident-observation)
+now has an opt-in connection from the closed native RPC to the existing GET and
+UI. It refuses domain preparation/database opening while retaining native
+authentication, authorization, revocation and security logging. Exact resident
+identity and capture fences qualify separate execution/terminal/queue/admission
+counts, with global state still unknown. Tests include pinned transformed native
+bodies, a temporary security log, GET behavior and retained-intent compatibility.
+No source dates, installed runtime, agent grants or financial access are changed.
+
 ## [2026-11-01] Resident activity foundation remains disconnected
 
-The [OpenClaw observation contract](../../docs/references/guides/openclaw-card-runtime.md#resident-activity-reader-foundation-not-connected)
+The [OpenClaw observation contract](../../docs/references/guides/openclaw-card-runtime.md#closed-native-resident-observation)
 records a bounded internal reducer for existing resident Gateway owners. Its
 synthetic tests separate execution, terminal persistence, cleanup, queue and
 admission while preserving unknown global/persisted state. No RPC, GET, overlay

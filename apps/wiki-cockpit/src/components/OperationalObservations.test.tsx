@@ -59,6 +59,25 @@ it("scopes retained attempts to the selected action and keeps reachability, live
   expect(screen.queryByText("2026-10-30T11:00:00Z")).toBeNull();
 });
 
+it("shows resident phases and observation time while keeping global activity and costs unknown", () => {
+  const value = observation();
+  value.openclaw.native_observations = [{ profile: "research", session_status: null, status: "observed", observed_at: "2026-10-31T12:00:00Z",
+    scope: "resident_gateway_owners", complete: false, resident_complete: true, persisted_queue_count: null, error_code: null,
+    process_instance_id: "synthetic-process", has_active_run: false, active_run_ids: [], ids_truncated: false,
+    active_count: 0, terminal_persistence_count: 1, terminal_cleanup_count: 2, queued_turn_count: 3, pending_admission_count: 4 }];
+  render(<RuntimeObservationPanel observation={value} />);
+  expect(field("Active runs")).toBe("0");
+  expect(field("Pending terminal persistence")).toBe("1");
+  expect(field("Pending terminal cleanup")).toBe("2");
+  expect(field("Resident queued turns")).toBe("3");
+  expect(field("Pending admissions")).toBe("4");
+  expect(field("Gateway process")).toBe("synthetic-process");
+  expect(field("Live execution / pending inputs")).toBe("Not observed");
+  expect(field("Tokens / cost")).toBe("Not measured");
+  expect(screen.getByText(/persisted queue and global readiness are unobserved/)).toBeTruthy();
+  expect(screen.queryByRole("button")).toBeNull();
+});
+
 it("keeps receipt adoption distinct from content incorporation and a failed wake distinct from no dispatch", () => {
   const value = observation();
   value.openclaw.attempts[0].proposal = { status: "received_in_main", branch: "wiki/result", head: "h", proposal_head: "p", approved_base: "b", material_path: "result.md", material_sha256: "s", content_incorporated_in_main: false };

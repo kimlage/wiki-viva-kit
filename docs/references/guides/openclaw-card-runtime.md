@@ -13,17 +13,18 @@ action authority and reviewed results.
 the administrative command bus. It verifies retained intent/result/proposal
 receipts and projects the last typed recurrence wake from the existing
 administrative audit. It never invokes `inspect`, releases a mission lock,
-reconciles pending native inputs, dispatches a model, opens account credentials,
-appends an audit entry or builds a snapshot. Invalid local evidence produces
+reconciles pending native inputs, dispatches a model, opens financial accounts,
+appends a wiki command audit entry or builds a content snapshot. Invalid local evidence produces
 typed unknown/unavailable states without exposing corrupt receipt bytes or provider
 diagnostics. Missing evidence does not mean that no useful work occurred.
 
-The only live OpenClaw check is a TCP connection to its configured loopback
+The default live OpenClaw check is a TCP connection to its configured loopback
 port, with a two-second timeout and no protocol bytes or authentication. Its
 timestamped result is cached in process memory for 30 seconds. A reachable
 listener proves neither Gateway identity nor authorization, readiness or session
-activity. Current activity and pending inputs remain `null`, with
-`native_read_api_may_write` for the unavailable native observation. Retained
+activity. Global activity and pending inputs remain `null`. The optional closed
+native path below qualifies one configured session; without it the native
+observation remains unavailable with `native_read_api_may_write`. Retained
 attempts, terminal results, receipt comments and incorporated content remain
 distinct. Token usage and costs are `not_measured`/`null`, never inferred as zero
 from absent receipts or from the number of guard admissions.
@@ -51,12 +52,13 @@ in `session-canonical-validation-readiness-sJ8Uy9SS.mjs`, which can call
 qualified native API is still required before current run or queue state can be
 shown; the product does not work around this boundary with direct SQLite reads.
 
-### Resident activity reader foundation (not connected)
+### Closed native resident observation
 
 `readResidentNativeActivity` in the existing mission runtime is an internal,
 synchronous reducer over the Gateway's existing controller, queued-turn and
-accepted-admission maps. It is not called by the overlay, RPC client or GET.
-The caller must supply pure native assertions bound to the authorized session;
+accepted-admission maps. The version-bound overlay calls it through a closed
+`sessions.describe` option, never through ordinary session presentation.
+The caller supplies pure native assertions bound to the authorized session;
 the reducer checks that capture before and after reading. Missing owners,
 ambiguous identities, stale lifecycle generations and invalidated captures return
 unavailable counts. It introduces no registry, timer, dispatch or database reader.
@@ -71,22 +73,47 @@ returns unavailable rather than implying an empty queue.
 Cancellation ownership transferred to an aggregate remains a queued owner until
 the native map removes it. Run IDs are bounded and truncation is explicit.
 
-Synthetic unit tests prove these local semantics and absence of reducer effects.
-They do not qualify native authentication, authorization, concurrent session
-rebinding across awaits, or the complete client-to-handler path. The eleven
-existing overlay hooks and the RPC allowlist remain unchanged.
+This path is disabled unless `openclaw.observation` is exactly
+`{mode: resident, profile: <existing-route-name>}`. It makes one native RPC per
+cache period, bounded to five seconds at the native call and twelve seconds for
+the CLI process. The GET caches the timestamped result only in RAM for thirty
+seconds. Config/code changes require restart and discard the native observation.
+The additive observation setting does not reidentify retained executions; the
+existing destination, Node, entrypoint and physical-route fences remain intact.
 
-Connecting the reader requires a separately qualified closed native path. In
-the pinned package, the handshake can prepare membership, consult a cold profile
-catalogue, update paired-device metadata and start a health refresh before a
-handler runs. Profile binding can also prepare before the method router. The
-client can invoke shell-environment fallback or SecretRef providers. These paths
-must be refused before their effects, including capability negotiation before
-authentication when the server lacks the closed mode. Native authentication and
-authorization must remain authoritative. Normal security logs and audit events
-must remain enabled, so a whole-connection claim of zero writes of any kind is
-not supported. This foundation neither resolves that contract nor enables live
-observation; the interface continues reporting `native_read_api_may_write`.
+The existing facade permits only `{key, agentId, wikiObservation: {version: 1,
+sessionId}}` for `sessions.describe`, against its configured loopback target.
+The native client must see `wiki.resident-observation.v1` in the pre-authentication
+challenge before sending connect. An older Gateway, remote override, cold device
+identity, shell-env fallback or winning SecretRef provider cannot trigger a
+fallback connection. Credentials stay in the existing native resolver; no token,
+scope grant or identity is supplied by the GET caller.
+
+Only an already authenticated native local CLI system actor without device,
+human-profile, synthetic or run authority can use this first version. The native
+authentication, rate limits, device-authorization decision, request authority,
+scope policy, configured-agent validation, session visibility and revocation
+checks remain authoritative. The restricted hello omits optional domain data,
+plugin capabilities and background work. No membership/profile preparation,
+domain database opening, reconciliation or model dispatch is permitted. Native
+security logs and audit events remain enabled and may write; this is not a
+whole-connection promise of zero writes.
+
+The request must retain the core observation handler with no shared-read
+preparation. Profile binding and alternative handlers are refused before their
+preparers. Projection, committed policy, sharing revision, exact key/physical ID,
+generation, source identity, membership, permissions and connection authority
+are checked again across awaits and before responding. Cold or ambiguous facts,
+malformed options and changed authority return unavailable without ordinary-read
+fallback. The facade verifies the exact identity, process, response shape and
+fresh timestamp before the UI receives counts; usage and costs remain unknown.
+
+Tests cover the helper, native-policy refusals/races, closed facade, GET cache and
+UI states. The opt-in native integration executes the pinned transformed client,
+authentication/device authorization, hello, router, preDispatch and handler
+bodies with synthetic resident owners and forbidden domain-effect spies. Its
+security sink writes an actual temporary log. This offline qualification does
+not install the overlay, activate a route or demonstrate a live financial grant.
 
 An executed `agents.openclaw.tick`, including `unchanged`, `already_observed` and
 review/incorporation waits, enriches its existing audit event's `output_summary`

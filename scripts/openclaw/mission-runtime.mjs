@@ -184,3 +184,189 @@ export function readResidentNativeActivity(context,target,native) {
     return unavailable();
   }
 }
+
+// This capability narrows a native authenticated connection. It is neither an
+// identity nor a grant. Native auth, scope checks and security logging still run.
+export const RESIDENT_OBSERVATION_CAPABILITY='wiki.resident-observation.v1';
+const observationRequire=(ok)=>{if(!ok)throw new Error('wiki_observation_unavailable');};
+const record=value=>value!==null && typeof value==='object' && !Array.isArray(value);
+const exactKeys=(value,keys)=>record(value) && Object.keys(value).sort().join(',')===keys;
+const boundedIdentity=value=>typeof value==='string' && value.length>0 && value.length<=240
+  && value.trim()===value && !/[\x00-\x20\x7f]/.test(value);
+export const hasResidentObservation=params=>record(params) && Object.hasOwn(params,'wikiObservation');
+export const isResidentObservationConnect=params=>Array.isArray(params?.caps) && params.caps.includes(RESIDENT_OBSERVATION_CAPABILITY);
+export function validateResidentObservation(method,params) {
+  observationRequire(method==='sessions.describe' && exactKeys(params,'agentId,key,wikiObservation')
+    && exactKeys(params.wikiObservation,'sessionId,version') && params.wikiObservation.version===1
+    && boundedIdentity(params.agentId) && /^[a-z0-9][a-z0-9_-]*$/.test(params.agentId)
+    && boundedIdentity(params.key) && params.key.startsWith(`agent:${params.agentId}:`)
+    && !params.key.includes(':incognito:') && boundedIdentity(params.wikiObservation.sessionId));
+  return {agentId:params.agentId,sessionKey:params.key,sessionId:params.wikiObservation.sessionId};
+}
+export function assertResidentObservationChallenge(options,capabilities) {
+  if(!isResidentObservationConnect(options)) return;
+  observationRequire(Array.isArray(capabilities) && capabilities.includes(RESIDENT_OBSERVATION_CAPABILITY)
+    && options.deviceIdentity===null && options.mode==='cli' && options.clientName==='cli'
+    && options.sharedStateMode==='read-only');
+}
+export function residentObservationClientGuard(options) {
+  if(!isResidentObservationConnect(options))return;
+  const check=capabilities=>assertResidentObservationChallenge(options,capabilities);
+  check([RESIDENT_OBSERVATION_CAPABILITY]);
+  return check;
+}
+export function checkResidentObservationClientChallenge(options,capabilities) {
+  if(!isResidentObservationConnect(options))return;
+  observationRequire(typeof options.wikiObservationChallengeGuard==='function');
+  options.wikiObservationChallengeGuard(capabilities);
+}
+/** Called before config fallback and again before native credential bootstrap. */
+export function assertResidentObservationCall(input,facts) {
+  if(!isResidentObservationConnect(input))return;
+  validateResidentObservation(input.method,input.params);
+  observationRequire(record(input.config) && input.clientName==='cli' && input.mode==='cli'
+    && input.deviceIdentity===null && input.sharedStateMode==='read-only'
+    && !input.url && !input.token && !input.password && !input.useStoredDeviceAuth && !input.preparedDeviceAuth
+    && !input.approvalRuntimeToken && !input.agentRuntimeIdentityToken && !input.serviceTargetUrl
+    && !input.localPortOverride && !input.ignoreEnvUrlOverride && !input.skipImplicitAuth
+    && input.config.gateway?.mode!=='remote' && !input.config.gateway?.remote
+    && input.config.gateway?.tls?.enabled!==true);
+  const url=new URL(input.expectUrl);
+  observationRequire(url.protocol==='ws:' && ['127.0.0.1','[::1]'].includes(url.hostname)
+    && url.port && !url.username && !url.password && !url.search && !url.hash && ['','/'].includes(url.pathname));
+  if(facts) {
+    observationRequire(!facts.urlOverrideSource && ['token','password'].includes(facts.authMode)
+      && facts.secretRefCanWin===false);
+    const auth=facts.readCredentials();
+    observationRequire(typeof auth[facts.authMode]==='string' && Boolean(auth[facts.authMode].trim()));
+  }
+}
+export function assertResidentObservationConnect(context,state) {
+  const p=context.connectParams;
+  if(!isResidentObservationConnect(p))return;
+  const allowed=new Set(['minProtocol','maxProtocol','client','role','scopes','caps','auth','locale','userAgent']);
+  observationRequire(Object.keys(p).every(k=>allowed.has(k)) && p.role==='operator'
+    && p.client?.id==='cli' && p.client?.mode==='cli' && context.isLocalClient===true
+    && ['127.0.0.1','::1','::ffff:127.0.0.1'].includes(context.handler.remoteAddr)
+    && !context.hasProxyHeaders && !context.hasBrowserOriginHeader && !context.browserOrigin
+    && Array.isArray(p.caps) && p.caps.every(c=>c==='ultrafast'||c===RESIDENT_OBSERVATION_CAPABILITY)
+    && record(p.auth) && Object.keys(p.auth).every(k=>k==='token'||k==='password')
+    && Boolean(p.auth.token||p.auth.password)
+    && ['token','password'].includes(context.handler.getResolvedAuth().mode));
+  context.handler.connectionWork.signal.throwIfAborted();
+  observationRequire(!context.handler.isClosed() && !context.pendingNodePairingCleanup?.value);
+  if(state) observationRequire(state.role==='operator' && ['token','password'].includes(state.authMethod)
+    && !state.device && !state.deviceToken && !state.bootstrapTokenCandidate && !state.issuedBootstrapProfile
+    && !state.handoffBootstrapProfile && !state.authResult?.user && !state.authResult?.tailscaleIdentity
+    && state.sessionUsesSharedGatewayAuth===true);
+}
+/** Runs before both native expected-profile preparations. No client fabrication. */
+export function assertResidentObservationRequest(req,client,options={}) {
+  if(!hasResidentObservation(req?.params) && !isResidentObservationConnect(client?.connect))return;
+  validateResidentObservation(req.method,req.params);
+  observationRequire(!Object.hasOwn(req,'expectedProfileId') && !options.expectedProfileBinding
+    && !options.prepareDispatchCurrent
+    && (options.isWebchatConnect===undefined || typeof options.isWebchatConnect==='function' && options.isWebchatConnect(client.connect)===false)
+    && isResidentObservationConnect(client?.connect) && client.connect.client?.id==='cli'
+    && client.connect.client?.mode==='cli' && client.connect.role==='operator' && !client.connect.device
+    && client.usesSharedGatewayAuth===true && client.internal?.operatorRoleActor?.kind==='system'
+    && client.internal.authenticatedOperator===true && client.internal.isLocalClient===true
+    && !client.internal.syntheticClient && !client.internal.operatorRunAuthority && !client.internal.agentRuntimeIdentity
+    && !client.authenticatedGitHubIdentitySync && !client.authenticatedUserProfile && !client.authenticatedUserId
+    && !client.preparedSessionProfile && !client.presenceKey && !client.invalidated);
+  client.connectionSignal?.throwIfAborted();
+}
+export function assertResidentObservationMethod(req,client,registry,coreHandler) {
+  if(!hasResidentObservation(req?.params) && !isResidentObservationConnect(client?.connect))return;
+  observationRequire(registry.isObservation(req.method)===true && registry.getReadSharing?.(req.method)===undefined
+    && registry.getScope(req.method)==='operator.read' && typeof coreHandler==='function'
+    && registry.getHandler(req.method)===coreHandler);
+}
+/** Capture exact already-published owner facts. Every API here is a resident read. */
+export async function authorizeResidentObservation(params,native) {
+  const fail=()=>({error:{code:'UNAVAILABLE',message:'Resident observation unavailable'}});
+  try {
+    const {client,context}=params;
+    const req={method:params.method,params:params.requestParams};
+    const target=validateResidentObservation(req.method,req.params);
+    const connect=client.connect, internal=client.internal, actor=internal.operatorRoleActor;
+    const scopes=JSON.stringify(connect.scopes), authPolicy=client.authPolicy;
+    const cfg=context.getRuntimeConfig(), policyConfig=(context.getCommittedRuntimeConfig??context.getRuntimeConfig)();
+    const assertCaller=()=>{
+      assertResidentObservationRequest(req,client,params);
+      observationRequire(client.connect===connect && client.internal===internal && internal.operatorRoleActor===actor
+        && client.authPolicy===authPolicy && JSON.stringify(connect.scopes)===scopes
+        && context.getRuntimeConfig()===cfg && (context.getCommittedRuntimeConfig??context.getRuntimeConfig)()===policyConfig);
+      params.signal?.throwIfAborted();
+      observationRequire(typeof params.hasCurrentClientAuthority==='function' && params.hasCurrentClientAuthority());
+      params.assertInvocationCurrent?.();
+    };
+    assertCaller();
+    const scope=native.authorizeMethod();
+    if(scope.error)return {error:scope.error};
+    const uploadError=native.uploadPolicy();
+    if(uploadError)return {error:uploadError};
+    // No sync callback is permitted above. The native profile function still
+    // decides whether the granted scope requires a human profile.
+    const profileError=await native.authorizeProfile(scope.sessionScope);
+    assertCaller();
+    if(profileError)return {error:profileError};
+    if(context.unavailableGatewayMethods?.has(params.method) || context.agentDatabaseStartup?.hasPendingAgents)return fail();
+    const agent=native.resolveAgent(cfg,target.sessionKey,target.agentId);
+    if(!agent.ok)return {error:agent.error};
+    observationRequire(agent.agentId===target.agentId);
+    const projection=native.getProjection(context);
+    observationRequire(projection && projection.getPolicyConfig()===policyConfig);
+    const revision=projection.sharingRevision;
+    observationRequire(revision!==undefined && !native.isIncognito(target.sessionKey));
+    const query={key:target.sessionKey,agentId:target.agentId};
+    const resident=projection.sharingTargetState(query);
+    observationRequire(resident?.status==='ready');
+    const row=resident.target, entry=row.entry, generation=row.generation, lifecycleRevision=entry.lifecycleRevision;
+    observationRequire(row.canonicalKey===query.key && row.agentId===query.agentId && entry.sessionId===target.sessionId
+      && generation!==undefined && entry.incognito!==true && !native.permissionPending(target.sessionId));
+    const source=projection.readSource(query), members=projection.readMembership(query);
+    observationRequire(source && members instanceof Set);
+    const sameSource=current=>current && ['agentId','path','databaseIdentity','databaseBirthtime'].every(k=>current[k]===source[k]);
+    const assertCurrent=()=>{
+      assertCaller();
+      observationRequire(native.getProjection(context)===projection && projection.sharingRevision===revision
+        && projection.getPolicyConfig()===policyConfig && !native.permissionPending(target.sessionId));
+      const now=projection.sharingTargetState(query), membership=projection.readMembership(query);
+      observationRequire(now?.status==='ready' && now.target.canonicalKey===query.key && now.target.agentId===query.agentId
+        && now.target.generation===generation && now.target.entry===entry && entry.sessionId===target.sessionId
+        && entry.lifecycleRevision===lifecycleRevision && sameSource(projection.readSource(query))
+        && membership instanceof Set && membership.size===members.size && [...members].every(id=>membership.has(id)));
+      const currentScope=native.authorizeMethod();
+      observationRequire(!currentScope.error && currentScope.sessionScope===scope.sessionScope);
+      const currentAgent=native.resolveAgent(cfg,target.sessionKey,target.agentId);
+      observationRequire(currentAgent.ok && currentAgent.agentId===target.agentId);
+    };
+    assertCurrent();
+    const authorization=native.authorizeSession({method:params.method,requestParams:req.params,client,context,
+      sessionScope:scope.sessionScope,sessionRowRead:{state:{cfg,policyConfig},describe(selected){
+        assertCurrent();observationRequire(selected.key===query.key && selected.agentId===query.agentId);
+        return {entry,membership:members};
+      }}});
+    if(authorization.error)return {error:authorization.error};
+    const denied=native.authorizeIncognito({client,sessionKey:query.key,target:row});
+    if(denied)return {error:denied};
+    const sharing=native.prepareSharing({cfg:policyConfig,client,isMember:(_target,id)=>members.has(id)});
+    if(native.hasBoundary(client,policyConfig,sharing) && sharing.entryFilter?.(query.key,entry)===false)return fail();
+    assertCurrent();
+    return {error:null,sessionScope:scope.sessionScope,wikiObservationAuthorization:Object.freeze({target,assertCurrent})};
+  } catch {return fail();}
+}
+/** Only the router passes this authority; no request field can supply it. */
+export function respondResidentObservation(params,authorization,context,native) {
+  const target=validateResidentObservation('sessions.describe',params);
+  observationRequire(authorization && Object.keys(target).every(k=>authorization.target[k]===target[k]));
+  authorization.assertCurrent();
+  const activity=readResidentNativeActivity(context,target,{assertCurrent:authorization.assertCurrent,
+    isGenerationCurrent:native.isGenerationCurrent,isTerminalSettled:native.isTerminalSettled});
+  authorization.assertCurrent();
+  const processInstanceId=native.processInstanceId();
+  observationRequire(boundedIdentity(processInstanceId));
+  return {schema_version:'wiki_resident_observation.v1',...target,process_instance_id:processInstanceId,
+    observed_at:new Date().toISOString(),...activity};
+}

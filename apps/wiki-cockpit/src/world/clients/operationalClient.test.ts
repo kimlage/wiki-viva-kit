@@ -40,3 +40,18 @@ it("accepts a bounded retained result and refuses malformed result material befo
   expect((await loadRuntimeObservations()).openclaw.attempts[0].result?.excerpt).toBe("Synthetic retained text");
   await expect(loadRuntimeObservations()).rejects.toThrow("runtime_observation_invalid");
 });
+
+it("accepts qualified resident counts and rejects complete, mismatched or malformed claims", async () => {
+  const row = { profile: "research", session_status: null, status: "observed", observed_at: "2026-10-31T12:00:00Z",
+    scope: "resident_gateway_owners", complete: false, resident_complete: true, persisted_queue_count: null,
+    error_code: null, process_instance_id: "synthetic-process", has_active_run: false, active_run_ids: [], ids_truncated: false,
+    active_count: 0, terminal_persistence_count: 1, terminal_cleanup_count: 2, queued_turn_count: 3, pending_admission_count: 4 };
+  const envelope = (change: object) => ({ ...payload(), openclaw: { ...payload().openclaw, native_observations: [{ ...row, ...change }] } });
+  const fetch = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(envelope({})))); vi.stubGlobal("fetch", fetch);
+  expect((await loadRuntimeObservations()).openclaw.native_observations[0].status).toBe("observed");
+  for (const change of [{ complete: true }, { persisted_queue_count: 0 }, { active_count: -1 }, { has_active_run: true },
+    { active_run_ids: ["unexpected"] }, { observed_at: "invalid" }, { ids_truncated: true }]) {
+    fetch.mockResolvedValueOnce(new Response(JSON.stringify(envelope(change))));
+    await expect(loadRuntimeObservations()).rejects.toThrow("runtime_observation_invalid");
+  }
+});

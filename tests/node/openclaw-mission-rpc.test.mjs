@@ -15,3 +15,13 @@ test('safe errors preserve native refusal class without arbitrary error details'
  assert.deepEqual(safeFailure({gatewayCode:'INVALID_REQUEST',message:'system provenance fields require admin scope',details:{token:'secret'}}),{type:'rpc_rejection',code:'INVALID_REQUEST',reason:'system_provenance_requires_admin'});
  assert.equal(JSON.stringify(safeFailure({message:'Bearer private-value',gatewayCode:'private-value'})).includes('private-value'),false);
 });
+test('resident observation has one closed method with no identity or scope grant override',()=>{
+ const input={expectUrl:base.expectUrl,method:'sessions.describe',params:{key:'agent:example:fixture',agentId:'example',wikiObservation:{version:1,sessionId:'fixture-session'}}};
+ const {opts,extra}=requestOptions(input);
+ assert.equal(opts.timeout,'5000');assert.equal(extra.scopes,undefined);assert.equal(extra.deviceIdentity,null);
+ assert.deepEqual(extra.caps,['wiki.resident-observation.v1']);assert.equal(extra.sharedStateMode,'read-only');
+ for(const params of [{key:input.params.key},{...input.params,includeLastMessage:false},{...input.params,wikiObservation:false},
+   {...input.params,wikiObservation:{version:1,sessionId:'fixture-session',token:'synthetic-forbidden'}},
+   {...input.params,agentId:'foreign'}])assert.throws(()=>requestOptions({...input,params}));
+ for(const field of ['scopes','token','caps','config'])assert.throws(()=>requestOptions({...input,[field]:{}}));
+});

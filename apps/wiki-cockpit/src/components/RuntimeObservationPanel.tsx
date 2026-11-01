@@ -29,6 +29,11 @@ export function RuntimeObservationPanel({ observation, unavailable = false, acti
     : uiLanguage() === "es" ? ["SHA-256 del código inicial", "SHA-256 del código actual"]
     : ["Code SHA-256 at process start", "Current code SHA-256"];
   const attempt = latestAttempt(observation, actionId);
+  const residentCopy = {
+    pt: ["Owners residentes da sessão", "Execuções ativas", "Persistência terminal pendente", "Limpeza terminal pendente", "Turns na fila residente", "Admissões pendentes", "Processo do Gateway", "Idade da observação (s)", "Recorte da memória residente; fila persistida e prontidão global não observadas."],
+    en: ["Resident session owners", "Active runs", "Pending terminal persistence", "Pending terminal cleanup", "Resident queued turns", "Pending admissions", "Gateway process", "Observation age (s)", "Resident memory only; persisted queue and global readiness are unobserved."],
+    es: ["Owners residentes de la sesión", "Ejecuciones activas", "Persistencia terminal pendiente", "Limpieza terminal pendiente", "Turns en la cola residente", "Admisiones pendientes", "Proceso de Gateway", "Edad de la observación (s)", "Solo memoria residente; cola persistida y disponibilidad global no observadas."]
+  }[uiLanguage()];
   const rules = observation?.openclaw.rules.filter(rule => !actionId || rule.action_id === actionId) || [];
   const field = (label: string, value?: string | null) => <div key={label}><dt>{label}</dt><dd>{value || copy.unknown}</dd></div>;
   return <section className="runtimeObservation" aria-label={copy.title}>
@@ -36,7 +41,14 @@ export function RuntimeObservationPanel({ observation, unavailable = false, acti
     {unavailable && <p role="status">{copy.unavailable}</p>}
     <dl>{field(copy.executor, "OpenClaw")}{field(copy.observed, observation?.observed_at)}{field(copy.live, copy.unknown)}{field(copy.costs, copy.notMeasured)}</dl>
     {observation?.openclaw.transport && <><dl>{field(copy.transport, observation.openclaw.transport.status === "unavailable" ? null : copy[observation.openclaw.transport.status])}{field(copy.observed, observation.openclaw.transport.observed_at)}</dl><p>{copy.transportLimit}</p></>}
-    {Boolean(observation?.openclaw.native_observations.length) && <p>{copy.native}</p>}
+    {observation?.openclaw.native_observations.map(row => row.status === "unavailable"
+      ? <p key={row.profile}>{row.profile}: {copy.native}</p>
+      : <div key={row.profile}><strong>{residentCopy[0]} · {row.profile}</strong><dl>
+        {field(copy.observed, row.observed_at)}{field(residentCopy[7], String(Math.max(0, Math.floor((Date.now() - Date.parse(row.observed_at)) / 1000))))}
+        {field(residentCopy[1], String(row.active_count))}{field(residentCopy[2], String(row.terminal_persistence_count))}
+        {field(residentCopy[3], String(row.terminal_cleanup_count))}{field(residentCopy[4], String(row.queued_turn_count))}
+        {field(residentCopy[5], String(row.pending_admission_count))}{field(residentCopy[6], row.process_instance_id)}
+      </dl><p>{residentCopy[8]}</p></div>)}
     {attempt ? <><dl>{field(copy.run, attempt.run_id || attempt.effect_key)}
       <div><dt>{copy.action}</dt><dd><a href={`/board?action=${encodeURIComponent(attempt.action_id)}`}>{attempt.action_id}</a></dd></div>
       {field(copy.attempt, attempt.attempted_at)}{field(copy.status, copy[attempt.status] || copy.unknown)}

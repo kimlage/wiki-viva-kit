@@ -83,7 +83,13 @@ class Gateway:
         self.runtime, self.route = runtime, route
 
     def call(self, method, params):
-        require(method in {"chat.history", "chat.send", "sessions.patch"}, "openclaw_method_not_allowed")
+        if method == "sessions.describe":
+            selected = self.runtime.get("observation", {}).get("profile")
+            require(self.runtime.get("observation", {}).get("mode") == "resident"
+                    and self.runtime["routes"].get(selected) == self.route
+                    and params == observation_params(self.route), "openclaw_method_not_allowed")
+        else:
+            require(method in {"chat.history", "chat.send", "sessions.patch"}, "openclaw_method_not_allowed")
         env = os.environ.copy()
         state = str(Path(self.runtime["state_dir"]).expanduser())
         env.update(OPENCLAW_PROFILE=self.runtime["profile"], OPENCLAW_STATE_DIR=state,
@@ -93,7 +99,8 @@ class Gateway:
                 str(Path(self.runtime["entrypoint"]).expanduser().parent)]
         request = json.dumps({"method": method, "params": params, "expectUrl": self.runtime["gateway"]})
         try:
-            result = subprocess.run(argv, input=request, env=env, capture_output=True, text=True, timeout=35)
+            result = subprocess.run(argv, input=request, env=env, capture_output=True, text=True,
+                                    timeout=12 if method == "sessions.describe" else 35)
             require(len(result.stdout) <= 512_000, "openclaw_invalid_response")
             value = json.loads(result.stdout)
             if result.returncode:
@@ -288,7 +295,7 @@ def plan_dispatch(root, config, params):
     leaf = idle_leaf(idle_history(Gateway(runtime, route), allow_empty=bootstrap), allow_empty=bootstrap)
     require(not bootstrap or leaf is None, "openclaw_bootstrap_not_empty")
     return {"binding": canonical, "route": route, "route_sha256": digest(runtime), "message": message,
-            "runtime_identity_sha256": digest({k: v for k, v in runtime.items() if k not in {"recovery", "recurring"}}),
+            "runtime_identity_sha256": digest({k: v for k, v in runtime.items() if k not in {"recovery", "recurring", "observation"}}),
             "message_sha256": hashlib.sha256(message.encode()).hexdigest(), "expected_leaf": leaf,
             "effect_key": effect, "mission": mission, "canonical_write": False}
 
@@ -385,10 +392,11 @@ def retained_intent(root, config, params):
         prior_route = previous_runtime["routes"][params["profile"]]
         prior_route.pop("native_thread_id")
         prior_route["native_thread_binding"] = "first_turn"
-    identity = {k: v for k, v in previous_runtime.items() if k not in {"recovery", "recurring"}}
-    legacy_addition = {k: v for k, v in previous_runtime.items() if k not in {"recovery", "recurring"}}
+    identity = {k: v for k, v in previous_runtime.items() if k not in {"recovery", "recurring", "observation"}}
+    execution_runtime = {k: v for k, v in previous_runtime.items() if k != "observation"}
     require((digest(previous_runtime) == plan["route_sha256"]
-             or digest(legacy_addition) == plan["route_sha256"]
+             or digest(execution_runtime) == plan["route_sha256"]
+             or digest(identity) == plan["route_sha256"]
              or plan.get("runtime_identity_sha256") == digest(identity))
             and previous_runtime["routes"][params["profile"]] == plan["route"], "openclaw_route_changed")
     if collected_bootstrap is not None:
@@ -688,6 +696,59 @@ def transport_observation(config):
     except OSError:
         value["status"] = "unreachable"
     return value
+
+
+def observation_params(route):
+    key = route["session_key"]
+    require(bool(re.fullmatch(r"agent:[a-z0-9][a-z0-9_-]*:[^\s]+", key)), "openclaw_invalid_observation_target")
+    return {"key": key, "agentId": key.split(":", 2)[1],
+            "wikiObservation": {"version": 1, "sessionId": route["session_id"]}}
+
+
+def native_runtime_observation(config):
+    """One opt-in, bounded native observation; security events remain native.
+
+    Neither the ordinary sessions.describe nor chat.history is a fallback.
+    Unknown scope, stale timestamp or mismatched identity discards all counts.
+    """
+    runtime = validated_config(config.openclaw)
+    if not runtime["enabled"] or "observation" not in runtime:
+        return None
+    profile = runtime["observation"]["profile"]
+    route = runtime["routes"][profile]
+    counts = ("active_count", "terminal_persistence_count", "terminal_cleanup_count", "queued_turn_count", "pending_admission_count")
+    unavailable = {"profile": profile, "observed_at": None, "status": "unavailable", "scope": "resident_gateway_owners",
+        "complete": False, "resident_complete": False, "persisted_queue_count": None,
+        "has_active_run": None, "active_run_ids": None, "session_status": None, "process_instance_id": None,
+        "ids_truncated": None, **dict.fromkeys(counts), "error_code": "native_observation_unavailable"}
+    try:
+        started = dt.datetime.now(dt.timezone.utc)
+        value = Gateway(runtime, route).call("sessions.describe", observation_params(route))
+        expected = {"schema_version", "agentId", "sessionKey", "sessionId", "process_instance_id", "observed_at",
+                    "scope", "complete", "resident_complete", "persisted_queue_count", "status", "has_active_run",
+                    "active_run_ids", "ids_truncated", "error_code", *counts}
+        require(isinstance(value, dict) and set(value) == expected
+                and value["schema_version"] == "wiki_resident_observation.v1"
+                and value["agentId"] == route["session_key"].split(":", 2)[1]
+                and value["sessionKey"] == route["session_key"] and value["sessionId"] == route["session_id"]
+                and value["scope"] == "resident_gateway_owners" and value["complete"] is False
+                and value["persisted_queue_count"] is None and value["status"] == "observed"
+                and value["resident_complete"] is True and value["error_code"] is None,
+                "openclaw_invalid_observation")
+        observed = dt.datetime.fromisoformat(value["observed_at"].replace("Z", "+00:00"))
+        now = dt.datetime.now(dt.timezone.utc)
+        require(observed.tzinfo is not None and started - dt.timedelta(seconds=2) <= observed <= now + dt.timedelta(seconds=2)
+                and isinstance(value["process_instance_id"], str)
+                and re.fullmatch(r"[a-zA-Z0-9_-]{1,240}", value["process_instance_id"]), "openclaw_invalid_observation")
+        require(all(type(value[key]) is int and 0 <= value[key] <= 10000 for key in counts)
+                and type(value["has_active_run"]) is bool and value["has_active_run"] == (value["active_count"] > 0)
+                and type(value["ids_truncated"]) is bool and value["ids_truncated"] == (value["active_count"] > 64)
+                and isinstance(value["active_run_ids"], list) and len(value["active_run_ids"]) == min(64, value["active_count"])
+                and all(isinstance(run, str) and re.fullmatch(r"[a-zA-Z0-9._:-]{1,240}", run) for run in value["active_run_ids"])
+                and value["active_run_ids"] == sorted(set(value["active_run_ids"])), "openclaw_invalid_observation")
+        return {**unavailable, **{key: value[key] for key in unavailable if key in value}, "error_code": None}
+    except (ValueError, KeyError, TypeError, AttributeError, OSError, subprocess.SubprocessError):
+        return unavailable
 
 
 def runtime_observations(root, config):

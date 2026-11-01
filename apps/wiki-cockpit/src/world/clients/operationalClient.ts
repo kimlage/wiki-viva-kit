@@ -61,7 +61,18 @@ function validObservation(value: unknown): value is RuntimeObservations {
         ["success", "failure"].includes(String(row.last_wake.status)) &&
         (row.last_wake.new_dispatch === null || typeof row.last_wake.new_dispatch === "boolean"))))) return false;
   return Array.isArray(runtime.native_observations) && runtime.native_observations.every(row => record(row) &&
-    typeof row.profile === "string" && row.status === "unavailable" && row.observed_at === null && row.has_active_run === null &&
-    row.active_run_ids === null && row.session_status === null && row.error_code === "native_read_api_may_write") &&
+    typeof row.profile === "string" && row.session_status === null && (row.status === "unavailable"
+      ? row.observed_at === null && row.has_active_run === null && row.active_run_ids === null &&
+        ["native_read_api_may_write", "native_observation_unavailable"].includes(String(row.error_code))
+      : row.status === "observed" && row.scope === "resident_gateway_owners" && row.complete === false &&
+        row.resident_complete === true && row.persisted_queue_count === null && row.error_code === null &&
+        typeof row.observed_at === "string" && Number.isFinite(Date.parse(row.observed_at)) &&
+        typeof row.process_instance_id === "string" && typeof row.has_active_run === "boolean" &&
+        row.has_active_run === (Number(row.active_count) > 0) && typeof row.ids_truncated === "boolean" &&
+        row.ids_truncated === (Number(row.active_count) > 64) &&
+        ["active_count", "terminal_persistence_count", "terminal_cleanup_count", "queued_turn_count", "pending_admission_count"]
+          .every(key => typeof row[key] === "number" && Number.isInteger(row[key]) && row[key] >= 0 && row[key] <= 10000) &&
+        Array.isArray(row.active_run_ids) && row.active_run_ids.length === Math.min(64, Number(row.active_count)) &&
+        row.active_run_ids.every(id => typeof id === "string" && id.length > 0 && id.length <= 240))) &&
     Array.isArray(runtime.errors) && runtime.errors.every(error => typeof error === "string");
 }

@@ -2,22 +2,27 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {validatePackage} from './mission-loader.mjs';
+import {validatePackage,installObservationClient} from './mission-loader.mjs';
+import {RESIDENT_OBSERVATION_CAPABILITY,validateResidentObservation} from './mission-runtime.mjs';
 export function requestOptions(input) {
   if (!input || Object.keys(input).sort().join(',') !== 'expectUrl,method,params' ||
-      !['chat.history','chat.send','sessions.patch'].includes(input.method) ||
+      !['chat.history','chat.send','sessions.patch','sessions.describe'].includes(input.method) ||
       !input.params || typeof input.params !== 'object' || Array.isArray(input.params)) throw new Error('invalid_rpc_request');
   const url=new URL(input.expectUrl);
   if(url.protocol!=='ws:' || !['127.0.0.1','[::1]'].includes(url.hostname) || !url.port ||
       url.username || url.password || url.search || url.hash || !['','/'].includes(url.pathname)) throw new Error('invalid_rpc_target');
   const extra={sharedStateMode:'read-only',progress:false};
+  if(input.method==='sessions.describe') {
+    validateResidentObservation(input.method,input.params);
+    Object.assign(extra,{caps:[RESIDENT_OBSERVATION_CAPABILITY],clientName:'cli',mode:'cli',deviceIdentity:null});
+  }
   if(input.method==='chat.send') {
     if(!/^[a-f0-9]{64}$/.test(input.params.wikiMission) || input.params.suppressCommandInterpretation!==true || input.params.deliver!==false) throw new Error('mission_required');
     // The native handler requires this scope for command-suppressed input.
     // Request it through the existing authenticated CLI identity; never change grants.
     extra.scopes=['operator.admin'];
   }
-  return {opts:{expectUrl:input.expectUrl,json:true,timeout:'20000'},extra};
+  return {opts:{expectUrl:input.expectUrl,json:true,timeout:input.method==='sessions.describe'?'5000':'20000'},extra};
 }
 export function safeFailure(error) {
   const codes=['INVALID_REQUEST','UNAVAILABLE','FORBIDDEN','UNAUTHORIZED','NOT_FOUND','TIMEOUT'];
@@ -31,6 +36,13 @@ async function main() {
     const input=JSON.parse(raw),{opts,extra}=requestOptions(input);
     const root=process.argv[2],manifest=JSON.parse(fs.readFileSync(new URL('./mission-overlay.json',import.meta.url),'utf8'));
     validatePackage(root,manifest.packages.core);
+    if(input.method==='sessions.describe') {
+      installObservationClient(root);
+      // This native reader resolves files/includes but never starts shell-env
+      // fallback. The call hook declines secret providers and nonlocal routes.
+      const config=await import(pathToFileURL(path.join(root,'dist/gateway-dispatch-config-DSayH5yx.mjs')).href);
+      opts.config=config.t();
+    }
     const native=await import(pathToFileURL(path.join(root,'dist/gateway-rpc.runtime.js')).href);
     const result=await native.callGatewayFromCliRuntime(input.method,opts,input.params,extra);
     process.stdout.write(JSON.stringify(result)+'\n');

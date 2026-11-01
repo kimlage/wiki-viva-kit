@@ -42,9 +42,14 @@
         [
           "const ChatSendParamsSchema = closedObject({",
           "const ChatSendParamsSchema = closedObject({\n\twikiMission: Type.Optional(NonEmptyString),"
+        ],
+        [
+          "const SessionsDescribeParamsSchema = closedObject({\n\tkey: NonEmptyString,\n\tagentId: Type.Optional(NonEmptyString),",
+          "const SessionsDescribeParamsSchema = closedObject({\n\tkey: NonEmptyString,\n\twikiObservation: Type.Optional(closedObject({ version: Type.Literal(1), sessionId: NonEmptyString })),\n\tagentId: Type.Optional(NonEmptyString),"
         ]
       ],
-      "import_guard": true
+      "import_guard": true,
+      "observation": "server"
     },
     {
       "name": "chat-send-handler-B0jivtwJ.mjs",
@@ -221,6 +226,202 @@
           "execArgv: wikiMissionGuard.retirementWorkerArguments(resolveRuntimeWorkerThreadExecArgv(carrierUrl),carrierUrl,runtimeSource,options.runtimeGeneration),"
         ]
       ]
+    },
+    {
+      "name": "gateway-rpc.runtime-Bh7aZhqD.mjs",
+      "package": "core",
+      "relative": "dist/gateway-rpc.runtime-Bh7aZhqD.mjs",
+      "sha256": "6f6aa5c2d6cb0c777a6ed1218688e548e0ff8848a78abee16892bbeea34d5c38",
+      "edits": [
+        [
+          "\t\tscopes: extra?.scopes,",
+          "\t\tscopes: extra?.scopes,\n\t\tcaps: extra?.caps,"
+        ]
+      ],
+      "observation": "client"
+    },
+    {
+      "name": "client-DZgDBpiJ.mjs",
+      "package": "core",
+      "relative": "dist/client-DZgDBpiJ.mjs",
+      "sha256": "0d11958c803ef38311c34d15faba26c55a74d1a0c6d99ba970227fa52793da0b",
+      "edits": [
+        [
+          "\tconstructor(opts) {\n\t\tif (opts.sshTunnel && !opts.deviceAuthScope)",
+          "\tconstructor(opts) {\n\t\twikiMissionGuard.residentObservationClientGuard(opts);\n\t\tif (opts.sshTunnel && !opts.deviceAuthScope)"
+        ],
+        [
+          "\t\treturn new GatewayClient$1({\n\t\t\t...baseOptions,",
+          "\t\treturn new GatewayClient$1({\n\t\t\t...baseOptions,\n\t\t\twikiObservationChallengeGuard: wikiMissionGuard.residentObservationClientGuard(opts),"
+        ],
+        [
+          "\t\t\tbuildConnectPlan: ({ nonce, challengeTs, serverCapabilities, generation, ...authority }) => {",
+          "\t\t\tbuildConnectPlan: ({ nonce, challengeTs, serverCapabilities, generation, ...authority }) => {\n\t\t\t\twikiMissionGuard.checkResidentObservationClientChallenge(this.opts, serverCapabilities);"
+        ]
+      ],
+      "observation": "client"
+    },
+    {
+      "name": "call-D6fWfxgB.mjs",
+      "package": "core",
+      "relative": "dist/call-D6fWfxgB.mjs",
+      "sha256": "0ff2c3ebfc86a60e79dc8ab787663d97233f238fdb3132c48482021870584db6",
+      "edits": [
+        [
+          "import { l as normalizeOptionalString } from \"./string-coerce-1VuiLaaR.mjs\";\n",
+          "import { i as wikiObservationCredentials } from \"./credentials-CXbFcSOg.mjs\";\nimport { t as wikiObservationSecretCanWin } from \"./credentials-secret-inputs-BBdjrWHQ.mjs\";\nimport { t as wikiObservationSecretPaths } from \"./secret-input-paths-BqNK6mbx.mjs\";\nimport { l as normalizeOptionalString } from \"./string-coerce-1VuiLaaR.mjs\";\n"
+        ],
+        [
+          "async function callGatewayWithScopes(input, scopes, localCliAbort = false) {",
+          "async function callGatewayWithScopes(input, scopes, localCliAbort = false) {\n\twikiMissionGuard.assertResidentObservationCall(input);"
+        ],
+        [
+          "\tconst bootstrap = await resolveGatewayClientBootstrap({\n\t\t...gatewayCallBootstrapOptions(input, context),",
+          "\tif (wikiMissionGuard.isResidentObservationConnect(input)) wikiMissionGuard.assertResidentObservationCall(input, {\n\t\turlOverrideSource,\n\t\tauthMode: resolveGatewayAuthForConfig({ config: context.config, env: process.env, tailscaleMode: context.config.gateway?.tailscale?.mode }).mode,\n\t\tsecretRefCanWin: wikiObservationSecretPaths.some(path => wikiObservationSecretCanWin({ config: context.config, env: process.env, path, modeOverride: \"local\" })),\n\t\treadCredentials: () => wikiObservationCredentials({ cfg: context.config, env: process.env, modeOverride: \"local\" })\n\t});\n\tconst bootstrap = await resolveGatewayClientBootstrap({\n\t\t...gatewayCallBootstrapOptions(input, context),"
+        ]
+      ],
+      "observation": "client"
+    },
+    {
+      "name": "ws-connection-BKikksMl.mjs",
+      "package": "core",
+      "relative": "dist/ws-connection-BKikksMl.mjs",
+      "sha256": "83b8c2123b0584996ccd62ecf42a00e71dbf3d588cc904527664586eef62cea1",
+      "edits": [
+        [
+          "capabilities: [GATEWAY_SERVER_CAPS.MODEL_CATALOG_SNAPSHOT]",
+          "capabilities: [GATEWAY_SERVER_CAPS.MODEL_CATALOG_SNAPSHOT, ...wikiMissionGuard.residentObservationCapabilities()]"
+        ]
+      ],
+      "observation": "server"
+    },
+    {
+      "name": "message-handler-a7VR9SDC.mjs",
+      "package": "core",
+      "relative": "dist/message-handler-a7VR9SDC.mjs",
+      "sha256": "74748df53ce0e31b04ad8e0c9151cadbf409b0d9666585fca764792a40cf203c",
+      "edits": [
+        [
+          "import { l as normalizeOptionalString } from \"./string-coerce-1VuiLaaR.mjs\";\n",
+          "import { i as wikiObservationPresenceVersion } from \"./health-state-Dg2Hew0J.mjs\";\nimport { l as normalizeOptionalString } from \"./string-coerce-1VuiLaaR.mjs\";\n"
+        ],
+        [
+          "\t\t\tconst expectedProfileBinding = req.expectedProfileId === void 0 ? void 0 : await createExpectedProfileBinding",
+          "\t\t\twikiMissionGuard.assertResidentObservationRequest(req, client);\n\t\t\tconst expectedProfileBinding = req.expectedProfileId === void 0 ? void 0 : await createExpectedProfileBinding"
+        ],
+        [
+          "async function sendGatewayHello(context, state, pluginSurfaceUrls, authenticatedUserProfileId) {",
+          "async function sendGatewayHello(context, state, pluginSurfaceUrls, authenticatedUserProfileId) {\n\twikiMissionGuard.assertResidentObservationConnect(context, state);\n\tconst wikiObservation = wikiMissionGuard.isResidentObservationConnect(context.connectParams);"
+        ],
+        [
+          "\tconst sessionRowProjection = getSessionRowProjection(buildRequestContext());",
+          "\tconst sessionRowProjection = wikiObservation ? void 0 : getSessionRowProjection(buildRequestContext());"
+        ],
+        [
+          "\tconst snapshot = buildGatewaySnapshot({",
+          "\tconst snapshot = wikiObservation ? {\n\t\tpresence: [], health: {}, uptimeMs: Math.round(process.uptime() * 1e3),\n\t\tstateVersion: { presence: wikiObservationPresenceVersion(), health: getHealthVersion() }\n\t} : buildGatewaySnapshot({"
+        ],
+        [
+          "\tif (cachedHealth) {",
+          "\tif (cachedHealth && !wikiObservation) {"
+        ],
+        [
+          "\tconst controlUiTabs = listControlUiPluginTabs(scopes,",
+          "\tconst controlUiTabs = wikiObservation ? [] : listControlUiPluginTabs(scopes,"
+        ],
+        [
+          "\tconst controlUiWidgetKinds = listControlUiPluginWidgetKinds(scopes);",
+          "\tconst controlUiWidgetKinds = wikiObservation ? [] : listControlUiPluginWidgetKinds(scopes);"
+        ],
+        [
+          "\tconst controlUiLinkReaders = listControlUiLinkReaders(scopes,",
+          "\tconst controlUiLinkReaders = wikiObservation ? [] : listControlUiLinkReaders(scopes,"
+        ],
+        [
+          "\t\t\thasMultipleSessionSharingIdentities: hasMultipleSessionSharingIdentities()",
+          "\t\t\t...wikiObservation ? {} : { hasMultipleSessionSharingIdentities: hasMultipleSessionSharingIdentities() }"
+        ],
+        [
+          "\tif (shouldScheduleBackgroundHealthRefresh(refreshHealthSnapshot, Date.now()))",
+          "\tif (!wikiObservation && shouldScheduleBackgroundHealthRefresh(refreshHealthSnapshot, Date.now()))"
+        ],
+        [
+          "\tif (pluginSurfaceBaseUrl && !usesLegacyNodeProtocol) for",
+          "\tif (!wikiMissionGuard.isResidentObservationConnect(connectParams) && pluginSurfaceBaseUrl && !usesLegacyNodeProtocol) for"
+        ],
+        [
+          "\t\t\t\tconst authenticated = await authenticateGatewayConnect(phaseContext);",
+          "\t\t\t\twikiMissionGuard.assertResidentObservationConnect(phaseContext);\n\t\t\t\tconst authenticated = await authenticateGatewayConnect(phaseContext);"
+        ],
+        [
+          "\t\t\t\tconst deviceAuthorized = await authorizeGatewayConnectDevice(phaseContext, authenticated);",
+          "\t\t\t\twikiMissionGuard.assertResidentObservationConnect(phaseContext, authenticated);\n\t\t\t\tconst deviceAuthorized = await authorizeGatewayConnectDevice(phaseContext, authenticated);"
+        ],
+        [
+          "\t\t\t\tawait attachAuthenticatedGatewayConnect(phaseContext, deviceAuthorized);",
+          "\t\t\t\twikiMissionGuard.assertResidentObservationConnect(phaseContext, deviceAuthorized);\n\t\t\t\tawait attachAuthenticatedGatewayConnect(phaseContext, deviceAuthorized);"
+        ],
+        [
+          "\t\t\t\trunDetachedConnectWork(() => publishConnectModelCatalog(params, authenticatedRequestDispatcher),",
+          "\t\t\t\tif (!wikiMissionGuard.isResidentObservationConnect(connectParams)) runDetachedConnectWork(() => publishConnectModelCatalog(params, authenticatedRequestDispatcher),"
+        ]
+      ],
+      "observation": "server"
+    },
+    {
+      "name": "server-methods-BgKN9CSB.mjs",
+      "package": "core",
+      "relative": "dist/server-methods-BgKN9CSB.mjs",
+      "sha256": "d7ee50c6296dc3114abaa1aa552aba61c188a782bfe41b4d386e9dfefb0552cd",
+      "edits": [
+        [
+          "\t\t\tconst runtimeParticipant = resolveRuntimeSessionParticipantRequest(opts);",
+          "\t\t\twikiMissionGuard.assertResidentObservationRequest(req, client, opts);\n\t\t\twikiMissionGuard.assertResidentObservationMethod(req, client, methodRegistry, coreGatewayHandlers[\"sessions.describe\"]);\n\t\t\tconst runtimeParticipant = resolveRuntimeSessionParticipantRequest(opts);"
+        ],
+        [
+          "\t\t\t\tconst assertOperatorCurrent = () => (capturedOperatorGuard ??= captureGatewayRequestOperatorGuard(opts))();",
+          "\t\t\t\tconst assertOperatorCurrent = () => {\n\t\t\t\t\twikiMissionGuard.assertResidentObservationRequest(req, client, opts);\n\t\t\t\t\twikiMissionGuard.assertResidentObservationMethod(req, client, methodRegistry, coreGatewayHandlers[\"sessions.describe\"]);\n\t\t\t\t\treturn (capturedOperatorGuard ??= captureGatewayRequestOperatorGuard(opts))();\n\t\t\t\t};"
+        ],
+        [
+          "\t\t\t\t\t\tsessionMutationAuthorization,\n\t\t\t\t\t\twithSessionTurnAuthority,",
+          "\t\t\t\t\t\tsessionMutationAuthorization,\n\t\t\t\t\t\twikiObservationAuthorization: authorization.wikiObservationAuthorization,\n\t\t\t\t\t\twithSessionTurnAuthority,"
+        ]
+      ],
+      "observation": "server"
+    },
+    {
+      "name": "request-authorization-jFWXJ1Lv.mjs",
+      "package": "core",
+      "relative": "dist/request-authorization-jFWXJ1Lv.mjs",
+      "sha256": "0fa090a6747aba7f6c8ebf5966876a857219afd9dca3634b6b8b2e45b9e88285",
+      "edits": [
+        [
+          "import { r as getAsyncWorkSignal } from \"./async-work-scope-DDiH0P7W.mjs\";\n",
+          "import { H as wikiObservationPermissionPending } from \"./session-row-prepared-read-BEDhe5gP.mjs\";\nimport { n as wikiObservationAuthorizeIncognito } from \"./session-sharing-policy-lVDdZ20H.mjs\";\nimport { _ as wikiObservationPrepareSharing } from \"./session-sharing-target-read-CNtvN3Ha.mjs\";\nimport { r as wikiObservationHasBoundary } from \"./operator-role-policy-BPiQfn95.mjs\";\nimport { r as getAsyncWorkSignal } from \"./async-work-scope-DDiH0P7W.mjs\";\n"
+        ],
+        [
+          "async function authorizeGatewayRequestPreDispatch(params) {",
+          "async function authorizeGatewayRequestPreDispatch(params) {\n\tif (wikiMissionGuard.hasResidentObservation(params.requestParams) || wikiMissionGuard.isResidentObservationConnect(params.client?.connect)) return wikiMissionGuard.authorizeResidentObservation(params, {\n\t\tauthorizeMethod: () => withPluginRuntimeRegistryScope(params.methodRegistry.pluginRegistry, () => authorizeGatewayMethod(params.method, params.client, params.requestParams, params.methodRegistry, params.context)),\n\t\tuploadPolicy: () => gatewayRouterUploadPolicyError(params, params.methodRegistry),\n\t\tauthorizeProfile: sessionScope => authorizeAuthenticatedProfileForMethod({ client: params.client, sessionScope, requiresProfile: () => params.expectedProfileBinding !== void 0 || params.methodRegistry.requiresAuthenticatedProfile(params.method) || resolveDirectIncognitoTargets(params.method, params.requestParams).length > 0 || sessionMutationTargetFields(params.method).length > 0 && (params.context.getCommittedRuntimeConfig ?? params.context.getRuntimeConfig)().gateway?.roles !== void 0 }),\n\t\tgetProjection: getSessionRowProjection, isIncognito: isIncognitoSessionKey, resolveAgent: resolveRequestedSessionAgentId,\n\t\tpermissionPending: wikiObservationPermissionPending, authorizeSession: resolveSessionMutationAuthorization,\n\t\tauthorizeIncognito: wikiObservationAuthorizeIncognito, prepareSharing: wikiObservationPrepareSharing,\n\t\thasBoundary: wikiObservationHasBoundary\n\t});"
+        ]
+      ],
+      "observation": "server"
+    },
+    {
+      "name": "sessions-read-DenbZWtx.mjs",
+      "package": "core",
+      "relative": "dist/sessions-read-DenbZWtx.mjs",
+      "sha256": "fb9318ecd207d3102e6c925d4bf2f1c2fcb523adcc249df93a08045b2bb38b55",
+      "edits": [
+        [
+          "import { l as normalizeOptionalString } from \"./string-coerce-1VuiLaaR.mjs\";\n",
+          "import { f as wikiObservationGenerationCurrent } from \"./agent-events-jWdQ_ESE.mjs\";\nimport { i as wikiObservationTerminalSettled } from \"./chat-abort-lifecycle-internal-CmV6_-ef.mjs\";\nimport { t as wikiObservationProcessInstanceId } from \"./process-instance-CwB3RMsz.mjs\";\nimport { l as normalizeOptionalString } from \"./string-coerce-1VuiLaaR.mjs\";\n"
+        ],
+        [
+          "\t\"sessions.describe\": async ({ params, respond, context, client, sessionMutationAuthorization }) => {",
+          "\t\"sessions.describe\": async ({ params, respond, context, client, sessionMutationAuthorization, wikiObservationAuthorization }) => {\n\t\tif (wikiMissionGuard.hasResidentObservation(params) || wikiMissionGuard.isResidentObservationConnect(client?.connect)) {\n\t\t\tconst result = wikiMissionGuard.respondResidentObservation(params, wikiObservationAuthorization, context, {\n\t\t\t\tisGenerationCurrent: wikiObservationGenerationCurrent, isTerminalSettled: wikiObservationTerminalSettled,\n\t\t\t\tprocessInstanceId: wikiObservationProcessInstanceId\n\t\t\t});\n\t\t\trespond(true, result);\n\t\t\treturn;\n\t\t}"
+        ]
+      ],
+      "observation": "server"
     }
   ],
   "app_server": {
