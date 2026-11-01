@@ -164,7 +164,7 @@ export function readResidentNativeActivity(context,target,native) {
             || (payload.agentId!==undefined && payload.agentId!==agentId)) return unavailable();
         continue;
       }
-      if(!addressable(payload) && aliases.length===0) return unavailable();
+      if(!addressable(payload)) return unavailable();
       if(!matches(payload) && !aliases.includes(sessionKey)) continue;
       // An alias or incomplete retained payload cannot prove the physical
       // identity of pending work. Never turn that uncertainty into zero.

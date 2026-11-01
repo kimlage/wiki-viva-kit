@@ -66,6 +66,9 @@ test('unaddressable resident owners cannot prove zero',()=>{
     const f=fixture();f.context[key].set('unbound',f.entry({sessionKey:undefined,sessionId:undefined}));expectUnknown(f.read());
   }
   const f=fixture();f.context.dedupe.set('agent:unbound',{ok:true,payload:{status:'accepted',runId:'unbound'}});expectUnknown(f.read());
+  for(const aliases of [[null],['agent:other:alias'],[target.sessionKey]]) {
+    f.context.dedupe.get('agent:unbound').payload.sessionKeyAliases=aliases;expectUnknown(f.read());
+  }
 });
 test('an exact native owner covers incomplete accepted dedupe, while contradictions remain unknown',()=>{
   for(const map of ['chatAbortControllers','chatQueuedTurns']) {
