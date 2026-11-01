@@ -54,6 +54,15 @@ test('terminal persistence is separate from settled registrations awaiting clean
     assert.equal(f.read().terminal_persistence_count,0);
   }
 });
+test('overlapping terminal or cleanup and queued owners cannot imply an empty queue',()=>{
+  for(const extra of [{terminalOutcomeObserved:true},{registrationCleanupRequested:true},
+    {projectSessionTerminalPending:true},{projectSessionTerminalObservedAt:123}]) {
+    const f=fixture(),entry=f.entry(extra);
+    f.context.chatAbortControllers.set('run',entry);
+    f.context.chatQueuedTurns.set('run',{...target,controller:entry.controller});
+    expectUnknown(f.read());
+  }
+});
 test('identity mismatch, stale generation and ambiguous admission never report idle',()=>{
   for(const extra of [{sessionId:'rebound-session'},{agentId:'other'},{lifecycleGeneration:Symbol('old')},{executionStarted:undefined}]) {
     const f=fixture();f.context.chatAbortControllers.set('run',f.entry(extra));expectUnknown(f.read());

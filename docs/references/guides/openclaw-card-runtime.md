@@ -66,6 +66,8 @@ and `persisted_queue_count: null`. `resident_complete` concerns only those maps;
 it cannot prove global inactivity, an empty persisted queue, or readiness.
 Execution, terminal persistence, settled registrations awaiting cleanup, queued
 ownership and pending admission are separate counts, deduplicated across phases.
+An overlapping terminal/cleanup registration and queue owner is ambiguous and
+returns unavailable rather than implying an empty queue.
 Cancellation ownership transferred to an aggregate remains a queued owner until
 the native map removes it. Run IDs are bounded and truncation is explicit.
 

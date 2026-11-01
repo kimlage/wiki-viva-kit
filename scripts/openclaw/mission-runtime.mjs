@@ -144,6 +144,9 @@ export function readResidentNativeActivity(context,target,native) {
       // Cancellation ownership may have moved to a collect aggregate. The
       // native entry remains queued until completeQueuedChatTurn removes it.
       if(registrations.has(id) && registrations.get(id).controller!==entry.controller) return unavailable();
+      // A final reply can await persistence while its independent queue owner
+      // remains. No single phase is proved; neither owner may imply queue zero.
+      if(terminal.has(id) || cleanup.has(id)) return unavailable();
       registrations.set(id,entry);
       if(!active.has(id) && !terminal.has(id) && !cleanup.has(id)) {pending.delete(id);queued.add(id);}
     }
