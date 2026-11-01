@@ -51,6 +51,41 @@ in `session-canonical-validation-readiness-sJ8Uy9SS.mjs`, which can call
 qualified native API is still required before current run or queue state can be
 shown; the product does not work around this boundary with direct SQLite reads.
 
+### Resident activity reader foundation (not connected)
+
+`readResidentNativeActivity` in the existing mission runtime is an internal,
+synchronous reducer over the Gateway's existing controller, queued-turn and
+accepted-admission maps. It is not called by the overlay, RPC client or GET.
+The caller must supply pure native assertions bound to the authorized session;
+the reducer checks that capture before and after reading. Missing owners,
+ambiguous identities, stale lifecycle generations and invalidated captures return
+unavailable counts. It introduces no registry, timer, dispatch or database reader.
+
+The result explicitly has `scope: resident_gateway_owners`, `complete: false`
+and `persisted_queue_count: null`. `resident_complete` concerns only those maps;
+it cannot prove global inactivity, an empty persisted queue, or readiness.
+Execution, terminal persistence, settled registrations awaiting cleanup, queued
+ownership and pending admission are separate counts, deduplicated across phases.
+Cancellation ownership transferred to an aggregate remains a queued owner until
+the native map removes it. Run IDs are bounded and truncation is explicit.
+
+Synthetic unit tests prove these local semantics and absence of reducer effects.
+They do not qualify native authentication, authorization, concurrent session
+rebinding across awaits, or the complete client-to-handler path. The eleven
+existing overlay hooks and the RPC allowlist remain unchanged.
+
+Connecting the reader requires a separately qualified closed native path. In
+the pinned package, the handshake can prepare membership, consult a cold profile
+catalogue, update paired-device metadata and start a health refresh before a
+handler runs. Profile binding can also prepare before the method router. The
+client can invoke shell-environment fallback or SecretRef providers. These paths
+must be refused before their effects, including capability negotiation before
+authentication when the server lacks the closed mode. Native authentication and
+authorization must remain authoritative. Normal security logs and audit events
+must remain enabled, so a whole-connection claim of zero writes of any kind is
+not supported. This foundation neither resolves that contract nor enables live
+observation; the interface continues reporting `native_read_api_may_write`.
+
 An executed `agents.openclaw.tick`, including `unchanged`, `already_observed` and
 review/incorporation waits, enriches its existing audit event's `output_summary`
 with `wiki_openclaw_wake.v1`. There is no extra journal, queue or writer. Planning

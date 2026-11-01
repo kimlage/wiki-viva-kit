@@ -14,6 +14,16 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-01] Resident activity foundation remains disconnected
+
+The [OpenClaw observation contract](../../docs/references/guides/openclaw-card-runtime.md#resident-activity-reader-foundation-not-connected)
+records a bounded internal reducer for existing resident Gateway owners. Its
+synthetic tests separate execution, terminal persistence, cleanup, queue and
+admission while preserving unknown global/persisted state. No RPC, GET, overlay
+hook or installed runtime invokes it. Native connection qualification and the
+normal audit/log boundary remain unresolved; no source verification date,
+administrative authority or financial capability changes.
+
 ## [2026-10-30] Scoped information dependencies and source review
 
 The [shared contract](../../docs/references/guides/information-impact.md)

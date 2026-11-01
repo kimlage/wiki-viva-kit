@@ -83,3 +83,101 @@ export function markNativeHook(name,url){registry?.loaded(name,url);}
 export function captureOwner(url){require(registry,'capture_registry_required');return registry.capture(url);}
 export function assertOwner(cap,hook){require(registry,'capture_registry_required');registry.assert(cap,true,hook);}
 export function assertCapture(cap,hook){require(registry,'capture_registry_required');registry.assert(cap,false,hook);}
+
+/** Read the existing Gateway owners only. Native callbacks must be synchronous,
+ * pure, and bound to the authorized resident session. assertCurrent must throw
+ * on changed identity/authority. This helper neither implements authorization
+ * nor makes RPC/handshake pure; it is not exposed by the CLI or the GET.
+ * These maps cannot establish global activity or persisted queue completeness.
+ */
+export function readResidentNativeActivity(context,target,native) {
+  const scope={scope:'resident_gateway_owners',complete:false,persisted_queue_count:null};
+  const unavailable=()=>({...scope,status:'unavailable',has_active_run:null,active_run_ids:null,
+    active_count:null,terminal_persistence_count:null,terminal_cleanup_count:null,queued_turn_count:null,
+    pending_admission_count:null,resident_complete:false,ids_truncated:false,
+    error_code:'native_activity_unproven'});
+  const maps=[context?.chatAbortControllers,context?.chatQueuedTurns,context?.dedupe];
+  if(!target || typeof target.agentId!=='string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(target.agentId)
+      || typeof target.sessionKey!=='string' || !target.sessionKey.startsWith(`agent:${target.agentId}:`)
+      || target.sessionKey.length>240 || /\s/.test(target.sessionKey)
+      || typeof target.sessionId!=='string' || !target.sessionId || target.sessionId.length>240 || /\s/.test(target.sessionId)
+      || !maps.every(value=>value instanceof Map && value.size<=10_000)
+      || typeof native?.assertCurrent!=='function' || typeof native.isGenerationCurrent!=='function'
+      || typeof native.isTerminalSettled!=='function') return unavailable();
+  const {agentId,sessionKey,sessionId}=target;
+  const [activeOwners,queuedOwners,admissions]=maps;
+  const active=new Set(),terminal=new Set(),cleanup=new Set(),queued=new Set(),pending=new Set();
+  const registrations=new Map();
+  const addressable=entry=>[entry?.sessionKey,entry?.sessionId].some(value=>typeof value==='string' && value.trim()!=='' );
+  const matches=entry=>entry?.sessionKey===sessionKey || entry?.sessionId===sessionId;
+  const exact=entry=>entry?.sessionKey===sessionKey && entry?.sessionId===sessionId
+    && (entry.agentId===agentId || entry.agentId===undefined);
+  const validId=id=>typeof id==='string' && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,239}$/.test(id);
+  const assertCurrent=()=>{
+    if(native.assertCurrent()!==undefined || target.agentId!==agentId || target.sessionKey!==sessionKey
+        || target.sessionId!==sessionId || context.chatAbortControllers!==activeOwners
+        || context.chatQueuedTurns!==queuedOwners || context.dedupe!==admissions) throw new Error('observation_changed');
+  };
+  try {
+    assertCurrent();
+    for(const [id,entry] of activeOwners) {
+      if(!addressable(entry)) return unavailable();
+      if(!matches(entry)) continue;
+      if(!validId(id) || !exact(entry) || !entry.controller?.signal
+          || entry.lifecycleGeneration===undefined || native.isGenerationCurrent(entry.lifecycleGeneration)!==true) return unavailable();
+      registrations.set(id,entry);
+      const settled=native.isTerminalSettled(entry);
+      if(typeof settled!=='boolean') return unavailable();
+      const settling=entry.terminalOutcomeObserved===true || entry.registrationCleanupRequested===true
+        || entry.projectSessionTerminalObservedAt!==undefined;
+      if(!settled) terminal.add(id);
+      else if(settling) cleanup.add(id);
+      else if(entry.controller.signal.aborted) return unavailable();
+      else if(entry.executionStarted===true) active.add(id);
+      else if(entry.executionStarted===false) pending.add(id);
+      else return unavailable();
+    }
+    for(const [id,entry] of queuedOwners) {
+      if(!addressable(entry)) return unavailable();
+      if(!matches(entry)) continue;
+      if(!validId(id) || !exact(entry) || !entry.controller?.signal) return unavailable();
+      // Cancellation ownership may have moved to a collect aggregate. The
+      // native entry remains queued until completeQueuedChatTurn removes it.
+      if(registrations.has(id) && registrations.get(id).controller!==entry.controller) return unavailable();
+      registrations.set(id,entry);
+      if(!active.has(id) && !terminal.has(id) && !cleanup.has(id)) {pending.delete(id);queued.add(id);}
+    }
+    for(const [key,entry] of admissions) {
+      if(typeof key!=='string' || !['agent:','pending-chat:'].some(prefix=>key.startsWith(prefix))
+          || entry?.ok!==true || entry.payload?.status!=='accepted') continue;
+      const payload=entry.payload;
+      const prefix=key.startsWith('agent:')?'agent:':'pending-chat:';
+      const id=payload.runId ?? key.slice(prefix.length);
+      if(!validId(id) || key.slice(prefix.length)!==id) return unavailable();
+      const aliases=Array.isArray(payload.sessionKeyAliases)?payload.sessionKeyAliases:[];
+      if(aliases.length>64) return unavailable();
+      // Native accepted payloads can omit sessionId. A matching already
+      // qualified owner covers that run, but contradictory facts fail closed.
+      if(registrations.has(id)) {
+        if((payload.sessionKey!==undefined && payload.sessionKey!==sessionKey)
+            || (payload.sessionId!==undefined && payload.sessionId!==sessionId)
+            || (payload.agentId!==undefined && payload.agentId!==agentId)) return unavailable();
+        continue;
+      }
+      if(!addressable(payload) && aliases.length===0) return unavailable();
+      if(!matches(payload) && !aliases.includes(sessionKey)) continue;
+      // An alias or incomplete retained payload cannot prove the physical
+      // identity of pending work. Never turn that uncertainty into zero.
+      if(!exact(payload)) return unavailable();
+      if(!active.has(id) && !terminal.has(id) && !cleanup.has(id) && !queued.has(id)) pending.add(id);
+    }
+    assertCurrent();
+    const ids=[...active].sort();
+    return {...scope,status:'observed',has_active_run:active.size>0,active_run_ids:ids.slice(0,64),
+      active_count:active.size,terminal_persistence_count:terminal.size,terminal_cleanup_count:cleanup.size,
+      queued_turn_count:queued.size,pending_admission_count:pending.size,resident_complete:true,
+      ids_truncated:ids.length>64,error_code:null};
+  } catch {
+    return unavailable();
+  }
+}
