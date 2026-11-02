@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Reported context review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "context_id",
+    "target",
+    "disposition",
+    "reason",
+    "evidence_revision",
+    "source_digest",
+    "output_before_digest",
+    "output_after_digest",
+    "verification",
+    "next_impact_allowed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki.context-review/v1"
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "context_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1
+    },
+    "disposition": {
+      "enum": [
+        "updated",
+        "still_valid",
+        "superseded",
+        "blocked"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_digest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "output_before_digest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "output_after_digest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "verification": {
+      "const": "reported_not_verified"
+    },
+    "next_impact_allowed": {
+      "type": "boolean"
+    }
+  }
+}
