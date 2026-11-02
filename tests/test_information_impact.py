@@ -158,3 +158,13 @@ def test_projection_declaration_preserves_exact_field_scope(tmp_path):
     assert dependencies[0]['consumed_fields']==['action_state','next_action']
     assert dependencies[0]['produced_fields']==['body','collection']
     assert not parse_role_markdown(link.replace('Queue item','Changed label'))[1]
+
+
+def test_typed_section_and_field_requirements_are_conservative_in_legacy_impact():
+    base=graph(); current=graph()
+    edge={'source':'action','target':'source0','type':'operational_prerequisite','path':'action','field':'information_requirements','requirement':{'fields':['section:amount'],'temporal':'current','max_age_days':1}}
+    base['edges']=[edge]; current['edges']=[edge]
+    current['documents']['source0']+='Changed body.'
+    assert 'action' in {r['path'] for r in evaluate_information_impact(current,base,{'source0'},today=TODAY)['included']}
+    edge['requirement']['fields']=['field:action_state']; current['documents']['source0']=base['documents']['source0'].replace('open','done')
+    assert 'action' in {r['path'] for r in evaluate_information_impact(current,base,{'source0'},today=TODAY)['included']}

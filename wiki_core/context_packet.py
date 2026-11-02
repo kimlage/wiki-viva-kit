@@ -39,6 +39,36 @@ def connection_proposal(source, destination, selector, purpose, classification, 
             'status': 'pending', 'grants_access': False}
 
 
+def _context_view(policy, context_id):
+    """Expose the selected context and authorized limits without sibling leaks."""
+    c = policy.contexts[context_id]; effective = policy.effective[context_id]; root = c['root']
+    def owned_intersections(scopes):
+        values = []
+        for scope in scopes:
+            if within(scope, root): value = scope
+            elif within(root, scope): value = root
+            else: continue
+            # Paths owned by another context are not disclosed merely by a
+            # broad ancestor ceiling; the owner/connection rule handles them.
+            if value != '.' and policy.owner_of(value) != context_id: continue
+            if value not in values: values.append(value)
+        return sorted(values)
+    imports = []
+    for rule in c['imports']:
+        if policy.connection(rule['from_context'], context_id, rule['selector'], rule['use'], rule['classification'], section=rule.get('section'), field=rule.get('field')) == 'approved':
+            imports.append({k: rule[k] for k in ('from_context','selector','section','field','use','classification','expires') if k in rule})
+    return {'id': context_id, 'purpose': c['purpose'], 'owner': c['owner'], 'root': root,
+            'lineage': [x['id'] for x in policy.lineage(context_id)],
+            'owned_scopes': {'read': owned_intersections(effective['read']), 'write': owned_intersections(effective['write']),
+                'deny_read': owned_intersections(effective['deny']['read']), 'deny_write': owned_intersections(effective['deny']['write'])},
+            'capabilities': sorted(set(effective['capabilities']) - set(effective['deny']['capabilities'])),
+            'denied_capabilities': sorted(set(effective['deny']['capabilities']) & set(effective['capabilities'])),
+            'publication': sorted(set(effective['publication']) - set(effective['deny']['publication'])),
+            'denied_publication': sorted(set(effective['deny']['publication']) & set(effective['publication'])),
+            'approved_imports': sorted(imports, key=lambda r: json.dumps(r, sort_keys=True)),
+            'boundary': 'Path scopes are ceilings. Only the canonical owner may write; cross-context reads require exact current bilateral approval. This is not sandbox enforcement.'}
+
+
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None):
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
@@ -104,7 +134,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     if total > max_bytes: raise PolicyError('selected content exceeds byte budget')
     policy.fresh()  # Fail if approval moved during composition.
     packet = {'schema_version': 'wiki.task-context/v1', 'task_id': task_id, 'goal': goal, 'output': output, 'integrator': integrator, 'context_id': context_id,
-            'content_revision': reader.revision, 'policy_revision': policy.policy_revision,
+            'content_revision': reader.revision, 'policy_revision': policy.policy_revision, 'context': _context_view(policy, context_id),
             'inputs': selected, 'declared_read_set': [{'ref': x['ref'], 'section': x['section'], 'field': x['field'], 'revision': x['revision']} for x in selected],
             'query_fingerprint': None, 'coverage': {'mode': 'explicit_read_set', 'complete': False, 'missing': list(omissions)},
             'max_bytes': max_bytes, 'bytes_used': 0, 'selected_text_bytes': total,

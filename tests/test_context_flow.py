@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 import subprocess
 import sys
@@ -212,3 +213,106 @@ def test_preflight_rejects_active_ancestor_local_rule_and_template(repo,normativ
     result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':packet['task_id'],'context_id':'costs','packet_digest':packet['packet_digest'],'changes':[{'path':normative_path,'action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
     with pytest.raises(IntegrationError,match='normative input requires separate policy review'):
         preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/normative-test',packet=packet,result=result)
+
+def test_markdown_requirement_flows_through_real_inventory_and_authorized_reader(repo):
+    from wiki_core.config import load_config
+    from wiki_core.information_relations import authored_graph, dependency_edges
+    from wiki_core.context_requirements import assess_approved_impact
+    consumed=git(repo,'rev-parse','HEAD')
+    requirement={'target':'finance/tax/source.md','fields':['section:amount'],'temporal':'current','max_age_days':30,'consumed_revision':consumed,'use':'interpret','classification':'synthetic'}
+    values={'page_id':'cost-interpretation','page_type':'claim','information_requirements':[requirement]}
+    (repo/'finance/costs/result.md').write_text('---\n'+yaml.safe_dump(values)+'---\nIndependent cost assessment\n')
+    (repo/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','canonical requirement'); approve(repo)
+    before=git(repo,'rev-parse','HEAD'); after=update(repo,'<!-- wiki:section id=amount version=1 -->\n## Amount\nTwo\n')
+    graph_real=authored_graph(repo,load_config(repo)); deps,_=dependency_edges(graph_real)
+    edge=next(e for e in deps if e.get('field')=='information_requirements')
+    assert edge['consumed_revision']==consumed and edge['consumed_fields']==['section:amount']
+    out=assess_impact(repo,policy(repo),graph_real,before=before,after=after,destination_context='costs')
+    assert any(c['target']=='finance/costs/result.md' and c['state']=='review_pending' for c in out['candidates'])
+    narrowed=assess_approved_impact(repo,policy(repo),consumers=['finance/costs/result.md'],before=before,after=after,destination_context='costs')
+    assert [c['target'] for c in narrowed['candidates']]==['finance/costs/result.md']
+    cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',after,'impact','--consumer','finance/costs/result.md','--before',before,'--after',after,'--context','costs']
+    assert json.loads(subprocess.check_output(cmd))['candidates']==narrowed['candidates']
+
+def test_requirements_derived_only_from_reported_verified_approved_output(repo):
+    from wiki_core.context_requirements import requirements_from_result, RequirementError
+    approved_branch=git(repo,'branch','--show-current'); p,base,head,packet,result=make_proposal(repo)
+    args={'packet':packet,'result':result,'output_path':'finance/costs/result.md','proposal_head':head,'temporal':'current','max_age_days':30}
+    with pytest.raises(RequirementError,match='not incorporated'): requirements_from_result(repo,p,**args)
+    git(repo,'checkout','-q',approved_branch); git(repo,'merge','--no-ff','--no-edit','wiki/costs-task-1'); approve(repo)
+    current=policy(repo); out=requirements_from_result(repo,current,**args)
+    assert out['write']=='not_performed' and out['read_claim']=='reported_not_verified'
+    validate(out,json.loads((BASE/'docs/references/schemas/wiki-context-requirements-v1.schema.json').read_text()))
+    assert out['information_requirements']==[{'target':'finance/tax/source.md','fields':['section:amount'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'interpret','classification':'synthetic'}]
+    packet_path=repo/'packet.json'; result_path=repo/'result.json'; packet_path.write_text(json.dumps(packet)); result_path.write_text(json.dumps(result))
+    cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',current.policy_revision,'requirements','--packet',str(packet_path),'--result',str(result_path),'--output','finance/costs/result.md','--proposal-head',head,'--temporal','current','--max-age-days','30']
+    assert json.loads(subprocess.check_output(cmd))==out
+    missing={**result,'read_coverage':{'observed_refs':[],'missing':[]}}
+    with pytest.raises(RequirementError,match='not reported read'): requirements_from_result(repo,current,**{**args,'result':missing})
+    forged=copy.deepcopy(packet); forged['content_revision']='HEAD'; forged['inputs'][-1]['revision']='HEAD'; forged['declared_read_set'][-1]['revision']='HEAD'
+    forged['packet_digest']='0'*64
+    while True:
+        length=len(json.dumps(forged,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode())
+        if forged['bytes_used']==length: break
+        forged['bytes_used']=length
+    forged['packet_digest']=hashlib.sha256(json.dumps({k:v for k,v in forged.items() if k!='packet_digest'},ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    forged_result={**result,'packet_digest':forged['packet_digest'],'read_coverage':{'observed_refs':forged['declared_read_set'],'missing':[]}}
+    with pytest.raises(RequirementError,match='invalid packet contract'): requirements_from_result(repo,current,**{**args,'packet':forged,'result':forged_result})
+    (repo/'finance/tax/source.md').write_text('<!-- wiki:section id=amount version=1 -->\n## Amount\nChanged\n'); git(repo,'add','.'); git(repo,'commit','-qm','subsequent source change'); approve(repo)
+    with pytest.raises(RequirementError,match='reported input changed'): requirements_from_result(repo,policy(repo),**args)
+
+def test_packet_delivers_distinct_context_purpose_rules_and_sanitized_limits(repo):
+    tax_file=repo/'finance/tax/context.yaml'; costs_file=repo/'finance/costs/context.yaml'
+    tax=yaml.safe_load(tax_file.read_text()); costs=yaml.safe_load(costs_file.read_text())
+    tax['purpose']='Independent fiscal interpretation'; costs['purpose']='Independent cost interpretation'
+    tax['instructions']=['finance/tax/rules.md']; costs['instructions']=['finance/costs/rules.md']
+    costs['imports'].append({'from_context':'tax','to_context':'costs','selector':'finance/tax/protected-metadata.md','section':'amount','use':'interpret','classification':'synthetic','expires':'2099-01-01'})
+    tax_file.write_text(yaml.safe_dump(tax)); costs_file.write_text(yaml.safe_dump(costs))
+    (repo/'finance/tax/rules.md').write_text('Fiscal-specific synthetic rule.\n'); (repo/'finance/costs/rules.md').write_text('Cost-specific synthetic rule.\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','distinct approved rules'); approve(repo); current=git(repo,'rev-parse','HEAD'); p=policy(repo)
+    evidence=[{'ref':'finance/tax/source.md','producer':'tax','reason':'shared source','use':'interpret','classification':'synthetic','section':'amount'}]
+    packets={c:build_packet(repo,p,c,current,evidence,20000,task_id='view-'+c,goal='interpret',output='report',integrator='reviewer') for c in ('tax','costs')}
+    assert packets['tax']['context']['purpose']=='Independent fiscal interpretation'
+    assert packets['costs']['context']['purpose']=='Independent cost interpretation'
+    assert packets['costs']['context']['owner']=='operator' and packets['costs']['context']['lineage']==['root','finance','costs']
+    assert packets['costs']['context']['owned_scopes']['write']==['finance/costs']
+    assert any('Fiscal-specific' in x['text'] for x in packets['tax']['inputs'])
+    assert any('Cost-specific' in x['text'] for x in packets['costs']['inputs'])
+    assert 'protected-metadata.md' not in json.dumps(packets['costs'])
+    assert packets['costs']['context']['approved_imports'][0]['selector']=='finance/tax/source.md'
+    validate(packets['costs'],json.loads((BASE/'docs/references/schemas/wiki-task-context-v1.schema.json').read_text()))
+
+def test_parent_context_view_does_not_disclose_child_denied_metadata(repo):
+    path=repo/'context.yaml'; root=yaml.safe_load(path.read_text())
+    root['policy']['deny']={'read':['finance/tax/protected-metadata.md'],'capabilities':['sensitive.effect']}
+    path.write_text(yaml.safe_dump(root)); git(repo,'add','.'); git(repo,'commit','-qm','deny protected synthetic metadata'); approve(repo)
+    packet=build_packet(repo,policy(repo),'root','HEAD',[],20000,task_id='root-view',goal='synthetic',output='report',integrator='reviewer')
+    assert 'protected-metadata.md' not in json.dumps(packet['context'])
+    assert 'sensitive.effect' not in json.dumps(packet['context'])
+
+def test_preflight_binds_new_canonical_requirement_to_packet_bytes(repo):
+    p,base,head,packet,result=make_proposal(repo)
+    req={'target':'finance/tax/source.md','fields':['section:amount'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'interpret','classification':'synthetic'}
+    target=repo/'finance/costs/result.md'; target.write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nIndependent interpretation\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','record consumed evidence'); head=git(repo,'rev-parse','HEAD')
+    assert preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/costs-task-1',packet=packet,result=result)['state']=='independent_review_required'
+    unreported={**result,'read_coverage':{'observed_refs':[],'missing':[]}}
+    with pytest.raises(IntegrationError,match='does not match task evidence'):
+        preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/costs-task-1',packet=packet,result=unreported)
+    req['consumed_revision']='0'*40; target.write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nIndependent interpretation\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','forged consumed revision'); head=git(repo,'rev-parse','HEAD')
+    with pytest.raises(IntegrationError,match='does not match task evidence'):
+        preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/costs-task-1',packet=packet,result=result)
+
+def test_requirements_allow_historical_self_output_read_without_self_dependency(repo):
+    from wiki_core.context_requirements import requirements_from_result
+    approved_branch=git(repo,'branch','--show-current'); base=git(repo,'rev-parse','HEAD'); p=policy(repo)
+    evidence=[{'ref':'finance/tax/source.md','producer':'tax','reason':'source','use':'interpret','classification':'synthetic','section':'amount'}, {'ref':'finance/costs/result.md','producer':'costs','reason':'existing approved output','use':'interpret','classification':'synthetic'}]
+    packet=build_packet(repo,p,'costs',base,evidence,20000,task_id='self-read',goal='edit output',output='finance/costs/result.md',integrator='reviewer')
+    git(repo,'checkout','-qb','wiki/self-read'); (repo/'finance/costs/result.md').write_text('Changed output\n'); git(repo,'add','.'); git(repo,'commit','-qm','update output'); head=git(repo,'rev-parse','HEAD')
+    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':packet['task_id'],'context_id':'costs','packet_digest':packet['packet_digest'],'changes':[{'path':'finance/costs/result.md','action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
+    preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/self-read',packet=packet,result=result)
+    git(repo,'checkout','-q',approved_branch); git(repo,'merge','--no-ff','--no-edit','wiki/self-read'); approve(repo)
+    out=requirements_from_result(repo,policy(repo),packet=packet,result=result,output_path='finance/costs/result.md',proposal_head=head,temporal='current',max_age_days=30)
+    assert out['self_input_read'] is True and [x['target'] for x in out['information_requirements']]==['finance/tax/source.md']

@@ -329,7 +329,8 @@ def dependency_edges(graph: dict, *, origin: str = "current") -> tuple[list[dict
         dependencies.append({**edge, 'prerequisite': prerequisite, 'dependent': dependent,
                              'consumed_fields': edge.get('consumed_fields') or edge.get('requirement', {}).get('fields') or (['action_state'] if kind == 'projection_state' else ['*']),
                              'produced_fields': edge.get('produced_fields') or (['body', 'collection'] if kind == 'projection_state' else ['*']),
-                             'temporal_use': edge.get('requirement', {}).get('temporal') or ('current' if kind == 'operational_prerequisite' else 'as_observed' if kind == 'historical_support' else 'unspecified')})
+                             'temporal_use': edge.get('requirement', {}).get('temporal') or ('current' if kind == 'operational_prerequisite' else 'as_observed' if kind == 'historical_support' else 'unspecified'),
+                             **({k: edge['requirement'][k] for k in ('consumed_revision','use','classification') if k in edge.get('requirement', {})})})
     return dependencies, contextual
 
 
@@ -344,15 +345,20 @@ def information_requirements(values: dict, resolve) -> list[dict]:
         raise ValueError('information_requirements must be a bounded list')
     result = []
     for entry in raw:
-        if not isinstance(entry, dict) or set(entry) != {'target', 'fields', 'temporal', 'max_age_days'}:
+        required = {'target', 'fields', 'temporal', 'max_age_days'}
+        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification'}):
             raise ValueError('information requirement needs target, fields, temporal, max_age_days')
         if (not isinstance(entry['target'], str) or not isinstance(entry['fields'], list)
                 or not entry['fields'] or len(entry['fields']) > 32
-                or any(not isinstance(f, str) or not re.fullmatch(r'[a-z][a-z0-9_]*', f) for f in entry['fields'])
+                or any(not isinstance(f, str) or not (f == '*' or re.fullmatch(r'[a-z][a-z0-9_]*|field:[a-z][a-z0-9_]*|section:[a-zA-Z][a-zA-Z0-9_.:-]*', f)) for f in entry['fields'])
                 or len(set(entry['fields'])) != len(entry['fields'])
                 or entry['temporal'] not in {'current', 'historical'}
                 or type(entry['max_age_days']) is not int or not 0 <= entry['max_age_days'] <= 3650):
             raise ValueError('invalid information requirement selector or temporal use')
+        if ('consumed_revision' in entry and (not isinstance(entry['consumed_revision'], str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', entry['consumed_revision']))):
+            raise ValueError('consumed_revision must be a fixed commit SHA')
+        if any(k in entry and (not isinstance(entry[k], str) or not entry[k].strip()) for k in ('use','classification')):
+            raise ValueError('invalid information use or classification')
         targets = resolve(entry['target'])
         if len(targets) != 1:
             raise ValueError('information requirement target is missing or ambiguous')

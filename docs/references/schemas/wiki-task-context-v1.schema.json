@@ -22,7 +22,8 @@
     "packet_digest",
     "required_capabilities",
     "max_bytes",
-    "selected_text_bytes"
+    "selected_text_bytes",
+    "context"
   ],
   "properties": {
     "schema_version": {
@@ -34,11 +35,11 @@
     },
     "content_revision": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
     },
     "policy_revision": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
     },
     "inputs": {
       "type": "array",
@@ -93,15 +94,15 @@
           },
           "sha256": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[a-f0-9]{64}$"
           },
           "revision": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
           },
           "document_sha256": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[a-f0-9]{64}$"
           },
           "origin": {
             "type": "object"
@@ -161,7 +162,7 @@
           },
           "revision": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
           }
         }
       }
@@ -238,7 +239,7 @@
     },
     "packet_digest": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^[a-f0-9]{64}$"
     },
     "coverage": {
       "type": "object",
@@ -292,6 +293,174 @@
     "selected_text_bytes": {
       "type": "integer",
       "minimum": 0
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "purpose",
+        "owner",
+        "root",
+        "lineage",
+        "owned_scopes",
+        "capabilities",
+        "denied_capabilities",
+        "publication",
+        "denied_publication",
+        "approved_imports",
+        "boundary"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lineage": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "owned_scopes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "read",
+            "write",
+            "deny_read",
+            "deny_write"
+          ],
+          "properties": {
+            "read": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "write": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "deny_read": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "deny_write": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "denied_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "publication": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "denied_publication": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "approved_imports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from_context",
+              "selector",
+              "use",
+              "classification",
+              "expires"
+            ],
+            "properties": {
+              "from_context": {
+                "type": "string",
+                "minLength": 1
+              },
+              "selector": {
+                "type": "string",
+                "minLength": 1
+              },
+              "section": {
+                "type": "string",
+                "minLength": 1
+              },
+              "field": {
+                "type": "string",
+                "minLength": 1
+              },
+              "use": {
+                "type": "string",
+                "minLength": 1
+              },
+              "classification": {
+                "type": "string",
+                "minLength": 1
+              },
+              "expires": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "boundary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   }
 }

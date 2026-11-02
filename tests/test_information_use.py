@@ -127,3 +127,30 @@ def test_deleting_expired_validity_or_fact_does_not_reuse_old_verification(tmp_p
     for updated in [original.replace('valid_to: 2026-10-29\n',''),original.replace('A material qualification.\n','')]:
         p.write_text(updated);git('add','.');git('commit','-qm','deletion without new verification')
         assert not verification_covers_content(tmp_path,'claim.md',['body'],['evidence.md'])
+
+
+def test_typed_selectors_fail_closed_and_use_existing_fields():
+    g=graph();g['edges'][0]['requirement']['fields']=['section:amount']
+    g['documents']['claim']='<!-- wiki:section id=amount version=1 -->\n## Amount\nA fact.\n'
+    assert assess_information_use(g,'action',now=NOW)['ready']
+    g['documents']['claim']='Unmarked fact.'
+    assert not assess_information_use(g,'action',now=NOW)['ready']
+    g=graph();g['edges'][0]['requirement']['fields']=['field:confidence']
+    assert assess_information_use(g,'action',now=NOW)['ready']
+    g['edges'][0]['requirement']['fields']=['field:missing']
+    assert not assess_information_use(g,'action',now=NOW)['ready']
+
+
+def test_typed_section_and_whole_document_coverage_is_conservative(tmp_path):
+    import subprocess
+    from wiki_core.information_use import verification_covers_content
+    def git(*args): subprocess.run(['git',*args],cwd=tmp_path,check=True,capture_output=True)
+    git('init');git('config','user.name','Synthetic');git('config','user.email','fixture@example.invalid')
+    (tmp_path/'evidence.md').write_text('Evidence.\n')
+    p=tmp_path/'claim.md';p.write_text('---\nverified_at: 2026-10-30\nlabel: first\n---\n<!-- wiki:section id=amount version=1 -->\n## Amount\nOne.\n')
+    git('add','.');git('commit','-qm','initial')
+    assert verification_covers_content(tmp_path,'claim.md',['section:amount'],['evidence.md'])
+    p.write_text(p.read_text().replace('label: first','label: second'));git('add','.');git('commit','-qm','changed field')
+    assert not verification_covers_content(tmp_path,'claim.md',['*'],['evidence.md'])
+    p.write_text(p.read_text().replace('One.','Two.'));git('add','.');git('commit','-qm','changed section')
+    assert not verification_covers_content(tmp_path,'claim.md',['section:amount'],['evidence.md'])

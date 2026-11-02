@@ -8,6 +8,7 @@ from wiki_core.context_policy import PolicyError, safe_path
 from wiki_core.context_packet import build_packet, validate_result
 from wiki_core.repository_reader import RepositoryReader
 from wiki_core.detectors import scan_text
+from wiki_core.information_relations import information_requirements
 
 class IntegrationError(ValueError): pass
 
@@ -51,7 +52,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
         try: now=base_reader.read(item['ref'],section=item['section'],field=item['field'])
         except ValueError as exc: raise IntegrationError('consumed input unavailable at approved base') from exc
         if now['content_digest']!=item['sha256']: raise IntegrationError('consumed input changed since task')
-    raw=_git(root,'diff','--no-renames','--name-status','-z',base_reader.revision,proposal.revision).split(b'\0')
+    raw=_git(root,'diff','--no-ext-diff','--no-textconv','--no-renames','--name-status','-z',base_reader.revision,proposal.revision).split(b'\0')
     if raw and raw[-1]==b'': raw.pop()
     if len(raw)%2: raise IntegrationError('unsupported diff')
     actual=[]
@@ -66,9 +67,36 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
         if policy.owner_of(path)!=context_id or not policy.permits(context_id,'write',path): raise IntegrationError('write outside context')
         if not policy.permits(context_id,'read',path): raise IntegrationError('proposal read denied')
         if status!='D':
-            try: text=proposal.read(path)['text']
+            try: proposed_file=proposal.read(path); text=proposed_file['text']
             except ValueError as exc: raise IntegrationError('unsupported or unsafe proposed file') from exc
             if any(x.category=='secret' for x in scan_text(text)): raise IntegrationError('secret detected in proposal')
+            if path.endswith('.md'):
+                prior=base_reader.read(path)['frontmatter'] if path in base_reader.paths else {}
+                raw_before=prior.get('information_requirements',[])
+                raw_after=proposed_file['frontmatter'].get('information_requirements',[])
+                if raw_before!=raw_after:
+                    def resolve(ref): return [ref] if isinstance(ref,str) and ref in base_reader.paths else []
+                    try: declared=information_requirements(proposed_file['frontmatter'],resolve)
+                    except (ValueError,TypeError) as exc: raise IntegrationError('invalid proposed information requirement') from exc
+                    # Only newly introduced/changed requirements need this
+                    # task's proof; legacy entries are not silently upgraded.
+                    try: previous=information_requirements(prior,resolve)
+                    except (ValueError,TypeError) as exc: raise IntegrationError('invalid existing information requirement') from exc
+                    for requirement in declared:
+                        if requirement in previous: continue
+                        if requirement['target']==path: raise IntegrationError('new self dependency is not allowed')
+                        consumed=requirement.get('consumed_revision')
+                        if consumed is None: raise IntegrationError('new requirement is unpinned')
+                        for selector in requirement['fields']:
+                            def matches(item):
+                                if item['kind']!='evidence' or item['ref']!=requirement['target'] or item['revision']!=consumed: return False
+                                observed={k:item[k] for k in ('ref','section','field','revision')}
+                                if observed not in result['read_coverage']['observed_refs']: return False
+                                actual=('section:'+item['section'].removeprefix('section:') if item['section'] is not None else 'field:'+item['field'] if item['field'] is not None else '*')
+                                wanted=selector if selector in ('*','body') or ':' in selector else 'field:'+selector
+                                if wanted=='body' and actual=='*': wanted='*'
+                                return actual==wanted and item['use']==requirement.get('use','interpret') and item['classification']==requirement.get('classification','internal')
+                            if not any(matches(item) for item in packet['inputs']): raise IntegrationError('requirement does not match task evidence')
         actual.append({'path':path,'action':{'A':'created','M':'modified','D':'deleted'}[status]})
     if not actual: raise IntegrationError('empty proposal')
     if sorted(actual,key=lambda x:(x['path'],x['action']))!=sorted(result['changes'],key=lambda x:(x['path'],x['action'])): raise IntegrationError('result changes do not match branch')
