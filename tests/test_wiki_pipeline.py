@@ -248,6 +248,15 @@ def test_approved_pipeline_reads_current_policy_and_committed_perspective_before
     first = run(str(src), 'system', tmp_path, config, approved_revision=approved, policy_context='root')
     before = json.loads((tmp_path / first.request_path).read_text())
     package = before['block_context_package']
+    from jsonschema import validate
+    from wiki_core.context_packet import validate_result as validate_task_result
+    schema = json.loads((ROOT / 'docs/references/schemas/wiki-task-context-v1.schema.json').read_text())
+    validate(package, schema)
+    bound_result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
+        'task_id': package['task_id'], 'context_id': package['context_id'],
+        'packet_digest': package['packet_digest'], 'blockers': [], 'changes': [],
+        'read_coverage': {'observed_refs': package['declared_read_set'], 'missing': []}}
+    assert validate_task_result(bound_result, package) is True
     inputs = {row['ref']: row for row in package['inputs']}
     assert inputs['AGENTS.md']['text'] == 'Approved instruction body.\n'
     assert inputs['memories/policy.md']['text'] == 'Approved mandatory policy body.\n'

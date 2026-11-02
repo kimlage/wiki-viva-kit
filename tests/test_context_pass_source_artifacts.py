@@ -463,6 +463,15 @@ def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bod
     request_path = paths.extraction_events / (build_manifest(str(source), 'system', root=paths.root)['source_id'] + '-llm-context-request.json')
     before = json.loads(request_path.read_text())
     assert before['block_context_package']['inputs'][0]['text'] == 'Current approved CLI policy body.\n'
+    from jsonschema import validate
+    from wiki_core.context_packet import validate_result as validate_task_result
+    package = before['block_context_package']
+    validate(package, json.loads((ROOT / 'docs/references/schemas/wiki-task-context-v1.schema.json').read_text()))
+    bound_result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
+        'task_id': package['task_id'], 'context_id': package['context_id'],
+        'packet_digest': package['packet_digest'], 'blockers': [], 'changes': [],
+        'read_coverage': {'observed_refs': package['declared_read_set'], 'missing': []}}
+    assert validate_task_result(bound_result, package) is True
     (paths.root / 'AGENTS.md').write_text('Revised approved CLI policy under same path.\n')
     git('add', 'AGENTS.md'); git('commit', '-qm', 'Approved instruction body update')
     sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
