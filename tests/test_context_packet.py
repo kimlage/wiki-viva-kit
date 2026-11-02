@@ -118,3 +118,28 @@ def test_mandatory_grant_empty_read_deny_and_proposal(repo):
     (repo/'ctx/sibling').mkdir(); (repo/'ctx/sibling/context.yaml').write_text(yaml.safe_dump(sibling)); (repo/'ctx/sibling/rule.md').write_text('sibling rule')
     child['policy']['deny']={}; child['instructions']=['ctx/sibling/rule.md']; (repo/'ctx/child/context.yaml').write_text(yaml.safe_dump(child)); git(repo,'add','.'); git(repo,'commit','-qm','foreign rule'); approve(repo)
     with pytest.raises(PolicyError,match='belongs to another context'): load(repo)
+
+def test_secret_blocked_in_historical_evidence_and_rules_without_disclosure(repo):
+    synthetic_secret='AKIA'+'IOSFODNN7EXAMPLE'
+    (repo/'ctx/evidence.md').write_text('Historical content: '+synthetic_secret+'\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','historical evidence'); historic=git(repo,'rev-parse','HEAD')
+    (repo/'ctx/evidence.md').write_text('clean current content\n'); git(repo,'add','.'); git(repo,'commit','-qm','clean evidence'); approve(repo)
+    policy=load(repo)
+    with pytest.raises(PolicyError,match='secret detected') as error: pack(repo,policy,historic)
+    assert synthetic_secret not in str(error.value)
+    (repo/'ctx/rules.md').write_text('Rule contains '+synthetic_secret+'\n'); git(repo,'add','.'); git(repo,'commit','-qm','sensitive rule'); approve(repo)
+    with pytest.raises(PolicyError,match='secret detected') as error: pack(repo,load(repo),historic,evidence=[])
+    assert synthetic_secret not in str(error.value)
+
+
+def test_private_pii_allowed_and_adapter_credentials_blocked(repo):
+    # A synthetic CPF-shaped value is not an access secret.
+    (repo/'ctx/evidence.md').write_text('CPF 529.982.247-25\n'); git(repo,'add','.'); git(repo,'commit','-qm','private example'); approve(repo)
+    packet=pack(repo,load(repo),'HEAD')
+    assert '529.982.247-25' in packet['inputs'][1]['text']
+    credential_url='postgres://example:'+'S3cr3tPass'+'@host/db'
+    report={'verification':'verified','capabilities':['read'],'scope':[credential_url],'limitation':'read only'}
+    with pytest.raises(PolicyError,match='secret detected') as error: pack(repo,load(repo),'HEAD',adapter_report=report)
+    assert credential_url not in str(error.value)
+    with pytest.raises(PolicyError,match='invalid adapter report'):
+        pack(repo,load(repo),'HEAD',adapter_report={**report,'token':'private'})

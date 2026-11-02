@@ -6,6 +6,12 @@ import datetime as dt
 from pathlib import Path
 from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report
 from .repository_reader import RepositoryReader
+from .detectors import scan_text
+
+
+def _reject_secrets(text):
+    if any(finding.category == 'secret' for finding in scan_text(text)):
+        raise PolicyError('secret detected in packet input')
 
 
 def blocker(action, target, reason, owner, required_action, resume_condition, status='pending', interface=None):
@@ -38,19 +44,22 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
     if not getattr(policy, '_binding', None) or Path(policy._binding[0]) != Path(root).resolve(): raise PolicyError('unbound or mismatched policy')
     policy = policy.fresh()
+    for value in (task_id, goal, output, integrator, context_id):
+        if isinstance(value, str): _reject_secrets(value)
     if not isinstance(budget, int) or isinstance(budget, bool) or budget < 0:
         raise PolicyError('invalid byte budget')
     if query_fingerprint is not None: raise PolicyError('dynamic query selection not supported')
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     lineage = policy.lineage(context_id)
     if adapter_report is not None and not valid_adapter_report(adapter_report): raise PolicyError('invalid adapter report')
+    if adapter_report is not None: _reject_secrets(json.dumps(adapter_report, ensure_ascii=False))
     if not isinstance(required_capabilities, (list, tuple)):
         raise PolicyError('invalid required capabilities')
     for effect in required_capabilities:
         if not isinstance(effect, dict) or set(effect) != {'capability', 'target'} or not all(isinstance(x, str) and x.strip() for x in effect.values()):
             raise PolicyError('capability and exact target required')
         if capability_status(policy, context_id, effect['capability'], adapter_report, target=effect['target']) != 'available':
-            raise PolicyError('required capability lacks verified adapter evidence: ' + effect['capability'])
+            raise PolicyError('required capability lacks verified adapter evidence')
     reader = RepositoryReader(Path(root), content_revision)
     selected = []
     seen = set()
@@ -59,10 +68,11 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
     def add(reader_, ref, reason, kind, section=None, field=None, producer=None, use=None, classification=None):
         ref = safe_path(ref)
         denied = any(within(ref, scope) for scope in policy.effective[context_id]['deny']['read'])
-        if denied or (kind != 'mandatory' and not policy.permits(context_id, 'read', ref)): raise PolicyError('read denied: ' + ref)
+        if denied or (kind != 'mandatory' and not policy.permits(context_id, 'read', ref)): raise PolicyError('read denied')
         item = reader_.read(ref, section=section, field=field)
         text = item['text']
         if not isinstance(text, str): raise PolicyError('reader returned non-text')
+        _reject_secrets(text)
         data = text.encode('utf-8')
         digest = hashlib.sha256(data).hexdigest()
         if item['content_digest'] != digest: raise PolicyError('reader digest mismatch')
@@ -83,6 +93,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
         allowed = {'ref','producer','reason','use','classification','section','field'}
         if not isinstance(e, dict) or set(e) - allowed or not all(isinstance(e.get(k), str) and e[k] for k in ('ref','producer','reason','use','classification')):
             raise PolicyError('invalid evidence')
+        for value in e.values():
+            if isinstance(value, str): _reject_secrets(value)
         ref = safe_path(e['ref'])
         if any(k in e and (not isinstance(e[k], str) or not e[k]) for k in ('section','field')) or ('section' in e and 'field' in e): raise PolicyError('invalid evidence selector')
         status = policy.connection(e['producer'], context_id, ref, e['use'], e['classification'], section=e.get('section'), field=e.get('field'))
@@ -97,6 +109,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
             'query_fingerprint': None, 'coverage': {'mode': 'explicit_read_set', 'complete': False, 'missing': list(omissions)},
             'byte_budget': budget, 'bytes_used': total,
             'capability_evidence': adapter_report, 'required_capabilities': list(required_capabilities), 'enforcement_claim': 'none; adapter report is supplied by the caller'}
+    _reject_secrets(json.dumps(packet, ensure_ascii=False))
     packet['packet_digest'] = hashlib.sha256(json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return packet
 
