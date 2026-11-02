@@ -33,6 +33,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) | Inspect derived cache |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Check methodology coverage |
 | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | Compile a deep read into an integration packet |
+| [wiki_context.py](../../../scripts/wiki_context.py) | Resolve current approved context policy or build an explicit v1 task packet |
 | [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) | Publish ignored artifacts to configured Drive |
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Export context requests in batch format |
 | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | Build a deterministic source manifest |
@@ -64,6 +65,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_quadrant_contract.py](../../../scripts/wiki_quadrant_contract.py) | Print the AQAL quadrant contract |
 | [wiki_quadrant_projection_report.py](../../../scripts/wiki_quadrant_projection_report.py) | Review quadrant projections |
 | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Report quality/cost telemetry |
+| [wiki_read.py](../../../scripts/wiki_read.py) | Read explicitly scoped Git content by revision, stable section or frontmatter field |
 | [wiki_score.py](../../../scripts/wiki_score.py) | Record/view karma events |
 | [wiki_semantic_inventory.py](../../../scripts/wiki_semantic_inventory.py) | Verify authored semantics/read models |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Compile the source registry |
@@ -82,6 +84,11 @@ The cancelled host integration is retained in the [withdrawal record](../../../d
 Use the portable [task entry points](../../../scripts/README.md#task-entry-points)
 for find, context, source and action. They describe existing methods, effect
 scopes, coverage and the distinction between a receipt and integration.
+
+The [phase 1 context guide](../../../docs/references/guides/context-reader.md)
+separates the raw reader, approved-manifest packets and legacy coordinator
+context. Content revision and current policy authority are separate; a digest
+does not prove factual freshness or service access.
 
 Use [wiki_find.py](../../../scripts/wiki_find.py) for direct lookup before
 preparing a reading request. `--context` filters observed local metadata before

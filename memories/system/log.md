@@ -1599,3 +1599,22 @@ Native configuration normalization creates own optional exec keys with undefined
 ## 2026-10-30 — expired interrupted original without a native terminal
 
 A separate [failure reconciliation](../../docs/references/guides/openclaw-card-runtime.md#interrupted-admitted-turn-without-a-preserved-native-terminal) preserves an admitted original and distinguishes native interruption/timeout from terminal error. Expiry, intact guard lineage, no continuation, a fresh idle original leaf and independent exact review are required; recording and own-lock release share the mission mutex. It creates no result or automatic retry. Synthetic race, wrong-lock, partial-continuation and state/selection regressions are included; no personal live recovery is claimed here.
+
+
+## [2026-11-02] Revision-bound reader and phase 1 context packets
+
+The [context reader guide](../../docs/references/guides/context-reader.md) records
+scoped Git reads, stable CommonMark sections and v1 approved-manifest packets.
+The [command catalog](wiki/command-reference.md) links the new reader and policy
+commands; the [portable CLI entry points](../../scripts/README.md#revision-bound-context)
+distinguish content revision from current policy authority and legacy adapters.
+
+The [pipeline](../../wiki_core/ingest/pipeline.py) and
+[LLM request CLI](../../scripts/wiki_llm_context_pass.py) deliver actual policy
+and required perspective bodies. [Caller regressions](../../tests/test_wiki_pipeline.py)
+cover changed content under stable IDs and explicit policy failure. The
+[coordination fixture](../../tests/test_coordination.py) measures serialized
+output only: 45,766 bytes across 27 snapshot payloads versus 2,554 bytes in one
+packet, with no files written. These synthetic results do not establish token
+or latency savings, source freshness, external access or platform enforcement.
+Existing source verification dates remain unchanged.

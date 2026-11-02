@@ -16,7 +16,7 @@ memory index first; retain any stronger consumer context requirement.
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |
 | Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index. Read each result's origin and coverage gaps before treating it as evidence. No index or model is started. |
-| Context | Read a known Markdown page, or use the existing [page reader](../wiki_core/web/content.py) through `GET /api/pages/{page_id}/content` on an already-running cockpit. For an assigned action, [wiki_coordination.py](wiki_coordination.py) prepares its packet. | Follow relevant relations and original evidence for the claim. Packet preparation intentionally builds a snapshot; it is not a universal cheap lookup or automatic dispatch. Do not start a service merely to read a known local page. |
+| Context | Use [wiki_read.py](wiki_read.py) for a scoped Git read, [wiki_context.py](wiki_context.py) for an approved-manifest packet, or [wiki_coordination.py](wiki_coordination.py) for an assigned action. The existing cockpit [page reader](../wiki_core/web/content.py) remains available. | Choose explicit paths and revisions; follow original evidence for the claim. Profile CLI packets avoid a global snapshot; the legacy web reader still uses snapshots. See [phase 1 context reading](../docs/references/guides/context-reader.md) for authority, compatibility and coverage limits. |
 | Source | Use the existing source workspace, `GET /api/sources` for identity/location and `GET /api/sources/{source_id}/operations` for receipts, described in [source access](../docs/references/guides/source-access-and-ingestion.md). | Inspect retained identity, location and receipts first. [Refresh preview/run](../docs/references/guides/source-refresh-cadence.md) may contact external systems and requires the existing account and authorized scope; an unavailable original is an explicit gap. |
 | Action | Open the same [board card](../docs/references/guides/native-action-board.md). Use its existing transition/dialogue writer for allowed local changes; reconcile retained agent results through [contributions](../docs/references/guides/agent-contributions.md). | Keep the same action and origin run/effect references; revalidate its current revision before writing. A received-result comment has its own event identity, does not consume the contribution effect, and does not incorporate its factual proposal. Other documents, rules or required generators use the existing normal multipage proposal with review and gates. |
 
@@ -53,6 +53,19 @@ wiki_ingest.py -> wiki_llm_context_pass.py -> wiki_consolidate.py
   -> wiki_operation_compile.py / wiki_input_stage.py
   -> wiki_semantic_inventory.py / wiki_web_snapshot.py -> wiki_audit.py
 ```
+
+## Revision-bound context
+
+[wiki_read.py](wiki_read.py) requires `--revision`, `--mode` and exact
+`--allow-path` values; reads require `--section`, `--field` or explicit
+`--whole-body`. [wiki_context.py](wiki_context.py) resolves the approved context
+or builds a bounded v1 packet with `--approved-revision` and a separate
+`--content-revision`. The caller supplies the trust boundary; selecting a
+revision does not grant access. [wiki_coordination.py](wiki_coordination.py)
+uses `--revision` for profile content without a global snapshot, while retaining
+the legacy coordinator mapping. The [context reader guide](../docs/references/guides/context-reader.md)
+explains historical evidence, current policy bodies, ingestion flags and
+unsupported selections.
 
 ## Source identity and index reconciliation
 
