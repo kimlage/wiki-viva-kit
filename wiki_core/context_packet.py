@@ -39,14 +39,14 @@ def connection_proposal(source, destination, selector, purpose, classification, 
             'status': 'pending', 'grants_access': False}
 
 
-def build_packet(root, policy, context_id, content_revision, evidence, budget, *, adapter_report=None,
+def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None):
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
     if not getattr(policy, '_binding', None) or Path(policy._binding[0]) != Path(root).resolve(): raise PolicyError('unbound or mismatched policy')
     policy = policy.fresh()
     for value in (task_id, goal, output, integrator, context_id):
         if isinstance(value, str): _reject_secrets(value)
-    if not isinstance(budget, int) or isinstance(budget, bool) or budget < 0:
+    if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
         raise PolicyError('invalid byte budget')
     if query_fingerprint is not None: raise PolicyError('dynamic query selection not supported')
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
@@ -87,7 +87,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
                     add(policy_reader, ref, f"mandatory {key} from {c['id']}", 'mandatory', producer=c['id'])
                     seen.add(ref)
     mandatory_bytes = sum(x['byte_length'] for x in selected)
-    if mandatory_bytes > budget: raise PolicyError('mandatory content exceeds byte budget')
+    if mandatory_bytes > max_bytes: raise PolicyError('mandatory content exceeds byte budget')
     if not isinstance(evidence, list): raise PolicyError('evidence must be a list')
     for e in evidence:
         allowed = {'ref','producer','reason','use','classification','section','field'}
@@ -101,16 +101,24 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
         if status != 'approved': raise PolicyError('connection ' + status)
         add(reader, ref, e['reason'], 'evidence', e.get('section'), e.get('field'), e['producer'], e['use'], e['classification'])
     total = sum(x['byte_length'] for x in selected)
-    if total > budget: raise PolicyError('selected content exceeds byte budget')
+    if total > max_bytes: raise PolicyError('selected content exceeds byte budget')
     policy.fresh()  # Fail if approval moved during composition.
     packet = {'schema_version': 'wiki.task-context/v1', 'task_id': task_id, 'goal': goal, 'output': output, 'integrator': integrator, 'context_id': context_id,
             'content_revision': reader.revision, 'policy_revision': policy.policy_revision,
             'inputs': selected, 'declared_read_set': [{'ref': x['ref'], 'section': x['section'], 'field': x['field'], 'revision': x['revision']} for x in selected],
             'query_fingerprint': None, 'coverage': {'mode': 'explicit_read_set', 'complete': False, 'missing': list(omissions)},
-            'byte_budget': budget, 'bytes_used': total,
+            'max_bytes': max_bytes, 'bytes_used': 0, 'selected_text_bytes': total,
             'capability_evidence': adapter_report, 'required_capabilities': list(required_capabilities), 'enforcement_claim': 'none; adapter report is supplied by the caller'}
     _reject_secrets(json.dumps(packet, ensure_ascii=False))
-    packet['packet_digest'] = hashlib.sha256(json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    # A fixed-width digest lets the reported byte count include the digest itself.
+    packet['packet_digest'] = '0' * 64
+    while True:
+        length = len(json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8'))
+        if packet['bytes_used'] == length: break
+        packet['bytes_used'] = length
+    if packet['bytes_used'] > max_bytes: raise PolicyError('complete packet exceeds byte budget')
+    payload = {k: v for k, v in packet.items() if k != 'packet_digest'}
+    packet['packet_digest'] = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
     return packet
 
 

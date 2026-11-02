@@ -13,7 +13,7 @@ The CLI uses the current tip of `refs/remotes/origin/main` as its trusted approv
 After these examples have been approved on the trusted reference, create a request file with, for example:
 
 ```json
-{"task_id":"demo-1","goal":"Review the synthetic context","output":"A short report","integrator":"example operator","evidence":[],"byte_budget":4096,"omissions":[]}
+{"task_id":"demo-1","goal":"Review the synthetic context","output":"A short report","integrator":"example operator","evidence":[],"max_bytes":4096,"omissions":[]}
 ```
 
 Then run from the repository root, replacing `/tmp/request.json` with the actual request file:
@@ -23,6 +23,6 @@ python3 scripts/wiki_context.py --approved-revision origin/main --manifest examp
 python3 scripts/wiki_context.py --approved-revision origin/main --manifest examples/context-hierarchy/context.yaml pack finance/tax --content-revision origin/main --request /tmp/request.json
 ```
 
-Packets include declared reads, selected bytes and digests, missing coverage, a byte budget and a canonical packet digest. Overflow fails without truncation. The existing secret detector checks selected text and returned metadata; detected access secrets block the packet without revealing their values. Personal data is not blocked merely for being personal. Dynamic queries are not yet supported; explicit read sets do not claim complete coverage. The task-result schema binds task and context IDs and packet digest; `validate_result` checks the binding and reported reads against the packet, but cannot independently prove an agent's claimed reading or changes.
+Packets include declared reads, selected bytes and digests, missing coverage and a canonical packet digest. `max_bytes` bounds the UTF-8 bytes of the complete canonical JSON packet, including metadata and digest; `bytes_used` is its exact size, and `selected_text_bytes` separately counts selected UTF-8 text. Overflow fails without truncation. This is a byte limit, not a model-token estimate. The existing secret detector checks selected text and returned metadata; detected access secrets block the packet without revealing their values. Personal data is not blocked merely for being personal. Dynamic queries are not yet supported; explicit read sets do not claim complete coverage. The task-result schema binds task and context IDs and packet digest; `validate_result` checks the binding and reported reads against the packet, but cannot independently prove an agent's claimed reading or changes.
 
 Capability reports are supplied and authenticated by the caller, not proven by this policy. A report requires `verification: verified`, lists of exact `capabilities` and exact resource `scope` values, and a nonempty `limitation`. An effect request names both capability and exact target; a generic scope is not proof for a different resource. Neither YAML nor the report asserts operating-system sandbox enforcement.

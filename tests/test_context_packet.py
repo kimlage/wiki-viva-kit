@@ -21,7 +21,7 @@ def repo(tmp_path):
     return tmp_path
 
 def load(repo,rev='HEAD'): return load_policy(repo,rev,'ctx/context.yaml')
-def pack(repo,p,rev,evidence=EVIDENCE,budget=1000,**kwargs): return build_packet(repo,p,'root',rev,evidence,budget,**TASK,**kwargs)
+def pack(repo,p,rev,evidence=EVIDENCE,budget=10000,**kwargs): return build_packet(repo,p,'root',rev,evidence,budget,**TASK,**kwargs)
 
 def test_packet_bodies_digest_budget_revocation_and_proposed_branch(repo):
     old=git(repo,'rev-parse','HEAD'); p=load(repo,old); packet=pack(repo,p,old)
@@ -69,20 +69,22 @@ def test_root_dot_mandatory_ancestor_and_narrow_metadata(repo):
     git(repo,'add','.'); git(repo,'commit','-qm','root and child'); approve(repo)
     policy=load_policy(repo,'HEAD'); ref=git(repo,'rev-parse','HEAD')
     e=[{'ref':'ctx/evidence.md','producer':'child','reason':'selected','use':'interpret','classification':'synthetic','section':'summary'}]
-    result=build_packet(repo,policy,'child',ref,e,1000,**TASK)
+    result=build_packet(repo,policy,'child',ref,e,10000,**TASK)
     assert result['inputs'][0]['text']=='root rule\n'
     assert 'hidden metadata' not in json.dumps(result)
     e[0]['field']='secret'
-    with pytest.raises(PolicyError,match='selector'): build_packet(repo,policy,'child',ref,e,1000,**TASK)
+    with pytest.raises(PolicyError,match='selector'): build_packet(repo,policy,'child',ref,e,10000,**TASK)
 
 def test_cli_resolve_and_pack(repo, tmp_path):
     script=BASE/'scripts/wiki_context.py'; sha=git(repo,'rev-parse','HEAD')
     prefix=['/opt/anaconda3/bin/python3',str(script),'--repo',str(repo),'--approved-revision',sha,'--manifest','ctx/context.yaml']
     resolved=json.loads(subprocess.check_output(prefix+['resolve','root']))
     assert resolved['policy_revision']==sha and resolved['enforcement_claim']=='none'
-    request=tmp_path/'request.json'; request.write_text(json.dumps({**TASK,'evidence':EVIDENCE,'byte_budget':1000}))
-    packet=json.loads(subprocess.check_output(prefix+['pack','root','--content-revision',sha,'--request',str(request)]))
+    request=tmp_path/'request.json'; request.write_text(json.dumps({**TASK,'evidence':EVIDENCE,'max_bytes':10000}))
+    raw=subprocess.check_output(prefix+['pack','root','--content-revision',sha,'--request',str(request)])
+    packet=json.loads(raw)
     assert packet['task_id']=='test-1' and len(packet['packet_digest'])==64
+    assert len(raw)==packet['bytes_used']
 
 
 def test_result_binding_and_report_validation(repo):
@@ -103,16 +105,16 @@ def test_mandatory_grant_empty_read_deny_and_proposal(repo):
     child={'schema_version':'wiki.context/v1','id':'child','parent':'root','root':'ctx/child','purpose':'child','owner':'operator','instructions':[],'skills':[],'templates':[],'policy':{'read':[]},'imports':[],'exports':[]}
     (repo/'ctx/child').mkdir(); (repo/'ctx/child/context.yaml').write_text(yaml.safe_dump(child)); (repo/'ctx/child/data.md').write_text('data')
     git(repo,'add','.'); git(repo,'commit','-qm','child'); approve(repo); sha=git(repo,'rev-parse','HEAD'); p=load(repo)
-    result=build_packet(repo,p,'child',sha,[],1000,**TASK)
+    result=build_packet(repo,p,'child',sha,[],10000,**TASK)
     assert [x['ref'] for x in result['inputs']]==['ctx/rules.md']
     ev=[{'ref':'ctx/child/data.md','producer':'child','reason':'evidence','use':'interpret','classification':'synthetic'}]
-    with pytest.raises(PolicyError,match='denied'): build_packet(repo,p,'child',sha,ev,1000,**TASK)
+    with pytest.raises(PolicyError,match='denied'): build_packet(repo,p,'child',sha,ev,10000,**TASK)
     # An unapproved change cannot replace the ancestor rule.
     (repo/'ctx/rules.md').write_text('unapproved replacement'); git(repo,'add','.'); git(repo,'commit','-qm','proposal')
-    assert build_packet(repo,p,'child','HEAD',[],1000,**TASK)['inputs'][0]['text']=='# Mandatory\nRule body\n'
+    assert build_packet(repo,p,'child','HEAD',[],10000,**TASK)['inputs'][0]['text']=='# Mandatory\nRule body\n'
     with pytest.raises(PolicyError,match='not current trusted'): load(repo)
     child['policy']['deny']={'read':['ctx/rules.md']}; (repo/'ctx/child/context.yaml').write_text(yaml.safe_dump(child)); git(repo,'add','.'); git(repo,'commit','-qm','deny rule'); approve(repo)
-    with pytest.raises(PolicyError,match='read denied'): build_packet(repo,load(repo),'child','HEAD',[],1000,**TASK)
+    with pytest.raises(PolicyError,match='read denied'): build_packet(repo,load(repo),'child','HEAD',[],10000,**TASK)
     # A child cannot designate a sibling's content as a mandatory rule.
     sibling={'schema_version':'wiki.context/v1','id':'sibling','parent':'root','root':'ctx/sibling','purpose':'sibling','owner':'operator','instructions':[],'skills':[],'templates':[],'policy':{},'imports':[],'exports':[]}
     (repo/'ctx/sibling').mkdir(); (repo/'ctx/sibling/context.yaml').write_text(yaml.safe_dump(sibling)); (repo/'ctx/sibling/rule.md').write_text('sibling rule')
@@ -143,3 +145,15 @@ def test_private_pii_allowed_and_adapter_credentials_blocked(repo):
     assert credential_url not in str(error.value)
     with pytest.raises(PolicyError,match='invalid adapter report'):
         pack(repo,load(repo),'HEAD',adapter_report={**report,'token':'private'})
+
+def test_budget_counts_complete_canonical_utf8_envelope(repo):
+    (repo/'ctx/evidence.md').write_text('# Evidência\nAção e informação: 🎯\n',encoding='utf-8')
+    git(repo,'add','.'); git(repo,'commit','-qm','unicode evidence'); approve(repo)
+    policy=load(repo); packet=pack(repo,policy,'HEAD',budget=10000)
+    encoded=json.dumps(packet,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf-8')
+    assert packet['bytes_used']==len(encoded)
+    assert packet['selected_text_bytes']==sum(len(x['text'].encode('utf-8')) for x in packet['inputs'])
+    assert packet['selected_text_bytes'] > sum(len(x['text']) for x in packet['inputs'])
+    limit=packet['selected_text_bytes']+50
+    assert limit < packet['bytes_used']
+    with pytest.raises(PolicyError,match='complete packet exceeds'): pack(repo,policy,'HEAD',budget=limit)
