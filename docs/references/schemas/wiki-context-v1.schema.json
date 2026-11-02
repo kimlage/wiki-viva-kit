@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Context hierarchy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contexts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki.context/v1"
+    },
+    "contexts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "parent",
+          "root",
+          "purpose",
+          "owner",
+          "instructions",
+          "skills",
+          "templates",
+          "policy",
+          "imports",
+          "exports"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "root": {
+            "type": "string",
+            "minLength": 1
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "instructions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "templates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "read": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "write": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "deny": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "publication": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            }
+          },
+          "imports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "from_context",
+                "to_context",
+                "selector",
+                "use",
+                "classification",
+                "expires"
+              ],
+              "properties": {
+                "from_context": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "to_context": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "selector": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "section": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "field": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "use": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "classification": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expires": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "exports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "from_context",
+                "to_context",
+                "selector",
+                "use",
+                "classification",
+                "expires"
+              ],
+              "properties": {
+                "from_context": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "to_context": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "selector": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "section": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "field": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "use": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "classification": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expires": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "workflow": {
+            "type": "object"
+          },
+          "defaults": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

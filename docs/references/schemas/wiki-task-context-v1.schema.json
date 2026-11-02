@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Task context",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "context_id",
+    "content_revision",
+    "policy_revision",
+    "inputs",
+    "declared_read_set",
+    "query_fingerprint",
+    "omissions",
+    "byte_budget",
+    "bytes_used",
+    "capability_evidence",
+    "enforcement_claim"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki.task-context/v1"
+    },
+    "context_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "ref",
+          "section",
+          "field",
+          "text",
+          "byte_length",
+          "sha256",
+          "revision",
+          "document_sha256",
+          "origin",
+          "reason"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "mandatory",
+              "evidence"
+            ]
+          },
+          "ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "section": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "field": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "byte_length": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "document_sha256": {
+            "type": "string",
+            "minLength": 1
+          },
+          "origin": {
+            "type": "object"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "declared_read_set": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "section",
+          "field",
+          "revision"
+        ],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "section": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "field": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "query_fingerprint": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "omissions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "byte_budget": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "bytes_used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "capability_evidence": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "enforcement_claim": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

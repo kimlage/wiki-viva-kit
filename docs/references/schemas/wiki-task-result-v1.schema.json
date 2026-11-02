@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Task result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "blockers"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki.task-result/v1"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "pending",
+        "denied",
+        "uncertain"
+      ]
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "target",
+          "reason",
+          "owner",
+          "required_action",
+          "interface",
+          "resume_condition",
+          "status"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required_action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resume_condition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "interface": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "denied",
+              "uncertain"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
