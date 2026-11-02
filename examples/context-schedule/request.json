@@ -1,0 +1,42 @@
+{
+  "schedule": {
+    "schema_version": "wiki.schedule/v1",
+    "id": "review",
+    "context_id": "demo",
+    "policy_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "enabled": false,
+    "trigger": {
+      "kind": "interval",
+      "every_seconds": 7200,
+      "timezone": "Etc/UTC"
+    },
+    "task_template": "demo/review.md",
+    "mode": "observe_then_propose",
+    "owner": "operator",
+    "limits": {
+      "concurrent_runs": 1,
+      "max_tasks_per_wake": 1,
+      "max_attempts_per_wake": 1,
+      "max_attempts_per_effect": 1,
+      "overlap": "skip_and_record",
+      "catch_up": "latest_only"
+    }
+  },
+  "wake": {
+    "global_paused": false,
+    "now": "2026-11-02T10:00:00Z",
+    "due_at": "2026-11-02T10:00:00Z",
+    "latest_due_at": "2026-11-02T10:00:00Z",
+    "active_runs": 0,
+    "attempts_this_wake": 0,
+    "tasks": [
+      {
+        "task_id": "review-one",
+        "context_id": "demo",
+        "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "records": []
+  },
+  "observation": null
+}
