@@ -316,3 +316,66 @@ def test_requirements_allow_historical_self_output_read_without_self_dependency(
     git(repo,'checkout','-q',approved_branch); git(repo,'merge','--no-ff','--no-edit','wiki/self-read'); approve(repo)
     out=requirements_from_result(repo,policy(repo),packet=packet,result=result,output_path='finance/costs/result.md',proposal_head=head,temporal='current',max_age_days=30)
     assert out['self_input_read'] is True and [x['target'] for x in out['information_requirements']]==['finance/tax/source.md']
+
+def _reforge_packet(packet, result, *, sync_selected=True):
+    if sync_selected: packet['selected_text_bytes']=sum(x['byte_length'] for x in packet['inputs'])
+    packet['declared_read_set']=[{k:x[k] for k in ('ref','section','field','revision')} for x in packet['inputs']]
+    packet['packet_digest']='0'*64
+    while True:
+        n=len(json.dumps(packet,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf-8'))
+        if packet['bytes_used']==n: break
+        packet['bytes_used']=n
+    packet['packet_digest']=hashlib.sha256(json.dumps({k:v for k,v in packet.items() if k!='packet_digest'},ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    result['packet_digest']=packet['packet_digest']; result['task_id']=packet['task_id']
+    result['read_coverage']['observed_refs']=copy.deepcopy(packet['declared_read_set'])
+
+
+def test_requirements_rejects_forged_text_and_sliced_mandatory_with_recomputed_digest(repo):
+    from wiki_core.context_requirements import requirements_from_result, RequirementError
+    from wiki_core.repository_reader import RepositoryReader
+    (repo/'rules.md').write_text('<!-- wiki:section id=policy version=1 -->\n## Rule\nApproved rule\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','approved selectable rule'); approve(repo)
+    approved_branch=git(repo,'branch','--show-current'); p,base,head,packet,result=make_proposal(repo)
+    git(repo,'checkout','-q',approved_branch); git(repo,'merge','--no-ff','--no-edit','wiki/costs-task-1'); approve(repo)
+    current=policy(repo); kwargs={'output_path':'finance/costs/result.md','proposal_head':head,'temporal':'current','max_age_days':30}
+    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result)
+    fake['inputs'][-1]['text']='forged selected evidence'; fake['inputs'][-1]['byte_length']=len(fake['inputs'][-1]['text'].encode())
+    _reforge_packet(fake,result_fake)
+    with pytest.raises(RequirementError,match='reported input bytes differ'):
+        requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
+    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['inputs'][-1]['byte_length']+=1; _reforge_packet(fake,result_fake)
+    with pytest.raises(RequirementError,match='reported input bytes differ'):
+        requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
+    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['selected_text_bytes']+=1; _reforge_packet(fake,result_fake,sync_selected=False)
+    with pytest.raises(RequirementError,match='invalid selected text accounting'):
+        requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
+    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['inputs'].reverse(); _reforge_packet(fake,result_fake)
+    with pytest.raises(RequirementError,match='mandatory policy inputs changed'):
+        requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
+    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['inputs'][0]['producer']='costs'; _reforge_packet(fake,result_fake)
+    with pytest.raises(RequirementError,match='mandatory policy inputs changed'):
+        requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
+    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result)
+    section=RepositoryReader(repo,base).read('rules.md',section='policy'); item=fake['inputs'][0]
+    item.update(section='policy',text=section['text'],byte_length=len(section['text'].encode()),sha256=section['content_digest'])
+    _reforge_packet(fake,result_fake)
+    with pytest.raises(RequirementError,match='mandatory policy input must be complete'):
+        requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
+    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['inputs'][0]['reason']='forged reason'; _reforge_packet(fake,result_fake)
+    with pytest.raises(RequirementError,match='mandatory policy inputs changed'):
+        requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
+
+
+def test_requirements_block_secret_in_packet_or_result_metadata(repo):
+    from wiki_core.context_requirements import requirements_from_result, RequirementError
+    approved_branch=git(repo,'branch','--show-current'); p,base,head,packet,result=make_proposal(repo)
+    git(repo,'checkout','-q',approved_branch); git(repo,'merge','--no-ff','--no-edit','wiki/costs-task-1'); approve(repo)
+    current=policy(repo); kwargs={'output_path':'finance/costs/result.md','proposal_head':head,'temporal':'current','max_age_days':30}; secret='AKIA'+'IOSFODNN7EXAMPLE'
+    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['task_id']=secret; _reforge_packet(fake,result_fake)
+    with pytest.raises(RequirementError,match='secret detected') as exc:
+        requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
+    assert secret not in str(exc.value)
+    result_fake=copy.deepcopy(result); result_fake['read_coverage']['missing']=[secret]
+    with pytest.raises(RequirementError,match='secret detected') as exc:
+        requirements_from_result(repo,current,packet=packet,result=result_fake,**kwargs)
+    assert secret not in str(exc.value)

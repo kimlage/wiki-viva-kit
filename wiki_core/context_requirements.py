@@ -4,6 +4,7 @@ No graph/receipt is persisted here: the page remains the canonical declaration.
 """
 from __future__ import annotations
 import json
+import hashlib
 import re
 import subprocess
 from pathlib import Path
@@ -63,6 +64,7 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
         schema=json.loads((Path(__file__).resolve().parents[1]/'docs/references/schemas/wiki-task-context-v1.schema.json').read_text(encoding='utf-8'))
         validate(packet,schema)
     except (ValidationError,OSError,ValueError) as exc: raise RequirementError('invalid packet contract') from exc
+    if any(f.category=='secret' for f in scan_text(json.dumps({'packet':packet,'result':result},ensure_ascii=False))): raise RequirementError('secret detected in task metadata')
     encoded=json.dumps(packet,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf-8')
     if len(encoded)!=packet['bytes_used'] or len(encoded)>packet['max_bytes']: raise RequirementError('invalid packet byte accounting')
     if not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',packet['policy_revision']): raise RequirementError('packet policy revision is not fixed')
@@ -91,8 +93,16 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     if approved_output['content_sha256']!=proposal_output['content_sha256']: raise RequirementError('approved output differs from proposal')
     if any(x.category=='secret' for x in scan_text(approved_output['text'])): raise RequirementError('secret detected in output')
     observed={json.dumps(x,sort_keys=True) for x in result['read_coverage']['observed_refs']}
-    mandatory={ref for c in policy.lineage(context) for key in ('instructions','skills','templates') for ref in c[key]}
-    if mandatory!={x['ref'] for x in packet['inputs'] if x['kind']=='mandatory'}: raise RequirementError('mandatory policy inputs changed')
+    mandatory=[]; seen=set()
+    for c in policy.lineage(context):
+        for key in ('instructions','skills','templates'):
+            for ref in c[key]:
+                if ref not in seen:
+                    mandatory.append((ref,c['id'],f"mandatory {key} from {c['id']}")); seen.add(ref)
+    actual=[(x['ref'],x['producer'],x['reason']) for x in packet['inputs'] if x['kind']=='mandatory']
+    if actual!=mandatory or any(x['kind']!='mandatory' for x in packet['inputs'][:len(mandatory)]) or any(x['kind']=='mandatory' for x in packet['inputs'][len(mandatory):]): raise RequirementError('mandatory policy inputs changed')
+    if any(x['section'] is not None or x['field'] is not None or x['use'] is not None or x['classification'] is not None for x in packet['inputs'][:len(mandatory)]): raise RequirementError('mandatory policy input must be complete')
+    if packet['selected_text_bytes']!=sum(x['byte_length'] for x in packet['inputs']): raise RequirementError('invalid selected text accounting')
     requirements=[]; self_input_read=False
     for item in packet['inputs']:
         if not isinstance(item.get('revision'),str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',item['revision']): raise RequirementError('reported input revision is not fixed')
@@ -106,6 +116,8 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
             now=current.read(item['ref'],section=item['section'],field=item['field'])
         except ValueError as exc: raise RequirementError('reported input unavailable') from exc
         self_input = item['kind']=='evidence' and item['ref']==output_path
+        raw=item['text'].encode('utf-8')
+        if item['text']!=historical['text'] or item['byte_length']!=len(raw) or item['sha256']!=hashlib.sha256(raw).hexdigest(): raise RequirementError('reported input bytes differ')
         if item['origin']!=historical['origin'] or item['document_sha256']!=historical['content_sha256']: raise RequirementError('reported provenance differs')
         if item['sha256']!=historical['content_digest'] or (not self_input and item['sha256']!=now['content_digest']): raise RequirementError('reported input changed')
         if self_input: self_input_read=True
@@ -116,4 +128,6 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
             if entry not in requirements: requirements.append(entry)
     if any(x.category=='secret' for x in scan_text(json.dumps(requirements,ensure_ascii=False))): raise RequirementError('secret detected in requirement metadata')
     policy.fresh()
-    return {'schema_version':'wiki.context-requirements/v1','output_path':output_path,'approved_revision':policy.policy_revision,'proposal_head':proposal_head,'task_id':packet['task_id'],'packet_digest':packet['packet_digest'],'information_requirements':requirements,'self_input_read':self_input_read,'read_claim':'reported_not_verified','write':'not_performed'}
+    output={'schema_version':'wiki.context-requirements/v1','output_path':output_path,'approved_revision':policy.policy_revision,'proposal_head':proposal_head,'task_id':packet['task_id'],'packet_digest':packet['packet_digest'],'information_requirements':requirements,'self_input_read':self_input_read,'read_claim':'reported_not_verified','write':'not_performed'}
+    if any(f.category=='secret' for f in scan_text(json.dumps(output,ensure_ascii=False))): raise RequirementError('secret detected in requirement metadata')
+    return output
