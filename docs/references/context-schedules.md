@@ -23,17 +23,28 @@ The current trusted approval ref supplies context policy through `load_policy`.
 The template must be a safe path owned by and readable to the selected context.
 The snapshot may contain only that context's tasks and records. Inputs are
 bounded to 64 KiB, arrays to 100, attempts/tasks to finite limits, with strict
-fields, timezone/date validation and secret scanning. No source content is read.
+fields, timezone/date validation and secret scanning. Only tracked regular-file metadata is inspected to check template existence at
+the authorized revision; no catalogue or source blob content is read. Owner is a
+nonempty reported identity (including mixed case), never authentication.
 The CLI rejects duplicate JSON keys and never prints invalid input or paths.
 
 Pause globally wins over local eligibility and approval errors. Latest-only
 catch-up skips older occurrences. Times come from the external scheduler; there
 is no cron/DST computation. UTC-normalized due time plus context/schedule IDs
-identify an occurrence; context plus stable external task ID identifies work.
+identify an occurrence; context plus stable external task ID yields a stable
+`task_identity`. The new explicit `wiki.schedule-effect/v1` identity hashes the
+version tag, context, task ID and fingerprint as canonical compact JSON;
+`work_id` and `effect_id` are that versioned effect identity. This supersedes the
+initial unintegrated draft where `work_id` identified the stable task. Consumers
+must use `task_identity` for task stability and retain versioned effect receipts.
 Completed occurrence dedupes; unchanged completed fingerprint also yields no-op.
 The external scheduler must retain stable task IDs and authoritative fingerprints.
-The minimal contract treats one stable task as one effect attempt budget; adapters
-with multiple effects must retain their separate journals outside this advice.
+A changed fingerprint after a completed task in an earlier occurrence creates a
+new effect budget. The same effect retains its retry budget. An unresolved older
+version cannot become eligible by changing fingerprint. Denied, uncertain and
+running records block even after fingerprint/occurrence changes. The minimal
+contract treats each task/fingerprint pair as one effect; adapters with multiple
+effects must retain separate journals outside this advice.
 Only a classified `safe_failure` with remaining per-effect attempts may retry;
 max tasks and max attempts per wake bound returned candidates, with each candidate
 consuming one prospective attempt. `uncertain`, `running` and `denied` records

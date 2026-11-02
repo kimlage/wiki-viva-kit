@@ -18,7 +18,7 @@
         },
         "policy_revision": {
           "type": "string",
-          "pattern": "^[0-9a-f]{40,64}$"
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
         },
         "enabled": {
           "type": "boolean",
@@ -58,7 +58,9 @@
         },
         "owner": {
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^(?=.*\\S)[^\\x00-\\x1f\\x7f]+$"
         },
         "limits": {
           "type": "object",
@@ -245,7 +247,9 @@
         },
         "owner": {
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^(?=.*\\S)[^\\x00-\\x1f\\x7f]+$"
         },
         "installed": {
           "type": "boolean"

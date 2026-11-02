@@ -19,6 +19,7 @@ def case(tmp_path):
     git('init','-q'); git('config','user.name','Synthetic'); git('config','user.email','synthetic@example.invalid')
     document = {'schema_version':'wiki.context/v1','id':'demo','parent':None,'root':'.','purpose':'synthetic','owner':'operator','instructions':[],'skills':[],'templates':[], 'policy':{'read':['self'],'write':[],'deny':{},'capabilities':[],'publication':[]},'imports':[],'exports':[]}
     (tmp_path/'context.yaml').write_text(yaml.safe_dump(document))
+    (tmp_path/'demo').mkdir(); (tmp_path/'demo/review.md').write_text('# Synthetic review template\n')
     git('add','.'); git('commit','-qm','synthetic'); git('update-ref','refs/remotes/origin/main','HEAD')
     policy=load_policy(tmp_path,'HEAD')
     request=json.loads((BASE/'examples/context-schedule/request.json').read_text())
@@ -142,3 +143,41 @@ def test_stale_declaration_and_input_limits(case):
     w['now']=w['due_at']
     w['tasks']*=101
     with pytest.raises(PolicyError): evaluate_wake(p,s,w)
+
+
+def test_completed_new_version_has_distinct_effect_budget(case):
+    p,s,w,_,_=case
+    first=evaluate_wake(p,s,w)['eligible'][0]
+    w['records']=[record(s,w)]
+    w['tasks'][0]['fingerprint']='e'*64
+    assert evaluate_wake(p,s,w)['decision']=='no-op'
+    w['now']=w['due_at']=w['latest_due_at']='2026-11-02T12:00:00Z'
+    second=evaluate_wake(p,s,w)['eligible'][0]
+    assert first['task_identity']==second['task_identity']
+    assert first['work_id']!=second['work_id']
+    assert first['effect_id']!=second['effect_id']
+    assert first['occurrence_id']!=second['occurrence_id']
+    assert second['effect_identity_version']=='wiki.schedule-effect/v1'
+    for status in ('denied','uncertain','running'):
+        w['records'][0]['status']=status
+        assert evaluate_wake(p,s,w)['decision']=='blocked'
+
+
+def test_owner_real_identity_missing_template_and_exact_sha(case):
+    p,s,w,git,path=case
+    document=yaml.safe_load((path/'context.yaml').read_text())
+    document['owner']='Kim'
+    (path/'context.yaml').write_text(yaml.safe_dump(document))
+    git('add','.'); git('commit','-qm','real owner'); git('update-ref','refs/remotes/origin/main','HEAD')
+    p=load_policy(path,'HEAD'); s['policy_revision']=p.policy_revision; s['owner']='Kim'
+    assert evaluate_wake(p,s,w)['decision']=='eligible'
+    s['task_template']='demo/missing.md'
+    assert evaluate_wake(p,s,w)['reason']=='template_missing_or_unsupported'
+    for size in (41,48,63):
+        s['policy_revision']='a'*size
+        with pytest.raises(PolicyError): evaluate_wake(p,s,w)
+    for size in (40,64):
+        s['policy_revision']='a'*size
+        assert validate_schedule(s)['owner']=='Kim'
+    s['owner']='  '
+    with pytest.raises(PolicyError): validate_schedule(s)

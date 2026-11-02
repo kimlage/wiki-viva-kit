@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 from .context_policy import PolicyError, safe_path
 from .context_packet import blocker, _reject_secrets
+from .repository_reader import RepositoryReader, RepositoryReadError
 
 MAX_BYTES = 65536
 SCHEMA = Path(__file__).resolve().parents[1] / 'docs/references/schemas/wiki-context-schedule-v1.schema.json'
@@ -78,7 +79,10 @@ def evaluate_wake(policy, schedule, wake, observation=None):
         if current.owner_of(ref) != cid or not current.permits(cid, 'read', ref):
             return blocked('template_denied', 'denied')
         if current.contexts[cid]['owner'] != schedule['owner']: return blocked('owner_changed')
-    except PolicyError:
+        # Only safe tracked regular-file metadata is inspected; no catalogue/blob read.
+        reader = RepositoryReader(current._binding[0], current.policy_revision)
+        if ref not in reader.paths: return blocked('template_missing_or_unsupported')
+    except (PolicyError, RepositoryReadError):
         return blocked('policy_unavailable')
     # Observations are reports, never independently verified installation evidence.
     out['observation'] = observation
@@ -108,10 +112,18 @@ def evaluate_wake(policy, schedule, wake, observation=None):
         if previous:
             if previous['occurrence_id'] == occurrence and previous['status'] == 'completed': continue
             if previous['fingerprint'] == task['fingerprint'] and previous['status'] == 'completed': continue
-            if previous['attempts'] >= limits['max_attempts_per_effect']: continue
-            if previous['attempts'] and previous['status'] != 'safe_failure': continue
+            same_effect = previous['fingerprint'] == task['fingerprint']
+            # A completed older version releases a new effect budget, never a
+            # retry budget for that earlier effect. Other unresolved versions wait.
+            if not same_effect and previous['status'] != 'completed': continue
+            if same_effect:
+                if previous['attempts'] >= limits['max_attempts_per_effect']: continue
+                if previous['attempts'] and previous['status'] != 'safe_failure': continue
+        effect = hashlib.sha256(json.dumps(['wiki.schedule-effect/v1', cid,
+            task['task_id'], task['fingerprint']], separators=(',', ':')).encode()).hexdigest()
         candidates.append({'task_id': task['task_id'], 'occurrence_id': occurrence,
-                           'work_id': hashlib.sha256((cid + '/' + task['task_id']).encode()).hexdigest()})
+            'task_identity': hashlib.sha256((cid + '/' + task['task_id']).encode()).hexdigest(),
+            'work_id': effect, 'effect_id': effect, 'effect_identity_version': 'wiki.schedule-effect/v1'})
     # Revalidate once more before returning references to eligible work.
     try:
         if policy.fresh().policy_revision != schedule['policy_revision']: return blocked('policy_changed')
