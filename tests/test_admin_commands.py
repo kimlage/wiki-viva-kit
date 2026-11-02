@@ -32,7 +32,10 @@ COMMAND_IDS = [spec.id for spec in ADMIN_COMMAND_SPECS]
 @pytest.fixture()
 def server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("WIKI_COCKPIT_CORS_ORIGINS", raising=False)
-    config = _repo(tmp_path)
+    _repo(tmp_path)
+    cfg = tmp_path / "wiki.config.yaml"
+    cfg.write_text(cfg.read_text() + "admin:\n  source_review_enabled: true\n")
+    config = load_config(tmp_path)
     srv = _Server(tmp_path, config)
     try:
         yield srv
@@ -120,14 +123,10 @@ def test_catalog_grants_follow_session_role(server: _Server) -> None:
         "/api/admin/commands", headers={ADMIN_SESSION_HEADER: token}
     )
     granted = {e["id"] for e in partial["commands"] if e["granted"]}
-    assert granted == {"system.inspect", "config.inspect", "agents.openclaw.inspect"}
+    assert granted == {"system.inspect", "config.inspect"}
     denied = {e["id"]: e["reason"] for e in partial["commands"] if not e["granted"]}
     assert denied == {
         "sources.review_pending": "role_not_authorized",
-        "agents.openclaw.dispatch": "role_not_authorized",
-        "agents.openclaw.tick": "role_not_authorized",
-        "agents.openclaw.resolve_failed": "role_not_authorized",
-        "agents.openclaw.receipt": "role_not_authorized",
         "config.validate": "role_not_authorized",
         "snapshot.rebuild": "role_not_authorized",
         "wiki.proposal.prepare": "role_not_authorized",

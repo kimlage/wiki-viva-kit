@@ -27,7 +27,8 @@ repository files are read through the existing page API. If the real wiki cannot
 be loaded, the board shows an error instead of substituting the demo.
 `/demo/board` is an explicit read-only synthetic demo.
 
-Writes use the existing action transition API, operator nonce, attempt key,
+Writes require a current effect-authorized administrative session and use the
+existing action transition API, operator nonce, attempt key,
 expected page hash, transition constraints, atomic persistence and receipt
 chain. A stale write is rejected. The board rereads after success; it never
 pretends an optimistic movement has been persisted. Saving edits the current

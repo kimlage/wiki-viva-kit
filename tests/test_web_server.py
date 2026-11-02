@@ -228,7 +228,6 @@ def test_core_http_reads_work_without_gateway_model_or_credentials(tmp_path, mon
     This does not stop or reuse any personal operator, source or scheduler.
     """
     import wiki_core.web.codex_probe as codex_probe
-    import wiki_core.web.openclaw as openclaw
 
     _repo(tmp_path)
     cfg = tmp_path / "wiki.config.yaml"
@@ -242,7 +241,6 @@ def test_core_http_reads_work_without_gateway_model_or_credentials(tmp_path, mon
         raise AssertionError('core read attempted an external adapter or credential')
 
     monkeypatch.setattr(codex_probe, '_probe_auth', forbidden)
-    monkeypatch.setattr(openclaw.Gateway, 'call', forbidden)
     monkeypatch.setattr(server_module, 'list_agent_connectors', forbidden)
     srv = _Server(tmp_path, load_config(tmp_path))
     try:
@@ -545,7 +543,21 @@ def test_codex_capability_endpoint(server: _Server) -> None:
     assert "usable" in body
 
 
-def test_brief_lifecycle_over_http(server: _Server) -> None:
+@pytest.fixture
+def authorized_server(server, monkeypatch):
+    from tests.test_admin_commands import _unlock_admin
+    from wiki_core.web.admin.sessions import ADMIN_SESSION_HEADER
+    token = _unlock_admin(server)
+    original = server.post
+    def post(path, payload, **kwargs):
+        kwargs['headers'] = {**kwargs.get('headers', {}), ADMIN_SESSION_HEADER: token}
+        return original(path, payload, **kwargs)
+    monkeypatch.setattr(server, 'post', post)
+    return server
+
+
+def test_brief_lifecycle_over_http(authorized_server: _Server) -> None:
+    server = authorized_server
     # Compose
     status, body = server.post(
         "/api/briefs",
@@ -593,7 +605,8 @@ def test_codex_jobs_list_empty_and_unknown_404(server: _Server) -> None:
     assert status == 404
 
 
-def test_codex_job_submit_gated_on_capability(server: _Server) -> None:
+def test_codex_job_submit_gated_on_capability(authorized_server: _Server) -> None:
+    server = authorized_server
     # This machine's codex is not usable (broken/absent), so the launch endpoint
     # must refuse honestly rather than create a doomed branch.
     status, body = server.post("/api/codex/jobs", {"brief_id": "b1", "brief_sha": "x", "dry_run": True})

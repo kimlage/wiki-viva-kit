@@ -461,13 +461,21 @@ def prepare_proposal(root: Path, config: WikiConfig, params: dict, *, expected_o
                                "last_git_result": last_git_result,
                                "canonical_main_changed": False}, "affected_paths": list(dict.fromkeys(applied + uncertain)),
                     "failed": True}
-        return {"output": {"prepared": True, "head": _git(root, "rev-parse", "HEAD"),
+        prepared_head = _git(root, "rev-parse", "HEAD")
+        prepared_branch = _git(root, "branch", "--show-current")
+        return {"output": {"prepared": True, "head": prepared_head,
                            "c2_captured_at": preview["material"]["generated_at"],
                            "prepared_at": dt.datetime.now(dt.timezone.utc).isoformat(),
                            "action_id": preview["material"]["action"]["page_id"],
                            "run_id": preview["material"]["action"]["run_id"],
                            "effect_key": preview["material"]["action"]["effect_key"],
                            "material_sha256": preview["material_sha256"],
+                           "proposal": {"status": "prepared", "head": prepared_head,
+                               "proposal_head": prepared_head,
+                               "approved_base": preview["material"]["base_head"],
+                               "branch": prepared_branch,
+                               "material_path": params["material_path"],
+                               "material_sha256": preview["material_sha256"]},
                            "output_sha256": preview["output_sha256"], "published": False},
                 "affected_paths": applied, "snapshot_invalidated": True}
 

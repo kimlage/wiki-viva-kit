@@ -150,12 +150,9 @@ file sizes or checkout timestamps. Dotfiles remain excluded; unreadable entries
 and symbolic links fail explicitly. New captures can receive a different ID;
 existing manifests and references are preserved.
 
-### Bounded OpenClaw wake-up
+## Optional local operator
 
-[wiki_openclaw_tick.py](wiki_openclaw_tick.py) invokes only the configured recurring
-rule through the native administrative bus. The authorized local coordinator
-runs `python3 scripts/wiki_openclaw_tick.py --rule <rule-id>` in the approved
-checkout. Each invocation uses an ephemeral loopback operator/session and drops
-startup authentication in memory on exit; no credential is saved for a scheduler.
-It does not expose arbitrary RPC, direct dispatch or a task queue. See the
-[mission and recurring contract](../docs/references/guides/openclaw-card-runtime.md#opt-in-native-restart-continuation-and-recurring-observation).
+The [local operator guide](../docs/references/guides/local-operator.md) describes
+read-only discovery, effect-specific sessions, finite proposals and opt-in
+execution. External agent adapters and source-review jobs default to disabled;
+reader/context/ingestion CLIs do not require a resident process or scheduler.

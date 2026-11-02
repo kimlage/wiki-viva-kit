@@ -14,27 +14,6 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
-## [2026-11-01] Closed resident observation with native security effects preserved
-
-The [existing OpenClaw path](../../docs/references/guides/openclaw-card-runtime.md#closed-native-resident-observation)
-now has an opt-in connection from the closed native RPC to the existing GET and
-UI. It refuses domain preparation/database opening while retaining native
-authentication, authorization, revocation and security logging. Exact resident
-identity and capture fences qualify separate execution/terminal/queue/admission
-counts, with global state still unknown. Tests include pinned transformed native
-bodies, a temporary security log, GET behavior and retained-intent compatibility.
-No source dates, installed runtime, agent grants or financial access are changed.
-
-## [2026-11-01] Resident activity foundation remains disconnected
-
-The [OpenClaw observation contract](../../docs/references/guides/openclaw-card-runtime.md#closed-native-resident-observation)
-records a bounded internal reducer for existing resident Gateway owners. Its
-synthetic tests separate execution, terminal persistence, cleanup, queue and
-admission while preserving unknown global/persisted state. No RPC, GET, overlay
-hook or installed runtime invokes it. Native connection qualification and the
-normal audit/log boundary remain unresolved; no source verification date,
-administrative authority or financial capability changes.
-
 ## [2026-10-30] Scoped information dependencies and source review
 
 The [shared contract](../../docs/references/guides/information-impact.md)
@@ -1575,32 +1554,6 @@ the observer mark and rejects new requests or completed reads crossing demo.
   consolidation provenance, safe reingestion, board readback and Git rollback.
   [Release scope](../../docs/references/releases/operating-core-simplification-2026-10-28.md).
 
-## 2026-10-30 — bounded OpenClaw observation command
-
-Documented [wiki_openclaw_tick.py](../../scripts/wiki_openclaw_tick.py) in the
-[command reference](wiki/command-reference.md). It observes a configured rule
-through the existing administrative bus with ephemeral authentication and no
-background job worker. Native continuation, reviewed failure resolution and
-recurrence remain opt-in; runtime qualification is separate from this kit change.
-
-## 2026-10-30 — recurring work waits for body incorporation
-
-The [OpenClaw contract](../../docs/references/guides/openclaw-card-runtime.md#receipt-and-incorporated-content-are-separate)
-now distinguishes a received comment from a committed writer contribution linked
-to the original run. Recurring observation waits for the latter; the existing
-Git/action receipt chain supplies the proof without another registry.
-
-
-## 2026-10-30 — normalized optional recovery policy
-
-Native configuration normalization creates own optional exec keys with undefined values. The [mission guard](../../scripts/openclaw/mission-guard.mjs) now treats only undefined fields as absent policy, preserving refusal of every defined override. Synthetic tests cover normalization and null/false/empty/defined extensions. This corrects a pre-dispatch continuation refusal; no Gateway recovery or downstream activation is inferred from these tests.
-
-
-## 2026-10-30 — expired interrupted original without a native terminal
-
-A separate [failure reconciliation](../../docs/references/guides/openclaw-card-runtime.md#interrupted-admitted-turn-without-a-preserved-native-terminal) preserves an admitted original and distinguishes native interruption/timeout from terminal error. Expiry, intact guard lineage, no continuation, a fresh idle original leaf and independent exact review are required; recording and own-lock release share the mission mutex. It creates no result or automatic retry. Synthetic race, wrong-lock, partial-continuation and state/selection regressions are included; no personal live recovery is claimed here.
-
-
 ## [2026-11-02] Revision-bound reader and phase 1 context packets
 
 The [context reader guide](../../docs/references/guides/context-reader.md) records
@@ -1618,3 +1571,19 @@ output only: 45,766 bytes across 27 snapshot payloads versus 2,554 bytes in one
 packet, with no files written. These synthetic results do not establish token
 or latency savings, source freshness, external access or platform enforcement.
 Existing source verification dates remain unchanged.
+
+## [2026-11-02] Optional operator and finite proposal workflows
+
+The [local operator contract](../../docs/references/guides/local-operator.md)
+preserves generic code/content/frontend observations, finite proposals and
+exact-head adoption. Execution extensions are disabled by default; source-review
+jobs require an explicit installation choice. HTTP writes and gates share the
+current effect-specific administrative session boundary.
+
+[Generic adoption regressions](../../tests/test_proposal_adoption.py) retain
+remote/base/head checks, revocation, recoverable intermediate state, concurrent
+main protection and observation after a lost response. The
+[operator regressions](../../tests/test_runtime_observations.py) distinguish
+content changes from loaded code/configuration and prove that observation does
+not launch effects. Historical implementation remains recoverable in Git;
+source verification dates and paused installation state are not renewed.

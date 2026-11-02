@@ -102,7 +102,7 @@ def _source_commit(root: Path) -> str | None:
 
 
 def _operator_code_digest(root: Path) -> str | None:
-    """Fingerprint operator code and its native facade, excluding wiki content.
+    """Fingerprint operator code, excluding wiki content.
 
     This records the startup files, not an attestation of Python bytecode or
     a source revision for a separately built frontend. It never reads auth or
@@ -114,10 +114,7 @@ def _operator_code_digest(root: Path) -> str | None:
         launcher = root / "scripts/wiki_web_server.py"
         if launcher.exists():
             files.append(launcher)
-        native = root / "scripts/openclaw"
-        files.extend(sorted(native.glob("*.mjs")))
-        files.extend(sorted(native.glob("*.json")))
-        if not files or core.is_symlink() or native.is_symlink():
+        if not files or core.is_symlink():
             return None
         digest = hashlib.sha256()
         for path in files:
@@ -287,9 +284,6 @@ class CockpitServer(ThreadingHTTPServer):
         self._code_root = _operator_code_root()
         self.boot_source_commit = _source_commit(self._code_root)
         self._boot_code_sha256 = _operator_code_digest(self._code_root)
-        self._runtime_observation_lock = threading.Lock()
-        self._transport_observation_cache: tuple[float, dict[str, Any]] | None = None
-        self._native_observation_cache: tuple[float, dict[str, Any] | None] | None = None
         # Command activation is a startup trust decision. Card text and live
         # policy edits cannot silently replace an enabled local observer.
         try:
@@ -311,8 +305,10 @@ class CockpitServer(ThreadingHTTPServer):
         self._attempt_lock = threading.Lock()
         self._attempt_receipts: OrderedDict[str, dict[str, Any]] = OrderedDict()
         # One serialized Codex job stream per operator process.
+        execution_enabled = config.codex_enabled or config.claude_enabled or config.admin.get("source_review_enabled", False)
         self.jobs = JobRunner(root, config, on_change=self.invalidate_snapshot_cache,
-                              autostart=start_jobs, reconcile_retained=start_jobs)
+                              autostart=start_jobs and execution_enabled,
+                              reconcile_retained=start_jobs and execution_enabled)
         # Local admin sessions (god-mode plan §13, PR3). Constructing the
         # manager prints the single-use unlock code to this process's stdout;
         # the in-memory store dies with the process, so a restart revokes
@@ -325,13 +321,7 @@ class CockpitServer(ThreadingHTTPServer):
         self.admin_plans = AdminPlanStore()
 
     def runtime_observations(self) -> dict[str, Any]:
-        """Retained evidence, TCP reachability and an optional restricted native read.
-
-        No domain preparation, history reconciliation or agent dispatch. Native
-        authentication/security events remain intact. Probes are cached in RAM;
-        newly retained results and wakes remain visible immediately.
-        """
-        from wiki_core.web.openclaw import runtime_observations, transport_observation, native_runtime_observation
+        """Observe operator code, content and served frontend without dispatch."""
         observed_at = datetime.now(timezone.utc).isoformat()
         current_digest = _operator_code_digest(self._code_root)
         try:
@@ -352,43 +342,11 @@ class CockpitServer(ThreadingHTTPServer):
                         frontend.update(status="observed", entry_sha256=hashlib.sha256(raw).hexdigest())
             except OSError:
                 pass
-        local = runtime_observations(self.root, self.config)
-        if config_changed:
-            transport = {"status": "unavailable", "scope": "loopback_tcp_only", "observed_at": None}
-            local["errors"].append("openclaw_operator_config_changed_restart")
-        else:
-            with self._runtime_observation_lock:
-                cached = self._transport_observation_cache
-                if cached is None or time.monotonic() - cached[0] >= 30:
-                    transport = transport_observation(self.config)
-                    self._transport_observation_cache = (time.monotonic(), transport)
-                else:
-                    transport = cached[1]
-                if restart is False:
-                    native_cached = self._native_observation_cache
-                    if native_cached is None or time.monotonic() - native_cached[0] >= 30:
-                        native = native_runtime_observation(self.config)
-                        self._native_observation_cache = (time.monotonic(), native)
-                    else:
-                        native = native_cached[1]
-                    try:
-                        still_current = load_config(self.root) == self.config and _operator_code_digest(self._code_root) == current_digest
-                    except Exception:  # noqa: BLE001 - authority changed or became unreadable while awaiting native RPC
-                        still_current = False
-                    if not still_current:
-                        native = None
-                        self._native_observation_cache = None
-                        restart = True
-                        local["errors"].append("openclaw_operator_config_changed_restart")
-                    if native:
-                        local["native_observations"] = [native if row["profile"] == native["profile"] else row
-                                                        for row in local["native_observations"]]
         return {"ok": True, "schema_version": WEB_RUNTIME_OBSERVATIONS_VERSION, "observed_at": observed_at,
             "operator": {"started_at": self.started_at, "boot_source_commit": self.boot_source_commit,
                 "current_source_commit": _source_commit(self._code_root), "content_source_commit": _source_commit(self.root),
                 "boot_code_sha256": self._boot_code_sha256, "current_code_sha256": current_digest,
-                "restart_required": restart, "server_version": WEB_SERVER_VERSION, "frontend": frontend},
-            "openclaw": {**local, "transport": transport}}
+                "restart_required": restart, "server_version": WEB_SERVER_VERSION, "frontend": frontend}}
 
     def claim_attempt(self, key: str, path: str, payload_sha256: str) -> tuple[str, dict[str, Any] | None]:
         """Claim a mutating request or return its prior deterministic receipt.
@@ -1341,20 +1299,6 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 snapshot = self.server.snapshot_payloads()
                 if path == "/api/coordination":
                     payload = coordination_index(self.server.root, snapshot)
-                    from wiki_core.web.openclaw import attempts
-                    runtime = self.server.config.openclaw
-                    for profile in payload["profiles"]:
-                        route = runtime.get("routes", {}).get(profile["id"]) if runtime.get("enabled") else None
-                        profile["runtime"] = {"configured": bool(route), "label": route["label"] if route else "OpenClaw", "mission_options": [{"id": key, **option} for key, option in runtime.get("mission_options", {}).items()]}
-                    for action in payload["actions"]:
-                        try:
-                            action["runtime_attempts"] = attempts(self.server.root, self.server.config,
-                                action.get("coordinator"), action["action_id"]) if action.get("coordinator") else []
-                        except (ValueError, KeyError, OSError, subprocess.SubprocessError):
-                            # Recovery evidence is not optional. Keep the card
-                            # readable while refusing new dispatch until repaired.
-                            action["runtime_attempts"] = []
-                            action["runtime_error"] = "openclaw_receipt_unavailable_reconcile"
                 else:
                     profile = path[len("/api/coordination/profiles/"):]
                     action_id = (parse_qs(parsed.query).get("action_id") or [None])[0]
@@ -1619,14 +1563,14 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             )
             return
         if parsed.path == "/api/briefs" or parsed.path.startswith("/api/briefs/"):
-            self._handle_briefs_post(parsed.path, payload)
+            self._authorized_effect(("git.propose",), partial(self._handle_briefs_post, parsed.path, payload))
             return
         if parsed.path == "/api/codex/jobs" or parsed.path.startswith("/api/codex/jobs/"):
-            self._handle_codex_post(parsed.path, payload)
+            self._authorized_effect(("agents.execute", "git.propose"), partial(self._handle_codex_post, parsed.path, payload))
             return
         if parsed.path == "/api/gates/run":
             gate_id = str(payload.get("gate_id") or "")
-            result = run_gate(self.server.root, self.server.config, gate_id)
+            result = self._authorized_effect(("gates.run",), partial(run_gate, self.server.root, self.server.config, gate_id))
             # A failing gate still RAN (200); only an unknown gate id is a 400.
             self._send_json(result, status=HTTPStatus.BAD_REQUEST if result.get("error") else HTTPStatus.OK)
             return
@@ -2099,9 +2043,6 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             if result.get("ok")
             else f"{stage} refused ({result.get('error_code') or 'failure'})"
         )
-        if stage == "execute" and command_id == "agents.openclaw.tick" and content:
-            from wiki_core.web.openclaw_recurring import wake_summary
-            summary = wake_summary(content, result) or summary
         undo = result.get("undo")
         append_admin_audit_event(
             self.server.root,

@@ -107,6 +107,11 @@ def test_lock_after_plan_and_new_session_same_material_real_prepare(prepared):
     status, executed = _execute(srv, fresh_token, new_plan, confirmation=new_plan["plan"]["confirmation"]["text"])
     assert status == 200 and executed["ok"], executed
     assert executed["output"]["prepared"] and not executed["output"]["published"]
+    proposal = executed["output"]["proposal"]
+    assert proposal == {"status": "prepared", "head": _git(root, "rev-parse", "HEAD"),
+        "proposal_head": _git(root, "rev-parse", "HEAD"), "approved_base": before["head"],
+        "branch": "wiki/synthetic-proposal", "material_path": params["material_path"],
+        "material_sha256": params["material_sha256"]}
     assert executed["output"]["effect_key"] == "synthetic-material-1"
     assert _git(root, "rev-parse", "HEAD") != before["head"]
     assert _git(root, "rev-parse", "main") == before["head"]
