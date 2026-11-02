@@ -1587,3 +1587,11 @@ main protection and observation after a lost response. The
 content changes from loaded code/configuration and prove that observation does
 not launch effects. Historical implementation remains recoverable in Git;
 source verification dates and paused installation state are not renewed.
+
+## [2026-11-02] Context hubs resolved by authored identity
+
+The [auditor](../../scripts/wiki_audit.py) discovers declared context hubs by
+`page_id`, `page_type` and `context` beneath the configured memory root, including
+nested folders. Missing and duplicate hubs remain explicit failures; folder
+names do not determine ownership or access. [Synthetic cases](../../tests/test_wiki_audit.py)
+cover nested domains, missing hubs and ambiguity without changing source dates.

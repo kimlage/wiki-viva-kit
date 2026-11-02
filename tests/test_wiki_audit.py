@@ -2326,3 +2326,45 @@ def test_editorial_receipt_audits_real_git_blob_without_trimming(tmp_path, monke
     p.write_text(p.read_text() + '\nUnreviewed statement.\n')
     audit.audit_action_state_transitions(errors)
     assert any('invalid_body_consolidation' in e for e in errors)
+
+
+def test_primary_pages_resolves_nested_context_hubs_by_identity(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    config = WikiConfig(contexts=('finance', 'tax', 'costs'),
+        paths={**WikiConfig().paths, 'memory_root': 'knowledge'}, audit={'core_pages': []})
+    for context, path in [('finance', 'knowledge/finance/index.md'),
+                          ('tax', 'knowledge/finance/tax/index.md'),
+                          ('costs', 'knowledge/finance/costs/hub.md')]:
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f'---\npage_id: hub-{context}\npage_type: context_hub\ncontext: {context}\n---\n# Synthetic hub\n')
+    assert audit.primary_pages(config) == ['knowledge/finance/index.md',
+        'knowledge/finance/tax/index.md', 'knowledge/finance/costs/hub.md']
+    assert audit.context_hub_pages(config)[1] == []
+
+
+def test_nested_context_hubs_missing_and_duplicate_fail_explicitly(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    config = WikiConfig(contexts=('tax',), audit={'core_pages': []})
+    errors, warnings = [], []
+    audit.audit_frontmatter(errors, warnings, config)
+    assert 'memories/tax/index.md: missing primary page' in errors
+    for name in ('first', 'second'):
+        path = tmp_path / f'memories/finance/{name}/index.md'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f'---\npage_id: {name}-hub\npage_type: context_hub\ncontext: tax\n---\n# Synthetic hub\n')
+    errors, warnings = [], []
+    audit.audit_frontmatter(errors, warnings, config)
+    assert any('context tax: multiple context hubs:' in error for error in errors)
+
+
+def test_context_hub_discovery_refuses_symlink_root_without_reading_it(tmp_path, audit, monkeypatch):
+    root = tmp_path / 'wiki'
+    root.mkdir()
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    (root / 'memories').symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(audit, 'ROOT', root)
+    monkeypatch.setattr(audit, 'parse_frontmatter', lambda path: pytest.fail('escaped context root was read'))
+    pages, errors = audit.context_hub_pages(WikiConfig(contexts=('tax',)))
+    assert pages == [] and errors == ['unsafe context memory root']

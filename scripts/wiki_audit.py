@@ -88,12 +88,47 @@ def wiki_paths(config: WikiConfig) -> WikiPaths:
     return WikiPaths(ROOT, config)
 
 
+def context_hub_pages(config: WikiConfig) -> tuple[list[str], list[str]]:
+    """Resolve declared context hubs by authored identity at any folder depth.
+
+    This is document discovery, never authority or ownership inference. Missing
+    hubs retain the conventional path so the existing primary-page gate reports
+    an explicit failure. Ambiguous identities are errors, not path preferences.
+    """
+    prefix = memory_prefix(config)
+    by_context: dict[str, list[str]] = {context: [] for context in config.contexts}
+    base = ROOT / prefix
+    errors: list[str] = []
+    if base.is_symlink() or not base.resolve().is_relative_to(ROOT.resolve()):
+        return [], ["unsafe context memory root"]
+    for path in sorted(base.rglob("*.md")) if base.is_dir() else []:
+        if path.is_symlink() or any(parent.is_symlink() for parent in path.parents if parent != ROOT and ROOT in parent.parents):
+            continue
+        values, _ = parse_frontmatter(path)
+        context = values.get("context")
+        if (isinstance(context, str) and context in by_context
+                and values.get("page_type") == "context_hub" and values.get("page_id")):
+            by_context[context].append(path.relative_to(ROOT).as_posix())
+    pages = []
+    for context, matches in by_context.items():
+        if len(matches) > 1:
+            errors.append(f"context {context}: multiple context hubs: {', '.join(matches)}")
+        if matches:
+            pages.extend(matches)
+        else:
+            fallback = ROOT / f"{prefix}{context}/index.md"
+            if any(part.is_symlink() for part in (fallback, *fallback.parents) if part != ROOT and ROOT in part.parents):
+                errors.append(f"context {context}: unsafe context hub path")
+            else:
+                pages.append(fallback.relative_to(ROOT).as_posix())
+    return pages, errors
+
+
 def primary_pages(config: WikiConfig) -> list[str]:
-    """Required pages: method core (audit.core_pages in the config) + one hub
-    per declared context, both rooted at the configured memory_root."""
-    root = memory_prefix(config)
+    """Required method core plus identity-resolved declared context hubs."""
     core = [str(page) for page in (config.audit.get("core_pages") or ())]
-    return core + [f"{root}{ctx}/index.md" for ctx in config.contexts]
+    hubs, _ = context_hub_pages(config)
+    return core + hubs
 
 
 # Page-type vocabulary per ontology directory, keyed by the DIRNAME directly
@@ -928,7 +963,9 @@ def page_catalog(errors: list[str], config: WikiConfig) -> dict[str, tuple[str, 
 def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
     today = dt.date.today()
     registry_declared = (ROOT / "wiki.page-types.yaml").is_file()
-    pages = set(primary_pages(config))
+    hubs, hub_errors = context_hub_pages(config)
+    errors.extend(hub_errors)
+    pages = set(str(page) for page in (config.audit.get("core_pages") or ())) | set(hubs)
     pages.update(rel for rel in markdown_files() if ontology_dir_for(rel, config))
     for rel in sorted(pages):
         path = ROOT / rel
