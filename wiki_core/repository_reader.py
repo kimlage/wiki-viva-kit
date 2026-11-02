@@ -62,6 +62,11 @@ class RepositoryReader:
                 self._entries[path] = blob
         self._documents: dict[str, dict] = {}
 
+    @property
+    def paths(self) -> tuple[str, ...]:
+        """Safe tracked regular-file paths, without reading content."""
+        return tuple(sorted(self._entries))
+
     def _git(self, *args: str) -> bytes:
         result = subprocess.run(['git', '-C', str(self.root), *args], capture_output=True)
         if result.returncode:
@@ -141,13 +146,13 @@ class RepositoryReader:
         if section is not None:
             selected = select_section(document['text'], section)
             result.update(section=selected.id, section_version=selected.version,
-                text=selected.text, body=selected.text, content=selected.text.encode(),
+                text=selected.text, body=selected.text, content=selected.text.encode(), frontmatter={},
                 content_digest=selected.content_digest)
         if field is not None:
             if field not in document['frontmatter']:
                 raise RepositoryReadError(f'missing frontmatter field: {field}')
             value = document['frontmatter'][field]
             text = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
-            result.update(field=field, value=value, text=text, body=text, content=text.encode(),
+            result.update(field=field, value=value, text=text, body=text, content=text.encode(), frontmatter={field: value},
                 content_digest=hashlib.sha256(text.encode()).hexdigest())
         return result

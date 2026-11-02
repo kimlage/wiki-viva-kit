@@ -104,3 +104,9 @@ def test_duplicate_page_ids_fail_explicit_lookup(repository):
     commit(repository)
     with pytest.raises(RepositoryReadError, match='ambiguous'):
         RepositoryReader(repository).read('policy')
+
+
+def test_narrow_selection_does_not_deliver_other_frontmatter(repository):
+    reader = RepositoryReader(repository)
+    assert reader.read('policy', section='criteria')['frontmatter'] == {}
+    assert reader.read('policy', field='context')['frontmatter'] == {'context': 'system'}

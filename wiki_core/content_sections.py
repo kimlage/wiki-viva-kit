@@ -52,8 +52,16 @@ def parse_sections(document_text: str) -> dict[str, ContentSection]:
             match = _MARKER.fullmatch(token.content.strip())
             if match:
                 markers.append((i, token, match))
+    # CommonMark HTML blocks can terminate at a blank line while their raw
+    # wrapper remains open. Do not detach selected prose from that qualifier.
+    if markers and any(token.type == 'html_block' and
+                       re.match(r'</?[A-Za-z][^>]*>', token.content.lstrip())
+                       for token in tokens):
+        raise SectionError('raw HTML wrappers are unsupported for section selection')
     bound = {}
     for i, marker, match in markers:
+        if marker.level != 0:
+            raise SectionError("section markers require top-level headings")
         heading = tokens[i + 1] if i + 1 < len(tokens) else None
         if (heading is None or heading.type != 'heading_open' or not heading.map
                 or heading.level != marker.level

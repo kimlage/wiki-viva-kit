@@ -61,3 +61,18 @@ def test_title_rename_preserves_identity_and_body_change_invalidates_digest():
 
 def test_setext_heading_is_supported():
     assert select_section('<!-- wiki:section id=stable version=2 -->\nTitle\n=====\nText\n', 'stable').version == 2
+
+
+@pytest.mark.parametrize('document', [
+    '> <!-- wiki:section id=nested version=1 -->\n> ## Nested\n> Qualified rule.\n\n## Outer\nUnrelated body.\n',
+    '- <!-- wiki:section id=nested version=1 -->\n  ## Nested\n  Qualified rule.\n\n## Outer\nUnrelated body.\n',
+])
+def test_nested_container_markers_fail_instead_of_leaking_outer_content(document):
+    with pytest.raises(SectionError, match='top-level'):
+        parse_sections(document)
+
+
+def test_raw_html_wrapper_with_blank_lines_fails_instead_of_shedding_qualifier():
+    document = '<div data-condition="restricted">\n\n<!-- wiki:section id=inside version=1 -->\n## Inside\nQualified content.\n\n</div>\n\n## Outside\nOther content.\n'
+    with pytest.raises(SectionError, match='HTML wrappers'):
+        select_section(document, 'inside')
