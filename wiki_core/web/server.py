@@ -29,6 +29,7 @@ from wiki_core.action_transition import (
 )
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.coordination import CoordinationError, coordination_index, context_packet
+from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordinationError, capability as protected_capability, prepare_packet as protected_packet, prepare_preflight as protected_preflight, blocker_response)
 from wiki_core.paths import WikiPaths
 from wiki_core.web.admin import (
     ADMIN_SESSION_HEADER,
@@ -270,11 +271,12 @@ class _AdminEffectRefused(Exception):
 class CockpitServer(ThreadingHTTPServer):
     def __init__(self, server_address: tuple[str, int], root: Path, config: WikiConfig,
                  *, admin_announce: Callable[[str], None] | None = None,
-                 start_jobs: bool = True) -> None:
+                 start_jobs: bool = True, coordination_binding: CoordinationBinding | None = None) -> None:
         # CORS is a startup trust decision. Invalid or remote origins must fail
         # before the operator opens a listening socket, and environment changes
         # only take effect after an intentional restart.
         self.cors_origins = _allowed_cors_origins()
+        self.coordination_binding = coordination_binding if coordination_binding is not None else CoordinationBinding.from_environment()
         super().__init__(server_address, CockpitRequestHandler)
         self.frontend_dir: Path | None = None
         self.frame_origins: tuple[str, ...] = ()
@@ -1126,6 +1128,12 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         path = unquote(parsed.path)
         if self._serve_frontend(path):
             return
+        if path == "/api/coordination/protected-capability":
+            token = (self.headers.get(ADMIN_SESSION_HEADER) or "").strip()
+            session = self.server.admin_sessions.session_for_capabilities(token)
+            binding = self.server.coordination_binding if session else None
+            self._send_json(protected_capability(self.server.root, binding))
+            return
         if path == "/api/runtime/observations":
             self._send_json(self.server.runtime_observations())
             return
@@ -1477,6 +1485,11 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError, UnicodeDecodeError):
             self._send_error("invalid JSON", status=HTTPStatus.BAD_REQUEST)
             return
+        # These bounded reads bypass the attempt receipt store: a replay must
+        # never expose an earlier packet after the session or policy expires.
+        if parsed.path in {"/api/coordination/protected/packet", "/api/coordination/protected/preflight"}:
+            self._handle_protected_coordination(parsed.path, payload)
+            return
         payload_sha256 = hashlib.sha256(
             json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
         ).hexdigest()
@@ -1541,6 +1554,22 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             self._authorized_effect(capabilities, call)
         else:
             call()
+
+    def _handle_protected_coordination(self, path: str, payload: Any) -> None:
+        def prepare():
+            function = protected_packet if path.endswith("/packet") else protected_preflight
+            return function(self.server.root, self.server.coordination_binding, payload)
+        try:
+            response = self._authorized_effect(("system.inspect",), prepare)
+        except _AdminEffectRefused:
+            error = ProtectedCoordinationError("coordination_session_required")
+            self._send_json(blocker_response(error), status=HTTPStatus.FORBIDDEN)
+            return
+        except ProtectedCoordinationError as error:
+            status = HTTPStatus.FORBIDDEN if error.status == "denied" else HTTPStatus.CONFLICT
+            self._send_json(blocker_response(error), status=status)
+            return
+        self._send_json(response)
 
     def _dispatch_content_post(self, parsed, payload: dict[str, Any]) -> None:
         self.server.begin_mutation()
