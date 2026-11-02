@@ -55,15 +55,14 @@ See the [synthetic hierarchy](../../../examples/context-hierarchy/README.md) for
 the directory manifests and inheritance rules. The [manifest schema](../schemas/wiki-context-v1.schema.json),
 [packet schema](../schemas/wiki-task-context-v1.schema.json) and
 [result schema](../schemas/wiki-task-result-v1.schema.json) define the v1 contracts.
-The example is a fixture; adopting it requires the normal review process.
+The example manifests are inert `context.example.yaml` templates. To run the example, copy them into a separate synthetic Git repository at their documented paths, rename them to `context.yaml`, and commit them there. Never activate them as a second root within a production root; adopting any production policy requires normal review.
 
-After approval, replace the revision and request placeholders below with the
-trusted policy commit, selected content commit and local task request:
+In that isolated synthetic repository, after setting its test-only trusted reference, replace the kit path, revision and request placeholders below with your values:
 
 ```sh
-python3 scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
+python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
   --manifest examples/context-hierarchy/context.yaml resolve finance/tax
-python3 scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
+python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
   --manifest examples/context-hierarchy/context.yaml pack finance/tax \
   --content-revision CONTENT_SHA --request REQUEST.json
 ```

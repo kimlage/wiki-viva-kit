@@ -1,16 +1,18 @@
 import copy
 import json
+import shutil
+import subprocess
 from pathlib import Path
 import pytest
 import yaml
 from jsonschema import validate, ValidationError
-from wiki_core.context_policy import ContextPolicy, PolicyError, capability_status, safe_path
+from wiki_core.context_policy import ContextPolicy, PolicyError, capability_status, safe_path, load_policy
 
 BASE = Path(__file__).resolve().parents[1]
 
 def doc():
     contexts=[]
-    for p in (BASE/'examples/context-hierarchy').rglob('context.yaml'):
+    for p in (BASE/'examples/context-hierarchy').rglob('context.example.yaml'):
         c=yaml.safe_load(p.read_text()); c.pop('schema_version'); contexts.append(c)
     contexts.sort(key=lambda c: (c['root'].count('/'),c['root']))
     return {'schema_version':'wiki.context/v1','contexts':contexts}
@@ -67,7 +69,29 @@ def test_connections_exact_double_approval_expiry_and_fake_producer():
 
 def test_manifest_schema_and_no_false_capability_proof():
     schema=json.loads((BASE/'docs/references/schemas/wiki-context-v1.schema.json').read_text())
-    for p in (BASE/'examples/context-hierarchy').rglob('context.yaml'): validate(yaml.safe_load(p.read_text()),schema)
-    bad=yaml.safe_load((BASE/'examples/context-hierarchy/context.yaml').read_text()); bad['policy']['magic']=[]
+    for p in (BASE/'examples/context-hierarchy').rglob('context.example.yaml'): validate(yaml.safe_load(p.read_text()),schema)
+    bad=yaml.safe_load((BASE/'examples/context-hierarchy/context.example.yaml').read_text()); bad['policy']['magic']=[]
     with pytest.raises(ValidationError): validate(bad,schema)
     p=ContextPolicy(doc(),'sha'); assert capability_status(p,'root','edit',None)=='denied'
+
+
+def test_root_hierarchy_ignores_inert_models_but_rejects_second_active_root(tmp_path):
+    def git(*args): return subprocess.check_output(['git','-C',str(tmp_path),*args],stderr=subprocess.PIPE).decode().strip()
+    git('init','-q'); git('config','user.name','Synthetic'); git('config','user.email','synthetic@example.invalid')
+    shutil.copytree(BASE/'examples/context-hierarchy',tmp_path/'examples/context-hierarchy')
+    root={'schema_version':'wiki.context/v1','id':'root','parent':None,'root':'.','purpose':'synthetic','owner':'operator','instructions':[],'skills':[],'templates':[],'policy':{'read':['self'],'write':['self'],'capabilities':[],'deny':{},'publication':[]},'imports':[],'exports':[]}
+    (tmp_path/'context.yaml').write_text(yaml.safe_dump(root)); git('add','.'); git('commit','-qm','root with inert examples'); git('update-ref','refs/remotes/origin/main','HEAD')
+    assert list(load_policy(tmp_path,'HEAD').contexts)==['root']
+    example=tmp_path/'examples/context-hierarchy/context.example.yaml'
+    second=yaml.safe_load(example.read_text()); second['id']='other-root'; (example.parent/'context.yaml').write_text(yaml.safe_dump(second)); git('add','.'); git('commit','-qm','second active root'); git('update-ref','refs/remotes/origin/main','HEAD')
+    with pytest.raises(PolicyError,match='exactly one root'): load_policy(tmp_path,'HEAD')
+
+
+def test_models_materialize_in_isolated_synthetic_checkout(tmp_path):
+    def git(*args): return subprocess.check_output(['git','-C',str(tmp_path),*args],stderr=subprocess.PIPE).decode().strip()
+    git('init','-q'); git('config','user.name','Synthetic'); git('config','user.email','synthetic@example.invalid')
+    target=tmp_path/'examples/context-hierarchy'; shutil.copytree(BASE/'examples/context-hierarchy',target)
+    for p in target.rglob('context.example.yaml'): p.rename(p.with_name('context.yaml'))
+    git('add','.'); git('commit','-qm','materialize synthetic hierarchy'); git('update-ref','refs/remotes/origin/main','HEAD')
+    resolved=load_policy(tmp_path,'HEAD','examples/context-hierarchy/context.yaml')
+    assert set(resolved.contexts)=={'root','finance','finance/tax','finance/costs','finance/companies','finance/companies/example','company'}
