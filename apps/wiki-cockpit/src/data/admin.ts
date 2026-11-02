@@ -484,6 +484,7 @@ export type AdminExecuteResult =
       ok: false;
       errorCode: AdminCommandErrorCode;
       failedPreconditions?: string[];
+      output?: unknown;
     };
 
 function commandErrorCodeOf(payload: unknown): AdminCommandErrorCode {
@@ -713,10 +714,14 @@ export async function executeAdminPlan(
     const payload = (await response.json()) as Record<string, unknown>;
     const outcome = parseAdminExecuteOutcome(payload);
     if (response.ok && outcome) return { ok: true, outcome };
+    const output = payload.output;
+    const observed = output && typeof output === "object" ? output as Record<string, unknown> : null;
+    const uncertain = observed?.outcome_uncertain === true || (Array.isArray(observed?.uncertain_paths) && observed.uncertain_paths.length > 0);
     return {
       ok: false,
-      errorCode: commandErrorCodeOf(payload),
-      failedPreconditions: stringList(payload.failed_preconditions)
+      errorCode: uncertain ? "admin_effect_outcome_uncertain" : commandErrorCodeOf(payload),
+      failedPreconditions: stringList(payload.failed_preconditions),
+      ...(output !== undefined ? { output } : {})
     };
   } catch {
     return { ok: false, errorCode: "operator_unreachable" };

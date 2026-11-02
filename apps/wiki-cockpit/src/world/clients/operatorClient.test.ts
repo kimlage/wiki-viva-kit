@@ -5,7 +5,7 @@ vi.mock("../../data/runtimeConfig", () => ({
 }));
 
 import { apiUrl } from "../../data/runtimeConfig";
-import { clearAdminSession, setAdminSession } from "../../application/adminSession";
+import { beginAdminSessionRevocation, clearAdminSession, setAdminSession } from "../../application/adminSession";
 import { fetchOperatorHealth, operatorPost, operatorRequest, resetOperatorSecurityForTests } from "./operatorClient";
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -53,17 +53,31 @@ afterEach(() => {
 });
 
 describe("operatorPost", () => {
-  it("adds the current in-memory session only to synchronous proposal mutations", async () => {
+  it.each([
+    "/actions/create", "/actions/transition", "/actions/run", "/git/workflow",
+    "/briefs", "/briefs/synthetic", "/briefs/synthetic/discard", "/codex/jobs",
+    "/codex/jobs/synthetic/return", "/codex/jobs/synthetic/cancel", "/gates/run",
+    "/snapshot/write", "/intake/copy", "/source-groups/apply", "/ingestion/run",
+    "/sources/synthetic/operations/apply", "/sources/synthetic/operations/refresh-run",
+    "/sources/synthetic/operations/refresh-preview"
+  ])("sends the current memory-only session to guarded route %s and stops after revocation", async path => {
     setAdminSession("synthetic-ephemeral-token", { sessionId: "s", role: "maintainer", state: "active_partial", expiresAtMs: Date.now() + 1000, ttlS: 60, idleLockS: 60 });
     const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(health("nonce")))
-      .mockResolvedValue(jsonResponse({ ok: true }));
+      .mockImplementation(async () => jsonResponse({ ok: true }));
     vi.stubGlobal("location", { pathname: "/w/radar" });
     vi.stubGlobal("fetch", fetchMock);
-    await operatorPost("/actions/transition", {});
+    await operatorPost(path, {});
     expect(new Headers(fetchMock.mock.calls[1][1].headers).get("X-Wiki-Admin-Session")).toBe("synthetic-ephemeral-token");
-    await operatorPost("/briefs", {});
+    beginAdminSessionRevocation();
+    await operatorPost(path, {});
     expect(new Headers(fetchMock.mock.calls[2][1].headers).has("X-Wiki-Admin-Session")).toBe(false);
-    clearAdminSession();
+  });
+  it.each(["/admin/session/challenge", "/admin/session/unlock", "/sources/synthetic/operations/preview", "/source-groups/preview", "/ingestion/plan", "/sources/triage", "/sources/synthetic/brief"])("does not attach an ordinary session to unguarded preview/bootstrap route %s", async path => {
+    setAdminSession("synthetic-ephemeral-token", { sessionId: "s", role: "maintainer", state: "active_partial", expiresAtMs: Date.now() + 1000, ttlS: 60, idleLockS: 60 });
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(health("nonce"))).mockImplementation(async () => jsonResponse({ ok: true }));
+    vi.stubGlobal("location", { pathname: "/w/radar" }); vi.stubGlobal("fetch", fetchMock);
+    await operatorPost(path, {});
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).has("X-Wiki-Admin-Session")).toBe(false);
   });
   it("blocks every demo read before config resolution or transport", async () => {
     const fetchMock = vi.fn();

@@ -55,6 +55,7 @@ export function AdminPlanReview({
   const [error, setError] = useState<{
     code: AdminCommandErrorCode;
     failedPreconditions: string[];
+    output?: unknown;
   } | null>(null);
   const [typed, setTyped] = useState("");
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -68,9 +69,10 @@ export function AdminPlanReview({
   const typedSatisfied =
     confirmation.kind !== "typed" || typed === (confirmation.text || "");
 
+  const uncertainError = error?.code === "operator_unreachable" || error?.code === "admin_effect_outcome_uncertain";
   const execute = async () => {
     if (executionBlocked) return;
-    if (executing || outcome || error?.code === "operator_unreachable") return;
+    if (executing || outcome || uncertainError) return;
     setExecuting(true);
     setError(null);
     const supplied =
@@ -91,7 +93,8 @@ export function AdminPlanReview({
     }
     setError({
       code: result.errorCode,
-      failedPreconditions: result.failedPreconditions ?? []
+      failedPreconditions: result.failedPreconditions ?? [],
+      output: result.output
     });
   };
 
@@ -210,7 +213,7 @@ export function AdminPlanReview({
 
             {error && (
               <p className="adminUnlockError" role="alert">
-                {t(error.code === "operator_unreachable" ? "admin.plan.result.uncertain" : `admin.plan.error.${error.code}`)}
+                {t(uncertainError ? "admin.plan.result.uncertain" : `admin.plan.error.${error.code}`)}
                 {error.failedPreconditions.length > 0 && (
                   <>
                     {" "}
@@ -220,6 +223,8 @@ export function AdminPlanReview({
                 {REPLAN_ERRORS.has(error.code) && ` ${t("admin.plan.replanHint")}`}
               </p>
             )}
+
+            {error?.output !== undefined && <pre className="adminPlanOutput">{JSON.stringify(error.output, null, 2)}</pre>}
 
             {confirmation.kind === "typed" && confirmation.text && (
               <div className="adminPlanConfirm">
@@ -242,7 +247,7 @@ export function AdminPlanReview({
               <button
                 className="primaryButton"
                 type="button"
-                disabled={executing || executionBlocked || !typedSatisfied || error?.code === "operator_unreachable"}
+                disabled={executing || executionBlocked || !typedSatisfied || uncertainError}
                 onClick={() => void execute()}
               >
                 <Play size={14} aria-hidden />

@@ -167,3 +167,13 @@ it("keeps a lost execution response uncertain and prevents repeating the same pl
   expect(executeAdminPlan).toHaveBeenCalledTimes(1);
   expect(notice).not.toHaveBeenCalledWith(t("admin.plan.executed"));
 });
+
+it("renders the backend's uncertain error readback and blocks repeating the reviewed effect", async () => {
+  executeAdminPlan.mockResolvedValueOnce({ ok: false, errorCode: "admin_effect_outcome_uncertain", output: { status: "awaiting_reconciliation", target: "synthetic-proposal" } });
+  render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={plan()} onClose={() => undefined} />);
+  fireEvent.click(screen.getByRole("button", { name: /RUN snapshot\.rebuild/ }));
+  expect((await screen.findByRole("alert")).textContent).toContain(t("admin.plan.result.uncertain"));
+  expect(screen.getByText(/synthetic-proposal/)).toBeTruthy();
+  expect((screen.getByRole("button", { name: /RUN snapshot\.rebuild/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByText(t("admin.plan.result.success"))).toBeNull();
+});

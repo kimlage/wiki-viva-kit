@@ -631,3 +631,11 @@ describe("command bus client (§11, §12.2)", () => {
 it("does not infer success from a response without an explicit effect status", () => {
   expect(parseAdminExecuteOutcome({ ok: true, plan_id: "plan", command_id: "wiki.proposal.prepare" })?.status).toBe("unknown");
 });
+
+it("preserves a redacted non-2xx uncertain outcome rather than losing it as a generic command failure", async () => {
+  await unlockForBus("tok-bus");
+  const plan = parseAdminPlan(planPayload())!;
+  const output = { outcome_uncertain: true, status: "awaiting_reconciliation", target: "synthetic-proposal" };
+  operatorPost.mockResolvedValueOnce(jsonResponse(409, { ok: false, error_code: "admin_command_failed", output }));
+  expect(await executeAdminPlan(plan, null)).toEqual({ ok: false, errorCode: "admin_effect_outcome_uncertain", failedPreconditions: [], output });
+});
