@@ -74,3 +74,75 @@ it("rejects a mismatched planning response before exposing execution", async () 
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(admin.executeAdminPlan).not.toHaveBeenCalled();
 });
+
+it("requires material and a valid digest, and keeps reviewed inputs fixed while the plan is open", async () => {
+  const { admin } = setup();
+  fireEvent.click(screen.getByRole("button", { name: "Review proposal preparation" }));
+  expect(admin.planAdminCommand).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Proposal material path"), { target: { value: proposal.material_path } });
+  fireEvent.change(screen.getByLabelText("Material SHA-256"), { target: { value: "changed-digest" } });
+  fireEvent.click(screen.getByRole("button", { name: "Review proposal preparation" }));
+  expect(admin.planAdminCommand).not.toHaveBeenCalled();
+  material(); fireEvent.click(screen.getByRole("button", { name: "Review proposal preparation" }));
+  await screen.findByRole("dialog");
+  expect((screen.getByLabelText("Proposal material path") as HTMLInputElement).disabled).toBe(true);
+  expect((screen.getByLabelText("Material SHA-256") as HTMLInputElement).disabled).toBe(true);
+  expect(admin.planAdminCommand).toHaveBeenCalledWith("wiki.proposal.prepare", { material_path: proposal.material_path, material_sha256: proposal.material_sha256 });
+});
+
+it("does not infer an authenticated session from the availability of local forms", async () => {
+  const { admin } = setup();
+  vi.mocked(admin.planAdminCommand).mockResolvedValue({ ok: false, errorCode: "admin_session_invalid" });
+  material(); fireEvent.click(screen.getByRole("button", { name: "Review proposal preparation" }));
+  expect(await screen.findByText(/admin_session_invalid/)).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(admin.executeAdminPlan).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["failed", {}], ["uncertain", {}], ["success", { outcome_uncertain: true }]
+])("does not advance the proposal or claim completion after %s (%j)", async (status, extra) => {
+  const { admin, plan } = setup();
+  vi.mocked(admin.executeAdminPlan).mockResolvedValue({ ok: true, outcome: { planId: plan.planId, commandId: plan.commandId, status, dryRun: false, output: { prepared: true, proposal, ...extra }, affectedPaths: [], branch: proposal.branch, snapshotInvalidated: false, undo: { available: false, kind: null } } });
+  material(); fireEvent.click(screen.getByRole("button", { name: "Review proposal preparation" }));
+  fireEvent.click(await screen.findByRole("button", { name: t("admin.plan.execute") }));
+  await waitFor(() => expect(admin.executeAdminPlan).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText(/Proposal committed locally/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Review publication of this commit" })).toBeNull();
+  expect(screen.queryByText(t("admin.plan.executed"))).toBeNull();
+  expect(screen.queryByText(t("admin.plan.result.success"))).toBeNull();
+  expect(screen.getAllByText(t(status === "failed" ? "admin.plan.result.failed" : "admin.plan.result.uncertain")).length).toBeGreaterThan(0);
+});
+
+it("starts fresh after reload without inferring proposal state from a prior command readback", async () => {
+  const { admin, refresh } = setup(); material();
+  fireEvent.click(screen.getByRole("button", { name: "Review proposal preparation" }));
+  fireEvent.click(await screen.findByRole("button", { name: t("admin.plan.execute") }));
+  await screen.findAllByText(/Proposal committed locally/);
+  cleanup();
+  render(<ActionProposal admin={admin} actionId="synthetic-action" disabled={false} language="en" refresh={refresh} />);
+  expect((screen.getByLabelText("Proposal material path") as HTMLInputElement).value).toBe("");
+  expect(screen.queryByText(/Proposal committed locally/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Review publication of this commit" })).toBeNull();
+  expect(admin.planAdminCommand).toHaveBeenCalledTimes(1);
+  expect(admin.executeAdminPlan).toHaveBeenCalledTimes(1);
+});
+
+it("keeps material changed on disk as a server refusal requiring fresh review", async () => {
+  const { admin } = setup();
+  vi.mocked(admin.planAdminCommand).mockResolvedValue({ ok: false, errorCode: "admin_invalid_params", detail: "proposal_material_digest_mismatch" });
+  material(); fireEvent.click(screen.getByRole("button", { name: "Review proposal preparation" }));
+  expect(await screen.findByText(/proposal_material_digest_mismatch/)).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(admin.executeAdminPlan).not.toHaveBeenCalled();
+});
+
+it("does not construct proposal identity from form inputs when backend projection is absent", async () => {
+  const { admin, plan } = setup();
+  vi.mocked(admin.executeAdminPlan).mockResolvedValue({ ok: true, outcome: { planId: plan.planId, commandId: plan.commandId, status: "success", dryRun: false, output: { prepared: true, head: proposal.head }, affectedPaths: [], branch: proposal.branch, snapshotInvalidated: false, undo: { available: false, kind: null } } });
+  material(); fireEvent.click(screen.getByRole("button", { name: "Review proposal preparation" }));
+  fireEvent.click(await screen.findByRole("button", { name: t("admin.plan.execute") }));
+  await screen.findByText(/Proposal committed locally/);
+  expect(screen.queryByRole("button", { name: "Review publication of this commit" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Review integration of the reviewed PR" })).toBeNull();
+});

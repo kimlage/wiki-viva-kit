@@ -1722,6 +1722,7 @@ export const ES: Record<string, string> = {
   "admin.plan.result.success": "Ejecutado correctamente.",
   "admin.plan.result.dryRunSuccess": "Simulación completada; no se escribió nada.",
   "admin.plan.result.failed": "El comando se ejecutó y falló; consulte el resultado a continuación.",
+  "admin.plan.result.uncertain": "El efecto es incierto. Revise la evidencia conservada y concilie el destino antes de volver a enviar.",
   "admin.plan.result.affected": "Rutas afectadas:",
   "admin.plan.result.snapshotInvalidated": "La instantánea activa se invalidó; el mundo se actualiza en la próxima lectura.",
   "admin.plan.replanHint": "Planifique de nuevo para revisar el estado actual.",

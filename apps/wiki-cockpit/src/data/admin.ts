@@ -606,7 +606,7 @@ export function parseAdminExecuteOutcome(payload: unknown): AdminExecuteOutcome 
   return {
     planId: record.plan_id,
     commandId: record.command_id,
-    status: String(record.status || "success"),
+    status: typeof record.status === "string" && record.status ? record.status : "unknown",
     dryRun: record.dry_run === true,
     output: record.output ?? null,
     affectedPaths: stringList(record.affected_paths),

@@ -627,3 +627,7 @@ describe("command bus client (§11, §12.2)", () => {
     expect(malformed.ok).toBe(false);
   });
 });
+
+it("does not infer success from a response without an explicit effect status", () => {
+  expect(parseAdminExecuteOutcome({ ok: true, plan_id: "plan", command_id: "wiki.proposal.prepare" })?.status).toBe("unknown");
+});

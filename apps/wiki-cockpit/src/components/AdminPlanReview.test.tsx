@@ -154,3 +154,16 @@ describe("AdminPlanReview — reviewed plan is the executed plan", () => {
     expect(executeAdminPlan).not.toHaveBeenCalled();
   });
 });
+
+it("keeps a lost execution response uncertain and prevents repeating the same plan", async () => {
+  const notice = vi.fn();
+  executeAdminPlan.mockResolvedValueOnce({ ok: false, errorCode: "operator_unreachable" });
+  render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={plan()} onClose={() => undefined} onNotice={notice} />);
+  fireEvent.click(screen.getByRole("button", { name: /RUN snapshot\.rebuild/ }));
+  expect((await screen.findByRole("alert")).textContent).toContain(t("admin.plan.result.uncertain"));
+  const repeat = screen.getByRole("button", { name: /RUN snapshot\.rebuild/ }) as HTMLButtonElement;
+  expect(repeat.disabled).toBe(true);
+  fireEvent.click(repeat);
+  expect(executeAdminPlan).toHaveBeenCalledTimes(1);
+  expect(notice).not.toHaveBeenCalledWith(t("admin.plan.executed"));
+});

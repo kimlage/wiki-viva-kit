@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ClipboardCheck, Play, X } from "lucide-react";
 import { t } from "../data/i18n";
+import { adminOutcomeState } from "../application/adminOutcome";
 import { PreparatoryObservations } from "./PreparatoryObservations";
 import type { AdminPort } from "../application/ports";
 import type {
@@ -69,7 +70,7 @@ export function AdminPlanReview({
 
   const execute = async () => {
     if (executionBlocked) return;
-    if (executing || outcome) return;
+    if (executing || outcome || error?.code === "operator_unreachable") return;
     setExecuting(true);
     setError(null);
     const supplied =
@@ -82,7 +83,9 @@ export function AdminPlanReview({
     setExecuting(false);
     if (result.ok) {
       setOutcome(result.outcome);
-      onNotice?.(t("admin.plan.executed"));
+      onNotice?.(t(adminOutcomeState(result.outcome) === "success"
+        ? result.outcome.dryRun ? "admin.plan.result.dryRunSuccess" : "admin.plan.executed"
+        : `admin.plan.result.${adminOutcomeState(result.outcome)}`));
       onExecuted?.(result.outcome);
       return;
     }
@@ -207,7 +210,7 @@ export function AdminPlanReview({
 
             {error && (
               <p className="adminUnlockError" role="alert">
-                {t(`admin.plan.error.${error.code}`)}
+                {t(error.code === "operator_unreachable" ? "admin.plan.result.uncertain" : `admin.plan.error.${error.code}`)}
                 {error.failedPreconditions.length > 0 && (
                   <>
                     {" "}
@@ -239,7 +242,7 @@ export function AdminPlanReview({
               <button
                 className="primaryButton"
                 type="button"
-                disabled={executing || executionBlocked || !typedSatisfied}
+                disabled={executing || executionBlocked || !typedSatisfied || error?.code === "operator_unreachable"}
                 onClick={() => void execute()}
               >
                 <Play size={14} aria-hidden />
@@ -262,11 +265,11 @@ export function AdminPlanReview({
           <section aria-label={t("admin.plan.result")}>
             <h4>{t("admin.plan.result")}</h4>
             <p role="status">
-              {outcome.status === "success"
+              {adminOutcomeState(outcome) === "success"
                 ? outcome.dryRun
                   ? t("admin.plan.result.dryRunSuccess")
                   : t("admin.plan.result.success")
-                : t("admin.plan.result.failed")}
+                : t(`admin.plan.result.${adminOutcomeState(outcome)}`)}
             </p>
             {outcome.affectedPaths.length > 0 && (
               <p>
