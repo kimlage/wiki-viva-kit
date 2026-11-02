@@ -1,6 +1,9 @@
 schema_version: wiki_template_sections.v1
 template_id: decision-risk
 template_version: '1'
-extends: tests/fixtures/template-sections/decision.yaml
+extends:
+  path: tests/fixtures/template-sections/decision.yaml
+  template_id: decision-modular
+  template_version: '1'
 add_sections:
   - {id: risk, title: Risk assessment, role: uncertainty, required: true, slot: 'before:decision'}

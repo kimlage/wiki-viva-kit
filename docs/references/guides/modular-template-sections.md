@@ -45,8 +45,12 @@ sections and `allowed_slots`. Every section has `id`, visual `title`, semantic
 `evidence`, `uncertainty`, and `next_step`. One role can map to multiple sections.
 Slots use `before:<id>` or `after:<id>` and must name a declared section.
 
-The derived risk template names `extends` as a repository-root-relative path
-and uses `add_sections` with an authorized `slot`. It cannot redefine inherited
+The derived risk template declares `extends` as an object with `path` (repository
+root relative), `template_id` and `template_version`, pinning its parent's identity
+and version. Resolution rejects a parent whose identity/version differs, even if
+all section IDs are unchanged. Updating that pin and choosing a child version
+require explicit review; neither is automatic. It uses `add_sections` with an
+authorized `slot`. It cannot redefine inherited
 IDs, roles, titles, requiredness or slots; it cannot remove a required section.
 Multiple additions to a slot preserve declaration order. A new title for an
 existing page section preserves the selector ID. Changes in meaning require
@@ -56,8 +60,8 @@ cannot infer semantic equivalence or incompatible meaning.
 The [JSON schema](../schemas/wiki-template-sections-v1.schema.json) describes the
 file shape. The [runtime loader](../../../../wiki_core/template_sections.py) also
 checks inheritance and slots. YAML keys must be unique strings. Contracts,
-skeletons and overlays must stay inside the repository, without symlinks or
-traversal. Contracts have an aggregate 64 KiB budget, at most eight files in an
+skeletons and overlays must be regular files inside the repository, without
+symlinks or traversal. FIFOs, devices and directories are rejected before open. Contracts have an aggregate 64 KiB budget, at most eight files in an
 inheritance chain and 64 resolved sections. Skeletons and overlays each have a
 64 KiB limit. Cycles, malformed selectors and duplicate IDs fail explicitly.
 The loader never executes contract content. These checks do not replace the
@@ -98,7 +102,10 @@ python3 scripts/wiki_template_sections.py --root . --page-type decision \
 
 The [CLI](../../../../scripts/wiki_template_sections.py) prints JSON and returns
 nonzero for invalid definitions/pages. Its page argument is repository relative;
-it is read-only. Opt-out legacy types are reported as having no section contract.
+it is a read-only preview of a trusted working tree, not a committed-revision
+reader, approval gate or ACL check. Config/registry loading uses the existing
+trusted-workspace APIs; callers must establish trust and authorization separately.
+Opt-out legacy types are reported as having no section contract.
 
 Template version is distinct from a page's `schema_version` and from Git revision.
 Changing a contract never rewrites existing pages. Validation against the newly

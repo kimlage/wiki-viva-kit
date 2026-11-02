@@ -97,8 +97,27 @@
           "minLength": 1
         },
         "extends": {
-          "type": "string",
-          "minLength": 1
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "template_id",
+            "template_version"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "template_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "template_version": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         },
         "add_sections": {
           "type": "array",

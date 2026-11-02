@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only validation of opt-in page-section contracts and existing pages."""
+"""Read-only trusted-working-tree preview; does not establish approval or ACLs."""
 from __future__ import annotations
 import argparse
 import json

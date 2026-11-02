@@ -4,6 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from pathlib import Path, PurePosixPath
 import re
+import stat
 
 from markdown_it import MarkdownIt
 import yaml
@@ -54,6 +55,8 @@ def _path(root: Path, ref: str) -> Path:
         current.resolve().relative_to(root.resolve())
     except ValueError as exc:
         raise TemplateSectionError('contract escaped repository') from exc
+    if not stat.S_ISREG(current.stat(follow_symlinks=False).st_mode):
+        raise TemplateSectionError('template input must be a regular file')
     return current
 
 
@@ -115,7 +118,13 @@ def load_section_contract(root: Path, ref: str) -> dict:
         if 'extends' in doc:
             if set(doc) != common | {'extends', 'add_sections'}:
                 raise TemplateSectionError('derived contract may only add sections')
-            parent = load(doc['extends'], (*ancestors, path_ref))
+            pin = doc['extends']
+            if (not isinstance(pin, dict) or set(pin) != {'path', 'template_id', 'template_version'}
+                    or any(not isinstance(pin[key], str) or not pin[key].strip() for key in pin)):
+                raise TemplateSectionError('extends must pin path, template_id and template_version')
+            parent = load(pin['path'], (*ancestors, path_ref))
+            if any(parent[key] != pin[key] for key in ('template_id', 'template_version')):
+                raise TemplateSectionError('parent template identity/version mismatch; explicit child review required')
             sections = deepcopy(parent['sections'])
             slots = list(parent['allowed_slots'])
             additions = doc['add_sections']

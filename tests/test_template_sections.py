@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,7 +15,7 @@ from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.page_types import load_page_type_registry
 from wiki_core.repository_reader import RepositoryReader
 from wiki_core.template_sections import (TemplateSectionError, load_section_contract,
-    selectors_for_roles, validate_section_page, MAX_BYTES, MAX_DEPTH)
+    selectors_for_roles, validate_section_page, read_template_file, MAX_BYTES, MAX_DEPTH)
 from wiki_core.templates import resolve_template, instantiate_template
 
 FIXTURES = Path(__file__).parent / 'fixtures/template-sections'
@@ -75,7 +76,8 @@ def test_real_resolve_instantiate_read_select_validate(repo):
     before = (repo / 'page.md').read_bytes()
     parent = repo / 'tests/fixtures/template-sections/decision.yaml'
     parent.write_text(parent.read_text().replace("template_version: '1'", "template_version: '2'"))
-    resolve(repo)
+    with pytest.raises(TemplateSectionError, match='parent template identity/version mismatch'):
+        resolve(repo)
     assert (repo / 'page.md').read_bytes() == before
 
 
@@ -118,7 +120,7 @@ def test_duplicate_keys_symlinks_cycles_size_and_depth(repo):
         load_section_contract(repo, REF)
     for index in range(MAX_DEPTH + 1):
         (repo / f'c{index}.yaml').write_text(yaml.safe_dump({'schema_version': 'wiki_template_sections.v1',
-            'template_id': 'nested', 'template_version': '1', 'extends': f'c{index+1}.yaml', 'add_sections': []}))
+            'template_id': 'nested', 'template_version': '1', 'extends': {'path': f'c{index+1}.yaml', 'template_id': 'nested', 'template_version': '1'}, 'add_sections': []}))
     with pytest.raises(TemplateSectionError, match='depth'):
         load_section_contract(repo, 'c0.yaml')
 
@@ -198,7 +200,9 @@ def test_template_version_reports_old_pages_without_writing_them(repo):
     page.write_text(instantiate_template(resolved, title='Existing', context='example', config=config))
     before = page.read_bytes()
     contract_file = repo / REF
-    contract_file.write_text(contract_file.read_text().replace("template_version: '1'", "template_version: '2'"))
+    doc = yaml.safe_load(contract_file.read_text())
+    doc['template_version'] = '2'
+    contract_file.write_text(yaml.safe_dump(doc))
     updated, _ = resolve(repo)
     assert validate_section_page(before.decode(), updated.section_contract) == [
         'template_version mismatch; explicit review/migration required']
@@ -226,3 +230,57 @@ def test_contract_metadata_is_rendered_as_yaml_scalars(repo):
     assert fm['template_version'] == 'true'
     assert fm['visibility'] == 'public'
     assert validate_section_page(text, resolved.section_contract) == []
+
+
+@pytest.mark.parametrize('key,value', [('template_id', 'renamed-parent'), ('template_version', '2')])
+def test_parent_pin_drift_blocks_resolution_without_rewriting_page(repo, key, value):
+    resolved, config = resolve(repo)
+    page = repo / 'existing.md'
+    page.write_text(instantiate_template(resolved, title='Existing', context='example', config=config))
+    before = page.read_bytes()
+    parent_file = repo / 'tests/fixtures/template-sections/decision.yaml'
+    parent = yaml.safe_load(parent_file.read_text())
+    parent[key] = value
+    parent_file.write_text(yaml.safe_dump(parent))
+    with pytest.raises(TemplateSectionError, match='parent template identity/version mismatch'):
+        resolve(repo)
+    assert page.read_bytes() == before
+    # Explicitly reviewed pin/version edits are consumer choices, never automatic.
+    child_file = repo / REF
+    child = yaml.safe_load(child_file.read_text())
+    child['extends'][key] = value
+    child['template_version'] = '2'
+    child_file.write_text(yaml.safe_dump(child))
+    updated, _ = resolve(repo)
+    assert updated.template_version == '2'
+    assert validate_section_page(before.decode(), updated.section_contract) == [
+        'template_version mismatch; explicit review/migration required']
+    assert page.read_bytes() == before
+
+
+@pytest.mark.parametrize('pin', ['tests/fixtures/template-sections/decision.yaml',
+    {'path': 'tests/fixtures/template-sections/decision.yaml'},
+    {'path': 'tests/fixtures/template-sections/decision.yaml', 'template_id': 'decision-modular',
+     'template_version': 1}])
+def test_inheritance_requires_explicit_string_identity_version_pin(repo, pin):
+    path = repo / REF
+    doc = yaml.safe_load(path.read_text())
+    doc['extends'] = pin
+    path.write_text(yaml.safe_dump(doc))
+    with pytest.raises(TemplateSectionError, match='extends must pin'):
+        resolve(repo)
+
+
+@pytest.mark.parametrize('kind', ['fifo', 'directory'])
+@pytest.mark.parametrize('reader', [load_section_contract, read_template_file])
+def test_nonregular_inputs_are_rejected_before_open(repo, monkeypatch, kind, reader):
+    target = repo / 'nonregular'
+    if kind == 'fifo':
+        os.mkfifo(target)
+    else:
+        target.mkdir()
+    def forbidden_open(*args, **kwargs):
+        raise AssertionError('nonregular input must never reach open')
+    monkeypatch.setattr(Path, 'open', forbidden_open)
+    with pytest.raises(TemplateSectionError, match='regular file'):
+        reader(repo, 'nonregular')
