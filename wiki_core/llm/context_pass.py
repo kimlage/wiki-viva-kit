@@ -330,7 +330,6 @@ def _approved_ingestion_context(root, config, input_context, perspectives_requir
         task_id=task_id, goal="Deep contextual reading of the extracted source",
         output="Recorded LLM context-pass results for each extracted chunk",
         integrator="Operating ingestion agent under the repository PR review gate")
-    packet.update(policy_mode="approved_context_manifest", policy_enforced=False)
     return packet
 
 

@@ -433,3 +433,41 @@ def test_cli_builds_actual_context_bodies_and_invalidates_same_id(source_check, 
     after = json.loads(request_path.read_text())
     assert before['source_id'] == after['source_id']
     assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']
+
+
+def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bodies(source_check, capsys):
+    import subprocess
+    import yaml
+    from wiki_core.context_policy import PolicyError
+    source, config, paths, check = source_check
+    def git(*args):
+        return subprocess.run(['git', '-C', str(paths.root), *args], check=True, capture_output=True, text=True).stdout.strip()
+    run(str(source), 'system', paths.root, config)
+    capsys.readouterr()
+    git('init', '-q'); git('config', 'user.name', 'Synthetic'); git('config', 'user.email', 'synthetic@example.test')
+    git('add', 'source.md'); git('commit', '-qm', 'Synthetic without policy')
+    sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
+    with pytest.raises(PolicyError):
+        check('--emit-request', '--approved-revision', sha, '--policy-context', 'root')
+    assert check('--emit-request') == 0  # Explicitly unprotected legacy remains available.
+    capsys.readouterr()
+    (paths.root / 'AGENTS.md').write_text('Current approved CLI policy body.\n')
+    manifest = {'schema_version': 'wiki.context/v1', 'id': 'root', 'parent': None, 'root': '.', 'purpose': 'Synthetic', 'owner': 'operator',
+        'instructions': ['AGENTS.md'], 'skills': [], 'templates': [], 'imports': [], 'exports': [],
+        'policy': {'read': ['self'], 'write': [], 'capabilities': [], 'publication': [], 'deny': {}}}
+    (paths.root / 'context.yaml').write_text(yaml.safe_dump(manifest))
+    git('add', 'AGENTS.md', 'context.yaml'); git('commit', '-qm', 'Approved CLI policy')
+    sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
+    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 0
+    capsys.readouterr()
+    request_path = paths.extraction_events / (build_manifest(str(source), 'system', root=paths.root)['source_id'] + '-llm-context-request.json')
+    before = json.loads(request_path.read_text())
+    assert before['block_context_package']['inputs'][0]['text'] == 'Current approved CLI policy body.\n'
+    (paths.root / 'AGENTS.md').write_text('Revised approved CLI policy under same path.\n')
+    git('add', 'AGENTS.md'); git('commit', '-qm', 'Approved instruction body update')
+    sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
+    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 0
+    capsys.readouterr()
+    after = json.loads(request_path.read_text())
+    assert before['source_id'] == after['source_id']
+    assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']
