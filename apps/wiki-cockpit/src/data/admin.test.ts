@@ -466,13 +466,13 @@ async function unlockForBus(token: string) {
 
 describe("command bus client (§11, §12.2)", () => {
   it("retains preparatory observations on a dry-run plan and on a planning refusal", async () => {
-    const observations = ["OpenClaw history read during planning; reconciliation possible"];
+    const observations = ["Proposal metadata read during planning; reconciliation possible"];
     const parsed = parseAdminPlan(planPayload({ dry_run: true, effects: { files_read: [], files_write: [], external_calls: [], preparatory_observations: observations, snapshot_invalidated: false } }));
     expect(parsed?.effects.preparatoryObservations).toEqual(observations);
     expect(parsed?.effects.externalCalls).toEqual([]);
     await unlockForBus("tok-preparatory");
     operatorPost.mockResolvedValueOnce(jsonResponse(409, { ok: false, error_code: "admin_invalid_params", preparatory_observations: observations }));
-    expect(await planAdminCommand("agents.openclaw.dispatch")).toMatchObject({ ok: false, preparatoryObservations: observations });
+    expect(await planAdminCommand("wiki.proposal.prepare")).toMatchObject({ ok: false, preparatoryObservations: observations });
   });
   it("planAdminCommand refuses locally without a session — no request leaves", async () => {
     const result = await planAdminCommand("system.inspect");

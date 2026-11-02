@@ -53,7 +53,7 @@ async function syntheticOperator(page: Page) {
   const observation: RuntimeObservations = {
     ok: true, schema_version: "wiki_runtime_observations.v1", observed_at: "2026-10-31T12:00:00Z",
     operator: { started_at: "2026-10-30T09:00:00Z", boot_source_commit: "a".repeat(40), current_source_commit: "b".repeat(40), content_source_commit: "c".repeat(40), restart_required: true, server_version: "wiki_web_server.v11", frontend: { status: "observed", entry_sha256: "d".repeat(64), source_commit: null } },
-    openclaw: { configured: true, observation_scope: "retained_local_evidence", gateway_status: "not_observed", active_run: null, pending_inputs: null, usage: { status: "not_measured", tokens: null, cost: null }, attempts: [], rules: [], native_observations: [], errors: [], transport: { status: "unavailable", scope: "loopback_tcp_only", observed_at: null } }
+
   };
   const state = { failed: false, frontsEmpty: false, writes: [] as string[], external: [] as string[], pageErrors: [] as string[] };
   page.on("pageerror", error => state.pageErrors.push(error.message));
@@ -108,7 +108,7 @@ async function noHorizontalOverflow(page: Page, surface: Locator) {
 }
 
 test("world links lead to Kanban and recorded fronts; back, reload and unavailable observation retain their scope", async ({ page }, testInfo) => {
-  const { state, front, action, observation: retained } = await syntheticOperator(page);
+  const { state, front } = await syntheticOperator(page);
   await page.goto("/w?projection=2d&tour=0");
   const links = page.getByRole("navigation", { name: "Wiki work" });
   await expect(links.getByRole("link", { name: "Kanban", exact: true })).toBeVisible();
@@ -117,38 +117,11 @@ test("world links lead to Kanban and recorded fronts; back, reload and unavailab
   await expect(page.locator(".boardCard").first()).toBeVisible();
   await page.getByText("Operator observation and versions", { exact: true }).click();
   const observation = page.locator(".boardObservations .runtimeObservation");
-  await expect(observation).toContainText("This does not prove inactivity");
-  await expect(observation).toContainText("Not measured");
+  await expect(observation).toContainText("scheduler installation are not observed");
   await observation.getByText("Content, process and served frontend", { exact: true }).click();
   await expect(observation).toContainText("Frontend source commit");
   await expect(observation).toContainText("Not observed");
   await attachViewportScreenshot(page, testInfo, "desktop-recorded-observation");
-
-  retained.openclaw.attempts.push({ profile: "synthetic", action_id: action.id, effect_key: "synthetic-run", run_id: "synthetic-run",
-    attempted_at: "2026-10-31T10:00:00Z", result_captured_at: "2026-10-31T10:01:00Z", status: "result_retained",
-    result: { excerpt: "Synthetic result already preserved; no native inspection.", text_sha256: "e".repeat(64), truncated: false },
-    authorization: { status: "not_observed" }, guard_admission: { status: "retained_chain_verified", model: "synthetic-model", effort: "high", error_code: null },
-    review: { status: "not_observed", head: null } });
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
-  await observation.getByText("Read retained result", { exact: true }).click();
-  await expect(observation).toContainText("Synthetic result already preserved; no native inspection.");
-  await expect(observation).toContainText("Historical guard chain verified");
-  await expect(observation.locator("dl > div").filter({ has: page.getByText("Current authorization", { exact: true }) })).toContainText("Not observed");
-  await expect(observation.locator("dl > div").filter({ has: page.getByText("Independent review", { exact: true }) })).toContainText("Not observed");
-  await attachViewportScreenshot(page, testInfo, "desktop-retained-result-without-inspection");
-
-  retained.openclaw.native_observations = [{ profile: "synthetic", session_status: null, status: "observed",
-    observed_at: "2026-10-31T12:00:00Z", error_code: null, scope: "resident_gateway_owners", complete: false,
-    resident_complete: true, persisted_queue_count: null, process_instance_id: "synthetic-gateway-process",
-    has_active_run: false, active_run_ids: [], ids_truncated: false, active_count: 0,
-    terminal_persistence_count: 1, terminal_cleanup_count: 2, queued_turn_count: 3, pending_admission_count: 4 }];
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(observation).toContainText("Resident session owners");
-  await expect(observation.locator("dl > div").filter({ has: page.getByText("Active runs", { exact: true }) })).toContainText("0");
-  await expect(observation.locator("dl > div").filter({ has: page.getByText("Resident queued turns", { exact: true }) })).toContainText("3");
-  await expect(observation.locator("dl > div").filter({ has: page.getByText("Global execution / pending inputs", { exact: true }) })).toContainText("Not observed");
-  await expect(observation).toContainText("persisted queue and global readiness are unobserved");
-  await attachViewportScreenshot(page, testInfo, "desktop-resident-observation-with-global-state-unknown");
 
   await page.getByRole("link", { name: "Work fronts", exact: true }).click();
   await expect(page).toHaveURL(/\/board\?view=fronts$/);

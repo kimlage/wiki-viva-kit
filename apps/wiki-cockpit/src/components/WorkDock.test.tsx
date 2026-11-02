@@ -59,11 +59,11 @@ afterEach(() => {
 });
 
 describe("WorkDock", () => {
-  it("labels zero local jobs by executor and keeps OpenClaw observation failure distinct", async () => {
+  it("labels zero local jobs by executor and keeps operator observation failure distinct", async () => {
     const read = vi.fn().mockRejectedValue(new Error("endpoint unavailable"));
     render(<WorkDock capability={cap} demo={false} operator={{ ...operator, loadRuntimeObservations: read }} onResumeBrief={noop} onNotice={noop} onClose={noop} />);
     await screen.findByText(/Observation unavailable/);
-    expect(screen.getByText(/Zero jobs does not mean OpenClaw is idle/)).toBeTruthy();
+    expect(screen.getByText(/Other executors and external effects are not observed here/)).toBeTruthy();
     expect(screen.getByText("Jobs · Codex / Claude")).toBeTruthy();
     expect(screen.queryByText(/No retained attempt/)).toBeNull();
     expect(read).toHaveBeenCalledTimes(1);

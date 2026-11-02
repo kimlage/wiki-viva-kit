@@ -1,7 +1,7 @@
 // Spanish UI catalog. Keys and placeholders are parity-checked against the English base.
 // Keep code and documentation in English; this file contains generated user-facing copy only.
 export const ES: Record<string, string> = {
-  "work.scope": "Estos recuentos cubren solo el ejecutor local Codex / Claude. Cero jobs no significa que OpenClaw esté inactivo.",
+  "work.scope": "Estos recuentos cubren solo el ejecutor local Codex / Claude. Aquí no se observan otros ejecutores ni efectos externos.",
   "source.registry.recipeHint": "La configuración de recetas no prueba una conexión ni un permiso de acceso.",
   "intake.actionPreview": "Vista previa de la acción vinculada",
   "intake.preview.target": "Acción canónica",
@@ -1324,7 +1324,7 @@ export const ES: Record<string, string> = {
   "work.job.queued": "esperando en cola",
   "work.job.logTail": "Mostrando las últimas líneas {n} - mostrar todo",
   "work.job.cancelFailed": "No se pudo cancelar: {error}",
-  "work.jobs.empty": "No hay jobs Codex / Claude conservados en este operador. La actividad de OpenClaw se observa por separado.",
+  "work.jobs.empty": "No hay jobs Codex / Claude conservados en este operador. Esto no demuestra inactividad global.",
   "work.telemetry.aria": "Resumen visual del trabajo",
   "work.telemetry.active": "activo",
   "work.telemetry.activeDetail": "{n} trabajos activos",

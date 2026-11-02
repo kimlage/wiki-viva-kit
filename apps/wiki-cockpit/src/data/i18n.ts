@@ -11,7 +11,7 @@ export type UiLanguage = "en" | "es" | "pt";
 type Dict = Record<string, string>;
 
 const EN: Dict = {
-  "work.scope": "These counts cover the local Codex / Claude job runner only. Zero jobs does not mean OpenClaw is idle.",
+  "work.scope": "These counts cover the local Codex / Claude job runner only. Other executors and external effects are not observed here.",
   "intake.actionPreview": "Preview linked action",
   "intake.preview.target": "Canonical action",
   "intake.preview.unknown": "Unknown",
@@ -1406,7 +1406,7 @@ const EN: Dict = {
   "work.job.queued": "waiting in queue",
   "work.job.logTail": "Showing the last {n} lines — show everything",
   "work.job.cancelFailed": "Could not cancel: {error}",
-  "work.jobs.empty": "No retained Codex / Claude jobs in this operator. OpenClaw activity is observed separately.",
+  "work.jobs.empty": "No retained Codex / Claude jobs in this operator. This does not establish global inactivity.",
   "work.telemetry.aria": "Work visual summary",
   "work.telemetry.active": "active",
   "work.telemetry.activeDetail": "{n} active job(s)",
@@ -1847,7 +1847,7 @@ const EN: Dict = {
 };
 
 const PT: Dict = {
-  "work.scope": "Estas contagens cobrem apenas o executor local de jobs Codex / Claude. Zero jobs não significa que o OpenClaw esteja ocioso.",
+  "work.scope": "Estas contagens cobrem apenas o executor local de jobs Codex / Claude. Outros executores e efeitos externos não são observados aqui.",
   "intake.actionPreview": "Ver prévia da ação vinculada",
   "intake.preview.target": "Ação canônica",
   "intake.preview.unknown": "Desconhecido",
@@ -3214,7 +3214,7 @@ const PT: Dict = {
   "work.job.queued": "aguardando na fila",
   "work.job.logTail": "Mostrando as últimas {n} linhas — ver tudo",
   "work.job.cancelFailed": "Não foi possível cancelar: {error}",
-  "work.jobs.empty": "Nenhum job Codex / Claude preservado neste operador. A atividade OpenClaw é observada separadamente.",
+  "work.jobs.empty": "Nenhum job Codex / Claude preservado neste operador. Isso não comprova inatividade global.",
   "work.telemetry.aria": "Resumo visual do trabalho",
   "work.telemetry.active": "ativos",
   "work.telemetry.activeDetail": "{n} job(s) ativo(s)",

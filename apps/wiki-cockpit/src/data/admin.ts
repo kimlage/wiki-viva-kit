@@ -679,7 +679,7 @@ export async function planAdminCommand(
     const payload = (await response.json()) as Record<string, unknown>;
     const plan = parseAdminPlan(payload);
     if (response.ok && plan) return { ok: true, plan };
-    const detail = typeof payload.detail === "string" && /^openclaw_[a-z_]+$/.test(payload.detail) ? payload.detail : undefined;
+    const detail = typeof payload.detail === "string" && /^[a-z][a-z0-9_]{0,119}$/.test(payload.detail) ? payload.detail : undefined;
     const preparatoryObservations = stringList(payload.preparatory_observations);
     return { ok: false, errorCode: commandErrorCodeOf(payload), ...(detail ? { detail } : {}),
       ...(preparatoryObservations.length ? { preparatoryObservations } : {}) };
