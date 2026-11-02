@@ -122,7 +122,8 @@ def evaluate_wake(policy, schedule, wake, observation=None):
         effect = hashlib.sha256(json.dumps(['wiki.schedule-effect/v1', cid,
             task['task_id'], task['fingerprint']], separators=(',', ':')).encode()).hexdigest()
         candidates.append({'task_id': task['task_id'], 'occurrence_id': occurrence,
-            'task_identity': hashlib.sha256((cid + '/' + task['task_id']).encode()).hexdigest(),
+            'task_identity': hashlib.sha256(json.dumps(['wiki.schedule-task/v1', cid,
+                task['task_id']], separators=(',', ':')).encode()).hexdigest(),
             'work_id': effect, 'effect_id': effect, 'effect_identity_version': 'wiki.schedule-effect/v1'})
     # Revalidate once more before returning references to eligible work.
     try:

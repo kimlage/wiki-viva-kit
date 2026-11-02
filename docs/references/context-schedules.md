@@ -32,11 +32,12 @@ Pause globally wins over local eligibility and approval errors. Latest-only
 catch-up skips older occurrences. Times come from the external scheduler; there
 is no cron/DST computation. UTC-normalized due time plus context/schedule IDs
 identify an occurrence; context plus stable external task ID yields a stable
-`task_identity`. The new explicit `wiki.schedule-effect/v1` identity hashes the
+`task_identity`, hashed from the compact JSON tuple
+`["wiki.schedule-task/v1", context_id, task_id]`. The explicit
+`wiki.schedule-effect/v1` identity hashes the
 version tag, context, task ID and fingerprint as canonical compact JSON;
-`work_id` and `effect_id` are that versioned effect identity. This supersedes the
-initial unintegrated draft where `work_id` identified the stable task. Consumers
-must use `task_identity` for task stability and retain versioned effect receipts.
+`work_id` and `effect_id` are that versioned effect identity. Use `task_identity` for task stability and
+retain versioned effect receipts.
 Completed occurrence dedupes; unchanged completed fingerprint also yields no-op.
 The external scheduler must retain stable task IDs and authoritative fingerprints.
 A changed fingerprint after a completed task in an earlier occurrence creates a

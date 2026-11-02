@@ -181,3 +181,19 @@ def test_owner_real_identity_missing_template_and_exact_sha(case):
         assert validate_schedule(s)['owner']=='Kim'
     s['owner']='  '
     with pytest.raises(PolicyError): validate_schedule(s)
+
+
+def test_task_identity_tuple_avoids_slash_collision(case):
+    p,s,w,git,path=case
+    document=yaml.safe_load((path/'context.yaml').read_text())
+    identities=[]
+    for cid,task_id in (('finance/costs','review'),('finance','costs/review')):
+        document['id']=cid
+        (path/'context.yaml').write_text(yaml.safe_dump(document))
+        git('add','.'); git('commit','-qm','synthetic context identity')
+        git('update-ref','refs/remotes/origin/main','HEAD')
+        p=load_policy(path,'HEAD'); s['policy_revision']=p.policy_revision
+        s['context_id']=cid; w['tasks'][0]['context_id']=cid
+        w['tasks'][0]['task_id']=task_id
+        identities.append(evaluate_wake(p,s,w)['eligible'][0]['task_identity'])
+    assert identities[0]!=identities[1]
