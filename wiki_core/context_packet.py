@@ -4,7 +4,7 @@ import hashlib
 import json
 import datetime as dt
 from pathlib import Path
-from .context_policy import PolicyError, capability_status, safe_path, within
+from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report
 from .repository_reader import RepositoryReader
 
 
@@ -43,9 +43,14 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
     if query_fingerprint is not None: raise PolicyError('dynamic query selection not supported')
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     lineage = policy.lineage(context_id)
-    for cap in required_capabilities:
-        if capability_status(policy, context_id, cap, adapter_report) != 'available':
-            raise PolicyError('required capability lacks verified adapter evidence: ' + cap)
+    if adapter_report is not None and not valid_adapter_report(adapter_report): raise PolicyError('invalid adapter report')
+    if not isinstance(required_capabilities, (list, tuple)):
+        raise PolicyError('invalid required capabilities')
+    for effect in required_capabilities:
+        if not isinstance(effect, dict) or set(effect) != {'capability', 'target'} or not all(isinstance(x, str) and x.strip() for x in effect.values()):
+            raise PolicyError('capability and exact target required')
+        if capability_status(policy, context_id, effect['capability'], adapter_report, target=effect['target']) != 'available':
+            raise PolicyError('required capability lacks verified adapter evidence: ' + effect['capability'])
     reader = RepositoryReader(Path(root), content_revision)
     selected = []
     seen = set()
@@ -91,6 +96,25 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
             'inputs': selected, 'declared_read_set': [{'ref': x['ref'], 'section': x['section'], 'field': x['field'], 'revision': x['revision']} for x in selected],
             'query_fingerprint': None, 'coverage': {'mode': 'explicit_read_set', 'complete': False, 'missing': list(omissions)},
             'byte_budget': budget, 'bytes_used': total,
-            'capability_evidence': adapter_report, 'enforcement_claim': 'none; adapter report is supplied by the caller'}
+            'capability_evidence': adapter_report, 'required_capabilities': list(required_capabilities), 'enforcement_claim': 'none; adapter report is supplied by the caller'}
     packet['packet_digest'] = hashlib.sha256(json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return packet
+
+
+def validate_result(result, packet):
+    """Validate a reported result and bind it to the actual canonical packet."""
+    from jsonschema import ValidationError, validate
+    schema_path = Path(__file__).resolve().parents[1] / 'docs/references/schemas/wiki-task-result-v1.schema.json'
+    try:
+        validate(result, json.loads(schema_path.read_text(encoding='utf-8')))
+    except (ValidationError, OSError, ValueError) as exc:
+        raise PolicyError('invalid task result') from exc
+    if not isinstance(packet, dict) or not isinstance(packet.get('packet_digest'), str): raise PolicyError('invalid packet')
+    payload = {k: v for k, v in packet.items() if k != 'packet_digest'}
+    digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    if digest != packet['packet_digest'] or any(result[k] != packet.get(k) for k in ('task_id', 'context_id', 'packet_digest')):
+        raise PolicyError('result is not bound to this packet')
+    declared = {json.dumps(item, sort_keys=True) for item in packet['declared_read_set']}
+    observed = {json.dumps(item, sort_keys=True) for item in result['read_coverage']['observed_refs']}
+    if not observed.issubset(declared): raise PolicyError('result reports undeclared reads')
+    return True

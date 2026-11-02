@@ -20,7 +20,8 @@
     "output",
     "integrator",
     "coverage",
-    "packet_digest"
+    "packet_digest",
+    "required_capabilities"
   ],
   "properties": {
     "schema_version": {
@@ -176,9 +177,46 @@
       "minimum": 0
     },
     "capability_evidence": {
-      "type": [
-        "object",
-        "null"
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "verification",
+            "capabilities",
+            "scope",
+            "limitation"
+          ],
+          "properties": {
+            "verification": {
+              "const": "verified"
+            },
+            "capabilities": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "scope": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^*?\\[\\]]+$"
+              }
+            },
+            "limitation": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
       ]
     },
     "enforcement_claim": {
@@ -223,6 +261,27 @@
         "missing": {
           "type": "array",
           "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "required_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capability",
+          "target"
+        ],
+        "properties": {
+          "capability": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
             "type": "string",
             "minLength": 1
           }

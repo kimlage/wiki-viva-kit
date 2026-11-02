@@ -203,7 +203,16 @@ def load_policy(root, approved_revision, manifest_path='context.yaml', *, truste
     policy._binding=(str(root),trusted_ref,manifest_path)
     return policy
 
-def capability_status(policy,cid,capability,adapter_report):
+def valid_adapter_report(report):
+    if not isinstance(report, dict) or set(report) != {'verification', 'capabilities', 'scope', 'limitation'}: return False
+    caps, scopes, limitation = report['capabilities'], report['scope'], report['limitation']
+    return (report['verification'] == 'verified' and isinstance(caps, list) and bool(caps)
+            and all(isinstance(x, str) and x.strip() for x in caps)
+            and isinstance(scopes, list) and bool(scopes)
+            and all(isinstance(x, str) and x.strip() and not any(c in x for c in '*?[]') for x in scopes)
+            and isinstance(limitation, str) and bool(limitation.strip()))
+
+def capability_status(policy, cid, capability, adapter_report, *, target=None):
     if not policy.permits_effect(cid, 'capabilities', capability): return 'denied'
-    if not isinstance(adapter_report,dict) or adapter_report.get('verification')!='verified' or not adapter_report.get('scope') or not adapter_report.get('limitation') or capability not in adapter_report.get('capabilities',[]): return 'pending'
-    return 'available'
+    if not valid_adapter_report(adapter_report) or not isinstance(target, str) or not target.strip(): return 'pending'
+    return 'available' if capability in adapter_report['capabilities'] and target in adapter_report['scope'] else 'pending'

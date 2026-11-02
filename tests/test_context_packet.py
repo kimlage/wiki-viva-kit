@@ -5,7 +5,7 @@ import pytest
 import yaml
 from jsonschema import validate
 from wiki_core.context_policy import ContextPolicy, PolicyError, load_policy
-from wiki_core.context_packet import build_packet, blocker, connection_proposal
+from wiki_core.context_packet import build_packet, blocker, connection_proposal, validate_result
 
 BASE=Path(__file__).resolve().parents[1]
 TASK={'task_id':'test-1','goal':'review evidence','output':'report','integrator':'operator'}
@@ -53,7 +53,8 @@ def test_unbound_duplicate_yaml_symlink_and_changed_rule(repo):
 
 def test_blocker_and_proposal_schema():
     b=blocker('read','ctx/a','missing approval','owner','approve exact connection','approval recorded')
-    validate({'schema_version':'wiki.task-result/v1','status':'pending','blockers':[b]},json.loads((BASE/'docs/references/schemas/wiki-task-result-v1.schema.json').read_text()))
+    result={'schema_version':'wiki.task-result/v1','status':'pending','blockers':[b], 'task_id':'test-1', 'context_id':'root', 'packet_digest':'a'*64, 'changes':[], 'read_coverage':{'observed_refs':[], 'missing':[]}}
+    validate(result,json.loads((BASE/'docs/references/schemas/wiki-task-result-v1.schema.json').read_text()))
     assert connection_proposal('a','b','ctx/a','interpret','synthetic','2099-01-01')['grants_access'] is False
     with pytest.raises(PolicyError): connection_proposal('a','b','ctx/a','interpret','synthetic','2099-01-01',section='x',field='y')
 
@@ -82,3 +83,38 @@ def test_cli_resolve_and_pack(repo, tmp_path):
     request=tmp_path/'request.json'; request.write_text(json.dumps({**TASK,'evidence':EVIDENCE,'byte_budget':1000}))
     packet=json.loads(subprocess.check_output(prefix+['pack','root','--content-revision',sha,'--request',str(request)]))
     assert packet['task_id']=='test-1' and len(packet['packet_digest'])==64
+
+
+def test_result_binding_and_report_validation(repo):
+    p=load(repo); sha=git(repo,'rev-parse','HEAD'); packet=pack(repo,p,sha)
+    result={'schema_version':'wiki.task-result/v1','status':'completed','blockers':[], 'task_id':packet['task_id'], 'context_id':packet['context_id'], 'packet_digest':packet['packet_digest'], 'changes':[], 'read_coverage':{'observed_refs':packet['declared_read_set'], 'missing':[]}}
+    assert validate_result(result,packet)
+    with pytest.raises(PolicyError,match='bound'): validate_result({**result,'task_id':'other'},packet)
+    with pytest.raises(PolicyError,match='invalid task result'): validate_result({'schema_version':'wiki.task-result/v1','status':'completed','blockers':[]},packet)
+    with pytest.raises(PolicyError,match='bound'): validate_result(result,{**packet,'goal':'changed'})
+    bad_coverage={**result, 'read_coverage':{'observed_refs':[{'ref':'ctx/other','section':None,'field':None,'revision':sha}], 'missing':[]}}
+    with pytest.raises(PolicyError,match='undeclared reads'): validate_result(bad_coverage,packet)
+    invalid={'verification':'verified','capabilities':'edit','scope':['ctx/a'],'limitation':'none'}
+    with pytest.raises(PolicyError,match='invalid adapter report'): pack(repo,p,sha,adapter_report=invalid)
+
+
+def test_mandatory_grant_empty_read_deny_and_proposal(repo):
+    root=yaml.safe_load((repo/'ctx/context.yaml').read_text())
+    child={'schema_version':'wiki.context/v1','id':'child','parent':'root','root':'ctx/child','purpose':'child','owner':'operator','instructions':[],'skills':[],'templates':[],'policy':{'read':[]},'imports':[],'exports':[]}
+    (repo/'ctx/child').mkdir(); (repo/'ctx/child/context.yaml').write_text(yaml.safe_dump(child)); (repo/'ctx/child/data.md').write_text('data')
+    git(repo,'add','.'); git(repo,'commit','-qm','child'); approve(repo); sha=git(repo,'rev-parse','HEAD'); p=load(repo)
+    result=build_packet(repo,p,'child',sha,[],1000,**TASK)
+    assert [x['ref'] for x in result['inputs']]==['ctx/rules.md']
+    ev=[{'ref':'ctx/child/data.md','producer':'child','reason':'evidence','use':'interpret','classification':'synthetic'}]
+    with pytest.raises(PolicyError,match='denied'): build_packet(repo,p,'child',sha,ev,1000,**TASK)
+    # An unapproved change cannot replace the ancestor rule.
+    (repo/'ctx/rules.md').write_text('unapproved replacement'); git(repo,'add','.'); git(repo,'commit','-qm','proposal')
+    assert build_packet(repo,p,'child','HEAD',[],1000,**TASK)['inputs'][0]['text']=='# Mandatory\nRule body\n'
+    with pytest.raises(PolicyError,match='not current trusted'): load(repo)
+    child['policy']['deny']={'read':['ctx/rules.md']}; (repo/'ctx/child/context.yaml').write_text(yaml.safe_dump(child)); git(repo,'add','.'); git(repo,'commit','-qm','deny rule'); approve(repo)
+    with pytest.raises(PolicyError,match='read denied'): build_packet(repo,load(repo),'child','HEAD',[],1000,**TASK)
+    # A child cannot designate a sibling's content as a mandatory rule.
+    sibling={'schema_version':'wiki.context/v1','id':'sibling','parent':'root','root':'ctx/sibling','purpose':'sibling','owner':'operator','instructions':[],'skills':[],'templates':[],'policy':{},'imports':[],'exports':[]}
+    (repo/'ctx/sibling').mkdir(); (repo/'ctx/sibling/context.yaml').write_text(yaml.safe_dump(sibling)); (repo/'ctx/sibling/rule.md').write_text('sibling rule')
+    child['policy']['deny']={}; child['instructions']=['ctx/sibling/rule.md']; (repo/'ctx/child/context.yaml').write_text(yaml.safe_dump(child)); git(repo,'add','.'); git(repo,'commit','-qm','foreign rule'); approve(repo)
+    with pytest.raises(PolicyError,match='belongs to another context'): load(repo)

@@ -6,7 +6,12 @@
   "required": [
     "schema_version",
     "status",
-    "blockers"
+    "blockers",
+    "task_id",
+    "context_id",
+    "packet_digest",
+    "changes",
+    "read_coverage"
   ],
   "properties": {
     "schema_version": {
@@ -75,6 +80,120 @@
           }
         }
       }
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "packet_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "action"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "enum": [
+              "created",
+              "modified",
+              "deleted"
+            ]
+          }
+        }
+      }
+    },
+    "read_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_refs",
+        "missing"
+      ],
+      "properties": {
+        "observed_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ref",
+              "section",
+              "field",
+              "revision"
+            ],
+            "properties": {
+              "ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "section": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "field": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "revision": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "uniqueItems": true
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "blockers": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "blockers": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
 }

@@ -31,9 +31,14 @@ def test_widening_typed_denies_inheritance_and_bad_parent():
     d=doc(); find(d,'root')['policy']['capabilities']=['production.deploy','repository.merge']; find(d,'root')['policy']['publication']=['public']; find(d,'finance')['policy']['deny']={'read':['self/tax/secret'],'capabilities':['production.deploy'],'publication':['public']}
     p=ContextPolicy(d,'sha')
     assert not p.permits('finance/tax','read','examples/context-hierarchy/finance/tax/secret/a')
-    report={'verification':'verified','capabilities':['production.deploy','repository.merge'],'scope':'workspace','limitation':'no network'}
-    assert capability_status(p,'finance/tax','production.deploy',report)=='denied'
-    assert capability_status(p,'finance/tax','repository.merge',report)=='available'
+    report={'verification':'verified','capabilities':['production.deploy','repository.merge'],'scope':['workspace'],'limitation':'no network'}
+    assert capability_status(p,'finance/tax','production.deploy',report,target='workspace')=='denied'
+    assert capability_status(p,'finance/tax','repository.merge',report,target='workspace')=='available'
+    assert capability_status(p,'finance/tax','repository.merge',report) == 'pending'
+    assert capability_status(p,'finance/tax','repository.merge',report,target='workspace/repo') == 'pending'
+    assert capability_status(p,'finance/tax','repository.merge',{**report, 'capabilities':'repository.merge'},target='workspace') == 'pending'
+    assert capability_status(p,'finance/tax','repository.merge',{**report, 'scope':'workspace'},target='workspace') == 'pending'
+    assert capability_status(p,'finance/tax','repository.merge',{**report, 'limitation':[]},target='workspace') == 'pending'
     assert not p.permits_effect('finance/tax','publication','public')
     find(d,'finance/tax')['policy']['capabilities']=[]; assert ContextPolicy(d,'sha').effective['finance/tax']['capabilities']==[]
     find(d,'finance')['parent']='missing'
