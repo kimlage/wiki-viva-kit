@@ -447,8 +447,10 @@ def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bod
     git('init', '-q'); git('config', 'user.name', 'Synthetic'); git('config', 'user.email', 'synthetic@example.test')
     git('add', 'source.md'); git('commit', '-qm', 'Synthetic without policy')
     sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
-    with pytest.raises(PolicyError):
-        check('--emit-request', '--approved-revision', sha, '--policy-context', 'root')
+    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report['blocked'] and report['error_code'] == 'context_preparation_unavailable'
+    assert report['blockers'][0]['interface'] and report['blockers'][0]['resume_condition']
     assert check('--emit-request') == 0  # Explicitly unprotected legacy remains available.
     capsys.readouterr()
     (paths.root / 'AGENTS.md').write_text('Current approved CLI policy body.\n')

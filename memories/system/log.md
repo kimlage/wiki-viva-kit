@@ -1595,3 +1595,24 @@ The [auditor](../../scripts/wiki_audit.py) discovers declared context hubs by
 nested folders. Missing and duplicate hubs remain explicit failures; folder
 names do not determine ownership or access. [Synthetic cases](../../tests/test_wiki_audit.py)
 cover nested domains, missing hubs and ambiguity without changing source dates.
+
+## [2026-11-02] Bounded canonical ingestion and selective context preflight
+
+The [canonical ingestion command](../../scripts/wiki_ingest.py) exposes approved
+context and positive UTF-8 ceilings for context and the complete request. The
+[bounded request contract](../../docs/references/guides/bounded-ingestion.md)
+counts actual canonical output, preserves every chunk and mandatory body, and
+returns a recoverable blocker before persistence on overflow or unavailable
+context. Recording revalidates current context and limits; compatibility stays
+explicit. [Production regressions](../../tests/test_ingestion_budget.py) cover
+large sources, UTF-8 boundaries, mandatory overflow and result binding.
+
+The [context flow command](../../scripts/wiki_context_flow.py) and
+[integration guide](../../docs/references/guides/context-impact-integration.md)
+connect impact by selected content/revision to canonical requirements and an
+independent preflight. Requirements remain on the page; there is no additional
+queue or graph and no automatic approval or merge. The
+[agent skill](../../.skills/wiki-llm-context-agent/SKILL.md) routes missing input
+and specific approval through supported native interfaces and the coordinator's
+existing blocker channel. No source verification dates, credentials, services
+or installed schedules are changed by these contracts.

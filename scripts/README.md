@@ -67,6 +67,22 @@ the legacy coordinator mapping. The [context reader guide](../docs/references/gu
 explains historical evidence, current policy bodies, ingestion flags and
 unsupported selections.
 
+## Bounded canonical ingestion
+
+[wiki_ingest.py](wiki_ingest.py) accepts `--approved-revision`, `--policy-context`,
+`--context-max-bytes` (100000) and `--request-max-bytes` (256000). Context is
+included once with every extracted chunk; the complete canonical UTF-8 request
+must fit before persistence, indexing, scoring or cursor advancement. Approved
+failures return structured blockers and never choose compatibility. Record or
+check through [wiki_llm_context_pass.py](wiki_llm_context_pass.py) using the same
+explicit source, approval, context and limits. See [bounded ingestion](../docs/references/guides/bounded-ingestion.md).
+
+[wiki_context_flow.py](wiki_context_flow.py) reads canonical requirements for
+impact by selected content/revision and independently preflights proposals.
+See [context impact and integration](../docs/references/guides/context-impact-integration.md):
+requirements stay on the canonical page; no additional graph/queue, approval or
+merge is performed automatically.
+
 ## Source identity and index reconciliation
 
 [Ingestion](wiki_ingest.py) identifies new captures by normalized origin and

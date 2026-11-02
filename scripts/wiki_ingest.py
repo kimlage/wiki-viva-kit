@@ -21,34 +21,51 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import load_config
 from wiki_core.ingest import run
+from wiki_core.llm.context_pass import DEFAULT_CONTEXT_MAX_BYTES, DEFAULT_REQUEST_MAX_BYTES
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--source", required=True)
     parser.add_argument("--context", required=True)
     parser.add_argument("--dry-run", action="store_true", help="compute without writing artifacts")
     parser.add_argument("--no-score", action="store_true", help="do not record a score-event")
     parser.add_argument("--actor")
+    parser.add_argument("--approved-revision", help="Current approved policy SHA supplied by the trusted local caller.")
+    parser.add_argument("--policy-context", help="Explicit approved context ID; no fallback on refusal.")
+    parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
+    parser.add_argument("--request-max-bytes", type=int, default=DEFAULT_REQUEST_MAX_BYTES)
+    business_root = parser.add_mutually_exclusive_group()
+    business_root.add_argument("--root-entity-ref", help="Explicit authorized business-root page; this does not grant access.")
+    business_root.add_argument("--omit-root-entity", action="store_true", help="Explicitly omit the business root with missing coverage; mandatory lineage rules still apply.")
     parser.add_argument("--stream", help="source recipe stream id (advances its cursor post-commit)")
     args = parser.parse_args()
 
-    config = load_config(ROOT)
+    root = args.root.resolve()
+    config = load_config(root)
+    source = args.source
+    if not Path(source).is_absolute() and not urlsplit(source).scheme:
+        source = str(root / source)
     result = run(
-        args.source,
+        source,
         args.context,
-        ROOT,
+        root,
         config,
         write=not args.dry_run,
         record_score=not args.no_score,
         actor=args.actor,
         stream_id=args.stream,
+        approved_revision=args.approved_revision, policy_context=args.policy_context,
+        context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes,
+        root_entity_ref=args.root_entity_ref, omit_root_entity=args.omit_root_entity,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
     if result.secret_findings:
@@ -59,7 +76,8 @@ def main() -> int:
         )
         return 2
     if result.blocked:
-        print("BLOCKED: extraction retry was not accepted; the complete capture was retained.", file=sys.stderr)
+        print("BLOCKED: request preparation requires the reported context/budget action." if result.blockers else
+              "BLOCKED: extraction retry was not accepted; the complete capture was retained.", file=sys.stderr)
         return 2
     return 0
 

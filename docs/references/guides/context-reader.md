@@ -107,10 +107,10 @@ Without `--approved-revision`, it uses the explicitly labelled working-tree
 compatibility package. With that flag, `--policy-context` is required; missing,
 invalid or revoked policy fails without falling back to compatibility. Required
 perspective IDs are resolved only among permitted paths owned by the selected
-context; imported IDs require explicit connection handling. The Python ingestion
-pipeline accepts the matching `approved_revision` and `policy_context` keyword
-arguments. The [wiki_ingest.py CLI](../../../scripts/wiki_ingest.py) does not
-expose those opt-in flags in this phase.
+context; imported IDs require explicit connection handling. The canonical [wiki_ingest.py CLI](../../../scripts/wiki_ingest.py) exposes
+those flags with separate context and complete-request byte ceilings. The
+[bounded ingestion guide](bounded-ingestion.md) documents defaults, canonical
+UTF-8 serialization, current result binding and recoverable blockers.
 
 The [synthetic CLI regression](../../../tests/test_coordination.py) compared
 serialized output on the same fixture: 27 snapshot payloads totaling 45,766 bytes

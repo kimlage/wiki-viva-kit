@@ -276,7 +276,10 @@ def test_approved_pipeline_reads_current_policy_and_committed_perspective_before
     (tmp_path / 'context.yaml').write_text(yaml.safe_dump(manifest))
     git('add', 'context.yaml'); git('commit', '-qm', 'Approved read revocation')
     current = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', current)
-    with pytest.raises(PolicyError, match='not current trusted'):
-        run(str(src), 'system', tmp_path, config, approved_revision=approved, policy_context='root')
-    with pytest.raises(ValueError, match='required perspective missing'):
-        run(str(src), 'system', tmp_path, config, approved_revision=current, policy_context='root')
+    stale = run(str(src), 'system', tmp_path, config, approved_revision=approved, policy_context='root')
+    revoked = run(str(src), 'system', tmp_path, config, approved_revision=current, policy_context='root')
+    for blocked in (stale, revoked):
+        assert blocked.blocked and not blocked.written and blocked.request_path is None
+        assert blocked.blockers and blocked.context_error_code == 'context_preparation_unavailable'
+        assert 'perspective-synthetic' not in json.dumps(blocked.blockers)
+        assert blocked.stream_cursor_written is False
