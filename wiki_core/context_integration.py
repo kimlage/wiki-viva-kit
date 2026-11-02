@@ -55,10 +55,14 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     if raw and raw[-1]==b'': raw.pop()
     if len(raw)%2: raise IntegrationError('unsupported diff')
     actual=[]
+    # Active normative inputs require the separate policy-review path even if
+    # the acting context would otherwise have read/write access to the file.
+    normative={ref for c in policy.contexts.values() for k in ('instructions','skills','templates') for ref in c[k]}
     for i in range(0,len(raw),2):
         try: status=raw[i].decode(); path=safe_path(raw[i+1].decode())
         except (UnicodeError,PolicyError) as exc: raise IntegrationError('invalid diff path') from exc
         if status not in ('A','M','D') or path.endswith('/context.yaml') or path=='context.yaml': raise IntegrationError('unsupported or policy change')
+        if path in normative: raise IntegrationError('normative input requires separate policy review')
         if policy.owner_of(path)!=context_id or not policy.permits(context_id,'write',path): raise IntegrationError('write outside context')
         if not policy.permits(context_id,'read',path): raise IntegrationError('proposal read denied')
         if status!='D':

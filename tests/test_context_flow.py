@@ -180,3 +180,35 @@ def test_preflight_blocks_symlink(repo):
     result['changes'].append({'path':'finance/costs/alias.md','action':'created'})
     with pytest.raises(IntegrationError,match='unsafe proposed file'):
         preflight(repo,p,context_id='costs',base=base,head=git(repo,'rev-parse','HEAD'),branch='wiki/costs-task-1',packet=packet,result=result)
+
+def test_finance_parent_read_ceiling_is_not_a_child_connection(repo):
+    p=policy(repo); source='finance/tax/source.md'
+    assert p.permits('finance','read',source)
+    assert p.connection('tax','finance',source,'interpret','synthetic',section='amount')=='pending'
+    evidence=[{'ref':source,'producer':'tax','reason':'selected evidence','use':'interpret','classification':'synthetic','section':'amount'}]
+    with pytest.raises(ValueError,match='connection pending'):
+        build_packet(repo,p,'finance','HEAD',evidence,10000,task_id='parent-read',goal='interpret',output='proposal',integrator='reviewer')
+
+
+def test_finance_parent_write_ceiling_does_not_authorize_child_edit(repo):
+    base=git(repo,'rev-parse','HEAD'); p=policy(repo)
+    assert p.permits('finance','write','finance/tax/source.md')
+    packet=build_packet(repo,p,'finance',base,[],10000,task_id='parent-write',goal='propose',output='report',integrator='reviewer')
+    git(repo,'checkout','-qb','wiki/finance-task')
+    (repo/'finance/tax/source.md').write_text('unauthorized edit\n'); git(repo,'add','.'); git(repo,'commit','-qm','child edit'); head=git(repo,'rev-parse','HEAD')
+    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'parent-write','context_id':'finance','packet_digest':packet['packet_digest'],'changes':[{'path':'finance/tax/source.md','action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
+    with pytest.raises(IntegrationError,match='write outside context'):
+        preflight(repo,p,context_id='finance',base=base,head=head,branch='wiki/finance-task',packet=packet,result=result)
+
+@pytest.mark.parametrize('normative_path',['rules.md','finance/costs/rule.md','finance/costs/template.md'])
+def test_preflight_rejects_active_ancestor_local_rule_and_template(repo,normative_path):
+    manifest_path=repo/'finance/costs/context.yaml'; manifest_data=yaml.safe_load(manifest_path.read_text())
+    manifest_data['instructions']=['finance/costs/rule.md']; manifest_data['templates']=['finance/costs/template.md']; manifest_path.write_text(yaml.safe_dump(manifest_data))
+    (repo/'finance/costs/rule.md').write_text('Mandatory context rule\n'); (repo/'finance/costs/template.md').write_text('Mandatory template\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','approved normative files'); approve(repo)
+    base=git(repo,'rev-parse','HEAD'); p=policy(repo)
+    packet=build_packet(repo,p,'costs',base,[],10000,task_id='normative-test',goal='content proposal',output='report',integrator='reviewer')
+    git(repo,'checkout','-qb','wiki/normative-test'); (repo/normative_path).write_text('proposed normative change\n'); git(repo,'add','.'); git(repo,'commit','-qm','attempt normative change'); head=git(repo,'rev-parse','HEAD')
+    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':packet['task_id'],'context_id':'costs','packet_digest':packet['packet_digest'],'changes':[{'path':normative_path,'action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
+    with pytest.raises(IntegrationError,match='normative input requires separate policy review'):
+        preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/normative-test',packet=packet,result=result)
