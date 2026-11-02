@@ -2,45 +2,83 @@ import json
 import subprocess
 from pathlib import Path
 import pytest
+import yaml
 from jsonschema import validate
-from wiki_core.context_policy import PolicyError, load_policy
+from wiki_core.context_policy import ContextPolicy, PolicyError, load_policy
 from wiki_core.context_packet import build_packet, blocker, connection_proposal
 
 BASE=Path(__file__).resolve().parents[1]
-
-def git(root,*args):
-    return subprocess.check_output(['git','-C',str(root),*args]).decode().strip()
-
+TASK={'task_id':'test-1','goal':'review evidence','output':'report','integrator':'operator'}
+EVIDENCE=[{'ref':'ctx/evidence.md','producer':'root','reason':'direct evidence','use':'interpret','classification':'synthetic'}]
+def git(root,*args): return subprocess.check_output(['git','-C',str(root),*args]).decode().strip()
+def approve(root): git(root,'update-ref','refs/remotes/origin/main',git(root,'rev-parse','HEAD'))
 @pytest.fixture
 def repo(tmp_path):
     git(tmp_path,'init','-q'); git(tmp_path,'config','user.email','synthetic@example.invalid'); git(tmp_path,'config','user.name','Synthetic')
     (tmp_path/'ctx').mkdir(); (tmp_path/'ctx/rules.md').write_text('# Mandatory\nRule body\n'); (tmp_path/'ctx/evidence.md').write_text('# Evidence\nFirst body\n')
-    d={'schema_version':'wiki.context/v1','contexts':[{'id':'root','parent':None,'root':'ctx','purpose':'Synthetic','owner':'operator','instructions':['ctx/rules.md'],'skills':[],'templates':[],'policy':{'read':['self'],'write':[],'capabilities':[],'publication':[],'deny':[]},'imports':[],'exports':[]}]}
-    (tmp_path/'ctx/policy.json').write_text(json.dumps(d)); git(tmp_path,'add','.'); git(tmp_path,'commit','-qm','initial'); git(tmp_path,'update-ref','refs/remotes/origin/main',git(tmp_path,'rev-parse','HEAD'))
+    d={'schema_version':'wiki.context/v1','id':'root','parent':None,'root':'ctx','purpose':'Synthetic','owner':'operator','instructions':['ctx/rules.md'],'skills':[],'templates':[],'policy':{'read':['self'],'write':[],'capabilities':[],'publication':[],'deny':{}},'imports':[],'exports':[]}
+    (tmp_path/'ctx/context.yaml').write_text(yaml.safe_dump(d)); git(tmp_path,'add','.'); git(tmp_path,'commit','-qm','initial'); approve(tmp_path)
     return tmp_path
 
+def load(repo,rev='HEAD'): return load_policy(repo,rev,'ctx/context.yaml')
+def pack(repo,p,rev,evidence=EVIDENCE,budget=1000,**kwargs): return build_packet(repo,p,'root',rev,evidence,budget,**TASK,**kwargs)
 
-def test_packet_mandatory_bytes_digest_budget_and_revoke(repo):
-    old=git(repo,'rev-parse','HEAD'); p=load_policy(repo,old,'ctx/policy.json')
-    evidence=[{'ref':'ctx/evidence.md','producer':'root','reason':'direct evidence','use':'interpret','classification':'synthetic'}]
-    packet=build_packet(repo,p,'root',old,evidence,1000)
+def test_packet_bodies_digest_budget_revocation_and_proposed_branch(repo):
+    old=git(repo,'rev-parse','HEAD'); p=load(repo,old); packet=pack(repo,p,old)
     validate(packet,json.loads((BASE/'docs/references/schemas/wiki-task-context-v1.schema.json').read_text()))
     assert packet['inputs'][0]['text']=='# Mandatory\nRule body\n'
     assert packet['inputs'][1]['text']=='# Evidence\nFirst body\n'
-    assert packet['enforcement_claim'].startswith('none')
-    with pytest.raises(PolicyError,match='mandatory content exceeds'): build_packet(repo,p,'root',old,evidence,1)
+    assert packet['enforcement_claim'].startswith('none') and packet['coverage']['complete'] is False
+    with pytest.raises(PolicyError,match='mandatory content exceeds'): pack(repo,p,old,budget=1)
+    with pytest.raises(PolicyError,match='dynamic query'): pack(repo,p,old,query_fingerprint='fake')
     (repo/'ctx/evidence.md').write_text('# Evidence\nChanged body\n'); git(repo,'add','.'); git(repo,'commit','-qm','change evidence'); newer=git(repo,'rev-parse','HEAD')
-    packet2=build_packet(repo,p,'root',newer,evidence,1000)
-    assert packet2['inputs'][1]['sha256'] != packet['inputs'][1]['sha256']
-    d=json.loads((repo/'ctx/policy.json').read_text()); d['contexts'][0]['policy']['deny']=['self/evidence.md']; (repo/'ctx/policy.json').write_text(json.dumps(d)); git(repo,'add','.'); git(repo,'commit','-qm','revoke')
-    with pytest.raises(PolicyError,match='not current trusted'): load_policy(repo,'HEAD','ctx/policy.json')
-    git(repo,'update-ref','refs/remotes/origin/main',git(repo,'rev-parse','HEAD'))
-    current=load_policy(repo,'HEAD','ctx/policy.json')
-    with pytest.raises(PolicyError,match='denied'): build_packet(repo,current,'root',old,evidence,1000)
+    packet2=pack(repo,p,newer); assert packet2['inputs'][1]['sha256']!=packet['inputs'][1]['sha256'] and packet2['packet_digest']!=packet['packet_digest']
+    d=yaml.safe_load((repo/'ctx/context.yaml').read_text()); d['policy']['deny']={'read':['self/evidence.md']}; (repo/'ctx/context.yaml').write_text(yaml.safe_dump(d)); git(repo,'add','.'); git(repo,'commit','-qm','revoke')
+    with pytest.raises(PolicyError,match='not current trusted'): load(repo)
+    approve(repo)
+    with pytest.raises(PolicyError,match='not current trusted'): pack(repo,p,old)
+    with pytest.raises(PolicyError,match='denied'): pack(repo,load(repo),old)
 
+def test_unbound_duplicate_yaml_symlink_and_changed_rule(repo):
+    p=load(repo); old=git(repo,'rev-parse','HEAD'); first=pack(repo,p,old)
+    (repo/'ctx/rules.md').write_text('# Mandatory\nChanged rule\n'); git(repo,'add','.'); git(repo,'commit','-qm','change rule'); approve(repo)
+    with pytest.raises(PolicyError): pack(repo,p,old)
+    second=pack(repo,load(repo),old); assert first['inputs'][0]['sha256']!=second['inputs'][0]['sha256']
+    d=yaml.safe_load((repo/'ctx/context.yaml').read_text()); d.pop('schema_version')
+    with pytest.raises(PolicyError,match='unbound'): pack(repo,ContextPolicy({'schema_version':'wiki.context/v1','contexts':[d]},'x'),old)
+    (repo/'ctx/context.yaml').write_text('schema_version: wiki.context/v1\nschema_version: wiki.context/v1\n'); git(repo,'add','.'); git(repo,'commit','-qm','duplicate'); approve(repo)
+    with pytest.raises(PolicyError,match='duplicate'): load(repo)
+    (repo/'ctx/context.yaml').unlink(); (repo/'ctx/context.yaml').symlink_to('rules.md'); git(repo,'add','.'); git(repo,'commit','-qm','symlink'); approve(repo)
+    with pytest.raises(PolicyError,match='unsafe'): load(repo)
 
 def test_blocker_and_proposal_schema():
-    b=blocker('read','ctx/a','missing approval','owner','approve exact connection','approval recorded',status='pending')
-    result={'schema_version':'wiki.task-result/v1','status':'pending','blockers':[b]}
-    validate(result,json.loads((BASE/'docs/references/schemas/wiki-task-result-v1.schema.json').read_text()))
+    b=blocker('read','ctx/a','missing approval','owner','approve exact connection','approval recorded')
+    validate({'schema_version':'wiki.task-result/v1','status':'pending','blockers':[b]},json.loads((BASE/'docs/references/schemas/wiki-task-result-v1.schema.json').read_text()))
     assert connection_proposal('a','b','ctx/a','interpret','synthetic','2099-01-01')['grants_access'] is False
+    with pytest.raises(PolicyError): connection_proposal('a','b','ctx/a','interpret','synthetic','2099-01-01',section='x',field='y')
+
+def test_root_dot_mandatory_ancestor_and_narrow_metadata(repo):
+    old=git(repo,'rev-parse','HEAD')
+    # Promote the hierarchy root to repository root and add a child with no
+    # read grant on the mandatory root instruction.
+    d=yaml.safe_load((repo/'ctx/context.yaml').read_text()); d['root']='.'; d['instructions']=['rules.md']; d['policy']['read']=['self']; (repo/'rules.md').write_text('root rule\n')
+    (repo/'ctx/context.yaml').unlink(); (repo/'context.yaml').write_text(yaml.safe_dump(d))
+    child={'schema_version':'wiki.context/v1','id':'child','parent':'root','root':'ctx','purpose':'child','owner':'operator','instructions':[],'skills':[],'templates':[],'policy':{'read':['self']},'imports':[],'exports':[]}
+    (repo/'ctx/context.yaml').write_text(yaml.safe_dump(child)); (repo/'ctx/evidence.md').write_text('---\npage_id: evidence\nsecret: hidden metadata\n---\n<!-- wiki:section id=summary version=1 -->\n# Summary\nVisible content\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','root and child'); approve(repo)
+    policy=load_policy(repo,'HEAD'); ref=git(repo,'rev-parse','HEAD')
+    e=[{'ref':'ctx/evidence.md','producer':'child','reason':'selected','use':'interpret','classification':'synthetic','section':'summary'}]
+    result=build_packet(repo,policy,'child',ref,e,1000,**TASK)
+    assert result['inputs'][0]['text']=='root rule\n'
+    assert 'hidden metadata' not in json.dumps(result)
+    e[0]['field']='secret'
+    with pytest.raises(PolicyError,match='selector'): build_packet(repo,policy,'child',ref,e,1000,**TASK)
+
+def test_cli_resolve_and_pack(repo, tmp_path):
+    script=BASE/'scripts/wiki_context.py'; sha=git(repo,'rev-parse','HEAD')
+    prefix=['/opt/anaconda3/bin/python3',str(script),'--repo',str(repo),'--approved-revision',sha,'--manifest','ctx/context.yaml']
+    resolved=json.loads(subprocess.check_output(prefix+['resolve','root']))
+    assert resolved['policy_revision']==sha and resolved['enforcement_claim']=='none'
+    request=tmp_path/'request.json'; request.write_text(json.dumps({**TASK,'evidence':EVIDENCE,'byte_budget':1000}))
+    packet=json.loads(subprocess.check_output(prefix+['pack','root','--content-revision',sha,'--request',str(request)]))
+    assert packet['task_id']=='test-1' and len(packet['packet_digest'])==64

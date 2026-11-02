@@ -2,58 +2,67 @@ import copy
 import json
 from pathlib import Path
 import pytest
+import yaml
 from jsonschema import validate, ValidationError
-from wiki_core.context_policy import ContextPolicy, PolicyError, capability_status, load_policy
+from wiki_core.context_policy import ContextPolicy, PolicyError, capability_status, safe_path
 
 BASE = Path(__file__).resolve().parents[1]
 
+def doc():
+    contexts=[]
+    for p in (BASE/'examples/context-hierarchy').rglob('context.yaml'):
+        c=yaml.safe_load(p.read_text()); c.pop('schema_version'); contexts.append(c)
+    contexts.sort(key=lambda c: (c['root'].count('/'),c['root']))
+    return {'schema_version':'wiki.context/v1','contexts':contexts}
 
-def doc(): return json.loads((BASE/'examples/context-hierarchy/hierarchy.json').read_text())
-
+def find(d,id): return next(c for c in d['contexts'] if c['id']==id)
 
 def test_nested_self_inheritance_and_no_sibling_access():
-    p = ContextPolicy(doc(), 'approved')
+    p=ContextPolicy(doc(),'approved')
     assert p.permits('finance/tax','read','examples/context-hierarchy/finance/tax/a.md')
     assert not p.permits('finance/tax','read','examples/context-hierarchy/finance/costs/a.md')
     assert not p.permits('finance/companies/example','read','examples/context-hierarchy/company/a.md')
-    assert p.effective['finance/tax']['capabilities'] == []
+    assert p.effective['finance/tax']['capabilities']==[]
+    assert p.owner_of('examples/context-hierarchy/finance/tax/a.md')=='finance/tax'
 
-
-def test_widening_deny_and_bad_parent():
-    d=doc(); d['contexts'][2]['policy']['read']=['examples/context-hierarchy/company']
-    with pytest.raises(PolicyError, match='widens'): ContextPolicy(d,'sha')
-    d=doc(); d['contexts'][1]['policy']['deny']=['self/tax/secret']
+def test_widening_typed_denies_inheritance_and_bad_parent():
+    d=doc(); find(d,'finance/tax')['policy']['read']=['examples/context-hierarchy/company']
+    with pytest.raises(PolicyError,match='widens'): ContextPolicy(d,'sha')
+    d=doc(); find(d,'root')['policy']['capabilities']=['production.deploy','repository.merge']; find(d,'root')['policy']['publication']=['public']; find(d,'finance')['policy']['deny']={'read':['self/tax/secret'],'capabilities':['production.deploy'],'publication':['public']}
     p=ContextPolicy(d,'sha')
     assert not p.permits('finance/tax','read','examples/context-hierarchy/finance/tax/secret/a')
-    d=doc(); d['contexts'][1]['parent']='finance/tax'
+    report={'verification':'verified','capabilities':['production.deploy','repository.merge'],'scope':'workspace','limitation':'no network'}
+    assert capability_status(p,'finance/tax','production.deploy',report)=='denied'
+    assert capability_status(p,'finance/tax','repository.merge',report)=='available'
+    assert not p.permits_effect('finance/tax','publication','public')
+    find(d,'finance/tax')['policy']['capabilities']=[]; assert ContextPolicy(d,'sha').effective['finance/tax']['capabilities']==[]
+    find(d,'finance')['parent']='missing'
     with pytest.raises(PolicyError): ContextPolicy(d,'sha')
-    d=doc(); d['contexts'][1]['policy']['superuser']=True
+    d=doc(); find(d,'finance')['parent']='finance/tax'
     with pytest.raises(PolicyError): ContextPolicy(d,'sha')
-    d=doc(); d['contexts'][1]['root']='../escape'
+    d=doc(); find(d,'finance')['policy']['superuser']=True
     with pytest.raises(PolicyError): ContextPolicy(d,'sha')
+    d=doc(); find(d,'finance')['root']=find(d,'company')['root']
+    with pytest.raises(PolicyError): ContextPolicy(d,'sha')
+    for path in ['../escape','a/../b','a/\x01b','/absolute','a/*']:
+        with pytest.raises(PolicyError): safe_path(path)
 
-
-def test_connections_exact_double_approval_and_pending():
-    d=doc(); a=d['contexts'][1]; b=d['contexts'][2]
-    path='examples/context-hierarchy/finance/tax/report.md'
-    # The parent finance already has read scope for tax.
+def test_connections_exact_double_approval_expiry_and_fake_producer():
+    d=doc(); a=find(d,'finance'); b=find(d,'finance/tax'); path='examples/context-hierarchy/finance/tax/report.md'
     grant={'from_context':'finance/tax','to_context':'finance','selector':path,'section':'Summary','use':'interpret','classification':'synthetic','expires':'2099-01-01'}
-    a['imports']=[copy.deepcopy(grant)]
-    p=ContextPolicy(d,'sha')
-    assert p.connection('finance/tax','finance',path,'interpret','synthetic',section='Summary') == 'pending'
+    a['imports']=[copy.deepcopy(grant)]; p=ContextPolicy(d,'sha')
+    assert p.connection('finance/tax','finance',path,'interpret','synthetic',section='Summary')=='pending'
     b['exports']=[copy.deepcopy(grant)]; p=ContextPolicy(d,'sha')
-    assert p.connection('finance/tax','finance',path,'interpret','synthetic',section='Summary') == 'approved'
-    assert p.connection('finance/tax','finance',path,'interpret','synthetic') == 'pending'
-    assert p.connection('finance/tax','company',path,'interpret','synthetic') == 'denied'
+    assert p.connection('finance/tax','finance',path,'interpret','synthetic',section='Summary')=='approved'
+    assert p.connection('finance/tax','finance',path,'interpret','synthetic')=='pending'
+    assert p.connection('finance','finance',path,'interpret','synthetic')=='denied'
+    assert p.connection('finance/tax','company',path,'interpret','synthetic')=='denied'
+    a['imports'][0]['expires']=b['exports'][0]['expires']='2000-01-01'; p=ContextPolicy(d,'sha')
+    assert p.connection('finance/tax','finance',path,'interpret','synthetic',section='Summary')=='pending'
 
-
-def test_schemas_and_capability_no_enforcement_claim():
+def test_manifest_schema_and_no_false_capability_proof():
     schema=json.loads((BASE/'docs/references/schemas/wiki-context-v1.schema.json').read_text())
-    validate(doc(),schema)
-    bad=doc(); bad['contexts'][0]['policy']['magic']=[]
+    for p in (BASE/'examples/context-hierarchy').rglob('context.yaml'): validate(yaml.safe_load(p.read_text()),schema)
+    bad=yaml.safe_load((BASE/'examples/context-hierarchy/context.yaml').read_text()); bad['policy']['magic']=[]
     with pytest.raises(ValidationError): validate(bad,schema)
-    d=doc(); d['contexts'][0]['policy']['capabilities']=['edit']
-    p=ContextPolicy(d,'sha')
-    assert capability_status(p,'root','edit',None)=='pending'
-    assert capability_status(p,'root','edit',{'verification':'verified','capabilities':['edit']})=='pending'
-    assert capability_status(p,'root','edit',{'verification':'verified','capabilities':['edit'],'scope':'workspace','limitation':'no network'})=='available'
+    p=ContextPolicy(doc(),'sha'); assert capability_status(p,'root','edit',None)=='denied'

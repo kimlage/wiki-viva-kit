@@ -1,9 +1,10 @@
 """Construct bounded, revision-bound context packets from authorized paths."""
 from __future__ import annotations
 import hashlib
+import json
 import datetime as dt
 from pathlib import Path
-from .context_policy import PolicyError, capability_status, safe_path
+from .context_policy import PolicyError, capability_status, safe_path, within
 from .repository_reader import RepositoryReader
 
 
@@ -24,6 +25,7 @@ def connection_proposal(source, destination, selector, purpose, classification, 
         raise PolicyError('incomplete connection proposal')
     try: dt.date.fromisoformat(expiry)
     except ValueError as exc: raise PolicyError('invalid proposal expiry') from exc
+    if section is not None and field is not None: raise PolicyError('section and field mutually exclusive')
     if any(x is not None and (not isinstance(x, str) or not x) for x in (section, field)):
         raise PolicyError('invalid proposal selector')
     return {'source': source, 'destination': destination, 'selector': selector, 'section': section, 'field': field,
@@ -32,10 +34,13 @@ def connection_proposal(source, destination, selector, purpose, classification, 
 
 
 def build_packet(root, policy, context_id, content_revision, evidence, budget, *, adapter_report=None,
-                 required_capabilities=(), query_fingerprint=None, omissions=()):
+                 required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None):
+    if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
+    if not getattr(policy, '_binding', None) or Path(policy._binding[0]) != Path(root).resolve(): raise PolicyError('unbound or mismatched policy')
+    policy = policy.fresh()
     if not isinstance(budget, int) or isinstance(budget, bool) or budget < 0:
         raise PolicyError('invalid byte budget')
-    if query_fingerprint is not None and (not isinstance(query_fingerprint, str) or not query_fingerprint): raise PolicyError('invalid query fingerprint')
+    if query_fingerprint is not None: raise PolicyError('dynamic query selection not supported')
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     lineage = policy.lineage(context_id)
     for cap in required_capabilities:
@@ -46,9 +51,10 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
     seen = set()
     # Rules are read from the approved policy revision, never historical content.
     policy_reader = RepositoryReader(Path(root), policy.policy_revision)
-    def add(reader_, ref, reason, kind, section=None, field=None):
+    def add(reader_, ref, reason, kind, section=None, field=None, producer=None, use=None, classification=None):
         ref = safe_path(ref)
-        if not policy.permits(context_id, 'read', ref): raise PolicyError('read denied: ' + ref)
+        denied = any(within(ref, scope) for scope in policy.effective[context_id]['deny']['read'])
+        if denied or (kind != 'mandatory' and not policy.permits(context_id, 'read', ref)): raise PolicyError('read denied: ' + ref)
         item = reader_.read(ref, section=section, field=field)
         text = item['text']
         if not isinstance(text, str): raise PolicyError('reader returned non-text')
@@ -58,12 +64,12 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
         selected.append({'kind': kind, 'ref': ref, 'section': section, 'field': field,
                          'text': text, 'byte_length': len(data), 'sha256': digest,
                          'revision': item['revision'], 'document_sha256': item['content_sha256'],
-                         'origin': item['origin'], 'reason': reason})
+                         'origin': item['origin'], 'reason': reason, 'producer': producer, 'use': use, 'classification': classification})
     for c in lineage:
         for key in ('instructions', 'skills', 'templates'):
             for ref in c[key]:
                 if ref not in seen:
-                    add(policy_reader, ref, f"mandatory {key} from {c['id']}", 'mandatory')
+                    add(policy_reader, ref, f"mandatory {key} from {c['id']}", 'mandatory', producer=c['id'])
                     seen.add(ref)
     mandatory_bytes = sum(x['byte_length'] for x in selected)
     if mandatory_bytes > budget: raise PolicyError('mandatory content exceeds byte budget')
@@ -73,14 +79,18 @@ def build_packet(root, policy, context_id, content_revision, evidence, budget, *
         if not isinstance(e, dict) or set(e) - allowed or not all(isinstance(e.get(k), str) and e[k] for k in ('ref','producer','reason','use','classification')):
             raise PolicyError('invalid evidence')
         ref = safe_path(e['ref'])
+        if any(k in e and (not isinstance(e[k], str) or not e[k]) for k in ('section','field')) or ('section' in e and 'field' in e): raise PolicyError('invalid evidence selector')
         status = policy.connection(e['producer'], context_id, ref, e['use'], e['classification'], section=e.get('section'), field=e.get('field'))
         if status != 'approved': raise PolicyError('connection ' + status)
-        add(reader, ref, e['reason'], 'evidence', e.get('section'), e.get('field'))
+        add(reader, ref, e['reason'], 'evidence', e.get('section'), e.get('field'), e['producer'], e['use'], e['classification'])
     total = sum(x['byte_length'] for x in selected)
     if total > budget: raise PolicyError('selected content exceeds byte budget')
-    return {'schema_version': 'wiki.task-context/v1', 'context_id': context_id,
+    policy.fresh()  # Fail if approval moved during composition.
+    packet = {'schema_version': 'wiki.task-context/v1', 'task_id': task_id, 'goal': goal, 'output': output, 'integrator': integrator, 'context_id': context_id,
             'content_revision': reader.revision, 'policy_revision': policy.policy_revision,
             'inputs': selected, 'declared_read_set': [{'ref': x['ref'], 'section': x['section'], 'field': x['field'], 'revision': x['revision']} for x in selected],
-            'query_fingerprint': query_fingerprint, 'omissions': list(omissions),
+            'query_fingerprint': None, 'coverage': {'mode': 'explicit_read_set', 'complete': False, 'missing': list(omissions)},
             'byte_budget': budget, 'bytes_used': total,
             'capability_evidence': adapter_report, 'enforcement_claim': 'none; adapter report is supplied by the caller'}
+    packet['packet_digest'] = hashlib.sha256(json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    return packet

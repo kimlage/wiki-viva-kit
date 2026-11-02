@@ -1,0 +1,20 @@
+schema_version: wiki.context/v1
+id: root
+parent: null
+root: examples/context-hierarchy
+purpose: Bound synthetic demonstration
+owner: example operator
+instructions:
+- examples/context-hierarchy/root-rules.md
+skills: []
+templates: []
+policy:
+  read:
+  - self
+  write:
+  - self
+  capabilities: []
+  deny: {}
+  publication: []
+imports: []
+exports: []

@@ -11,11 +11,16 @@
     "inputs",
     "declared_read_set",
     "query_fingerprint",
-    "omissions",
     "byte_budget",
     "bytes_used",
     "capability_evidence",
-    "enforcement_claim"
+    "enforcement_claim",
+    "task_id",
+    "goal",
+    "output",
+    "integrator",
+    "coverage",
+    "packet_digest"
   ],
   "properties": {
     "schema_version": {
@@ -49,7 +54,10 @@
           "revision",
           "document_sha256",
           "origin",
-          "reason"
+          "reason",
+          "producer",
+          "use",
+          "classification"
         ],
         "properties": {
           "kind": {
@@ -99,6 +107,24 @@
           "reason": {
             "type": "string",
             "minLength": 1
+          },
+          "producer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "use": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "classification": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }
@@ -139,17 +165,7 @@
       }
     },
     "query_fingerprint": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "omissions": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      }
+      "type": "null"
     },
     "byte_budget": {
       "type": "integer",
@@ -168,6 +184,50 @@
     "enforcement_claim": {
       "type": "string",
       "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "output": {
+      "type": "string",
+      "minLength": 1
+    },
+    "integrator": {
+      "type": "string",
+      "minLength": 1
+    },
+    "packet_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "complete",
+        "missing"
+      ],
+      "properties": {
+        "mode": {
+          "const": "explicit_read_set"
+        },
+        "complete": {
+          "const": false
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     }
   }
 }

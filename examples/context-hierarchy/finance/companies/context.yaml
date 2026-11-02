@@ -1,0 +1,17 @@
+schema_version: wiki.context/v1
+id: finance/companies
+parent: finance
+root: examples/context-hierarchy/finance/companies
+purpose: Personal financial perspective on companies
+owner: finance operator
+instructions: []
+skills: []
+templates: []
+policy:
+  read:
+  - examples/context-hierarchy/root-rules.md
+  - self
+  write:
+  - self
+imports: []
+exports: []

@@ -1,0 +1,17 @@
+schema_version: wiki.context/v1
+id: company
+parent: root
+root: examples/context-hierarchy/company
+purpose: Separate example company identity and limits
+owner: company operator
+instructions: []
+skills: []
+templates: []
+policy:
+  read:
+  - examples/context-hierarchy/root-rules.md
+  - self
+  write:
+  - self
+imports: []
+exports: []
