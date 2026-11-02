@@ -25,6 +25,7 @@ class ResolvedTemplate:
     template_id: str
     template_version: str
     text: str
+    section_contract: dict[str, Any] | None = None
 
 
 def _override_for(config: WikiConfig, page_type: str) -> dict[str, Any]:
@@ -76,7 +77,17 @@ def resolve_template(
     template_path = _template_path(config, registry, page_type)
     if not template_path or template_path == "none":
         raise ValueError(f"page_type {page_type!r} has no instantiable template")
-    base_file = root / template_path
+    shape = registry.page_types[page_type]
+    contract_ref = _override_for(config, page_type).get("section_contract", shape.get("section_contract"))
+    section_contract = None
+    if contract_ref:
+        from wiki_core.template_sections import load_section_contract, _path
+        if isinstance(shape.get("experience_pack"), dict):
+            raise ValueError("section contracts are not supported for immutable installed pack templates")
+        section_contract = load_section_contract(root, contract_ref)
+        base_file = _path(root, template_path)
+    else:
+        base_file = root / template_path
     if not base_file.exists():
         raise FileNotFoundError(template_path)
     shape = registry.page_types[page_type]
@@ -110,12 +121,30 @@ def resolve_template(
         overlay_path = _overlay_path(config, page_type)
         template_id = f"{page_type}-default"
         template_version = TEMPLATE_VERSION
-        text = _template_body(base_file.read_text(encoding="utf-8"))
+        if section_contract is not None:
+            from wiki_core.template_sections import read_template_file
+            text = _template_body(read_template_file(root, template_path))
+        else:
+            text = _template_body(base_file.read_text(encoding="utf-8"))
     if overlay_path:
-        overlay_file = root / overlay_path
+        if section_contract is not None:
+            from wiki_core.template_sections import _path
+            overlay_file = _path(root, overlay_path)
+        else:
+            overlay_file = root / overlay_path
         if not overlay_file.exists():
             raise FileNotFoundError(overlay_path)
-        text = text.rstrip() + "\n\n" + overlay_file.read_text(encoding="utf-8").strip() + "\n"
+        if section_contract is not None:
+            from wiki_core.template_sections import read_template_file
+            overlay_text = read_template_file(root, overlay_path)
+        else:
+            overlay_text = overlay_file.read_text(encoding="utf-8")
+        text = text.rstrip() + "\n\n" + overlay_text.strip() + "\n"
+    if section_contract is not None:
+        from wiki_core.template_sections import compose_sections
+        text = compose_sections(text, section_contract)
+        template_id = section_contract["template_id"]
+        template_version = section_contract["template_version"]
     return ResolvedTemplate(
         page_type=page_type,
         template_path=template_path,
@@ -123,6 +152,7 @@ def resolve_template(
         template_id=template_id,
         template_version=template_version,
         text=text,
+        section_contract=section_contract,
     )
 
 
@@ -160,7 +190,10 @@ def instantiate_template(
             parsed = None
         return value if parsed == value and "\n" not in value and "\r" not in value else json.dumps(value, ensure_ascii=False)
 
-    scalar_values = {key: scalar(value) if key in {"title", "context"} else value
+    quoted_keys = {"title", "context"}
+    if resolved.section_contract is not None:
+        quoted_keys.update({"template_id", "template_version"})
+    scalar_values = {key: scalar(value) if key in quoted_keys else value
                      for key, value in replacements.items()}
     text = resolved.text
     lines = text.splitlines()

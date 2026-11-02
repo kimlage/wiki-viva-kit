@@ -1,0 +1,6 @@
+schema_version: wiki_template_sections.v1
+template_id: decision-risk
+template_version: '1'
+extends: tests/fixtures/template-sections/decision.yaml
+add_sections:
+  - {id: risk, title: Risk assessment, role: uncertainty, required: true, slot: 'before:decision'}
