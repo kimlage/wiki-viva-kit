@@ -14,7 +14,8 @@ and served frontend bytes; an unknown frontend source commit stays unknown.
 This read does not reconcile jobs, contact an external agent or rebuild a global
 snapshot.
 
-Action writers, briefs, job submission and gate execution require a current
+Action writers, briefs, job submission, gates, snapshot publication and source
+copy/apply/refresh operations require a current
 administrative session and the capabilities for that effect. The same checks
 apply on execution after a plan was reviewed. Origin checks, expected revisions,
 attempt keys, locks and atomic writers remain necessary; a local address or a

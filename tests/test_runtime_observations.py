@@ -98,7 +98,14 @@ def test_optional_execution_is_absent_and_http_effects_require_current_authority
         monkeypatch.setattr(web, 'probe_codex_for', forbidden)
         for route, payload in [('/api/gates/run', {'gate_id': 'audit'}),
                                ('/api/briefs', {'spec': {}}),
-                               ('/api/codex/jobs', {'brief_id': 'synthetic', 'brief_sha': 'synthetic'})]:
+                               ('/api/codex/jobs', {'brief_id': 'synthetic', 'brief_sha': 'synthetic'}),
+                               ('/api/snapshot/write', {}),
+                               ('/api/intake/copy', {}),
+                               ('/api/ingestion/run', {}),
+                               ('/api/source-groups/apply', {}),
+                               ('/api/sources/synthetic/operations/apply', {}),
+                               ('/api/sources/synthetic/operations/refresh-preview', {}),
+                               ('/api/sources/synthetic/operations/refresh-run', {})]:
             status, result = srv.post(route, payload)
             assert status == 403 and result['ok'] is False
         assert srv.server.jobs._worker is None

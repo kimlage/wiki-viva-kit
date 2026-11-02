@@ -1525,6 +1525,24 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             # handler owns that decision per plan.
             self._handle_admin_command_post(parsed.path, payload)
             return
+        capabilities = {
+            "/api/snapshot/write": ("snapshot.rebuild",),
+            "/api/intake/copy": ("sources.execute",),
+            "/api/ingestion/run": ("sources.execute", "git.propose"),
+            "/api/source-groups/apply": ("sources.execute", "git.propose"),
+        }.get(parsed.path)
+        if parsed.path.startswith("/api/sources/"):
+            if parsed.path.endswith(("/operations/apply", "/operations/refresh-run")):
+                capabilities = ("sources.execute", "git.propose")
+            elif parsed.path.endswith("/operations/refresh-preview"):
+                capabilities = ("sources.plan",)
+        call = partial(self._dispatch_content_post, parsed, payload)
+        if capabilities:
+            self._authorized_effect(capabilities, call)
+        else:
+            call()
+
+    def _dispatch_content_post(self, parsed, payload: dict[str, Any]) -> None:
         self.server.begin_mutation()
         self._mutation_owned = True
         if parsed.path == "/api/snapshot/write":

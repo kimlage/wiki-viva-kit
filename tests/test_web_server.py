@@ -1390,8 +1390,9 @@ def test_snapshot_write_is_post_only(server: _Server) -> None:
 
 
 def test_snapshot_write_reports_committed_revision_and_health_matches(
-    server: _Server,
+    authorized_server: _Server,
 ) -> None:
+    server = authorized_server
     status, body = server.post("/api/snapshot/write", {})
 
     assert status == 200
