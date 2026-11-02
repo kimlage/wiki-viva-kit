@@ -30,7 +30,7 @@ from wiki_core.ids import sha256_text
 from wiki_core.index.sqlite import search
 from wiki_core.input_stage import input_context_for_source
 from wiki_core.llm import CONTEXT_PASS_SCHEMA_VERSION, build_context_request, write_result
-from wiki_core.llm.context_pass import result_matches_request
+from wiki_core.llm.context_pass import result_matches_request, ingestion_block_context
 from wiki_core.paths import WikiPaths
 from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest, resolve_source_manifest
@@ -200,6 +200,8 @@ def main() -> int:
     parser.add_argument("--query")
     parser.add_argument("--context", required=True)
     parser.add_argument("--profile")
+    parser.add_argument("--approved-revision", help="Trusted local caller supplies current approved policy commit; this is not a remote access grant.")
+    parser.add_argument("--policy-context", help="Explicit manifest context for the approved-policy adapter.")
     parser.add_argument(
         "--required-perspective",
         action="append",
@@ -303,6 +305,9 @@ def main() -> int:
         quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
         target_pages=list(input_context.get("target_pages") or []),
         input_stage_status=str(input_context.get("input_stage_status") or ""),
+        block_context_package=ingestion_block_context(ROOT, config, input_context,
+            perspectives_required, approved_revision=args.approved_revision, policy_context=args.policy_context,
+            task_id=str(manifest.get("source_id") or "source-context-pass")),
     )
     if args.check:
         report = {

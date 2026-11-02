@@ -110,3 +110,21 @@ def test_narrow_selection_does_not_deliver_other_frontmatter(repository):
     reader = RepositoryReader(repository)
     assert reader.read('policy', section='criteria')['frontmatter'] == {}
     assert reader.read('policy', field='context')['frontmatter'] == {'context': 'system'}
+
+
+def test_cli_requires_explicit_scope_revision_and_body_mode(repository):
+    import json
+    import sys
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_read.py'
+    base = [sys.executable, str(script), '--root', str(repository), '--revision', 'HEAD',
+            '--mode', 'read', '--allow-path', 'memories/policy.md', '--ref', 'policy']
+    missing = subprocess.run(base, capture_output=True, text=True)
+    assert missing.returncode != 0 and 'explicit selector' in missing.stderr
+    selected = subprocess.run([*base, '--section', 'criteria'], check=True, capture_output=True, text=True)
+    result = json.loads(selected.stdout)
+    assert result['section'] == 'criteria'
+    assert 'Keep this exception.' in result['text']
+    assert result['policy_enforced'] is False
+    assert 'frontmatter' not in result
+    denied = subprocess.run([*base[:-1], 'AGENTS.md', '--whole-body'], capture_output=True, text=True)
+    assert denied.returncode != 0

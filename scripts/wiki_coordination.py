@@ -8,7 +8,6 @@ from _common import ROOT
 from wiki_core.config import load_config
 from wiki_core.coordination import coordination_index, context_packet, validate_dialogue_route
 from wiki_core.action_transition import transition_action_page
-from wiki_core.web.snapshot import build_snapshot
 
 
 def main() -> None:
@@ -16,6 +15,7 @@ def main() -> None:
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--profile")
     parser.add_argument("--action-id")
+    parser.add_argument("--revision", default="HEAD", help="Immutable Git content revision for profile context.")
     parser.add_argument("--event-file", type=Path, help="Append one dialogue event from a JSON file (trusted local adapter).")
     parser.add_argument("--expected-sha256")
     parser.add_argument("--as-operator", action="store_true", help="Record an operator event rather than a coordinator event.")
@@ -28,8 +28,12 @@ def main() -> None:
         parser.error("--action-id requires --profile")
     root = args.root.resolve()
     config = load_config(root)
-    snapshot = build_snapshot(root, config)
-    result = context_packet(root, config, snapshot, args.profile, args.action_id) if args.profile else coordination_index(root, snapshot)
+    if args.profile and not args.event_file:
+        result = context_packet(root, config, None, args.profile, args.action_id, revision=args.revision)
+    else:
+        from wiki_core.web.snapshot import build_snapshot
+        snapshot = build_snapshot(root, config)
+        result = context_packet(root, config, snapshot, args.profile, args.action_id) if args.profile else coordination_index(root, snapshot)
     if args.event_file:
         if args.event_file.stat().st_size > 16_000:
             parser.error("event file exceeds limit")

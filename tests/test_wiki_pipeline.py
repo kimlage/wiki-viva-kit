@@ -193,3 +193,31 @@ def test_no_stream_id_leaves_cursor_state_untouched(tmp_path: Path) -> None:
     result = run(str(src), "system", tmp_path, config)
     assert result.stream_cursor_written is False
     assert not (WikiPaths(tmp_path, config).source_state).exists()
+
+
+def test_pipeline_delivers_actual_policy_and_perspective_bodies_and_invalidates_same_id(tmp_path):
+    config = WikiConfig(root_entity={"page": "memories/root.md", "perspective_bundle": {"required": ["perspective-synthetic"], "optional": []}})
+    config.audit['core_pages'] = ['memories/policy.md']
+    _write(tmp_path / 'AGENTS.md', 'Preserve synthetic independent review.\n')
+    _write(tmp_path / 'memories/root.md', '---\npage_id: root\npage_type: root_entity\nblocks: [{id: wiki.block.quadrants.v1}]\n---\n# Synthetic root\n')
+    _write(tmp_path / 'wiki.templates.yaml', 'schema_version: wiki_templates.v1\nblocks:\n  wiki.block.quadrants.v1:\n    kind: interpretation\n')
+    _write(tmp_path / 'memories/policy.md', '---\npage_id: policy\npage_type: operational_rule\n---\n# Synthetic policy\nReview before promotion.\n')
+    perspective = tmp_path / 'memories/perspective.md'
+    _write(perspective, '---\npage_id: perspective-synthetic\npage_type: perspective\n---\n# Synthetic perspective\nInspect exceptions in the original evidence.\n')
+    src = tmp_path / 'source.md'
+    _write(src, '# Synthetic source\n' + LOREM)
+    first = run(str(src), 'system', tmp_path, config)
+    before = json.loads((tmp_path / first.request_path).read_text())
+    package = before['block_context_package']
+    assert package['stack'][0]['id'] == 'wiki.block.quadrants.v1'
+    documents = {row['path']: row['text'] for row in package['documents']}
+    assert 'Preserve synthetic independent review.' in documents['AGENTS.md']
+    assert 'Review before promotion.' in documents['memories/policy.md']
+    assert 'Inspect exceptions in the original evidence.' in documents['memories/perspective.md']
+    assert package['policy_enforced'] is False
+    perspective.write_text(perspective.read_text().replace('Inspect exceptions in the original evidence.', 'Inspect revised exceptions and conflicting evidence.'))
+    second = run(str(src), 'system', tmp_path, config)
+    after = json.loads((tmp_path / second.request_path).read_text())
+    assert before['perspectives_required'] == after['perspectives_required']
+    assert before['source_id'] == after['source_id']
+    assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']

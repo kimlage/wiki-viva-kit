@@ -246,3 +246,60 @@ def test_front_drift_is_visible_without_expanding_protected_action_context(tmp_p
                             authorize_ref=lambda path, sha: reads.append(path))
     assert packet['actions'][0]['action_id'] == 'task'
     assert page['path'] not in reads
+
+
+def test_profile_context_without_global_snapshot_is_git_revision_bound(tmp_path, monkeypatch):
+    import subprocess
+    config, _, _ = fixture(tmp_path)
+    def git(*args):
+        return subprocess.run(['git', '-C', str(tmp_path), *args], check=True, capture_output=True, text=True).stdout.strip()
+    git('init', '-q')
+    git('config', 'user.name', 'Synthetic fixture')
+    git('config', 'user.email', 'synthetic@example.test')
+    git('add', '.')
+    git('commit', '-qm', 'Synthetic approved context')
+    sha = git('rev-parse', 'HEAD')
+    monkeypatch.setattr('wiki_core.coordination.build_page_content', lambda *a, **k: pytest.fail('global snapshot content used'))
+    first = context_packet(tmp_path, config, None, 'research', 'task', revision=sha)
+    assert first['content_revision'] == sha
+    assert first['policy_enforced'] is False
+    assert first['actions'][0]['state'] == 'open'
+    assert {page['id'] for page in first['pages']} == {'root', 'source', 'task'}
+    (tmp_path / 'memories/source.md').write_text('Unapproved working tree mutation')
+    second = context_packet(tmp_path, config, None, 'research', 'task', revision=sha)
+    assert first['context_sha256'] == second['context_sha256']
+    assert 'Synthetic evidence.' in next(page['body'] for page in second['pages'] if page['id'] == 'source')
+
+
+def test_profile_cli_never_builds_global_snapshot_and_packet_is_smaller(tmp_path, monkeypatch, capsys):
+    import importlib.util
+    import json
+    import subprocess
+    import sys
+    import wiki_core.web.snapshot as global_snapshot
+    config, _, _ = fixture(tmp_path)
+    def git(*args):
+        subprocess.run(['git', '-C', str(tmp_path), *args], check=True, capture_output=True)
+    git('init', '-q')
+    git('config', 'user.name', 'Synthetic fixture')
+    git('config', 'user.email', 'synthetic@example.test')
+    git('add', '.')
+    git('commit', '-qm', 'Synthetic approved context')
+    full = global_snapshot.build_snapshot(tmp_path, config)
+    full_bytes = len(json.dumps(full, default=str).encode())
+    before_files = {p.relative_to(tmp_path).as_posix(): p.read_bytes() for p in tmp_path.rglob('*') if p.is_file() and '.git' not in p.parts}
+    monkeypatch.setattr(global_snapshot, 'build_snapshot', lambda *a, **k: pytest.fail('global snapshot built on narrow route'))
+    scripts = Path(__file__).resolve().parents[1] / 'scripts'
+    monkeypatch.syspath_prepend(str(scripts))
+    spec = importlib.util.spec_from_file_location('narrow_coordination_cli', scripts / 'wiki_coordination.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(sys, 'argv', ['wiki_coordination.py', '--root', str(tmp_path), '--profile', 'research', '--action-id', 'task'])
+    module.main()
+    packet = json.loads(capsys.readouterr().out)
+    packet_bytes = len(json.dumps(packet, default=str).encode())
+    assert packet_bytes < full_bytes
+    assert len(full) > 1
+    assert before_files == {p.relative_to(tmp_path).as_posix(): p.read_bytes() for p in tmp_path.rglob('*') if p.is_file() and '.git' not in p.parts}
+    print(json.dumps({'synthetic_full_snapshot_payloads': len(full), 'synthetic_full_snapshot_bytes': full_bytes,
+        'context_packet_payloads': 1, 'context_packet_bytes': packet_bytes, 'files_written': 0}))

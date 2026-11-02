@@ -231,6 +231,109 @@ def read_matching_result(cache_dir: Path, request: dict, row: dict) -> dict | No
     return result if result_matches_request(result, request, row) else None
 
 
+def ingestion_block_context(root: Path, config, input_context: dict,
+                            perspectives_required: list[str], *,
+                            approved_revision: str | None = None,
+                            policy_context: str | None = None,
+                            task_id: str = "source-context-pass") -> dict:
+    """Construct the real contextual inputs at both production call sites.
+
+    Without an explicit approved revision this preserves the working-tree
+    adapter. It claims no authorization or immutable revision. The approved
+    policy adapter is selected only by a trusted local caller, never by finding
+    an unapproved context.yaml in the worktree.
+    """
+    if approved_revision is not None:
+        return _approved_ingestion_context(root, config, input_context,
+            perspectives_required, approved_revision, policy_context, task_id)
+
+    if policy_context is not None and approved_revision is None:
+        raise ValueError("policy_context requires an explicit approved_revision")
+    from wiki_core.template_blocks import load_block_world, block_context_package
+    from wiki_core.repository_reader import canonical_path
+    from wiki_core.detectors import scan_text
+    world = load_block_world(root, config)
+    root_info = input_context.get("root_entity") or {}
+    anchor = world.by_id.get(root_info.get("page_id")) or world.by_path.get(root_info.get("path"))
+    package = block_context_package(world, anchor) if anchor else {
+        "schema_version": "wiki_block_stack.v1", "center": None, "stack": [], "lenses": [],
+        "write_policy": "proposal_branch_only", "target_obligations": []}
+    refs = ["AGENTS.md"]
+    refs.extend(path for path in config.audit.get("core_pages", [])
+                if world.by_path.get(path, {}).get("page_type") == "operational_rule")
+    if anchor:
+        refs.append(anchor["path"])
+    refs.extend(perspectives_required)
+    documents = []
+    unresolved = []
+    seen = set()
+    for ref in refs:
+        page = world.by_id.get(ref) or world.by_path.get(ref)
+        path = page["path"] if page else ref
+        canonical_path(path)
+        target = root / path
+        if not target.is_file():
+            unresolved.append(ref)
+            continue
+        if path in seen:
+            continue
+        seen.add(path)
+        cursor = root
+        for part in Path(path).parts:
+            cursor = cursor / part
+            if cursor.is_symlink():
+                raise ValueError("symlink context paths are not supported")
+        text = target.read_text(encoding="utf-8")
+        if any(f.category == "secret" for f in scan_text(text)):
+            raise ValueError("access secret in contextual input")
+        documents.append({"path": path, "page_id": page["id"] if page else None,
+            "text": text, "content_sha256": sha256_text(text), "origin": "working_tree"})
+    package.update(policy_mode="legacy_working_tree_compatibility", policy_enforced=False,
+                   documents=documents, unresolved_context_refs=unresolved)
+    return package
+
+
+def _approved_ingestion_context(root, config, input_context, perspectives_required,
+                                approved_revision, policy_context, task_id):
+    from wiki_core.context_policy import load_policy
+    from wiki_core.context_packet import build_packet
+    from wiki_core.repository_reader import RepositoryReader
+    policy = load_policy(root, approved_revision)
+    if not policy_context:
+        raise ValueError("approved context requires an explicit policy_context")
+    policy.lineage(policy_context)  # Validate identity before cataloguing.
+    reader = RepositoryReader(root, "HEAD")
+    allowed = [path for path in reader.paths if policy.permits(policy_context, "read", path)
+               and policy.owner_of(path) == policy_context]
+    catalogue = reader.catalogue(allowed_paths=allowed)
+    by_id = {}
+    for row in catalogue:
+        by_id.setdefault(row["page_id"], []).append(row["path"])
+    refs = []
+    for name in ("root_entity", "input_channel"):
+        info = input_context.get(name) or {}
+        if info.get("path"):
+            refs.append(info["path"])
+    for ref in perspectives_required:
+        if ref in allowed:
+            path = ref
+        else:
+            matches = by_id.get(ref, [])
+            if len(matches) != 1:
+                raise ValueError("required perspective missing or ambiguous within authorized context: " + ref)
+            path = matches[0]
+        refs.append(path)
+    evidence = [{"ref": ref, "producer": policy.owner_of(ref),
+        "reason": "Required ingestion interpretation context", "use": "interpretation",
+        "classification": "context"} for ref in dict.fromkeys(refs)]
+    packet = build_packet(root, policy, policy_context, reader.revision, evidence, 100_000,
+        task_id=task_id, goal="Deep contextual reading of the extracted source",
+        output="Recorded LLM context-pass results for each extracted chunk",
+        integrator="Operating ingestion agent under the repository PR review gate")
+    packet.update(policy_mode="approved_context_manifest", policy_enforced=False)
+    return packet
+
+
 def build_context_request(
     manifest: dict[str, object],
     chunks: list[dict[str, object]],

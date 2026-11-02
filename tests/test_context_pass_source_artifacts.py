@@ -406,3 +406,30 @@ def test_query_without_matches_remains_success(source_check, capsys, monkeypatch
     assert module.main() == 0
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is True and report["chunks"] == 0
+
+
+def test_cli_builds_actual_context_bodies_and_invalidates_same_id(source_check, capsys):
+    source, config, paths, check = source_check
+    config.root_entity.update({'page': 'memories/root.md', 'perspective_bundle': {'required': ['perspective-synthetic'], 'optional': []}})
+    config.audit['core_pages'] = ['memories/policy.md']
+    (paths.root / 'memories').mkdir()
+    (paths.root / 'AGENTS.md').write_text('Synthetic mandatory instruction.\n')
+    (paths.root / 'memories/root.md').write_text('---\npage_id: root\npage_type: root_entity\n---\n# Root\n')
+    policy = paths.root / 'memories/policy.md'
+    policy.write_text('---\npage_id: policy\npage_type: operational_rule\n---\n# Policy\nSynthetic current policy body.\n')
+    (paths.root / 'memories/perspective.md').write_text('---\npage_id: perspective-synthetic\npage_type: perspective\n---\n# Perspective\nSynthetic required perspective body.\n')
+    result = run(str(source), 'system', paths.root, config)
+    request_path = paths.root / result.request_path
+    assert check('--emit-request') == 0
+    capsys.readouterr()
+    before = json.loads(request_path.read_text())
+    text = '\n'.join(row['text'] for row in before['block_context_package']['documents'])
+    assert 'Synthetic mandatory instruction.' in text
+    assert 'Synthetic current policy body.' in text
+    assert 'Synthetic required perspective body.' in text
+    policy.write_text(policy.read_text().replace('Synthetic current policy body.', 'Synthetic updated policy body.'))
+    assert check('--emit-request') == 0
+    capsys.readouterr()
+    after = json.loads(request_path.read_text())
+    assert before['source_id'] == after['source_id']
+    assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']

@@ -35,7 +35,7 @@ from wiki_core.extractors import extract_source
 from wiki_core.index.sqlite import index_source
 from wiki_core.input_stage import input_context_for_source
 from wiki_core.llm import build_context_request
-from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION
+from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, ingestion_block_context
 from wiki_core.paths import WikiPaths
 from wiki_core.score import record_event
 from wiki_core.source_config import find_source_config, merge_perspectives
@@ -110,6 +110,8 @@ def run(
     ts: str | None = None,
     stream_id: str | None = None,
     observer: IngestObserver | None = None,
+    approved_revision: str | None = None,
+    policy_context: str | None = None,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -298,6 +300,8 @@ def run(
                 quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
                 target_pages=list(input_context.get("target_pages") or []),
                 input_stage_status=str(input_context.get("input_stage_status") or ""),
+                block_context_package=ingestion_block_context(root, config, input_context,
+                    perspectives_required, approved_revision=approved_revision, policy_context=policy_context, task_id=source_id),
             )
             metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
         if source_config:
