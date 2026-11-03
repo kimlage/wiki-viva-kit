@@ -11,7 +11,7 @@ preparing content does not prove that an agent read it or authorize execution.
 | [wiki_read.py](../../../scripts/wiki_read.py) | Required revision, mode and exact allowed paths; section, field or explicit whole document | The local caller supplies scope. The raw reader does not enforce context policy. |
 | [wiki_context.py](../../../scripts/wiki_context.py) | Approved context, explicit evidence paths and byte budget | Current trusted policy authorizes each selection; inherited mandatory bodies accompany evidence. |
 | [wiki_coordination.py](../../../scripts/wiki_coordination.py) with explicit context and approval | Explicit task and selected evidence at approved history | Approved policy and current connection checks apply; see [protected coordination](context-coordination-protected.md). |
-| [wiki_coordination.py](../../../scripts/wiki_coordination.py) with a profile | Assigned action and its configured context at the selected revision | Legacy coordinator mapping remains a compatibility adapter labelled `caller_trust`, without context-policy enforcement. |
+| [wiki_coordination.py](../../../scripts/wiki_coordination.py) with a profile | No task bodies | Constant migration response; profile identity supplies no context authority. |
 
 ## Local reads and stable sections
 
@@ -89,19 +89,20 @@ including empty sets, and preserves predicates in canonical requirements.
 
 ## Coordination and ingestion
 
-For a configured coordinator, replace the profile and action placeholders:
+For a task packet, select the canonical context and complete request:
 
 ```sh
-python3 scripts/wiki_coordination.py --profile PROFILE --action-id ACTION_ID \
-  --revision CONTENT_SHA
+python3 scripts/wiki_coordination.py --context-id CONTEXT_ID \
+  --approved-revision APPROVED_SHA --revision CONTENT_SHA --packet-request REQUEST.json
 python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
 ```
 
-Profile context reads use the pinned Git reader without building a global
-snapshot. The existing coordinator map remains current local configuration;
-`--revision` selects content and does not make that map an approved manifest.
-The legacy web reader, route index and dialogue-write flow still use snapshots.
+Profile reads no longer prepare task content. The route index remains a broad
+operator caller-trust projection. Dialogue writes use an explicit action path
+and the existing writer fence, without a snapshot or task packet. Read the
+complete protected packet; profiles, aliases, references and truncated samples
+cannot replace canonical authorization or mandatory bodies.
 
 LLM request construction includes actual mandatory policy and required perspective
 bodies, so changed content under the same ID changes interpretation identity.

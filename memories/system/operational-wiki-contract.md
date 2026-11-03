@@ -34,9 +34,12 @@ defines what enters memory, how it enters, and how it is approved.
 
 Every agent uses this same memory and ingestion/consolidation process. The
 action page remains canonical and the board projects it; delegation does not
-create a second backlog or memory. Include the consumer's current approval,
-operational and ingestion policies in the coordination policy's `common_context`,
-alongside its router and root page. See the
+create a second backlog or memory. Supply the complete protected task packet,
+with canonical context ID, current approved policy revision, content revision,
+mandatory rules and selected evidence. Put current approval, operational and
+ingestion policies in the appropriate canonical context instructions; profiles
+preserve routing/history and do not prepare bodies through `common_context`.
+Read the packet in full, not a truncated sample. See the
 [context and delegation contract](../../docs/references/guides/context-coordinators.md#delegation-contract)
 and [subagent brief](../../docs/references/templates/wiki/subagent-brief.md).
 

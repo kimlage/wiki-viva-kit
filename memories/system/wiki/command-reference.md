@@ -75,7 +75,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_vercel_preview.py](../../../scripts/wiki_vercel_preview.py) | Prepare a synthetic-only Vercel function preview without deploying |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |
 | [wiki_contribution.py](../../../scripts/wiki_contribution.py) | Prepare, review and reconcile provider-neutral action-body contributions under consumer Git policy |
-| [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Prepare an explicit approved task packet or use legacy caller-trust profile routes; never dispatch |
+| [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Prepare an explicit approved task packet, read the caller-trust index or record exact-path dialogue; profile reads return migration; never dispatch |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Run the localhost operator API |
 | [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generate/check atomic cockpit snapshot |
 

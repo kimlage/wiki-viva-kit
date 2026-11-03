@@ -30,7 +30,8 @@ When the complete packet exceeds `max_bytes`, API and CLI return `coordination_b
 
 `POST /api/coordination/protected/preflight` uses the same transport and session controls. Its exact body fields are `context_id`, `approved_revision`, `base`, `head`, `branch`, `packet` and `result`. The packet must have no browser-supplied capability evidence or required external capabilities. Success returns `{ok: true, mode: "approved", preflight: ...}` with state `independent_review_required`; it is not permission to merge. The packet/result, exact head, base, requirements and current policy are checked again. The protected POSTs are bounded read-only calculations: they do not store or replay packet bodies under attempt keys. Every retry rechecks session, current policy and binding.
 
-The legacy `/api/coordination` and profile APIs remain available under their previous local trusted-caller behavior, marked `policy_mode: legacy_coordination_compatibility`, `policy_enforced: false`, `trust_boundary: caller_trust` and legacy coverage. They may build a broad snapshot; they are not protected owner-scoped reads. Choose the protected route explicitly; there is no fallback from an unavailable protected binding to the legacy route.
+The operator index `/api/coordination` remains a broad caller-trust projection, marked `policy_enforced: false` and `trust_boundary: caller_trust`. Its profiles, fronts and actions are navigation and historical attribution. It is not an owner-scoped protected read. GET `/api/coordination/profiles/<id>` now returns a constant `coordination_context_required` migration response without snapshot, catalogue, page bodies or profile existence disclosure. There is no fallback from an unavailable protected binding to a legacy packet.
+
 
 ## Trusted CLI
 
@@ -41,4 +42,18 @@ python3 scripts/wiki_coordination.py --root REPO --context-id CONTEXT \
   --approved-revision APPROVED_SHA --revision CONTENT_SHA --packet-request REQUEST.json
 ```
 
-`REQUEST.json` is the same `task` object used by the API. The CLI uses the local trusted `refs/remotes/origin/main`, requires a full content SHA in approved history, and does not use profile routes or a global snapshot. It does not provide an operating-system ACL; callers who can read the repository retain their host permissions. The legacy `--profile` mode remains separate and explicitly labelled as caller-trust compatibility.
+`REQUEST.json` is the same `task` object used by the API. The CLI uses the local trusted `refs/remotes/origin/main`, requires a full content SHA in approved history, and does not use profile routes or a global snapshot. It does not provide an operating-system ACL; callers who can read the repository retain their host permissions. Reading with `--profile` now returns the same constant migration response; it no longer prepares task bodies. This is a breaking change for legacy packet consumers.
+
+## Upgrading profile consumers
+
+Keep existing profile IDs, `action_ids`, `front_refs`, action page IDs and dialogue history. Do not infer a context or grant from a profile name, alias, account requirement or union of its actions. For each task, select the actual canonical context and an approved evidence selection, then use the CLI above or the protected POST. General mandatory rules belong in the appropriate context's `instructions`, `skills` or `templates`; contextual evidence uses explicit evidence/queries. Cross-context evidence requires matching current import/export rules, including purpose, classification, selector and expiry. Do not copy `common_context` or `context_pages` wholesale into mandatory rules; those legacy fields no longer supply task bodies. Consumer migration must resolve ambiguous ownership explicitly.
+
+The trusted local dialogue writer still uses profile attribution and the existing transition/CAS/idempotency boundary. It now requires the exact repository-relative action path inside the configured actions directory, in addition to the canonical action ID and expected document SHA:
+
+```sh
+python3 scripts/wiki_coordination.py --root REPO --profile PROFILE \
+  --action-id ACTION_ID --action-path memories/actions/ACTION.md \
+  --event-file EVENT.json --expected-sha256 DOCUMENT_SHA256
+```
+
+Use the consumer's configured actions directory instead of the example path. The path must be a regular Markdown file without traversal or symlinks, and its page ID and coordinator assignment must match. The writer reads only that action plus configuration and the routing policy; it does not prepare a task packet. `--as-operator` retains its existing actor semantics. These are trusted local writes, not context-policy enforcement or execution admission.

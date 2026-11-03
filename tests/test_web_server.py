@@ -1759,7 +1759,7 @@ def test_hosted_cockpit_deep_links(server: _Server, tmp_path: Path, path: str) -
     assert server.get_headers(path)[0] == 200
 
 
-def test_coordination_reads_canonical_identity_without_dispatch(server: _Server):
+def test_coordination_reads_canonical_identity_without_dispatch(server: _Server, monkeypatch):
     root = server.server.root
     _server_action(root)
     _write(root / 'wiki.coordination.yaml', '''schema_version: wiki_coordination.v1
@@ -1774,11 +1774,16 @@ profiles:
     code, index = server.get('/api/coordination')
     assert code == 200 and index['configured']
     assert index['actions'][0]['coordinator'] == 'research'
-    code, packet = server.get('/api/coordination/profiles/research?action_id=action-server-synthetic')
-    assert code == 200 and packet['profile'] == 'research'
+    with monkeypatch.context() as legacy:
+        legacy.setattr(server.server, 'snapshot_payloads', lambda: pytest.fail('legacy profile built snapshot'))
+        code, packet = server.get('/api/coordination/profiles/research?action_id=action-server-synthetic')
+        unknown_code, unknown_packet = server.get('/api/coordination/profiles/unknown')
+        assert unknown_code == 200 and unknown_packet == packet
+    assert code == 200 and packet['error_code'] == 'coordination_context_required'
+    assert 'pages' not in packet
     assert not packet['execution_ready'] and not packet['runtime_connected']
-    code, _ = server.get('/api/coordination/profiles/unknown')
-    assert code == 409
+    code, unknown = server.get('/api/coordination/profiles/unknown')
+    assert code == 200 and unknown == packet
     code, headers = server.get_headers('/api/coordination', headers={'Origin': 'https://untrusted.example'})
     assert code == 200 and 'Access-Control-Allow-Origin' not in headers
 

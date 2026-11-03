@@ -1652,3 +1652,14 @@ HEAD and refuses a consumer within its own selected set. A hub may share its
 directory with queried pages: its explicit structural exclusion avoids counting
 or duplicating the required anchor body. Focused synthetic cases preserve the
 earlier review receipts; no release/tag or source verification dates change.
+
+## [2026-11-03] Canonical task packets and nested editorial hubs
+
+The [operational contract](operational-wiki-contract.md) and
+[command reference](wiki/command-reference.md) now distinguish profile routing
+and dialogue history from canonical protected task content. Legacy profile
+packet reads return a constant migration response; exact-path dialogue retains
+the guarded action writer. The [operation cockpit](../operations.md) projection
+now covers explicitly typed nested context hubs and the root index, with no
+symlink traversal. These are technical contract and projection corrections;
+no source evidence, factual verification or existing publication date was renewed.

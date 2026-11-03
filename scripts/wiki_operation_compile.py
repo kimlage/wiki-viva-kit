@@ -10,7 +10,7 @@ personal content:
 - actions come from `<memory_root>/<actions_dirname>/*.md` plus the pending
   queue file (`<actions_dirname>/<pending_actions_filename>`);
 - context vitality is derived from `updated_at` + `stale_after_days` of the
-  context hubs (`<memory_root>/*/index.md`);
+  context hubs (`<memory_root>/**/index.md`, including the root hub);
 - Git state is intentionally not persisted in the versioned cockpit because it
   goes stale as soon as a proposal branch is merged; check it live before acting.
 
@@ -576,7 +576,17 @@ def collect_context_vitality(paths: WikiPaths, today: dt.date) -> list[ContextVi
     if not paths.memory_root.is_dir():
         return rows
     page_dir = paths.operation_page.parent
-    for index_path in sorted(paths.memory_root.glob("*/index.md")):
+    # Editorial vitality only: nested hubs and the root index are included iff
+    # explicitly typed context_hub. Never follow directory or file symlinks.
+    if any(p.is_symlink() for p in (paths.memory_root, *paths.memory_root.parents)):
+        return rows
+    indexes = []
+    for directory, subdirs, files in os.walk(paths.memory_root, followlinks=False):
+        subdirs[:] = sorted(d for d in subdirs if not (Path(directory) / d).is_symlink())
+        index = Path(directory) / "index.md"
+        if "index.md" in files and not index.is_symlink() and index.is_file():
+            indexes.append(index)
+    for index_path in sorted(indexes):
         fm = parse_frontmatter(index_path.read_text(encoding="utf-8"))
         if fm.get("page_type") != CONTEXT_HUB_TYPE:
             continue
@@ -705,7 +715,7 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
              'exclude_names':['index.md','README.md','readme.md'],
              'fields':['page_type','event_id','page_id','source_id','source_refs','source_ref',
                 'consolidated_into','claims','decisions','actions','body']},
-            {'page_types':['context_hub'],'path_prefix':paths.rel(paths.memory_root),'path_depth':2,
+            {'page_types':['context_hub'],'path_prefix':paths.rel(paths.memory_root),
              'file_names':['index.md'],'fields':['context','updated_at','stale_after_days']},
         ]},sort_keys=False).rstrip().splitlines(),
         "---",
