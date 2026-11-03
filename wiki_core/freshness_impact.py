@@ -281,16 +281,17 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     if information_policy == "use_scoped":
         if documentary_only or freshness_reviews:
             raise ValueError("use-scoped impact does not accept per-proposal freshness waivers")
-        from wiki_core.information_impact import evaluate_information_impact
+        from wiki_core.information_impact import evaluate_information_impact, typed_information_reach
         has_queries = any('query' in edge.get('requirement', {}) for graph in (base, current) for edge in graph['edges'])
         impact_changed = changed | (_query_policy_change_marker(root, (base_sha, head), changed) if has_queries else set())
-        result = evaluate_information_impact(current, base, impact_changed, today=today or dt.date.today())
+        typed_reasons = typed_information_reach(current, base, impact_changed) if has_queries else {}
+        result = evaluate_information_impact(current, base, impact_changed, today=today or dt.date.today(), _typed_reasons=typed_reasons)
         if any((query_context, query_policy_revision, query_head)):
             if not all((query_context, query_policy_revision, query_head)) or query_policy_revision != base_sha or query_head != head:
                 raise ValueError('query audit requires exact context, approved base and HEAD')
             from wiki_core.information_impact import affected_dynamic_queries
             from wiki_core.dynamic_query_audit import revalidate_affected
-            affected = affected_dynamic_queries(current, base, impact_changed, {r['path'] for r in result['included']})
+            affected = affected_dynamic_queries(current, base, impact_changed, set(typed_reasons))
             closure_budget = [32_000_000]
             selection_cache = {}  # Local to this exact, fenced audit only.
             outcomes = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
@@ -298,7 +299,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             # Dynamic outcomes are review obligations, not edits to their pages.
             # Feed those obligations into typed dependencies and authorized
             # downstream queries until no new pending fields are discovered.
-            from wiki_core.information_impact import propagate_pending_dependencies, authorized_pending_edge, typed_consumption_graph
+            from wiki_core.information_impact import propagate_pending_dependencies, authorized_typed_provenance
             from wiki_core.context_policy import load_policy
             closure_policy = load_policy(root, base_sha)
             pending_fields = {r['path']: set(r.get('fields', ['*'])) for r in outcomes if r['state'] == 'review_pending'}
@@ -318,17 +319,11 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             # Recompute provenance from only explicit current-consumption
             # edges. The original global report remains unchanged; its legacy
             # reach is not permission or proof of scoped current consumption.
-            typed = evaluate_information_impact(typed_consumption_graph(current), typed_consumption_graph(base),
-                impact_changed, today=today or dt.date.today())
-            for row in typed['pending_reviews']:
-                if row.get('reason') != 'information_changed': continue
-                path = row['path']
+            for path, row in typed_reasons.items():
+                if path not in current['nodes'] or not row['causes']: continue
                 if not any(path == anchor or within(path, scope) for anchor, scope in query_contracts): continue
                 if closure_policy.owner_of(path) == query_context and closure_policy.permits(query_context, 'read', path):
-                    provenance = row.get('chain', []) + row.get('causes', [])
-                    if any(edge.get('type') == 'historical_support' or edge.get('temporal_use') in ('historical', 'as_observed') for edge in provenance):
-                        continue
-                    if provenance and all(authorized_pending_edge(edge, closure_policy, query_context) for edge in provenance):
+                    if authorized_typed_provenance(path, typed_reasons, closure_policy, query_context):
                         ordinary_sources.setdefault(path, set()).update(row.get('fields', ['*']))
                     else:
                         denied.add(path)
