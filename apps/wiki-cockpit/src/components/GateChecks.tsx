@@ -115,8 +115,8 @@ export function GateChecks({
           const runResult = unavailable ? undefined : lastRun[gate.id];
           // Session run result is fresher than the snapshot receipt (the
           // snapshot lags behind by its cache window).
-          const status = unavailable ? "not_run" : runResult ? (runResult.ok ? "pass" : "fail") : gate.status;
-          const finished = unavailable ? null : runResult?.finished_at ?? gate.finished_at ?? null;
+          const status = unavailable || gate.current_validation_supported === false ? "not_run" : runResult ? (runResult.ok ? "pass" : "fail") : gate.status;
+          const finished = unavailable || gate.current_validation_supported === false ? null : runResult?.finished_at ?? gate.finished_at ?? null;
           const output = runResult ? trimGateOutput(runResult.stdout ?? "", runResult.stderr ?? "") : "";
           const rowBusy = !unavailable && (running === gate.id || running === "*");
           const failing = status === "fail";
@@ -154,6 +154,7 @@ export function GateChecks({
               </div>
               <code className="gateRowCmd">{gate.argv.join(" ")}</code>
               {unavailable && <small className="gateRowHint">{t("gate.unavailableDetail")}</small>}
+              {(gate.historical_receipt || (gate.current_validation_supported === false && runResult)) && <small className="gateRowHint">{t("gate.historicalReceipt")}</small>}
               {finished && <span className="gateRowTime">{finished.replace("T", " ").slice(0, 16)}</span>}
               {failing && reason && <p className="gateRowReason">{reason}</p>}
               {(output || (failing && onComposeBrief)) && (

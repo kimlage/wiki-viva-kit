@@ -48,13 +48,13 @@ function gatesTelemetry(gates: GateRecord[]): DockTelemetryItem[] {
       tone: partial > 0 ? "warn" : "muted",
       ratio: total > 0 ? partial / total : 0
     },
-    {
+    ...(unavailable ? [{
       key: "unavailable",
       label: t("gate.telemetry.unavailable"),
       value: unavailable,
       tone: unavailable > 0 ? "warn" : "muted",
       ratio: total > 0 ? unavailable / total : 0
-    },
+    } satisfies DockTelemetryItem] : []),
     {
       key: "notRun",
       label: t("gate.telemetry.notRun"),

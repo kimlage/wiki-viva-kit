@@ -41,3 +41,18 @@ it("unavailable overrides an earlier session pass and is counted separately", as
   expect(within(rail).getByText("unavailable").parentElement?.textContent).toContain("1");
   expect(within(rail).getByText("not run").parentElement?.textContent).toContain("1");
 });
+
+
+it("does not paint a session result as current validation in installed mode", async () => {
+  const runGate = vi.fn().mockResolvedValue({ ok: true, returncode: 0, finished_at: "2026-11-03T10:00:00Z", stdout: "ok" });
+  const historical: GateRecord = { ...audit, status: "not_run", finished_at: null, current_validation_supported: false };
+  const props = { runGate, onNotice: vi.fn(), onRefetch: vi.fn() };
+  const view = render(<GateChecks gates={[historical]} {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: "Run" }));
+  await waitFor(() => expect(runGate).toHaveBeenCalled());
+  view.rerender(<GateChecks gates={[{ ...historical, historical_receipt: true }]} {...props} />);
+  expect(screen.getByText("A historical receipt does not validate the current content.")).toBeTruthy();
+  expect(screen.queryByText("passed")).toBeNull();
+  expect(screen.getByText("not run")).toBeTruthy();
+  expect(screen.queryByText("2026-11-03 10:00")).toBeNull();
+});

@@ -558,6 +558,7 @@ export const ES: Record<string, string> = {
   "gate.gate.not_run": "no correr",
   "gate.unavailable": "no disponible",
   "gate.unavailableDetail": "No disponible en el modo de código instalado.",
+  "gate.historicalReceipt": "Un recibo histórico no valida el contenido actual.",
   "gate.telemetry.unavailable": "no disponible",
   "gate.telemetry.aria": "Resumen visual de comprobaciones.",
   "gate.telemetry.passed": "pasó",

@@ -86,14 +86,15 @@ def write_receipt(root: Path, config: WikiConfig, gate_id: str, *, ok: bool, ret
 
 def gates_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
     """Report last-known status for available gates; never reuse an unavailable
-    gate's historical pass. Overall status is pass only when all gates pass."""
+    gate's historical pass. Installed receipts lack current input identity, so
+    none establish a current result. Overall status is pass only when all pass."""
     receipts = read_receipts(root, config)
     gates: list[dict[str, Any]] = []
     statuses: list[str] = []
     for gate_id, argv in GATE_COMMANDS:
         receipt = receipts.get(gate_id)
         unavailable = not _gate_available(gate_id)
-        if unavailable or receipt is None:
+        if unavailable or receipt is None or installed_binding.enabled():
             status = "not_run"
         else:
             status = "pass" if receipt.get("ok") else "fail"
@@ -102,8 +103,12 @@ def gates_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
             "id": gate_id,
             "status": status,
             "argv": argv,
-            "finished_at": None if unavailable else (receipt or {}).get("finished_at"),
+            "finished_at": None if unavailable or installed_binding.enabled() else (receipt or {}).get("finished_at"),
         }
+        if installed_binding.enabled():
+            gate["current_validation_supported"] = False
+            if receipt is not None:
+                gate["historical_receipt"] = True
         if unavailable:
             gate.update(available=False, unavailable_reason="installed_gate_unavailable")
         gates.append(gate)

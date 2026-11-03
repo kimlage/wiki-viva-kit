@@ -307,7 +307,8 @@ def test_installed_pytest_is_unavailable_without_overwriting_legacy_receipt(cont
     pytest_gate = next(g for g in payload['gates'] if g['id'] == 'pytest')
     assert pytest_gate['status'] == 'not_run' and pytest_gate['available'] is False
     assert pytest_gate['unavailable_reason'] == 'installed_gate_unavailable' and pytest_gate['finished_at'] is None
-    assert payload['status'] == 'partial' and history.read_bytes() == original
+    assert payload['status'] == 'not_run' and history.read_bytes() == original
+    assert all(g['status'] == 'not_run' and g['finished_at'] is None and g['historical_receipt'] for g in payload['gates'])
     command = Mock(side_effect=AssertionError('dispatch attempted'))
     run = Mock(side_effect=AssertionError('subprocess attempted'))
     writer = Mock(side_effect=AssertionError('receipt written'))
@@ -330,3 +331,28 @@ def test_pytest_gate_legacy_mode_retains_old_receipt_and_dispatch(tmp_path, monk
     monkeypatch.setattr(gates.subprocess, 'run', called)
     result = gates.run_gate(tmp_path, config, 'pytest')
     assert result['ok'] and called.call_args.args[0] == ['python3', '-m', 'pytest', 'tests/']
+
+
+def test_installed_unavailable_gate_http_preserves_history(content, monkeypatch):
+    from tests.test_web_server import _Server
+    from tests.test_admin_commands import _unlock_admin
+    from wiki_core.web.admin.sessions import ADMIN_SESSION_HEADER
+    config = WikiConfig(repo_id='synthetic', codex={'enabled': False})
+    gates.write_receipt(content, config, 'pytest', ok=True, returncode=0)
+    history = gates._receipts_dir(content, config) / 'pytest.json'
+    original = history.read_bytes()
+    srv = _Server(content, config)
+    try:
+        token = _unlock_admin(srv)
+        command = Mock(side_effect=AssertionError('dispatch attempted'))
+        runner = Mock(side_effect=AssertionError('subprocess attempted'))
+        writer = Mock(side_effect=AssertionError('receipt written'))
+        monkeypatch.setattr(binding, 'command', command)
+        monkeypatch.setattr(gates.subprocess, 'run', runner)
+        monkeypatch.setattr(gates, 'write_receipt', writer)
+        status, body = srv.post('/api/gates/run', {'gate_id': 'pytest'}, headers={ADMIN_SESSION_HEADER: token})
+        assert status == 400 and body['error'] == 'installed_gate_unavailable'
+        assert not command.called and not runner.called and not writer.called
+        assert history.read_bytes() == original
+    finally:
+        srv.close()
