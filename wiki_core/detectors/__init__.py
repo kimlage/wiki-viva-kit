@@ -111,7 +111,14 @@ def contains_secret_structure(value: object) -> bool:
         if isinstance(item, str):
             return secret(item)
         if isinstance(item, dict):
-            return any(raw(key) or raw(child) for key, child in item.items())
+            for key, child in item.items():
+                if raw(key) or raw(child):
+                    return True
+                # Preserve a string key/value association before escaping,
+                # including values whose own quotes are meaningful to a detector.
+                if isinstance(key, str) and isinstance(child, str) and secret(key + ": " + child):
+                    return True
+            return False
         if isinstance(item, (list, tuple)):
             return any(raw(child) for child in item)
         if item is None or isinstance(item, (bool, int, float)):

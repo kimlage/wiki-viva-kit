@@ -21,12 +21,13 @@ def request_for(root, kind):
     q=query(); args={'queries':[q], 'omissions':[], 'adapter_report':None}
     if kind=='reason': q['reason']=ASSIGNMENT
     elif kind=='filter': q['query']['filters']={'status':BEARER}
+    elif kind=='quoted_filter': q['query']['filters']={'api_key':'"'+VALUE+'"'}
     elif kind=='omission': args['omissions']=[BEARER]
     else: args['adapter_report']={'verification':'verified','capabilities':['network'],'scope':['synthetic'],'limitation':ASSIGNMENT}
     return args
 
 
-@pytest.mark.parametrize('kind',['reason','filter','omission','adapter'])
+@pytest.mark.parametrize('kind',['reason','filter','quoted_filter','omission','adapter'])
 def test_builder_refuses_secret_in_raw_structured_fields(collection,kind):
     assert any(f.category=='secret' for f in scan_text(ASSIGNMENT))
     assert any(f.category=='secret' for f in scan_text(BEARER))
@@ -36,7 +37,7 @@ def test_builder_refuses_secret_in_raw_structured_fields(collection,kind):
     assert VALUE not in str(error.value)
 
 
-@pytest.mark.parametrize('kind',['reason','filter','omission'])
+@pytest.mark.parametrize('kind',['reason','filter','quoted_filter','omission'])
 def test_protected_http_refuses_secret_without_echo(collection,bound_server,kind):
     srv,token=bound_server; sha=git(collection,'rev-parse','HEAD'); args=request_for(collection,kind)
     task={**TASK,'max_bytes':50000,'evidence':[], 'queries':args['queries'],'omissions':args['omissions']}
