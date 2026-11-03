@@ -180,3 +180,16 @@ revocation is verified under current permission without opening revoked
 historical members. Removing a requirement is not a substitute for review.
 These checks establish set and selected-byte equivalence only; they do not
 assess factual freshness, run preflight, grant an effect or approve integration.
+
+
+A revalidated changed collection creates a pending interpretation obligation,
+not a claim that its consumer's facts changed. The scoped audit follows existing
+typed nonhistorical consumption edges from that obligation and checks whether a
+downstream query actually contains a pending member and consumes a potentially
+affected field. These create separate upstream-pending review reasons; byte
+equivalence alone does not discharge them. Navigation and historical relations
+do not propagate. This closure remains within the bound owner and current read
+authority; an unauthorized boundary is an explicit blocker, not silent complete
+coverage. Cycles are deduplicated and finite limits (including the shared query
+read budget) fail closed. The surrounding audit remains global `caller_trust`;
+the query binding is not an ACL for the global graph or its output.

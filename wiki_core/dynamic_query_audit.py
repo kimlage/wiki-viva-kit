@@ -9,7 +9,7 @@ from wiki_core.information_relations import information_requirements
 from wiki_core.repository_reader import RepositoryReader
 
 
-def revalidate_affected(root, *, base, head, context_id, affected, changed, current):
+def revalidate_affected(root, *, base, head, context_id, affected, changed, current, pending_sources=None, read_budget=None):
     if not all(isinstance(x, str) and re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', x) for x in (base, head)):
         raise ValueError('fixed query base and head required')
     def git(*args):
@@ -47,8 +47,9 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
     base_reader, head_reader = RepositoryReader(root, base), RepositoryReader(root, head)
     normative = {p for c in policy.contexts.values() for k in ('instructions', 'skills', 'templates') for p in c[k]}
     changed_policy = bool(normative & changed) or any(p == 'context.yaml' or p.endswith('/context.yaml') for p in changed)
-    budget = [32_000_000]
+    budget = read_budget if read_budget is not None else [32_000_000]
     outcomes = []
+    pending_sources = pending_sources or {}
     for row in affected:
         path, req = row['path'], row['requirement']
         try:
@@ -89,10 +90,18 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
             at_head, _, _ = select_query(policy, context_id, head_reader, entry, read_budget=budget)
             if any(path in {m['ref'] for m in selection['members']} for selection in (prior, at_base, at_head)):
                 raise PolicyError('query consumer cannot be a member')
-            if not same_selection(prior, at_base) or not same_selection(prior, at_head):
+            interested = set(req['query']['filters'])
+            if 'field' in req['query']: interested.add(req['query']['field'])
+            elif 'section' in req['query']: interested.add('body')
+            else: interested.add('*')
+            upstream = [m['ref'] for m in at_head['members'] if m['ref'] in pending_sources
+                        and ('*' in interested or '*' in pending_sources[m['ref']]
+                             or interested & pending_sources[m['ref']])]
+            selection_changed = not same_selection(prior, at_base) or not same_selection(prior, at_head)
+            if selection_changed or upstream:
                 if path in changed: raise PolicyError('changed consumer requires equivalent selection')
-                outcomes.append({'path': path, 'state': 'review_pending', 'reason': 'dynamic_query_changed',
-                    'seed': next((p for p in sorted(changed) if p == path or p == req['target'] or within(p, req['query']['scope'])), path),
+                outcomes.append({'path': path, 'state': 'review_pending', 'reason': 'dynamic_query_changed' if selection_changed else 'dynamic_query_upstream_pending',
+                    'seed': next((p for p in sorted(changed) if p == path or p == req['target'] or within(p, req['query']['scope'])), path) if selection_changed else upstream[0],
                     'fields': ['*'], 'causes': [], 'chain': [],
                     'priority': 'immediate', 'verification_performed': False})
         except (ValueError, KeyError, TypeError, OSError):

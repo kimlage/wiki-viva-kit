@@ -282,11 +282,47 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             from wiki_core.information_impact import affected_dynamic_queries
             from wiki_core.dynamic_query_audit import revalidate_affected
             affected = affected_dynamic_queries(current, base, impact_changed, {r['path'] for r in result['included']})
+            closure_budget = [32_000_000]
             outcomes = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
-                                           affected=affected, changed=impact_changed, current=current)
+                                           affected=affected, changed=impact_changed, current=current, read_budget=closure_budget)
+            # Dynamic outcomes are review obligations, not edits to their pages.
+            # Feed those obligations into typed dependencies and authorized
+            # downstream queries until no new pending fields are discovered.
+            from wiki_core.information_impact import propagate_pending_dependencies
+            from wiki_core.context_policy import load_policy
+            closure_policy = load_policy(root, base_sha)
+            pending_fields = {r['path']: set(r.get('fields', ['*'])) for r in outcomes if r['state'] == 'review_pending'}
+            all_outcomes = {(r['path'], r['reason']): r for r in outcomes}
+            derived = {}; denied = set()
+            for _ in range(64):
+                expanded, reached, boundary = propagate_pending_dependencies(current, base, pending_fields, closure_policy, query_context)
+                denied.update(boundary); derived.update(reached)
+                affected = affected_dynamic_queries(current, base, impact_changed | set(expanded), set(expanded))
+                more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
+                    affected=affected, changed=impact_changed, current=current, pending_sources=expanded, read_budget=closure_budget)
+                for row in more: all_outcomes[(row['path'], row['reason'])] = row
+                new_fields = {p: set(v) for p, v in expanded.items()}
+                for row in more:
+                    if row['state'] == 'review_pending': new_fields.setdefault(row['path'], set()).update(row.get('fields', ['*']))
+                if new_fields == pending_fields: break
+                pending_fields = new_fields
+            else:
+                raise ValueError('dynamic impact closure limit exceeded')
+            closure_policy.fresh()
             result['integrity_blockers'] = [r for r in result['integrity_blockers'] if r['reason'] != 'dynamic_query_requires_authorized_revalidation']
-            result['integrity_blockers'].extend(r for r in outcomes if r['state'] == 'unknown')
-            result['pending_reviews'].extend(r for r in outcomes if r['state'] == 'review_pending')
+            result['integrity_blockers'].extend(r for r in all_outcomes.values() if r['state'] == 'unknown')
+            result['integrity_blockers'].extend({'path': p, 'reason': 'dynamic_impact_authority_boundary'} for p in sorted(denied))
+            result['pending_reviews'].extend(r for r in all_outcomes.values() if r['state'] == 'review_pending')
+            existing_pending = {r['path'] for r in result['pending_reviews']}
+            for path, source in sorted(derived.items()):
+                if path not in existing_pending:
+                    result['pending_reviews'].append({'path':path, 'state':'review_pending', 'reason':'upstream_interpretation_pending',
+                        'seed':source, 'fields':sorted(pending_fields[path]), 'causes':[], 'chain':[],
+                        'priority':'immediate', 'verification_performed':False})
+            included = {r['path'] for r in result['included']}
+            for path in sorted(set(pending_fields) - included):
+                result['included'].append({'path':path, 'seed':derived.get(path, path), 'distance':None,
+                    'fields':sorted(pending_fields[path]), 'causes':[], 'chain':[]})
             result['ok'] = not result['integrity_blockers'] and not result['relation_errors']
             result['query_revalidation'] = {'context': query_context, 'policy_revision': base_sha, 'head': head,
                 'affected': len(affected), 'fact_freshness': 'not_assessed',
