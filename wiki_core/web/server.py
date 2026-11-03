@@ -28,7 +28,7 @@ from wiki_core.action_transition import (
     transition_action_page,
 )
 from wiki_core.config import WikiConfig, load_config
-from wiki_core.coordination import CoordinationError, coordination_index, context_packet
+from wiki_core.coordination import CoordinationError, coordination_index, profile_packet_migration
 from wiki_core.context_selection import strict_json_loads
 from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordinationError, capability as protected_capability, prepare_packet as protected_packet, prepare_preflight as protected_preflight, blocker_response)
 from wiki_core.paths import WikiPaths
@@ -1309,13 +1309,10 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/coordination" or path.startswith("/api/coordination/profiles/"):
             try:
-                snapshot = self.server.snapshot_payloads()
                 if path == "/api/coordination":
-                    payload = coordination_index(self.server.root, snapshot)
+                    payload = coordination_index(self.server.root, self.server.snapshot_payloads())
                 else:
-                    profile = path[len("/api/coordination/profiles/"):]
-                    action_id = (parse_qs(parsed.query).get("action_id") or [None])[0]
-                    payload = context_packet(self.server.root, self.server.config, snapshot, profile, action_id)
+                    payload = profile_packet_migration()
                 self._send_json(payload)
             except (CoordinationError, OSError) as exc:
                 self._send_error(str(exc), status=HTTPStatus.CONFLICT)

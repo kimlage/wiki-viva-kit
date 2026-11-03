@@ -90,54 +90,10 @@ def wiki_paths(config: WikiConfig) -> WikiPaths:
 
 
 def context_hub_pages(config: WikiConfig) -> tuple[list[str], list[str]]:
-    """Resolve declared context hubs by authored identity at any folder depth.
-
-    This is document discovery, never authority or ownership inference. Missing
-    hubs retain the conventional path so the existing primary-page gate reports
-    an explicit failure. Ambiguous identities are errors, not path preferences.
-    """
-    prefix = memory_prefix(config)
-    by_context: dict[str, dict[str, str | None]] = {context: {} for context in config.contexts}
-    base = ROOT / prefix
-    errors: list[str] = []
-    if base.is_symlink() or not base.resolve().is_relative_to(ROOT.resolve()):
-        return [], ["unsafe context memory root"]
-    for path in sorted(base.rglob("*.md")) if base.is_dir() else []:
-        if path.is_symlink() or any(parent.is_symlink() for parent in path.parents if parent != ROOT and ROOT in parent.parents):
-            continue
-        values, _ = parse_frontmatter(path)
-        context = values.get("context")
-        if (isinstance(context, str) and context in by_context
-                and values.get("page_type") == "context_hub" and values.get("page_id")):
-            parent = values.get("moc_parent")
-            by_context[context][path.relative_to(ROOT).as_posix()] = parent if isinstance(parent, str) else None
-    pages = []
-    for context, hubs in by_context.items():
-        # A same-context parent identifies an internal hub; a parent in an
-        # outside this context (or no parent) leaves this hub a root candidate.
-        matches = [path for path, parent in hubs.items() if parent not in hubs]
-        for path in hubs:
-            seen: set[str] = set()
-            current = path
-            while current in hubs:
-                if current in seen:
-                    errors.append(f"context {context}: cyclic context hub ancestry: {path}")
-                    break
-                seen.add(current)
-                current = hubs[current]
-        if len(matches) > 1:
-            errors.append(f"context {context}: multiple context hubs: {', '.join(matches)}")
-        if hubs and not matches:
-            errors.append(f"context {context}: no root context hub")
-        if matches:
-            pages.extend(matches)
-        else:
-            fallback = ROOT / f"{prefix}{context}/index.md"
-            if any(part.is_symlink() for part in (fallback, *fallback.parents) if part != ROOT and ROOT in part.parents):
-                errors.append(f"context {context}: unsafe context hub path")
-            else:
-                pages.append(fallback.relative_to(ROOT).as_posix())
-    return pages, errors
+    """Shared editorial discovery, preserving the auditor's primary-page gate."""
+    from wiki_core.context_hubs import discover_context_hubs
+    by_context, errors = discover_context_hubs(ROOT, config, read_page=canonical_parse_frontmatter)
+    return [path for paths in by_context.values() for path in paths], errors
 
 
 def primary_pages(config: WikiConfig) -> list[str]:

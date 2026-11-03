@@ -783,3 +783,33 @@ def test_generated_projection_declares_real_inputs_without_consuming_action_sour
     assert all(role['produced_fields']==['body'] for role in projections)
     assert any('action_state' in role['consumed_fields'] for role in projections)
     assert all('source_refs' not in role['consumed_fields'] for role in projections)
+
+
+def test_vitality_nested_root_and_projection_match(compile_mod, config, minimal_repo):
+    import datetime as dt
+    import yaml
+    from wiki_core.paths import WikiPaths
+    paths = WikiPaths(minimal_repo, config)
+    def hub(relative, kind='context_hub', context='nested'):
+        target = paths.memory_root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f'---\npage_type: {kind}\ncontext: {context}\nupdated_at: 2026-06-08\nstale_after_days: 30\n---\n')
+        return target
+    hub('index.md', context='root-explicit')
+    nested = hub('parent/child/index.md')
+    hub('parent/source/index.md', kind='source', context='excluded-source')
+    hub('parent/other.md', context='excluded-non-index')
+    linked = hub('linked-target/index.md', context='linked-target')
+    (paths.memory_root / 'linked-directory').symlink_to(linked.parent, target_is_directory=True)
+    (paths.memory_root / 'linked-file').mkdir()
+    (paths.memory_root / 'linked-file/index.md').symlink_to(nested)
+    rows = compile_mod.collect_context_vitality(paths, dt.date(2026,6,8))
+    contexts = [row.context for row in rows]
+    assert contexts.count('nested') == 1 and contexts.count('linked-target') == 1
+    assert 'root-explicit' in contexts
+    assert not {'excluded-source','excluded-non-index'} & set(contexts)
+    page = compile_mod.build_page(minimal_repo, config)
+    fm = yaml.safe_load(page.split('---',2)[1])
+    rule = next(r for r in fm['projection_inputs'] if r.get('page_types') == ['context_hub'])
+    assert rule['path_prefix'] == paths.rel(paths.memory_root)
+    assert rule['file_names'] == ['index.md'] and 'path_depth' not in rule

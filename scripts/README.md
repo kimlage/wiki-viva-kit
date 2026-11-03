@@ -16,7 +16,7 @@ memory index first; retain any stronger consumer context requirement.
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |
 | Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index. Read each result's origin and coverage gaps before treating it as evidence. No index or model is started. |
-| Context | Use [wiki_read.py](wiki_read.py) for a scoped Git read, [wiki_context.py](wiki_context.py) or the approved mode of [wiki_coordination.py](wiki_coordination.py) for an explicit task packet. | Choose explicit paths and revisions; follow original evidence. The legacy profile/snapshot path is `caller_trust`, not the protected mode. See [context operation](../docs/references/guides/context-operation.md). |
+| Context | Use [wiki_read.py](wiki_read.py) for a scoped Git read, [wiki_context.py](wiki_context.py) or the approved mode of [wiki_coordination.py](wiki_coordination.py) for an explicit task packet. | Choose explicit paths and revisions; follow original evidence. The profile packet path is retired; the operator index remains `caller_trust`. See [context operation](../docs/references/guides/context-operation.md). |
 | Source | Use the existing source workspace, `GET /api/sources` for identity/location and `GET /api/sources/{source_id}/operations` for receipts, described in [source access](../docs/references/guides/source-access-and-ingestion.md). | Inspect retained identity, location and receipts first. [Refresh preview/run](../docs/references/guides/source-refresh-cadence.md) may contact external systems and requires the existing account and authorized scope; an unavailable original is an explicit gap. |
 | Action | Open the same [board card](../docs/references/guides/native-action-board.md). Use its existing transition/dialogue writer for allowed local changes; reconcile retained agent results through [contributions](../docs/references/guides/agent-contributions.md). | Keep the same action and origin run/effect references; revalidate its current revision before writing. A received-result comment has its own event identity, does not consume the contribution effect, and does not incorporate its factual proposal. Other documents, rules or required generators use the existing normal multipage proposal with review and gates. |
 
@@ -63,7 +63,7 @@ or builds a bounded v1 packet with `--approved-revision` and a separate
 `--content-revision`. The caller supplies the trust boundary; selecting a
 revision does not grant access. [wiki_coordination.py](wiki_coordination.py)
 has separate approved packet flags (`--context-id`, `--approved-revision`,
-`--revision`, `--packet-request`) and a legacy profile mode labelled `caller_trust`.
+`--revision`, `--packet-request`) while profile reads return a migration response without content.
 The protected local API additionally requires a host binding and an authenticated
 operator session. See [protected coordination](../docs/references/guides/context-coordination-protected.md).
 The [context reader guide](../docs/references/guides/context-reader.md)
@@ -151,7 +151,7 @@ The [standalone action board](../docs/references/guides/native-action-board.md)
 is served by `wiki_web_server.py --frontend`; it does not require a native host.
 The retired Hermes installer is retained in Git history only.
 
-[wiki_coordination.py](wiki_coordination.py) reads configured coordinator routes and composes revision-bound context packets without dispatching agents. See [context coordinators](../docs/references/guides/context-coordinators.md).
+[wiki_coordination.py](wiki_coordination.py) reads the caller-trust operator index, records exact-path dialogue and prepares explicit approved context packets without dispatching agents. See [context coordinators](../docs/references/guides/context-coordinators.md).
 
 [wiki_contribution.py](wiki_contribution.py) prepares and reconciles independently
 reviewed action-body proposals with optional local agents. See the

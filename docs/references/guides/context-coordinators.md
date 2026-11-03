@@ -4,28 +4,20 @@ See [source access and ingestion previews](source-access-and-ingestion.md) for
 declared accounts/scopes, bounded adapter evidence and read-only composition
 of explicitly linked events and actions. These projections grant no execution.
 
-The [native board](native-action-board.md) can show an explicitly assigned coordinator for each canonical action. The domain owner and executor remain unchanged. A consumer-owned `wiki.coordination.yaml` defines the routes; the kit supplies a context composer and a receipted conversation on the action itself. It does not create another task queue or scheduler.
+The [native board](native-action-board.md) can show an explicitly assigned coordinator for each canonical action. The domain owner and executor remain unchanged. A consumer-owned `wiki.coordination.yaml` defines the routes; the kit supplies a canonical protected task packet route and a receipted conversation on the action itself. It does not create another task queue or scheduler.
 
 ## Consumer configuration
 
 ```yaml
 schema_version: wiki_coordination.v1
-common_context:
-  - AGENTS.md
-  - .skills/wiki-memory-router/SKILL.md
-  - memories/index.md
-  - memories/system/git-approvals.md
-  - memories/system/operational-wiki-contract.md
-  - memories/system/ingestion-process.md
 profiles:
   research:
     label: Research
     scope: Research evidence; preserve existing owners and STOPs.
-    context_pages: [memories/research/index.md]
     action_ids: [action-review-evidence]
 ```
 
-Use real page IDs and existing memory pages. Common procedures may also reference explicit `.skills/.../SKILL.md` files. Paths outside the repository, symlinks and arbitrary files such as environment credentials are refused. Assign one primary coordinator per action; missing routes remain visible instead of assigning an arbitrary bot. A profile may coordinate a context with no current action; never create tasks to fill it.
+Use real action page IDs. Assign one primary coordinator per action; missing routes remain visible instead of assigning an arbitrary bot. A profile may coordinate actions in multiple canonical contexts; never union those contexts' permissions or create tasks to fill a profile. IDs and profile labels supply routing and historical attribution, not access grants.
 
 The board's **Fronts** view derives projects and initiatives from canonical
 pages, including fronts without an active action. Optional `front_refs` on a
@@ -37,26 +29,16 @@ actions never prove live execution or override a paused front. Missing and
 changed references remain visible as projection warnings. Protected single-action
 context packets do not expand their authorized readset to this inventory.
 
-`common_context` is the shared entry point for **every** profile. Include the
-consumer's current approval policy, operational contract, ingestion process and
-router there; replace the example paths with that consumer's existing pages.
-Profile-specific `context_pages` add domain context and do not replace these
-common rules. The composer reads explicit references, not every link from a
-root page: linking a policy only from the index is not a substitute for listing
-it here. Keep one canonical policy and reference it rather than copying rules
-into each profile. A current policy may explicitly supersede historical wording;
-record its scope without discarding technical, privacy or access constraints.
+Task bodies come exclusively from the [protected coordination route](context-coordination-protected.md), with an explicitly selected canonical context, approved policy revision, content revision and task selection. Mandatory rules belong to canonical context instructions/skills/templates. Evidence is selected explicitly or through authorized queries; cross-context evidence requires matching imports/exports. Legacy `common_context` and `context_pages` no longer prepare task content and are not required entries for a profile.
 
 ## Runtime integration
 
-- `GET /api/coordination`: primary coordinator by canonical action ID and revision, with separate owner/executor fields.
-- `GET /api/coordination/profiles/research`: context packet for that profile.
-- Add `?action_id=action-review-evidence` to select one assigned action. Cross-profile action requests fail.
-- [wiki_coordination.py](../../../scripts/wiki_coordination.py) provides the same contract through `--root`, `--profile` and optional `--action-id`.
+- `GET /api/coordination`: caller-trust operator index with primary coordinator by canonical action ID and revision, and separate owner/executor fields.
+- `GET /api/coordination/profiles/<id>` and CLI `--profile` without an event: constant `coordination_context_required` migration response, without bodies or a snapshot.
+- [wiki_coordination.py](../../../scripts/wiki_coordination.py) with `--context-id`, `--approved-revision`, `--revision` and `--packet-request`: explicit protected task packet. Read the complete packet's mandatory rules and selected evidence, not a truncated sample.
+- Dialogue CLI: `--profile`, `--action-id`, exact configured `--action-path`, `--event-file` and `--expected-sha256`; see the protected coordination guide for migration examples.
 
-Packets contain the configured common/domain context and the action's direct page/source/role/decision relations, with page content and hashes. Expansion is bounded to one action hop, not a recursive whole-wiki import. Unresolved references are explicit. Live external sources are not fetched. Snapshot IDs and content hashes prevent combining a cached action with newer source bytes. The packet hash binds scope, profile, action revisions and context. Runtime consumers must reread/recompose before admission and reject revision drift.
-
-This release always reports `runtime_connected: false` and `execution_ready: false`: it prepares context and records directions/questions/answers without claiming delivery or execution. Packet generation is not evidence of LLM reading, context comprehension, authorization or execution. An existing runtime must bind the intended profile, canonical chat, native claim/STOP/dedup checks and permitted operations before dispatch. Do not replace a refused runtime review or existing admission boundary with this reader. Waiting and terminal states remain canonical; coordinator assignment never changes them. Preserve existing action IDs and executor ownership; never import these packets as duplicate domain Tasks.
+Packet generation is not evidence of LLM reading, comprehension or execution. Runtime admission separately checks actual capability, authorization, claim/STOP/dedup and permitted operations. Profiles never select a canonical context or bypass a refused admission check. Waiting and terminal states remain canonical; coordinator assignment never changes them. Preserve existing action IDs, executor ownership and conversation history; never import packets as duplicate domain tasks.
 
 Runtime results must retain provenance and use the existing guarded action-transition contract, with revision checks and evidence for completion. A queued, claimed or settled runtime job is not a completed wiki action. The [standalone board](native-action-board.md) remains usable while execution is unavailable.
 
@@ -69,7 +51,7 @@ that depends on a capability, the executing instance must establish:
 | Required information | Existing source or evidence |
 | --- | --- |
 | Task and base | Canonical repository/action ID, page revision, packet hash and existing owner/executor |
-| Current rules | Explicit common policy sources, granted authorization and its limits |
+| Current rules | Canonical mandatory policy bodies, granted authorization and its limits |
 | Work context | Domain pages, source/configuration IDs, evidence and consolidation destinations |
 | Effective capabilities | Actual host/session, account/resource and available tool, with a current bounded check for the required operation |
 | Completion | Result evidence, applicable validation/review and ingestion/consolidation into the destination pages |
@@ -141,7 +123,8 @@ that its proposed documents have been integrated. Keep that pending work
 explicit in the comment and reuse the existing action.
 
 A trusted local agent adapter can invoke [wiki_coordination.py](../../../scripts/wiki_coordination.py)
-with `--profile research --action-id action-review-evidence --event-file event.json
+with `--profile research --action-id action-review-evidence
+--action-path memories/actions/review-evidence.md --event-file event.json
 --expected-sha256 REVISION`. It validates the route and records the selected
 coordinator as actor. `--as-operator` is for trusted local operator integrations.
 This CLI has the filesystem user's authority: profile flags are not credentials

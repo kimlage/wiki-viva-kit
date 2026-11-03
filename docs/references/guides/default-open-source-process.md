@@ -191,13 +191,35 @@ metadata and target pages.
 
 ### Context
 
-A context is a top-level area of memory. Each configured context must have a hub
-page at `<memory_root>/<context>/index.md`; the context hub is the first page to
-update when a source changes the
-meaning of that domain.
+An editorial context identifies a memory domain; its hub may be nested under the
+configured `paths.memory_root`, with any regular Markdown filename. The input
+stage and auditor share `wiki_core.context_hubs.discover_context_hubs`: authored
+`page_type: context_hub`, nonempty `page_id` and matching editorial `context`
+identify candidates. The ID must be a nonblank string, not a coerced number,
+list or malformed value. The conventional fallback filename is only a diagnostic
+for missing-primary-page checks; it cannot replace matching authored metadata.
+A same-context `moc_parent` identifies an internal hub;
+the single root candidate is the domain entry. The historical flat
+`<memory_root>/<context>/index.md` layout remains supported, including a
+configured root entity that already serves as that flat entry.
 
-Contexts are not tags. They are operational ownership boundaries. They decide
-freshness cadence, target pages, and where integration should land.
+Input targets retain the root entity first, then the resolved domain hub, then
+explicit channel/source-config targets. Discovery runs once per compilation.
+Missing hubs of domains registered in `contexts`, and ambiguous or cyclic hubs,
+produce explicit warnings rather than choosing an arbitrary hub or treating
+channel/config targets as its substitute. An administrative `default_context`
+not registered in `contexts` does not require a domain hub of its own; if it has
+ambiguous/cyclic hub declarations they are still reported. Other undeclared
+source-context labels produce an explicit warning and do not invent a domain.
+Unsafe
+configured memory roots fail before page reads; symlink hubs/ancestors are not
+followed. The auditor retains its missing-primary-page gate and reports discovery
+errors.
+
+These labels and target paths are editorial navigation, not canonical protected
+context IDs or access grants. Context-policy ownership and imports/exports remain
+the independent authority for protected packets. Hubs carry the domain synthesis
+to review when a source changes its meaning.
 
 ### Root MOC and hubs
 

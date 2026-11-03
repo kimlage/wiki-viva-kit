@@ -117,3 +117,31 @@ def test_changed_transitive_observation_does_not_inherit_claim_verification(tmp_
     result=build_page_content(tmp_path,config,'action',snapshot(tmp_path,config),include_information=True)['information_use']
     assert not result['ready']
     assert 'information_changed_since_verification' in result['requirements'][0]['blockers']
+
+
+def test_reader_loads_custom_transitive_units_and_rejects_changed_raw_leaf(tmp_path):
+    config,_,_=fixture(tmp_path)
+    original=(tmp_path/'memories/index.md').read_text().replace('verified_at: 2026-01-01','verified_at: 2026-10-30')
+    custom=original.replace('page_type: claim','page_type: synthetic_cost\ninformation_role: factual_unit')
+    (tmp_path/'memories/b.md').write_text(custom.replace('page_id: claim','page_id: b'))
+    (tmp_path/'memories/index.md').write_text(custom.replace('memories/evidence.md','b'))
+    commit(tmp_path)
+    def assessment():
+        return build_page_content(tmp_path,config,'action',snapshot(tmp_path,config),include_information=True)['information_use']
+    assert assessment()['ready']
+    raw=tmp_path/'memories/evidence.md';raw.write_text(raw.read_text()+'Changed RAW leaf.\n');commit(tmp_path)
+    result=assessment()
+    assert not result['ready'] and result['permission_granted'] is False
+    assert 'information_changed_since_verification' in result['requirements'][0]['blockers']
+
+
+def test_reader_custom_cycle_remains_a_cycle(tmp_path):
+    config,_,_=fixture(tmp_path)
+    original=(tmp_path/'memories/index.md').read_text().replace('verified_at: 2026-01-01','verified_at: 2026-10-30')
+    custom=original.replace('page_type: claim','page_type: synthetic_cost\ninformation_role: factual_unit')
+    (tmp_path/'memories/b.md').write_text(custom.replace('page_id: claim','page_id: b').replace('memories/evidence.md','claim'))
+    (tmp_path/'memories/index.md').write_text(custom.replace('memories/evidence.md','b'))
+    commit(tmp_path)
+    result=build_page_content(tmp_path,config,'action',snapshot(tmp_path,config),include_information=True)['information_use']
+    assert not result['ready']
+    assert 'information_evidence_closed_claim_cycle' in result['requirements'][0]['blockers']

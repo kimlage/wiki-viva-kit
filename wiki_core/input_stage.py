@@ -93,7 +93,10 @@ def _repo_path(root: Path, value: str) -> Path | None:
 def _md_pages(paths: WikiPaths) -> list[Path]:
     if not paths.memory_root.exists():
         return []
-    return sorted(paths.memory_root.rglob("*.md"))
+    return sorted(path for path in paths.memory_root.rglob("*.md")
+                  if path.is_file() and not path.is_symlink()
+                  and not any(parent.is_symlink() for parent in path.parents
+                              if parent != paths.root and paths.root in parent.parents))
 
 
 def _read_page(root: Path, path: Path) -> dict[str, Any]:
@@ -189,13 +192,6 @@ def _root_payload(page: dict[str, Any], config: WikiConfig) -> dict[str, Any]:
         ),
         "perspective_bundle": {"required": required, "optional": optional},
     }
-
-
-def _context_hub(root: Path, config: WikiConfig, context: str) -> str | None:
-    if not context:
-        return None
-    path = root / config.paths["memory_root"] / context / "index.md"
-    return _rel(root, path) if path.exists() else None
 
 
 def _page_keys(page: dict[str, Any]) -> set[str]:
@@ -325,11 +321,42 @@ def compile_input_stage(
     else:
         date_text = str(generated_at)
 
+    from wiki_core.context_hubs import context_memory_root
+    if context_memory_root(root, config) is None:
+        raise ValueError("unsafe context memory root")
     paths = WikiPaths(root, config)
     root_entity = find_root_entity(root, config, paths)
     channels = [_channel_payload(page) for page in _pages_by_type(root, paths, "input_channel")]
     source_pages = _source_pages(root, paths)
-    warnings: list[str] = []
+    from wiki_core.context_hubs import discover_context_hubs, is_editorial_context_hub
+    contexts = _dedupe([str(p["values"].get("context") or p.get("context") or config.default_context)
+                        for p in source_pages])
+    hubs, hub_errors = discover_context_hubs(root, config, contexts=contexts)
+    warnings: list[str] = list(hub_errors)
+    resolved_hubs: dict[str, str | None] = {}
+    for context in contexts:
+        registered = context in config.contexts
+        administrative = context == config.default_context and not registered
+        unexpected = not registered and not administrative
+        if unexpected:
+            warnings.append(f"context {context}: undeclared editorial context")
+        candidates = hubs.get(context, [])
+        invalid = any(error.startswith(f"context {context}:") for error in hub_errors)
+        resolved_hubs[context] = None
+        if not invalid and not unexpected and len(candidates) == 1:
+            candidate = _repo_path(root, candidates[0])
+            if candidate and candidate.is_file():
+                page = _read_page(root, candidate)
+                # Fallback paths are diagnostic, not qualified hub identities.
+                # Check original typed metadata, not _read_page's display strings.
+                configured_root = _configured_root_page(root, config)
+                flat_root = (page["page_type"] == "root_entity"
+                             and configured_root == candidate
+                             and (root_entity or {}).get("path") == page["path"])
+                if is_editorial_context_hub(page["values"], context) or flat_root:
+                    resolved_hubs[context] = page["path"]
+        if resolved_hubs[context] is None and (registered or invalid):
+            warnings.append(f"context {context}: context hub unavailable; root/channel/config targets do not substitute for it")
     source_rows: list[dict[str, Any]] = []
 
     for source_page in source_pages:
@@ -337,7 +364,7 @@ def compile_input_stage(
         channel = _match_channel(source_page, source_config, channels)
         values = dict(source_page["values"])
         context = str(values.get("context") or source_page.get("context") or config.default_context)
-        context_hub = _context_hub(root, config, context)
+        context_hub = resolved_hubs.get(context)
         target_pages = _dedupe(
             [
                 item
@@ -692,6 +719,8 @@ def render_input_stage_markdown(
             {'page_types':sorted(SOURCE_PAGE_TYPES),'path_prefix':WikiPaths(Path('.'),config).sources_dir.as_posix(),
              'fields':_source_fields(),'title_fallback':'blank'},
             {'page_types':['input_channel'],'fields':_channel_fields(),'title_fallback':'blank'},
+            {'page_types':['context_hub'],'path_prefix':config.paths['memory_root'],
+             'fields':['page_id','page_type','context','moc_parent']},
             {'page_types':['root_entity'],'fields':['page_id','title','root_entity_type',
                 'perspective_bundle_required','perspective_bundle_optional'],'title_fallback':'blank'},
             {'page_types':['source_config'],'fields':['page_id','source_refs','input_channel_ref','process_refs',

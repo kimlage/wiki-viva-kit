@@ -1652,3 +1652,37 @@ HEAD and refuses a consumer within its own selected set. A hub may share its
 directory with queried pages: its explicit structural exclusion avoids counting
 or duplicating the required anchor body. Focused synthetic cases preserve the
 earlier review receipts; no release/tag or source verification dates change.
+
+## [2026-11-03] Canonical task packets and nested editorial hubs
+
+The [operational contract](operational-wiki-contract.md) and
+[command reference](wiki/command-reference.md) now distinguish profile routing
+and dialogue history from canonical protected task content. Legacy profile
+packet reads return a constant migration response; exact-path dialogue retains
+the guarded action writer. The [operation cockpit](../operations.md) projection
+now covers explicitly typed nested context hubs and the root index, with no
+symlink traversal. These are technical contract and projection corrections;
+no source evidence, factual verification or existing publication date was renewed.
+
+## [2026-11-03] Shared nested editorial input targets
+
+The [input stage](input-stage.md) and auditor now share authored editorial hub
+discovery at any memory depth, preserving root-entity → domain-hub target order.
+Missing, ambiguous and cyclic hubs remain explicit warnings, with no inferred
+context-policy authority. The [process guide](../../docs/references/guides/default-open-source-process.md#context)
+documents the source of that resolution and the retained flat layout. The input
+stage's dependency projection now includes the consumed hub metadata. This is a
+technical routing correction; no existing publication/source date was renewed.
+
+For this input-target correction, a missing hub is required only for a domain
+registered in `contexts`. A distinct administrative `default_context` needs no
+separate domain hub; ambiguous/cyclic declarations and unexpected source labels
+still remain explicit diagnostics. This preserves the existing public catalog's
+administrative system label without inventing a domain or concealing a missing
+configured domain hub.
+
+Input-stage hub eligibility now rechecks original typed metadata, including the
+matching editorial context and a nonblank string page ID. A conventional
+missing-primary-page fallback is diagnostic only; its filename cannot promote a
+wrong-context or malformed page into the domain hub. The flat root-entity
+exception requires the explicitly configured root page.

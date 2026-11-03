@@ -130,8 +130,8 @@ def test_legacy_snapshot_and_git_modes_declare_caller_trust(tmp_path):
     from tests.test_coordination import fixture
     config,snapshot,_=fixture(tmp_path)
     index=coordination_index(tmp_path,snapshot); packet=context_packet(tmp_path,config,snapshot,'research','task')
-    for value in (index,packet):
-        assert value['trust_boundary']=='caller_trust' and value['policy_enforced'] is False and value['coverage'].startswith('legacy_')
+    assert index['trust_boundary']=='caller_trust' and index['policy_enforced'] is False
+    assert packet['error_code']=='coordination_context_required' and 'pages' not in packet
 
 
 def test_backend_resolves_producer_only_after_authorized_selection(repo,bound_server):
@@ -201,3 +201,24 @@ def test_only_stable_builder_budget_errors_are_classified(repo,monkeypatch,messa
     with pytest.raises(module.ProtectedCoordinationError) as error:
         module.prepare_packet(repo,CoordinationBinding(('costs',),'refs/remotes/origin/main'),payload(repo))
     assert error.value.code=='coordination_input_unavailable'
+
+
+def test_profile_changes_never_grant_canonical_context_or_evidence(repo):
+    from wiki_core.coordination_context import prepare_packet, ProtectedCoordinationError
+    data = payload(repo)
+    binding = CoordinationBinding(('costs',), 'refs/remotes/origin/main')
+    profile = {'schema_version':'wiki_coordination.v1','common_context':['finance/tax/source.md'],
+               'profiles':{'costs':{'label':'Cross-cutting','scope':'Navigation','action_ids':[],
+                                    'context_pages':['finance/tax/source.md']}}}
+    (repo/'wiki.coordination.yaml').write_text(yaml.safe_dump(profile))
+    # Even a profile with the exact canonical context name cannot grant a sibling.
+    sibling = json.loads(json.dumps(data))
+    sibling['task']['evidence'] = [{'ref':'finance/tax/source.md','producer':'tax','reason':'selected',
+                                   'use':'not-approved','classification':'synthetic'}]
+    with pytest.raises(ProtectedCoordinationError):
+        prepare_packet(repo,binding,sibling)
+    with pytest.raises(ProtectedCoordinationError):
+        prepare_packet(repo,binding,{**data,'context_id':'tax'})
+    approved = prepare_packet(repo,binding,data)
+    assert approved['ok'] and approved['packet']['context_id']=='costs'
+    assert 'finance/tax/source.md' not in {item['ref'] for item in approved['packet']['inputs']}

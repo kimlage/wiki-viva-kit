@@ -1,12 +1,11 @@
-"""Read-only, revision-bound context for existing runtime coordinators.
+"""Operational coordinator identities and trusted local dialogue routing.
 
-This is an adapter over canonical pages, never a task store or dispatcher.
-Runtime ownership, deduplication, STOP and execution admission remain with the
-runtime. Preparing context is not evidence that an agent read or acted on it.
+Profiles preserve action attribution and history, never authorize task bodies.
+Canonical task packets are prepared by coordination_context. Runtime ownership,
+STOP and execution admission remain with the runtime.
 """
 from __future__ import annotations
 
-import datetime as dt
 import hashlib
 import json
 import re
@@ -15,7 +14,6 @@ from typing import Any, Callable
 
 import yaml
 
-from wiki_core.web.content import build_page_content, _resolved_links
 from wiki_core.repository_reader import RepositoryReader
 from wiki_core.action_state import legacy_action_state_from_body, resolve_action_state
 from wiki_core.frontmatter import parse_frontmatter
@@ -184,210 +182,86 @@ def coordination_index(root: Path, snapshot: dict[str, Any], *,
     return result
 
 
-def _reader_catalogue(reader: RepositoryReader, config: Any) -> dict[str, Any]:
-    """Small metadata projection; no global cockpit snapshot or source cache."""
-    prefix = str(config.paths["memory_root"]).rstrip("/") + "/"
-    allowed = [path for path in reader.paths if path.startswith(prefix) and path.endswith(".md")]
-    pages = reader.catalogue(allowed_paths=allowed)
-    for page in pages:
-        fm = page["frontmatter"]
-        if page["page_type"] == "action":
-            body = reader.read(page["path"])["body"]
-            state = resolve_action_state(fm, legacy_state=legacy_action_state_from_body(body))
-            page["work"] = {"state": state.state, "owner_ref": str(fm.get("owner_ref") or fm.get("owner") or "")}
-    return {"manifest.json": {"snapshot_id": "git:" + reader.revision}, "pages.json": {"pages": pages}}
+def profile_packet_migration() -> dict[str, Any]:
+    """Constant response: profile identity never authorizes task content."""
+    return {"ok": False, "error_code": "coordination_context_required",
+            "migration": {"required": ["context_id", "approved_revision", "content_revision", "task"],
+                          "cli": "--context-id --approved-revision --revision --packet-request",
+                          "endpoint": "/api/coordination/protected/packet"},
+            "runtime_connected": False, "execution_ready": False}
 
 
 def context_packet(root: Path, config: Any, snapshot: dict[str, Any] | None,
                    profile_id: str, action_id: str | None = None, *,
                    authorize_ref: Callable[[str, str], None] | None = None,
                    revision: str = "HEAD") -> dict[str, Any]:
-    if snapshot is None and authorize_ref:
-        raise CoordinationError("protected context requires an authorized catalogue")
-    reader = RepositoryReader(root, revision) if snapshot is None else None
-    if reader:
-        snapshot = _reader_catalogue(reader, config)
-    def read_content(page_id):
-        if reader is None:
-            return build_page_content(root, config, page_id, snapshot)
-        page = next((p for p in snapshot["pages.json"]["pages"] if p["id"] == page_id), None)
-        if not page:
-            return {"ok": False}
-        document = reader.read(page["path"])
-        index = {key: p for p in snapshot["pages.json"]["pages"] for key in (p["id"], p["path"])}
-        fm = document["frontmatter"]
-        text = [document["body"]]
-        text.extend(fm[key] for key in ("next_action", "blocker_reason", "completion_receipt", "cancellation_receipt") if isinstance(fm.get(key), str))
-        text.extend(event["text"] for event in fm.get("action_dialogue", []) if isinstance(event, dict) and isinstance(event.get("text"), str))
-        return {"ok": True, "frontmatter": fm, "body": document["body"],
-            "resolved_links": _resolved_links(root, page["path"], "\n".join(text), index)}
-    def read_bytes(path):
-        return reader.read(path)["content"] if reader else _read(root, path)
-    if authorize_ref and not action_id:
-        raise CoordinationError("protected context requires an exact action")
-    index = coordination_index(root, snapshot,
-        _profile_id=profile_id if authorize_ref else None,
-        _action_id=action_id, _authorize_ref=authorize_ref, _reader=reader)
-    loaded = load_policy(root)
-    if not loaded or loaded[1] != index.get("policy_sha256"):
-        raise CoordinationError("coordination policy missing or changed")
-    policy, policy_sha = loaded
-    if profile_id not in policy["profiles"]:
-        raise CoordinationError("unknown coordinator")
-    profile = policy["profiles"][profile_id]
-    selected = profile.get("action_ids", [])
-    if action_id:
-        if action_id not in selected:
-            raise CoordinationError("action belongs to another coordinator")
-        selected = [action_id]
-    pages = snapshot.get("pages.json", {}).get("pages", [])
-    by_id = {p["id"]: p for p in pages}
-    by_path = {p["path"]: p for p in pages}
-    refs = policy.get("common_context", []) + profile.get("context_pages", []) + selected + [r["source_ref"] for r in profile.get("access_requirements", [])]
-    required: dict[str, dict[str, Any]] = {}
-    procedures: dict[str, bytes] = {}
-    procedure_paths = []
-    for ref in refs:
-        page = by_id.get(ref) or by_path.get(ref)
-        if page:
-            if authorize_ref:
-                authorize_ref(page["path"], page["content_sha256"])
-            required[page["id"]] = page
-        elif ref == "AGENTS.md" or (ref.startswith(".skills/") and ref.endswith("/SKILL.md")):
-            if authorize_ref:
-                authorize_ref(ref, "")
-            procedure_paths.append(ref)
-        else:
-            raise CoordinationError(f"unknown context page: {ref}")
-    # Expand the action's explicit context, parent and source relations one hop.
-    # Do not recurse through a root hub and silently ingest the entire wiki.
-    unresolved = []
-    information_edges = []
-    for action in selected:
-        content = read_content(action)
-        if not content.get("ok"):
-            raise CoordinationError("action revision changed; refresh")
-        fm = content["frontmatter"]
-        from wiki_core.information_relations import operational_consumption_edges
-        def resolve_information(ref):
-            matches = [p['path'] for p in pages if p['path'] == ref or p['id'] == ref]
-            return sorted(set(matches))
-        try:
-            consumption = operational_consumption_edges(root, by_id[action]['path'], fm, content['body'], resolve_information)
-        except ValueError as exc:
-            raise CoordinationError(str(exc)) from exc
-        for requirement in consumption:
-            matches = resolve_information(requirement['target'])
-            if len(matches) != 1:
-                raise CoordinationError('information target missing or ambiguous')
-            target = by_path[matches[0]]
-            if authorize_ref:
-                authorize_ref(target['path'], target['content_sha256'])
-            required[target['id']] = target
-            target_content = read_content(target['id'])
-            if not target_content.get('ok'):
-                raise CoordinationError('information revision changed; refresh')
-            evidence_refs = target_content['frontmatter'].get('evidence_refs', [])
-            if not isinstance(evidence_refs, list) or any(not isinstance(ref, str) for ref in evidence_refs):
-                raise CoordinationError('invalid information evidence references')
-            pending_evidence=list(evidence_refs)
-            loaded_evidence={target['path']}
-            while pending_evidence:
-                ref=pending_evidence.pop()
-                matches = resolve_information(ref)
-                if len(matches) != 1:
-                    raise CoordinationError('information evidence missing or ambiguous')
-                evidence = by_path[matches[0]]
-                required[evidence['id']] = evidence
-                if evidence['path'] in loaded_evidence:continue
-                loaded_evidence.add(evidence['path'])
-                if authorize_ref:
-                    authorize_ref(evidence['path'],evidence['content_sha256'])
-                evidence_content=read_content(evidence['id'])
-                if not evidence_content.get('ok'):
-                    raise CoordinationError('information evidence revision changed; refresh')
-                if evidence_content['frontmatter'].get('page_type')=='claim':
-                    further=evidence_content['frontmatter'].get('evidence_refs',[])
-                    if not isinstance(further,list) or any(not isinstance(item,str) for item in further):
-                        raise CoordinationError('invalid information evidence references')
-                    pending_evidence.extend(further)
-            information_edges.append({**requirement, 'target': target['path']})
-        for field in ("source_refs", "related_pages", "related_holons", "roles", "responsibilities", "claims", "decisions", "evidence_refs", "moc_parent"):
-            values = fm.get(field, [])
-            if isinstance(values, str):
-                values = [values]
-            if not isinstance(values, list) or any(not isinstance(ref, str) for ref in values):
-                raise CoordinationError("invalid action context relation")
-            for ref in values:
-                page = by_id.get(ref) or by_path.get(ref)
-                if page:
-                    required[page["id"]] = page
-                else:
-                    unresolved.append({"action_id": action, "field": field, "ref": ref})
-        for link in content.get("resolved_links", []):
-            if link.get("kind") == "page" and link.get("page_id") in by_id:
-                required[link["page_id"]] = by_id[link["page_id"]]
-    # Resolve one hop using the already authorized action. Relations never grant
-    # access: authorize the entire closure before reading any related body.
-    if authorize_ref:
-        if unresolved:
-            raise CoordinationError("required context reference unresolved")
-        for page in required.values():
-            authorize_ref(page["path"], page["content_sha256"])
-    for ref in procedure_paths:
-        raw = read_bytes(ref)
-        if authorize_ref:
-            authorize_ref(ref, hashlib.sha256(raw).hexdigest())
-        procedures[ref] = raw
-    contents = []
-    for page in required.values():
-        # Same boundaries and immutable hashes as the existing page reader.
-        read_bytes(page["path"])
-        content = read_content(page["id"])
-        if not content.get("ok"):
-            raise CoordinationError("context revision changed; refresh")
-        contents.append({"id": page["id"], "path": page["path"],
-                         "content_sha256": page["content_sha256"],
-                         "frontmatter": content["frontmatter"], "body": content["body"]})
-    packet = {"schema_version": SCHEMA, "profile": profile_id,
-        "label": profile["label"], "scope": profile["scope"],
-        "access_requirements": profile.get("access_requirements", []),
-        "required_tools": profile.get("required_tools", []), "access_verified": False,
-        "policy_sha256": policy_sha, "snapshot_id": index["snapshot_id"],
-        "policy_mode": "legacy_coordination_compatibility", "policy_enforced": False,
-        "trust_boundary": "caller_trust", "coverage": "legacy_selected_pages_and_relations",
-        **({"content_revision": reader.revision, "content_origin": "git"} if reader else {}),
-        "unresolved_context_refs": unresolved,
-        "actions": [a for a in index["actions"] if a["action_id"] in selected],
-        "pages": contents,
-        "procedures": [{"path": path, "content_sha256": hashlib.sha256(raw).hexdigest(),
-                        "body": raw.decode("utf-8")} for path, raw in procedures.items()],
-        "runtime_connected": False, "execution_ready": False,
-        "limits": ["Context prepared, not proof of agent reading or execution.",
-                   "Coordinator is not the domain owner or executor.",
-                   "Preserve STOP, waiting_human, terminal states and existing runtime reservations.",
-                   "No automatic dispatch; runtime must validate context revisions and admission."]}
-    if information_edges:
-        from wiki_core.information_use import assess_information_use, bind_verification_coverage
-        information_graph = {'nodes': {p['path']: p['frontmatter'] for p in contents},
-                             'documents': {p['path']: p['body'] for p in contents},
-                             'edges': information_edges, 'errors': []}
-        information_graph = bind_verification_coverage(root, information_graph)
-        # Preserve preparation of a refresh/history mission: readiness is a
-        # separate assessment. The real dispatch boundary enforces it.
-        packet['information_use'] = [assess_information_use(information_graph, by_id[action]['path'],
-            now=dt.datetime.now(dt.timezone.utc)) for action in selected]
-    # Refuse mixed revisions, including a policy/procedure edit during composition.
-    if hashlib.sha256(_read(root, POLICY_FILE)).hexdigest() != policy_sha:
-        raise CoordinationError("coordination policy changed; refresh")
-    for content in contents:
-        if hashlib.sha256(read_bytes(content["path"])).hexdigest() != content["content_sha256"]:
-            raise CoordinationError("context revision changed; refresh")
-    for path, raw in procedures.items():
-        if read_bytes(path) != raw:
-            raise CoordinationError("procedure changed; refresh")
-    packet["context_sha256"] = digest(packet)
-    return packet
+    """Retired compatibility entry point; never reads caller-selected content."""
+    return profile_packet_migration()
+
+
+def dialogue_action(root: Path, page_ref: str, action_id: str, event: Any) -> dict[str, Any]:
+    """Read one explicit action; IDs remain routing identities, never read grants."""
+    from wiki_core.action_transition import _contained_action_path
+    from wiki_core.config import load_config
+    from wiki_core.paths import WikiPaths
+    supplied = Path(page_ref)
+    if supplied.is_absolute() or ".." in supplied.parts:
+        raise CoordinationError("unsafe action path")
+    config = load_config(root)
+    # WikiPaths composes paths but deliberately does not validate configuration.
+    # Check both components before composition: an absolute RHS would replace
+    # the intended root, and normalized traversal could silently widen it.
+    for key in ("memory_root", "actions_dirname"):
+        value = config.paths[key]
+        if not isinstance(value, str) or not value:
+            raise CoordinationError("invalid configured actions directory")
+        component = Path(value)
+        if (component.is_absolute()
+            or not component.parts or any(part in {".", ".."} for part in component.parts)
+            or value != component.as_posix()
+            or (key == "actions_dirname" and len(component.parts) != 1)):
+            raise CoordinationError("invalid configured actions directory")
+    repository = root.resolve()
+    actions = WikiPaths(repository, config).actions_dir
+    if not actions.is_relative_to(repository) or actions == repository:
+        raise CoordinationError("invalid configured actions directory")
+    current = repository
+    for part in actions.relative_to(repository).parts:
+        current /= part
+        if current.is_symlink() or not current.is_dir():
+            raise CoordinationError("invalid configured actions directory")
+    path, page_ref = _contained_action_path(root, page_ref)
+    if not path.is_relative_to(actions):
+        raise CoordinationError("action outside configured actions directory")
+    validate_dialogue_route(root, page_ref, event)
+    raw = _read(root, page_ref)
+    fm, body = parse_frontmatter(raw.decode("utf-8"))
+    if fm.get("page_id") != action_id:
+        raise CoordinationError("canonical action identity mismatch")
+    state = resolve_action_state(fm, legacy_state=legacy_action_state_from_body(body)).state
+    return {"path": page_ref, "state": state}
+
+
+def transition_dialogue_action(root: Path, page_ref: str, action_id: str, event: Any,
+                               *, expected_sha256: str, as_operator: bool = False):
+    """Validate the exact route inside the existing action transaction fence."""
+    from wiki_core.action_transition import (
+        _TRANSITION_LOCK, _action_file_lock, _contained_action_path,
+        _transition_action_page_locked,
+    )
+    if not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+        raise CoordinationError("invalid expected action revision")
+    # Reject lexical escapes before normalizing the path for the writer lock.
+    if Path(page_ref).is_absolute() or ".." in Path(page_ref).parts:
+        raise CoordinationError("unsafe action path")
+    _, canonical_ref = _contained_action_path(root, page_ref)
+    with _TRANSITION_LOCK, _action_file_lock(root, canonical_ref):
+        action = dialogue_action(root, canonical_ref, action_id, event)
+        return _transition_action_page_locked(
+            root, action["path"], action["state"], expected_sha256=expected_sha256,
+            dialogue_event=event,
+            dialogue_actor="operator" if as_operator else "coordinator:" + event["coordinator"],
+            next_action=event.get("text") if event.get("kind") == "direction" else None)
 
 
 def validate_dialogue_route(root: Path, page_ref: str, event: Any) -> None:

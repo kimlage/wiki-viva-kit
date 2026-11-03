@@ -57,13 +57,18 @@ global maintenance. The integrator retains the applicable final gates.
 2. Read [wiki.config.yaml](../../wiki.config.yaml) and the index under configured
    `paths.memory_root`.
 3. Read the consumer's current approval policy, operational contract and
-   ingestion process identified by its entry instructions. When coordination
-   is configured, read `wiki.coordination.yaml`'s `common_context` and check
-   that these canonical sources and the router/root are included. Profile
-   pages add domain context and do not replace common policies. Report a
-   missing policy reference before relying on a packet for handoff; do not
-   silently change configuration during a read-only task. Use the consumer's
-   existing locations, not assumed English paths. See [context coordinators](../../docs/references/guides/context-coordinators.md#consumer-configuration).
+   ingestion process identified by its entry instructions. For a task handoff,
+   use the complete protected packet with explicit canonical context, current
+   approved revision, content revision and selected evidence. Read all its
+   mandatory instructions and selected bodies; references, hashes or truncated
+   samples do not replace the packet. Profiles in `wiki.coordination.yaml`
+   preserve routing and history only: `common_context` and `context_pages` do
+   not authorize or prepare task bodies. Place mandatory rules in the appropriate
+   canonical context instructions/skills/templates; cross-context evidence needs
+   approved imports/exports. Report missing canonical rules or selection before
+   relying on a handoff; do not silently widen scope or change configuration.
+   See [protected coordination](../../docs/references/guides/context-coordination-protected.md).
+
 4. Select the configured root entity and applicable source/channel/template
    inputs. The global generated input-stage catalog is coordinator navigation;
    do not insert its complete body as every task's mandatory instruction.
