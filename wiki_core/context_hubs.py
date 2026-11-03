@@ -20,6 +20,15 @@ def context_memory_root(root: Path, config: WikiConfig) -> Path | None:
     return base
 
 
+def is_editorial_context_hub(values: dict, context: str) -> bool:
+    """Qualify authored metadata; filenames and diagnostic fallbacks are not identity."""
+    page_id = values.get("page_id")
+    return (values.get("page_type") == "context_hub"
+            and values.get("context") == context
+            and isinstance(page_id, str) and bool(page_id.strip())
+            and not any(ord(char) < 32 for char in page_id))
+
+
 def discover_context_hubs(root: Path, config: WikiConfig, *, contexts=None,
                           read_page=parse_frontmatter) -> tuple[dict[str, list[str]], list[str]]:
     """Resolve authored context_hub identities and same-context moc_parent roots.
@@ -40,7 +49,7 @@ def discover_context_hubs(root: Path, config: WikiConfig, *, contexts=None,
         values, _ = read_page(path)
         context = values.get("context")
         if (isinstance(context, str) and context in by_context
-                and values.get("page_type") == "context_hub" and values.get("page_id")):
+                and is_editorial_context_hub(values, context)):
             parent = values.get("moc_parent")
             by_context[context][path.relative_to(root).as_posix()] = parent if isinstance(parent, str) else None
     pages: dict[str, list[str]] = {}
@@ -74,4 +83,3 @@ def discover_context_hubs(root: Path, config: WikiConfig, *, contexts=None,
             else:
                 pages[context] = [fallback.relative_to(root).as_posix()]
     return pages, errors
-

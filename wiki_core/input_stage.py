@@ -328,7 +328,7 @@ def compile_input_stage(
     root_entity = find_root_entity(root, config, paths)
     channels = [_channel_payload(page) for page in _pages_by_type(root, paths, "input_channel")]
     source_pages = _source_pages(root, paths)
-    from wiki_core.context_hubs import discover_context_hubs
+    from wiki_core.context_hubs import discover_context_hubs, is_editorial_context_hub
     contexts = _dedupe([str(p["values"].get("context") or p.get("context") or config.default_context)
                         for p in source_pages])
     hubs, hub_errors = discover_context_hubs(root, config, contexts=contexts)
@@ -347,9 +347,13 @@ def compile_input_stage(
             candidate = _repo_path(root, candidates[0])
             if candidate and candidate.is_file():
                 page = _read_page(root, candidate)
-                # Preserve the historical flat root-entity entry point.
-                if page["page_type"] == "context_hub" or (
-                    page["page_type"] == "root_entity" and (root_entity or {}).get("path") == page["path"]):
+                # Fallback paths are diagnostic, not qualified hub identities.
+                # Check original typed metadata, not _read_page's display strings.
+                configured_root = _configured_root_page(root, config)
+                flat_root = (page["page_type"] == "root_entity"
+                             and configured_root == candidate
+                             and (root_entity or {}).get("path") == page["path"])
+                if is_editorial_context_hub(page["values"], context) or flat_root:
                     resolved_hubs[context] = page["path"]
         if resolved_hubs[context] is None and (registered or invalid):
             warnings.append(f"context {context}: context hub unavailable; root/channel/config targets do not substitute for it")

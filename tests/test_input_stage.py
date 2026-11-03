@@ -939,3 +939,45 @@ def test_unexpected_source_context_is_reported_without_inventing_domain(tmp_path
     catalog=compile_input_stage(tmp_path,cfg)
     assert any('context unregistered: undeclared editorial context' == w for w in catalog['warnings'])
     assert 'memories/elsewhere/hub.md' not in catalog['sources'][0]['target_pages']
+
+
+@pytest.mark.parametrize('metadata', [
+    {'page_type':'context_hub','context':'other','page_id':'wrong'},
+    {'page_type':'context_hub','context':'tax'},
+    {'page_type':'context_hub','context':'tax','page_id':'   '},
+    {'page_type':'context_hub','context':'tax','page_id':123},
+    {'page_type':'context_hub','context':'tax','page_id':['invalid-id']},
+    {'page_type':'context_hub','context':['tax'],'page_id':'invalid-context'},
+    {'page_type':'context_hub','context':'tax','page_id':'bad\nidentifier'},
+])
+def test_input_stage_never_promotes_ineligible_named_fallback(tmp_path, metadata):
+    cfg = _fixture_repo(tmp_path)
+    cfg = replace(cfg, contexts=(*cfg.contexts, 'tax'))
+    source = _domain_source(tmp_path)
+    fallback = 'memories/tax/index.md'
+    _write(tmp_path/fallback,'---\n'+yaml.safe_dump(metadata)+'---\n# Ineligible fallback\n')
+    catalog = compile_input_stage(tmp_path,cfg)
+    assert fallback not in catalog['sources'][0]['target_pages']
+    assert any('context tax: context hub unavailable' in w for w in catalog['warnings'])
+    consumer = input_context_for_source(tmp_path,cfg,source.relative_to(tmp_path).as_posix())
+    assert fallback not in consumer['target_pages']
+
+
+def test_input_stage_malformed_frontmatter_fallback_remains_missing(tmp_path):
+    cfg = _fixture_repo(tmp_path)
+    cfg = replace(cfg, contexts=(*cfg.contexts, 'tax'))
+    _domain_source(tmp_path)
+    _write(tmp_path/'memories/tax/index.md','---\npage_type: context_hub\ncontext: tax\npage_id: [unterminated\n---\n')
+    catalog=compile_input_stage(tmp_path,cfg)
+    assert 'memories/tax/index.md' not in catalog['sources'][0]['target_pages']
+    assert any('context tax: context hub unavailable' in w for w in catalog['warnings'])
+
+
+def test_flat_root_entity_exception_requires_explicit_configuration(tmp_path):
+    cfg = _fixture_repo(tmp_path)
+    cfg = replace(cfg, root_entity={**cfg.root_entity,'page':''})
+    catalog=compile_input_stage(tmp_path,cfg)
+    # The discovered root remains the first root target, but cannot silently
+    # satisfy the configured domain's separate hub requirement by its filename.
+    assert catalog['sources'][0]['target_pages']==['memories/example/index.md']
+    assert any('context example: context hub unavailable' in w for w in catalog['warnings'])

@@ -195,7 +195,10 @@ An editorial context identifies a memory domain; its hub may be nested under the
 configured `paths.memory_root`, with any regular Markdown filename. The input
 stage and auditor share `wiki_core.context_hubs.discover_context_hubs`: authored
 `page_type: context_hub`, nonempty `page_id` and matching editorial `context`
-identify candidates. A same-context `moc_parent` identifies an internal hub;
+identify candidates. The ID must be a nonblank string, not a coerced number,
+list or malformed value. The conventional fallback filename is only a diagnostic
+for missing-primary-page checks; it cannot replace matching authored metadata.
+A same-context `moc_parent` identifies an internal hub;
 the single root candidate is the domain entry. The historical flat
 `<memory_root>/<context>/index.md` layout remains supported, including a
 configured root entity that already serves as that flat entry.

@@ -1680,3 +1680,9 @@ separate domain hub; ambiguous/cyclic declarations and unexpected source labels
 still remain explicit diagnostics. This preserves the existing public catalog's
 administrative system label without inventing a domain or concealing a missing
 configured domain hub.
+
+Input-stage hub eligibility now rechecks original typed metadata, including the
+matching editorial context and a nonblank string page ID. A conventional
+missing-primary-page fallback is diagnostic only; its filename cannot promote a
+wrong-context or malformed page into the domain hub. The flat root-entity
+exception requires the explicitly configured root page.
