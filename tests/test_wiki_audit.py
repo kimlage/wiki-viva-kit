@@ -2368,3 +2368,36 @@ def test_context_hub_discovery_refuses_symlink_root_without_reading_it(tmp_path,
     monkeypatch.setattr(audit, 'parse_frontmatter', lambda path: pytest.fail('escaped context root was read'))
     pages, errors = audit.context_hub_pages(WikiConfig(contexts=('tax',)))
     assert pages == [] and errors == ['unsafe context memory root']
+
+
+def test_context_hubs_follow_same_context_parent_without_inventing_duplicates(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    config = WikiConfig(contexts=('finance', 'tax'),
+        paths={**WikiConfig().paths, 'memory_root': 'knowledge'}, audit={'core_pages': []})
+    def hub(path, context, parent):
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f'---\npage_id: {target.parent.name}-{context}\npage_type: context_hub\ncontext: {context}\nmoc_parent: {parent}\n---\n# Synthetic\n')
+    hub('knowledge/finance/hub.md', 'finance', 'knowledge/index.md')
+    hub('knowledge/finance/inside/hub.md', 'finance', 'knowledge/finance/hub.md')
+    hub('knowledge/finance/inside/deeper/hub.md', 'finance', 'knowledge/finance/inside/hub.md')
+    hub('knowledge/finance/tax/custom.md', 'tax', 'knowledge/finance/hub.md')
+    hub('knowledge/finance/tax/inside.md', 'tax', 'knowledge/finance/tax/custom.md')
+    pages, errors = audit.context_hub_pages(config)
+    assert pages == ['knowledge/finance/hub.md', 'knowledge/finance/tax/custom.md']
+    assert errors == []
+    hub('knowledge/finance/tax/another.md', 'tax', 'knowledge/finance/hub.md')
+    _, errors = audit.context_hub_pages(config)
+    assert any('context tax: multiple context hubs:' in error for error in errors)
+
+
+def test_context_hub_cycle_is_an_error_even_with_separate_root(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    config = WikiConfig(contexts=('demo',), audit={'core_pages': []})
+    for name, parent in [('root', 'memories/index.md'), ('first', 'memories/demo/second.md'), ('second', 'memories/demo/first.md')]:
+        target = tmp_path / f'memories/demo/{name}.md'
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f'---\npage_id: {name}\npage_type: context_hub\ncontext: demo\nmoc_parent: {parent}\n---\n# Synthetic\n')
+    pages, errors = audit.context_hub_pages(config)
+    assert pages == ['memories/demo/root.md']
+    assert any('cyclic context hub ancestry' in error for error in errors)
