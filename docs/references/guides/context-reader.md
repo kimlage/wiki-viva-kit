@@ -113,7 +113,7 @@ those flags with separate context and complete-request byte ceilings. The
 [bounded ingestion guide](bounded-ingestion.md) documents defaults, canonical
 UTF-8 serialization, current result binding and recoverable blockers.
 
-The [synthetic CLI regression](../../../tests/test_coordination.py) compared
+The synthetic CLI regression in the kit source checkout (`tests/test_coordination.py`) compared
 serialized output on the same fixture: 27 snapshot payloads totaling 45,766 bytes
 versus one context packet of 2,554 bytes, with zero files written. This measures
 that fixture's output only; it makes no token, latency or source-freshness claim.
