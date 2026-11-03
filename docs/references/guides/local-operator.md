@@ -86,9 +86,11 @@ not prove its build origin.
 
 In this mode, the fixed shared Python command, gate and ingestion entrypoints
 run from the code release, with the content root explicitly bound and isolated
-imports. Consumer-configured source adapters, source-review jobs, answer
+imports. The isolated child checks the parent binding before importing release
+code and restores that binding before invoking the entrypoint. Consumer-configured source adapters, source-review jobs, answer
 observers, contribution gates requiring scratch or arbitrary commands, and
-external frontend builds are unavailable until separately qualified; they do
+external frontend builds, and Codex/Claude job execution are unavailable until
+separately qualified; they do
 not fall back to running code from the content checkout. This does not change
 permissions, enable jobs or make untrusted content safe. Default startup retains
 the legacy coupled behavior. Read and review the actual code/content/frontend

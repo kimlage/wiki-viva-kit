@@ -216,3 +216,82 @@ def test_legacy_start_cannot_switch_into_installed_mode(tmp_path, monkeypatch):
     binding.seal_legacy()
     with pytest.raises(ValueError, match='installed_mode_after_legacy_start'):
         binding.configure(content)
+
+
+@pytest.fixture
+def copied_release(tmp_path, monkeypatch):
+    import shutil
+    monkeypatch.setattr(binding, '_binding', None)
+    monkeypatch.setattr(binding, '_legacy_sealed', False)
+    release = (tmp_path / 'release').resolve(); release.mkdir()
+    source = binding._CODE_ROOT
+    for directory in ('wiki_core', 'scripts', 'docs/references/schemas'):
+        shutil.copytree(source / directory, release / directory, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    content = (tmp_path / 'content').resolve(); content.mkdir()
+    (content / 'wiki.config.yaml').write_text('repo_id: synthetic\n')
+    monkeypatch.setattr(binding, '_CODE_ROOT', release)
+    return release, content
+
+
+def test_child_restores_exact_binding_and_refuses_adapter(copied_release):
+    release, content = copied_release
+    script = release / 'scripts/wiki_pr_summary.py'
+    script.write_text('''from pathlib import Path
+from wiki_core.web import installed_binding as b
+from wiki_core.web.source_operations import _safe_ingest_argv
+from scripts._common import ROOT
+assert b.enabled() and b.active(ROOT)
+try:
+    _safe_ingest_argv(ROOT, ('python3','scripts/private.py'), ROOT/'raw')
+except ValueError as e:
+    assert str(e) == 'installed_consumer_adapter_unavailable'
+else:
+    raise AssertionError('adapter was not blocked')
+try:
+    b.command(ROOT, ['python3','scripts/private.py'])
+except ValueError as e:
+    assert str(e) == 'installed_script_not_allowlisted'
+else:
+    raise AssertionError('content script was not blocked')
+print('child-binding-restored')
+''')
+    binding.configure(content)
+    argv, env = binding.command(content, ['python3', 'scripts/wiki_pr_summary.py'])
+    result = subprocess.run(argv, cwd=content, env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == 'child-binding-restored'
+
+
+@pytest.mark.parametrize('swap', ['root', 'code', 'guard'])
+def test_child_rejects_swap_after_command_preparation(copied_release, tmp_path, swap):
+    release, content = copied_release
+    script = release / 'scripts/wiki_pr_summary.py'
+    script.write_text("from pathlib import Path\nPath('entrypoint-ran').write_text('bad')\n")
+    binding.configure(content)
+    argv, env = binding.command(content, ['python3', 'scripts/wiki_pr_summary.py'])
+    if swap == 'root':
+        content.rename(tmp_path / 'original-content'); content.mkdir()
+    elif swap == 'code':
+        (release / 'wiki_core' / 'changed.py').write_text('VALUE = 2\n')
+    else:
+        (release / 'wiki_core/web/installed_binding.py').write_text("from pathlib import Path; Path('guard-ran').write_text('bad')\n")
+    result = subprocess.run(argv, cwd=content, env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode != 0 and 'installed_child_binding_mismatch' in result.stderr
+    assert not (content / 'entrypoint-ran').exists()
+    assert not (content / 'guard-ran').exists()
+
+
+def test_installed_job_runner_never_autostarts_or_admits(content):
+    from wiki_core.web.codex_jobs import JobRunner
+    from wiki_core.web.server import CockpitServer
+    cfg = WikiConfig(repo_id='synthetic')
+    with pytest.raises(ValueError, match='installed_job_runner_unavailable'):
+        JobRunner(content, cfg, autostart=True)
+    runner = JobRunner(content, cfg, autostart=False, reconcile_retained=False)
+    with pytest.raises(ValueError, match='installed_job_runner_unavailable'):
+        runner.start()
+    assert runner.submit(brief_id='x', brief_sha='x')['error'] == 'installed_job_runner_unavailable'
+    assert runner.run_job('x')['error'] == 'installed_job_runner_unavailable'
+    enabled = WikiConfig(repo_id='synthetic', codex={'enabled': True})
+    with pytest.raises(ValueError, match='installed_job_runner_unavailable'):
+        CockpitServer(('127.0.0.1', 0), content, enabled)

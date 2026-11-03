@@ -275,6 +275,8 @@ class CockpitServer(ThreadingHTTPServer):
                  start_jobs: bool = True, coordination_binding: CoordinationBinding | None = None) -> None:
         from wiki_core.web import installed_binding
         installed_binding.seal_legacy()
+        if installed_binding.enabled() and (config.codex_enabled or config.claude_enabled or config.admin.get("source_review_enabled", False)):
+            raise ValueError("installed_job_runner_unavailable")
         # CORS is a startup trust decision. Invalid or remote origins must fail
         # before the operator opens a listening socket, and environment changes
         # only take effect after an intentional restart.

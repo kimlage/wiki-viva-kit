@@ -18,11 +18,39 @@ _SCRIPTS = frozenset({
     'wiki_pr_summary.py', 'wiki_page_graph.py', 'wiki_new_ingest.py',
     'wiki_ingest.py', 'wiki_llm_context_pass.py',
 })
-_BOOTSTRAP = (
-    'import runpy,sys; code,script=sys.argv[1:3]; '
-    'sys.path.insert(0,code); sys.argv=sys.argv[2:]; '
-    'runpy.run_path(script,run_name="__main__")'
-)
+_BOOTSTRAP = r"""
+import hashlib, os, runpy, sys
+from pathlib import Path
+code_arg, script, content_arg, dev, ino, expected = sys.argv[1:7]
+code = Path(code_arg); content = Path(content_arg)
+if (not code.is_absolute() or code.resolve(strict=True) != code or
+    not content.is_absolute() or content.is_symlink() or content.resolve(strict=True) != content or
+    os.environ.get('WIKI_INSTALLED_CONTENT_ROOT') != content_arg):
+    raise SystemExit('installed_child_binding_mismatch')
+st = content.stat()
+if (st.st_dev, st.st_ino) != (int(dev), int(ino)):
+    raise SystemExit('installed_child_binding_mismatch')
+core, scripts, schemas = code/'wiki_core', code/'scripts', code/'docs/references/schemas'
+if any(p.is_symlink() or not p.is_dir() for p in (core, scripts)) or schemas.is_symlink():
+    raise SystemExit('installed_child_binding_mismatch')
+resources = [p for p in core.rglob('*') if '__pycache__' not in p.parts and (p.is_file() or p.is_symlink())]
+schema_files = [p for p in schemas.rglob('*') if p.suffix == '.json' or p.is_symlink()] if schemas.exists() else []
+files = sorted([*resources, *scripts.glob('*.py'), *schema_files])
+h = hashlib.sha256()
+for path in files:
+    if (path.is_symlink() or any(parent.is_symlink() for parent in path.parents if parent != code and code in parent.parents)
+        or not path.is_file() or path.resolve(strict=True) != path):
+        raise SystemExit('installed_child_binding_mismatch')
+    h.update(path.relative_to(code).as_posix().encode() + b'\0')
+    h.update(hashlib.sha256(path.read_bytes()).digest())
+if h.hexdigest() != expected:
+    raise SystemExit('installed_child_binding_mismatch')
+sys.path.insert(0, code_arg)
+from wiki_core.web.installed_binding import restore
+restore(code_arg,content_arg,int(dev),int(ino),expected)
+sys.argv = [script, *sys.argv[7:]]
+runpy.run_path(script, run_name='__main__')
+"""
 
 
 def _code_digest(code: Path) -> str:
@@ -66,6 +94,24 @@ def configure(content_root: Path) -> None:
         if _binding is not None and _binding != candidate:
             raise ValueError('installed_binding_already_configured')
         _binding = candidate
+
+
+def restore(code: str, content: str, dev: int, ino: int, digest: str) -> None:
+    """Reestablish the exact parent binding in an isolated child, never rebind."""
+    global _binding
+    root = Path(content)
+    expected = (Path(code), root, (dev, ino), digest)
+    if Path(code) != _CODE_ROOT or os.environ.get('WIKI_INSTALLED_CONTENT_ROOT') != content:
+        raise ValueError('installed_child_binding_mismatch')
+    if not root.is_absolute() or root.is_symlink() or root.resolve(strict=True) != root or not root.is_dir():
+        raise ValueError('installed_child_binding_mismatch')
+    st = root.stat()
+    if (st.st_dev, st.st_ino) != expected[2] or _code_digest(_CODE_ROOT) != digest:
+        raise ValueError('installed_child_binding_mismatch')
+    with _lock:
+        if _legacy_sealed or (_binding is not None and _binding != expected):
+            raise ValueError('installed_child_binding_mismatch')
+        _binding = expected
 
 
 def seal_legacy() -> None:
@@ -115,4 +161,5 @@ def command(root: Path, argv: list[str]) -> tuple[list[str], dict[str, str] | No
     env.pop('PYTHONPATH', None)
     env.pop('PYTHONHOME', None)
     env['WIKI_INSTALLED_CONTENT_ROOT'] = str(content)
-    return [sys.executable, '-I', '-c', _BOOTSTRAP, str(code), str(candidate), *argv[2:]], env
+    dev, ino = _binding[2]
+    return [sys.executable, '-I', '-c', _BOOTSTRAP, str(code), str(candidate), str(content), str(dev), str(ino), _binding[3], *argv[2:]], env
