@@ -244,6 +244,9 @@
           "authority_digest": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "source_kind": {
+            "const": "mandatory"
           }
         },
         "dependentRequired": {

@@ -15,6 +15,7 @@ from wiki_core.repository_reader import RepositoryReader, RepositoryReadError
 from wiki_core.content_sections import SectionError
 from wiki_core.detectors import scan_text
 from wiki_core.context_selection import select_query, requirement_query, reproduce_query
+from wiki_core.context_normative import normative_history
 
 
 class ImpactError(ValueError): pass
@@ -98,6 +99,16 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             if edge_old.revision!=consumed_revision: raise ImpactError('consumed revision not fixed')
         fields=e.get('consumed_fields')
         if not isinstance(fields,list) or not fields: raise ImpactError('missing consumed selectors')
+        normative = e.get('requirement', {}).get('source_kind') == 'mandatory'
+        if normative:
+            requirement=e.get('requirement')
+            if (e.get('type') != 'operational_prerequisite' or e.get('field') != 'information_requirements'
+                    or not isinstance(requirement,dict) or requirement.get('use') != 'normative'
+                    or requirement.get('target') != source or fields != ['*'] or requirement.get('fields') != ['*']
+                    or requirement.get('temporal') != 'current' or consumed_revision is None
+                    or new.revision != policy.policy_revision
+                    or not normative_history(policy,destination_context,source,consumed_revision)):
+                raise ImpactError('normative dependency authorization unavailable; review pending')
         query = e.get('requirement', {}).get('query')
         query_before = query_after = None
         if query is not None:
@@ -115,7 +126,7 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             kind,name=('query',None) if query is not None else _selector(selector)
             classification=e.get('classification','internal'); use=e.get('use','interpret')
             if not isinstance(classification,str) or not classification or not isinstance(use,str) or not use: raise ImpactError('invalid use or classification')
-            grant=policy.connection(source_owner,destination_context,source,use,classification,section=name if kind=='section' else None,field=name if kind=='field' else None)
+            grant='approved' if normative else policy.connection(source_owner,destination_context,source,use,classification,section=name if kind=='section' else None,field=name if kind=='field' else None)
             if grant!='approved': continue
             before_digest=query_before['selected_digest'] if query is not None else _selected_digest(edge_old,source,selector)
             after_digest=query_after['selected_digest'] if query is not None else _selected_digest(new,source,selector)
@@ -124,9 +135,10 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             rule=str(e.get('type','untyped_reference'))
             target_digest=_selected_digest(new,target,'*')
             key=(target,edge_old.revision,new.revision,rule,source,selector,use,classification,target_digest)
+            if normative: key += ('mandatory',)
             event_id=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
             cycle=event_id in trace or len(trace)>=max_generation
-            candidates[key]={'event_id':event_id, 'trace':list(trace) if cycle else [*trace,event_id], 'generation':len(trace), 'target':target,'destination_context':destination_context,'source':source,'producer_context':source_owner,'selector':selector,'rule':rule,'use':use,'classification':classification,'before_revision':edge_old.revision,'after_revision':new.revision,'before_digest':before_digest,'after_digest':after_digest,'target_digest':target_digest,'state':'blocked_cycle_limit' if cycle else ('blocked_missing_target' if target_digest is None else ('blocked_unpinned_dependency' if consumed_revision is None else ('blocked_missing_source' if before_digest is None and after_digest is None else 'review_pending'))),'interpretation':'independent','fact_freshness':'not_assessed'}
+            candidates[key]={'event_id':event_id, 'trace':list(trace) if cycle else [*trace,event_id], 'generation':len(trace), 'target':target,'destination_context':destination_context,'source':source,'producer_context':source_owner,'selector':selector,'rule':rule,'use':use,'classification':classification,'before_revision':edge_old.revision,'after_revision':new.revision,'before_digest':before_digest,'after_digest':after_digest,'target_digest':target_digest, **({'source_kind':'mandatory'} if normative else {}), 'state':'blocked_cycle_limit' if cycle else ('blocked_missing_target' if target_digest is None else ('blocked_unpinned_dependency' if consumed_revision is None else ('blocked_missing_source' if before_digest is None and after_digest is None else 'review_pending'))),'interpretation':'independent','fact_freshness':'not_assessed'}
             if query is not None:
                 candidates[key].update(query_policy_revision=query_after['policy_revision'], authority_digest=query_after['authority_digest'],query=query, members_digest_before=query_before['members_digest'], members_digest_after=query_after['members_digest'])
     # Avoid silently omitting work: return an explicit continuation offset and
@@ -155,9 +167,15 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         target=safe_path(candidate['target']); source=safe_path(candidate['source']); context=candidate['destination_context']
         selector=candidate['selector']; kind,name=('query',None) if 'query' in candidate else _selector(selector)
         key=(target,candidate['before_revision'],candidate['after_revision'],candidate['rule'],source,selector,candidate['use'],candidate['classification'],candidate['target_digest'])
+        if 'source_kind' in candidate:
+            if candidate['source_kind'] != 'mandatory': raise ImpactError('invalid candidate source kind')
+            key += ('mandatory',)
         expected=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
         if expected!=candidate['event_id'] or policy.owner_of(target)!=context or policy.owner_of(source)!=candidate['producer_context'] or not policy.permits(context,'read',target): raise ImpactError('invalid candidate')
-        grant=policy.connection(candidate['producer_context'],context,source,candidate['use'],candidate['classification'],section=name if kind=='section' else None,field=name if kind=='field' else None)
+        if candidate.get('source_kind')=='mandatory':
+            grant='approved' if candidate['use']=='normative' and selector=='*' and normative_history(policy,context,source,candidate['before_revision']) else 'denied'
+        else:
+            grant=policy.connection(candidate['producer_context'],context,source,candidate['use'],candidate['classification'],section=name if kind=='section' else None,field=name if kind=='field' else None)
         if grant!='approved': raise ImpactError('candidate authorization no longer current')
         reader=RepositoryReader(root,evidence_revision)
         if reader.revision!=policy.policy_revision: raise ImpactError('evidence revision not approved current base')

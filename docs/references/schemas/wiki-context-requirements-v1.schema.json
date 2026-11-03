@@ -182,6 +182,9 @@
           "authority_digest": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "source_kind": {
+            "const": "mandatory"
           }
         },
         "dependentRequired": {
@@ -215,7 +218,36 @@
             "selected_digest",
             "query_policy_revision"
           ]
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "source_kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "use": {
+                  "const": "normative"
+                },
+                "temporal": {
+                  "const": "current"
+                },
+                "fields": {
+                  "const": [
+                    "*"
+                  ]
+                }
+              },
+              "not": {
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        ]
       }
     },
     "read_claim": {
