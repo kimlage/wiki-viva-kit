@@ -322,8 +322,9 @@ def test_protected_http_rejects_duplicate_json_keys(collection,bound_server):
     request=urllib.request.Request(srv.url('/api/coordination/protected/packet'),
         data=b'{"context_id":"costs","context_id":"tax"}',headers=headers,method='POST')
     with pytest.raises(urllib.error.HTTPError) as error: urllib.request.urlopen(request)
-    assert error.value.code==400
-    assert 'packet' not in json.loads(error.value.read())
+    with error.value as response:
+        assert response.code==400
+        assert 'packet' not in json.loads(response.read())
 
 
 def test_preflight_cannot_carry_a_stale_existing_query_via_explicit_only_packet(collection):
