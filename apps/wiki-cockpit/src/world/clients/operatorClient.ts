@@ -128,7 +128,7 @@ async function send(
   const guardedEffectRoute = [
     "/actions/create", "/actions/transition", "/actions/run", "/git/workflow",
     "/briefs", "/codex/jobs", "/gates/run", "/snapshot/write", "/intake/copy",
-    "/source-groups/apply", "/ingestion/run"
+    "/source-groups/apply", "/ingestion/run", "/coordination/protected/packet", "/coordination/protected/preflight"
   ].includes(path) || /^\/(?:briefs|codex\/jobs)\/[^/?#]+(?:\/(?:discard|return|cancel))?$/.test(path)
     || /^\/sources\/[^/?#]+\/operations\/(?:apply|refresh-run|refresh-preview)$/.test(path);
   const sessionToken = guardedEffectRoute ? getAdminSessionToken() : null;

@@ -93,3 +93,11 @@
 
 .boardForm input{font:inherit;padding:.6rem;border:1px solid var(--board-line);border-radius:6px;min-width:0;max-width:100%;width:100%;box-sizing:border-box}.boardCreate{max-width:640px;padding:20px;margin:12px 0;border:1px solid var(--board-line);border-radius:12px}.boardCreate fieldset{min-width:0}.boardCreate textarea{box-sizing:border-box;width:100%}
 .workFronts{min-width:0;overflow-wrap:anywhere}.workFronts>p{color:var(--board-muted)}.workFronts article{border:1px solid var(--board-line);border-radius:10px;padding:20px;margin:1rem 0;background:var(--wiki-surface)}.workFronts dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.workFronts dt{font-size:.8rem;color:var(--board-muted)}.workFronts dd{margin:.2rem 0;overflow-wrap:anywhere}.workFronts ul{padding-left:20px}.workFronts li{margin:.5rem 0;overflow-wrap:anywhere}.boardDetail:focus{outline:3px solid var(--wiki-focus);outline-offset:2px;scroll-margin-top:16px}
+
+.boardContextPacket{border-top:1px solid var(--board-line);margin-top:20px;padding-top:12px;font-size:13px}
+.boardContextPacket label{display:grid;gap:6px;margin:12px 0;min-width:0}
+.boardContextPacket input,.boardContextPacket select{width:100%;min-width:0;max-width:100%}
+.boardContextPacket pre,.boardContextPacket code,.boardContextPacket dd{white-space:pre-wrap;overflow-wrap:anywhere}
+.boardContextPacket button{margin:4px 6px 4px 0}
+.boardContextPacket dl{display:grid;gap:8px}
+.boardContextPacket dd{margin:2px 0 0}

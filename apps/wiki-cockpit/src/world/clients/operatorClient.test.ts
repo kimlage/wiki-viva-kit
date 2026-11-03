@@ -57,7 +57,7 @@ describe("operatorPost", () => {
     "/actions/create", "/actions/transition", "/actions/run", "/git/workflow",
     "/briefs", "/briefs/synthetic", "/briefs/synthetic/discard", "/codex/jobs",
     "/codex/jobs/synthetic/return", "/codex/jobs/synthetic/cancel", "/gates/run",
-    "/snapshot/write", "/intake/copy", "/source-groups/apply", "/ingestion/run",
+    "/snapshot/write", "/intake/copy", "/source-groups/apply", "/ingestion/run", "/coordination/protected/packet", "/coordination/protected/preflight",
     "/sources/synthetic/operations/apply", "/sources/synthetic/operations/refresh-run",
     "/sources/synthetic/operations/refresh-preview"
   ])("sends the current memory-only session to guarded route %s and stops after revocation", async path => {

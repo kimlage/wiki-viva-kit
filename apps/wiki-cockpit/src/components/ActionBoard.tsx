@@ -1,4 +1,6 @@
 import { ActionProposal } from "./ActionProposal";
+import { ActionContextPacket } from "./ActionContextPacket";
+import type { ContextPacketPort } from "../data/contextPackets";
 import { OperationalLinks } from "./OperationalLinks";
 import { WorkFronts } from "./WorkFronts";
 import { ActionAccessRequirements } from "./ActionAccessRequirements";
@@ -69,7 +71,7 @@ const COPY = {
   es: { title: "Trabajo, con contexto", subtitle: "Una acción. Su página, fuentes y próximo paso.", all: "Todos los contextos", search: "Buscar acciones", terminal: "Mostrar finalizadas y canceladas", refresh: "Actualizar", states: ["Por hacer", "En curso", "Esperando a alguien", "Bloqueado", "Completado", "Cancelado"], unknown: "Estado por revisar", next: "Próximo paso", blocker: "¿Qué lo bloquea?", owner: "Responsable", priority: "Prioridad", priorities: ["Baja", "Normal", "Alta", "Urgente"], save: "Guardar en wiki", close: "Cerrar", page: "Página y evidencias", empty: "No hay acciones en esta vista", failure: "No se pudo leer la wiki. No se usaron datos de ejemplo.", readOnly: "Solo lectura", proposal: "Los cambios se guardan en este espacio y requieren revisión de la wiki.", receipt: "Evidencia del resultado", cancel: "Motivo de cancelación", state: "Estado de la acción", missing: "No registrado", sources: "Fuentes", saved: "Guardado en la página canónica", conflict: "La página cambió. Actualiza antes de guardar.", loading: "Leyendo wiki…", map: "Explorar wiki", total: "acciones", snapshot: "Lectura de wiki", open: "Abrir página original", unavailable: "Página no disponible. Actualiza el tablero.", coordinator: "Coordinador", allBots: "Todos los coordinadores", questions: "preguntas pendientes", access: "Cuenta requerida · verificación pendiente", directionHint: "Cambiar el próximo paso registra una dirección para el coordinador. La entrega y ejecución no se verifican en esta interfaz.", routeUnavailable: "Mapa de coordinadores no disponible; actualiza antes de coordinar.", pending: "Hay una escritura en curso.", invalid: "Este estado no se puede editar aquí." }
 };
 export type BoardOperator = Pick<OperatorPort, "loadSnapshotBundle" | "loadPageContent" | "loadRuntimeObservations">;
-export function ActionBoard({ admin, navigation, operator, save, create, loadCreationOptions, loadCoordination, demo = false }: { admin?: AdminPort; navigation?: Pick<NavigationPort, "dispatch">; create?: (input: ActionCreate) => Promise<ActionCreated>; loadCreationOptions?: () => Promise<ActionCreationOptions>; loadCoordination?: () => Promise<CoordinationIndex>; operator: BoardOperator; save: (edit: ActionEdit) => Promise<ActionSaveResult | void>; demo?: boolean }) {
+export function ActionBoard({ admin, navigation, operator, save, create, loadCreationOptions, loadCoordination, contextPackets, demo = false }: { contextPackets?: ContextPacketPort; admin?: AdminPort; navigation?: Pick<NavigationPort, "dispatch">; create?: (input: ActionCreate) => Promise<ActionCreated>; loadCreationOptions?: () => Promise<ActionCreationOptions>; loadCoordination?: () => Promise<CoordinationIndex>; operator: BoardOperator; save: (edit: ActionEdit) => Promise<ActionSaveResult | void>; demo?: boolean }) {
   const [creation, setCreation] = useState<ActionCreationOptions | null>(null);
   const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState<SnapshotLoadResult | null>(null);
@@ -275,6 +277,16 @@ export function ActionBoard({ admin, navigation, operator, save, create, loadCre
       ? "Formulários disponíveis neste operador. Cada gravação exige sessão administrativa e permissão revalidadas pelo servidor; configuração local não concede acesso."
       : language.startsWith("es") ? "Formularios disponibles en este operador. Cada escritura requiere sesión administrativa y permiso revalidados por el servidor; la configuración local no concede acceso."
       : "Forms are available on this operator. Each write requires an administrative session and permission revalidated by the server; local configuration does not grant access."}</p>}
+    {!demo && <p className="boardProvenance" data-context-read-mode={coordination?.trust_boundary === "caller_trust" && coordination.policy_enforced === false ? "caller_trust" : "unknown"}>
+      {coordination?.trust_boundary === "caller_trust" && coordination.policy_enforced === false
+        ? language.startsWith("pt") ? "Leitura desta projeção: confiança no chamador; a projeção não aplica a política de contexto. Filtros e coordenadores são navegação."
+          : language.startsWith("es") ? "Lectura de esta proyección: confianza en el llamador; la proyección no aplica la política de contexto. Filtros y coordinadores son navegación."
+          : "Reading this projection: caller trust; context policy is not enforced by the projection. Filters and coordinators provide navigation."
+        : language.startsWith("pt") ? "Fronteira e cobertura desta projeção: não observadas."
+          : language.startsWith("es") ? "Frontera y cobertura de esta proyección: no observadas."
+          : "Projection boundary and coverage: not observed."}
+      {typeof coordination?.coverage === "string" && /^legacy_[a-z_]{1,64}$/.test(coordination.coverage) && <> · {coordination.coverage}</>}
+    </p>}
     {coordinationError && <p role="status">{copy.routeUnavailable}</p>}
     {error && <p role="alert">{copy.failure}</p>}
     {notice && (!page || creation) && <p role="status" className="boardNotice">{notice}</p>}
@@ -286,6 +298,7 @@ export function ActionBoard({ admin, navigation, operator, save, create, loadCre
         <InformationNotice frontmatter={content.frontmatter || {}} assessment={content.information_use} />
         {coordinatorFor(page) && <><p className="boardProvenance">{copy.directionHint}</p><p>{coordinatorFor(page)?.scope}</p><ActionAccessRequirements requirements={coordinatorFor(page)?.access_requirements} actionId={page.id} /></>}
         {page.page_type === "action" && <ActionOutcome page={page} content={content} pages={pages} language={language} stateLabel={titleFor(actionState(page))} open={select} />}
+        {page.page_type === "action" && !demo && contextPackets && <ActionContextPacket key={`${page.id}:${page.content_sha256}`} reader={contextPackets} page={page} language={language} disabled={!writable || saving} />}
         <ActionForm key={`${page.id}:${page.content_sha256}`} page={page} body={content.body || ""} frontmatter={content.frontmatter || {}} language={language} writable={Boolean(writable && page.content_sha256)} saving={saving} copy={copy} submit={submit} />
         {page.page_type === "action" && admin && !demo && <ActionProposal key={page.id} admin={admin} actionId={page.id}
       language={language} disabled={!writable || saving || !content?.ok} refresh={() => void reload()} />}

@@ -48,6 +48,7 @@ export type AccessRequirement = {
 };
 export type CoordinationIndex = {
   schema_version: string; configured: boolean; snapshot_id: string;
+  trust_boundary?: "caller_trust"; policy_enforced?: false; coverage?: string;
   fronts?: WorkFront[]; front_warnings?: { code: string; ref: string }[];
   profiles: { id: string; label: string; scope: string; action_ids: string[]; access_requirements?: AccessRequirement[] }[];
   actions: { action_id: string; coordinator: string | null; content_sha256: string; dialogue?: {pending_question_ids: string[]} }[];
