@@ -9,7 +9,7 @@ import json
 from pathlib import PurePosixPath
 import re
 import yaml
-from .context_policy import PolicyError, UniqueLoader, safe_path, within
+from .context_policy import PolicyError, UniqueLoader, safe_path, within, historical_policy
 from .detectors import scan_text
 from .frontmatter import FRONTMATTER_RE
 from .repository_reader import canonical_path
@@ -41,8 +41,8 @@ def normalize_query(entry):
     if scope != '.': canonical_path(scope)
     canonical_path(target)
     parent = str(PurePosixPath(target).parent)
-    if not target.endswith('.md') or not within(scope, parent) or within(target, scope):
-        raise PolicyError('query scope must be below its collection anchor')
+    if not target.endswith('.md') or not within(scope, parent):
+        raise PolicyError('query scope must be within its collection anchor directory')
     filters = q['filters']
     if not isinstance(filters, dict) or not 1 <= len(filters) <= 8:
         raise PolicyError('bounded query filters required')
@@ -70,9 +70,41 @@ def normalize_query(entry):
 
 def query_identity(entry):
     q = entry['query']
-    return digest({'target': entry['target'], 'query': {k: v for k, v in q.items()
+    return digest({'target': entry['target'], 'excluded_anchor': entry['target'], 'query': {k: v for k, v in q.items()
         if k not in ('max_enumerated', 'max_matches', 'max_scan_bytes')},
         'use': entry['use'], 'classification': entry['classification']})
+
+
+def authority_digest(policy, context_id, entry):
+    """Hash only the relevant path authority; no protected paths are delivered."""
+    target=entry['target']; scope=entry['query']['scope']
+    if context_id not in policy.contexts: raise PolicyError('query authority unavailable')
+    c=policy.contexts[context_id]; effective=policy.effective[context_id]
+    def clipped(scopes):
+        values=set()
+        for path in scopes:
+            if within(scope,path): values.add(scope)
+            elif within(path,scope): values.add(path)
+        return sorted(p for p in values if not any(p!=other and within(p,other) for other in values))
+    excluded=clipped([x['root'] for key,x in policy.contexts.items() if key!=context_id and within(x['root'],scope)])
+    return digest({'context_id':context_id,'owner':c['owner'],'root':c['root'],
+        'scope_owner':policy.owner_of(scope) if scope!='.' else next(x['id'] for x in policy.contexts.values() if x['root']=='.'),
+        'anchor_owner':policy.owner_of(target),'anchor_read':policy.permits(context_id,'read',target),
+        'read':clipped(effective['read']),'deny':clipped(effective['deny']['read']), 'excluded_context_roots':excluded})
+
+
+def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expected_authority, read_budget=None):
+    """Check historical authority BEFORE reading, then use only current permission."""
+    entry=normalize_query(entry)
+    if not isinstance(expected_authority,str) or not re.fullmatch(r'[0-9a-f]{64}',expected_authority):
+        raise PolicyError('query authority changed or unavailable; requalification required')
+    old=historical_policy(policy,policy_revision)
+    if (authority_digest(old,context_id,entry)!=expected_authority
+            or authority_digest(policy,context_id,entry)!=expected_authority):
+        raise PolicyError('query authority changed or unavailable; requalification required')
+    receipt,anchor,members=select_query(policy,context_id,reader,entry,read_budget=read_budget)
+    receipt['policy_revision']=policy_revision
+    return receipt,anchor,members
 
 
 def _metadata(item):
@@ -119,7 +151,7 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None):
     reject_secrets(anchor['text'])
     # Ownership and denies precede every content/metadata read and count.
     def authorized(path):
-        return within(path, scope) and policy.owner_of(path) == context_id and policy.permits(context_id, 'read', path)
+        return path != target and within(path, scope) and policy.owner_of(path) == context_id and policy.permits(context_id, 'read', path)
     if any(path.endswith(b'.md') and authorized(path.decode('utf-8', errors='surrogateescape')) for path in reader.invalid_paths):
         raise PolicyError('query path is not UTF-8')
     if any((path.endswith('.md') and authorized(path)) or (within(scope,path) and policy.owner_of(path)==context_id and policy.permits(context_id,'read',path)) for path in reader.unsupported_paths):
@@ -148,6 +180,7 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None):
         inputs.append(selected)
     identity = query_identity(entry)
     receipt = {'request': entry, 'query_id': identity, 'revision': reader.revision,
+        'policy_revision':policy.policy_revision,'authority_digest':authority_digest(policy,context_id,entry),'excluded_anchor':target,
         'members': members, 'members_digest': digest({'query_id': identity, 'members': members}),
         'selected_digest': digest({'query_id': identity, 'anchor': anchor['content_digest'],
             'selected': [{'ref': item['path'], 'sha256': item['content_digest']} for item in inputs]}),
@@ -160,7 +193,7 @@ def packet_queries(packet):
 
 
 def same_selection(before, after):
-    return all(before[k] == after[k] for k in ('query_id', 'members_digest', 'selected_digest'))
+    return all(before[k] == after[k] for k in ('query_id', 'members_digest', 'selected_digest', 'authority_digest'))
 
 
 def requirement_query(requirement):
@@ -181,7 +214,8 @@ def revalidate_packet_queries(policy, packet, historical, current, *, read_budge
     specs = []; refreshed = []
     if read_budget is None: read_budget = [32_000_000]
     for row in rows:
-        prior, anchor, members = select_query(policy, packet['context_id'], historical, row['request'], read_budget=read_budget)
+        if row.get('policy_revision')!=packet['policy_revision']: raise PolicyError('query policy revision differs from packet')
+        prior, anchor, members = reproduce_query(policy, packet['context_id'], historical, row['request'], policy_revision=row.get('policy_revision'), expected_authority=row.get('authority_digest'), read_budget=read_budget)
         if prior != row: raise PolicyError('query receipt cannot be reproduced')
         now, _, _ = select_query(policy, packet['context_id'], current, row['request'], read_budget=read_budget)
         if not same_selection(row, now): raise PolicyError('query selection changed since task')

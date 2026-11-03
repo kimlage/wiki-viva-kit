@@ -59,7 +59,8 @@ def result(p, changes=()):
 def requirement(p):
     r=p['query_selections'][0]; e=r['request']
     return {'target':e['target'],'fields':['*'],'temporal':'current','max_age_days':30,'consumed_revision':r['revision'],
-        'use':e['use'],'classification':e['classification'],'query':e['query'],'members_digest':r['members_digest'],'selected_digest':r['selected_digest']}
+        'use':e['use'],'classification':e['classification'],'query':e['query'],'members_digest':r['members_digest'],'selected_digest':r['selected_digest'],
+        'query_policy_revision':r['policy_revision'],'authority_digest':r['authority_digest']}
 
 def declare(root, req):
     (root/'finance/costs/result.md').write_text('---\n'+yaml.safe_dump({'page_id':'cost-result','page_type':'claim','information_requirements':[req]})+'---\nInterpretation.\n')
@@ -298,7 +299,7 @@ def test_current_revocation_blocks_historical_query_and_durable_revalidation(col
     p=packet(collection);declare(collection,requirement(p));commit(collection)
     path=collection/'finance/costs/context.yaml';d=yaml.safe_load(path.read_text());d['policy']['deny']={'read':[SCOPE]};path.write_text(yaml.safe_dump(d));commit(collection)
     with pytest.raises(PolicyError,match='not authorized'): packet(collection,revision=p['content_revision'])
-    with pytest.raises(ValueError,match='not authorized'):
+    with pytest.raises(ValueError,match='authority changed'):
         revalidate_approved_queries(collection,policy(collection),consumer='finance/costs/result.md',context_id='costs')
 
 
@@ -337,3 +338,83 @@ def test_preflight_cannot_carry_a_stale_existing_query_via_explicit_only_packet(
         'read_coverage':{'observed_refs':explicit['declared_read_set'],'missing':[]}}
     with pytest.raises(IntegrationError,match='existing query requirement'):
         preflight(collection,policy(collection),context_id='costs',base=base,head=git(collection,'rev-parse','HEAD'),branch='wiki/unchanged-dependency',packet=explicit,result=done)
+
+
+@pytest.mark.parametrize('mutation',['deny','owner'])
+def test_empty_receipt_cannot_hide_authority_change_before_new_match(collection,monkeypatch,mutation):
+    page(collection,'branch/old.md',status='inactive');commit(collection)
+    p=packet(collection,[query(filters={'status':'new'})]);assert p['query_selections'][0]['members']==[]
+    declare(collection,requirement(p));before=commit(collection)
+    if mutation=='deny':
+        path=collection/'finance/costs/context.yaml';doc=yaml.safe_load(path.read_text());doc['policy']['deny']={'read':[SCOPE+'/branch']};path.write_text(yaml.safe_dump(doc))
+    else:
+        save(collection,SCOPE+'/branch/context.yaml',manifest('new-owner','costs',SCOPE+'/branch',{'read':['self']}))
+    page(collection,'branch/new.md',status='new');after=commit(collection)
+    original=RepositoryReader._document
+    def guarded(reader,path):
+        assert '/branch/' not in path, 'newly revoked blob was opened'
+        return original(reader,path)
+    monkeypatch.setattr(RepositoryReader,'_document',guarded)
+    with pytest.raises(ValueError,match='authority changed'):
+        revalidate_approved_queries(collection,policy(collection),consumer='finance/costs/result.md',context_id='costs')
+    with pytest.raises(ValueError,match='cannot be revalidated'):
+        assess_approved_impact(collection,policy(collection),consumers=['finance/costs/result.md'],before=before,after=after,destination_context='costs')
+
+
+def test_authority_projection_ignores_documentary_commit_but_requires_verified_policy(collection,monkeypatch):
+    p=packet(collection,[query(filters={'status':'absent'})]);declare(collection,requirement(p));commit(collection)
+    (collection/'finance/costs/unrelated.md').write_text('A documentary change outside the collection.\n');commit(collection)
+    out=revalidate_approved_queries(collection,policy(collection),consumer='finance/costs/result.md',context_id='costs')
+    assert out['equivalent']
+    req=requirement(p);req['query_policy_revision']='0'*40;declare(collection,req);commit(collection)
+    with pytest.raises(ValueError): revalidate_approved_queries(collection,policy(collection),consumer='finance/costs/result.md',context_id='costs')
+
+
+@pytest.mark.parametrize('change',['addition','removal','value','exit'])
+def test_proposal_head_cannot_change_its_consumed_collection(collection,change):
+    base=git(collection,'rev-parse','HEAD');p=packet(collection)
+    git(collection,'checkout','-qb','wiki/query-mutates-itself');declare(collection,requirement(p))
+    changed=SCOPE+'/first.md';action='modified'
+    if change=='addition': page(collection,'added.md');changed=SCOPE+'/added.md';action='created'
+    elif change=='removal': (collection/changed).unlink();action='deleted'
+    elif change=='value': page(collection,'first.md',amount=55)
+    else: page(collection,'first.md',status='inactive')
+    git(collection,'add','.');git(collection,'commit','-qm','proposal changes selection')
+    done=result(p,[{'path':'finance/costs/result.md','action':'modified'},{'path':changed,'action':action}])
+    with pytest.raises(IntegrationError,match='query selection changed in proposal'):
+        preflight(collection,policy(collection),context_id='costs',base=base,head=git(collection,'rev-parse','HEAD'),branch='wiki/query-mutates-itself',packet=p,result=done)
+
+
+@pytest.mark.parametrize('anchor_type',['context_hub','source_catalog'])
+def test_sibling_pages_exclude_anchor_structurally_and_bind_one_anchor_input(collection,anchor_type):
+    hub=collection/ANCHOR;hub.write_text('---\n'+yaml.safe_dump({'page_id':'cost-hub','page_type':anchor_type,'status':'active','amount':999})+'---\nHub body.\n')
+    commit(collection)
+    q=query(scope='finance/costs');p=packet(collection,[q]);row=p['query_selections'][0]
+    assert row['excluded_anchor']==ANCHOR and ANCHOR not in {m['ref'] for m in row['members']}
+    assert sum(x['ref']==ANCHOR for x in p['inputs'])==1 and 'Hub body.' in next(x['text'] for x in p['inputs'] if x['ref']==ANCHOR)
+    assert row['enumerated']==4  # Two item pages + two non-page sibling Markdown files; anchor excluded.
+    from wiki_core.context_selection import query_identity,normalize_query
+    assert row['query_id']==query_identity(normalize_query(q))
+
+
+def test_preflight_rejects_consumer_that_is_its_own_selected_member(collection):
+    path=collection/'finance/costs/result.md';path.write_text('---\npage_id: cost-result\npage_type: claim\nstatus: active\namount: 10\n---\nInterpretation.\n');base=commit(collection)
+    p=packet(collection,[query(scope='finance/costs')]);assert 'finance/costs/result.md' in {m['ref'] for m in p['query_selections'][0]['members']}
+    git(collection,'checkout','-qb','wiki/self-member');req=requirement(p)
+    path.write_text('---\n'+yaml.safe_dump({'page_id':'cost-result','page_type':'claim','status':'active','amount':10,'information_requirements':[req]})+'---\nInterpretation changed.\n')
+    git(collection,'add','.');git(collection,'commit','-qm','self member query')
+    with pytest.raises(IntegrationError,match='consumer cannot be a member'):
+        preflight(collection,policy(collection),context_id='costs',base=base,head=git(collection,'rev-parse','HEAD'),branch='wiki/self-member',packet=p,result=result(p,[{'path':'finance/costs/result.md','action':'modified'}]))
+
+
+def test_existing_canonical_receipt_also_checks_proposal_head_with_explicit_only_packet(collection):
+    p=packet(collection);declare(collection,requirement(p));base=commit(collection)
+    explicit=build_packet(collection,policy(collection),'costs',base,[],10000,**TASK)
+    git(collection,'checkout','-qb','wiki/existing-query-change');page(collection,'added.md')
+    path=collection/'finance/costs/result.md';path.write_text(path.read_text()+'Proposed edit retaining receipt.\n')
+    git(collection,'add','.');git(collection,'commit','-qm','change canonical collection')
+    done={'schema_version':'wiki.task-result/v1','task_id':explicit['task_id'],'context_id':'costs','packet_digest':explicit['packet_digest'],
+        'status':'completed','blockers':[],'changes':[{'path':'finance/costs/result.md','action':'modified'},{'path':SCOPE+'/added.md','action':'created'}],
+        'read_coverage':{'observed_refs':explicit['declared_read_set'],'missing':[]}}
+    with pytest.raises(IntegrationError,match='existing query requirement'):
+        preflight(collection,policy(collection),context_id='costs',base=base,head=git(collection,'rev-parse','HEAD'),branch='wiki/existing-query-change',packet=explicit,result=done)

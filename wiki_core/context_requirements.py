@@ -14,7 +14,7 @@ from wiki_core.context_impact import assess_impact, ImpactError
 from wiki_core.detectors import scan_text
 from wiki_core.information_relations import operational_consumption_edges
 from wiki_core.repository_reader import RepositoryReader
-from wiki_core.context_selection import revalidate_packet_queries, requirement_query, select_query, same_selection
+from wiki_core.context_selection import revalidate_packet_queries, requirement_query, select_query, same_selection, reproduce_query
 
 class RequirementError(ValueError): pass
 
@@ -109,10 +109,11 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     requirements=[]; self_input_read=False
     for row in packet.get('query_selections', []):
         e = row['request']
-        if e['target']==output_path: raise RequirementError('query anchor cannot be its own consumer')
+        if e['target']==output_path or output_path in {m['ref'] for m in row['members']}: raise RequirementError('query anchor cannot be its own consumer')
         requirements.append({'target':e['target'],'fields':['*'],'temporal':temporal,'max_age_days':max_age_days,
             'consumed_revision':row['revision'],'use':e['use'],'classification':e['classification'],
-            'query':e['query'],'members_digest':row['members_digest'],'selected_digest':row['selected_digest']})
+            'query':e['query'],'members_digest':row['members_digest'],'selected_digest':row['selected_digest'],
+            'query_policy_revision':row['policy_revision'],'authority_digest':row['authority_digest']})
     for item in packet['inputs']:
         if not isinstance(item.get('revision'),str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',item['revision']): raise RequirementError('reported input revision is not fixed')
         readref={k:item[k] for k in ('ref','section','field','revision')}
@@ -155,10 +156,13 @@ def revalidate_approved_queries(root, policy, *, consumer, context_id):
     rows = []; query_read_budget = [32_000_000]
     for req in requirements:
         if 'query' not in req: continue
-        prior, _, _ = select_query(policy, context_id, RepositoryReader(root, req['consumed_revision']), requirement_query(req), read_budget=query_read_budget)
+        if req['target']==consumer: raise RequirementError('query anchor cannot be its own consumer')
+        prior, _, _ = reproduce_query(policy, context_id, RepositoryReader(root, req['consumed_revision']), requirement_query(req), policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=query_read_budget)
         if any(prior[k] != req[k] for k in ('members_digest', 'selected_digest')):
             raise RequirementError('canonical query receipt differs from consumed selection')
+        if consumer in {m['ref'] for m in prior['members']}: raise RequirementError('query consumer cannot be a member')
         now, _, _ = select_query(policy, context_id, current, requirement_query(req), read_budget=query_read_budget)
+        if consumer in {m['ref'] for m in now['members']}: raise RequirementError('query consumer cannot be a member')
         rows.append({'target':req['target'],'query_id':prior['query_id'],
             'members_equivalent':prior['members_digest']==now['members_digest'],
             'selected_bytes_equivalent':prior['selected_digest']==now['selected_digest'],

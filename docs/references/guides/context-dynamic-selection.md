@@ -31,7 +31,10 @@ owner with a `source_catalog` page identified by `page_id: cost-collection` at
 
 The anchor must have a nonempty stable page ID and existing `context_hub`, `ontology_index`,
 `source_catalog` or `root_entity` type from the existing page contract. Its directory must contain the scope;
-the anchor itself must be outside that scope. An arbitrary filename or
+the scope may be that same directory. The anchor is structurally excluded
+from member selection and enumeration, declared as `excluded_anchor` in the
+receipt and bound into query identity. Its full body remains one required input
+and counts against the read and packet budgets. An arbitrary filename or
 `index.md` alone establishes no collection role. Both anchor and scope belong
 to the selected owner under **current approved policy**. A scope directly in
 another context or a denied prefix is refused. A valid broader owner scope
@@ -67,8 +70,10 @@ latency or exact process-memory guarantees. Any exceeded limit blocks the whole
 packet without truncation or partial results. The protected route gives an
 opaque recoverable blocker; no protected path/count is included in errors.
 
-Receipts bind the normalized predicate, anchor, owner-selected members and fixed
-content SHA. `members_digest` identifies the ordered path/page-ID set;
+Receipts bind the normalized predicate, excluded anchor, owner-selected members
+and fixed content SHA. They also retain the fixed selection `policy_revision`
+and an `authority_digest` of relevant owner/read/deny boundaries and excluded
+subcontext roots. No protected boundary paths are exposed by that digest. `members_digest` identifies the ordered path/page-ID set;
 `selected_digest` identifies the actual consumed selectors plus the complete
 anchor contract. Revision provenance and the packet's `query_fingerprint` are
 separate: changing a revision is not itself a membership change. An empty query
@@ -84,6 +89,8 @@ comprehension. Before an effect or merge, the coordinator must revalidate curren
 policy and the historical selection against the current approved base.
 [Preflight](context-impact-integration.md) performs that check, including newly
 matching/removed pages even if all previously consumed bytes stayed unchanged.
+It also compares against the exact proposed HEAD, refusing a proposal that
+changes its consumed collection or makes the consumer one of its own members.
 It does not perform an effect or approve a merge.
 
 ## Canonical dependency and later invalidation
@@ -91,7 +98,14 @@ It does not perform an effect or approve a merge.
 The existing `information_requirements` entry keeps `target` equal to the
 collection anchor, `fields: ['*']`, temporal policy, fixed `consumed_revision`,
 `use` and `classification`. It additionally keeps the **whole query descriptor**,
-`members_digest` and `selected_digest`. Do not replace it with a list of the
+`members_digest`, `selected_digest`, `query_policy_revision` and
+`authority_digest`. Historical authority is reconstructed from that fixed
+approved ancestor for proof only. Its relevant coverage must equal current
+authority before any historical candidate blob is opened. Changed or unknown
+coverage requires requalification; comparing two sets already filtered under
+a newly narrowed policy cannot establish equivalence. An unrelated documentary
+commit with the same relevant authority does not invalidate just by SHA.
+All effective content reads still use current permission. Do not replace it with a list of the
 original matches: that would lose additions and empty-to-nonempty transitions.
 The same requirement is preserved on the existing inventory edge. Preflight
 accepts a new query requirement only when its descriptor and digests exactly

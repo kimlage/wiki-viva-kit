@@ -236,7 +236,23 @@
           "members_digest_after": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "query_policy_revision": {
+            "type": "string",
+            "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+          },
+          "authority_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
+        },
+        "dependentRequired": {
+          "query": [
+            "query_policy_revision",
+            "authority_digest",
+            "members_digest_before",
+            "members_digest_after"
+          ]
         }
       }
     },

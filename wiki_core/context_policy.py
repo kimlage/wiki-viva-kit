@@ -179,6 +179,13 @@ def load_policy(root, approved_revision, manifest_path='context.yaml', *, truste
     root=Path(root).resolve(); manifest_path=safe_path(manifest_path)
     sha=revision(root,approved_revision)
     if sha!=revision(root,trusted_ref): raise PolicyError('policy revision is not current trusted approval ref')
+    policy = _policy_at(root, sha, manifest_path)
+    policy._binding=(str(root),trusted_ref,manifest_path)
+    return policy
+
+
+def _policy_at(root, sha, manifest_path):
+    """Parse policy bytes only; the returned object deliberately has no authority binding."""
     if PurePosixPath(manifest_path).name!='context.yaml': raise PolicyError('root manifest must be context.yaml')
     base=str(PurePosixPath(manifest_path).parent)
     entries=_git(root,'ls-tree','-r','-z','--name-only',sha).split(b'\0')
@@ -200,8 +207,17 @@ def load_policy(root, approved_revision, manifest_path='context.yaml', *, truste
         contexts.append(c)
     policy=ContextPolicy({'schema_version':'wiki.context/v1','contexts':contexts},sha)
     if policy.contexts[next(c['id'] for c in contexts if c['parent'] is None)]['root']!=base: raise PolicyError('root manifest is not hierarchy root')
-    policy._binding=(str(root),trusted_ref,manifest_path)
     return policy
+
+
+def historical_policy(current, fixed_revision):
+    """Approved-ancestor policy for coverage proof only, never permission to read."""
+    current = current.fresh()
+    if not isinstance(fixed_revision,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',fixed_revision):
+        raise PolicyError('query authority revision unavailable')
+    root, _, manifest = current._binding
+    _git(root, 'merge-base', '--is-ancestor', fixed_revision, current.policy_revision)
+    return _policy_at(root, fixed_revision, manifest)
 
 def valid_adapter_report(report):
     if not isinstance(report, dict) or set(report) != {'verification', 'capabilities', 'scope', 'limitation'}: return False

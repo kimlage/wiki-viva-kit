@@ -488,7 +488,10 @@
           "members_digest",
           "selected_digest",
           "coverage",
-          "enumerated"
+          "enumerated",
+          "policy_revision",
+          "authority_digest",
+          "excluded_anchor"
         ],
         "properties": {
           "request": {
@@ -643,6 +646,18 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 1000
+          },
+          "policy_revision": {
+            "type": "string",
+            "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+          },
+          "authority_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "excluded_anchor": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }

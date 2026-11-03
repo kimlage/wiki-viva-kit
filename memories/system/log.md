@@ -1641,3 +1641,14 @@ it does not verify external facts, schedule work or approve/merge proposals.
 protected CLI/HTTP handoff, canonical preflight and later set invalidation without
 a global snapshot. Generic readiness requires explicit authorized revalidation.
 No source verification date or published release/tag changes.
+
+## [2026-11-03] Dynamic selection review corrections
+
+[Selection receipts](../../wiki_core/context_selection.py) bind approved historical
+authority coverage before current-authorized reads, so empty/nonmatching sets
+cannot conceal revocation or owner changes. The
+[preflight](../../wiki_core/context_integration.py) also compares the exact proposal
+HEAD and refuses a consumer within its own selected set. A hub may share its
+directory with queried pages: its explicit structural exclusion avoids counting
+or duplicating the required anchor body. Focused synthetic cases preserve the
+earlier review receipts; no release/tag or source verification dates change.
