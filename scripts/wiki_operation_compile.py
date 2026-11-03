@@ -30,8 +30,9 @@ import yaml
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+CODE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(CODE_ROOT))
+from scripts._common import ROOT
 
 from wiki_core.action_state import (
     legacy_action_state_from_body,

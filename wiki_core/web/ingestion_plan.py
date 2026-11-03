@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from wiki_core.web import installed_binding
 import sys
 import hashlib
 import json
@@ -308,17 +309,17 @@ def run_ingestion_step(
     argv = list(stage.get("command") or [])
     if not argv:
         return {"ok": False, "step_id": step_id, "dry_run": dry_run, "summary": "step has no command", "results": [], "plan": plan, "error": "step has no command"}
-    executable = [sys.executable if index == 0 and value in {"python", "python3"} else value for index, value in enumerate(argv)]
     try:
+        executable, env = installed_binding.command(root, argv)
         proc = subprocess.run(
             executable,
-            cwd=root,
+            cwd=root, env=env,
             text=True,
             capture_output=True,
             check=False,
             timeout=timeout_seconds,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
         return {
             "ok": False,
             "step_id": step_id,

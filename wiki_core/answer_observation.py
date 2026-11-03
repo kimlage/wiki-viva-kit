@@ -179,6 +179,9 @@ def observe_canonical_answer(root: Path, page_ref: str, event_id: str,
             return {**result, "status": "not_configured", "error": "observer_not_activated"}
         if active_policy_sha256 != policy_sha:
             raise AnswerObservationError("observer_policy_requires_reactivation")
+        from wiki_core.web import installed_binding
+        if installed_binding.enabled():
+            return {**result, "status": "refused", "error": "installed_observer_unavailable"}
         argv, timeout = observer
         # Only the consumer-owned trusted policy selects a command. No card,
         # request text, nonce or claimed principal is evaluated as code.

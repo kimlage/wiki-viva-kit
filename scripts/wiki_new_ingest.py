@@ -22,7 +22,7 @@ from wiki_core.paths import WikiPaths
 from wiki_core.source_manifest import build_manifest, resolve_source_manifest
 
 
-ROOT = Path(__file__).resolve().parents[1]
+from scripts._common import ROOT
 # Repo layout comes from wiki.config.yaml (English defaults; localized repos pin
 # their own names). Tests may swap CONFIG/PATHS to exercise another layout.
 CONFIG = load_config(ROOT)

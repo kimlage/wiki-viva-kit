@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from wiki_core.web import installed_binding
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -115,8 +116,12 @@ def run_gate(root: Path, config: WikiConfig, gate_id: str, *, timeout_seconds: i
         return {"ok": False, "error": f"unknown gate: {gate_id}", "gate_id": gate_id}
     argv = next(cmd for gid, cmd in GATE_COMMANDS if gid == gate_id)
     try:
+        executable, env = installed_binding.command(root, argv) if installed_binding.enabled() else (argv, None)
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "gate_id": gate_id, "returncode": None, "stdout": "", "stderr": _redact(str(exc))}
+    try:
         proc = subprocess.run(  # noqa: S603 - fixed allowlisted argv, no shell
-            argv, cwd=root, text=True, capture_output=True, check=False, timeout=timeout_seconds
+            executable, cwd=root, env=env, text=True, capture_output=True, check=False, timeout=timeout_seconds
         )
         returncode = proc.returncode
         stdout, stderr = proc.stdout, proc.stderr

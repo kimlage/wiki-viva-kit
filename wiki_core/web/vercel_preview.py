@@ -161,6 +161,9 @@ def _build_frontend(root: Path, head: str) -> dict[str, bytes]:
     Never use the consumer's node_modules, dist, environment or npm config.
     The existing release launcher also strips Vite/environment overrides.
     """
+    from wiki_core.web import installed_binding
+    if installed_binding.enabled():
+        raise ValueError("installed_external_build_unavailable")
     npm = shutil.which("npm")
     node = shutil.which("node")
     if not npm or not node:

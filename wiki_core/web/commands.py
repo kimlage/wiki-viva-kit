@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from wiki_core.web import installed_binding
 from wiki_core.config import WikiConfig
 from wiki_core.web.schemas import WEB_ACTION_SCHEMA_VERSION
 
@@ -224,12 +225,6 @@ def _operator_command_by_id(config: WikiConfig) -> dict[str, dict[str, Any]]:
     return {str(action["id"]): action for action in payload["actions"]}
 
 
-def _normalize_python(argv: list[str]) -> list[str]:
-    if argv and argv[0] in {"python", "python3"}:
-        return [sys.executable, *argv[1:]]
-    return argv
-
-
 def run_action(
     root: Path,
     config: WikiConfig,
@@ -271,9 +266,10 @@ def run_action(
             )
             continue
         try:
+            executable, env = installed_binding.command(root, argv)
             proc = subprocess.run(
-                _normalize_python(argv),
-                cwd=root,
+                executable,
+                cwd=root, env=env,
                 text=True,
                 capture_output=True,
                 check=False,
@@ -289,7 +285,7 @@ def run_action(
                     "dry_run": False,
                 }
             )
-        except (OSError, subprocess.TimeoutExpired) as exc:
+        except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
             results.append(
                 {
                     "argv": argv,

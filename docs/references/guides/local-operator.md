@@ -61,3 +61,37 @@ build and installation of that bundle. The UI cannot perform a universal
 reload/rebuild/restart. Preserve prior artifacts, pending evidence and the
 paused state of schedules before an installation change; apply the normal
 review and consumer adoption policy.
+
+## Installed operator code and separate content
+
+An operator can opt into a separate, versioned code release with an explicit
+content checkout and frontend bundle:
+
+```sh
+/path/to/qualified-python /path/to/release/scripts/wiki_web_server.py \
+  --installed-code --root /path/to/content --frontend /path/to/bundle
+```
+
+Use a fixed, reviewed release and a Python environment whose dependencies work
+under `-I`; `PYTHONPATH` is intentionally ignored in dispatched subprocesses.
+The root must be an existing, canonical, nonsymlink directory distinct from the
+code root. An optional frontend directory must also be canonical and distinct
+from both roots. The binding is fixed for the process lifetime; replacing the content
+root or changing tracked code or resources under the checked release paths causes
+subsequent dispatch to fail.
+Keep the code release immutable while the operator is running: checks before
+launch cannot remove every filesystem race and are not a sandbox. Identify the
+served bundle and its provenance separately; a matching local file alone does
+not prove its build origin.
+
+In this mode, the fixed shared Python command, gate and ingestion entrypoints
+run from the code release, with the content root explicitly bound and isolated
+imports. The isolated child checks the parent binding before importing release
+code and restores that binding before invoking the entrypoint. Consumer-configured source adapters, source-review jobs, answer
+observers, contribution gates requiring scratch or arbitrary commands, and
+external frontend builds, and Codex/Claude job execution are unavailable until
+separately qualified; they do
+not fall back to running code from the content checkout. This does not change
+permissions, enable jobs or make untrusted content safe. Default startup retains
+the legacy coupled behavior. Read and review the actual code/content/frontend
+state before claiming an installed process is serving the intended versions.

@@ -242,6 +242,9 @@ def _freshness_review_args(base: str | None, reviews: dict | None) -> list[str]:
 def _gates(root: Path, config: WikiConfig, *, full_checks: bool = False,
            committed_head: str | None = None, effect_runner=None,
            freshness_base: str | None = None, freshness_reviews: dict | None = None) -> list[dict]:
+    from wiki_core.web import installed_binding
+    if installed_binding.enabled():
+        raise ContributionError("installed_contribution_gates_unavailable")
     commands = [
         [sys.executable, "scripts/wiki_audit.py", "--check",
          *_freshness_review_args(freshness_base, freshness_reviews)],
@@ -759,6 +762,9 @@ def run_contribution(root: Path, config: WikiConfig, operation: str, payload: di
     """Trusted local CLI/API; adapters never supply executable gate commands."""
     result: dict[str, Any] = {"ok": False, "operation": operation,
                               "canonical_body_adopted": False, "coverage": COVERAGE}
+    from wiki_core.web import installed_binding
+    if installed_binding.enabled() and not dry_run and operation in {"prepare_contribution", "integrate_contribution"}:
+        return {**result, "error": "installed_contribution_gates_unavailable"}
     try:
         # The application's config object can be cached. Always reload the
         # actual policy rather than promoting with stale permissions.
