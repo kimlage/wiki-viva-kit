@@ -351,6 +351,12 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                     result['pending_reviews'].append(row); existing_pending[path] = row
                 for cause in causes:
                     if cause not in existing_pending[path].setdefault('causes', []): existing_pending[path]['causes'].append(cause)
+            # Every pending reason for a page must expose the full potentially
+            # affected field set, not just the first path that reached it.
+            for row in result['pending_reviews']:
+                if row['path'] in pending_fields:
+                    fields = set(row.get('fields', [])) | pending_fields[row['path']]
+                    row['fields'] = ['*'] if '*' in fields else sorted(fields)
             included = _merge_pending_fields(result['included'], pending_fields)
             for path in sorted(set(pending_fields) - included.keys()):
                 causes = derived.get(path, [])

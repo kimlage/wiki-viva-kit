@@ -221,3 +221,20 @@ def test_ordinary_seed_does_not_import_unauthorized_provenance(collection):
     report=repository_report(root,load_config(root),base,query_context='costs',query_policy_revision=base,query_head=head)
     assert any(x['reason']=='dynamic_impact_authority_boundary' and x['path']==TASK['output'] for x in report['blockers'])
     assert not any(x['path']=='finance/costs/q.md' and x['reason']=='dynamic_query_upstream_pending' for x in report['pending_reviews'])
+
+
+def test_existing_narrow_pending_row_widens_after_dynamic_dependency(collection):
+    from wiki_core.frontmatter import parse_frontmatter
+    setup_chain(collection); consumer=collection/'finance/costs/downstream.md'
+    values,body=parse_frontmatter(consumer.read_text())
+    values['projection_inputs']=[{'paths':[SCOPE+'/first.md'],'fields':['amount']}]
+    consumer.write_text('---\n'+yaml.safe_dump(values)+'---\n'+body)
+    base=commit(collection);git(collection,'checkout','-qb','wiki/widen-existing-pending')
+    page(collection,'first.md',amount=33);git(collection,'add','.');git(collection,'commit','-qm','change selected field');head=git(collection,'rev-parse','HEAD')
+    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    target='finance/costs/downstream.md'
+    rows=[r for r in report['pending_reviews'] if r['path']==target and r['reason']=='information_changed']
+    included=next(r for r in report['included'] if r['path']==target)
+    assert len(rows)==1 and rows[0]['fields']==included['fields']==['*']
+    assert {r['prerequisite'] for r in rows[0]['causes']} >= {SCOPE+'/first.md',TASK['output']}
+    assert rows[0]['verification_performed'] is False
