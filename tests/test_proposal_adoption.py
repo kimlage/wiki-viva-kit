@@ -154,4 +154,3 @@ def test_already_current_main_does_not_prove_unrelated_merge_inclusion(adoption)
     status,plan=_plan(srv,token,'wiki.proposal.adopt',params=request);assert status==200
     status,out=_execute(srv,token,plan,confirmation=plan['plan']['confirmation']['text'])
     assert not out['ok'] and 'proposal_adoption_merge_not_in_approved_history' in out['failed_preconditions']
-

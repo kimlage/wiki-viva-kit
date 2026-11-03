@@ -7,4 +7,3 @@ export function adminOutcomeState(outcome: AdminExecuteOutcome): "success" | "fa
   if (outcome.status === "success") return "success";
   return ["failed", "failure", "error"].includes(outcome.status) ? "failed" : "uncertain";
 }
-
