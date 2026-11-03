@@ -404,6 +404,7 @@ it('labels the legacy caller-trust projection without treating coordinator profi
   render(<ActionBoard operator={operator} save={vi.fn()} loadCoordination={loadCoordination}/>);
   expect(await screen.findByText(/Reading this projection: caller trust/)).toBeTruthy();
   expect(document.querySelector('[data-context-read-mode="caller_trust"]')).toBeTruthy();
+  expect(screen.getByText("legacy_global_snapshot").closest("details")?.open).toBe(false);
 });
 
 it('never discovers or reads a protected packet from the static demo',async()=>{

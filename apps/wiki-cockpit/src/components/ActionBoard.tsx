@@ -285,8 +285,8 @@ export function ActionBoard({ admin, navigation, operator, save, create, loadCre
         : language.startsWith("pt") ? "Fronteira e cobertura desta projeção: não observadas."
           : language.startsWith("es") ? "Frontera y cobertura de esta proyección: no observadas."
           : "Projection boundary and coverage: not observed."}
-      {typeof coordination?.coverage === "string" && /^legacy_[a-z_]{1,64}$/.test(coordination.coverage) && <> · {coordination.coverage}</>}
     </p>}
+    {!demo && typeof coordination?.coverage === "string" && /^legacy_[a-z_]{1,64}$/.test(coordination.coverage) && <details className="boardProvenance"><summary>{language.startsWith("pt") ? "Detalhes técnicos" : language.startsWith("es") ? "Detalles técnicos" : "Technical details"}</summary><code>{coordination.coverage}</code></details>}
     {coordinationError && <p role="status">{copy.routeUnavailable}</p>}
     {error && <p role="alert">{copy.failure}</p>}
     {notice && (!page || creation) && <p role="status" className="boardNotice">{notice}</p>}
