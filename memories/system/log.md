@@ -1673,3 +1673,10 @@ context-policy authority. The [process guide](../../docs/references/guides/defau
 documents the source of that resolution and the retained flat layout. The input
 stage's dependency projection now includes the consumed hub metadata. This is a
 technical routing correction; no existing publication/source date was renewed.
+
+For this input-target correction, a missing hub is required only for a domain
+registered in `contexts`. A distinct administrative `default_context` needs no
+separate domain hub; ambiguous/cyclic declarations and unexpected source labels
+still remain explicit diagnostics. This preserves the existing public catalog's
+administrative system label without inventing a domain or concealing a missing
+configured domain hub.

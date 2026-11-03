@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from dataclasses import replace
 import hashlib
 import json
 import re
@@ -821,6 +822,7 @@ def _editorial_hub(tmp_path, relative, context='tax', parent='memories/index.md'
 def test_input_stage_production_resolves_root_then_nested_domain_hub_once(tmp_path, monkeypatch):
     from wiki_core import context_hubs
     cfg = _fixture_repo(tmp_path)
+    cfg = replace(cfg, contexts=(*cfg.contexts, 'tax'))
     source = _domain_source(tmp_path)
     hub = 'memories/domains/finance/taxes/custom-hub.md'
     _editorial_hub(tmp_path, hub)
@@ -854,6 +856,7 @@ def test_input_stage_production_resolves_root_then_nested_domain_hub_once(tmp_pa
 @pytest.mark.parametrize('case', ['missing','ambiguous','cycle'])
 def test_input_stage_missing_or_ambiguous_domain_never_silently_selects_hub(tmp_path,case):
     cfg = _fixture_repo(tmp_path)
+    cfg = replace(cfg, contexts=(*cfg.contexts, 'tax'))
     _domain_source(tmp_path)
     if case == 'ambiguous':
         _editorial_hub(tmp_path,'memories/nested/first.md')
@@ -884,6 +887,7 @@ def test_input_stage_invalid_memory_path_rejected_before_page_read(tmp_path,monk
 
 def test_input_stage_keeps_declared_flat_context_hub(tmp_path):
     cfg = _fixture_repo(tmp_path)
+    cfg = replace(cfg, contexts=(*cfg.contexts, 'tax'))
     _domain_source(tmp_path)
     _editorial_hub(tmp_path,'memories/tax/index.md')
     catalog = compile_input_stage(tmp_path,cfg)
@@ -900,3 +904,38 @@ def test_input_stage_symlink_memory_root_rejected_before_page_read(tmp_path, mon
     monkeypatch.setattr(input_stage,'_read_page',lambda *a: pytest.fail('symlink memory read'))
     with pytest.raises(ValueError,match='unsafe context memory root'):
         compile_input_stage(tmp_path,cfg)
+
+
+@pytest.mark.parametrize('registered', [False, True])
+def test_administrative_default_requires_hub_only_when_registered_domain(tmp_path, registered):
+    cfg = _fixture_repo(tmp_path)
+    cfg = replace(cfg, default_context='administration')
+    if registered:
+        cfg = replace(cfg, contexts=(*cfg.contexts, 'administration'))
+    _domain_source(tmp_path,context='administration')
+    catalog = compile_input_stage(tmp_path,cfg)
+    warnings = [w for w in catalog['warnings'] if 'context administration:' in w]
+    assert bool(warnings) is registered
+    if registered:
+        assert any('hub unavailable' in w for w in warnings)
+    assert catalog['sources'][0]['target_pages'][0] == 'memories/example/index.md'
+
+
+def test_ambiguous_administrative_hub_is_reported_and_never_selected(tmp_path):
+    cfg = _fixture_repo(tmp_path)
+    cfg = replace(cfg, default_context='administration')
+    _domain_source(tmp_path,context='administration')
+    _editorial_hub(tmp_path,'memories/admin/first.md',context='administration')
+    _editorial_hub(tmp_path,'memories/admin/second.md',context='administration')
+    catalog = compile_input_stage(tmp_path,cfg)
+    assert any('multiple context hubs' in w for w in catalog['warnings'])
+    assert not any(p.startswith('memories/admin/') for p in catalog['sources'][0]['target_pages'])
+
+
+def test_unexpected_source_context_is_reported_without_inventing_domain(tmp_path):
+    cfg = _fixture_repo(tmp_path)
+    _domain_source(tmp_path,context='unregistered')
+    _editorial_hub(tmp_path,'memories/elsewhere/hub.md',context='unregistered')
+    catalog=compile_input_stage(tmp_path,cfg)
+    assert any('context unregistered: undeclared editorial context' == w for w in catalog['warnings'])
+    assert 'memories/elsewhere/hub.md' not in catalog['sources'][0]['target_pages']

@@ -335,10 +335,15 @@ def compile_input_stage(
     warnings: list[str] = list(hub_errors)
     resolved_hubs: dict[str, str | None] = {}
     for context in contexts:
+        registered = context in config.contexts
+        administrative = context == config.default_context and not registered
+        unexpected = not registered and not administrative
+        if unexpected:
+            warnings.append(f"context {context}: undeclared editorial context")
         candidates = hubs.get(context, [])
         invalid = any(error.startswith(f"context {context}:") for error in hub_errors)
         resolved_hubs[context] = None
-        if not invalid and len(candidates) == 1:
+        if not invalid and not unexpected and len(candidates) == 1:
             candidate = _repo_path(root, candidates[0])
             if candidate and candidate.is_file():
                 page = _read_page(root, candidate)
@@ -346,7 +351,7 @@ def compile_input_stage(
                 if page["page_type"] == "context_hub" or (
                     page["page_type"] == "root_entity" and (root_entity or {}).get("path") == page["path"]):
                     resolved_hubs[context] = page["path"]
-        if resolved_hubs[context] is None:
+        if resolved_hubs[context] is None and (registered or invalid):
             warnings.append(f"context {context}: context hub unavailable; root/channel/config targets do not substitute for it")
     source_rows: list[dict[str, Any]] = []
 

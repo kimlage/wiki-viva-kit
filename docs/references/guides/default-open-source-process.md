@@ -202,8 +202,13 @@ configured root entity that already serves as that flat entry.
 
 Input targets retain the root entity first, then the resolved domain hub, then
 explicit channel/source-config targets. Discovery runs once per compilation.
-Missing, ambiguous or cyclic hubs produce explicit warnings rather than choosing
-an arbitrary hub or treating channel/config targets as its substitute. Unsafe
+Missing hubs of domains registered in `contexts`, and ambiguous or cyclic hubs,
+produce explicit warnings rather than choosing an arbitrary hub or treating
+channel/config targets as its substitute. An administrative `default_context`
+not registered in `contexts` does not require a domain hub of its own; if it has
+ambiguous/cyclic hub declarations they are still reported. Other undeclared
+source-context labels produce an explicit warning and do not invent a domain.
+Unsafe
 configured memory roots fail before page reads; symlink hubs/ancestors are not
 followed. The auditor retains its missing-primary-page gate and reports discovery
 errors.

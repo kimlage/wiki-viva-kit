@@ -121,7 +121,7 @@ Boundary rule: Apply the quadrant to the root holon and the source's role in con
 
 ## Warnings
 
-- context system: context hub unavailable; root/channel/config targets do not substitute for it
+- None.
 
 ## Validation
 
