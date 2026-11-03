@@ -21,10 +21,11 @@ const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
 
 function gatesTelemetry(gates: GateRecord[]): DockTelemetryItem[] {
   const total = gates.length;
-  const passed = gates.filter((gate) => gate.status === "pass").length;
-  const failed = gates.filter((gate) => gate.status === "fail").length;
-  const partial = gates.filter((gate) => gate.status === "partial").length;
-  const notRun = gates.filter((gate) => gate.status === "not_run").length;
+  const passed = gates.filter((gate) => gate.status === "pass" && gate.available !== false).length;
+  const failed = gates.filter((gate) => gate.status === "fail" && gate.available !== false).length;
+  const partial = gates.filter((gate) => gate.status === "partial" && gate.available !== false).length;
+  const notRun = gates.filter((gate) => gate.status === "not_run" && gate.available !== false).length;
+  const unavailable = gates.filter((gate) => gate.available === false).length;
   return [
     {
       key: "passed",
@@ -46,6 +47,13 @@ function gatesTelemetry(gates: GateRecord[]): DockTelemetryItem[] {
       value: partial,
       tone: partial > 0 ? "warn" : "muted",
       ratio: total > 0 ? partial / total : 0
+    },
+    {
+      key: "unavailable",
+      label: t("gate.telemetry.unavailable"),
+      value: unavailable,
+      tone: unavailable > 0 ? "warn" : "muted",
+      ratio: total > 0 ? unavailable / total : 0
     },
     {
       key: "notRun",

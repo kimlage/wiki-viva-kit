@@ -340,6 +340,8 @@ export type GateRecord = {
   status: string;
   argv: string[];
   finished_at?: string | null;
+  available?: boolean;
+  unavailable_reason?: string;
 };
 
 // The transient response of POST /api/gates/run — unlike the persisted receipt

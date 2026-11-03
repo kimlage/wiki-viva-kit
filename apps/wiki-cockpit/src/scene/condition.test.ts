@@ -28,6 +28,12 @@ describe("computeCondition — one honest selector", () => {
     expect(c.gatesFailing).toEqual(["links"]);
   });
 
+  it("counts an unavailable gate as not run and never as a failure", () => {
+    const c = computeCondition(bundle({ gates: { status: "not_run", gates: [{ id: "pytest", status: "fail", available: false }] } }));
+    expect(c.gatesFailing).toEqual([]);
+    expect(c.gatesNotRun).toBe(1);
+  });
+
   it("many unknown → unverified; much stale → aging (on fractions)", () => {
     expect(computeCondition(bundle({ freshness: { summary: { fresh: 5, stale: 0, unknown: 5 } } })).weather).toBe("unverified");
     expect(computeCondition(bundle({ freshness: { summary: { fresh: 7, stale: 3, unknown: 0 } } })).weather).toBe("aging");

@@ -295,3 +295,38 @@ def test_installed_job_runner_never_autostarts_or_admits(content):
     enabled = WikiConfig(repo_id='synthetic', codex={'enabled': True})
     with pytest.raises(ValueError, match='installed_job_runner_unavailable'):
         CockpitServer(('127.0.0.1', 0), content, enabled)
+
+
+def test_installed_pytest_is_unavailable_without_overwriting_legacy_receipt(content, monkeypatch):
+    config = WikiConfig(repo_id='synthetic')
+    for gate_id, _ in gates.GATE_COMMANDS:
+        gates.write_receipt(content, config, gate_id, ok=True, returncode=0)
+    history = gates._receipts_dir(content, config) / 'pytest.json'
+    original = history.read_bytes()
+    payload = gates.gates_payload(content, config)
+    pytest_gate = next(g for g in payload['gates'] if g['id'] == 'pytest')
+    assert pytest_gate['status'] == 'not_run' and pytest_gate['available'] is False
+    assert pytest_gate['unavailable_reason'] == 'installed_gate_unavailable' and pytest_gate['finished_at'] is None
+    assert payload['status'] == 'partial' and history.read_bytes() == original
+    command = Mock(side_effect=AssertionError('dispatch attempted'))
+    run = Mock(side_effect=AssertionError('subprocess attempted'))
+    writer = Mock(side_effect=AssertionError('receipt written'))
+    monkeypatch.setattr(binding, 'command', command)
+    monkeypatch.setattr(gates.subprocess, 'run', run)
+    monkeypatch.setattr(gates, 'write_receipt', writer)
+    result = gates.run_gate(content, config, 'pytest')
+    assert result['error'] == 'installed_gate_unavailable' and not result['ok']
+    assert not command.called and not run.called and not writer.called and history.read_bytes() == original
+
+
+def test_pytest_gate_legacy_mode_retains_old_receipt_and_dispatch(tmp_path, monkeypatch):
+    monkeypatch.setattr(binding, '_binding', None)
+    monkeypatch.setattr(binding, '_legacy_sealed', False)
+    config = WikiConfig(repo_id='synthetic')
+    gates.write_receipt(tmp_path, config, 'pytest', ok=True, returncode=0)
+    gate = next(g for g in gates.gates_payload(tmp_path, config)['gates'] if g['id'] == 'pytest')
+    assert gate['status'] == 'pass' and 'available' not in gate
+    called = Mock(return_value=subprocess.CompletedProcess(['python3'], 0, stdout='ok', stderr=''))
+    monkeypatch.setattr(gates.subprocess, 'run', called)
+    result = gates.run_gate(tmp_path, config, 'pytest')
+    assert result['ok'] and called.call_args.args[0] == ['python3', '-m', 'pytest', 'tests/']

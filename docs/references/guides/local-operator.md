@@ -91,7 +91,11 @@ code and restores that binding before invoking the entrypoint. Consumer-configur
 observers, contribution gates requiring scratch or arbitrary commands, and
 external frontend builds, and Codex/Claude job execution are unavailable until
 separately qualified; they do
-not fall back to running code from the content checkout. This does not change
+not fall back to running code from the content checkout. The `pytest` gate is
+unavailable in installed-code mode: the cockpit disables its action and does
+not treat an older receipt as a current pass. The old receipt remains intact.
+A separately authorized and qualified operator must perform any required test
+validation; this unavailable gate does not establish a pass. This does not change
 permissions, enable jobs or make untrusted content safe. Default startup retains
 the legacy coupled behavior. Read and review the actual code/content/frontend
 state before claiming an installed process is serving the intended versions.

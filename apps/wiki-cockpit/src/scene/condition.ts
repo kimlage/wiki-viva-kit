@@ -35,8 +35,8 @@ export function computeCondition(bundle: SnapshotBundle, agentsActive = 0): Worl
   const freshRatio = total > 0 ? fresh / total : 1;
 
   const gates = bundle.gates?.gates ?? [];
-  const gatesFailing = gates.filter((g) => g.status === "fail").map((g) => g.id);
-  const gatesNotRun = gates.filter((g) => g.status === "not_run").length;
+  const gatesFailing = gates.filter((g) => g.status === "fail" && g.available !== false).map((g) => g.id);
+  const gatesNotRun = gates.filter((g) => g.status === "not_run" || g.available === false).length;
 
   const pendingApproval = (bundle.diff?.files ?? []).filter(
     (f) => f.category === "memory" && (f.change_sources ?? []).some((s) => s === "working_tree" || s === "staged")

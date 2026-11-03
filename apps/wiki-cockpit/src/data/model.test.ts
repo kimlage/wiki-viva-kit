@@ -57,4 +57,9 @@ describe("cockpit model", () => {
     expect(reviewChecklist(bundle).filter((item) => item.ok)).toHaveLength(5);
     expect(qualityFlagCount(bundle)).toBe(2);
   });
+
+  it("does not claim automated checks are available when every gate is unavailable", () => {
+    const unavailable = { ...bundle, gates: { status: "not_run", gates: [{ id: "pytest", status: "not_run", argv: [], available: false }] } };
+    expect(reviewChecklist(unavailable).find((item) => item.label === "Automated checks are available")?.ok).toBe(false);
+  });
 });

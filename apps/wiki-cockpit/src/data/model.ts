@@ -5,7 +5,7 @@ export function reviewChecklist(bundle: SnapshotBundle): { label: string; ok: bo
   return [
     { label: "Work is isolated for review", ok: git.proposal.is_proposal_branch },
     { label: "Changed content is visible", ok: git.worktree.changed_files.length > 0 || git.worktree.clean },
-    { label: "Automated checks are available", ok: bundle.gates.gates.length > 0 },
+    { label: "Automated checks are available", ok: bundle.gates.gates.some((gate) => gate.available !== false) },
     { label: "Approval summary can be regenerated", ok: bundle.actions.actions.some((action) => action.id === "pr-summary") },
     { label: "Final approval stays in the review request", ok: true }
   ];
