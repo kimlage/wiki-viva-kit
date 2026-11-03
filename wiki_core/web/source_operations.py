@@ -552,6 +552,8 @@ def _normalize_inventory(payload: Any, *, source_id: str, locator: str) -> dict[
 
 
 def _run_refresh_adapter(argv: list[str], *, root: Path, timeout_seconds: int = 60) -> tuple[dict[str, Any], str]:
+    if installed_binding.active(root):
+        raise ValueError("installed_consumer_adapter_unavailable")
     try:
         completed = subprocess.run(
             argv,
@@ -932,6 +934,8 @@ def run_source_refresh(
     if current_sha != preview["raw_inventory"]["local_raw"]["sha256"]:
         raise ValueError("source_operation_preview_stale")
     argv = list(preview["execution"]["argv"])
+    if installed_binding.active(root):
+        raise ValueError("installed_consumer_adapter_unavailable")
     try:
         completed = subprocess.run(
             argv,

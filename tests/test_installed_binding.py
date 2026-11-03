@@ -97,6 +97,7 @@ def test_unqualified_adapters_and_contribution_are_refused(content):
     for call in (
         lambda: source_operations._safe_refresh_argv(content, ('python3','scripts/private.py'), source_id='s', locator='x', config_ref='x'),
         lambda: source_operations._safe_ingest_argv(content, ('python3','scripts/private.py'), content/'raw.txt'),
+        lambda: source_operations._run_refresh_adapter(['python3','scripts/private.py'], root=content),
     ):
         with pytest.raises(ValueError, match='installed_consumer_adapter_unavailable'):
             call()
