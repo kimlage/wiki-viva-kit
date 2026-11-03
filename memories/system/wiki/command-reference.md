@@ -105,7 +105,7 @@ delegated request and does not filter its retrieved hits.
 
 ```sh
 python3 scripts/wiki_find.py "pending decisions" --context system
-python3 scripts/wiki_ingest.py --source data/raw/example.pdf --context system
+python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
 python3 scripts/wiki_sync_from_kit.py --kit . --consumer /path/to/consumer --dry-run
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_performance.py plan --profile cycle1 --out /tmp/wiki-performance-plan.json

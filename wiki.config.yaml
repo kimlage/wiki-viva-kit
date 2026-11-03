@@ -39,7 +39,7 @@ llm:
   chunk_overlap_tokens: 150
   prompt_versions:
     manifest_review: v1
-    context_deep_read: v3
+    context_deep_read: v4
     quadrant_extraction: v1
     crm_relationships: v1
     operation_compile: v1

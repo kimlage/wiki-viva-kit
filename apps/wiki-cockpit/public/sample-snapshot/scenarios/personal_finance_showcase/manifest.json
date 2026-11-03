@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "988e6d6b0348c8b93dd4db2acef5f7c8a58636fc68e9e6ee31e2a3d91198cc58",
+  "bundle_hash": "92c16365e97567bfb105dc746479aa6da132b6443e27bfbfbf40b399e342e389",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -104,47 +104,47 @@
     },
     "content/finance-account-main.2a8dc59f.json": {
       "bytes": 2693,
-      "sha256": "a9dc4cd32c7a929a0760967df71440b3252a8bcba8969c939fe1ce0516bfa2ab"
+      "sha256": "3611b743d2182b8607ca25b0e0afa5a9b4cb95e7b7f657051bf97893e1fd5a07"
     },
     "content/finance-category-housing.03667aaa.json": {
       "bytes": 2276,
-      "sha256": "4738b72ad712fcab03c41d6e4bb1097c51d5ffefba65c03cc19ad0bb94b6eb32"
+      "sha256": "37c36fdd135611bcd58e12394869394e1922794a21c0f80d08b47ab26068fa38"
     },
     "content/finance-category-income.60654ab4.json": {
       "bytes": 1942,
-      "sha256": "d66a7578a0e1c886eb6c3ae67fa4700771b4ad6d2b269714ec6720a99b848844"
+      "sha256": "41d1ff2a79ece777f2027a8099a14a2296ad8f0bac4e9d84dcb400a25fb1be6b"
     },
     "content/finance-closing-july.3648e0c4.json": {
       "bytes": 2196,
-      "sha256": "a7af3f89e21044e9523b945f6d54f0820ef3af529e4d5347fb3c5c8503c0f88d"
+      "sha256": "555157910ea2e1b13da4a3e67d35eab7c2a9f2a948c2d08196ad108f11884329"
     },
     "content/finance-obligation-rent.36ef27dc.json": {
       "bytes": 2142,
-      "sha256": "8f54cbb0374d69b14df03812532ced4f801ce54cdbd7d707fcf0a544d41f7f42"
+      "sha256": "9eb9acbf80fb5fce24bc5f0e53076e549d93034c5cfcd3ba8d75436ed0dffd5f"
     },
     "content/finance-reconciliation-july.f405412a.json": {
       "bytes": 2469,
-      "sha256": "95b566af9c8cf0e3278063ab723a87f7ad1147cb6a7d04276fa69f1f02dda63f"
+      "sha256": "6cef2b8fdede7bfaac76c416d90baa2c08f6397fc8e6f8fcd0cfa564886e3652"
     },
     "content/finance-review-july.114a4d29.json": {
       "bytes": 2067,
-      "sha256": "d17a8add643291ac0ce40ec16d44c93327baf280cf50455ec373fd479f40ac41"
+      "sha256": "beb9852a5e5eabea61c1c3080fd9de60b7141e7891b5d552d16ea74a30f09653"
     },
     "content/finance-source-july.01b4ab62.json": {
       "bytes": 3440,
-      "sha256": "109098fea3cb4f7df6bb2858a0f4660f5dea858ac2f81e1ff02e7de754c1e8f0"
+      "sha256": "fffb78ba98bd759cefafd94fbc9ed0dd9ab7d0d7639ec45edf73ef774ba16d62"
     },
     "content/finance-transaction-housing.f96d7d0a.json": {
       "bytes": 2293,
-      "sha256": "8c4565077ffeced50c691445aa4da8ff9ad3e53229afe598f6fb60200264598c"
+      "sha256": "a9caf6207b46aad40515a5e9eed3fd2e8d5ec0f24d9ad699d0a03d8de98b3d7b"
     },
     "content/finance-transaction-income.00cded94.json": {
       "bytes": 2283,
-      "sha256": "911443f7aad9ffd1701ab00df7315756ab266d8da6f8840b6e9c813d3f99d629"
+      "sha256": "48de08d4bdde4113cb7c3e72278c711c8d0b3ac84c25f3b031ff116ac8a6e51d"
     },
     "content/root-personal-finance-showcase.745a5dc3.json": {
       "bytes": 12278,
-      "sha256": "9a9c7d5346faf11a4a455bb0a5d346c87f9e80327d4a1578aa9c00115a02f161"
+      "sha256": "bd7790ae68c2b2f90e622d326f751b6603ad496229ae7ba5908c16258c1932d7"
     },
     "decisions.json": {
       "bytes": 1080,
@@ -192,7 +192,7 @@
     },
     "quality.json": {
       "bytes": 5865,
-      "sha256": "f52eb8f564ac787a461455f78f8b027d3b0edfe18ac1d32ce673be3b913da1e4"
+      "sha256": "aaf349b713b1b203d7ee26c7a10db278faac3c76441e18422706c88cd03bd9cf"
     },
     "region_groups.json": {
       "bytes": 6500,
@@ -247,9 +247,9 @@
   },
   "root_page_id": "root-personal-finance-showcase",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-988e6d6b0348c8b9",
+  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-92c16365e97567bf",
   "source_commit": null,
-  "source_sha": "uncommitted:1788356179b4d18993d0b7296532676d8d65d8e4cb0b561326f8f0d245f2da3e",
+  "source_sha": "uncommitted:8b4b1a5c71c6981712aaa221c11b27f21e271bb89d15310bdd8a3eefaa528af9",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

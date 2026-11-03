@@ -7,12 +7,18 @@ informative, welcome on a private page) -> input-stage-aware LLM context package
 the manual step-by-step run (each module had its own CLI). The LLM pass stays
 delegated to the agent running the repo.
 
-Examples:
-  python3 scripts/wiki_ingest.py --source data/raw/example.pdf --context system
+Approved-context example (replace placeholders with authorized values):
+  python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT \\
+    --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
+
+Working-tree compatibility example (does not establish approved policy or source freshness):
   python3 scripts/wiki_ingest.py --source X.md --context system --dry-run
 
-Returns exit 2 for secrets or an incomplete retry that would replace a complete
-capture. In either case the rejected attempt writes no artifacts.
+Approved mode requires both flags and refuses invalid or missing authority without
+falling back to compatibility. See docs/references/guides/bounded-ingestion.md.
+
+Returns exit 2 for secrets, context or budget blockers, or an incomplete retry
+that would replace a complete capture. A rejected attempt writes no artifacts.
 """
 
 from __future__ import annotations

@@ -49,7 +49,7 @@ ingesting = integrating.
    source/stage or an authorized ceiling rather than truncating content.
 4. For each chunk with `result_exists: false`, do the deep reading following the
    `prompt` of the package and the template
-   [context_deep_read.v3.md](../../wiki_core/llm/prompts/context_deep_read.v3.md).
+   [context_deep_read.v4.md](../../wiki_core/llm/prompts/context_deep_read.v4.md).
    Produce one object per chunk with the keys of `result_required_keys`
    (use the `cache_key` of the chunk itself).
 5. Record the results:

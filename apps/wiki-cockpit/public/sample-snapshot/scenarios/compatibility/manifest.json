@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "aae76c5f5a8af6de479249997fd6bc2fc701ab227c2edf69a5dc086fc6abad89",
+  "bundle_hash": "2a7cdad32f19e3c0e2e270cd41040f8033d256b393f8fa7fbd94ed8af0e18d9d",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -89,19 +89,19 @@
     },
     "content/holon-product-ops.744a6fbe.json": {
       "bytes": 1540,
-      "sha256": "afe187ee3901c7d04cf15f8f1bd0942ad39332f15f1502795ea0adc9204f29c8"
+      "sha256": "834d0f3f02ce049f0891f817f55079ae36822231bb19d83b213b725c427bd50b"
     },
     "content/library-ai-safety.bea650b2.json": {
       "bytes": 1691,
-      "sha256": "af9daa73cb715d6fb6b0b49467a116c95dc3fae5b293254751529d846bf69268"
+      "sha256": "b6e4644dd7c7aeef1d633e5e0a032e8180e1c58fe150a821d9eed285b1ae10ad"
     },
     "content/project-atlas-launch.26b6f390.json": {
       "bytes": 1234,
-      "sha256": "378860f91afc68884f22d9b387f9a733dc680a65061c8708e95f96ddf28e1f90"
+      "sha256": "f11af38eca074584195a700d84b3e9ad5c1aa3c45be17c2cccbeb14d639c8814"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1991,
-      "sha256": "554ad667bedc4c56e1d122f13085ca0e587cafec8c9213cdf62f424ff138845d"
+      "sha256": "af3f667f0c21d7490c35430f7606d77215ab0ffa319aa3158ea6f7d9f0adea2c"
     },
     "decisions.json": {
       "bytes": 57,
@@ -149,7 +149,7 @@
     },
     "quality.json": {
       "bytes": 2699,
-      "sha256": "17ab10380d40b0acf29d3ec4a98ddfd658c4d273db2c4286625b46f41f05ee86"
+      "sha256": "a1f8a54e177c55f6d5dcd56b79df85f4190f4f3be25ba6f0113f3c15f334ee07"
     },
     "region_groups.json": {
       "bytes": 17915,
@@ -204,9 +204,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-aae76c5f5a8af6de",
+  "snapshot_id": "wiki-viva-demo-2a7cdad32f19e3c0",
   "source_commit": null,
-  "source_sha": "uncommitted:a77433d3e513dec8aaf9b225c7c3cd1891f89eea391f2b54a5073953203fa450",
+  "source_sha": "uncommitted:594479768e8cae5cb5e8ef26da2bb652702e972f92cb6de7a2d64809502641af",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

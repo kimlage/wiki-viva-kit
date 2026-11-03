@@ -81,7 +81,9 @@ def preparation_blocker(exc: Exception, source_id: str, owner: str) -> dict:
         exc = ContextRequestBlocked("context_budget_exceeded", "Required context cannot fit its explicit byte budget; choose an authorized narrower stage or revise the budget.")
     if isinstance(exc, ContextRequestBlocked):
         code, reason, status = exc.code, str(exc), "denied" if exc.code.endswith("_denied") else "pending"
-        required = ("Choose an explicit smaller source/stage or an authorized byte budget, then prepare again."
+        required = ("Install and configure the approved v4 deep-read prompt, then re-emit and read the bound request."
+                    if code == "approved_prompt_migration_required"
+                    else "Choose an explicit smaller source/stage or an authorized byte budget, then prepare again."
                     if code in {"context_budget_exceeded", "request_budget_exceeded", "invalid_context_budget", "retained_request_exceeds_budget"}
                     else "Ask the coordinator to stage an authorized source or resolve the current context/read scope through the supported task interface; then re-emit and read the bound request.")
     else:
@@ -92,7 +94,9 @@ def preparation_blocker(exc: Exception, source_id: str, owner: str) -> dict:
         required = "Ask the context owner/integrator to verify the current approved context, exact read scope and available inputs."
     return {"error_code": code, "blocker": blocker("prepare_context_request", "source:" + source_id,
         reason, owner, required,
-        "Current approved context is readable and the complete untruncated request fits both explicit byte budgets.",
+        ("The v4 deep-read prompt is installed and configured for approved requests."
+         if code == "approved_prompt_migration_required" else
+         "Current approved context is readable and the complete untruncated request fits both explicit byte budgets."),
         status=status, interface="Calling harness task interface and coordinator task record")}
 
 
@@ -257,13 +261,31 @@ PERSPECTIVE_STATUSES = {
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 
 
-def load_prompt(name: str, version: str) -> str:
+def require_approved_prompt_version(version: str) -> None:
+    """Reject legacy or missing prompt guidance before approved source reads."""
+    path = PROMPTS_DIR / f"context_deep_read.{version}.md"
+    if version != "v4" or path.is_symlink() or not path.is_file():
+        raise ContextRequestBlocked(
+            "approved_prompt_migration_required",
+            "Approved ingestion requires the installed v4 deep-read prompt; migrate the configured prompt version before preparing this request.",
+        )
+
+
+def load_prompt(name: str, version: str, *, allow_fallback: bool = True) -> str:
     path = PROMPTS_DIR / f"{name}.{version}.md"
-    if not path.exists():
-        path = PROMPTS_DIR / f"{name}.v1.md"
-    if not path.exists():
-        raise FileNotFoundError(f"prompt not found: {name}.{version}")
-    return path.read_text(encoding="utf-8")
+    if allow_fallback:
+        if not path.exists():
+            path = PROMPTS_DIR / f"{name}.v1.md"
+        if not path.exists():
+            raise FileNotFoundError(f"prompt not found: {name}.{version}")
+        return path.read_text(encoding="utf-8")
+    # The approved path never consults v1, even if v4 disappears after validation.
+    try:
+        if path.is_symlink():
+            raise OSError("prompt is a symlink")
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ContextRequestBlocked("approved_prompt_migration_required", "Approved ingestion requires the installed v4 deep-read prompt; restore it before preparing this request.") from exc
 
 
 def result_path(cache_dir: Path, key: str) -> Path:
@@ -571,7 +593,13 @@ def build_context_request(
     perspectives_optional = perspectives_optional or []
     target_pages = target_pages or []
     source_hash = _source_hash(manifest)  # packet metadata (not part of the cache_key)
-    prompt_text = load_prompt(prompt_name, prompt_version)
+    approved = ((block_context_package or {}).get("schema_version") == "wiki.task-context/v1"
+                or source_authorization is not None)
+    if approved:
+        if prompt_name != "context_deep_read":
+            raise ContextRequestBlocked("approved_prompt_migration_required", "Approved ingestion requires the installed v4 deep-read prompt.")
+        require_approved_prompt_version(prompt_version)
+    prompt_text = load_prompt(prompt_name, prompt_version, allow_fallback=not approved)
     result_required_keys = [*RESULT_REQUIRED_KEYS, "context_sha256", "chunk_hash_sha256"]
     if perspectives_required:
         result_required_keys.append("perspectives")
@@ -605,10 +633,13 @@ def build_context_request(
         "cached_calls": 0,
         "instructions": (
             "The agent running the repo performs the deep read of each chunk with "
-            "result_exists=false, produces an object matching result_required_keys "
-            "(cache_key = the chunk's) and writes it via "
-            "`scripts/wiki_llm_context_pass.py --record-result`. Never write "
-            "canonical memory directly."
+            "result_exists=false and produces an object matching result_required_keys "
+            "(cache_key = the chunk's). "
+            + ("Record with the same explicit authorized source, approved revision, "
+               "policy context and byte limits using the approved command in the prompt. "
+               if approved else
+               "Record via the working-tree compatibility command in the prompt. ")
+            + "Never write canonical memory directly."
         ),
     }
 

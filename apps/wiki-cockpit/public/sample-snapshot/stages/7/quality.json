@@ -2,7 +2,7 @@
   "cost_telemetry": {
     "model_profile": "deep_context",
     "note": "Telemetry only. The quality report does not enforce a hard budget.",
-    "prompt_version": "v3",
+    "prompt_version": "v4",
     "schema_version": "wiki_llm_context_pass.v4",
     "source_costs": []
   },

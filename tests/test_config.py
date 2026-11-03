@@ -128,7 +128,7 @@ def test_default_context_deep_read_prompt_is_current_aqal_contract(tmp_path):
         cfg.llm["prompt_versions"]["context_deep_read"]
         == DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION
     )
-    assert DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION == "v3"
+    assert DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION == "v4"
 
 
 def test_nested_maps_intact(tmp_path):

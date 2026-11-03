@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "6ab1214457e42de1741572ad98e36f2e1294bfad2eba6913e17868bf60b4f1b7",
+  "bundle_hash": "a72b420a934a342fa76e916c00fa2157adf9a02829d3821a7d44540507ed8d2a",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -91,23 +91,23 @@
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1008,
-      "sha256": "3119c9c46df6a107567345389f1a7b1e6cbb67e9983055cd81e69980ebec90bb"
+      "sha256": "c4c4176f62fd6d3c848ffb5d9f5c6c6577744aba3ea92717a1f434d9a3f645f7"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 976,
-      "sha256": "5ca213cbe15862788a0f3e3840edd3a9f650359e58e55fcebcbf34c30783accc"
+      "sha256": "05aa89c0146613f29077ad1aa35e141965200d886b0236b16020b7b835cd30a9"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1747,
-      "sha256": "40942c1ede6b93a3b1dcd3da03410641a45f35cc3e4b1a0a49d3d9a295ccd446"
+      "sha256": "03ec977f543ee4fe4573ac9cff6f3c1a077d542eee9137a09fe2c41e37224e7c"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "2d97bc5d70c4f4e077f228c4cc5b3adf3b70c1c58f35183d5be663c49b6fb6f2"
+      "sha256": "a21a4a3bca7f699d0f3b0e945b6cb854a850a0e2c733db8e4fe00dc52de28f8d"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2270,
-      "sha256": "afab54d9e978de40df3c70e6ce8a0c7a19efcb8f2d5bf4d4f5d3f07a8ef26314"
+      "sha256": "befd8b573271cdfb5a994bb3f821eff349c65444a69c08051b66023ace4f5dd1"
     },
     "decisions.json": {
       "bytes": 57,
@@ -155,7 +155,7 @@
     },
     "quality.json": {
       "bytes": 2963,
-      "sha256": "cc4115b71c1f3aca3dc47dc6b2e1f66596ccfac9c57611aa03da5d38a83a96a6"
+      "sha256": "d2dcc629f2ed82e1d72027f55821f7e89b61e8a1e8f207fa08b7c024e8ba54e3"
     },
     "region_groups.json": {
       "bytes": 9068,
@@ -210,9 +210,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-6ab1214457e42de1",
+  "snapshot_id": "wiki-viva-demo-a72b420a934a342f",
   "source_commit": null,
-  "source_sha": "uncommitted:55f16e3c5e6c12a94e88c2f74748bc3867090145ba704b2b9e84d3e549ce540b",
+  "source_sha": "uncommitted:fd039e3d08c53bee02e4277c7452f67ebb016960b21fff15c6e00ea66db247a5",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",
