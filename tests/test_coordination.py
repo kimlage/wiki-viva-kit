@@ -247,3 +247,55 @@ def test_index_preserves_transversal_assignment_and_descriptive_access(tmp_path)
     profile = next(p for p in index['profiles'] if p['id']=='research')
     assert profile['access_requirements'][0]['source_ref']=='source' and not profile['access_verified']
     assert all(p.read_bytes()==raw for p,raw in before.items())
+
+
+@pytest.mark.parametrize('key,value', [
+    ('actions_dirname','/'), ('actions_dirname','../'),
+    ('actions_dirname','../actions'), ('actions_dirname','.'),
+    ('actions_dirname','nested/actions'), ('actions_dirname','actions/'),
+    ('memory_root','/'), ('memory_root','/tmp/memories'),
+    ('memory_root','../memories'), ('memory_root','memories/../'),
+    ('memory_root','.'), ('memory_root','memories//nested'),
+])
+def test_invalid_configured_dialogue_root_rejected_before_action_inspection(tmp_path, monkeypatch, key, value):
+    from wiki_core import coordination as module
+    from wiki_core import action_transition as writer
+    fixture(tmp_path)
+    (tmp_path/'wiki.config.yaml').write_text(yaml.safe_dump({'paths':{key:value}}))
+    monkeypatch.setattr(module, '_read', lambda *a: pytest.fail('action or routing content read'))
+    monkeypatch.setattr(writer, '_contained_action_path', lambda *a: pytest.fail('action inspected before configured root validation'))
+    with pytest.raises(CoordinationError, match='invalid configured actions directory'):
+        module.dialogue_action(tmp_path,'memories/task.md','task',{'coordinator':'research'})
+
+
+@pytest.mark.parametrize('linked', ['memory','ancestor','actions'])
+def test_configured_dialogue_root_symlinks_rejected_before_content(tmp_path, monkeypatch, linked):
+    from wiki_core import coordination as module
+    path, _ = dialogue_fixture(tmp_path)
+    if linked == 'memory':
+        original = tmp_path/'memories'
+    elif linked == 'actions':
+        original = path.parent
+    else:
+        # A nested memory root also checks each configured ancestor.
+        (tmp_path/'container').mkdir()
+        (tmp_path/'memories').rename(tmp_path/'container/memories')
+        original = tmp_path/'container'
+        (tmp_path/'wiki.config.yaml').write_text('paths:\n  memory_root: container/memories\n')
+    saved = original.with_name(original.name+'-original')
+    original.rename(saved)
+    original.symlink_to(saved, target_is_directory=True)
+    monkeypatch.setattr(module, '_read', lambda *a: pytest.fail('action or routing content read'))
+    with pytest.raises(CoordinationError, match='invalid configured actions directory'):
+        module.dialogue_action(tmp_path,'memories/actions/task.md','task',{'coordinator':'research'})
+
+
+def test_dialogue_valid_custom_relative_layout(tmp_path):
+    from wiki_core.coordination import dialogue_action
+    path, _ = dialogue_fixture(tmp_path)
+    custom = tmp_path/'knowledge/notes/work-items'
+    custom.mkdir(parents=True)
+    path.rename(custom/'unrelated-filename.md')
+    (tmp_path/'wiki.config.yaml').write_text('paths:\n  memory_root: knowledge/notes\n  actions_dirname: work-items\n')
+    result = dialogue_action(tmp_path,'knowledge/notes/work-items/unrelated-filename.md','task',{'coordinator':'research'})
+    assert result == {'path':'knowledge/notes/work-items/unrelated-filename.md','state':'open'}

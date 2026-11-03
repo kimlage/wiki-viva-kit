@@ -207,8 +207,30 @@ def dialogue_action(root: Path, page_ref: str, action_id: str, event: Any) -> di
     supplied = Path(page_ref)
     if supplied.is_absolute() or ".." in supplied.parts:
         raise CoordinationError("unsafe action path")
+    config = load_config(root)
+    # WikiPaths composes paths but deliberately does not validate configuration.
+    # Check both components before composition: an absolute RHS would replace
+    # the intended root, and normalized traversal could silently widen it.
+    for key in ("memory_root", "actions_dirname"):
+        value = config.paths[key]
+        if not isinstance(value, str) or not value:
+            raise CoordinationError("invalid configured actions directory")
+        component = Path(value)
+        if (component.is_absolute()
+            or not component.parts or any(part in {".", ".."} for part in component.parts)
+            or value != component.as_posix()
+            or (key == "actions_dirname" and len(component.parts) != 1)):
+            raise CoordinationError("invalid configured actions directory")
+    repository = root.resolve()
+    actions = WikiPaths(repository, config).actions_dir
+    if not actions.is_relative_to(repository) or actions == repository:
+        raise CoordinationError("invalid configured actions directory")
+    current = repository
+    for part in actions.relative_to(repository).parts:
+        current /= part
+        if current.is_symlink() or not current.is_dir():
+            raise CoordinationError("invalid configured actions directory")
     path, page_ref = _contained_action_path(root, page_ref)
-    actions = WikiPaths(root.resolve(), load_config(root)).actions_dir
     if not path.is_relative_to(actions):
         raise CoordinationError("action outside configured actions directory")
     validate_dialogue_route(root, page_ref, event)
