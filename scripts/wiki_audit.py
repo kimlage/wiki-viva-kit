@@ -96,7 +96,7 @@ def context_hub_pages(config: WikiConfig) -> tuple[list[str], list[str]]:
     an explicit failure. Ambiguous identities are errors, not path preferences.
     """
     prefix = memory_prefix(config)
-    by_context: dict[str, list[str]] = {context: [] for context in config.contexts}
+    by_context: dict[str, dict[str, str | None]] = {context: {} for context in config.contexts}
     base = ROOT / prefix
     errors: list[str] = []
     if base.is_symlink() or not base.resolve().is_relative_to(ROOT.resolve()):
@@ -108,11 +108,26 @@ def context_hub_pages(config: WikiConfig) -> tuple[list[str], list[str]]:
         context = values.get("context")
         if (isinstance(context, str) and context in by_context
                 and values.get("page_type") == "context_hub" and values.get("page_id")):
-            by_context[context].append(path.relative_to(ROOT).as_posix())
+            parent = values.get("moc_parent")
+            by_context[context][path.relative_to(ROOT).as_posix()] = parent if isinstance(parent, str) else None
     pages = []
-    for context, matches in by_context.items():
+    for context, hubs in by_context.items():
+        # A same-context parent identifies an internal hub; a parent in an
+        # outside this context (or no parent) leaves this hub a root candidate.
+        matches = [path for path, parent in hubs.items() if parent not in hubs]
+        for path in hubs:
+            seen: set[str] = set()
+            current = path
+            while current in hubs:
+                if current in seen:
+                    errors.append(f"context {context}: cyclic context hub ancestry: {path}")
+                    break
+                seen.add(current)
+                current = hubs[current]
         if len(matches) > 1:
             errors.append(f"context {context}: multiple context hubs: {', '.join(matches)}")
+        if hubs and not matches:
+            errors.append(f"context {context}: no root context hub")
         if matches:
             pages.extend(matches)
         else:
