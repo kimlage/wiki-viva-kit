@@ -79,3 +79,34 @@ def test_read_refuses_secret_in_returned_identity_metadata(fixture_repo):
     git(root,'add','.');git(root,'commit','-qm','synthetic metadata')
     out=invoke(root,'HEAD','--mode','read','--allow-path','identity.md','--ref','identity.md','--whole-body')
     assert out.returncode != 0 and TOKEN not in out.stdout and TOKEN not in out.stderr
+
+
+@pytest.mark.parametrize('raw', ['api_key = "'+GENERIC+'"', 'Bearer\n'+GENERIC])
+@pytest.mark.parametrize('selector', ['--whole-body', '--section'])
+def test_raw_detectable_secret_is_not_hidden_by_json_escaping(fixture_repo, raw, selector):
+    from wiki_core.detectors import scan_text
+    assert any(f.category=='secret' for f in scan_text(raw))
+    root,_=fixture_repo
+    (root/'escaped.md').write_text('---\npage_id: escaped\n---\n<!-- wiki:section id=chosen version=1 -->\n## Selected\n'+raw+'\n')
+    git(root,'add','.');git(root,'commit','-qm','synthetic escaped payload')
+    args=['--mode','read','--allow-path','escaped.md','--ref','escaped.md',selector]
+    if selector=='--section': args.append('chosen')
+    out=invoke(root,'HEAD',*args)
+    assert out.returncode != 0
+    assert GENERIC not in out.stdout and GENERIC not in out.stderr and out.stdout == ''
+
+
+def test_raw_secret_in_nested_catalog_metadata_is_refused(fixture_repo):
+    root,_=fixture_repo
+    (root/'nested.md').write_text('---\npage_id: nested\ndetails:\n  note: |\n    Bearer\n    '+GENERIC+'\n---\nSafe body.\n')
+    git(root,'add','.');git(root,'commit','-qm','synthetic nested metadata')
+    out=invoke(root,'HEAD','--mode','catalog','--allow-path','nested.md')
+    assert out.returncode != 0 and GENERIC not in out.stdout and GENERIC not in out.stderr
+
+
+def test_recursive_metadata_fails_opaquely(fixture_repo):
+    root,_=fixture_repo
+    (root/'cycle.md').write_text('---\npage_id: cycle\nloop: &node [*node]\n---\nSynthetic body.\n')
+    git(root,'add','.');git(root,'commit','-qm','synthetic recursive metadata')
+    out=invoke(root,'HEAD','--mode','catalog','--allow-path','cycle.md')
+    assert out.returncode != 0 and out.stdout == '' and 'Traceback' not in out.stderr

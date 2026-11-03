@@ -16,6 +16,21 @@ def _contains_secret(text: str) -> bool:
     return any(finding.category == 'secret' for finding in scan_text(text))
 
 
+def _contains_secret_values(value: object) -> bool:
+    # JSON escaping can hide newlines or quotes from a text detector. Inspect
+    # only the values that would be returned, recursively, before encoding.
+    if isinstance(value, str):
+        return _contains_secret(value)
+    if isinstance(value, dict):
+        return any(_contains_secret_values(key) or _contains_secret_values(item)
+                   for key, item in value.items())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_secret_values(item) for item in value)
+    if value is None or isinstance(value, (bool, int, float)):
+        return False
+    return _contains_secret(str(value))
+
+
 def main() -> int:
     # argparse may echo invalid argument values. Refuse detected credentials
     # before parsing so even its usage/errors cannot disclose them.
@@ -56,6 +71,9 @@ def main() -> int:
                       if key not in {'content', 'frontmatter', 'body'}}
             result['byte_length'] = len(result['text'].encode())
         result.update(policy_mode='explicit_local_scope', policy_enforced=False)
+        if _contains_secret_values(result):
+            print('read unavailable: detected access secret', file=sys.stderr)
+            return 1
         serialized = json.dumps(result, ensure_ascii=False, indent=2, default=str)
         # Preserve a selected field's original key for assignment-style
         # detectors; the output's generic 'value' key is insufficient.
