@@ -154,3 +154,86 @@ def test_typed_section_and_whole_document_coverage_is_conservative(tmp_path):
     assert not verification_covers_content(tmp_path,'claim.md',['*'],['evidence.md'])
     p.write_text(p.read_text().replace('One.','Two.'));git('add','.');git('commit','-qm','changed section')
     assert not verification_covers_content(tmp_path,'claim.md',['section:amount'],['evidence.md'])
+
+
+def test_explicit_custom_factual_units_and_malformed_declarations():
+    for kind in ['synthetic_cost_observation', 'synthetic_capacity']:
+        g=graph();g['nodes']['claim'].update(page_type=kind,information_role='factual_unit')
+        assert assess_information_use(g,'action',now=NOW)['ready']
+    for kind in ['claim', 'source', 'context_hub', 'synthetic_cost_observation']:
+        for marker in [None,False,True,0,[],{},'unknown',' factual_unit']:
+            g=graph();g['nodes']['claim'].update(page_type=kind,information_role=marker)
+            assert not assess_information_use(g,'action',now=NOW)['ready'],(kind,marker)
+        if kind!='claim':
+            g=graph();g['nodes']['claim']['page_type']=kind
+            assert not assess_information_use(g,'action',now=NOW)['ready']
+
+
+def test_custom_mixed_and_undeclared_chains_cannot_hide_cycles():
+    for root_type in ['claim','synthetic_cost']:
+        for intermediate in [dict(page_type='synthetic_capacity',information_role='factual_unit'),
+                             dict(page_type='claim'),dict(page_type='synthetic_capacity'),
+                             dict(page_type='claim',information_role=False)]:
+            g=graph();g['nodes']['claim'].update(page_type=root_type,information_role='factual_unit')
+            g['nodes']['claim']['evidence_refs']=['other']
+            g['nodes']['other']={**intermediate,'evidence_refs':['claim']}
+            g['documents']['other']='A derived assertion.'
+            result=assess_information_use(g,'action',now=NOW)
+            assert not result['ready']
+            assert 'information_evidence_closed_claim_cycle' in result['requirements'][0]['blockers']
+            g['nodes']['other']['evidence_refs'].append('evidence')
+            ready=assess_information_use(g,'action',now=NOW)['ready']
+            assert ready == (intermediate.get('information_role')=='factual_unit' or intermediate=={'page_type':'claim'})
+
+
+def test_custom_declaration_and_type_are_part_of_verification_meaning(tmp_path):
+    from tests.test_freshness_impact import git,commit
+    from wiki_core.information_use import verification_covers_content
+    git(tmp_path,'init','-q');git(tmp_path,'config','user.name','Synthetic')
+    git(tmp_path,'config','user.email','fixture@example.invalid')
+    (tmp_path/'evidence.md').write_text('Captured RAW observation.\n')
+    p=tmp_path/'fact.md'
+    original='---\npage_type: synthetic_cost\ninformation_role: factual_unit\nverified_at: 2026-10-30\n---\nObserved fact.\n'
+    p.write_text(original);commit(tmp_path)
+    assert verification_covers_content(tmp_path,'fact.md',['body'],['evidence.md'])
+    for changed in [original.replace('synthetic_cost','synthetic_capacity'),
+                    original.replace('information_role: factual_unit\n',''),
+                    original.replace('information_role: factual_unit','information_role: false')]:
+        p.write_text(changed);commit(tmp_path)
+        assert not verification_covers_content(tmp_path,'fact.md',['body'],['evidence.md'])
+
+
+def test_custom_units_keep_all_scope_confidence_time_and_provenance_checks():
+    for delta in [{'confidence':'inferred'},{'temporal_conflicts':['conflict']},
+                  {'verified_at':'2026-10'},{'verified_at':'2026-10-31'},
+                  {'verified_at':'2026-01-01'},{'valid_from':'2026-11-01'},
+                  {'valid_to':'2026-10-29'},{'evidence_refs':['unloaded']},
+                  {'evidence_refs':['claim']}]:
+        g=graph();g['nodes']['claim'].update(page_type='synthetic_cost',information_role='factual_unit',**delta)
+        assert not assess_information_use(g,'action',now=NOW)['ready'],delta
+    for fields in [['field:missing'],['section:missing']]:
+        g=graph();g['nodes']['claim'].update(page_type='synthetic_cost',information_role='factual_unit')
+        g['edges'][0]['requirement']['fields']=fields
+        assert not assess_information_use(g,'action',now=NOW)['ready']
+    g=graph();g['nodes']['claim'].update(page_type='synthetic_cost',information_role='factual_unit')
+    g['edges'][0].pop('requirement')
+    assert not assess_information_use(g,'action',now=NOW)['ready']
+    g=graph();g['nodes']['claim'].update(page_type='synthetic_cost',information_role='factual_unit');g.pop('verification_coverage')
+    assert not assess_information_use(g,'action',now=NOW)['ready']
+
+
+def test_custom_units_never_read_unloaded_transitive_provenance(tmp_path,monkeypatch):
+    import wiki_core.information_use as information
+    g=graph();g['nodes']['claim'].update(page_type='synthetic_cost',information_role='factual_unit',evidence_refs=['other'])
+    g['documents']['other']='Derived assertion.'
+    g['nodes']['other']={'page_type':'synthetic_capacity','information_role':'factual_unit',
+                         'evidence_refs':['../../unapproved.md']}
+    def forbidden(*args,**kwargs):raise AssertionError('Unloaded transitive evidence must not be read')
+    monkeypatch.setattr(information,'verification_covers_content',forbidden)
+    assert not information.assess_information_use(information.bind_verification_coverage(tmp_path,g),'action',now=NOW)['ready']
+
+
+def test_explicit_factual_unit_needs_a_valid_page_type():
+    for kind in [None,'',[],{},False]:
+        g=graph();g['nodes']['claim'].update(page_type=kind,information_role='factual_unit')
+        assert not assess_information_use(g,'action',now=NOW)['ready']

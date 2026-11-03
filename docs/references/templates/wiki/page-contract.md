@@ -105,6 +105,16 @@ Updated at: YYYY-MM-DD
 - Obsidian: follow [obsidian-conventions.md](obsidian-conventions.md); aliases and
   tags help the graph/Dataview, but do not replace real Markdown links.
 
+## Optional factual-unit declaration
+
+For a scoped fact represented by a consumer-specific page type, declare the
+exact scalar `information_role: factual_unit` in frontmatter. Keep the concrete
+`page_type`, confirmed confidence, verified_at and evidence_refs; follow the
+[full factual-use contract](../../guides/information-impact.md#explicit-current-or-historical-consumption).
+Legacy claims need no marker. A present invalid marker blocks qualification,
+even on a claim. Do not add the marker to hubs, catalogues or sources merely to
+make them ready: it is eligibility only, and grants no truth or access.
+
 ## Consolidated content
 
 -

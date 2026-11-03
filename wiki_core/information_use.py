@@ -11,6 +11,26 @@ from wiki_core.information_relations import dependency_edges, semantic_equal
 from wiki_core.temporal import parse_temporal_value, TemporalEventError
 
 
+def factual_unit_role(values: dict) -> str:
+    """Classify loaded metadata, without establishing truth or read authority.
+
+    Provenance-bearing undeclared pages are not independent RAW observations.
+    An invalid explicit declaration never falls back to legacy claim behavior.
+    """
+    if 'information_role' in values:
+        marker = values['information_role']
+        page_type = values.get('page_type')
+        if (not isinstance(marker, str) or marker != 'factual_unit'
+                or not isinstance(page_type, str) or not page_type.strip()):
+            return 'invalid'
+        return 'factual_unit'
+    if values.get('page_type') == 'claim':
+        return 'factual_unit'
+    if 'evidence_refs' in values and values['evidence_refs'] != []:
+        return 'undeclared'
+    return 'observation'
+
+
 def _evidence_issues(graph: dict, claim: str) -> set[str]:
     """A closed claim cycle is not an independent observation.
 
@@ -26,8 +46,11 @@ def _evidence_issues(graph: dict, claim: str) -> set[str]:
         if path not in graph['documents']:
             issues.add('information_evidence_missing');continue
         values=graph['nodes'].get(path,{})
-        if values.get('page_type')!='claim':
+        role = factual_unit_role(values)
+        if role == 'observation':
             has_observation=True;continue
+        if role in {'invalid', 'undeclared'}:
+            issues.add('information_requires_scoped_claim')
         refs=values.get('evidence_refs',[])
         if not isinstance(refs,list) or not refs or any(not isinstance(ref,str) for ref in refs):
             issues.add('information_evidence_missing');continue
@@ -77,9 +100,8 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
                     reasons.append('information_field_missing')
             except SectionError:
                 reasons.append('information_field_missing')
-            # A claim page is the existing atomic fact surface. A source
-            # catalogue timestamp cannot verify arbitrary fields of its streams.
-            if values.get('page_type') != 'claim':
+            # Type/declaration establishes eligibility only, never truth.
+            if factual_unit_role(values) != 'factual_unit':
                 reasons.append('information_requires_scoped_claim')
             if values.get('confidence') != 'confirmed' or values.get('temporal_conflicts'):
                 reasons.append('information_unconfirmed_or_conflicting')
@@ -169,7 +191,7 @@ def verification_covers_content(root, path: str, fields: list[str], evidence: li
             values, body = parse_frontmatter(text)
             selectors = {('body' if f.startswith('section:') else f.removeprefix('field:')) for f in fields}
             if '*' in selectors: return {'all': (values, body)}
-            selectors |= {'evidence_refs','confidence','valid_from','valid_to','source_refs'}
+            selectors |= {'page_type','information_role','evidence_refs','confidence','valid_from','valid_to','source_refs'}
             return {field: (True, body) if field == 'body' else (field in values, values.get(field))
                     for field in sorted(selectors)}
         # Compare the complete selected meaning, including absent/deleted
@@ -213,7 +235,9 @@ def bind_verification_coverage(root, graph: dict) -> dict:
                 valid=False;continue
             if ref==path or ref in expanded:continue
             expanded.add(ref)
-            if nodes.get(ref,{}).get('page_type')=='claim':
+            role = factual_unit_role(nodes.get(ref, {}))
+            if role in {'invalid', 'undeclared'}:valid=False
+            if role != 'observation':
                 further=nodes[ref].get('evidence_refs',[])
                 if not isinstance(further,list):valid=False
                 else:pending.extend(further)

@@ -271,7 +271,7 @@ def _reader_information(root, config, path, values, body, snapshot):
     to authorize each required reference before reading it through its port.
     """
     from wiki_core.information_relations import operational_consumption_edges
-    from wiki_core.information_use import bind_verification_coverage, assess_information_use
+    from wiki_core.information_use import bind_verification_coverage, assess_information_use, factual_unit_role
     def head():
         try:
             return subprocess.check_output(['git','rev-parse','--verify','HEAD'],cwd=root,
@@ -300,7 +300,7 @@ def _reader_information(root, config, path, values, body, snapshot):
                 graph['errors'].append(content.get('error_code') or 'information_reference_unreadable')
                 continue
             graph['nodes'][target]=content['frontmatter'];graph['documents'][target]=content['body']
-            if target in targets or content['frontmatter'].get('page_type')=='claim':
+            if target in targets or factual_unit_role(content['frontmatter']) != 'observation':
                 evidence=content['frontmatter'].get('evidence_refs',[])
                 if not isinstance(evidence,list) or any(not isinstance(item,str) for item in evidence):
                     graph['errors'].append('information_evidence_invalid')
