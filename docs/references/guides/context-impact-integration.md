@@ -52,3 +52,25 @@ policy authority and conservatively reports a requalification obligation when
 context manifests change. A policy or normative edit itself still requires its
 separate review; no parenthood or this declaration grants access to ordinary
 cross-context evidence.
+
+The global inventory resolves an exact mandatory path outside the memory root
+from tracked regular-file Git metadata only. This creates a declared edge; it
+is not a grant, and the inventory does not open that external rule body. An
+untracked or unsafe target remains an inventory error. Generic information-use
+readiness reports `information_normative_authority_required`, not factual
+claim/evidence/verification blockers. The existing scoped freshness audit
+binding (`--query-context`, `--query-policy-revision`, `--query-head`) also
+qualifies normative requirements for the selected owner only. It compares the
+approved declaration and historical/current authority and whole bytes, and
+requires the proposed rule to be unchanged. Git tree/index and worktree stat
+metadata are compared without opening a proposed rule body; unknown or changed
+metadata fails closed. The comparison detects ambiguity; it does not certify
+worktree bytes. Qualification is for approved Git blobs on a stable host. On
+Windows, worktree ctime may mean creation time, so unchanged-rule qualification
+remains pending rather than trusting insufficient metadata. This does not protect
+against a hostile concurrent host.
+Equivalent bytes qualify that
+normative requirement without asserting factual freshness; changed, denied or
+unprovable authority remains pending. It does not prove semantic reading,
+independent review, or authorize an effect. Other contexts are not qualified. The
+surrounding global audit and its output remain caller-trust, not a context ACL.
