@@ -44,6 +44,28 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
     return [found[key] for key in sorted(found)]
 
 
+def explicit_current_consumption(edge):
+    """Select only canonical, explicitly declared current consumption edges.
+
+    Legacy citations stay in the global graph; they are not proof for scoped
+    query closure. Dynamic query dependencies are revalidated separately.
+    """
+    kind = edge.get('type')
+    requirement = edge.get('requirement')
+    if kind == 'operational_prerequisite':
+        if isinstance(requirement, dict):
+            return 'query' not in requirement and requirement.get('temporal') == 'current'
+        return edge.get('authored_role') == 'operational_prerequisite'
+    if kind in ('projection', 'projection_state'):
+        return edge.get('field') == 'projection_inputs' or edge.get('authored_role') == kind
+    return False
+
+
+def typed_consumption_graph(graph):
+    """Project existing graph edges without reading or changing canonical data."""
+    return {**graph, 'edges': [edge for edge in graph['edges'] if explicit_current_consumption(edge)]}
+
+
 def authorized_pending_edge(edge, policy, context_id):
     """Closure never imports another owner's provenance or a denied path."""
     from wiki_core.context_policy import PolicyError
@@ -76,7 +98,7 @@ def propagate_pending_dependencies(current, base, pending_fields, policy, contex
     work = deque(sorted(fields)); reached = {}; denied = set(); steps = 0
     by_source = defaultdict(list)
     for edge in edges:
-        if 'query' in edge.get('requirement', {}) or edge['type'] == 'historical_support' or edge.get('temporal_use') in ('historical', 'as_observed'):
+        if not explicit_current_consumption(edge):
             continue
         by_source[edge['prerequisite']].append(edge)
     while work:

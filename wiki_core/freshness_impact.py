@@ -298,7 +298,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             # Dynamic outcomes are review obligations, not edits to their pages.
             # Feed those obligations into typed dependencies and authorized
             # downstream queries until no new pending fields are discovered.
-            from wiki_core.information_impact import propagate_pending_dependencies, authorized_pending_edge
+            from wiki_core.information_impact import propagate_pending_dependencies, authorized_pending_edge, typed_consumption_graph
             from wiki_core.context_policy import load_policy
             closure_policy = load_policy(root, base_sha)
             pending_fields = {r['path']: set(r.get('fields', ['*'])) for r in outcomes if r['state'] == 'review_pending'}
@@ -315,7 +315,12 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                     if ('query' in req and closure_policy.owner_of(edge['dependent']) == query_context
                             and closure_policy.permits(query_context, 'read', edge['dependent'])):
                         query_contracts.append((req['target'], req['query']['scope']))
-            for row in result['pending_reviews']:
+            # Recompute provenance from only explicit current-consumption
+            # edges. The original global report remains unchanged; its legacy
+            # reach is not permission or proof of scoped current consumption.
+            typed = evaluate_information_impact(typed_consumption_graph(current), typed_consumption_graph(base),
+                impact_changed, today=today or dt.date.today())
+            for row in typed['pending_reviews']:
                 if row.get('reason') != 'information_changed': continue
                 path = row['path']
                 if not any(path == anchor or within(path, scope) for anchor, scope in query_contracts): continue
