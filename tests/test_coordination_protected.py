@@ -168,3 +168,36 @@ def test_real_operator_entrypoint_loads_host_binding_only_at_startup(repo,monkey
     monkeypatch.setenv('WIKI_COORDINATION_TRUSTED_REF','refs/remotes/origin/main')
     assert module.main(['--root',str(repo),'--port','0'])==0
     assert len(seen)==2 and seen[1].trusted_ref=='refs/remotes/origin/main'
+
+
+def test_packet_budget_api_cli_and_denied_input_are_safe(repo,bound_server,tmp_path):
+    srv,token=bound_server; data=payload(repo); headers={ADMIN_SESSION_HEADER:token}
+    data['task']['max_bytes']=1
+    status,body=srv.post('/api/coordination/protected/packet',data,headers=headers)
+    assert status==409 and body['error_code']=='coordination_budget_exceeded'
+    assert 'reduce' in body['blocker']['required_action'].lower() and 'packet' not in body
+    assert 'finance/' not in json.dumps(body) and 'Independent cost assessment' not in json.dumps(body)
+    task=tmp_path/'selection.json'; task.write_text(json.dumps(data['task']))
+    cmd=[sys.executable,str(BASE/'scripts/wiki_coordination.py'),'--root',str(repo),'--context-id','costs','--approved-revision',data['approved_revision'],'--revision',data['content_revision'],'--packet-request',str(task)]
+    cli=subprocess.run(cmd,capture_output=True,text=True)
+    assert cli.returncode != 0 and json.loads(cli.stdout)==body
+    data['task']['max_bytes']=20000
+    data['task']['evidence']=[{'ref':'finance/tax/source.md','producer':'tax','reason':'selection','use':'interpretation','classification':'context'}]
+    status,denied=srv.post('/api/coordination/protected/packet',data,headers=headers)
+    assert status==409 and denied['error_code']=='coordination_input_unavailable' and 'finance/' not in json.dumps(denied)
+
+
+@pytest.mark.parametrize('message', ['mandatory content exceeds byte budget', 'selected content exceeds byte budget', 'complete packet exceeds byte budget'])
+def test_only_stable_builder_budget_errors_are_classified(repo,monkeypatch,message):
+    from wiki_core import coordination_context as module
+    from wiki_core.context_policy import PolicyError
+    def fail(*args,**kwargs): raise PolicyError(message)
+    monkeypatch.setattr(module,'build_packet',fail)
+    with pytest.raises(module.ProtectedCoordinationError) as error:
+        module.prepare_packet(repo,CoordinationBinding(('costs',),'refs/remotes/origin/main'),payload(repo))
+    assert error.value.code=='coordination_budget_exceeded'
+    def unrelated(*args,**kwargs): raise PolicyError('other budget details')
+    monkeypatch.setattr(module,'build_packet',unrelated)
+    with pytest.raises(module.ProtectedCoordinationError) as error:
+        module.prepare_packet(repo,CoordinationBinding(('costs',),'refs/remotes/origin/main'),payload(repo))
+    assert error.value.code=='coordination_input_unavailable'

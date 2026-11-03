@@ -81,6 +81,10 @@ def prepare_packet(root, binding, payload):
         packet=build_packet(root,policy,payload['context_id'],content,evidence,task['max_bytes'],task_id=task['task_id'],goal=task['goal'],output=task['output'],integrator=task['integrator'],omissions=task.get('omissions',[]))
         selected=[x for x in packet['inputs'] if x['kind']=='evidence']
         if any(expected is not None and x['document_sha256']!=expected for x,expected in zip(selected,expectations)): raise ValueError('selected revision differs')
+    except PolicyError as exc:
+        if str(exc) in {'mandatory content exceeds byte budget', 'selected content exceeds byte budget', 'complete packet exceeds byte budget'}:
+            raise ProtectedCoordinationError('coordination_budget_exceeded') from exc
+        raise ProtectedCoordinationError() from exc
     except (ValueError,KeyError,TypeError,OSError) as exc: raise ProtectedCoordinationError() from exc
     return {'ok':True,'mode':'approved','packet':packet}
 
@@ -106,6 +110,7 @@ def blocker_response(error: ProtectedCoordinationError):
         'coordination_invalid_request': ('The task selection or request is invalid.', 'Correct the explicitly selected task and retry.', 'The request satisfies the packet contract.'),
         'coordination_policy_unavailable': ('The approved policy revision is unavailable or has changed.', 'Refresh the trusted revision and revalidate the task.', 'The task is bound to the current approved policy.'),
         'coordination_content_not_approved': ('The selected content revision is not in approved history.', 'Choose a revision in the approved history.', 'The content revision is approved and still authorized.'),
+        'coordination_budget_exceeded': ('The selected task packet exceeds its byte budget.', 'Reduce the authorized selection or revise the packet limit, then retry.', 'The complete packet fits the chosen byte limit.'),
         'coordination_preflight_unavailable': ('The proposal did not satisfy the current preflight.', 'Revalidate the packet, result, branch and current base.', 'The exact proposal satisfies the current preflight.'),
     }
     reason, action, resume=messages.get(error.code,('The selected input is unavailable or unauthorized.','Verify the selected inputs and current policy.','All required inputs are authorized and available.'))
