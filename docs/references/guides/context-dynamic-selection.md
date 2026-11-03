@@ -183,11 +183,14 @@ assess factual freshness, run preflight, grant an effect or approve integration.
 
 
 A revalidated changed collection creates a pending interpretation obligation,
-not a claim that its consumer's facts changed. Existing typed information-change
-obligations also seed the closure; ordinary age debt does not. The scoped audit follows existing
+not a claim that its consumer's facts changed. Existing typed information-change obligations may trigger relevant query
+recomputation; they do not rerun the generic graph traversal or turn unrelated
+ordinary impact into a context boundary. Ordinary age debt does not seed closure. The scoped audit follows existing
 typed nonhistorical consumption edges from that obligation and checks whether a
-downstream query actually contains a pending member and consumes a potentially
-affected field. These create separate upstream-pending review reasons; byte
+downstream query contains a pending member and consumes a potentially affected
+field, or an authorized candidate currently excluded from the set has a pending
+filter field (or page identity) that could admit it. A pending selected field
+alone does not admit an excluded candidate. These create separate upstream-pending review reasons; byte
 equivalence alone does not discharge them. Navigation and historical relations
 do not propagate. This closure remains within the bound owner and current read
 authority; an unauthorized boundary is an explicit blocker, not silent complete

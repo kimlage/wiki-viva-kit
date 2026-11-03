@@ -85,38 +85,50 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                         json.dumps({k: req[k] for k in proof_fields}, sort_keys=True, ensure_ascii=False))
                     proof = selection_cache.get(proof_key)
                     if proof is None:
+                        prior_candidates = []
                         prior, _, _ = reproduce_query(policy, context_id, RepositoryReader(root, req['consumed_revision']), entry,
-                            policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=budget)
+                            policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=budget, _candidate_refs=prior_candidates)
                         if any(prior[k] != req[k] for k in ('members_digest', 'selected_digest')):
                             raise PolicyError('query receipt cannot be reproduced')
-                        at_base = prior if base_reader.revision == req['consumed_revision'] else select_query(policy, context_id, base_reader, entry, read_budget=budget)[0]
-                        if changed_policy: at_head = None
-                        elif head_reader.revision == base_reader.revision: at_head = at_base
-                        elif head_reader.revision == req['consumed_revision']: at_head = prior
-                        else: at_head = select_query(policy, context_id, head_reader, entry, read_budget=budget)[0]
-                        proof = (prior, at_base, at_head)
-                    prior, at_base, at_head = proof
+                        if base_reader.revision == req['consumed_revision']:
+                            at_base, base_candidates = prior, prior_candidates
+                        else:
+                            base_candidates = []
+                            at_base = select_query(policy, context_id, base_reader, entry, read_budget=budget, _candidate_refs=base_candidates)[0]
+                        if changed_policy: at_head, head_candidates = None, []
+                        elif head_reader.revision == base_reader.revision: at_head, head_candidates = at_base, base_candidates
+                        elif head_reader.revision == req['consumed_revision']: at_head, head_candidates = prior, prior_candidates
+                        else:
+                            head_candidates = []
+                            at_head = select_query(policy, context_id, head_reader, entry, read_budget=budget, _candidate_refs=head_candidates)[0]
+                        proof = (prior, at_base, at_head, head_candidates)
+                    prior, at_base, at_head, head_candidates = proof
                     checks = (prior, at_base) if at_head is None else (prior, at_base, at_head)
                     if any(path in {m['ref'] for m in selection['members']} for selection in checks):
                         raise PolicyError('query consumer cannot be a member')
                     selection_cache[proof_key] = proof
-                    cached = ('selection', prior, at_base, at_head)
+                    cached = ('selection', prior, at_base, at_head, head_candidates)
                 # Cache only successfully established proof within this audit operation.
                 selection_cache[cache_key] = cached
             if cached[0] == 'replaced': continue
-            _, prior, at_base, at_head = cached
+            _, prior, at_base, at_head, head_candidates = cached
             if changed_policy:
                 outcomes.append({'path': path, 'state': 'review_pending', 'reason': 'dynamic_query_requalification_required',
                     'seed': path, 'query_id': prior['query_id'], 'requirement_id': requirement_id, 'fields': ['*'], 'causes': [], 'chain': [], 'priority': 'immediate',
                     'verification_performed': False})
                 continue
-            interested = set(req['query']['filters'])
-            if 'field' in req['query']: interested.add(req['query']['field'])
-            elif 'section' in req['query']: interested.add('body')
-            else: interested.add('*')
-            upstream = [m['ref'] for m in at_head['members'] if m['ref'] in pending_sources
-                        and ('*' in interested or '*' in pending_sources[m['ref']]
-                             or interested & pending_sources[m['ref']])]
+            filter_fields = set(req['query']['filters'])
+            if 'field' in req['query']: selected_fields = {req['query']['field']}
+            elif 'section' in req['query']: selected_fields = {'body'}
+            else: selected_fields = {'*'}
+            members = {m['ref'] for m in at_head['members']}
+            upstream = []
+            for ref, has_page_id in head_candidates:
+                pending = pending_sources.get(ref, set())
+                interested = filter_fields | selected_fields | {'page_id'} if ref in members else filter_fields | (set() if has_page_id else {'page_id'})
+                if pending and ('*' in pending or '*' in interested or pending & interested): upstream.append(ref)
+            # The anchor is a separately consumed mandatory collection contract.
+            if req['target'] in pending_sources: upstream.append(req['target'])
             selection_changed = not same_selection(prior, at_base) or not same_selection(prior, at_head)
             if selection_changed or upstream:
                 if path in changed: raise PolicyError('changed consumer requires equivalent selection')

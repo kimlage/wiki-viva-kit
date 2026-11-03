@@ -238,3 +238,60 @@ def test_existing_narrow_pending_row_widens_after_dynamic_dependency(collection)
     assert len(rows)==1 and rows[0]['fields']==included['fields']==['*']
     assert {r['prerequisite'] for r in rows[0]['causes']} >= {SCOPE+'/first.md',TASK['output']}
     assert rows[0]['verification_performed'] is False
+
+
+@pytest.mark.parametrize('unrelated_query',[False,True])
+def test_ordinary_global_impact_does_not_create_query_authority_boundary(collection,unrelated_query):
+    root=collection
+    (root/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    source='finance/costs/source.md'; (root/source).write_text('---\npage_id: source\npage_type: claim\n---\nBefore.\n')
+    b=root/TASK['output']; b.write_text('---\n'+yaml.safe_dump({'page_id':'ordinary-b','page_type':'claim','information_requirements':[{'target':source,'fields':['*'],'temporal':'current','max_age_days':30}]})+'---\nInterpretation.\n')
+    c=root/'finance/tax/interpretation.md'; c.write_text('---\n'+yaml.safe_dump({'page_id':'other-owner','page_type':'claim','information_requirements':[{'target':TASK['output'],'fields':['*'],'temporal':'current','max_age_days':30}]})+'---\nOther.\n')
+    commit(root)
+    if unrelated_query:
+        p=packet(root)
+        (root/'finance/costs/unrelated-query.md').write_text('---\n'+yaml.safe_dump({'page_id':'unrelated-query','page_type':'claim','information_requirements':[requirement(p)]})+'---\nOther collection.\n')
+    base=commit(root) if unrelated_query else git(root,'rev-parse','HEAD');git(root,'checkout','-qb','wiki/unrelated-impact');(root/source).write_text('---\npage_id: source\npage_type: claim\n---\nAfter.\n');git(root,'add','.');git(root,'commit','-qm','source update');head=git(root,'rev-parse','HEAD')
+    report=repository_report(root,load_config(root),base,query_context='costs',query_policy_revision=base,query_head=head)
+    assert any(r['path']==TASK['output'] and r['reason']=='information_changed' for r in report['pending_reviews'])
+    assert not any(r['reason']=='dynamic_impact_authority_boundary' for r in report['blockers'])
+
+
+def test_unselected_member_with_pending_filter_field_causes_query_review(collection):
+    from wiki_core.dynamic_query_audit import revalidate_affected
+    from wiki_core.information_relations import authored_graph, information_requirements
+    root=collection
+    (root/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    source='finance/costs/source.md'; (root/source).write_text('---\npage_id: source\npage_type: claim\n---\nBefore.\n')
+    b=root/TASK['output']; b.write_text('---\n'+yaml.safe_dump({'page_id':'ordinary-b','page_type':'claim','status':'inactive','amount':5,'information_requirements':[{'target':source,'fields':['*'],'temporal':'current','max_age_days':30}]})+'---\nInterpretation.\n')
+    commit(root)
+    q={'target':ANCHOR,'reason':'interpret active pages','use':'interpret','classification':'synthetic','query':{'scope':'finance/costs','filters':{'status':'active'},'field':'amount','max_enumerated':30,'max_matches':10,'max_scan_bytes':100000}}
+    qp=build_packet(root,policy(root),'costs',git(root,'rev-parse','HEAD'),[],50000,queries=[q],task_id='q-task',goal='review',output='finance/costs/q.md',integrator='reviewer')
+    (root/'finance/costs/q.md').write_text('---\n'+yaml.safe_dump({'page_id':'q','page_type':'claim','information_requirements':[requirement(qp)]})+'---\nQuery dependent.\n')
+    base=commit(root);graph=authored_graph(root,load_config(root));req=information_requirements(graph['nodes']['finance/costs/q.md'],lambda ref:[ref])[0]
+    args={'base':base,'head':base,'context_id':'costs','affected':[{'path':'finance/costs/q.md','requirement':req,'origin':'current'}],'changed':set(),'current':graph}
+    assert revalidate_affected(root,**args,pending_sources={TASK['output']:{'amount'}})==[]
+    assert revalidate_affected(root,**args,pending_sources={TASK['output']:{'status'}})[0]['reason']=='dynamic_query_upstream_pending'
+    assert revalidate_affected(root,**args,pending_sources={SCOPE+'/first.md':{'page_id'}})[0]['reason']=='dynamic_query_upstream_pending'
+    git(root,'checkout','-qb','wiki/filter-candidate');(root/source).write_text('---\npage_id: source\npage_type: claim\n---\nAfter.\n');git(root,'add','.');git(root,'commit','-qm','source update');head=git(root,'rev-parse','HEAD')
+    report=repository_report(root,load_config(root),base,query_context='costs',query_policy_revision=base,query_head=head)
+    assert any(r['path']=='finance/costs/q.md' and r['reason']=='dynamic_query_upstream_pending' for r in report['pending_reviews'])
+
+
+def test_pending_excluded_child_is_not_opened_or_used_as_query_candidate(collection,monkeypatch):
+    from tests.test_context_flow import manifest, save
+    from wiki_core.dynamic_query_audit import revalidate_affected
+    from wiki_core.information_relations import authored_graph, information_requirements
+    from wiki_core.repository_reader import RepositoryReader
+    child=SCOPE+'/child';save(collection,child+'/context.yaml',manifest('nested','costs',child,{'read':['self']}))
+    page(collection,'child/hidden.md',status='inactive');commit(collection)
+    p=packet(collection);path='finance/costs/query-owner-only.md'
+    (collection/path).write_text('---\n'+yaml.safe_dump({'page_id':'owner-only','page_type':'claim','information_requirements':[requirement(p)]})+'---\nOwner query.\n')
+    base=commit(collection);graph=authored_graph(collection,load_config(collection));req=information_requirements(graph['nodes'][path],lambda ref:[ref])[0]
+    original=RepositoryReader._document
+    def guard(reader,ref):
+        assert not ref.startswith(child+'/'), 'child blob opened'
+        return original(reader,ref)
+    monkeypatch.setattr(RepositoryReader,'_document',guard)
+    result=revalidate_affected(collection,base=base,head=base,context_id='costs',affected=[{'path':path,'requirement':req,'origin':'current'}],changed=set(),current=graph,pending_sources={child+'/hidden.md':{'status'}})
+    assert result==[]

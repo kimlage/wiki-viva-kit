@@ -302,23 +302,34 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             from wiki_core.context_policy import load_policy
             closure_policy = load_policy(root, base_sha)
             pending_fields = {r['path']: set(r.get('fields', ['*'])) for r in outcomes if r['state'] == 'review_pending'}
-            derived = {}; denied = set()
-            # Actual impact propagation may already have reached an ordinary
-            # dependent which is itself a member of a downstream query. Age
-            # debt alone is not a source change and must not seed closure.
+            derived = {}; denied = set(); ordinary_sources = {}
+            # The generic graph already propagated ordinary impacts. Use those
+            # rows only to discover affected queries, never to rerun ordinary
+            # traversal or change the global caller-trust audit boundary.
+            from wiki_core.context_policy import within
+            from wiki_core.information_relations import dependency_edges
+            query_contracts = []
+            for graph in (base, current):
+                for edge in dependency_edges(graph)[0]:
+                    req = edge.get('requirement', {})
+                    if ('query' in req and closure_policy.owner_of(edge['dependent']) == query_context
+                            and closure_policy.permits(query_context, 'read', edge['dependent'])):
+                        query_contracts.append((req['target'], req['query']['scope']))
             for row in result['pending_reviews']:
                 if row.get('reason') != 'information_changed': continue
                 path = row['path']
+                if not any(path == anchor or within(path, scope) for anchor, scope in query_contracts): continue
                 if closure_policy.owner_of(path) == query_context and closure_policy.permits(query_context, 'read', path):
                     provenance = row.get('chain', []) + row.get('causes', [])
                     if any(edge.get('type') == 'historical_support' or edge.get('temporal_use') in ('historical', 'as_observed') for edge in provenance):
                         continue
                     if provenance and all(authorized_pending_edge(edge, closure_policy, query_context) for edge in provenance):
-                        pending_fields.setdefault(path, set()).update(row.get('fields', ['*']))
+                        ordinary_sources.setdefault(path, set()).update(row.get('fields', ['*']))
                     else:
                         denied.add(path)
+            if len(ordinary_sources) > 1000: raise ValueError('dynamic impact closure limit exceeded')
             all_outcomes = {(r['path'], r['reason'], r.get('requirement_id')): r for r in outcomes}
-            if pending_fields:
+            if pending_fields or ordinary_sources:
                 for _ in range(64):
                     expanded, reached, boundary = propagate_pending_dependencies(current, base, pending_fields, closure_policy, query_context)
                     denied.update(boundary)
@@ -326,9 +337,11 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                         existing = derived.setdefault(path, [])
                         for cause in causes:
                             if cause not in existing: existing.append(cause)
-                    affected = affected_dynamic_queries(current, base, impact_changed | set(expanded), set(expanded))
+                    query_sources = {path: set(fields) for path, fields in expanded.items()}
+                    for path, fields in ordinary_sources.items(): query_sources.setdefault(path, set()).update(fields)
+                    affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources))
                     more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
-                        affected=affected, changed=impact_changed, current=current, pending_sources=expanded, read_budget=closure_budget, _selection_cache=selection_cache)
+                        affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache)
                     for row in more: all_outcomes[(row['path'], row['reason'], row.get('requirement_id'))] = row
                     new_fields = {p: set(v) for p, v in expanded.items()}
                     for row in more:
