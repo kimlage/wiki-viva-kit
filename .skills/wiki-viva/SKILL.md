@@ -34,7 +34,7 @@ in `wiki.config.yaml`. Shared code must not hardcode a consumer path or context.
 
 ### Ingest and read
 
-Use [wiki_ingest.py](../../scripts/wiki_ingest.py): `python3 scripts/wiki_ingest.py --source <source> --context <context>`.
+Use [wiki_ingest.py](../../scripts/wiki_ingest.py): `python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID`. Use the current trusted approval and authorized context; see the [bounded ingestion guide](../../docs/references/guides/bounded-ingestion.md) for limits and the explicitly labelled working-tree compatibility mode.
 Inspect the generated context request, perform the deep read, persist the
 cache result through the repo's LLM-context skill, then consolidate. Never
 invent provenance or store access credentials.

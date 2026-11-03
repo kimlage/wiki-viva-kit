@@ -98,7 +98,8 @@ The deep read is delegated to the agent that runs the repo, not to a Python clie
 Triggering the pass manually (recording of the result by the agent via skill):
 
 ```sh
-python3 scripts/wiki_llm_context_pass.py --context system --record-result result.json
+python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
 ```
 
 ### Consolidation gate (ingesting = integrating)

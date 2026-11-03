@@ -14,6 +14,14 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-03] Clarify ingestion command examples
+
+The [command reference](wiki/command-reference.md), [ingestion flow](wiki/ingestion-flow.md)
+and [gate guide](wiki/gates-and-audit.md) show approved source-bound ingestion
+and recording commands. The [bounded ingestion guide](../../docs/references/guides/bounded-ingestion.md)
+identifies compatibility mode and the retained legacy prompt examples. No source
+verification date was renewed.
+
 ## [2026-10-30] Scoped information dependencies and source review
 
 The [shared contract](../../docs/references/guides/information-impact.md)

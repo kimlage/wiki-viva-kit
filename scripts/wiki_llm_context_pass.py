@@ -8,11 +8,20 @@ This script does NOT call any model. It:
   - acts as a gate (`--check`): fails while there is a pending chunk and
     `required_context_pass` is enabled.
 
-Examples:
-  python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --emit-request
+Approved-context examples (use the same authorized source, approval, context and limits):
+  python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \\
+    --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
+  python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \\
+    --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
+  python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \\
+    --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --check
+
+Working-tree compatibility example (not evidence of approved policy or freshness):
   python3 scripts/wiki_llm_context_pass.py --query "pending decisions" --context system
-  python3 scripts/wiki_llm_context_pass.py --record-result result.json --context system
-  python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --check
+
+Approved mode requires an explicit source and refuses query mode, unrequested-result
+bypass and invalid or missing authority; it never falls back to compatibility.
+See docs/references/guides/bounded-ingestion.md.
 """
 
 from __future__ import annotations

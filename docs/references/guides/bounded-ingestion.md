@@ -107,6 +107,12 @@ request above a smaller current ceiling cannot satisfy it. Approved query mode
 and unrequested-result bypass are refused. Absence, revocation and budget
 failure never select a compatibility fallback.
 
+Versioned deep-read prompts v1–v3 still show a historical unbound recording
+command. For an approved request, follow the source-bound recording command
+above instead; the prompt's legacy example does not revalidate that approved
+request. Those prompts are retained for compatibility and require a separately
+reviewed prompt-version and cache migration before changing their contents.
+
 Without approved-context flags, the existing working-tree adapter remains
 explicitly labelled compatibility. Historical envelopes remain inspectable;
 new requests bind the explicit limits as well as the delivered interpretation

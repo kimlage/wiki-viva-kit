@@ -33,7 +33,7 @@
 ## Commands run
 
 - [ ] `python3 scripts/wiki_audit.py --check`  Links: [scripts/wiki_audit.py](../scripts/wiki_audit.py).
-- [ ] `python3 scripts/wiki_ingest.py --source <source> --context <context> --dry-run`  Links: [scripts/wiki_ingest.py](../scripts/wiki_ingest.py).
+- [ ] `python3 scripts/wiki_ingest.py --source <source> --context <context> --approved-revision <approved-sha> --policy-context <context-id> --dry-run`  Links: [scripts/wiki_ingest.py](../scripts/wiki_ingest.py).
 - [ ] `python3 scripts/wiki_check_methodology_coverage.py --check`  Links: [coverage](../scripts/wiki_check_methodology_coverage.py).
 - [ ] `python3 scripts/wiki_operation_compile.py --check`  Links: [cockpit](../scripts/wiki_operation_compile.py).
 - [ ] `python3 scripts/wiki_semantic_inventory.py --check`  Links: [semantic inventory](../scripts/wiki_semantic_inventory.py).

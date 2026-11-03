@@ -36,13 +36,17 @@ End-to-end orchestrator (manifest → text/chunks → index → secret pre-scan 
 context package → score event):
 
 ```sh
-python3 scripts/wiki_ingest.py --source data/raw/example.pdf --context system
-python3 scripts/wiki_ingest.py --source X.md --context system --dry-run
+python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
+# Add --dry-run to compute without writing artifacts.
 ```
 
-Exit `2` means a **secret was found in the source** — it is blocked at origin;
-remove the secret upstream, never version it. PII is only reported (it is welcome
-on a private page). To create just the PR-ready proposal Markdown, use
+Exit `2` blocks the attempt for a secret, a context or budget blocker, or an
+incomplete retry. Resolve the reported cause before proceeding; remove secrets
+upstream and never version them. PII is only reported (it is welcome on a private
+page). The [bounded ingestion guide](../../../docs/references/guides/bounded-ingestion.md)
+describes approved mode and the explicitly labelled working-tree compatibility
+mode. To create just the PR-ready proposal Markdown, use
 [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py); for individual stages
 (manifest, text, index) see the command reference.
 
@@ -54,12 +58,16 @@ pages, the package includes root entity, input channel, inherited perspectives
 and target pages from the input stage.
 
 ```sh
-python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --emit-request
+python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
 # ... you read the package and produce the result object/array ...
-python3 scripts/wiki_llm_context_pass.py --record-result result.json --context system
-python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --check
+python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
+python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --check
 ```
 
+Use the same source, current approval, policy context and limits throughout.
 Provenance is enforced: the gate (`--check`) fails while any chunk lacks a
 recorded result and `required_context_pass` is on. A mere *plan* is never accepted
 as proof of an executed pass. Detail: [wiki-llm-context-agent](../../wiki-llm-context-agent/SKILL.md).

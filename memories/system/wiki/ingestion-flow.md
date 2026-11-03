@@ -211,16 +211,20 @@ with `--check` serves as a gate: it returns a non-zero exit while there is a pen
 `required_context_pass` (turned on in [wiki.config.yaml](../../../wiki.config.yaml))
 is active.
 
-When `--source` points to a repo-local source page, the CLI looks up its
-`source_config` through `config_ref` or matching `source_refs`, then merges
-root, input-channel and source-config perspectives automatically. Source-level
-reading contracts travel with the source instead of depending on the operator
-remembering flags.
+Approved mode selects authorized routing from pinned inputs and explicit references,
+then merges the applicable perspectives. It requires the same source, current
+approval, policy context and limits throughout; see the
+[bounded ingestion guide](../../../docs/references/guides/bounded-ingestion.md).
+The working-tree compatibility adapter also supports source-config discovery by
+matching `source_refs`; it does not establish approved policy or freshness.
 
 ```sh
-python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --emit-request
-python3 scripts/wiki_llm_context_pass.py --record-result result.json --context system
-python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --check
+python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
+python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
+python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --check
 ```
 
 ## Step 7 - Normalized event (quadrants)
@@ -323,13 +327,15 @@ single command chains manifest, text/chunks, index, pre-scan, context
 package and score-event:
 
 ```sh
-python3 scripts/wiki_ingest.py --source data/raw/example.pdf --context system
-python3 scripts/wiki_ingest.py --source X.md --context system --dry-run
+python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
+# Add --dry-run to compute without writing artifacts.
 ```
 
 With `--dry-run` (`write=False`) nothing is written: chunks and package are computed in
 memory, the index and the score are not touched - useful for inspecting what would come out.
-Exit code 2 signals a secret in the source. The manual steps remain available and
+Exit code 2 signals a secret, context or budget blocker, or incomplete retry;
+resolve the reported cause before continuing. The manual steps remain available and
 are the detailing of this flow, useful when running piece by piece:
 [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py),
 [wiki_extract_text.py](../../../scripts/wiki_extract_text.py),
