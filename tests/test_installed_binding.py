@@ -157,13 +157,18 @@ def test_real_code_change_and_symlink_rejected(tmp_path, monkeypatch):
     code = (tmp_path / 'release').resolve(); content = (tmp_path / 'content').resolve()
     (code / 'wiki_core').mkdir(parents=True); (code / 'scripts').mkdir(); content.mkdir()
     (code / 'wiki_core/mod.py').write_text('VALUE = 1\n')
+    prompt = code / 'wiki_core/prompt.md'; prompt.write_text('before')
+    schemas = code / 'docs/references/schemas'; schemas.mkdir(parents=True)
+    schema = schemas / 'fixture.json'; schema.write_text('{}')
     script = code / 'scripts/wiki_audit.py'; script.write_text('print(1)\n')
     monkeypatch.setattr(binding, '_CODE_ROOT', code)
     monkeypatch.setattr(binding, '_SCRIPTS', frozenset({'wiki_audit.py'}))
     binding.configure(content)
-    script.write_text('print(2)\n')
-    with pytest.raises(ValueError, match='installed_code_changed'):
-        binding.command(content, ['python3', 'scripts/wiki_audit.py'])
+    for path, changed, original in ((script, 'print(2)\n', 'print(1)\n'), (prompt, 'after', 'before'), (schema, '{\"x\":1}', '{}')):
+        path.write_text(changed)
+        with pytest.raises(ValueError, match='installed_code_changed'):
+            binding.command(content, ['python3', 'scripts/wiki_audit.py'])
+        path.write_text(original)
     monkeypatch.setattr(binding, '_binding', None)
     script.unlink(); script.symlink_to(code / 'wiki_core/mod.py')
     with pytest.raises(ValueError, match='installed_code_symlink'):
