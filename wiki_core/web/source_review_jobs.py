@@ -91,6 +91,9 @@ def plan_source_review_jobs(root, config, params):
 
 def submit_source_jobs(runner, plan, *, manager, token, session_id):
     """Only called by the fixed native command after exact plan validation."""
+    from wiki_core.web import installed_binding
+    if installed_binding.enabled():
+        raise ValueError("installed_consumer_adapter_unavailable")
     from wiki_core.information_review import enqueue_review_work
     def admitted(capabilities, call):
         value=manager.execute_current(token,session_id,capabilities,call)
@@ -163,7 +166,10 @@ def reconcile_source_job(runner, record):
 
 
 def run_source_job(runner, record):
+    from wiki_core.web import installed_binding
     try:
+        if installed_binding.enabled():
+            return runner._set_status(record, "failed", reason="installed_consumer_adapter_unavailable")
         return _run_source_job(runner, record)
     finally:
         runner._source_review_authorities.pop(record['job_id'],None)

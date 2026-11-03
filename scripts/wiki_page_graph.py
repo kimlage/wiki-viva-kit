@@ -12,8 +12,9 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Callable, TypeVar
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+CODE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(CODE_ROOT))
+from scripts._common import ROOT
 
 from wiki_core.config import WikiConfig, load_config  # noqa: E402
 from wiki_core.graph import (  # noqa: E402

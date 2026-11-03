@@ -217,6 +217,15 @@ def _query_policy_change_marker(root: Path, revisions: tuple[str, str], changed:
     return {'context.yaml'} if normative & changed else set()
 
 
+def _merge_pending_fields(included, pending_fields):
+    """Keep already discovered rows consistent when pending scope widens."""
+    by_path = {row['path']: row for row in included}
+    for path in set(pending_fields) & by_path.keys():
+        fields = set(by_path[path]['fields']) | pending_fields[path]
+        by_path[path]['fields'] = ['*'] if '*' in fields else sorted(fields)
+    return by_path
+
+
 def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                       today: dt.date | None = None,
                       documentary_only: dict[str, str] | None = None,
@@ -282,11 +291,94 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             from wiki_core.information_impact import affected_dynamic_queries
             from wiki_core.dynamic_query_audit import revalidate_affected
             affected = affected_dynamic_queries(current, base, impact_changed, {r['path'] for r in result['included']})
+            closure_budget = [32_000_000]
+            selection_cache = {}  # Local to this exact, fenced audit only.
             outcomes = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
-                                           affected=affected, changed=impact_changed, current=current)
+                                           affected=affected, changed=impact_changed, current=current, read_budget=closure_budget, _selection_cache=selection_cache)
+            # Dynamic outcomes are review obligations, not edits to their pages.
+            # Feed those obligations into typed dependencies and authorized
+            # downstream queries until no new pending fields are discovered.
+            from wiki_core.information_impact import propagate_pending_dependencies, authorized_pending_edge
+            from wiki_core.context_policy import load_policy
+            closure_policy = load_policy(root, base_sha)
+            pending_fields = {r['path']: set(r.get('fields', ['*'])) for r in outcomes if r['state'] == 'review_pending'}
+            derived = {}; denied = set(); ordinary_sources = {}
+            # The generic graph already propagated ordinary impacts. Use those
+            # rows only to discover affected queries, never to rerun ordinary
+            # traversal or change the global caller-trust audit boundary.
+            from wiki_core.context_policy import within
+            from wiki_core.information_relations import dependency_edges
+            query_contracts = []
+            for graph in (base, current):
+                for edge in dependency_edges(graph)[0]:
+                    req = edge.get('requirement', {})
+                    if ('query' in req and closure_policy.owner_of(edge['dependent']) == query_context
+                            and closure_policy.permits(query_context, 'read', edge['dependent'])):
+                        query_contracts.append((req['target'], req['query']['scope']))
+            for row in result['pending_reviews']:
+                if row.get('reason') != 'information_changed': continue
+                path = row['path']
+                if not any(path == anchor or within(path, scope) for anchor, scope in query_contracts): continue
+                if closure_policy.owner_of(path) == query_context and closure_policy.permits(query_context, 'read', path):
+                    provenance = row.get('chain', []) + row.get('causes', [])
+                    if any(edge.get('type') == 'historical_support' or edge.get('temporal_use') in ('historical', 'as_observed') for edge in provenance):
+                        continue
+                    if provenance and all(authorized_pending_edge(edge, closure_policy, query_context) for edge in provenance):
+                        ordinary_sources.setdefault(path, set()).update(row.get('fields', ['*']))
+                    else:
+                        denied.add(path)
+            if len(ordinary_sources) > 1000: raise ValueError('dynamic impact closure limit exceeded')
+            all_outcomes = {(r['path'], r['reason'], r.get('requirement_id')): r for r in outcomes}
+            if pending_fields or ordinary_sources:
+                for _ in range(64):
+                    expanded, reached, boundary = propagate_pending_dependencies(current, base, pending_fields, closure_policy, query_context)
+                    denied.update(boundary)
+                    for path, causes in reached.items():
+                        existing = derived.setdefault(path, [])
+                        for cause in causes:
+                            if cause not in existing: existing.append(cause)
+                    query_sources = {path: set(fields) for path, fields in expanded.items()}
+                    for path, fields in ordinary_sources.items(): query_sources.setdefault(path, set()).update(fields)
+                    affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources))
+                    more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
+                        affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache)
+                    for row in more: all_outcomes[(row['path'], row['reason'], row.get('requirement_id'))] = row
+                    new_fields = {p: set(v) for p, v in expanded.items()}
+                    for row in more:
+                        if row['state'] == 'review_pending': new_fields.setdefault(row['path'], set()).update(row.get('fields', ['*']))
+                    if new_fields == pending_fields: break
+                    pending_fields = new_fields
+                else:
+                    raise ValueError('dynamic impact closure limit exceeded')
+            closure_policy.fresh()
             result['integrity_blockers'] = [r for r in result['integrity_blockers'] if r['reason'] != 'dynamic_query_requires_authorized_revalidation']
-            result['integrity_blockers'].extend(r for r in outcomes if r['state'] == 'unknown')
-            result['pending_reviews'].extend(r for r in outcomes if r['state'] == 'review_pending')
+            result['integrity_blockers'].extend(r for r in all_outcomes.values() if r['state'] == 'unknown')
+            result['integrity_blockers'].extend({'path': p, 'reason': 'dynamic_impact_authority_boundary'} for p in sorted(denied))
+            result['pending_reviews'].extend(r for r in all_outcomes.values() if r['state'] == 'review_pending')
+            existing_pending = {r['path']: r for r in result['pending_reviews']}
+            for path, causes in sorted(derived.items()):
+                if path not in existing_pending:
+                    row = {'path':path, 'state':'review_pending', 'reason':'upstream_interpretation_pending',
+                        'seed':causes[0]['prerequisite'], 'fields':sorted(pending_fields[path]), 'causes':[], 'chain':[],
+                        'priority':'immediate', 'verification_performed':False}
+                    result['pending_reviews'].append(row); existing_pending[path] = row
+                for cause in causes:
+                    if cause not in existing_pending[path].setdefault('causes', []): existing_pending[path]['causes'].append(cause)
+            # Every pending reason for a page must expose the full potentially
+            # affected field set, not just the first path that reached it.
+            for row in result['pending_reviews']:
+                if row['path'] in pending_fields:
+                    fields = set(row.get('fields', [])) | pending_fields[row['path']]
+                    row['fields'] = ['*'] if '*' in fields else sorted(fields)
+            included = _merge_pending_fields(result['included'], pending_fields)
+            for path in sorted(set(pending_fields) - included.keys()):
+                causes = derived.get(path, [])
+                row = {'path':path, 'seed':causes[0]['prerequisite'] if causes else path, 'distance':None,
+                    'fields':sorted(pending_fields[path]), 'causes':[], 'chain':[]}
+                result['included'].append(row); included[path] = row
+            for path, causes in derived.items():
+                for cause in causes:
+                    if cause not in included[path].setdefault('causes', []): included[path]['causes'].append(cause)
             result['ok'] = not result['integrity_blockers'] and not result['relation_errors']
             result['query_revalidation'] = {'context': query_context, 'policy_revision': base_sha, 'head': head,
                 'affected': len(affected), 'fact_freshness': 'not_assessed',

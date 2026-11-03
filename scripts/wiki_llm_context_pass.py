@@ -24,8 +24,9 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+CODE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(CODE_ROOT))
+from scripts._common import ROOT
 
 from wiki_core.config import DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION, load_config
 from wiki_core.ids import sha256_text

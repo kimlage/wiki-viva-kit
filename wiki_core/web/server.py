@@ -273,6 +273,10 @@ class CockpitServer(ThreadingHTTPServer):
     def __init__(self, server_address: tuple[str, int], root: Path, config: WikiConfig,
                  *, admin_announce: Callable[[str], None] | None = None,
                  start_jobs: bool = True, coordination_binding: CoordinationBinding | None = None) -> None:
+        from wiki_core.web import installed_binding
+        installed_binding.seal_legacy()
+        if installed_binding.enabled() and (config.codex_enabled or config.claude_enabled or config.admin.get("source_review_enabled", False)):
+            raise ValueError("installed_job_runner_unavailable")
         # CORS is a startup trust decision. Invalid or remote origins must fail
         # before the operator opens a listening socket, and environment changes
         # only take effect after an intentional restart.
@@ -2322,16 +2326,27 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         self._send_error("not found", status=HTTPStatus.NOT_FOUND)
 
 
-def serve(root: Path, *, host: str = "127.0.0.1", port: int = 8765, frontend: Path | None = None, frame_origins: tuple[str, ...] = ()) -> None:
+def serve(root: Path, *, host: str = "127.0.0.1", port: int = 8765, frontend: Path | None = None, frame_origins: tuple[str, ...] = (), installed_code: bool = False) -> None:
     if host not in LOOPBACK_HOSTS:
         raise ValueError(
             "the local operator may bind only to 127.0.0.1, localhost or ::1"
         )
     if frontend is not None:
-        frontend = frontend.resolve()
+        if installed_code:
+            frontend = frontend.absolute()
+            if frontend.is_symlink() or frontend.resolve(strict=True) != frontend:
+                raise ValueError("installed_frontend_invalid")
+            code = _operator_code_root()
+            if any(frontend == other or frontend in other.parents or other in frontend.parents for other in (root, code)):
+                raise ValueError("installed_frontend_not_distinct")
+        else:
+            frontend = frontend.resolve()
         if not (frontend / "index.html").is_file():
             raise ValueError("frontend must contain a built index.html")
     checked_origins = tuple("file:" if origin == "file:" else _validated_cors_origin(origin) for origin in frame_origins)
+    if installed_code:
+        from wiki_core.web import installed_binding
+        installed_binding.configure(root)
     config = load_config(root)
     server = CockpitServer((host, port), root, config)
     server.frontend_dir = frontend
@@ -2344,7 +2359,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the local Wiki Viva web cockpit operator server.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--root", default=str(Path.cwd()))
+    parser.add_argument("--root", default=None)
+    parser.add_argument("--installed-code", action="store_true", help="Use installed code with an explicit separate content root")
     parser.add_argument("--frontend", type=Path, help="Built cockpit dist directory, served on the operator origin")
     parser.add_argument("--frame-origin", action="append", default=[], help="Explicit loopback embedding origin, or file: for native desktop hosts")
     args = parser.parse_args(argv)
@@ -2353,7 +2369,10 @@ def main(argv: list[str] | None = None) -> int:
             "--host must be 127.0.0.1, localhost or ::1; "
             "the operator has no remote-bind authentication"
         )
-    serve(Path(args.root).resolve(), host=args.host, port=args.port, frontend=args.frontend, frame_origins=tuple(args.frame_origin))
+    if args.installed_code and args.root is None:
+        parser.error("--installed-code requires explicit --root")
+    root = Path(args.root).absolute() if args.installed_code else Path(args.root or Path.cwd()).resolve()
+    serve(root, host=args.host, port=args.port, frontend=args.frontend, frame_origins=tuple(args.frame_origin), installed_code=args.installed_code)
     return 0
 
 

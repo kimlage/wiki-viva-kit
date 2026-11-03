@@ -11,7 +11,7 @@ import re
 import subprocess
 import yaml
 from .context_policy import PolicyError, UniqueLoader, safe_path, within, historical_policy
-from .detectors import scan_text
+from .detectors import contains_secret_structure
 from .frontmatter import FRONTMATTER_RE
 from .repository_reader import canonical_path
 
@@ -22,8 +22,11 @@ def digest(value):
 
 
 def reject_secrets(value):
-    if any(f.category == 'secret' for f in scan_text(json.dumps(value, ensure_ascii=False, allow_nan=False, default=str))):
-        raise PolicyError('secret detected in query input')
+    try:
+        found = contains_secret_structure(value)
+    except (ValueError, TypeError, RecursionError) as exc:
+        raise PolicyError('invalid query input') from exc
+    if found: raise PolicyError('secret detected in query input')
 
 
 def normalize_query(entry):
@@ -94,7 +97,7 @@ def authority_digest(policy, context_id, entry):
         'read':clipped(effective['read']),'deny':clipped(effective['deny']['read']), 'excluded_context_roots':excluded})
 
 
-def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expected_authority, read_budget=None):
+def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expected_authority, read_budget=None, _candidate_refs=None):
     """Check historical authority BEFORE reading, then use only current permission."""
     entry=normalize_query(entry)
     if not isinstance(expected_authority,str) or not re.fullmatch(r'[0-9a-f]{64}',expected_authority):
@@ -108,7 +111,7 @@ def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expec
     if (authority_digest(old,context_id,entry)!=expected_authority
             or authority_digest(policy,context_id,entry)!=expected_authority):
         raise PolicyError('query authority changed or unavailable; requalification required')
-    receipt,anchor,members=select_query(policy,context_id,reader,entry,read_budget=read_budget)
+    receipt,anchor,members=select_query(policy,context_id,reader,entry,read_budget=read_budget,_candidate_refs=_candidate_refs)
     receipt['policy_revision']=policy_revision
     return receipt,anchor,members
 
@@ -129,7 +132,7 @@ def _metadata(item):
     return values
 
 
-def select_query(policy, context_id, reader, entry, *, read_budget=None):
+def select_query(policy, context_id, reader, entry, *, read_budget=None, _candidate_refs=None):
     """Apply current owner/read authorization before opening candidate blobs."""
     entry = normalize_query(entry)
     target = entry['target']; q = entry['query']; scope = q['scope']
@@ -170,6 +173,7 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None):
         admit(path)
         item = reader.read(path); fm = _metadata(item)
         page_id = fm.get('page_id')
+        if _candidate_refs is not None: _candidate_refs.append((path, page_id is not None))
         if page_id is None: continue  # Non-page Markdown is not a collection member.
         if not isinstance(page_id, str) or not page_id.strip() or any(ord(c)<32 for c in page_id) or page_id in identities:
             raise PolicyError('query page identity missing or ambiguous')

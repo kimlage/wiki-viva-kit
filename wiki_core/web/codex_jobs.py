@@ -93,6 +93,9 @@ class JobRunner:
         reconcile_retained: bool = True,
         on_change: Callable[[], None] | None = None,
     ) -> None:
+        from wiki_core.web import installed_binding
+        if installed_binding.enabled() and (autostart or reconcile_retained):
+            raise ValueError("installed_job_runner_unavailable")
         self.root = root
         self.config = config
         codex_cfg = getattr(config, "codex", {}) or {}
@@ -125,6 +128,9 @@ class JobRunner:
 
     # -- lifecycle ---------------------------------------------------------- #
     def start(self) -> None:
+        from wiki_core.web import installed_binding
+        if installed_binding.enabled():
+            raise ValueError("installed_job_runner_unavailable")
         if self._worker and self._worker.is_alive():
             return
         self._worker = threading.Thread(target=self._drain, daemon=True)
@@ -273,6 +279,9 @@ class JobRunner:
     ) -> dict[str, Any]:
         """Validate + enqueue. Returns the queued record, or an ``ok:False``
         rejection (sha mismatch / stale targets / unknown brief / codex unusable)."""
+        from wiki_core.web import installed_binding
+        if installed_binding.enabled():
+            return {"ok": False, "error": "installed_job_runner_unavailable"}
         agent = str(agent or "codex").lower()
         if agent not in AGENT_IDS:
             return {"ok": False, "error": "unknown agent adapter", "agent": agent}
@@ -338,6 +347,9 @@ class JobRunner:
 
     # -- run ---------------------------------------------------------------- #
     def run_job(self, job_id: str) -> dict[str, Any]:
+        from wiki_core.web import installed_binding
+        if installed_binding.enabled():
+            return {"ok": False, "error": "installed_job_runner_unavailable"}
         record = self.get(job_id)
         if record is None:
             return {"ok": False, "error": "unknown job"}
