@@ -184,7 +184,7 @@ def load_policy(root, approved_revision, manifest_path='context.yaml', *, truste
     entries=_git(root,'ls-tree','-r','-z','--name-only',sha).split(b'\0')
     paths=[]
     for raw in entries:
-        if not raw: continue
+        if not raw or not (raw==b'context.yaml' or raw.endswith(b'/context.yaml')): continue
         try: p=raw.decode('utf-8')
         except UnicodeDecodeError as exc: raise PolicyError('invalid Git path') from exc
         if (p=='context.yaml' or p.endswith('/context.yaml')) and within(p,base): paths.append(p)

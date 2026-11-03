@@ -53,6 +53,10 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
         deadline = None
         if not values or path not in graph['documents']:
             reasons.append('information_target_missing')
+        elif requirement and 'query' in requirement:
+            # This graph has no current context authority to enumerate a set.
+            # A hub timestamp cannot establish member equivalence or facts.
+            reasons.append('information_query_requires_authorized_revalidation')
         elif not requirement:
             reasons.append('information_use_scope_unspecified')
         else:

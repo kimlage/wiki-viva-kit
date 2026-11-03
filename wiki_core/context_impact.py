@@ -14,6 +14,7 @@ from wiki_core.information_relations import dependency_edges
 from wiki_core.repository_reader import RepositoryReader, RepositoryReadError
 from wiki_core.content_sections import SectionError
 from wiki_core.detectors import scan_text
+from wiki_core.context_selection import select_query, requirement_query
 
 
 class ImpactError(ValueError): pass
@@ -79,7 +80,7 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
     old=RepositoryReader(root,before); new=RepositoryReader(root,after); readers={old.revision:old}
     try: edges,_=dependency_edges(graph)
     except (KeyError,TypeError,AttributeError) as exc: raise ImpactError('malformed relation inventory') from exc
-    candidates={}
+    candidates={}; query_read_budget=[32_000_000]
     for e in edges:
         source=safe_path(e['prerequisite']); target=safe_path(e['dependent'])
         if policy.owner_of(target)!=destination_context: continue
@@ -97,20 +98,36 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             if edge_old.revision!=consumed_revision: raise ImpactError('consumed revision not fixed')
         fields=e.get('consumed_fields')
         if not isinstance(fields,list) or not fields: raise ImpactError('missing consumed selectors')
+        query = e.get('requirement', {}).get('query')
+        query_before = query_after = None
+        if query is not None:
+            if source_owner != destination_context: raise ImpactError('query scope not authorized')
+            try:
+                req=e['requirement']
+                query_before,_,_=select_query(policy,destination_context,edge_old,requirement_query(req),read_budget=query_read_budget)
+                query_after,_,_=select_query(policy,destination_context,new,requirement_query(req),read_budget=query_read_budget)
+                if any(query_before[k]!=req.get(k) for k in ('members_digest','selected_digest')):
+                    raise ImpactError('canonical query receipt differs from consumed selection')
+            except (ValueError,KeyError,TypeError) as exc: raise ImpactError('query requirement cannot be revalidated') from exc
+            fields=['query:'+query_before['query_id']]
         for selector in fields:
-            kind,name=_selector(selector)
+            kind,name=('query',None) if query is not None else _selector(selector)
             classification=e.get('classification','internal'); use=e.get('use','interpret')
             if not isinstance(classification,str) or not classification or not isinstance(use,str) or not use: raise ImpactError('invalid use or classification')
             grant=policy.connection(source_owner,destination_context,source,use,classification,section=name if kind=='section' else None,field=name if kind=='field' else None)
             if grant!='approved': continue
-            before_digest=_selected_digest(edge_old,source,selector); after_digest=_selected_digest(new,source,selector)
-            if before_digest==after_digest and before_digest is not None and consumed_revision is not None: continue
+            before_digest=query_before['selected_digest'] if query is not None else _selected_digest(edge_old,source,selector)
+            after_digest=query_after['selected_digest'] if query is not None else _selected_digest(new,source,selector)
+            if (before_digest==after_digest and before_digest is not None and consumed_revision is not None
+                    and (query is None or query_before['members_digest']==query_after['members_digest'])): continue
             rule=str(e.get('type','untyped_reference'))
             target_digest=_selected_digest(new,target,'*')
             key=(target,edge_old.revision,new.revision,rule,source,selector,use,classification,target_digest)
             event_id=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
             cycle=event_id in trace or len(trace)>=max_generation
             candidates[key]={'event_id':event_id, 'trace':list(trace) if cycle else [*trace,event_id], 'generation':len(trace), 'target':target,'destination_context':destination_context,'source':source,'producer_context':source_owner,'selector':selector,'rule':rule,'use':use,'classification':classification,'before_revision':edge_old.revision,'after_revision':new.revision,'before_digest':before_digest,'after_digest':after_digest,'target_digest':target_digest,'state':'blocked_cycle_limit' if cycle else ('blocked_missing_target' if target_digest is None else ('blocked_unpinned_dependency' if consumed_revision is None else ('blocked_missing_source' if before_digest is None and after_digest is None else 'review_pending'))),'interpretation':'independent','fact_freshness':'not_assessed'}
+            if query is not None:
+                candidates[key].update(query=query, members_digest_before=query_before['members_digest'], members_digest_after=query_after['members_digest'])
     # Avoid silently omitting work: return an explicit continuation offset and
     # total only for the authorized candidate set.
     ordered=[candidates[k] for k in sorted(candidates)]
@@ -135,7 +152,7 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
     if not isinstance(candidate,dict) or candidate.get('state')!='review_pending': raise ImpactError('candidate is not reviewable')
     try:
         target=safe_path(candidate['target']); source=safe_path(candidate['source']); context=candidate['destination_context']
-        selector=candidate['selector']; kind,name=_selector(selector)
+        selector=candidate['selector']; kind,name=('query',None) if 'query' in candidate else _selector(selector)
         key=(target,candidate['before_revision'],candidate['after_revision'],candidate['rule'],source,selector,candidate['use'],candidate['classification'],candidate['target_digest'])
         expected=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
         if expected!=candidate['event_id'] or policy.owner_of(target)!=context or policy.owner_of(source)!=candidate['producer_context'] or not policy.permits(context,'read',target): raise ImpactError('invalid candidate')
@@ -143,7 +160,13 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         if grant!='approved': raise ImpactError('candidate authorization no longer current')
         reader=RepositoryReader(root,evidence_revision)
         if reader.revision!=policy.policy_revision: raise ImpactError('evidence revision not approved current base')
-        digest=_selected_digest(reader,source,selector)
+        if kind=='query':
+            entry={'target':source,'query':candidate['query'],'reason':'canonical collection requirement','use':candidate['use'],'classification':candidate['classification']}
+            receipt,_,_=select_query(policy,context,reader,entry)
+            if selector!='query:'+receipt['query_id'] or candidate['members_digest_after']!=receipt['members_digest']:
+                raise ImpactError('query candidate selection differs')
+            digest=receipt['selected_digest']
+        else: digest=_selected_digest(reader,source,selector)
         if digest!=candidate['after_digest']: raise ImpactError('source changed since candidate')
         prior=RepositoryReader(root,candidate['after_revision'])
         before=_selected_digest(prior,target,'*'); after=_selected_digest(reader,target,'*')

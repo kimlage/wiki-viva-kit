@@ -1627,3 +1627,17 @@ prior artifact, index and cursor after revocation or source mutation. Approved
 request/capture instead of global request discovery; compatibility remains
 explicit. Invalid cache keys are not echoed in errors. These checks do not
 claim a sandbox or additional cache permissions, and source dates stay intact.
+
+## [2026-11-03] Authorized dynamic collection selection
+
+The [bounded query contract](../../docs/references/guides/context-dynamic-selection.md)
+connects current owner authorization, immutable Git selection, task packets and
+reported results. Predicates and separate membership/selected-byte digests remain
+on the existing canonical information requirement and inventory edge. The
+[finite flow](../../scripts/wiki_context_flow.py) revalidates current sets and
+produces one-hop impact candidates for new, removed or changed matching pages;
+it does not verify external facts, schedule work or approve/merge proposals.
+[Synthetic regressions](../../tests/test_context_dynamic_selection.py) cover the
+protected CLI/HTTP handoff, canonical preflight and later set invalidation without
+a global snapshot. Generic readiness requires explicit authorized revalidation.
+No source verification date or published release/tag changes.

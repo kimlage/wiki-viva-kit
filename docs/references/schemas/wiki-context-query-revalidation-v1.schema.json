@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Authorized dynamic query equivalence, not factual readiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "consumer",
+    "policy_revision",
+    "queries",
+    "equivalent",
+    "coverage",
+    "fact_freshness",
+    "effect"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki.context-query-revalidation/v1"
+    },
+    "consumer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_revision": {
+      "type": "string",
+      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "query_id",
+          "members_equivalent",
+          "selected_bytes_equivalent",
+          "state"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "query_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "members_equivalent": {
+            "type": "boolean"
+          },
+          "selected_bytes_equivalent": {
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "equivalent",
+              "review_required"
+            ]
+          }
+        }
+      }
+    },
+    "equivalent": {
+      "type": "boolean"
+    },
+    "coverage": {
+      "const": "declared_queries_in_authorized_owner_scope_only"
+    },
+    "fact_freshness": {
+      "const": "not_assessed"
+    },
+    "effect": {
+      "const": "not_performed"
+    }
+  }
+}

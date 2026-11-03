@@ -68,7 +68,9 @@ The protected local API additionally requires a host binding and an authenticate
 operator session. See [protected coordination](../docs/references/guides/context-coordination-protected.md).
 The [context reader guide](../docs/references/guides/context-reader.md)
 explains historical evidence, current policy bodies, ingestion flags and
-unsupported selections.
+unsupported selections. Optional owner-only `queries` bind dynamic sets to an
+existing collection contract, with explicit read/enumeration/match limits; see
+[dynamic selection](../docs/references/guides/context-dynamic-selection.md).
 
 ## Bounded canonical ingestion
 
@@ -82,6 +84,8 @@ explicit source, approval, context and limits. See [bounded ingestion](../docs/r
 
 [wiki_context_flow.py](wiki_context_flow.py) reads canonical requirements for
 impact by selected content/revision and independently preflights proposals.
+Its `revalidate --context OWNER --consumer PATH` reports current dynamic-set and
+selected-byte equivalence under approved authority, separately from fact freshness.
 See [context impact and integration](../docs/references/guides/context-impact-integration.md):
 requirements stay on the canonical page; no additional graph/queue, approval or
 merge is performed automatically.
