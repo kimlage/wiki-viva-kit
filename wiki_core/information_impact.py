@@ -44,16 +44,33 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
     return [found[key] for key in sorted(found)]
 
 
+def authorized_pending_edge(edge, policy, context_id):
+    """Closure never imports another owner's provenance or a denied path."""
+    from wiki_core.context_policy import PolicyError
+    try:
+        source, target = edge['prerequisite'], edge['dependent']
+        if (policy.owner_of(source) != context_id or policy.owner_of(target) != context_id
+                or not policy.permits(context_id, 'read', source) or not policy.permits(context_id, 'read', target)):
+            return False
+        return policy.connection(context_id, context_id, source, edge.get('use', 'interpret'),
+            edge.get('classification', 'internal')) == 'approved'
+    except (PolicyError, ValueError, KeyError, TypeError):
+        return False
+
+
 def propagate_pending_dependencies(current, base, pending_fields, policy, context_id, *, limit=1000):
     """Propagate review obligations across currently authorized use edges only.
 
     A pending interpretation may change its produced fields; it is not a fact
     change. Contextual/navigation and historical relations do not propagate.
     """
-    from wiki_core.context_policy import PolicyError
     edges = []
+    seen_edges = set()
     for graph in (base, current):
-        edges.extend(dependency_edges(graph)[0])
+        for edge in dependency_edges(graph)[0]:
+            key = json.dumps({k: v for k, v in edge.items() if k != 'origin'}, sort_keys=True, ensure_ascii=False)
+            if key not in seen_edges:
+                seen_edges.add(key); edges.append(edge)
     fields = {path: set(values) for path, values in pending_fields.items()}
     if len(fields) > limit: raise ValueError('dynamic impact closure limit exceeded')
     work = deque(sorted(fields)); reached = {}; denied = set(); steps = 0
@@ -71,20 +88,15 @@ def propagate_pending_dependencies(current, base, pending_fields, policy, contex
             if '*' not in fields[source] and '*' not in consumed and not (fields[source] & consumed): continue
             target = edge['dependent']
             if 'nodes' in current and target not in current['nodes']: continue
-            try:
-                if (policy.owner_of(source) != context_id or policy.owner_of(target) != context_id
-                        or not policy.permits(context_id, 'read', source) or not policy.permits(context_id, 'read', target)):
-                    denied.add(source); continue
-                use=edge.get('use', 'interpret'); classification=edge.get('classification', 'internal')
-                if policy.connection(context_id, context_id, source, use, classification) != 'approved':
-                    denied.add(source); continue
-            except (PolicyError, ValueError, TypeError):
+            if not authorized_pending_edge(edge, policy, context_id):
                 denied.add(source); continue
             produced = {('body' if f.startswith('section:') else f.removeprefix('field:')) for f in edge['produced_fields']}
             previous = fields.get(target, set()); enlarged = previous | produced
             if '*' in enlarged: enlarged = {'*'}
+            causes = reached.setdefault(target, [])
+            if edge not in causes: causes.append(edge)
             if enlarged != previous:
-                fields[target] = enlarged; reached[target] = source; work.append(target)
+                fields[target] = enlarged; work.append(target)
                 if len(fields) > limit: raise ValueError('dynamic impact closure limit exceeded')
     return fields, reached, denied
 
