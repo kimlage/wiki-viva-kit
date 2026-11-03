@@ -185,7 +185,20 @@ assess factual freshness, run preflight, grant an effect or approve integration.
 A revalidated changed collection creates a pending interpretation obligation,
 not a claim that its consumer's facts changed. Existing typed information-change obligations may trigger relevant query
 recomputation; they do not rerun the generic graph traversal or turn unrelated
-ordinary impact into a context boundary. Ordinary age debt does not seed closure. The scoped audit follows existing
+ordinary impact into a context boundary. The query closure uses a separate
+in-memory projection of explicit current `information_requirements`, authored
+operational-prerequisite roles, and declared projections. Legacy Markdown links,
+`source_ref`, navigation and historical links remain in the global caller-trust
+impact report, but do not alone establish current consumption for query closure.
+A typed path remains effective even when a legacy path reaches the same page.
+Both the generic audit's query blockers and the bound audit's affected-query
+selection use this typed reach, together with direct changes to the consumer,
+anchor, scope or policy. They do not treat a legacy-only reach as an affected
+query in another context. When typed paths converge, every reached cause is
+checked under current authority before it can seed scoped closure; a denied
+upstream remains a blocker even if another typed path is authorized.
+This does not authorize reading any source, remove global pending reviews or
+mark information verified. Ordinary age debt does not seed closure. The scoped audit follows existing
 typed nonhistorical consumption edges from that obligation and checks whether a
 downstream query contains a pending member and consumes a potentially affected
 field, or an authorized candidate currently excluded from the set has a pending

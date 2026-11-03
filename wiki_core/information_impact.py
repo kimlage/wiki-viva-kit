@@ -36,12 +36,34 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
             if 'query' not in req:
                 continue
             consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
-            if not (policy_changed or consumer in reached or consumer in changed or anchor in changed
-                    or any(within(p, scope) for p in changed)):
+            if not (policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
+                    or any(within(p, scope) for p in changed | reached)):
                 continue
             key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
             found[key] = {'path': consumer, 'requirement': req, 'origin': origin}
     return [found[key] for key in sorted(found)]
+
+
+def explicit_current_consumption(edge):
+    """Select only canonical, explicitly declared current consumption edges.
+
+    Legacy citations stay in the global graph; they are not proof for scoped
+    query closure. Dynamic query dependencies are revalidated separately.
+    """
+    kind = edge.get('type')
+    requirement = edge.get('requirement')
+    if kind == 'operational_prerequisite':
+        if isinstance(requirement, dict):
+            return 'query' not in requirement and requirement.get('temporal') == 'current'
+        return edge.get('authored_role') == 'operational_prerequisite'
+    if kind in ('projection', 'projection_state'):
+        return edge.get('field') == 'projection_inputs' or edge.get('authored_role') == kind
+    return False
+
+
+def typed_consumption_graph(graph):
+    """Project existing graph edges without reading or changing canonical data."""
+    return {**graph, 'edges': [edge for edge in graph['edges'] if explicit_current_consumption(edge)]}
 
 
 def authorized_pending_edge(edge, policy, context_id):
@@ -56,6 +78,23 @@ def authorized_pending_edge(edge, policy, context_id):
             edge.get('classification', 'internal')) == 'approved'
     except (PolicyError, ValueError, KeyError, TypeError):
         return False
+
+
+def authorized_typed_provenance(path, reasons, policy, context_id, *, limit=1000):
+    """Validate every reached typed cause, including convergent upstream paths."""
+    pending = [path]; visited = set(); seen_edges = set()
+    while pending:
+        node = pending.pop()
+        if node in visited: continue
+        visited.add(node)
+        if len(visited) > limit or node not in reasons: return False
+        for edge in reasons[node]['causes']:
+            key = json.dumps({k: v for k, v in edge.items() if k != 'origin'}, sort_keys=True, ensure_ascii=False)
+            if key in seen_edges: continue
+            seen_edges.add(key)
+            if len(seen_edges) > limit or not authorized_pending_edge(edge, policy, context_id): return False
+            pending.append(edge['prerequisite'])
+    return True
 
 
 def propagate_pending_dependencies(current, base, pending_fields, policy, context_id, *, limit=1000):
@@ -76,7 +115,7 @@ def propagate_pending_dependencies(current, base, pending_fields, policy, contex
     work = deque(sorted(fields)); reached = {}; denied = set(); steps = 0
     by_source = defaultdict(list)
     for edge in edges:
-        if 'query' in edge.get('requirement', {}) or edge['type'] == 'historical_support' or edge.get('temporal_use') in ('historical', 'as_observed'):
+        if not explicit_current_consumption(edge):
             continue
         by_source[edge['prerequisite']].append(edge)
     while work:
@@ -101,13 +140,8 @@ def propagate_pending_dependencies(current, base, pending_fields, policy, contex
     return fields, reached, denied
 
 
-def evaluate_information_impact(current: dict, base: dict, changed: set[str], *, today: dt.date) -> dict:
-    """Propagate relevant information downstream; never import sibling facts.
-
-    Factual relevance creates a review obligation, not proof of a contradiction.
-    Current-use prerequisites are checked separately at execution. Missing
-    referenced artifacts and relation errors remain integrity failures.
-    """
+def _information_reach(current, base, changed):
+    """Return existing field-sensitive traversal without any content reads."""
     changed = changed | (set(base['nodes']) - set(current['nodes']))
     seeds = changed & (set(current['nodes']) | set(base['nodes']))
     adjacency = defaultdict(list)
@@ -150,6 +184,24 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     for path, reason in reasons.items():
         reason['fields'] = sorted(fields[path])
         reason['causes'] = incoming[path]
+    return seeds, reasons, adjacency, nonpropagating
+
+
+def typed_information_reach(current, base, changed):
+    """Reach over explicitly declared current consumption only."""
+    return _information_reach(typed_consumption_graph(current), typed_consumption_graph(base), changed)[1]
+
+
+def evaluate_information_impact(current: dict, base: dict, changed: set[str], *, today: dt.date, _typed_reasons=None) -> dict:
+    """Propagate global impact while discovering queries from typed reach only.
+
+    Current-use prerequisites are checked separately at execution; this does
+    not imply that a review or external verification occurred.
+    """
+    seeds, reasons, adjacency, nonpropagating = _information_reach(current, base, changed)
+    if _typed_reasons is None:
+        has_queries = any('query' in edge.get('requirement', {}) for graph in (base, current) for edge in graph['edges'])
+        _typed_reasons = typed_information_reach(current, base, changed) if has_queries else {}
     pending = []
     for path, reason in sorted(reasons.items()):
         if path not in current['nodes']:
@@ -165,7 +217,7 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
                             'verification_performed': False})
     # This already-materialized graph has no current context authority to
     # enumerate dynamic members. It must not certify only the anchor edge.
-    affected = affected_dynamic_queries(current, base, changed, set(reasons))
+    affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons))
     dynamic_blockers = [{'path':row['path'],'reason':'dynamic_query_requires_authorized_revalidation'} for row in affected]
     missing = set(current.get('missing_evidence', set()))
     missing_used = sorted({edge['prerequisite'] for edges in adjacency.values() for edge in edges
