@@ -463,6 +463,14 @@ def test_source_change_pending_then_consumer_reinterprets(collection):
     report=repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=source_head)
     assert not report['blockers'] and any(x['reason']=='dynamic_query_changed' and x['verification_performed'] is False for x in report['pending_reviews'])
     approve(collection)
+    # A second source proposal must remain reviewable even while the first
+    # approved change still awaits independent consumer interpretation.
+    git(collection,'checkout','-qb','wiki/second-source-change')
+    page(collection,'another.md');git(collection,'add','.');git(collection,'commit','-qm','second source addition')
+    second_head=git(collection,'rev-parse','HEAD')
+    again=repository_report(collection,config,source_head,query_context='costs',query_policy_revision=source_head,query_head=second_head)
+    assert not again['blockers'] and any(x['reason']=='dynamic_query_changed' for x in again['pending_reviews'])
+    approve(collection); source_head=second_head
     newpacket=packet(collection)
     git(collection,'checkout','-qb','wiki/consumer-refresh')
     declare(collection,requirement(newpacket)); git(collection,'add','.'); git(collection,'commit','-qm','refresh query')
@@ -514,6 +522,10 @@ def test_unrelated_log_and_normative_input_are_distinguished(collection):
     (collection/'rules.md').write_text('Changed approved rule\n');git(collection,'add','.');git(collection,'commit','-qm','normative change')
     head=git(collection,'rev-parse','HEAD')
     assert repository_report(collection,config,base)['blockers']
+    report=repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=head)
+    assert not report['blockers'] and any(r['reason']=='dynamic_query_requalification_required' for r in report['pending_reviews'])
+    (collection/TASK['output']).write_text((collection/TASK['output']).read_text()+'Changed interpretation.\n')
+    git(collection,'add','.');git(collection,'commit','-qm','edit consumer with rule');head=git(collection,'rev-parse','HEAD')
     assert repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=head)['blockers']
 
 
@@ -525,8 +537,15 @@ def test_revoked_query_can_only_be_replaced_by_current_authorized_receipt(collec
     path=collection/'finance/costs/context.yaml'; doc=yaml.safe_load(path.read_text()); doc['policy']['deny']={'read':[SCOPE+'/restricted']}; path.write_text(yaml.safe_dump(doc))
     git(collection,'checkout','-qb','wiki/revoke-scope');git(collection,'add','.');git(collection,'commit','-qm','approved revocation')
     revocation=git(collection,'rev-parse','HEAD'); config=load_config(collection)
-    assert repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=revocation)['blockers']
+    proposed=repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=revocation)
+    assert not proposed['blockers'] and any(r['reason']=='dynamic_query_requalification_required' for r in proposed['pending_reviews'])
     approve(collection)
+    # Once revocation is approved, the old receipt cannot authorize another
+    # affected query under the newly reduced authority.
+    git(collection,'checkout','-qb','wiki/stale-after-revocation');page(collection,'post-revoke.md')
+    git(collection,'add','.');git(collection,'commit','-qm','new source after revocation'); stale_head=git(collection,'rev-parse','HEAD')
+    assert repository_report(collection,config,revocation,query_context='costs',query_policy_revision=revocation,query_head=stale_head)['blockers']
+    git(collection,'checkout','-q','wiki/revoke-scope')
     replacement=packet(collection)
     git(collection,'checkout','-qb','wiki/requalify-query');declare(collection,requirement(replacement))
     git(collection,'add','.');git(collection,'commit','-qm','requalify under current policy'); head=git(collection,'rev-parse','HEAD')
@@ -613,3 +632,25 @@ def test_removing_approved_query_does_not_erase_obligation(collection):
     git(collection,'checkout','-qb','wiki/remove-query');git(collection,'rm',TASK['output']);git(collection,'commit','-qm','remove consumer')
     head=git(collection,'rev-parse','HEAD')
     assert repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)['blockers']
+
+
+def test_proposed_grant_never_authorizes_query_reads(collection,monkeypatch):
+    from wiki_core.freshness_impact import repository_report
+    import wiki_core.dynamic_query_audit as qa
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    page(collection,'restricted/secret.md')
+    manifest_path=collection/'finance/costs/context.yaml';doc=yaml.safe_load(manifest_path.read_text());doc['policy']['deny']={'read':[SCOPE+'/restricted']};manifest_path.write_text(yaml.safe_dump(doc));commit(collection)
+    p=packet(collection);declare(collection,requirement(p));base=commit(collection)
+    git(collection,'checkout','-qb','wiki/proposed-grant');doc['policy']['deny']={};manifest_path.write_text(yaml.safe_dump(doc));git(collection,'add','.');git(collection,'commit','-qm','propose grant')
+    head=git(collection,'rev-parse','HEAD'); original=RepositoryReader._document; selected=qa.select_query
+    def guard(reader,path):
+        assert path!=SCOPE+'/restricted/secret.md', 'proposed grant opened revoked blob'
+        return original(reader,path)
+    def guard_selection(policy,context,reader,entry,**kwargs):
+        assert reader.revision!=head, 'proposed policy was used to evaluate selection'
+        return selected(policy,context,reader,entry,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'_document',guard);monkeypatch.setattr(qa,'select_query',guard_selection)
+    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    assert not report['blockers'] and any(x['reason']=='dynamic_query_requalification_required' for x in report['pending_reviews'])
+    assert report['query_revalidation']['audit_authority']=='global_integrator_caller_trust'
+    assert report['query_revalidation']['context_scope']=='query_recomputation_only_not_auditor_acl'

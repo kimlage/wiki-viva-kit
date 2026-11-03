@@ -152,8 +152,15 @@ propagation reaches its consumer. An unrelated change does not require every
 query to be rescanned. Without explicit authority, an affected query remains a
 blocker.
 
-A trusted local operator can bind one context to a clean, exact proposal for
-in-process revalidation; no supplied receipt file is accepted:
+This audit materializes a global graph before applying any query binding. It
+is a caller-trust tool for an explicitly authorized **global integration
+operator**; its output and logs are private. `--query-context` limits only
+query recomputation. It is not an ACL or isolation boundary for the audit as a
+whole. A scoped executor must not run this audit or receive its global output;
+use the owner-only context flow for scoped reads instead.
+
+A trusted global integration operator can bind one context to a clean, exact
+proposal for in-process revalidation; no supplied receipt file is accepted:
 
 ```sh
 python3 scripts/wiki_audit.py --check --freshness-base APPROVED_SHA \
@@ -164,7 +171,10 @@ The policy revision must equal the current trusted approval ref and the audit
 base; the proposal HEAD must be exact, committed and clean. Queries in other
 contexts remain blocked. The audit recomputes historical, approved-base and
 proposal selections under current authority. A changed set for an unchanged
-consumer produces a pending interpretation review; an edited consumer must
+consumer produces a pending interpretation review; a proposed policy or
+normative change instead produces pending requalification under the approved
+base policy without evaluating proposed grants. An edited consumer combined
+with such a change remains blocked; an edited consumer must
 instead declare a valid equivalent current selection. A replacement after
 revocation is verified under current permission without opening revoked
 historical members. Removing a requirement is not a substitute for review.

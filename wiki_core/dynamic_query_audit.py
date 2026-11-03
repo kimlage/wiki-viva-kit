@@ -52,7 +52,7 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
     for row in affected:
         path, req = row['path'], row['requirement']
         try:
-            if changed_policy: raise PolicyError('policy or normative input changed')
+            if changed_policy and path in changed: raise PolicyError('consumer and policy or normative input changed together')
             if policy.owner_of(path) != context_id or not policy.permits(context_id, 'read', path):
                 raise PolicyError('consumer outside authorized context')
             if path not in head_reader.paths: raise PolicyError('consumer removed')
@@ -79,11 +79,17 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
             if any(prior[k] != req[k] for k in ('members_digest', 'selected_digest')):
                 raise PolicyError('query receipt cannot be reproduced')
             at_base, _, _ = select_query(policy, context_id, base_reader, entry, read_budget=budget)
+            if changed_policy:
+                if path in {m['ref'] for m in [*prior['members'], *at_base['members']]}:
+                    raise PolicyError('query consumer cannot be a member')
+                outcomes.append({'path': path, 'state': 'review_pending', 'reason': 'dynamic_query_requalification_required',
+                    'seed': path, 'fields': ['*'], 'causes': [], 'chain': [], 'priority': 'immediate',
+                    'verification_performed': False})
+                continue
             at_head, _, _ = select_query(policy, context_id, head_reader, entry, read_budget=budget)
             if any(path in {m['ref'] for m in selection['members']} for selection in (prior, at_base, at_head)):
                 raise PolicyError('query consumer cannot be a member')
-            if not same_selection(prior, at_base): raise PolicyError('approved query needs reread')
-            if not same_selection(prior, at_head):
+            if not same_selection(prior, at_base) or not same_selection(prior, at_head):
                 if path in changed: raise PolicyError('changed consumer requires equivalent selection')
                 outcomes.append({'path': path, 'state': 'review_pending', 'reason': 'dynamic_query_changed',
                     'seed': next((p for p in sorted(changed) if p == path or p == req['target'] or within(p, req['query']['scope'])), path),

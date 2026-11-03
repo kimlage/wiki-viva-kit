@@ -2662,7 +2662,7 @@ def main() -> int:
                         help="Independently reviewed age finding, scoped to this proposal; repeatable")
     parser.add_argument("--freshness-base", help="exact ancestor ref/SHA for configured impact freshness")
     parser.add_argument("--freshness-report", type=Path, help="write impact evidence to a NEW JSON file (may contain private paths)")
-    parser.add_argument("--query-context", help="explicit local context binding for query impact")
+    parser.add_argument("--query-context", help="trusted global integration operator only; context limits query recomputation, not the global audit or its private output")
     parser.add_argument("--query-policy-revision", help="exact current trusted policy SHA")
     parser.add_argument("--query-head", help="exact clean proposal HEAD SHA")
     args = parser.parse_args()

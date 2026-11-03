@@ -289,7 +289,9 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             result['pending_reviews'].extend(r for r in outcomes if r['state'] == 'review_pending')
             result['ok'] = not result['integrity_blockers'] and not result['relation_errors']
             result['query_revalidation'] = {'context': query_context, 'policy_revision': base_sha, 'head': head,
-                'affected': len(affected), 'fact_freshness': 'not_assessed'}
+                'affected': len(affected), 'fact_freshness': 'not_assessed',
+                'audit_authority': 'global_integrator_caller_trust',
+                'context_scope': 'query_recomputation_only_not_auditor_acl'}
         from wiki_core.information_use import bind_verification_coverage, assess_information_use
         qualified = bind_verification_coverage(root,current)
         usage=[]
