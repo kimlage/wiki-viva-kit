@@ -290,8 +290,8 @@ def test_concurrent_edit_fails_closed(repo, monkeypatch):
     path = page(repo, "item")
     base = commit(repo)
     original = module.authored_graph
-    def changing(root, config):
-        result = original(root, config)
+    def changing(root, config, **kwargs):
+        result = original(root, config, **kwargs)
         if root == repo:
             path.write_text(path.read_text() + "Concurrent change.")
         return result
