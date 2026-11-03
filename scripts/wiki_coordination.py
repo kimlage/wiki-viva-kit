@@ -5,6 +5,7 @@ import argparse
 import json
 from pathlib import Path
 from _common import ROOT
+from wiki_core.context_selection import strict_json_loads
 from wiki_core.config import load_config
 from wiki_core.coordination import coordination_index, context_packet, validate_dialogue_route
 from wiki_core.action_transition import transition_action_page
@@ -31,7 +32,7 @@ def main() -> None:
         try:
             if args.packet_request.stat().st_size > 1_048_576:
                 raise ValueError("request too large")
-            request = json.loads(args.packet_request.read_text(encoding="utf-8"))
+            request = strict_json_loads(args.packet_request.read_text(encoding="utf-8"))
             binding = CoordinationBinding((args.context_id,), "refs/remotes/origin/main")
             result = prepare_packet(args.root.resolve(), binding, {"context_id": args.context_id, "approved_revision": args.approved_revision, "content_revision": args.revision, "task": request})
         except (ProtectedCoordinationError, ValueError, OSError) as error:

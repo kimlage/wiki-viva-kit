@@ -7,6 +7,7 @@ from pathlib import Path
 from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report
 from .repository_reader import RepositoryReader
 from .detectors import scan_text
+from .context_selection import select_query, digest
 
 
 def _reject_secrets(text):
@@ -70,7 +71,7 @@ def _context_view(policy, context_id):
 
 
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
-                 required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None):
+                 required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=()):
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
     if not getattr(policy, '_binding', None) or Path(policy._binding[0]) != Path(root).resolve(): raise PolicyError('unbound or mismatched policy')
     policy = policy.fresh()
@@ -78,7 +79,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         if isinstance(value, str): _reject_secrets(value)
     if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
         raise PolicyError('invalid byte budget')
-    if query_fingerprint is not None: raise PolicyError('dynamic query selection not supported')
+    if query_fingerprint is not None: raise PolicyError('dynamic query fingerprint must be computed by the builder')
+    if not isinstance(queries, (list, tuple)) or len(queries) > 8: raise PolicyError('invalid query list')
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     lineage = policy.lineage(context_id)
     if adapter_report is not None and not valid_adapter_report(adapter_report): raise PolicyError('invalid adapter report')
@@ -130,6 +132,16 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         status = policy.connection(e['producer'], context_id, ref, e['use'], e['classification'], section=e.get('section'), field=e.get('field'))
         if status != 'approved': raise PolicyError('connection ' + status)
         add(reader, ref, e['reason'], 'evidence', e.get('section'), e.get('field'), e['producer'], e['use'], e['classification'])
+    query_selections = []
+    for entry in queries:
+        receipt, anchor, members = select_query(policy, context_id, reader, entry)
+        if receipt['query_id'] in {r['query_id'] for r in query_selections}: raise PolicyError('duplicate query')
+        for item in [anchor, *members]:
+            section = entry['query'].get('section') if item is not anchor else None
+            field = entry['query'].get('field') if item is not anchor else None
+            add(reader, item['path'], entry['reason'], 'evidence', section, field, context_id, entry['use'], entry['classification'])
+            selected[-1]['query_id'] = receipt['query_id']
+        query_selections.append(receipt)
     total = sum(x['byte_length'] for x in selected)
     if total > max_bytes: raise PolicyError('selected content exceeds byte budget')
     policy.fresh()  # Fail if approval moved during composition.
@@ -139,6 +151,10 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
             'query_fingerprint': None, 'coverage': {'mode': 'explicit_read_set', 'complete': False, 'missing': list(omissions)},
             'max_bytes': max_bytes, 'bytes_used': 0, 'selected_text_bytes': total,
             'capability_evidence': adapter_report, 'required_capabilities': list(required_capabilities), 'enforcement_claim': 'none; adapter report is supplied by the caller'}
+    if query_selections:
+        packet['query_selections'] = query_selections
+        packet['query_fingerprint'] = digest(query_selections)
+        packet['coverage']['mode'] = 'authorized_owner_queries_and_explicit_read_set'
     _reject_secrets(json.dumps(packet, ensure_ascii=False))
     # A fixed-width digest lets the reported byte count include the digest itself.
     packet['packet_digest'] = '0' * 64
@@ -165,7 +181,12 @@ def validate_result(result, packet):
     digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     if digest != packet['packet_digest'] or any(result[k] != packet.get(k) for k in ('task_id', 'context_id', 'packet_digest')):
         raise PolicyError('result is not bound to this packet')
+    queries = {row['query_id'] for row in packet.get('query_selections', [])}
+    observed_queries = set(result['read_coverage'].get('observed_queries', []))
+    if not observed_queries.issubset(queries) or (queries and result['status'] == 'completed' and observed_queries != queries):
+        raise PolicyError('result query coverage differs from packet')
     declared = {json.dumps(item, sort_keys=True) for item in packet['declared_read_set']}
     observed = {json.dumps(item, sort_keys=True) for item in result['read_coverage']['observed_refs']}
+    if queries and result['status'] == 'completed' and observed != declared: raise PolicyError('query task must report every delivered input')
     if not observed.issubset(declared): raise PolicyError('result reports undeclared reads')
     return True

@@ -87,11 +87,15 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
                             'reason': 'information_changed' if reason['causes'] else 'verification_age',
                             'last_recorded_at': str(values['updated_at']) if values.get('updated_at') is not None else None,
                             'verification_performed': False})
+    # This already-materialized graph has no current context authority to
+    # enumerate dynamic members. It must not certify only the anchor edge.
+    dynamic_blockers = [{'path':e['dependent'],'reason':'dynamic_query_requires_authorized_revalidation'}
+        for e in dependency_edges(current)[0] if 'query' in e.get('requirement',{})]
     missing = set(current.get('missing_evidence', set()))
     missing_used = sorted({edge['prerequisite'] for edges in adjacency.values() for edge in edges
                            if edge['origin'] == 'current' and edge['prerequisite'] in missing})
     return {'schema_version': 'wiki_information_impact.v1', 'seeds': sorted(seeds),
             'included': [reasons[p] for p in sorted(reasons)], 'pending_reviews': pending,
-            'integrity_blockers': [{'path': p, 'reason': 'missing_evidence'} for p in missing_used],
+            'integrity_blockers': [{'path': p, 'reason': 'missing_evidence'} for p in missing_used] + dynamic_blockers,
             'relation_errors': current['errors'], 'nonpropagating_relations': nonpropagating,
-            'ok': not missing_used and not current['errors']}
+            'ok': not missing_used and not dynamic_blockers and not current['errors']}

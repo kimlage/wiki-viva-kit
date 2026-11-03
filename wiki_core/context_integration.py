@@ -9,6 +9,7 @@ from wiki_core.context_packet import build_packet, validate_result
 from wiki_core.repository_reader import RepositoryReader
 from wiki_core.detectors import scan_text
 from wiki_core.information_relations import information_requirements
+from wiki_core.context_selection import packet_queries, revalidate_packet_queries, requirement_query, select_query, same_selection, reproduce_query
 
 class IntegrationError(ValueError): pass
 
@@ -37,15 +38,20 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     if packet.get('context_id')!=context_id or packet.get('policy_revision')!=policy.policy_revision or result['status']!='completed': raise IntegrationError('task or policy not current')
     evidence=[]
     for item in packet['inputs']:
-        if item['kind']!='evidence': continue
+        if item['kind']!='evidence' or 'query_id' in item: continue
         entry={k:item[k] for k in ('ref','producer','reason','use','classification')}
         for k in ('section','field'):
             if item[k] is not None: entry[k]=item[k]
         evidence.append(entry)
     try:
-        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'])
+        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet))
     except (PolicyError, ValueError, KeyError, TypeError) as exc: raise IntegrationError('packet authorization cannot be reproduced') from exc
     if rebuilt!=packet: raise IntegrationError('packet contents cannot be reproduced')
+    canonical_query_budget=[32_000_000]
+    try: revalidate_packet_queries(policy,packet,RepositoryReader(root,packet['content_revision']),base_reader,read_budget=canonical_query_budget)
+    except (ValueError,KeyError,TypeError) as exc: raise IntegrationError('query selection cannot be revalidated') from exc
+    try: revalidate_packet_queries(policy,packet,RepositoryReader(root,packet['content_revision']),proposal,read_budget=canonical_query_budget)
+    except (ValueError,KeyError,TypeError) as exc: raise IntegrationError('query selection changed in proposal') from exc
     # A historical read may still be used only if its selected bytes remain
     # identical at the current approved base; no fallback to a larger slice.
     for item in packet['inputs']:
@@ -74,7 +80,8 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                 prior=base_reader.read(path)['frontmatter'] if path in base_reader.paths else {}
                 raw_before=prior.get('information_requirements',[])
                 raw_after=proposed_file['frontmatter'].get('information_requirements',[])
-                if raw_before!=raw_after:
+                has_query=isinstance(raw_after,list) and any(isinstance(r,dict) and 'query' in r for r in raw_after)
+                if raw_before!=raw_after or has_query:
                     def resolve(ref): return [ref] if isinstance(ref,str) and ref in base_reader.paths else []
                     try: declared=information_requirements(proposed_file['frontmatter'],resolve)
                     except (ValueError,TypeError) as exc: raise IntegrationError('invalid proposed information requirement') from exc
@@ -83,10 +90,32 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                     try: previous=information_requirements(prior,resolve)
                     except (ValueError,TypeError) as exc: raise IntegrationError('invalid existing information requirement') from exc
                     for requirement in declared:
-                        if requirement in previous: continue
+                        if requirement in previous:
+                            if 'query' in requirement:
+                                try:
+                                    consumed_reader=RepositoryReader(root,requirement['consumed_revision'])
+                                    old_query,_,_=reproduce_query(policy,context_id,consumed_reader,requirement_query(requirement),policy_revision=requirement['query_policy_revision'],expected_authority=requirement['authority_digest'],read_budget=canonical_query_budget)
+                                    now_query,_,_=select_query(policy,context_id,base_reader,requirement_query(requirement),read_budget=canonical_query_budget)
+                                    proposed_query,_,_=select_query(policy,context_id,proposal,requirement_query(requirement),read_budget=canonical_query_budget)
+                                    if path in {m['ref'] for m in [*old_query['members'],*now_query['members'],*proposed_query['members']]}: raise IntegrationError('query consumer cannot be a member')
+                                    if not same_selection(old_query,proposed_query): raise IntegrationError('query selection changed in proposal')
+                                    if any(old_query[k]!=requirement[k] for k in ('members_digest','selected_digest')) or not same_selection(old_query,now_query):
+                                        raise IntegrationError('existing query requirement changed; reread and update its canonical receipt')
+                                except ValueError as exc: raise IntegrationError('existing query requirement cannot be revalidated') from exc
+                            continue
                         if requirement['target']==path: raise IntegrationError('new self dependency is not allowed')
                         consumed=requirement.get('consumed_revision')
                         if consumed is None: raise IntegrationError('new requirement is unpinned')
+                        if 'query' in requirement:
+                            rows = [r for r in packet.get('query_selections', []) if r['request']['target']==requirement['target']
+                                and r['request']['query']==requirement['query'] and r['members_digest']==requirement['members_digest']
+                                and r['selected_digest']==requirement['selected_digest'] and r['revision']==consumed
+                                and r['policy_revision']==requirement['query_policy_revision'] and r['authority_digest']==requirement['authority_digest']
+                                and r['request']['use']==requirement['use'] and r['request']['classification']==requirement['classification']]
+                            if not rows or any(r['query_id'] not in result['read_coverage'].get('observed_queries', []) for r in rows):
+                                raise IntegrationError('query requirement does not match task selection')
+                            if any(path in {m['ref'] for m in r['members']} for r in rows): raise IntegrationError('query consumer cannot be a member')
+                            continue
                         for selector in requirement['fields']:
                             def matches(item):
                                 if item['kind']!='evidence' or item['ref']!=requirement['target'] or item['revision']!=consumed: return False

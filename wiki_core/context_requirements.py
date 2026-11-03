@@ -14,6 +14,7 @@ from wiki_core.context_impact import assess_impact, ImpactError
 from wiki_core.detectors import scan_text
 from wiki_core.information_relations import operational_consumption_edges
 from wiki_core.repository_reader import RepositoryReader
+from wiki_core.context_selection import revalidate_packet_queries, requirement_query, select_query, same_selection, reproduce_query
 
 class RequirementError(ValueError): pass
 
@@ -103,7 +104,16 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     if actual!=mandatory or any(x['kind']!='mandatory' for x in packet['inputs'][:len(mandatory)]) or any(x['kind']=='mandatory' for x in packet['inputs'][len(mandatory):]): raise RequirementError('mandatory policy inputs changed')
     if any(x['section'] is not None or x['field'] is not None or x['use'] is not None or x['classification'] is not None for x in packet['inputs'][:len(mandatory)]): raise RequirementError('mandatory policy input must be complete')
     if packet['selected_text_bytes']!=sum(x['byte_length'] for x in packet['inputs']): raise RequirementError('invalid selected text accounting')
+    try: revalidate_packet_queries(policy,packet,RepositoryReader(root,source_revision),current)
+    except (ValueError,KeyError,TypeError) as exc: raise RequirementError('query selection cannot be revalidated') from exc
     requirements=[]; self_input_read=False
+    for row in packet.get('query_selections', []):
+        e = row['request']
+        if e['target']==output_path or output_path in {m['ref'] for m in row['members']}: raise RequirementError('query anchor cannot be its own consumer')
+        requirements.append({'target':e['target'],'fields':['*'],'temporal':temporal,'max_age_days':max_age_days,
+            'consumed_revision':row['revision'],'use':e['use'],'classification':e['classification'],
+            'query':e['query'],'members_digest':row['members_digest'],'selected_digest':row['selected_digest'],
+            'query_policy_revision':row['policy_revision'],'authority_digest':row['authority_digest']})
     for item in packet['inputs']:
         if not isinstance(item.get('revision'),str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',item['revision']): raise RequirementError('reported input revision is not fixed')
         readref={k:item[k] for k in ('ref','section','field','revision')}
@@ -122,7 +132,7 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
         if item['sha256']!=historical['content_digest'] or (not self_input and item['sha256']!=now['content_digest']): raise RequirementError('reported input changed')
         if self_input: self_input_read=True
         if any(x.category=='secret' for x in scan_text(now['text'])): raise RequirementError('secret detected in input')
-        if item['kind']=='evidence' and not self_input:
+        if item['kind']=='evidence' and not self_input and 'query_id' not in item:
             selector=('section:'+item['section'].removeprefix('section:') if item['section'] is not None else 'field:'+item['field'] if item['field'] is not None else '*')
             entry={'target':item['ref'],'fields':[selector],'temporal':temporal,'max_age_days':max_age_days,'consumed_revision':item['revision'],'use':item['use'],'classification':item['classification']}
             if entry not in requirements: requirements.append(entry)
@@ -131,3 +141,33 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     output={'schema_version':'wiki.context-requirements/v1','output_path':output_path,'approved_revision':policy.policy_revision,'proposal_head':proposal_head,'task_id':packet['task_id'],'packet_digest':packet['packet_digest'],'information_requirements':requirements,'self_input_read':self_input_read,'read_claim':'reported_not_verified','write':'not_performed'}
     if any(f.category=='secret' for f in scan_text(json.dumps(output,ensure_ascii=False))): raise RequirementError('secret detected in requirement metadata')
     return output
+
+
+def revalidate_approved_queries(root, policy, *, consumer, context_id):
+    """Useful current set/byte checks, explicitly separate from factual readiness."""
+    from wiki_core.information_relations import information_requirements
+    policy = _fresh(root, policy); consumer = safe_path(consumer)
+    if policy.owner_of(consumer) != context_id or not policy.permits(context_id, 'read', consumer):
+        raise RequirementError('consumer not authorized')
+    current = RepositoryReader(root, policy.policy_revision)
+    page = current.read(consumer)
+    if any(f.category == 'secret' for f in scan_text(page['text'])): raise RequirementError('secret detected in consumer')
+    requirements = information_requirements(page['frontmatter'], lambda p: [p] if isinstance(p,str) and p in current.paths else [])
+    rows = []; query_read_budget = [32_000_000]
+    for req in requirements:
+        if 'query' not in req: continue
+        if req['target']==consumer: raise RequirementError('query anchor cannot be its own consumer')
+        prior, _, _ = reproduce_query(policy, context_id, RepositoryReader(root, req['consumed_revision']), requirement_query(req), policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=query_read_budget)
+        if any(prior[k] != req[k] for k in ('members_digest', 'selected_digest')):
+            raise RequirementError('canonical query receipt differs from consumed selection')
+        if consumer in {m['ref'] for m in prior['members']}: raise RequirementError('query consumer cannot be a member')
+        now, _, _ = select_query(policy, context_id, current, requirement_query(req), read_budget=query_read_budget)
+        if consumer in {m['ref'] for m in now['members']}: raise RequirementError('query consumer cannot be a member')
+        rows.append({'target':req['target'],'query_id':prior['query_id'],
+            'members_equivalent':prior['members_digest']==now['members_digest'],
+            'selected_bytes_equivalent':prior['selected_digest']==now['selected_digest'],
+            'state':'equivalent' if same_selection(prior,now) else 'review_required'})
+    policy.fresh()
+    return {'schema_version':'wiki.context-query-revalidation/v1','consumer':consumer,'policy_revision':policy.policy_revision,
+        'queries':rows,'equivalent':all(row['state']=='equivalent' for row in rows),
+        'coverage':'declared_queries_in_authorized_owner_scope_only','fact_freshness':'not_assessed','effect':'not_performed'}

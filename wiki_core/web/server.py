@@ -29,6 +29,7 @@ from wiki_core.action_transition import (
 )
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.coordination import CoordinationError, coordination_index, context_packet
+from wiki_core.context_selection import strict_json_loads
 from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordinationError, capability as protected_capability, prepare_packet as protected_packet, prepare_preflight as protected_preflight, blocker_response)
 from wiki_core.paths import WikiPaths
 from wiki_core.web.admin import (
@@ -1481,8 +1482,10 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             self._send_error("request body exceeds operator limit", status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
             return
         try:
-            payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-        except (json.JSONDecodeError, UnicodeDecodeError):
+            raw_payload = self.rfile.read(length).decode("utf-8") or "{}"
+            loader = strict_json_loads if parsed.path in {"/api/coordination/protected/packet", "/api/coordination/protected/preflight"} else json.loads
+            payload = loader(raw_payload)
+        except (ValueError, UnicodeDecodeError):
             self._send_error("invalid JSON", status=HTTPStatus.BAD_REQUEST)
             return
         # These bounded reads bypass the attempt receipt store: a replay must

@@ -66,7 +66,7 @@ def prepare_packet(root, binding, payload):
     # Approved-mode history is confined to ancestors of the trusted tip.
     if subprocess.run(['git','-C',str(root),'merge-base','--is-ancestor',content,policy.policy_revision],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode: raise ProtectedCoordinationError('coordination_content_not_approved')
     required={'task_id','goal','output','integrator','max_bytes','evidence'}
-    if not isinstance(task,dict) or not required<=set(task) or set(task)-(required|{'omissions'}): raise ProtectedCoordinationError('coordination_invalid_request')
+    if not isinstance(task,dict) or not required<=set(task) or set(task)-(required|{'omissions','queries'}): raise ProtectedCoordinationError('coordination_invalid_request')
     if type(task['max_bytes']) is not int or not 0<=task['max_bytes']<=1_000_000 or not isinstance(task['evidence'],list) or len(task['evidence'])>128: raise ProtectedCoordinationError('coordination_invalid_request')
     evidence=[]; expectations=[]
     for e in task['evidence']:
@@ -78,11 +78,11 @@ def prepare_packet(root, binding, payload):
         if expected is not None and (not isinstance(expected,str) or not re.fullmatch(r'[0-9a-f]{64}',expected)): raise ProtectedCoordinationError('coordination_invalid_request')
         evidence.append(entry); expectations.append(expected)
     try:
-        packet=build_packet(root,policy,payload['context_id'],content,evidence,task['max_bytes'],task_id=task['task_id'],goal=task['goal'],output=task['output'],integrator=task['integrator'],omissions=task.get('omissions',[]))
-        selected=[x for x in packet['inputs'] if x['kind']=='evidence']
+        packet=build_packet(root,policy,payload['context_id'],content,evidence,task['max_bytes'],task_id=task['task_id'],goal=task['goal'],output=task['output'],integrator=task['integrator'],omissions=task.get('omissions',[]),queries=task.get('queries',[]))
+        selected=[x for x in packet['inputs'] if x['kind']=='evidence' and 'query_id' not in x]
         if any(expected is not None and x['document_sha256']!=expected for x,expected in zip(selected,expectations)): raise ValueError('selected revision differs')
     except PolicyError as exc:
-        if str(exc) in {'mandatory content exceeds byte budget', 'selected content exceeds byte budget', 'complete packet exceeds byte budget'}:
+        if str(exc) in {'mandatory content exceeds byte budget', 'selected content exceeds byte budget', 'complete packet exceeds byte budget', 'query enumeration limit exceeded', 'query match limit exceeded', 'query scan byte limit exceeded', 'query operation byte limit exceeded'}:
             raise ProtectedCoordinationError('coordination_budget_exceeded') from exc
         raise ProtectedCoordinationError() from exc
     except (ValueError,KeyError,TypeError,OSError) as exc: raise ProtectedCoordinationError() from exc

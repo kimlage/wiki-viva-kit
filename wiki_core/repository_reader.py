@@ -48,24 +48,47 @@ class RepositoryReader:
         self.revision = self._git('rev-parse', '--verify', f'{revision}^{{commit}}').decode().strip()
         entries = self._git('ls-tree', '-r', '-z', self.revision).split(b'\0')
         self._entries = {}
+        self._unsupported = []
+        self._invalid_paths = []
         for entry in entries:
             if not entry:
                 continue
             info, raw_path = entry.split(b'\t', 1)
             mode, kind, blob = info.decode().split()
-            path = raw_path.decode('utf-8')
+            try:
+                path = raw_path.decode('utf-8')
+            except UnicodeError:
+                self._invalid_paths.append(raw_path)
+                continue
             try:
                 canonical_path(path)
             except RepositoryReadError:
                 continue
             if kind == 'blob' and mode in {'100644', '100755'}:
                 self._entries[path] = blob
+            else:
+                self._unsupported.append(path)
         self._documents: dict[str, dict] = {}
 
     @property
     def paths(self) -> tuple[str, ...]:
         """Safe tracked regular-file paths, without reading content."""
         return tuple(sorted(self._entries))
+
+    @property
+    def unsupported_paths(self) -> tuple[str, ...]:
+        """Tracked symlink/submodule paths; content is never followed."""
+        return tuple(sorted(self._unsupported))
+
+    @property
+    def invalid_paths(self) -> tuple[bytes, ...]:
+        return tuple(self._invalid_paths)
+
+    def blob_size(self, path: str) -> int:
+        path = canonical_path(path)
+        if path not in self._entries:
+            raise RepositoryReadError('repository file missing or unsupported')
+        return int(self._git('cat-file', '-s', self._entries[path]))
 
     def _git(self, *args: str) -> bytes:
         result = subprocess.run(['git', '-C', str(self.root), *args], capture_output=True)

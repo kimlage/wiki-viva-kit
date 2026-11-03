@@ -82,9 +82,10 @@ enforcement belong to the caller's adapter. Adapter identity, permissions and ta
 remain caller trust boundaries. Packets deliver selected text, provenance,
 explicit read sets and incomplete coverage. The complete canonical UTF-8 JSON packet, including metadata and digest, must
 fit its maximum byte budget; selected-text bytes are accounted for separately.
-Overflow is an error. Dynamic query fingerprints are refused by the
-approved packet builder in this phase, even though the raw reader can enumerate
-an explicitly scoped catalog.
+Overflow is an error. Owner-only dynamic collections use the explicit
+[anchored query contract](context-dynamic-selection.md); caller-supplied query
+fingerprints remain refused. The builder computes and binds selection receipts,
+including empty sets, and preserves predicates in canonical requirements.
 
 ## Coordination and ingestion
 
