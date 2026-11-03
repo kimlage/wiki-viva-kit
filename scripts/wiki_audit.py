@@ -1043,6 +1043,7 @@ def audit_freshness_budget(
     base_ref: str | None = None, report_path: Path | None = None,
     documentary_only: dict[str, str] | None = None,
     freshness_reviews: dict[str, dict[str, str]] | None = None,
+    query_context: str | None = None, query_policy_revision: str | None = None, query_head: str | None = None,
 ) -> None:
     """Freshness budget with a gate that BITES (P1 of the critical review).
 
@@ -1052,6 +1053,9 @@ def audit_freshness_budget(
     The daily cron (manual addition) reuses this same gate.
     """
     scope = config.audit.get("freshness_scope", "global")
+    if any((query_context, query_policy_revision, query_head)) and scope != "impact":
+        errors.append("query audit options require impact freshness")
+        return
     if config.audit.get('information_impact') == 'use_scoped' and scope != 'impact':
         errors.append('use-scoped information impact requires an explicit impact review base')
         return
@@ -1063,7 +1067,8 @@ def audit_freshness_budget(
         from scripts.wiki_page_graph import GitCommandError
         try:
             report = repository_report(ROOT, config, base_ref or str(config.audit.get("freshness_base") or ""),
-                                       documentary_only=documentary_only, freshness_reviews=freshness_reviews)
+                                       documentary_only=documentary_only, freshness_reviews=freshness_reviews,
+                                       query_context=query_context, query_policy_revision=query_policy_revision, query_head=query_head)
             if report_path:
                 # Never replace an existing canonical file with a diagnostic.
                 with report_path.open("x", encoding="utf-8") as stream:
@@ -2528,10 +2533,11 @@ class AuditContext:
     positional/keyword arguments the old hand-written main() used.
     """
 
-    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited")
+    __slots__ = ("errors", "warnings", "config", "public_export", "freshness_base", "freshness_report", "documentary_only", "freshness_reviews", "information_audited", "query_context", "query_policy_revision", "query_head")
 
     def __init__(self, config: WikiConfig, public_export: bool = False) -> None:
         self.information_audited = False
+        self.query_context = self.query_policy_revision = self.query_head = None
         self.errors: list[str] = []
         self.warnings: list[str] = []
         self.config = config
@@ -2548,7 +2554,8 @@ def _run_freshness_check(ctx):
         return
     audit_freshness_budget(ctx.errors, ctx.warnings, ctx.config,
         base_ref=ctx.freshness_base, report_path=ctx.freshness_report,
-        documentary_only=ctx.documentary_only, freshness_reviews=ctx.freshness_reviews)
+        documentary_only=ctx.documentary_only, freshness_reviews=ctx.freshness_reviews,
+        query_context=ctx.query_context, query_policy_revision=ctx.query_policy_revision, query_head=ctx.query_head)
     if scoped:
         ctx.information_audited = True
 
@@ -2655,6 +2662,9 @@ def main() -> int:
                         help="Independently reviewed age finding, scoped to this proposal; repeatable")
     parser.add_argument("--freshness-base", help="exact ancestor ref/SHA for configured impact freshness")
     parser.add_argument("--freshness-report", type=Path, help="write impact evidence to a NEW JSON file (may contain private paths)")
+    parser.add_argument("--query-context", help="explicit local context binding for query impact")
+    parser.add_argument("--query-policy-revision", help="exact current trusted policy SHA")
+    parser.add_argument("--query-head", help="exact clean proposal HEAD SHA")
     args = parser.parse_args()
 
     if args.list_checks:
@@ -2672,6 +2682,12 @@ def main() -> int:
         wanted = set(requested)
         # Preserve registry order regardless of the order names were passed.
         selected = tuple((name, run) for name, run in CHECKS if name in wanted)
+
+    query_options = (args.query_context, args.query_policy_revision, args.query_head)
+    if any(query_options) and not all(query_options):
+        parser.error("query audit requires --query-context, --query-policy-revision and --query-head")
+    if any(query_options) and not any(name in {"freshness_budget", "impact"} for name, _ in selected):
+        parser.error("query audit requires the freshness_budget or impact check")
 
     global STRICT_LOCAL, LIST_STALE_GAPS
     STRICT_LOCAL = args.strict_local
@@ -2701,6 +2717,7 @@ def main() -> int:
                 or len(fields) != 4 or any(not field.strip() for field in fields)):
             parser.error("--freshness-reviewed requires a unique PATH=DISPOSITION|EVIDENCE|RATIONALE|LIMITS")
         ctx.freshness_reviews[path] = dict(zip(("disposition", "evidence", "rationale", "limits"), fields))
+    ctx.query_context, ctx.query_policy_revision, ctx.query_head = args.query_context, args.query_policy_revision, args.query_head
     ctx.freshness_base = args.freshness_base
     ctx.freshness_report = args.freshness_report
     for _name, run in selected:

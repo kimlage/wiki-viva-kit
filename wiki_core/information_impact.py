@@ -25,6 +25,25 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
     return fields
 
 
+def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str]) -> list[dict]:
+    """Select query declarations touched by paths or dependency closure, without reading members."""
+    from wiki_core.context_policy import within
+    found = {}
+    policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') for p in changed)
+    for origin, graph in (('base', base), ('current', current)):
+        for edge in dependency_edges(graph, origin=origin)[0]:
+            req = edge.get('requirement', {})
+            if 'query' not in req:
+                continue
+            consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
+            if not (policy_changed or consumer in reached or consumer in changed or anchor in changed
+                    or any(within(p, scope) for p in changed)):
+                continue
+            key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
+            found[key] = {'path': consumer, 'requirement': req, 'origin': origin}
+    return [found[key] for key in sorted(found)]
+
+
 def evaluate_information_impact(current: dict, base: dict, changed: set[str], *, today: dt.date) -> dict:
     """Propagate relevant information downstream; never import sibling facts.
 
@@ -89,8 +108,8 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
                             'verification_performed': False})
     # This already-materialized graph has no current context authority to
     # enumerate dynamic members. It must not certify only the anchor edge.
-    dynamic_blockers = [{'path':e['dependent'],'reason':'dynamic_query_requires_authorized_revalidation'}
-        for e in dependency_edges(current)[0] if 'query' in e.get('requirement',{})]
+    affected = affected_dynamic_queries(current, base, changed, set(reasons))
+    dynamic_blockers = [{'path':row['path'],'reason':'dynamic_query_requires_authorized_revalidation'} for row in affected]
     missing = set(current.get('missing_evidence', set()))
     missing_used = sorted({edge['prerequisite'] for edges in adjacency.values() for edge in edges
                            if edge['origin'] == 'current' and edge['prerequisite'] in missing})

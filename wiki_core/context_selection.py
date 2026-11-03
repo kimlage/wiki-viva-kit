@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import PurePosixPath
 import re
+import subprocess
 import yaml
 from .context_policy import PolicyError, UniqueLoader, safe_path, within, historical_policy
 from .detectors import scan_text
@@ -98,6 +99,11 @@ def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expec
     entry=normalize_query(entry)
     if not isinstance(expected_authority,str) or not re.fullmatch(r'[0-9a-f]{64}',expected_authority):
         raise PolicyError('query authority changed or unavailable; requalification required')
+    # Content must already have existed when its claimed policy was approved.
+    if (not getattr(policy, '_binding', None) or subprocess.run(
+            ['git', '-C', str(policy._binding[0]), 'merge-base', '--is-ancestor', reader.revision, policy_revision],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode):
+        raise PolicyError('query content is not an ancestor of its policy')
     old=historical_policy(policy,policy_revision)
     if (authority_digest(old,context_id,entry)!=expected_authority
             or authority_digest(policy,context_id,entry)!=expected_authority):
