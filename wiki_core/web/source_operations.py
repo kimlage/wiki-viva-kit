@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 import subprocess
+from wiki_core.web import installed_binding
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -472,6 +473,8 @@ def _safe_refresh_argv(
     The shared core still owns process safety and the JSON contract; provider
     authentication and API logic stay in the consumer-owned script.
     """
+    if installed_binding.active(root):
+        raise ValueError("installed_consumer_adapter_unavailable")
     if not argv:
         raise ValueError("source_refresh_adapter_unavailable")
     replacements = {
@@ -690,6 +693,8 @@ def _apply_inventory_to_recipe(
 
 
 def _safe_ingest_argv(root: Path, argv: tuple[str, ...], raw_path: Path) -> list[str]:
+    if installed_binding.active(root):
+        raise ValueError("installed_consumer_adapter_unavailable")
     if not argv:
         raise ValueError("source_refresh_script_unavailable")
     rendered = [str(part).replace("{path}", str(raw_path)) for part in argv]

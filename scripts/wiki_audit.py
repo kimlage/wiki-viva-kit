@@ -25,8 +25,9 @@ from urllib.parse import unquote, urlparse
 import yaml
 
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+CODE_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(CODE_ROOT))
+from scripts._common import ROOT
 
 from wiki_core.llm.context_pass import read_matching_result
 from wiki_core.config import WikiConfig, load_config
