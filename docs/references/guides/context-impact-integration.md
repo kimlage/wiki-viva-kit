@@ -29,3 +29,26 @@ sets and selected bytes without asserting factual verification. Its `--graph` ar
 Run `python3 tests/context_pilot_setup.py` from this checkout to create a fresh local-only synthetic Git repository and two short branches in a temporary directory. It writes packets, candidates, task results and preflights as synthetic proof files; it does not perform independent review or merge. Run `python3 tests/context_pilot_checks.py PILOT_DIRECTORY` once using the printed temporary pilot directory to test the cycle limit, revoked grant and parent write denial. The new bilateral connection is simulated only in an unbound in-memory policy; the real approved policy stays pending. The setup creates two example draft interpretations in one process; this is not evidence that independent agents or two harness products ran. Separate context threads may replace those drafts after reading their own packets, then the resulting HEADs must be revalidated and independently reviewed. To complete a pilot, a separate reviewer must review the exact branch HEADs; the authorized integrator then serializes merges in the synthetic repository and refreshes packets and preflight after the base advances.
 
 After independently reviewing and serially merging both synthetic proposals, prepare a separate, unmerged source-change preview commit. Run `python3 tests/context_pilot_verify.py PILOT_DIRECTORY REVIEWED_COST_HEAD PREVIEW_HEAD` to rederive the requirement from the approved output, read that page through the existing inventory, and compare its consumed selector with the preview. The command does not merge, alter a branch, or verify an external fact.
+
+## Explicit inherited normative consumption
+
+When an output actually depends on a whole mandatory lineage instruction, skill
+or template, its author may explicitly declare an `information_requirements`
+entry with that exact path, `fields: ['*']`, `temporal: current`, a chosen
+`max_age_days`, `use: normative`, `classification`, and `consumed_revision`
+equal to the packet's **policy revision**. This is a policy dependency, not a
+claim that an external fact is fresh. The normal requirements helper does not
+implicitly attach all mandatory inputs to every output. Preflight requires the
+whole mandatory input and reported read from the packet; a normative label on
+ordinary evidence is not an authorization.
+
+The authorized impact check requires the input to be declared by the current
+lineage and permitted by all applicable denies, and to have been declared in
+the approved ancestral policy revision at which it was consumed. It checks
+that authority before opening historical content. A changed whole body produces
+a review candidate; a revoked, removed or otherwise unprovable authority stops
+with an opaque pending-review error. The global caller-trust audit cannot certify
+policy authority and conservatively reports a requalification obligation when
+context manifests change. A policy or normative edit itself still requires its
+separate review; no parenthood or this declaration grants access to ordinary
+cross-context evidence.

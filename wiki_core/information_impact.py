@@ -71,6 +71,15 @@ def authorized_pending_edge(edge, policy, context_id):
     from wiki_core.context_policy import PolicyError
     try:
         source, target = edge['prerequisite'], edge['dependent']
+        if edge.get('use') == 'normative':
+            from wiki_core.context_normative import normative_history
+            requirement = edge.get('requirement', {})
+            return (edge.get('type') == 'operational_prerequisite'
+                and edge.get('field') == 'information_requirements'
+                and requirement.get('target') == source
+                and requirement.get('fields') == ['*'] and requirement.get('temporal') == 'current'
+                and policy.owner_of(target) == context_id and policy.permits(context_id, 'read', target)
+                and normative_history(policy, context_id, source, requirement.get('consumed_revision')))
         if (policy.owner_of(source) != context_id or policy.owner_of(target) != context_id
                 or not policy.permits(context_id, 'read', source) or not policy.permits(context_id, 'read', target)):
             return False
@@ -219,6 +228,18 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     # enumerate dynamic members. It must not certify only the anchor edge.
     affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons))
     dynamic_blockers = [{'path':row['path'],'reason':'dynamic_query_requires_authorized_revalidation'} for row in affected]
+    # A manifest change can revoke or remove an inherited normative input even
+    # when neither its body nor its consumer changed. The global caller-trust
+    # audit cannot prove the new authority; preserve a visible review obligation.
+    if any(path == 'context.yaml' or path.endswith('/context.yaml') for path in changed):
+        normative_consumers = {edge['source'] for edge in current['edges']
+            if edge.get('type') == 'operational_prerequisite'
+            and edge.get('field') == 'information_requirements'
+            and edge.get('requirement', {}).get('use') == 'normative'}
+        for path in sorted(normative_consumers):
+            pending.append({'path': path, 'seed': path, 'fields': ['*'], 'causes': [], 'chain': [],
+                'state': 'review_pending', 'reason': 'normative_policy_requalification_required',
+                'priority': 'on_demand', 'verification_performed': False})
     missing = set(current.get('missing_evidence', set()))
     missing_used = sorted({edge['prerequisite'] for edges in adjacency.values() for edge in edges
                            if edge['origin'] == 'current' and edge['prerequisite'] in missing})
