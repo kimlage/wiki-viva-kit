@@ -1663,3 +1663,13 @@ the guarded action writer. The [operation cockpit](../operations.md) projection
 now covers explicitly typed nested context hubs and the root index, with no
 symlink traversal. These are technical contract and projection corrections;
 no source evidence, factual verification or existing publication date was renewed.
+
+## [2026-11-03] Shared nested editorial input targets
+
+The [input stage](input-stage.md) and auditor now share authored editorial hub
+discovery at any memory depth, preserving root-entity → domain-hub target order.
+Missing, ambiguous and cyclic hubs remain explicit warnings, with no inferred
+context-policy authority. The [process guide](../../docs/references/guides/default-open-source-process.md#context)
+documents the source of that resolution and the retained flat layout. The input
+stage's dependency projection now includes the consumed hub metadata. This is a
+technical routing correction; no existing publication/source date was renewed.

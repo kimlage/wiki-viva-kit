@@ -45,6 +45,14 @@ projection_inputs:
   - perspectives_optional
   title_fallback: blank
 - page_types:
+  - context_hub
+  path_prefix: memories
+  fields:
+  - page_id
+  - page_type
+  - context
+  - moc_parent
+- page_types:
   - root_entity
   fields:
   - page_id
@@ -113,7 +121,7 @@ Boundary rule: Apply the quadrant to the root holon and the source's role in con
 
 ## Warnings
 
-- None.
+- context system: context hub unavailable; root/channel/config targets do not substitute for it
 
 ## Validation
 
