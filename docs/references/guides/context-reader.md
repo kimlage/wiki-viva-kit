@@ -10,7 +10,8 @@ preparing content does not prove that an agent read it or authorize execution.
 | --- | --- | --- |
 | [wiki_read.py](../../../scripts/wiki_read.py) | Required revision, mode and exact allowed paths; section, field or explicit whole document | The local caller supplies scope. The raw reader does not enforce context policy. |
 | [wiki_context.py](../../../scripts/wiki_context.py) | Approved context, explicit evidence paths and byte budget | Current trusted policy authorizes each selection; inherited mandatory bodies accompany evidence. |
-| [wiki_coordination.py](../../../scripts/wiki_coordination.py) with a profile | Assigned action and its configured context at the selected revision | Legacy coordinator mapping remains a compatibility adapter without context-policy enforcement. |
+| [wiki_coordination.py](../../../scripts/wiki_coordination.py) with explicit context and approval | Explicit task and selected evidence at approved history | Approved policy and current connection checks apply; see [protected coordination](context-coordination-protected.md). |
+| [wiki_coordination.py](../../../scripts/wiki_coordination.py) with a profile | Assigned action and its configured context at the selected revision | Legacy coordinator mapping remains a compatibility adapter labelled `caller_trust`, without context-policy enforcement. |
 
 ## Local reads and stable sections
 

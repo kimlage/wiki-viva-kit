@@ -1,9 +1,9 @@
 # Opt-in modular page templates
 
 A page **type** defines the entity and required metadata through the existing
-[page type registry](../../../../wiki.page-types.yaml). A page **template** supplies
+consumer-owned `wiki.page-types.yaml` registry. A page **template** supplies
 an initial document. A content **section** is an addressable Markdown slice with
-an explicit stable ID; it is parsed by [content_sections.py](../../../../wiki_core/content_sections.py).
+an explicit stable ID; it is parsed by [content_sections.py](../../../wiki_core/content_sections.py).
 Existing template **blocks** can describe facets, UI, perspectives and capabilities;
 they are not automatically content slices. A wiki/context/process template can
 organize a collection of pages; this small contract only composes one page.
@@ -16,18 +16,18 @@ facts. No template grants context authority, tools, credentials or publication.
 Use the existing `templates.page_type_overrides` in a consumer's config, or add
 `section_contract` to that type's registry shape. An explicit config value wins.
 No new registry or global switch is required. This example uses the committed,
-public synthetic [decision skeleton](../../../../tests/fixtures/template-sections/decision.md)
-and [risk extension](../../../../tests/fixtures/template-sections/decision-risk.yaml):
+public synthetic [decision skeleton](../../../docs/references/templates/wiki/modular-example/decision.md)
+and [risk extension](../../../docs/references/templates/wiki/modular-example/decision-risk.yaml):
 
 ```yaml
 templates:
   page_type_overrides:
     decision:
-      template: tests/fixtures/template-sections/decision.md
-      section_contract: tests/fixtures/template-sections/decision-risk.yaml
+      template: docs/references/templates/wiki/modular-example/decision.md
+      section_contract: docs/references/templates/wiki/modular-example/decision-risk.yaml
 ```
 
-[templates.py](../../../../wiki_core/templates.py) resolves the selected skeleton,
+[templates.py](../../../wiki_core/templates.py) resolves the selected skeleton,
 optional legacy overlay, and contract. For this opt-in path the skeleton and
 overlay must not already declare section markers. Composition appends the
 contract's sections; instantiation supplies normal page metadata plus the chosen
@@ -38,7 +38,7 @@ loading an unverified local extension.
 
 ## Small additive contract
 
-The [base decision](../../../../tests/fixtures/template-sections/decision.yaml)
+The [base decision](../../../docs/references/templates/wiki/modular-example/decision.yaml)
 uses schema `wiki_template_sections.v1`, a template identity/version, a list of
 sections and `allowed_slots`. Every section has `id`, visual `title`, semantic
 `role`, and boolean `required`. Roles are `facts`, `decision`, `constraints`,
@@ -58,7 +58,7 @@ review, a new template version and explicit consumer migration; the validator
 cannot infer semantic equivalence or incompatible meaning.
 
 The [JSON schema](../schemas/wiki-template-sections-v1.schema.json) describes the
-file shape. The [runtime loader](../../../../wiki_core/template_sections.py) also
+file shape. The [runtime loader](../../../wiki_core/template_sections.py) also
 checks inheritance and slots. YAML keys must be unique strings. Contracts,
 skeletons and overlays must be regular files inside the repository, without
 symlinks or traversal. FIFOs, devices and directories are rejected before open. Contracts have an aggregate 64 KiB budget, at most eight files in an
@@ -88,7 +88,7 @@ empty section never passes filled validation merely because its marker exists.
 `section:<id>` selectors. The existing reader can consume each selector after
 its caller applies authorization. Missing/duplicate sections fail rather than
 falling back to the whole page. The synthetic
-[end-to-end test](../../../../tests/test_template_sections.py) exercises
+end-to-end test `tests/test_template_sections.py` in the kit source checkout exercises
 `resolve_template → instantiate_template → RepositoryReader.read → validation`,
 including the risk section and a renamed evidence heading.
 
@@ -100,7 +100,7 @@ python3 scripts/wiki_template_sections.py --root . --page-type decision \
   --page memories/decisions/example.md --mode filled
 ```
 
-The [CLI](../../../../scripts/wiki_template_sections.py) prints JSON and returns
+The [CLI](../../../scripts/wiki_template_sections.py) prints JSON and returns
 nonzero for invalid definitions/pages. Its page argument is repository relative;
 it is a read-only preview of a trusted working tree, not a committed-revision
 reader, approval gate or ACL check. Config/registry loading uses the existing

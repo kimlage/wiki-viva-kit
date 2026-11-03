@@ -23,6 +23,8 @@ python3 scripts/wiki_coordination.py --root REPO --context-id CONTEXT \
 
 The older profile/snapshot coordinator remains a separate `caller_trust` compatibility mode. It may read a broad catalogue and is not an owner-scoped authorization boundary. It must not be presented as the protected route or used as its fallback.
 
+For source ingestion, follow the separate [bounded ingestion guide](bounded-ingestion.md): select an approved local source and context, choose the business root explicitly or omit it, and set context and request byte budgets. Unsupported source access remains blocked until a qualified adapter is available.
+
 ## 3. Execute in a short worktree
 
 The operator or external harness creates a task-specific worktree/branch from the approved base and delivers the packet to the selected context thread. The executor reads the supplied rules and selected inputs, works only within the declared and actually enforced scope, and reports its real reads, omissions, changes and blockers. If an input is missing, access is denied or the result of an effect is uncertain, record the specific blocker and resume condition; do not invent an interface or repeat an uncertain effect. Continue independent work only when it is authorized.
@@ -47,7 +49,7 @@ An authorized external Git integrator serializes the merge under the repository'
 
 After an authorized merge, update the trusted approved reference through the installation's existing process and read back the exact integrated output. The `requirements` command can derive a **proposal** for canonical `information_requirements` from the bound packet and reported result after the proposal is incorporated; it verifies Git bytes and writes no page. The `impact --consumer PATH` command reads the authorized consumer's approved Markdown requirements through the existing relation parser and compares selected input revisions. See the [impact and integration guide](context-impact-integration.md) for arguments and scope.
 
-A changed authorized source creates a review candidate for each relevant consumer; each context interprets independently. Do not copy a producer's conclusion, treat an unpinned legacy dependency as current, or propagate transitively before a new output actually changes. Preserve trace and handle fan-out continuations; a cycle/limit is a visible blocker, not permission to drop remaining work. A review disposition is reported evidence, not proof of fact freshness. Actual external facts require their own authorized observation and validity policy.
+A changed authorized slice may produce an immediate review candidate for each eligible consumer in the authorized inventory; coverage is limited to that inventory, and each context interprets independently. Do not copy a producer's conclusion, treat an unpinned legacy dependency as current, or propagate transitively before a new output actually changes. Preserve trace and handle fan-out continuations; a cycle/limit is a visible blocker, not permission to drop remaining work. A review disposition is reported evidence, not proof of fact freshness. Actual external facts require their own authorized observation and validity policy.
 
 ## 6. Optional wake
 

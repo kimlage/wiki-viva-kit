@@ -35,6 +35,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | Compile a deep read into an integration packet |
 | [wiki_context.py](../../../scripts/wiki_context.py) | Resolve current approved context policy or build an explicit v1 task packet |
 | [wiki_context_flow.py](../../../scripts/wiki_context_flow.py) | Assess selective context impact, derive canonical requirements and preflight proposals without approving or merging |
+| [wiki_context_schedule.py](../../../scripts/wiki_context_schedule.py) | Evaluate finite context schedule advice without installing or executing it |
 | [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) | Publish ignored artifacts to configured Drive |
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Export context requests in batch format |
 | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | Build a deterministic source manifest |
@@ -70,10 +71,11 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_semantic_inventory.py](../../../scripts/wiki_semantic_inventory.py) | Verify authored semantics/read models |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Compile the source registry |
 | [wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py) | Dry-run/apply B0/C1/C2/C3 kit adoption |
+| [wiki_template_sections.py](../../../scripts/wiki_template_sections.py) | Preview modular section structure or filling on a trusted working tree |
 | [wiki_vercel_preview.py](../../../scripts/wiki_vercel_preview.py) | Prepare a synthetic-only Vercel function preview without deploying |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |
 | [wiki_contribution.py](../../../scripts/wiki_contribution.py) | Prepare, review and reconcile provider-neutral action-body contributions under consumer Git policy |
-| [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Read coordinator routes and prepare revision-bound context without dispatch |
+| [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Prepare an explicit approved task packet or use legacy caller-trust profile routes; never dispatch |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Run the localhost operator API |
 | [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generate/check atomic cockpit snapshot |
 
@@ -86,8 +88,9 @@ for find, context, source and action. They describe existing methods, effect
 scopes, coverage and the distinction between a receipt and integration.
 
 The [phase 1 context guide](../../../docs/references/guides/context-reader.md)
-separates the raw reader, approved-manifest packets and legacy coordinator
-context. Content revision and current policy authority are separate; a digest
+separates the raw reader, approved-manifest packets and legacy caller-trust
+coordinator context. The [finite operation runbook](../../../docs/references/guides/context-operation.md)
+connects explicit protected coordination to independent preflight, review and readback. Content revision and current policy authority are separate; a digest
 does not prove factual freshness or service access.
 
 Use [wiki_find.py](../../../scripts/wiki_find.py) for direct lookup before

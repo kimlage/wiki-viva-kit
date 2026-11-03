@@ -2,7 +2,7 @@ schema_version: wiki_template_sections.v1
 template_id: decision-risk
 template_version: '1'
 extends:
-  path: tests/fixtures/template-sections/decision.yaml
+  path: docs/references/templates/wiki/modular-example/decision.yaml
   template_id: decision-modular
   template_version: '1'
 add_sections:

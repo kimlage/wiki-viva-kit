@@ -18,17 +18,17 @@ from wiki_core.template_sections import (TemplateSectionError, load_section_cont
     selectors_for_roles, validate_section_page, read_template_file, MAX_BYTES, MAX_DEPTH)
 from wiki_core.templates import resolve_template, instantiate_template
 
-FIXTURES = Path(__file__).parent / 'fixtures/template-sections'
-REF = 'tests/fixtures/template-sections/decision-risk.yaml'
+FIXTURES = Path(__file__).parents[1] / 'docs/references/templates/wiki/modular-example'
+REF = 'docs/references/templates/wiki/modular-example/decision-risk.yaml'
 
 
 @pytest.fixture
 def repo(tmp_path):
-    target = tmp_path / 'tests/fixtures/template-sections'
+    target = tmp_path / 'docs/references/templates/wiki/modular-example'
     target.parent.mkdir(parents=True)
     shutil.copytree(FIXTURES, target)
     (tmp_path / 'wiki.page-types.yaml').write_text(yaml.safe_dump({'schema_version': 'wiki_page_types.v1',
-        'page_types': {'decision': {'template': 'tests/fixtures/template-sections/decision.md',
+        'page_types': {'decision': {'template': 'docs/references/templates/wiki/modular-example/decision.md',
                                   'allowed_dirs': ['memories/decisions']}}}))
     return tmp_path
 
@@ -74,7 +74,7 @@ def test_real_resolve_instantiate_read_select_validate(repo):
         assert result['frontmatter'] == {}
     # Updating a contract never writes/migrates the committed or working page.
     before = (repo / 'page.md').read_bytes()
-    parent = repo / 'tests/fixtures/template-sections/decision.yaml'
+    parent = repo / 'docs/references/templates/wiki/modular-example/decision.yaml'
     parent.write_text(parent.read_text().replace("template_version: '1'", "template_version: '2'"))
     with pytest.raises(TemplateSectionError, match='parent template identity/version mismatch'):
         resolve(repo)
@@ -107,7 +107,7 @@ def test_duplicate_keys_symlinks_cycles_size_and_depth(repo):
     path.write_text(original + '\ntemplate_version: 2\n')
     with pytest.raises(TemplateSectionError, match='duplicate'):
         load_section_contract(repo, REF)
-    path.write_text(original.replace('tests/fixtures/template-sections/decision.yaml', REF))
+    path.write_text(original.replace('docs/references/templates/wiki/modular-example/decision.yaml', REF))
     with pytest.raises(TemplateSectionError, match='cycle'):
         load_section_contract(repo, REF)
     path.unlink()
@@ -147,7 +147,7 @@ def test_opt_in_skeleton_and_overlay_must_be_confined_and_bounded(repo):
     with pytest.raises(TemplateSectionError):
         resolve(repo, template='../outside.md')
     path = repo / 'alias.md'
-    path.symlink_to('tests/fixtures/template-sections/decision.md')
+    path.symlink_to('docs/references/templates/wiki/modular-example/decision.md')
     with pytest.raises(TemplateSectionError):
         resolve(repo, overlay='alias.md')
     path.unlink()
@@ -162,7 +162,7 @@ def test_legacy_opt_out_keeps_old_text_and_metadata(repo):
     assert resolved.section_contract is None
     assert resolved.template_id == 'decision-default'
     assert resolved.template_version == '1'
-    assert resolved.text == (repo / 'tests/fixtures/template-sections/decision.md').read_text()
+    assert resolved.text == (repo / 'docs/references/templates/wiki/modular-example/decision.md').read_text()
     assert '<!-- wiki:section' not in instantiate_template(resolved, title='Legacy', context='example', config=config)
 
 
@@ -238,7 +238,7 @@ def test_parent_pin_drift_blocks_resolution_without_rewriting_page(repo, key, va
     page = repo / 'existing.md'
     page.write_text(instantiate_template(resolved, title='Existing', context='example', config=config))
     before = page.read_bytes()
-    parent_file = repo / 'tests/fixtures/template-sections/decision.yaml'
+    parent_file = repo / 'docs/references/templates/wiki/modular-example/decision.yaml'
     parent = yaml.safe_load(parent_file.read_text())
     parent[key] = value
     parent_file.write_text(yaml.safe_dump(parent))
@@ -258,9 +258,9 @@ def test_parent_pin_drift_blocks_resolution_without_rewriting_page(repo, key, va
     assert page.read_bytes() == before
 
 
-@pytest.mark.parametrize('pin', ['tests/fixtures/template-sections/decision.yaml',
-    {'path': 'tests/fixtures/template-sections/decision.yaml'},
-    {'path': 'tests/fixtures/template-sections/decision.yaml', 'template_id': 'decision-modular',
+@pytest.mark.parametrize('pin', ['docs/references/templates/wiki/modular-example/decision.yaml',
+    {'path': 'docs/references/templates/wiki/modular-example/decision.yaml'},
+    {'path': 'docs/references/templates/wiki/modular-example/decision.yaml', 'template_id': 'decision-modular',
      'template_version': 1}])
 def test_inheritance_requires_explicit_string_identity_version_pin(repo, pin):
     path = repo / REF

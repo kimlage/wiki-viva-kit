@@ -38,7 +38,11 @@ consumer's configured memory root is never hardcoded. Packs cannot execute
 code or weaken core gates. See the
 [experience-pack authoring guide](../docs/references/guides/experience-pack-authoring.md).
 
-Agent-facing commands live in [scripts](../scripts/README.md).
+Agent-facing commands live in [scripts](../scripts/README.md). The
+[context operation runbook](../docs/references/guides/context-operation.md)
+connects restrictive policy and revision-bound packets to external task
+execution and independent integration. [Schedule advice](../docs/references/context-schedules.md)
+is optional and does not install or execute a scheduler.
 
 [freshness_impact.py](freshness_impact.py) evaluates actual changed pages and
 both historical and current dependencies. Documentary classifications are
