@@ -19,7 +19,7 @@ python3 scripts/wiki_coordination.py --root REPO --context-id CONTEXT \
   --approved-revision APPROVED_SHA --revision CONTENT_SHA --packet-request REQUEST.json
 ```
 
-`REQUEST.json` is the task object documented in the protected coordinator guide. Replace all uppercase placeholders with actual authorized values. CLI output wraps the packet in `packet`; save that object unchanged for preflight. `max_bytes` limits the complete canonical JSON packet, including metadata and digest. Missing mandatory content or overflow is an error, never silent truncation. A fixed digest proves bytes, not that an agent read or understood them. Dynamic query selection is not supported by the packet contract.
+`REQUEST.json` is the task object documented in the protected coordinator guide. Replace all uppercase placeholders with actual authorized values. CLI output wraps the packet in `packet`; save that object unchanged for preflight. `max_bytes` limits the complete canonical JSON packet, including metadata and digest. Missing mandatory content or overflow is an error, never silent truncation. A fixed digest proves bytes, not that an agent read or understood them. The packet also supports [bounded dynamic queries](context-dynamic-selection.md) anchored to a canonical collection within the selected owner. Selection is limited to its authorized scope and reports coverage for that universe, not global absence. For imports between owners, use an exact selector with the required current bilateral authorization.
 
 The older profile/snapshot coordinator remains a separate `caller_trust` compatibility mode. It may read a broad catalogue and is not an owner-scoped authorization boundary. It must not be presented as the protected route or used as its fallback.
 
