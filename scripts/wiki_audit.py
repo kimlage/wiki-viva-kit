@@ -92,7 +92,7 @@ def wiki_paths(config: WikiConfig) -> WikiPaths:
 def context_hub_pages(config: WikiConfig) -> tuple[list[str], list[str]]:
     """Shared editorial discovery, preserving the auditor's primary-page gate."""
     from wiki_core.context_hubs import discover_context_hubs
-    by_context, errors = discover_context_hubs(ROOT, config, read_page=parse_frontmatter)
+    by_context, errors = discover_context_hubs(ROOT, config, read_page=canonical_parse_frontmatter)
     return [path for paths in by_context.values() for path in paths], errors
 
 
