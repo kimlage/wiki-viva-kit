@@ -28,6 +28,7 @@ portable:
     - docs/references/freshness-impact.md
     - docs/references/context-schedules.md
     - docs/references/releases/wiki-viva-v9.0.0.md
+    - docs/references/releases/wiki-viva-v9.1.0.md
     - examples/context-hierarchy/**
     - examples/context-schedule/**
     - docs/references/releases/hermes-integration-withdrawal-2026-10-22.md

@@ -1,5 +1,14 @@
 # Wiki Viva v9.0.0
 
+> **Adoption notice:** the immutable `v9.0.0` tag points to
+> `d29754569507259be3744690d5ee86df3520ddd5` and predates the reader/catalog
+> secret-output guard. Do not use that tag or its source archives for new
+> adoption. Use approved corrected commit
+> [`7769aee73a166ac7fd7b4ab7f35be64576e451ca`](https://github.com/kimlage/wiki-viva-kit/commit/7769aee73a166ac7fd7b4ab7f35be64576e451ca),
+> or the reviewed v9.1.0 tag after publication. Synthetic regression fixtures
+> demonstrated the missing output check; this work did not establish an
+> actual credential exposure. The old tag is preserved for reproducibility.
+
 This major release changes distributed files, configuration and API surfaces. It
 keeps Markdown and Git as the canonical knowledge base while making context
 policy, revision-bound reading and independent integration explicit. A version
@@ -55,7 +64,9 @@ scheduler or an installed consumer.
 
 ## Upgrading
 
-Use the **reviewed, approved v9.0.0 kit commit or tag** as the source. Perform
+Use **approved corrected commit `7769aee73a166ac7fd7b4ab7f35be64576e451ca`**,
+or the reviewed v9.1.0 tag after publication, as the source. The v9.0.0 tag and
+its source archives remain historical and are not corrected by this notice. Perform
 this work in an isolated consumer checkout that no service uses. Do not assume
 that the version checked out there is the version currently served.
 
