@@ -28,7 +28,12 @@ def _code_digest(code: Path) -> str:
     roots = [code / 'wiki_core', code / 'scripts']
     if any(root.is_symlink() or not root.is_dir() for root in roots):
         raise ValueError('installed_code_root_invalid')
-    files = sorted([*roots[0].rglob('*.py'), *roots[1].glob('*.py')])
+    resources = [p for p in roots[0].rglob('*') if '__pycache__' not in p.parts and (p.is_file() or p.is_symlink())]
+    schemas = code / 'docs/references/schemas'
+    if schemas.is_symlink():
+        raise ValueError('installed_code_symlink')
+    schema_files = [p for p in schemas.rglob('*') if p.suffix == '.json' or p.is_symlink()] if schemas.exists() else []
+    files = sorted([*resources, *roots[1].glob('*.py'), *schema_files])
     if any(not (roots[1] / name).is_file() for name in _SCRIPTS):
         raise ValueError('installed_code_missing')
     digest = hashlib.sha256()

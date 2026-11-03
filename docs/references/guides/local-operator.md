@@ -77,7 +77,8 @@ under `-I`; `PYTHONPATH` is intentionally ignored in dispatched subprocesses.
 The root must be an existing, canonical, nonsymlink directory distinct from the
 code root. An optional frontend directory must also be canonical and distinct
 from both roots. The binding is fixed for the process lifetime; replacing the content
-root or changing installed Python code causes subsequent dispatch to fail.
+root or changing tracked code or resources under the checked release paths causes
+subsequent dispatch to fail.
 Keep the code release immutable while the operator is running: checks before
 launch cannot remove every filesystem race and are not a sandbox. Identify the
 served bundle and its provenance separately; a matching local file alone does
