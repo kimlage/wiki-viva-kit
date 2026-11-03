@@ -38,7 +38,8 @@ from wiki_core.llm import build_context_request
 from wiki_core.llm.context_pass import (CONTEXT_PASS_SCHEMA_VERSION, ingestion_block_context,
     DEFAULT_CONTEXT_MAX_BYTES, DEFAULT_REQUEST_MAX_BYTES, preparation_blocker,
     enforce_request_budget, canonical_request_text, request_limits, ContextRequestBlocked,
-    authorize_ingestion_source, revalidate_ingestion_source, approved_ingestion_inputs)
+    authorize_ingestion_source, revalidate_ingestion_source, approved_ingestion_inputs,
+    require_approved_prompt_version)
 from wiki_core.paths import WikiPaths
 from wiki_core.score import record_event
 from wiki_core.source_config import find_source_config, merge_perspectives
@@ -144,6 +145,11 @@ def run(
         if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
             raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
         if approved_revision is not None or policy_context is not None:
+            if not approved_revision or not policy_context:
+                raise ContextRequestBlocked("approved_source_context_required", "Approved ingestion requires a current approved revision and explicit policy context.")
+            prompt_version = str(config.llm.get("prompt_versions", {}).get(
+                "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
+            require_approved_prompt_version(prompt_version)
             source_guard = authorize_ingestion_source(root, source, approved_revision, policy_context)
             source = str(source_guard["path"])
     except (ValueError, OSError) as exc:

@@ -128,7 +128,7 @@ def materialize_fixture(
                 "  chunk_target_tokens: 1200",
                 "  chunk_overlap_tokens: 150",
                 "  prompt_versions:",
-                "    context_deep_read: v3",
+                "    context_deep_read: v4",
                 "audit:",
                 "  forbid_access_secrets: true",
                 "  require_frontmatter: true",

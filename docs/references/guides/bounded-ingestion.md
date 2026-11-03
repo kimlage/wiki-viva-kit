@@ -107,11 +107,13 @@ request above a smaller current ceiling cannot satisfy it. Approved query mode
 and unrequested-result bypass are refused. Absence, revocation and budget
 failure never select a compatibility fallback.
 
-Versioned deep-read prompts v1–v3 still show a historical unbound recording
-command. For an approved request, follow the source-bound recording command
-above instead; the prompt's legacy example does not revalidate that approved
-request. Those prompts are retained for compatibility and require a separately
-reviewed prompt-version and cache migration before changing their contents.
+Approved ingestion requires the installed `context_deep_read.v4` prompt. Older
+v1–v3 prompts retain their historical unbound recording commands and remain
+available only in working-tree compatibility mode. A consumer explicitly pinned
+to an older prompt must configure v4 as a consumer-owned migration. Re-emit and
+read a fresh request: v4 has a distinct prompt version and context identity, so
+prior results remain inspectable but cannot satisfy the new request. A missing
+v4 prompt or an unknown version blocks approved preparation without fallback.
 
 Without approved-context flags, the existing working-tree adapter remains
 explicitly labelled compatibility. Historical envelopes remain inspectable;

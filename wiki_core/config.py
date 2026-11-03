@@ -17,7 +17,7 @@ _BOOL_TRUE = {"true", "yes", "on", "1"}
 _BOOL_FALSE = {"false", "no", "off", "0"}
 SUPPORTED_LANGUAGES = frozenset({"en", "es", "pt"})
 _CONTEXT_SLUG_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
-DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION = "v3"
+DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION = "v4"
 
 # Admin surface vocabulary (god-mode plan §17.4): closed sets, parsed strictly.
 _ADMIN_ADAPTERS = frozenset({"startup_code"})

@@ -45,7 +45,8 @@ from wiki_core.llm import CONTEXT_PASS_SCHEMA_VERSION, build_context_request, wr
 from wiki_core.llm.context_pass import (result_matches_request, ingestion_block_context,
     DEFAULT_CONTEXT_MAX_BYTES, DEFAULT_REQUEST_MAX_BYTES, ContextRequestBlocked,
     canonical_request_text, enforce_request_budget, preparation_blocker, request_limits,
-    authorize_ingestion_source, revalidate_ingestion_source, approved_ingestion_inputs)
+    authorize_ingestion_source, revalidate_ingestion_source, approved_ingestion_inputs,
+    require_approved_prompt_version)
 from wiki_core.paths import WikiPaths
 from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest, resolve_source_manifest
@@ -307,6 +308,13 @@ def main() -> int:
         return _blocked(ContextRequestBlocked("approved_result_binding_required", "Approved mode refuses unrequested-result bypass; emit and read the current bound request before recording."), "source-context-pass", config.owner_label)
     if args.approved_revision and not args.source:
         return _blocked(ContextRequestBlocked("approved_source_required", "Approved mode requires an explicit source and its requested-result binding."), "source-context-pass", config.owner_label)
+    if args.approved_revision:
+        prompt_version = str(config.llm.get("prompt_versions", {}).get(
+            "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
+        try:
+            require_approved_prompt_version(prompt_version)
+        except (ValueError, OSError) as exc:
+            return _blocked(exc, "source-context-pass", config.owner_label)
     if args.record_result and not args.source and not args.query:
         return _record_results(paths, args.record_result, allow_unrequested=args.allow_unrequested,
             limits=limits, owner=config.owner_label)
