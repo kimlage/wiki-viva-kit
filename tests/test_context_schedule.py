@@ -197,3 +197,23 @@ def test_task_identity_tuple_avoids_slash_collision(case):
         w['tasks'][0]['task_id']=task_id
         identities.append(evaluate_wake(p,s,w)['eligible'][0]['task_identity'])
     assert identities[0]!=identities[1]
+
+
+def test_timestamps_fail_closed_without_optional_format_checker(case, monkeypatch):
+    import wiki_core.context_schedule as schedule_module
+    # An empty checker models installations without the optional RFC3339 package.
+    monkeypatch.setattr(schedule_module, 'FormatChecker', lambda: None)
+    p,s,w,_,_=case
+    observation={'scheduler':'demo','host':'local','owner':'operator','installed':True,
+                 'last_wake':None,'next_expected':None,'interaction':'unknown','paused':False}
+    for field in ('now', 'due_at', 'latest_due_at'):
+        for value in ('not-a-time', '2026-11-02T12:00:00', '2026-02-30T12:00:00Z', '2026-11-02 12:00:00Z', '2026-11-02T12:00:00+01:60'):
+            bad=copy.deepcopy(w); bad[field]=value; bad['global_paused']=True
+            with pytest.raises(PolicyError): evaluate_wake(p,s,bad,observation)
+    for field in ('last_wake', 'next_expected'):
+        bad={**observation,field:'2026-11-02T12:00:00'}
+        with pytest.raises(PolicyError): evaluate_wake(p,s,w,bad)
+    for value in ('2026-11-02T12:00:00Z', '2026-11-02T13:00:00+01:00'):
+        valid={**w,'now':value,'due_at':value,'latest_due_at':value}
+        assert evaluate_wake(p,s,valid,observation)['decision']=='eligible'
+    with pytest.raises(PolicyError): occurrence_id(s,'not-a-time')

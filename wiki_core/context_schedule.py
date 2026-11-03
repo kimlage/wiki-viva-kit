@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import re
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
@@ -40,7 +41,17 @@ def occurrence_id(schedule, due_at):
 
 
 def _time(value):
-    return dt.datetime.fromisoformat(value.replace('Z', '+00:00')).astimezone(dt.timezone.utc)
+    # JSON Schema format checkers are optional; validate independently so a
+    # clean installation never accepts an unzoned or malformed timestamp.
+    match = re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:[Zz]|[+-]([0-9]{2}):([0-9]{2}))", value
+    ) if isinstance(value, str) else None
+    if not match or (match.group(1) is not None and (int(match.group(1)) > 23 or int(match.group(2)) > 59)):
+        raise PolicyError('invalid schedule timestamp')
+    try:
+        return dt.datetime.fromisoformat(value.replace('t', 'T').replace('z', 'Z').replace('Z', '+00:00')).astimezone(dt.timezone.utc)
+    except (ValueError, OverflowError) as exc:
+        raise PolicyError('invalid schedule timestamp') from exc
 
 
 def evaluate_wake(policy, schedule, wake, observation=None):
@@ -51,6 +62,10 @@ def evaluate_wake(policy, schedule, wake, observation=None):
     """
     _validate({'schedule': schedule, 'wake': wake, 'observation': observation})
     schedule = validate_schedule(schedule)
+    now, due, latest = map(_time, (wake['now'], wake['due_at'], wake['latest_due_at']))
+    if observation is not None:
+        for field in ('last_wake', 'next_expected'):
+            if observation[field] is not None: _time(observation[field])
     cid = schedule['context_id']
     # Reject a mixed-owner snapshot before disclosing IDs, counts or observations.
     if any(t['context_id'] != cid for t in wake['tasks'] + wake['records']):
@@ -91,7 +106,6 @@ def evaluate_wake(policy, schedule, wake, observation=None):
     if not schedule['enabled']: return out
     if observation and observation['paused']:
         out['reason'] = 'reported_paused'; return out
-    now, due, latest = map(_time, (wake['now'], wake['due_at'], wake['latest_due_at']))
     if latest < due or latest > now: return blocked('invalid_occurrence_order')
     if due > now or due != latest:
         out['reason'] = 'not_latest_due'; return out
