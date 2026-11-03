@@ -13,6 +13,7 @@ from wiki_core.web import commands, gates, ingestion_plan, source_operations
 @pytest.fixture
 def content(tmp_path, monkeypatch):
     monkeypatch.setattr(binding, '_binding', None)
+    monkeypatch.setattr(binding, '_legacy_sealed', False)
     root = (tmp_path / 'content').resolve()
     root.mkdir()
     (root / 'wiki.config.yaml').write_text('repo_id: synthetic\n')
@@ -204,3 +205,12 @@ def test_binding_failure_writes_no_gate_receipt(content, monkeypatch):
     result = gates.run_gate(content, WikiConfig(repo_id="synthetic"), "wiki_audit")
     assert not result["ok"] and result["stderr"] == "installed_code_changed"
     assert not receipt.called
+
+
+def test_legacy_start_cannot_switch_into_installed_mode(tmp_path, monkeypatch):
+    monkeypatch.setattr(binding, '_binding', None)
+    monkeypatch.setattr(binding, '_legacy_sealed', False)
+    content = (tmp_path / 'content').resolve(); content.mkdir()
+    binding.seal_legacy()
+    with pytest.raises(ValueError, match='installed_mode_after_legacy_start'):
+        binding.configure(content)

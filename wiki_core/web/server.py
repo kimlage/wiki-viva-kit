@@ -273,6 +273,8 @@ class CockpitServer(ThreadingHTTPServer):
     def __init__(self, server_address: tuple[str, int], root: Path, config: WikiConfig,
                  *, admin_announce: Callable[[str], None] | None = None,
                  start_jobs: bool = True, coordination_binding: CoordinationBinding | None = None) -> None:
+        from wiki_core.web import installed_binding
+        installed_binding.seal_legacy()
         # CORS is a startup trust decision. Invalid or remote origins must fail
         # before the operator opens a listening socket, and environment changes
         # only take effect after an intentional restart.

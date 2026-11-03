@@ -10,6 +10,7 @@ from pathlib import Path
 _CODE_ROOT = Path(__file__).resolve().parents[2]
 _binding: tuple[Path, Path, tuple[int, int], str] | None = None
 _lock = threading.Lock()
+_legacy_sealed = False
 _SCRIPTS = frozenset({
     'wiki_operation_compile.py', 'wiki_operational_pass.py', 'wiki_source_registry.py',
     'wiki_input_stage.py', 'wiki_audit.py', 'wiki_quality_report.py',
@@ -60,9 +61,19 @@ def configure(content_root: Path) -> None:
     identity = (st.st_dev, st.st_ino)
     candidate = (code, content, identity, _code_digest(code))
     with _lock:
+        if _legacy_sealed:
+            raise ValueError("installed_mode_after_legacy_start")
         if _binding is not None and _binding != candidate:
             raise ValueError('installed_binding_already_configured')
         _binding = candidate
+
+
+def seal_legacy() -> None:
+    """A started legacy server cannot switch bindings while work is in flight."""
+    global _legacy_sealed
+    with _lock:
+        if _binding is None:
+            _legacy_sealed = True
 
 
 def enabled() -> bool:
