@@ -48,8 +48,13 @@ the [delegation contract](../../guides/context-coordinators.md#delegation-contra
 - Domain pages, source/configuration IDs and evidence to read:
 - Destination pages and the existing ingestion/consolidation path:
 
-Use the consumer's current `common_context` and add the task's specific pages.
-Read their contents; receiving references or hashes is not proof of reading.
+Bind the complete protected task packet: canonical context ID, current approved
+policy revision, content revision and packet digest. Read all mandatory rule
+bodies and selected evidence; references, hashes or truncated samples are not
+substitutes. Profiles preserve routing/history and never grant access. Mandatory
+rules come from canonical context instructions/skills/templates; selected
+cross-context evidence requires approved imports/exports. Do not construct a
+handoff from legacy `common_context` or `context_pages`.
 Resolve superseded instructions through the current policy, without treating
 historical notes as new consent requirements or widening access.
 

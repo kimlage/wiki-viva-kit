@@ -121,7 +121,8 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                 raw_before=prior.get('information_requirements',[])
                 raw_after=proposed_file['frontmatter'].get('information_requirements',[])
                 has_query=isinstance(raw_after,list) and any(isinstance(r,dict) and 'query' in r for r in raw_after)
-                if raw_before!=raw_after or has_query:
+                has_normative=isinstance(raw_after,list) and any(isinstance(r,dict) and r.get('source_kind')=='mandatory' for r in raw_after)
+                if raw_before!=raw_after or has_query or has_normative:
                     def resolve(ref): return [ref] if isinstance(ref,str) and ref in base_reader.paths else []
                     try: declared=information_requirements(proposed_file['frontmatter'],resolve)
                     except (ValueError,TypeError) as exc: raise IntegrationError('invalid proposed information requirement') from exc
@@ -131,6 +132,19 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                     except (ValueError,TypeError) as exc: raise IntegrationError('invalid existing information requirement') from exc
                     for requirement in declared:
                         if requirement in previous:
+                            if requirement.get('source_kind') == 'mandatory':
+                                from wiki_core.context_normative import normative_history
+                                ref=requirement['target']; consumed=requirement['consumed_revision']
+                                if not normative_history(policy,context_id,ref,consumed):
+                                    raise IntegrationError('existing normative requirement requires requalification')
+                                item=next((x for x in packet['inputs'] if x['kind']=='mandatory' and x['ref']==ref),None)
+                                observed={k:item[k] for k in ('ref','section','field','revision')} if item else None
+                                if item is None or observed not in result['read_coverage']['observed_refs']:
+                                    raise IntegrationError('existing normative requirement requires reported read')
+                                try: previous_rule=RepositoryReader(root,consumed).read(ref)
+                                except ValueError as exc: raise IntegrationError('existing normative input unavailable') from exc
+                                if previous_rule['content_digest']!=item['sha256']:
+                                    raise IntegrationError('existing normative requirement changed; reread and update')
                             if 'query' in requirement:
                                 try:
                                     consumed_reader=query_reuse.reader(requirement['consumed_revision'])
@@ -159,9 +173,12 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                             continue
                         for selector in requirement['fields']:
                             def matches(item):
-                                if item['kind']!='evidence' or item['ref']!=requirement['target'] or item['revision']!=consumed: return False
+                                normative = requirement.get('source_kind') == 'mandatory'
+                                if item['kind'] != ('mandatory' if normative else 'evidence') or item['ref']!=requirement['target'] or item['revision']!=consumed: return False
                                 observed={k:item[k] for k in ('ref','section','field','revision')}
                                 if observed not in result['read_coverage']['observed_refs']: return False
+                                if normative:
+                                    return selector == '*' and item['section'] is None and item['field'] is None and consumed == packet['policy_revision']
                                 actual=('section:'+item['section'].removeprefix('section:') if item['section'] is not None else 'field:'+item['field'] if item['field'] is not None else '*')
                                 wanted=selector if selector in ('*','body') or ':' in selector else 'field:'+selector
                                 if wanted=='body' and actual=='*': wanted='*'

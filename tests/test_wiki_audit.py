@@ -2401,3 +2401,25 @@ def test_context_hub_cycle_is_an_error_even_with_separate_root(tmp_path, audit, 
     pages, errors = audit.context_hub_pages(config)
     assert pages == ['memories/demo/root.md']
     assert any('cyclic context hub ancestry' in error for error in errors)
+
+
+@pytest.mark.parametrize('invalid_id', [123, ['invalid-hub']])
+def test_context_hub_audit_matches_typed_discovery_without_coercion(tmp_path, audit, monkeypatch, invalid_id):
+    import yaml
+    from wiki_core.context_hubs import discover_context_hubs
+    monkeypatch.setattr(audit,'ROOT',tmp_path)
+    config = WikiConfig(contexts=('tax',),audit={'core_pages':[]})
+    for name, page_id in [('valid','valid-hub'),('invalid',invalid_id)]:
+        target=tmp_path/f'memories/finance/tax/{name}.md'
+        target.parent.mkdir(parents=True,exist_ok=True)
+        target.write_text('---\n'+yaml.safe_dump({'page_type':'context_hub','context':'tax',
+            'page_id':page_id,'moc_parent':'memories/index.md'})+'---\n')
+    typed, typed_errors = discover_context_hubs(tmp_path,config)
+    # A flat parser would coerce the numeric ID into a string. Discovery must
+    # use the canonical typed parser while shape validation stays independent.
+    def flattened_parser_forbidden(*args):
+        pytest.fail('hub discovery used flat shape parser')
+    monkeypatch.setattr(audit,'parse_frontmatter',flattened_parser_forbidden)
+    pages, errors=audit.context_hub_pages(config)
+    assert pages == typed['tax'] == ['memories/finance/tax/valid.md']
+    assert errors == typed_errors == []

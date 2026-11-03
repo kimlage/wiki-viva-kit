@@ -144,7 +144,7 @@ def _body_occurrences(root: Path, path: str, body: str, navigation_targets: set[
             yield project_link_role(edge, authored_roles.get(child.meta.get("_wiki_body_link_span")))
 
 
-def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
+def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, normative_revision=None) -> dict[str, Any]:
     """Project the existing semantic-inventory model plus real Markdown body links."""
     pages = _authored_pages(root, config)
     _unique_by_id, by_path, duplicates = _page_indexes(pages)
@@ -153,6 +153,23 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
     # IDs conservatively to every authored path instead of dropping their edges.
     by_id = {p.page_id: p for p in reversed(pages)}
     paths_by_id: dict[str, list[str]] = defaultdict(list)
+    def normative_ref(ref):
+        # A declaration may point outside memory_root. Resolve only exact Git
+        # regular-file metadata: this creates an edge, never read authority.
+        import subprocess
+        from wiki_core.context_policy import safe_path, PolicyError
+        try: ref=safe_path(ref)
+        except PolicyError: return []
+        if normative_revision is not None and (not isinstance(normative_revision,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',normative_revision)):
+            return []
+        args=(['ls-tree','-z',normative_revision,'--',ref] if normative_revision else ['ls-files','--stage','-z','--',ref])
+        try: result=subprocess.run(['git','-C',str(normative_root or root),'--literal-pathspecs',*args],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+        except OSError: return []
+        if result.returncode: return []
+        entries=result.stdout.split(b'\0')
+        if len(entries)!=2 or not entries[0] or not entries[0].startswith((b'100644 ',b'100755 ')): return []
+        if not normative_revision and not entries[0].split(b'\t',1)[0].endswith(b' 0'): return []
+        return [ref] if entries[0].split(b'\t',1)[-1] == ref.encode('utf-8') else []
     for page in pages:
         paths_by_id[page.page_id].append(page.path)
     # Source emission duplicates the source_ref dependency in the same direction;
@@ -201,7 +218,8 @@ def authored_graph(root: Path, config: WikiConfig) -> dict[str, Any]:
                                   field=field))
         try:
             edges.extend(operational_consumption_edges(root, page.path, page.values, body,
-                lambda ref: [ref] if ref in by_path else paths_by_id.get(ref, [])))
+                lambda ref: [ref] if ref in by_path else paths_by_id.get(ref, []),
+                resolve_normative=normative_ref))
             edges.extend(projection_input_edges(page.path,page.values,node_values,default_context=config.default_context))
         except ValueError as exc:
             errors.append(f"{page.path}: {exc}")
@@ -334,7 +352,7 @@ def dependency_edges(graph: dict, *, origin: str = "current") -> tuple[list[dict
     return dependencies, contextual
 
 
-def information_requirements(values: dict, resolve) -> list[dict]:
+def information_requirements(values: dict, resolve, *, resolve_normative=None) -> list[dict]:
     """Normalize authored current/historical consumption into the same edges.
 
     A requirement describes an intended use, not an exception to PR review or
@@ -346,7 +364,7 @@ def information_requirements(values: dict, resolve) -> list[dict]:
     result = []
     for entry in raw:
         required = {'target', 'fields', 'temporal', 'max_age_days'}
-        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest'}):
+        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest','source_kind'}):
             raise ValueError('information requirement needs target, fields, temporal, max_age_days')
         if (not isinstance(entry['target'], str) or not isinstance(entry['fields'], list)
                 or not entry['fields'] or len(entry['fields']) > 32
@@ -360,6 +378,8 @@ def information_requirements(values: dict, resolve) -> list[dict]:
         if any(k in entry and (not isinstance(entry[k], str) or not entry[k].strip()) for k in ('use','classification')):
             raise ValueError('invalid information use or classification')
         dynamic = {'query','members_digest','selected_digest','query_policy_revision','authority_digest'} & set(entry)
+        if 'source_kind' in entry and (entry['source_kind'] != 'mandatory' or entry.get('use') != 'normative' or entry['fields'] != ['*'] or entry['temporal'] != 'current' or 'consumed_revision' not in entry or dynamic):
+            raise ValueError('normative requirement needs current whole pinned input')
         if dynamic:
             from wiki_core.context_selection import normalize_query, requirement_query
             if dynamic != {'query','members_digest','selected_digest','query_policy_revision','authority_digest'} or not {'consumed_revision','use','classification'} <= set(entry) or entry['fields'] != ['*']:
@@ -370,19 +390,20 @@ def information_requirements(values: dict, resolve) -> list[dict]:
                 raise ValueError('query authority proof required')
             normalized = normalize_query(requirement_query(entry))
             entry = {**entry, 'query': normalized['query']}
-        targets = resolve(entry['target'])
+        resolver = resolve_normative if entry.get('source_kind') == 'mandatory' and resolve_normative else resolve
+        targets = resolver(entry['target'])
         if len(targets) != 1:
             raise ValueError('information requirement target is missing or ambiguous')
         result.append({**entry, 'target': targets[0]})
     return result
 
 
-def operational_consumption_edges(root: Path, path: str, values: dict, body: str, resolve) -> list[dict]:
+def operational_consumption_edges(root: Path, path: str, values: dict, body: str, resolve, *, resolve_normative=None) -> list[dict]:
     """The same operational declarations feed readers, agents and admission."""
     edges = [dict(source=path, target=r['target'], type='operational_prerequisite',
                   direction='directed', basis='frontmatter', path=path,
                   field='information_requirements', requirement=r)
-             for r in information_requirements(values, resolve)]
+             for r in information_requirements(values, resolve, resolve_normative=resolve_normative)]
     edges.extend(edge for edge in _body_occurrences(root, path, body, set())
                  if edge['type'] == 'operational_prerequisite')
     return edges

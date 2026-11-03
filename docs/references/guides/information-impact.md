@@ -91,15 +91,33 @@ references fail closed. A body declaration of an operational prerequisite cannot
 silently disappear from admission; an operational declaration without sufficient
 scope is unusable for current execution.
 
-Current factual use requires a specific claim, confirmed confidence, applicable
+Current factual use requires a scoped factual unit, confirmed confidence, applicable
 verification and evidence. The existing [temporal contract](temporal-kernel.md)
 provides `verified_at`, `valid_from` and `valid_to`; the editorial `updated_at`
 and a discovery cursor are not substitutes. A verification with day precision
 stays a day, not an invented observation instant. Missing, future, expired,
 inferred or conflicting evidence cannot qualify current use.
 
+A legacy `page_type: claim` remains a factual unit without a new field. A page
+of a consumer's own type may opt in through the exact frontmatter scalar
+`information_role: factual_unit`. A nonempty string `page_type` is required.
+An absent marker on another type, or a present invalid marker on any type
+(including a claim), fails qualification. No new type registry is needed.
+The declaration establishes eligibility only: it proves neither truth nor
+permission. A source, hub or catalogue with a timestamp or `evidence_refs`
+alone cannot qualify.
+
+Evidence traversal applies equally to custom factual units and legacy claims.
+Loaded RAW observations without a factual declaration or derived provenance
+remain terminal observations. Undeclared pages carrying nonempty or malformed
+`evidence_refs` now block qualification and are traversed conservatively instead
+of counting as independent observations. This intentionally hardens chains that
+previously treated every non-claim as a leaf. Invalid declarations cannot hide
+cycles. Closed cycles and self-evidence remain blockers.
+
 Revision coverage includes the selected content and the metadata qualifying its
-verification. Git ancestry detects later edits; it does not establish truth or
+verification, including `page_type` and `information_role`, and all loaded
+transitive evidence. Git ancestry detects later edits; it does not establish truth or
 prove an external read. Authorized context includes the relevant claim and its
 evidence in the existing revision-bound readset. An effect executor must recheck current requirements at admission and bound
 its use by the derived validity interval. The context packet itself does not

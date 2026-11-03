@@ -7,8 +7,7 @@ from pathlib import Path
 from _common import ROOT
 from wiki_core.context_selection import strict_json_loads
 from wiki_core.config import load_config
-from wiki_core.coordination import coordination_index, context_packet, validate_dialogue_route
-from wiki_core.action_transition import transition_action_page
+from wiki_core.coordination import coordination_index, profile_packet_migration, transition_dialogue_action
 from wiki_core.coordination_context import CoordinationBinding, ProtectedCoordinationError, prepare_packet, blocker_response
 
 
@@ -20,6 +19,7 @@ def main() -> None:
     parser.add_argument("--packet-request", type=Path, help="Explicit task selection JSON for protected packet mode.")
     parser.add_argument("--profile")
     parser.add_argument("--action-id")
+    parser.add_argument("--action-path", help="Exact canonical page path; required for dialogue events.")
     parser.add_argument("--revision", default="HEAD", help="Immutable Git content revision for profile context.")
     parser.add_argument("--event-file", type=Path, help="Append one dialogue event from a JSON file (trusted local adapter).")
     parser.add_argument("--expected-sha256")
@@ -27,7 +27,7 @@ def main() -> None:
     args = parser.parse_args()
     protected = bool(args.context_id or args.approved_revision or args.packet_request)
     if protected:
-        if not (args.context_id and args.approved_revision and args.packet_request) or args.profile or args.action_id or args.event_file or args.expected_sha256 or args.as_operator:
+        if not (args.context_id and args.approved_revision and args.packet_request) or args.profile or args.action_id or args.event_file or args.expected_sha256 or args.as_operator or args.action_path:
             parser.error("protected mode requires context-id, approved-revision and packet-request; legacy profile/event options are separate")
         try:
             if args.packet_request.stat().st_size > 1_048_576:
@@ -41,32 +41,29 @@ def main() -> None:
             raise SystemExit(1)
         print(json.dumps(result, ensure_ascii=False))
         return
-    if args.event_file and (not args.profile or not args.action_id or not args.expected_sha256):
-        parser.error("--event-file requires --profile, --action-id and --expected-sha256")
-    if (args.expected_sha256 or args.as_operator) and not args.event_file:
+    if args.event_file and (not args.profile or not args.action_id or not args.expected_sha256 or not args.action_path):
+        parser.error("--event-file requires --profile, --action-id, --action-path and --expected-sha256")
+    if (args.expected_sha256 or args.as_operator or args.action_path) and not args.event_file:
         parser.error("write options require --event-file")
     if args.action_id and not args.profile:
         parser.error("--action-id requires --profile")
-    root = args.root.resolve()
-    config = load_config(root)
     if args.profile and not args.event_file:
-        result = context_packet(root, config, None, args.profile, args.action_id, revision=args.revision)
-    else:
+        print(json.dumps(profile_packet_migration(), ensure_ascii=False))
+        return
+    root = args.root.resolve()
+    if not args.event_file:
         from wiki_core.web.snapshot import build_snapshot
-        snapshot = build_snapshot(root, config)
-        result = context_packet(root, config, snapshot, args.profile, args.action_id) if args.profile else coordination_index(root, snapshot)
+        result = coordination_index(root, build_snapshot(root, load_config(root)))
     if args.event_file:
         if args.event_file.stat().st_size > 16_000:
             parser.error("event file exceeds limit")
         event = json.loads(args.event_file.read_text())
         if not isinstance(event, dict) or event.get("coordinator") != args.profile:
             parser.error("event coordinator must equal selected profile")
-        action = result["actions"][0]
-        validate_dialogue_route(root, action["path"], event)
-        result = transition_action_page(root, action["path"], action["state"],
-            expected_sha256=args.expected_sha256, dialogue_event=event,
-            dialogue_actor="operator" if args.as_operator else "coordinator:" + args.profile,
-            next_action=event.get("text") if event.get("kind") == "direction" else None).to_dict()
+        result = transition_dialogue_action(
+            root, args.action_path, args.action_id, event,
+            expected_sha256=args.expected_sha256, as_operator=args.as_operator).to_dict()
+
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

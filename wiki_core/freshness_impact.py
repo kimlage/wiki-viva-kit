@@ -248,7 +248,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     before = input_hashes(root, config)
     changes = collect_git_changes(base_sha, root=root)
     current = authored_graph(root, config)
-    base = project_memory_at_commit(base_sha, authored_graph, root=root)
+    base = project_memory_at_commit(base_sha,
+        lambda temp, cfg: authored_graph(temp,cfg,normative_root=root,normative_revision=base_sha), root=root)
     changed = set(changes.paths)
     # Referenced tracked artifacts are ordinary source dependencies, without a
     # separately authored hash registry. Retain old links when an artifact or
@@ -259,7 +260,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     tracked.update(run_git(["ls-files", "-z"], root=root).split("\0"))
     memory_paths = set(current["nodes"]) | set(base["nodes"])
     evidence = {e["target"] for g in (base, current) for e in g["edges"]
-                if e["type"] in REFERENCE | {"historical_support", "operational_prerequisite", "projection_state", "projection"} and e["target"] in tracked} - memory_paths
+                if e["type"] in REFERENCE | {"historical_support", "operational_prerequisite", "projection_state", "projection"}
+                and e.get('requirement',{}).get('source_kind') != 'mandatory' and e["target"] in tracked} - memory_paths
     for edge in current['edges']:
         if (edge['type']=='projection' and edge['target'] not in memory_paths and edge['target'] not in tracked):
             current['errors'].append(f"{edge['path']}: projection input must be a tracked repository artifact: {edge['target']}")
@@ -268,6 +270,11 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
         graph["evidence_paths"] = evidence
         graph["missing_evidence"] = {p for p in evidence if before[p] is None}
         graph["nodes"].update({p: {} for p in evidence})
+        # Track a declared external rule as metadata only, so its changed Git
+        # path seeds traversal without reading its body as factual evidence.
+        for edge in graph['edges']:
+            if edge.get('requirement',{}).get('source_kind') == 'mandatory':
+                graph['nodes'].setdefault(edge['target'],{})
     current_citations = {e["target"] for e in current["edges"] if e["type"] in REFERENCE}
     current["reviewable_evidence"] = {
         p for p in evidence & base_tracked
@@ -386,6 +393,10 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 'context_scope': 'query_recomputation_only_not_auditor_acl'}
         from wiki_core.information_use import bind_verification_coverage, assess_information_use
         qualified = bind_verification_coverage(root,current)
+        if all((query_context,query_policy_revision,query_head)):
+            from wiki_core.information_use import bind_normative_coverage
+            qualified=bind_normative_coverage(root,qualified,closure_policy,query_context,head=head)
+            result['query_revalidation']['normative_scope']='selected_context_only_not_auditor_acl'
         usage=[]
         for path, values in current['nodes'].items():
             if values.get('action_state') not in {'open','in_progress'}:continue

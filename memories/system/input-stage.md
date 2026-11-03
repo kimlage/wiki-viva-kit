@@ -45,6 +45,14 @@ projection_inputs:
   - perspectives_optional
   title_fallback: blank
 - page_types:
+  - context_hub
+  path_prefix: memories
+  fields:
+  - page_id
+  - page_type
+  - context
+  - moc_parent
+- page_types:
   - root_entity
   fields:
   - page_id

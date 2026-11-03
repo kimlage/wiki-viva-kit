@@ -217,7 +217,7 @@ def test_preflight_rejects_active_ancestor_local_rule_and_template(repo,normativ
 def test_markdown_requirement_flows_through_real_inventory_and_authorized_reader(repo):
     from wiki_core.config import load_config
     from wiki_core.information_relations import authored_graph, dependency_edges
-    from wiki_core.context_requirements import assess_approved_impact
+    from wiki_core.context_requirements import assess_approved_impact, requirements_from_result
     consumed=git(repo,'rev-parse','HEAD')
     requirement={'target':'finance/tax/source.md','fields':['section:amount'],'temporal':'current','max_age_days':30,'consumed_revision':consumed,'use':'interpret','classification':'synthetic'}
     values={'page_id':'cost-interpretation','page_type':'claim','information_requirements':[requirement]}
@@ -379,3 +379,155 @@ def test_requirements_block_secret_in_packet_or_result_metadata(repo):
     with pytest.raises(RequirementError,match='secret detected') as exc:
         requirements_from_result(repo,current,packet=packet,result=result_fake,**kwargs)
     assert secret not in str(exc.value)
+
+@pytest.mark.parametrize(('context','output'), [('tax','finance/tax/interpretation.md'), ('costs','finance/costs/result.md')])
+def test_inherited_normative_requirement_flow(repo, context, output):
+    from wiki_core.context_requirements import assess_approved_impact, requirements_from_result
+    (repo/'rules.md').write_text('---\ntitle: Original\n---\nApproved rule\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','normative metadata'); approve(repo)
+    base=git(repo,'rev-parse','HEAD'); p=policy(repo)
+    base_branch=git(repo,'branch','--show-current')
+    packet=build_packet(repo,p,context,base,[],20000,task_id='norm',goal='interpret rule',output=output,integrator='reviewer')
+    req={'target':'rules.md','fields':['*'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'normative','source_kind':'mandatory','classification':'internal'}
+    branch='wiki/norm-'+context; git(repo,'checkout','-qb',branch)
+    (repo/output).write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nIndependent interpretation\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','interpret approved rule'); head=git(repo,'rev-parse','HEAD')
+    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'norm','context_id':context,'packet_digest':packet['packet_digest'],'changes':[{'path':output,'action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
+    assert preflight(repo,p,context_id=context,base=base,head=head,branch=branch,packet=packet,result=result)['state']=='independent_review_required'
+    git(repo,'checkout','-q',base_branch); git(repo,'merge','--no-ff','--no-edit',branch); approve(repo)
+    derived=requirements_from_result(repo,policy(repo),packet=packet,result=result,output_path=output,proposal_head=head,temporal='current',max_age_days=30)
+    assert derived['information_requirements']==[]  # explicit declaration only
+    # An unrelated approved commit changes the policy SHA but not the rule:
+    # retaining the historical consumption is valid, without inventing a reread.
+    (repo/'unrelated.md').write_text('Unrelated\n'); git(repo,'add','.'); git(repo,'commit','-qm','unrelated'); approve(repo)
+    same=git(repo,'rev-parse','HEAD'); same_packet=build_packet(repo,policy(repo),context,same,[],20000,task_id='same-rule',goal='edit',output=output,integrator='reviewer')
+    git(repo,'checkout','-qb','wiki/same-'+context); (repo/output).write_text((repo/output).read_text()+'Unrelated edit\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','edit consumer'); same_head=git(repo,'rev-parse','HEAD')
+    same_result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'same-rule','context_id':context,'packet_digest':same_packet['packet_digest'],'changes':[{'path':output,'action':'modified'}],'read_coverage':{'observed_refs':same_packet['declared_read_set'],'missing':[]},'blockers':[]}
+    assert preflight(repo,policy(repo),context_id=context,base=same,head=same_head,branch='wiki/same-'+context,packet=same_packet,result=same_result)['state']=='independent_review_required'
+    git(repo,'checkout','-q',base_branch)
+    (repo/'rules.md').write_text('---\ntitle: Updated\n---\nApproved rule\n'); git(repo,'add','.'); git(repo,'commit','-qm','rule metadata revision'); approve(repo); current=git(repo,'rev-parse','HEAD')
+    out=assess_approved_impact(repo,policy(repo),consumers=[output],before=base,after=current,destination_context=context)
+    candidate=out['candidates'][0]
+    validate(out,json.loads((BASE/'docs/references/schemas/wiki-context-impact-v1.schema.json').read_text()))
+    assert candidate['use']=='normative' and candidate['before_revision']==base and candidate['state']=='review_pending'
+    forged={**candidate}; forged.pop('source_kind')
+    with pytest.raises(ImpactError,match='invalid candidate'):
+        report_review(repo,policy(repo),forged,disposition='still_valid',reason='forged origin',evidence_revision=current)
+    assert report_review(repo,policy(repo),candidate,disposition='still_valid',reason='Reviewed rule',evidence_revision=current)['verification']=='reported_not_verified'
+    fresh=build_packet(repo,policy(repo),context,current,[],20000,task_id='stale-norm',goal='edit',output=output,integrator='reviewer')
+    git(repo,'checkout','-qb','wiki/stale-'+context); (repo/output).write_text((repo/output).read_text()+'Unrelated edit\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','edit consumer'); newer=git(repo,'rev-parse','HEAD')
+    new_result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'stale-norm','context_id':context,'packet_digest':fresh['packet_digest'],'changes':[{'path':output,'action':'modified'}],'read_coverage':{'observed_refs':fresh['declared_read_set'],'missing':[]},'blockers':[]}
+    with pytest.raises(IntegrationError,match='normative requirement changed'):
+        preflight(repo,policy(repo),context_id=context,base=current,head=newer,branch='wiki/stale-'+context,packet=fresh,result=new_result)
+
+
+def test_normative_history_and_revocation_fail_before_source_read(repo, monkeypatch):
+    from wiki_core.context_requirements import assess_approved_impact
+    from wiki_core.repository_reader import RepositoryReader
+    (repo/'old-data.md').write_text('Synthetic formerly ordinary data\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','ordinary data'); approve(repo)
+    old=git(repo,'rev-parse','HEAD')
+    # A newly promoted rule cannot authorize its previous data incarnation.
+    d=yaml.safe_load((repo/'context.yaml').read_text()); d['instructions'].append('old-data.md')
+    (repo/'old-data.md').write_text('Synthetic rule\n'); (repo/'context.yaml').write_text(yaml.safe_dump(d))
+    git(repo,'add','.'); git(repo,'commit','-qm','promote instruction'); approve(repo)
+    promoted=git(repo,'rev-parse','HEAD')
+    req={'target':'old-data.md','fields':['*'],'temporal':'current','max_age_days':30,'consumed_revision':old,'use':'normative','source_kind':'mandatory','classification':'internal'}
+    target='finance/costs/result.md'; (repo/target).write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nReport\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','consumer'); approve(repo); current=git(repo,'rev-parse','HEAD')
+    original=RepositoryReader.read
+    def spy(self, ref, *args, **kwargs):
+        if ref=='old-data.md': pytest.fail('unauthorized normative body read')
+        return original(self,ref,*args,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',spy)
+    with pytest.raises(ImpactError,match='authorization unavailable'): assess_approved_impact(repo,policy(repo),consumers=[target],before=old,after=current,destination_context='costs')
+    # A formerly valid declaration that is no longer in the lineage is blocked
+    # before its formerly authorized bytes are read.
+    req['consumed_revision']=promoted
+    (repo/target).write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nReport\n')
+    d=yaml.safe_load((repo/'context.yaml').read_text()); d['instructions'].remove('old-data.md'); (repo/'context.yaml').write_text(yaml.safe_dump(d))
+    git(repo,'add','.'); git(repo,'commit','-qm','remove rule'); approve(repo); current=git(repo,'rev-parse','HEAD')
+    with pytest.raises(ImpactError,match='authorization unavailable'): assess_approved_impact(repo,policy(repo),consumers=[target],before=old,after=current,destination_context='costs')
+    d['instructions'].append('old-data.md'); (repo/'context.yaml').write_text(yaml.safe_dump(d))
+    d=yaml.safe_load((repo/'finance/costs/context.yaml').read_text()); d['policy']['deny']={'read':['old-data.md']}; (repo/'finance/costs/context.yaml').write_text(yaml.safe_dump(d))
+    git(repo,'add','.'); git(repo,'commit','-qm','deny'); approve(repo); current=git(repo,'rev-parse','HEAD')
+    with pytest.raises(ImpactError,match='authorization unavailable'): assess_approved_impact(repo,policy(repo),consumers=[target],before=old,after=current,destination_context='costs')
+
+
+def test_normative_label_cannot_authorize_evidence_or_slices(repo):
+    from wiki_core.context_policy import PolicyError
+    from wiki_core.information_relations import information_requirements
+    sha=git(repo,'rev-parse','HEAD'); p=policy(repo)
+    evidence=[{'ref':'finance/tax/source.md','producer':'tax','reason':'fake','use':'normative','classification':'internal'}]
+    with pytest.raises(PolicyError,match='connection pending'): build_packet(repo,p,'costs',sha,evidence,20000,task_id='fake',goal='fake',output='x',integrator='reviewer')
+    req={'target':'rules.md','fields':['section:part'],'temporal':'current','max_age_days':1,'consumed_revision':sha,'use':'normative','source_kind':'mandatory'}
+    with pytest.raises(ValueError,match='normative requirement'): information_requirements({'information_requirements':[req]},lambda x:[x])
+
+
+def test_generic_audit_reports_normative_policy_requalification(repo):
+    import datetime
+    from wiki_core.information_impact import evaluate_information_impact
+    req={'target':'rules.md','fields':['*'],'temporal':'current','max_age_days':30,'consumed_revision':git(repo,'rev-parse','HEAD'),'use':'normative','source_kind':'mandatory','classification':'internal'}
+    edge={'source':'finance/costs/result.md','target':'rules.md','type':'operational_prerequisite','field':'information_requirements','requirement':req}
+    graph={'nodes':{'rules.md':{},'finance/costs/result.md':{}},'edges':[edge],'errors':[],'missing_evidence':set()}
+    out=evaluate_information_impact(graph,graph,{'context.yaml'},today=datetime.date(2026,11,3))
+    assert any(x['reason']=='normative_policy_requalification_required' for x in out['pending_reviews'])
+
+
+def test_preflight_rejects_fake_normative_requirement(repo):
+    base=git(repo,'rev-parse','HEAD'); p=policy(repo); context='costs'; output='finance/costs/result.md'
+    packet=build_packet(repo,p,context,base,[],20000,task_id='fake-norm',goal='test',output=output,integrator='reviewer')
+    git(repo,'checkout','-qb','wiki/fake-norm')
+    req={'target':'finance/costs/other.md','fields':['*'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'normative','source_kind':'mandatory','classification':'internal'}
+    (repo/output).write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nFake rule\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','fake'); head=git(repo,'rev-parse','HEAD')
+    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'fake-norm','context_id':context,'packet_digest':packet['packet_digest'],'changes':[{'path':output,'action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
+    with pytest.raises(IntegrationError,match='does not match task evidence'):
+        preflight(repo,p,context_id=context,base=base,head=head,branch='wiki/fake-norm',packet=packet,result=result)
+
+
+def test_reparent_removing_normative_ancestor_blocks_before_body(repo, monkeypatch):
+    from wiki_core.context_requirements import assess_approved_impact
+    from wiki_core.repository_reader import RepositoryReader
+    finance=yaml.safe_load((repo/'finance/context.yaml').read_text()); finance['instructions']=['finance/rule.md']
+    (repo/'finance/context.yaml').write_text(yaml.safe_dump(finance)); (repo/'finance/rule.md').write_text('Financial operating rule\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','finance rule'); approve(repo); consumed=git(repo,'rev-parse','HEAD')
+    req={'target':'finance/rule.md','fields':['*'],'temporal':'current','max_age_days':30,'consumed_revision':consumed,'use':'normative','source_kind':'mandatory','classification':'internal'}
+    target='finance/costs/result.md'; (repo/target).write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nReport\n')
+    costs=yaml.safe_load((repo/'finance/costs/context.yaml').read_text()); costs['parent']='root'; costs['imports']=[]
+    (repo/'finance/costs/context.yaml').write_text(yaml.safe_dump(costs))
+    git(repo,'rm','finance/context.yaml','finance/tax/context.yaml'); git(repo,'add','.'); git(repo,'commit','-qm','reparent'); approve(repo); current=git(repo,'rev-parse','HEAD')
+    original=RepositoryReader.read
+    def spy(self,ref,*args,**kwargs):
+        if ref=='finance/rule.md': pytest.fail('revoked ancestor body read')
+        return original(self,ref,*args,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',spy)
+    with pytest.raises(ImpactError,match='authorization unavailable'):
+        assess_approved_impact(repo,policy(repo),consumers=[target],before=consumed,after=current,destination_context='costs')
+
+
+def test_bilateral_normative_evidence_retains_legacy_selector(repo):
+    base_branch=git(repo,'branch','--show-current')
+    grant={'from_context':'tax','to_context':'costs','selector':'finance/tax/source.md','section':'amount','use':'normative','classification':'synthetic','expires':'2099-01-01'}
+    for path,key in [('finance/tax/context.yaml','exports'),('finance/costs/context.yaml','imports')]:
+        d=yaml.safe_load((repo/path).read_text()); d[key].append(grant); (repo/path).write_text(yaml.safe_dump(d))
+    git(repo,'add','.'); git(repo,'commit','-qm','approved bilateral normative evidence'); approve(repo); base=git(repo,'rev-parse','HEAD')
+    evidence=[{'ref':'finance/tax/source.md','producer':'tax','reason':'rule evidence','use':'normative','classification':'synthetic','section':'amount'}]
+    packet=build_packet(repo,policy(repo),'costs',base,evidence,20000,task_id='bilateral',goal='assess',output='result',integrator='reviewer')
+    req={'target':'finance/tax/source.md','fields':['section:amount'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'normative','classification':'synthetic'}
+    git(repo,'checkout','-qb','wiki/bilateral'); target='finance/costs/result.md'; (repo/target).write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nReport\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','consume'); head=git(repo,'rev-parse','HEAD')
+    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'bilateral','context_id':'costs','packet_digest':packet['packet_digest'],'changes':[{'path':target,'action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
+    assert preflight(repo,policy(repo),context_id='costs',base=base,head=head,branch='wiki/bilateral',packet=packet,result=result)['state']=='independent_review_required'
+    req['source_kind']='mandatory'; (repo/target).write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nReport\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','forge origin'); head=git(repo,'rev-parse','HEAD')
+    with pytest.raises(IntegrationError,match='invalid proposed information requirement'):
+        preflight(repo,policy(repo),context_id='costs',base=base,head=head,branch='wiki/bilateral',packet=packet,result=result)
+    git(repo,'checkout','-q',base_branch)
+    after=update(repo,'<!-- wiki:section id=amount version=1 -->\n## Amount\nChanged\n')
+    g=graph(base); g['edges'][0]['use']='normative'
+    candidate=assess_impact(repo,policy(repo),g,before=base,after=after,destination_context='costs')['candidates'][0]
+    assert candidate['selector']=='section:amount' and 'source_kind' not in candidate
+    assert report_review(repo,policy(repo),candidate,disposition='still_valid',reason='reviewed',evidence_revision=after)['verification']=='reported_not_verified'

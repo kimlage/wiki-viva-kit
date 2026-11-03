@@ -154,7 +154,6 @@ projection_inputs:
 - page_types:
   - context_hub
   path_prefix: memories
-  path_depth: 2
   file_names:
   - index.md
   fields:

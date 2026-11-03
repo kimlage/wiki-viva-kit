@@ -290,8 +290,8 @@ def test_concurrent_edit_fails_closed(repo, monkeypatch):
     path = page(repo, "item")
     base = commit(repo)
     original = module.authored_graph
-    def changing(root, config):
-        result = original(root, config)
+    def changing(root, config, **kwargs):
+        result = original(root, config, **kwargs)
         if root == repo:
             path.write_text(path.read_text() + "Concurrent change.")
         return result
@@ -795,3 +795,26 @@ def test_operational_comment_cannot_supply_freshness_review(repo):
         evidence=action.relative_to(repo).as_posix(), rationale='Dated record.', limits='No current claim.')}
     with pytest.raises(ValueError, match='fresh changed evidence'):
         repository_report(repo, load_config(repo), base, today=TODAY, freshness_reviews=review)
+
+
+def test_custom_factual_unit_survives_authored_inventory_and_freshness_consumer(tmp_path):
+    from tests.test_source_review_jobs import fixture
+    from wiki_core.semantic_inventory import build_semantic_inventory
+    config,_,_=fixture(tmp_path)
+    fact=tmp_path/'memories/index.md'
+    fact.write_text(fact.read_text().replace('page_type: claim',
+        'page_type: synthetic_cost\ninformation_role: factual_unit').replace(
+        'verified_at: 2026-01-01','verified_at: 2026-10-30'))
+    base=commit(tmp_path)
+    graph=authored_graph(tmp_path,config)
+    assert graph['nodes']['memories/index.md']['information_role']=='factual_unit'
+    assert graph['nodes']['memories/index.md']['page_type']=='synthetic_cost'
+    inventory=build_semantic_inventory(tmp_path,config)
+    assert inventory['summary']['relation_error_count']==0
+    result=repository_report(tmp_path,config,base,today=dt.date(2026,10,30))
+    assert result['information_use'][0]['ready']
+    raw=tmp_path/'memories/evidence.md';raw.write_text(raw.read_text()+'Changed RAW observation.\n')
+    commit(tmp_path)
+    result=repository_report(tmp_path,config,base,today=dt.date(2026,10,30))
+    assert not result['information_use'][0]['ready']
+    assert 'information_changed_since_verification' in result['information_use'][0]['requirements'][0]['blockers']
