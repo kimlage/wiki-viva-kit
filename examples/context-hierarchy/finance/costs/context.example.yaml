@@ -1,0 +1,17 @@
+schema_version: wiki.context/v1
+id: finance/costs
+parent: finance
+root: examples/context-hierarchy/finance/costs
+purpose: Independent cost interpretation
+owner: cost operator
+instructions: []
+skills: []
+templates: []
+policy:
+  read:
+  - examples/context-hierarchy/root-rules.md
+  - self
+  write:
+  - self
+imports: []
+exports: []

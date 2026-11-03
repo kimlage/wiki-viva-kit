@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wiki-template-sections-v1.schema.json",
+  "title": "Opt-in page section template contract",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "template_id",
+        "template_version",
+        "sections",
+        "allowed_slots"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wiki_template_sections.v1"
+        },
+        "template_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "template_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "role",
+              "required",
+              "title"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+              },
+              "role": {
+                "enum": [
+                  "facts",
+                  "decision",
+                  "constraints",
+                  "evidence",
+                  "uncertainty",
+                  "next_step"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\r\\n<>]+$"
+              }
+            }
+          }
+        },
+        "allowed_slots": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(before|after):[A-Za-z][A-Za-z0-9_.:-]*$"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "template_id",
+        "template_version",
+        "extends",
+        "add_sections"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wiki_template_sections.v1"
+        },
+        "template_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "template_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "extends": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "template_id",
+            "template_version"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "template_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "template_version": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "add_sections": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "role",
+              "required",
+              "title",
+              "slot"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+              },
+              "role": {
+                "enum": [
+                  "facts",
+                  "decision",
+                  "constraints",
+                  "evidence",
+                  "uncertainty",
+                  "next_step"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\r\\n<>]+$"
+              },
+              "slot": {
+                "type": "string",
+                "pattern": "^(before|after):[A-Za-z][A-Za-z0-9_.:-]*$"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

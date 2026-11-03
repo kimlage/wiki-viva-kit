@@ -23,21 +23,30 @@ ingesting = integrating.
 
 ## Flow
 
-1. Compile/check the input stage with
-   [scripts/wiki_input_stage.py](../../scripts/wiki_input_stage.py) so root
-   entity, input channel, inherited perspectives and target pages are current.
-2. Generate/update the deterministic artifacts of the source (manifest, text, chunks,
-   index) with the `wiki_extract_*` and `wiki_build_index` scripts.
-3. Assemble the context package:
+1. Use the task's validated packet and selected root/channel/template inputs.
+   An authorized coordinator can compile/check [the input stage](../../scripts/wiki_input_stage.py)
+   when routing requires it; a scoped executor does not read the full global
+   catalog or every front as mandatory context. Missing required inputs return
+   a blocker instead of expanding the task's readset. An explicitly omitted
+   business root remains missing coverage; do not decide a question that needs
+   it, and do not omit mandatory lineage rules.
+2. Use the canonical [ingestion entry](../../scripts/wiki_ingest.py) to extract,
+   scan and prepare the full request before persistence:
    ```bash
-   python3 scripts/wiki_llm_context_pass.py --source <source> --context <context> --emit-request
+   python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000
    ```
-   This writes the context package (one request file per source, in
-   `extraction-events/`) containing: prompt (versioned instruction),
-   `result_required_keys`, `quadrants_required` and, per chunk, `chunk_id`,
-   `cache_key`, `text` and `result_exists`. For repo-local source pages it also
-   includes `root_entity`, `input_channel`, `quadrant_map`, `target_pages` and
-   `input_stage_status`.
+   These positive byte ceilings bound context and complete canonical UTF-8
+   request respectively; they do not guarantee a model token window. Select a
+   ceiling compatible with the actual harness. Approved context failure never
+   falls back to working-tree compatibility. See [bounded ingestion](../../docs/references/guides/bounded-ingestion.md).
+3. Read the emitted request from the configured extraction-events directory.
+   Mandatory context appears once, followed by every extracted chunk with
+   `chunk_id`, `cache_key`, `text` and `result_exists`. Actual policy and required
+   perspective bodies accompany the root entity, channel and targets.
+   [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) can re-emit
+   or check the existing extraction using the same source, approval, context
+   and limits. Oversize is a recoverable blocker; obtain an explicit smaller
+   source/stage or an authorized ceiling rather than truncating content.
 4. For each chunk with `result_exists: false`, do the deep reading following the
    `prompt` of the package and the template
    [context_deep_read.v3.md](../../wiki_core/llm/prompts/context_deep_read.v3.md).
@@ -45,14 +54,14 @@ ingesting = integrating.
    (use the `cache_key` of the chunk itself).
 5. Record the results:
    ```bash
-   python3 scripts/wiki_llm_context_pass.py --record-result <file|->.json --context <context>
+   python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --record-result RESULT.json
    ```
    Accepts a single object or an array. The script validates the schema (including
    non-empty quadrants and `sensitivity.has_pii`) and writes the result to the LLM
    pass cache (`llm-cache/`).
 6. Confirm the gate:
    ```bash
-   python3 scripts/wiki_llm_context_pass.py --source <source> --context <context> --check
+   python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --check
    ```
    It should return `ok: true` / exit 0.
 7. Consolidate and INTEGRATE — the work does NOT end at `--record-result`.
@@ -100,3 +109,23 @@ ingesting = integrating.
   expand the local search — do not invent context.
 - `source_refs` proves provenance; `moc_parent`/parent hub proves navigation.
   Do not leave generated relation pages parallel to the context hierarchy.
+
+
+## Missing input and approval interfaces
+
+- Use the executing harness's actual native question interface for missing
+  information, and its actual approval interface for a concrete effect still
+  requiring authorization. Honor existing grants; do not ask again merely
+  because a generic procedure mentions approval.
+- Return the structured blocker to the coordinator through the existing task
+  response: exact action, target, sanitized reason, owner, required action,
+  supported interface and resume condition. Preserve its identity on retry.
+  Do not send notifications to external channels without existing authorization.
+- Never invent a login diagnosis, deep link, tool capability or approval button.
+  Do not request passwords, tokens or MFA values in the task text. If no native
+  question/approval interface is available, report that concrete limitation,
+  keep dependent work pending and continue independent authorized work.
+- A timeout, silence or an operator saying “done” does not prove a grant or a
+  completed effect. Verify the supported resume condition. A denied action
+  remains denied until materially new, relevant evidence permits one bounded
+  retry; observe an uncertain outcome before attempting its effect again.

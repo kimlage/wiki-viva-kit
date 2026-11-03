@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One-hop context impact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_revision",
+    "before_revision",
+    "after_revision",
+    "destination_context",
+    "candidates",
+    "authorized_remaining",
+    "selection_digest",
+    "next_offset",
+    "coverage",
+    "propagation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki.context-impact/v1"
+    },
+    "policy_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "before_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "after_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "destination_context": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "trace",
+          "generation",
+          "target",
+          "destination_context",
+          "source",
+          "producer_context",
+          "selector",
+          "rule",
+          "before_revision",
+          "after_revision",
+          "before_digest",
+          "after_digest",
+          "state",
+          "interpretation",
+          "fact_freshness",
+          "use",
+          "classification",
+          "target_digest"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "trace": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "destination_context": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "producer_context": {
+            "type": "string",
+            "minLength": 1
+          },
+          "selector": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rule": {
+            "type": "string",
+            "minLength": 1
+          },
+          "before_revision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "after_revision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "before_digest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "after_digest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "enum": [
+              "review_pending",
+              "blocked_missing_source",
+              "blocked_cycle_limit",
+              "blocked_unpinned_dependency",
+              "blocked_missing_target"
+            ]
+          },
+          "interpretation": {
+            "const": "independent"
+          },
+          "fact_freshness": {
+            "const": "not_assessed"
+          },
+          "use": {
+            "type": "string",
+            "minLength": 1
+          },
+          "classification": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_digest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "authorized_remaining": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "selection_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "next_offset": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "coverage": {
+      "const": "authorized_edges_only; completeness not asserted"
+    },
+    "propagation": {
+      "const": "one_hop_only"
+    }
+  }
+}

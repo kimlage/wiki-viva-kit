@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from wiki_core.openclaw_config import validated_config as _validated_openclaw
 
 import re
 from dataclasses import dataclass, field
@@ -145,7 +144,7 @@ def _validated_admin(raw_value: Any) -> dict[str, Any]:
         )
 
     admin = {k: (dict(v) if isinstance(v, dict) else v) for k, v in defaults.items()}
-    for key in ("enabled", "allow_break_glass", "require_plan_sha"):
+    for key in ("enabled", "allow_break_glass", "require_plan_sha", "source_review_enabled"):
         if key in raw_value:
             admin[key] = _as_bool(raw_value[key], field_name=f"admin.{key}")
     if "local_unlock" in raw_value:
@@ -389,22 +388,16 @@ class WikiConfig:
     # off with `karma:\n  enabled: false` in wiki.config.yaml (then wiki_score is a
     # no-op and the cockpit omits the karma/score section).
     karma: dict[str, Any] = field(default_factory=lambda: {"enabled": True})
-    # Codex agentic missions (local Codex jobs → draft PRs from the cockpit).
-    # Opt-in feature, ENABLED by default so a machine with a usable Codex CLI can
-    # offer it; a repo/deploy turns it off with `codex:\n  enabled: false` in
-    # wiki.config.yaml (then the cockpit never advertises a Codex launch, even if
-    # the binary is present). `binary` overrides the CLI name/path.
-    openclaw: dict[str, Any] = field(default_factory=lambda: {"enabled": False})
-    codex: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "binary": "codex"})
-    # Optional Claude Code adapter.  It shares the governed job runner; this
-    # block only chooses capability and binary, never credentials.
-    claude: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "binary": "claude"})
+    # External agent execution is an explicit installation choice.
+    codex: dict[str, Any] = field(default_factory=lambda: {"enabled": False, "binary": "codex"})
+    claude: dict[str, Any] = field(default_factory=lambda: {"enabled": False, "binary": "claude"})
     # Admin control surface (god-mode plan §17.1). No secret ever lives here:
     # the local unlock is an ephemeral startup code printed by the process,
     # never a configured password/token. Parsed STRICTLY (see _validated_admin).
     admin: dict[str, Any] = field(
         default_factory=lambda: {
             "enabled": True,
+            "source_review_enabled": False,
             "local_unlock": "startup_code",
             "session_ttl_minutes": 15,
             "idle_lock_minutes": 5,
@@ -449,14 +442,14 @@ class WikiConfig:
 
     @property
     def codex_enabled(self) -> bool:
-        value = self.codex.get("enabled", True)
+        value = self.codex.get("enabled", False)
         if isinstance(value, bool):
             return value
         return _as_bool(value, field_name="codex.enabled")
 
     @property
     def claude_enabled(self) -> bool:
-        value = self.claude.get("enabled", True)
+        value = self.claude.get("enabled", False)
         if isinstance(value, bool):
             return value
         return _as_bool(value, field_name="claude.enabled")
@@ -508,7 +501,6 @@ def load_config(root: Path) -> WikiConfig:
         root_entity={**WikiConfig().root_entity, **dict(raw.get("root_entity", {}))},
         audit={**WikiConfig().audit, **dict(raw.get("audit", {}))},
         karma={**WikiConfig().karma, **dict(raw.get("karma", {}))},
-        openclaw=_validated_openclaw(raw.get("openclaw")),
         codex={**WikiConfig().codex, **dict(raw.get("codex", {}))},
         claude={**WikiConfig().claude, **dict(raw.get("claude", {}))},
         admin=_validated_admin(raw.get("admin")),

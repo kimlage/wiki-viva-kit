@@ -1,0 +1,17 @@
+schema_version: wiki.context/v1
+id: finance/tax
+parent: finance
+root: examples/context-hierarchy/finance/tax
+purpose: Independent tax interpretation
+owner: tax operator
+instructions: []
+skills: []
+templates: []
+policy:
+  read:
+  - examples/context-hierarchy/root-rules.md
+  - self
+  write:
+  - self
+imports: []
+exports: []

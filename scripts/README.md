@@ -16,7 +16,7 @@ memory index first; retain any stronger consumer context requirement.
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |
 | Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index. Read each result's origin and coverage gaps before treating it as evidence. No index or model is started. |
-| Context | Read a known Markdown page, or use the existing [page reader](../wiki_core/web/content.py) through `GET /api/pages/{page_id}/content` on an already-running cockpit. For an assigned action, [wiki_coordination.py](wiki_coordination.py) prepares its packet. | Follow relevant relations and original evidence for the claim. Packet preparation intentionally builds a snapshot; it is not a universal cheap lookup or automatic dispatch. Do not start a service merely to read a known local page. |
+| Context | Use [wiki_read.py](wiki_read.py) for a scoped Git read, [wiki_context.py](wiki_context.py) or the approved mode of [wiki_coordination.py](wiki_coordination.py) for an explicit task packet. | Choose explicit paths and revisions; follow original evidence. The legacy profile/snapshot path is `caller_trust`, not the protected mode. See [context operation](../docs/references/guides/context-operation.md). |
 | Source | Use the existing source workspace, `GET /api/sources` for identity/location and `GET /api/sources/{source_id}/operations` for receipts, described in [source access](../docs/references/guides/source-access-and-ingestion.md). | Inspect retained identity, location and receipts first. [Refresh preview/run](../docs/references/guides/source-refresh-cadence.md) may contact external systems and requires the existing account and authorized scope; an unavailable original is an explicit gap. |
 | Action | Open the same [board card](../docs/references/guides/native-action-board.md). Use its existing transition/dialogue writer for allowed local changes; reconcile retained agent results through [contributions](../docs/references/guides/agent-contributions.md). | Keep the same action and origin run/effect references; revalidate its current revision before writing. A received-result comment has its own event identity, does not consume the contribution effect, and does not incorporate its factual proposal. Other documents, rules or required generators use the existing normal multipage proposal with review and gates. |
 
@@ -53,6 +53,45 @@ wiki_ingest.py -> wiki_llm_context_pass.py -> wiki_consolidate.py
   -> wiki_operation_compile.py / wiki_input_stage.py
   -> wiki_semantic_inventory.py / wiki_web_snapshot.py -> wiki_audit.py
 ```
+
+## Revision-bound context
+
+[wiki_read.py](wiki_read.py) requires `--revision`, `--mode` and exact
+`--allow-path` values; reads require `--section`, `--field` or explicit
+`--whole-body`. [wiki_context.py](wiki_context.py) resolves the approved context
+or builds a bounded v1 packet with `--approved-revision` and a separate
+`--content-revision`. The caller supplies the trust boundary; selecting a
+revision does not grant access. [wiki_coordination.py](wiki_coordination.py)
+has separate approved packet flags (`--context-id`, `--approved-revision`,
+`--revision`, `--packet-request`) and a legacy profile mode labelled `caller_trust`.
+The protected local API additionally requires a host binding and an authenticated
+operator session. See [protected coordination](../docs/references/guides/context-coordination-protected.md).
+The [context reader guide](../docs/references/guides/context-reader.md)
+explains historical evidence, current policy bodies, ingestion flags and
+unsupported selections.
+
+## Bounded canonical ingestion
+
+[wiki_ingest.py](wiki_ingest.py) accepts `--approved-revision`, `--policy-context`,
+`--context-max-bytes` (100000) and `--request-max-bytes` (256000). Context is
+included once with every extracted chunk; the complete canonical UTF-8 request
+must fit before persistence, indexing, scoring or cursor advancement. Approved
+failures return structured blockers and never choose compatibility. Record or
+check through [wiki_llm_context_pass.py](wiki_llm_context_pass.py) using the same
+explicit source, approval, context and limits. See [bounded ingestion](../docs/references/guides/bounded-ingestion.md).
+
+[wiki_context_flow.py](wiki_context_flow.py) reads canonical requirements for
+impact by selected content/revision and independently preflights proposals.
+See [context impact and integration](../docs/references/guides/context-impact-integration.md):
+requirements stay on the canonical page; no additional graph/queue, approval or
+merge is performed automatically.
+
+[wiki_template_sections.py](wiki_template_sections.py) previews an opt-in modular
+section contract on a trusted working tree; it does not prove approval or access.
+[wiki_context_schedule.py](wiki_context_schedule.py) returns finite, disabled-by-default
+schedule advice; it installs nothing and never admits an effect. See
+[modular sections](../docs/references/guides/modular-template-sections.md) and
+[context schedule advice](../docs/references/context-schedules.md).
 
 ## Source identity and index reconciliation
 
@@ -137,12 +176,9 @@ file sizes or checkout timestamps. Dotfiles remain excluded; unreadable entries
 and symbolic links fail explicitly. New captures can receive a different ID;
 existing manifests and references are preserved.
 
-### Bounded OpenClaw wake-up
+## Optional local operator
 
-[wiki_openclaw_tick.py](wiki_openclaw_tick.py) invokes only the configured recurring
-rule through the native administrative bus. The authorized local coordinator
-runs `python3 scripts/wiki_openclaw_tick.py --rule <rule-id>` in the approved
-checkout. Each invocation uses an ephemeral loopback operator/session and drops
-startup authentication in memory on exit; no credential is saved for a scheduler.
-It does not expose arbitrary RPC, direct dispatch or a task queue. See the
-[mission and recurring contract](../docs/references/guides/openclaw-card-runtime.md#opt-in-native-restart-continuation-and-recurring-observation).
+The [local operator guide](../docs/references/guides/local-operator.md) describes
+read-only discovery, effect-specific sessions, finite proposals and opt-in
+execution. External agent adapters and source-review jobs default to disabled;
+reader/context/ingestion CLIs do not require a resident process or scheduler.

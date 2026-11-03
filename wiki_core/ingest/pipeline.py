@@ -35,7 +35,10 @@ from wiki_core.extractors import extract_source
 from wiki_core.index.sqlite import index_source
 from wiki_core.input_stage import input_context_for_source
 from wiki_core.llm import build_context_request
-from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION
+from wiki_core.llm.context_pass import (CONTEXT_PASS_SCHEMA_VERSION, ingestion_block_context,
+    DEFAULT_CONTEXT_MAX_BYTES, DEFAULT_REQUEST_MAX_BYTES, preparation_blocker,
+    enforce_request_budget, canonical_request_text, request_limits, ContextRequestBlocked,
+    authorize_ingestion_source, revalidate_ingestion_source, approved_ingestion_inputs)
 from wiki_core.paths import WikiPaths
 from wiki_core.score import record_event
 from wiki_core.source_config import find_source_config, merge_perspectives
@@ -86,6 +89,8 @@ class IngestResult:
     stream_id: str | None = None
     stream_cursor_written: bool = False
     index_diagnostics: dict[str, int] = field(default_factory=dict)
+    blockers: list[dict[str, object]] = field(default_factory=list)
+    context_error_code: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {"schema_version": SCHEMA_VERSION, **asdict(self)}
@@ -96,6 +101,16 @@ def _rel(path: Path, root: Path) -> str:
         return path.relative_to(root).as_posix()
     except ValueError:
         return str(path)
+
+
+def _blocked_preparation(context, config, exc):
+    report = preparation_blocker(exc, "requested-input", config.owner_label)
+    return IngestResult(source_id="", context=context, source_type="unverified",
+        written=False, blocked=True, manifest_path=None, text_path=None, chunks_path=None,
+        chunk_count=0, chunks_indexed=0, request_path=None, pending_llm_calls=0,
+        secret_findings=[], pii_findings=[], score_event_id=None, gate_state="blocked",
+        llm_context_status="blocked", warnings=[], blockers=[report["blocker"]],
+        context_error_code=report["error_code"])
 
 
 def run(
@@ -110,6 +125,12 @@ def run(
     ts: str | None = None,
     stream_id: str | None = None,
     observer: IngestObserver | None = None,
+    approved_revision: str | None = None,
+    policy_context: str | None = None,
+    context_max_bytes: int = DEFAULT_CONTEXT_MAX_BYTES,
+    request_max_bytes: int = DEFAULT_REQUEST_MAX_BYTES,
+    root_entity_ref: str | None = None,
+    omit_root_entity: bool = False,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -117,11 +138,26 @@ def run(
     computed in memory and the index/score are not touched.
     """
     paths = WikiPaths(root, config)
+    source_guard = None
+    try:
+        request_limits(context_max_bytes, request_max_bytes)
+        if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
+            raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
+        if approved_revision is not None or policy_context is not None:
+            source_guard = authorize_ingestion_source(root, source, approved_revision, policy_context)
+            source = str(source_guard["path"])
+    except (ValueError, OSError) as exc:
+        return _blocked_preparation(context, config, exc)
 
     source_path = Path(source).expanduser()
     source_bytes = source_path.stat().st_size if source_path.is_file() else None
     with _observed(observer, "manifest_hash", bytes_read=source_bytes):
         manifest = build_manifest(source, context, root=root)
+    if source_guard is not None:
+        try:
+            revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+        except (ValueError, OSError) as exc:
+            return _blocked_preparation(context, config, exc)
     source_id = str(manifest["source_id"])
     source_type = str(manifest["source_type"])
     warnings: list[str] = []
@@ -198,6 +234,85 @@ def run(
         except ValueError as exc:
             blocked = True
             warnings.append(str(exc))
+    request_path: str | None = None
+    request = None
+    pending = 0
+    blockers = []
+    context_error_code = None
+    if chunk_dicts and not blocked:
+        try:
+            prompt_version = str(
+                config.llm.get("prompt_versions", {}).get(
+                    "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION
+                )
+            )
+            model_profile = str(config.llm.get("default_model_profile", "deep_context"))
+            with _observed(observer, "input_stage_context") as metrics:
+                if source_guard is not None:
+                    source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=root_entity_ref, omit_root_entity=omit_root_entity)
+                else:
+                    source_config = find_source_config(root, config, source)
+                    input_context = input_context_for_source(root, config, source)
+                    input_context["source_config"] = source_config
+                perspectives_required, perspectives_optional = merge_perspectives(
+                    source_config,
+                    required=[],
+                    optional=[],
+                    root_required=list(input_context.get("perspectives_required") or []),
+                    root_optional=list(input_context.get("perspectives_optional") or []),
+                )
+                metrics["target_page_count"] = len(input_context.get("target_pages") or [])
+                metrics["perspective_count"] = len(perspectives_required) + len(perspectives_optional)
+            with _observed(observer, "llm_request", chunk_count=len(chunk_dicts)) as metrics:
+                request = build_context_request(
+                    manifest,
+                    chunk_dicts,
+                    paths.llm_cache,
+                    prompt_version,
+                    CONTEXT_PASS_SCHEMA_VERSION,
+                    model_profile,
+                    perspectives_required=perspectives_required,
+                    perspectives_optional=perspectives_optional,
+                    root_entity=input_context.get("root_entity") if isinstance(input_context.get("root_entity"), dict) else None,
+                    input_channel=input_context.get("input_channel") if isinstance(input_context.get("input_channel"), dict) else None,
+                    quadrant_map=input_context.get("quadrant_map") if isinstance(input_context.get("quadrant_map"), dict) else None,
+                    quadrant_semantics=input_context.get("quadrant_semantics")
+                    if isinstance(input_context.get("quadrant_semantics"), dict)
+                    else None,
+                    quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
+                    target_pages=list(input_context.get("target_pages") or []),
+                    input_stage_status=str(input_context.get("input_stage_status") or ""),
+                    block_context_package=ingestion_block_context(root, config, input_context,
+                        perspectives_required, approved_revision=approved_revision, policy_context=policy_context, task_id=source_id, context_max_bytes=context_max_bytes,
+                        content_revision=source_guard["reader"].revision if source_guard else "HEAD"),
+                    context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
+                    source_authorization=source_guard["authorization"] if source_guard else None,
+                )
+                metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
+            if source_config:
+                request["source_config_ref"] = source_config["path"]
+                request["source_config_perspectives_applied"] = True
+            enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
+            pending = int(request.get("pending_llm_calls", 0))
+        except (ValueError, OSError) as exc:
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report["blocker"])
+            context_error_code = report["error_code"]
+            pending = chunk_count
+            request = None
+            blocked = True
+    # This fence covers zero-chunk captures too: they may replace artifacts or
+    # prune an existing index even though no LLM request was assembled.
+    if source_guard is not None and not blocked:
+        try:
+            revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+        except (ValueError, OSError) as exc:
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report["blocker"])
+            context_error_code = report["error_code"]
+            pending = chunk_count
+            request = None
+            blocked = True
     persist = write and not blocked
 
     if persist:
@@ -258,59 +373,14 @@ def run(
             index_path = paths.indexes / "wiki.sqlite"
             metrics["sqlite_bytes"] = index_path.stat().st_size if index_path.exists() else None
 
-    request_path: str | None = None
-    pending = 0
-    if chunk_dicts and not blocked:
-        prompt_version = str(
-            config.llm.get("prompt_versions", {}).get(
-                "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION
-            )
+    if persist and request is not None:
+        request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
+        request_file.write_text(
+            canonical_request_text(request),
+            encoding="utf-8",
         )
-        model_profile = str(config.llm.get("default_model_profile", "deep_context"))
-        with _observed(observer, "input_stage_context") as metrics:
-            source_config = find_source_config(root, config, source)
-            input_context = input_context_for_source(root, config, source)
-            perspectives_required, perspectives_optional = merge_perspectives(
-                source_config,
-                required=[],
-                optional=[],
-                root_required=list(input_context.get("perspectives_required") or []),
-                root_optional=list(input_context.get("perspectives_optional") or []),
-            )
-            metrics["target_page_count"] = len(input_context.get("target_pages") or [])
-            metrics["perspective_count"] = len(perspectives_required) + len(perspectives_optional)
-        with _observed(observer, "llm_request", chunk_count=len(chunk_dicts)) as metrics:
-            request = build_context_request(
-                manifest,
-                chunk_dicts,
-                paths.llm_cache,
-                prompt_version,
-                CONTEXT_PASS_SCHEMA_VERSION,
-                model_profile,
-                perspectives_required=perspectives_required,
-                perspectives_optional=perspectives_optional,
-                root_entity=input_context.get("root_entity") if isinstance(input_context.get("root_entity"), dict) else None,
-                input_channel=input_context.get("input_channel") if isinstance(input_context.get("input_channel"), dict) else None,
-                quadrant_map=input_context.get("quadrant_map") if isinstance(input_context.get("quadrant_map"), dict) else None,
-                quadrant_semantics=input_context.get("quadrant_semantics")
-                if isinstance(input_context.get("quadrant_semantics"), dict)
-                else None,
-                quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
-                target_pages=list(input_context.get("target_pages") or []),
-                input_stage_status=str(input_context.get("input_stage_status") or ""),
-            )
-            metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
-        if source_config:
-            request["source_config_ref"] = source_config["path"]
-            request["source_config_perspectives_applied"] = True
-        pending = int(request.get("pending_llm_calls", 0))
-        if persist:
-            request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
-            request_file.write_text(
-                json.dumps(request, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-            request_path = _rel(request_file, root)
+        request_path = _rel(request_file, root)
+
 
     score_event_id: str | None = None
     if persist and record_score and chunk_count > 0:
@@ -380,4 +450,5 @@ def run(
         stream_id=stream_id,
         stream_cursor_written=stream_cursor_written,
         index_diagnostics=index_diagnostics,
+        blockers=blockers, context_error_code=context_error_code,
     )

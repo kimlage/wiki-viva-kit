@@ -1,0 +1,9 @@
+schema_version: wiki_template_sections.v1
+template_id: decision-risk
+template_version: '1'
+extends:
+  path: docs/references/templates/wiki/modular-example/decision.yaml
+  template_id: decision-modular
+  template_version: '1'
+add_sections:
+  - {id: risk, title: Risk assessment, role: uncertainty, required: true, slot: 'before:decision'}

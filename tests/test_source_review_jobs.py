@@ -26,7 +26,7 @@ def fixture(root, *, allowed=True):
     ])
     (root/'wiki.config.yaml').write_text(
         'repo_id: source-review-test\ndefault_context: system\n'
-        'admin:\n  enabled: true\n'
+        'admin:\n  enabled: true\n  source_review_enabled: true\n'
         'audit:\n  freshness_scope: impact\n  information_impact: use_scoped\n'
         f'  source_review_allowed_sources: {"[source-a]" if allowed else "[]"}\n')
     (root/'.gitignore').write_text('data/\n')

@@ -15,7 +15,9 @@ from typing import Any, Callable
 
 import yaml
 
-from wiki_core.web.content import build_page_content
+from wiki_core.web.content import build_page_content, _resolved_links
+from wiki_core.repository_reader import RepositoryReader
+from wiki_core.action_state import legacy_action_state_from_body, resolve_action_state
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.action_dialogue import dialogue_summary
 from wiki_core.web.fronts import fronts_projection
@@ -123,15 +125,18 @@ def load_policy(root: Path) -> tuple[dict[str, Any], str] | None:
 
 def coordination_index(root: Path, snapshot: dict[str, Any], *,
                        _profile_id: str | None = None, _action_id: str | None = None,
-                       _authorize_ref: Callable[[str, str], None] | None = None) -> dict[str, Any]:
+                       _authorize_ref: Callable[[str, str], None] | None = None,
+                       _reader: RepositoryReader | None = None) -> dict[str, Any]:
     loaded = load_policy(root)
     result: dict[str, Any] = {"schema_version": SCHEMA, "configured": bool(loaded),
         "runtime_connected": False, "execution_ready": False,
+        "policy_mode": "legacy_coordination_compatibility", "policy_enforced": False,
+        "trust_boundary": "caller_trust", "coverage": "legacy_snapshot_or_memory_catalogue",
         "profiles": [], "actions": [], "unmapped_action_ids": [],
         "snapshot_id": snapshot.get("manifest.json", {}).get("snapshot_id", "")}
     pages = snapshot.get("pages.json", {}).get("pages", [])
     # A protected one-action context must not expand its authorized readset.
-    if _authorize_ref is None and _profile_id is None:
+    if _authorize_ref is None and _profile_id is None and _reader is None:
         result.update(fronts_projection(root, pages, loaded[0]["profiles"] if loaded else {}, _read))
     if not loaded:
         return result
@@ -159,7 +164,7 @@ def coordination_index(root: Path, snapshot: dict[str, Any], *,
         work = p.get("work") or {}
         if _authorize_ref:
             _authorize_ref(p["path"], p.get("content_sha256", ""))
-        raw = _read(root, p["path"])
+        raw = _reader.read(p["path"])["content"] if _reader else _read(root, p["path"])
         if hashlib.sha256(raw).hexdigest() != p.get("content_sha256"):
             raise CoordinationError("action revision changed; refresh")
         fm, _ = parse_frontmatter(raw.decode("utf-8"))
@@ -179,14 +184,50 @@ def coordination_index(root: Path, snapshot: dict[str, Any], *,
     return result
 
 
-def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
+def _reader_catalogue(reader: RepositoryReader, config: Any) -> dict[str, Any]:
+    """Small metadata projection; no global cockpit snapshot or source cache."""
+    prefix = str(config.paths["memory_root"]).rstrip("/") + "/"
+    allowed = [path for path in reader.paths if path.startswith(prefix) and path.endswith(".md")]
+    pages = reader.catalogue(allowed_paths=allowed)
+    for page in pages:
+        fm = page["frontmatter"]
+        if page["page_type"] == "action":
+            body = reader.read(page["path"])["body"]
+            state = resolve_action_state(fm, legacy_state=legacy_action_state_from_body(body))
+            page["work"] = {"state": state.state, "owner_ref": str(fm.get("owner_ref") or fm.get("owner") or "")}
+    return {"manifest.json": {"snapshot_id": "git:" + reader.revision}, "pages.json": {"pages": pages}}
+
+
+def context_packet(root: Path, config: Any, snapshot: dict[str, Any] | None,
                    profile_id: str, action_id: str | None = None, *,
-                   authorize_ref: Callable[[str, str], None] | None = None) -> dict[str, Any]:
+                   authorize_ref: Callable[[str, str], None] | None = None,
+                   revision: str = "HEAD") -> dict[str, Any]:
+    if snapshot is None and authorize_ref:
+        raise CoordinationError("protected context requires an authorized catalogue")
+    reader = RepositoryReader(root, revision) if snapshot is None else None
+    if reader:
+        snapshot = _reader_catalogue(reader, config)
+    def read_content(page_id):
+        if reader is None:
+            return build_page_content(root, config, page_id, snapshot)
+        page = next((p for p in snapshot["pages.json"]["pages"] if p["id"] == page_id), None)
+        if not page:
+            return {"ok": False}
+        document = reader.read(page["path"])
+        index = {key: p for p in snapshot["pages.json"]["pages"] for key in (p["id"], p["path"])}
+        fm = document["frontmatter"]
+        text = [document["body"]]
+        text.extend(fm[key] for key in ("next_action", "blocker_reason", "completion_receipt", "cancellation_receipt") if isinstance(fm.get(key), str))
+        text.extend(event["text"] for event in fm.get("action_dialogue", []) if isinstance(event, dict) and isinstance(event.get("text"), str))
+        return {"ok": True, "frontmatter": fm, "body": document["body"],
+            "resolved_links": _resolved_links(root, page["path"], "\n".join(text), index)}
+    def read_bytes(path):
+        return reader.read(path)["content"] if reader else _read(root, path)
     if authorize_ref and not action_id:
         raise CoordinationError("protected context requires an exact action")
     index = coordination_index(root, snapshot,
         _profile_id=profile_id if authorize_ref else None,
-        _action_id=action_id, _authorize_ref=authorize_ref)
+        _action_id=action_id, _authorize_ref=authorize_ref, _reader=reader)
     loaded = load_policy(root)
     if not loaded or loaded[1] != index.get("policy_sha256"):
         raise CoordinationError("coordination policy missing or changed")
@@ -223,7 +264,7 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
     unresolved = []
     information_edges = []
     for action in selected:
-        content = build_page_content(root, config, action, snapshot)
+        content = read_content(action)
         if not content.get("ok"):
             raise CoordinationError("action revision changed; refresh")
         fm = content["frontmatter"]
@@ -243,7 +284,7 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
             if authorize_ref:
                 authorize_ref(target['path'], target['content_sha256'])
             required[target['id']] = target
-            target_content = build_page_content(root, config, target['id'], snapshot)
+            target_content = read_content(target['id'])
             if not target_content.get('ok'):
                 raise CoordinationError('information revision changed; refresh')
             evidence_refs = target_content['frontmatter'].get('evidence_refs', [])
@@ -262,7 +303,7 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
                 loaded_evidence.add(evidence['path'])
                 if authorize_ref:
                     authorize_ref(evidence['path'],evidence['content_sha256'])
-                evidence_content=build_page_content(root,config,evidence['id'],snapshot)
+                evidence_content=read_content(evidence['id'])
                 if not evidence_content.get('ok'):
                     raise CoordinationError('information evidence revision changed; refresh')
                 if evidence_content['frontmatter'].get('page_type')=='claim':
@@ -294,15 +335,15 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
         for page in required.values():
             authorize_ref(page["path"], page["content_sha256"])
     for ref in procedure_paths:
-        raw = _read(root, ref)
+        raw = read_bytes(ref)
         if authorize_ref:
             authorize_ref(ref, hashlib.sha256(raw).hexdigest())
         procedures[ref] = raw
     contents = []
     for page in required.values():
         # Same boundaries and immutable hashes as the existing page reader.
-        _read(root, page["path"])
-        content = build_page_content(root, config, page["id"], snapshot)
+        read_bytes(page["path"])
+        content = read_content(page["id"])
         if not content.get("ok"):
             raise CoordinationError("context revision changed; refresh")
         contents.append({"id": page["id"], "path": page["path"],
@@ -313,6 +354,9 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
         "access_requirements": profile.get("access_requirements", []),
         "required_tools": profile.get("required_tools", []), "access_verified": False,
         "policy_sha256": policy_sha, "snapshot_id": index["snapshot_id"],
+        "policy_mode": "legacy_coordination_compatibility", "policy_enforced": False,
+        "trust_boundary": "caller_trust", "coverage": "legacy_selected_pages_and_relations",
+        **({"content_revision": reader.revision, "content_origin": "git"} if reader else {}),
         "unresolved_context_refs": unresolved,
         "actions": [a for a in index["actions"] if a["action_id"] in selected],
         "pages": contents,
@@ -337,10 +381,10 @@ def context_packet(root: Path, config: Any, snapshot: dict[str, Any],
     if hashlib.sha256(_read(root, POLICY_FILE)).hexdigest() != policy_sha:
         raise CoordinationError("coordination policy changed; refresh")
     for content in contents:
-        if hashlib.sha256(_read(root, content["path"])).hexdigest() != content["content_sha256"]:
+        if hashlib.sha256(read_bytes(content["path"])).hexdigest() != content["content_sha256"]:
             raise CoordinationError("context revision changed; refresh")
     for path, raw in procedures.items():
-        if _read(root, path) != raw:
+        if read_bytes(path) != raw:
             raise CoordinationError("procedure changed; refresh")
     packet["context_sha256"] = digest(packet)
     return packet

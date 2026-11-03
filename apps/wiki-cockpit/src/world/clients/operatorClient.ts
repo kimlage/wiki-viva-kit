@@ -125,8 +125,13 @@ async function send(
   if (new TextEncoder().encode(body).byteLength > security.max_body_bytes) {
     throw new Error(`operator request exceeds the advertised ${security.max_body_bytes} byte limit`);
   }
-  const guardedProposalRoute = ["/actions/create", "/actions/transition", "/actions/run", "/git/workflow"].includes(path);
-  const sessionToken = guardedProposalRoute ? getAdminSessionToken() : null;
+  const guardedEffectRoute = [
+    "/actions/create", "/actions/transition", "/actions/run", "/git/workflow",
+    "/briefs", "/codex/jobs", "/gates/run", "/snapshot/write", "/intake/copy",
+    "/source-groups/apply", "/ingestion/run", "/coordination/protected/packet", "/coordination/protected/preflight"
+  ].includes(path) || /^\/(?:briefs|codex\/jobs)\/[^/?#]+(?:\/(?:discard|return|cancel))?$/.test(path)
+    || /^\/sources\/[^/?#]+\/operations\/(?:apply|refresh-run|refresh-preview)$/.test(path);
+  const sessionToken = guardedEffectRoute ? getAdminSessionToken() : null;
   return operatorRequest(path, {
     method: "POST",
     headers: {

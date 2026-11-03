@@ -71,10 +71,10 @@ afterEach(() => {
 
 describe("AdminPlanReview — reviewed plan is the executed plan", () => {
   it("separates already performed planning observations from future external calls in dry run", () => {
-    const reviewed = plan({ dryRun: true, effects: { filesRead: [], filesWrite: [], externalCalls: [], preparatoryObservations: ["OpenClaw history read during planning; reconciliation possible"], snapshotInvalidated: false } });
+    const reviewed = plan({ dryRun: true, effects: { filesRead: [], filesWrite: [], externalCalls: [], preparatoryObservations: ["Proposal metadata read during planning; reconciliation possible"], snapshotInvalidated: false } });
     render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={reviewed} onClose={() => undefined} />);
     expect(screen.getByRole("region", { name: "Preparatory observations already performed" }).textContent).toContain("already occurred");
-    expect(screen.getByText("OpenClaw history read during planning; reconciliation possible")).toBeTruthy();
+    expect(screen.getByText("Proposal metadata read during planning; reconciliation possible")).toBeTruthy();
     expect(screen.getByText("External calls on execution")).toBeTruthy();
     expect(executeAdminPlan).not.toHaveBeenCalled();
   });
@@ -153,4 +153,27 @@ describe("AdminPlanReview — reviewed plan is the executed plan", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(executeAdminPlan).not.toHaveBeenCalled();
   });
+});
+
+it("keeps a lost execution response uncertain and prevents repeating the same plan", async () => {
+  const notice = vi.fn();
+  executeAdminPlan.mockResolvedValueOnce({ ok: false, errorCode: "operator_unreachable" });
+  render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={plan()} onClose={() => undefined} onNotice={notice} />);
+  fireEvent.click(screen.getByRole("button", { name: /RUN snapshot\.rebuild/ }));
+  expect((await screen.findByRole("alert")).textContent).toContain(t("admin.plan.result.uncertain"));
+  const repeat = screen.getByRole("button", { name: /RUN snapshot\.rebuild/ }) as HTMLButtonElement;
+  expect(repeat.disabled).toBe(true);
+  fireEvent.click(repeat);
+  expect(executeAdminPlan).toHaveBeenCalledTimes(1);
+  expect(notice).not.toHaveBeenCalledWith(t("admin.plan.executed"));
+});
+
+it("renders the backend's uncertain error readback and blocks repeating the reviewed effect", async () => {
+  executeAdminPlan.mockResolvedValueOnce({ ok: false, errorCode: "admin_effect_outcome_uncertain", output: { status: "awaiting_reconciliation", target: "synthetic-proposal" } });
+  render(<AdminPlanReview executeAdminPlan={executeAdminPlan} plan={plan()} onClose={() => undefined} />);
+  fireEvent.click(screen.getByRole("button", { name: /RUN snapshot\.rebuild/ }));
+  expect((await screen.findByRole("alert")).textContent).toContain(t("admin.plan.result.uncertain"));
+  expect(screen.getByText(/synthetic-proposal/)).toBeTruthy();
+  expect((screen.getByRole("button", { name: /RUN snapshot\.rebuild/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByText(t("admin.plan.result.success"))).toBeNull();
 });

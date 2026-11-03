@@ -50,7 +50,9 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     while work:
         parent = work.popleft()
         for edge in adjacency[parent]:
-            consumed = set(edge['consumed_fields'])
+            # Legacy impact is body-granular: section selectors conservatively
+            # consume the body; typed field selectors map to frontmatter fields.
+            consumed = {('body' if f.startswith('section:') else f.removeprefix('field:')) for f in edge['consumed_fields']}
             if '*' not in consumed and '*' not in fields[parent] and not (consumed & fields[parent]):
                 continue
             target = edge['dependent']

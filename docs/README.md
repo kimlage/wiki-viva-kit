@@ -5,12 +5,18 @@ retired release-certification machinery.
 
 ## Start here
 
+- [Context operation](references/guides/context-operation.md): selection, packet, result, independent integration and optional wake.
+- [Protected coordination](references/guides/context-coordination-protected.md): explicit host binding, current approved policy and local operator API.
+- [Bounded ingestion](references/guides/bounded-ingestion.md): authorized source admission and separate byte budgets.
+- [Context impact and integration](references/guides/context-impact-integration.md): canonical requirements, selective review and read-only preflight.
+- [Optional modular sections](references/guides/modular-template-sections.md) and [schedule advice](references/context-schedules.md).
+
 - [Wiki Viva v8 downstream upgrade](references/guides/wiki-viva-v8-downstream-upgrade.md):
   B0 dry-run, C1 sync, C2 regeneration, explicit C3 and `kit.lock`.
 - [Wiki templates](references/templates/wiki/README.md): canonical page types.
 - [Source registry consumer policy](references/guides/source-registry-consumer-policy.md):
   exact source collections, nested selection and shared demo fixture ownership.
-- [Experience packs](../packs/README.md): complete visual and operational
+- [Experience packs](references/guides/experience-pack-authoring.md): complete visual and operational
   packages for use cases such as study, finance and team work.
 - [Command reference](../memories/system/wiki/command-reference.md): deterministic
   CLI catalog.
@@ -28,6 +34,8 @@ screenshots, routes and data stay in the private consumer or ignored local
 storage.
 
 ## Release documentation
+
+- [Wiki Viva v9.0.0](references/releases/wiki-viva-v9.0.0.md): major-version changes, isolated adoption and operational rollback.
 
 - [Hermes integration withdrawal](references/releases/hermes-integration-withdrawal-2026-10-22.md): cancelled integration, preserved wiki features and selective downstream removal.
 

@@ -7,10 +7,16 @@ description: Convert a new source into deterministic manifest, extracted text/ch
 
 ## Workflow
 
-1. Compile/check the input stage with [scripts/wiki_input_stage.py](../../scripts/wiki_input_stage.py)
-   so root entity, input channel, source config, perspectives and target pages
-   are current.
-2. Create or refresh a manifest with [scripts/wiki_extract_source_manifest.py](../../scripts/wiki_extract_source_manifest.py).
+1. Follow the [memory router](../wiki-memory-router/SKILL.md) for your role.
+   An authorized coordinator selects applicable root, channel, source config,
+   template and perspective inputs. A packet-bound executor uses those bodies
+   and exact slices; it does not read the global index/input-stage catalog or
+   other fronts automatically. Missing required context is a structured blocker.
+2. Use the canonical [wiki_ingest.py](../../scripts/wiki_ingest.py) approved-context
+   path and explicit byte limits described in [bounded ingestion](../../docs/references/guides/bounded-ingestion.md).
+   The standalone manifest/text/index tools below remain compatibility entry
+   points for an authorized coordinator; they do not replace approved source
+   admission or extend the executor's scope.
 3. Extract text and chunks with [scripts/wiki_extract_text.py](../../scripts/wiki_extract_text.py).
 4. Build or check the index with [scripts/wiki_build_index.py](../../scripts/wiki_build_index.py).
 5. Plan the contextual LLM pass with [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py)

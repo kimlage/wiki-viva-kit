@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Read explicitly scoped Git content; this low-level CLI does not grant access."""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from _common import ROOT
+from wiki_core.repository_reader import RepositoryReader
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', type=Path, default=ROOT)
+    parser.add_argument('--revision', required=True, help='Git content revision; resolved once to a commit SHA.')
+    parser.add_argument('--mode', required=True, choices=('read', 'catalog'), help='Read content or enumerate metadata.')
+    parser.add_argument('--allow-path', action='append', required=True, help='Exact authorized repository path; repeat to enumerate.')
+    parser.add_argument('--ref', help='Exact path or page_id resolved only within allowed paths.')
+    selectors = parser.add_mutually_exclusive_group()
+    selectors.add_argument('--section', help='Explicit stable heading section ID; missing IDs fail.')
+    selectors.add_argument('--field', help='Exact frontmatter field.')
+    selectors.add_argument('--whole-body', action='store_true', help='Explicitly request the entire document.')
+    args = parser.parse_args()
+    reader = RepositoryReader(args.root, args.revision)
+    if args.mode == 'catalog':
+        if args.ref or args.section or args.field or args.whole_body:
+            parser.error('catalog does not accept content selectors')
+        result = reader.query(allowed_paths=args.allow_path)
+    else:
+        if not args.ref or not (args.section or args.field or args.whole_body):
+            parser.error('read requires --ref and an explicit selector or --whole-body')
+        allowed = set(args.allow_path)
+        if args.ref in allowed:
+            path = args.ref
+        else:
+            matches = [row['path'] for row in reader.catalogue(allowed_paths=allowed) if row['page_id'] == args.ref]
+            if len(matches) != 1:
+                parser.error('reference missing or ambiguous within authorized paths')
+            path = matches[0]
+        result = reader.read(path, section=args.section, field=args.field)
+        # Return only the selected content; raw bytes are represented by UTF-8 text.
+        result = {key: value for key, value in result.items()
+                  if key not in {'content', 'frontmatter', 'body'}}
+        result['byte_length'] = len(result['text'].encode())
+    result.update(policy_mode='explicit_local_scope', policy_enforced=False)
+    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

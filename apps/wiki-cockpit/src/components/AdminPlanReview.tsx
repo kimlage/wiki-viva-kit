@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ClipboardCheck, Play, X } from "lucide-react";
 import { t } from "../data/i18n";
+import { adminOutcomeState } from "../application/adminOutcome";
 import { PreparatoryObservations } from "./PreparatoryObservations";
 import type { AdminPort } from "../application/ports";
 import type {
@@ -54,6 +55,7 @@ export function AdminPlanReview({
   const [error, setError] = useState<{
     code: AdminCommandErrorCode;
     failedPreconditions: string[];
+    output?: unknown;
   } | null>(null);
   const [typed, setTyped] = useState("");
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -67,9 +69,10 @@ export function AdminPlanReview({
   const typedSatisfied =
     confirmation.kind !== "typed" || typed === (confirmation.text || "");
 
+  const uncertainError = error?.code === "operator_unreachable" || error?.code === "admin_effect_outcome_uncertain";
   const execute = async () => {
     if (executionBlocked) return;
-    if (executing || outcome) return;
+    if (executing || outcome || uncertainError) return;
     setExecuting(true);
     setError(null);
     const supplied =
@@ -82,13 +85,16 @@ export function AdminPlanReview({
     setExecuting(false);
     if (result.ok) {
       setOutcome(result.outcome);
-      onNotice?.(t("admin.plan.executed"));
+      onNotice?.(t(adminOutcomeState(result.outcome) === "success"
+        ? result.outcome.dryRun ? "admin.plan.result.dryRunSuccess" : "admin.plan.executed"
+        : `admin.plan.result.${adminOutcomeState(result.outcome)}`));
       onExecuted?.(result.outcome);
       return;
     }
     setError({
       code: result.errorCode,
-      failedPreconditions: result.failedPreconditions ?? []
+      failedPreconditions: result.failedPreconditions ?? [],
+      output: result.output
     });
   };
 
@@ -207,7 +213,7 @@ export function AdminPlanReview({
 
             {error && (
               <p className="adminUnlockError" role="alert">
-                {t(`admin.plan.error.${error.code}`)}
+                {t(uncertainError ? "admin.plan.result.uncertain" : `admin.plan.error.${error.code}`)}
                 {error.failedPreconditions.length > 0 && (
                   <>
                     {" "}
@@ -217,6 +223,8 @@ export function AdminPlanReview({
                 {REPLAN_ERRORS.has(error.code) && ` ${t("admin.plan.replanHint")}`}
               </p>
             )}
+
+            {error?.output !== undefined && <pre className="adminPlanOutput">{JSON.stringify(error.output, null, 2)}</pre>}
 
             {confirmation.kind === "typed" && confirmation.text && (
               <div className="adminPlanConfirm">
@@ -239,7 +247,7 @@ export function AdminPlanReview({
               <button
                 className="primaryButton"
                 type="button"
-                disabled={executing || executionBlocked || !typedSatisfied}
+                disabled={executing || executionBlocked || !typedSatisfied || uncertainError}
                 onClick={() => void execute()}
               >
                 <Play size={14} aria-hidden />
@@ -262,11 +270,11 @@ export function AdminPlanReview({
           <section aria-label={t("admin.plan.result")}>
             <h4>{t("admin.plan.result")}</h4>
             <p role="status">
-              {outcome.status === "success"
+              {adminOutcomeState(outcome) === "success"
                 ? outcome.dryRun
                   ? t("admin.plan.result.dryRunSuccess")
                   : t("admin.plan.result.success")
-                : t("admin.plan.result.failed")}
+                : t(`admin.plan.result.${adminOutcomeState(outcome)}`)}
             </p>
             {outcome.affectedPaths.length > 0 && (
               <p>

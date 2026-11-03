@@ -5,23 +5,23 @@ Existing Personal Finance EN/PT-BR installations can explicitly adopt
 through a content-preserving C3 upgrade to the current EN/ES/PT-BR contract.
 
 A Markdown/Git-first living operational wiki with a deterministic core,
-privacy-aware honesty gates, a dense visual cockpit and deep reading delegated
+privacy-aware honesty gates, optional visual cockpit and deep reading delegated
 to the AI agent operating the repository. No LLM client is embedded.
 
 The wiki is one navigable world rather than a set of dashboard islands. Pages
 remain canonical Markdown; registered views project the same world as spatial
 quadrants, timelines, graph relations, source provenance and operational work.
 
-Current public baseline: [Wiki Viva v8.2.1](docs/references/releases/wiki-viva-v8.2.1.md).
+Release and migration notes: [Wiki Viva v9.0.0](docs/references/releases/wiki-viva-v9.0.0.md);
+previous release: [v8.2.1](docs/references/releases/wiki-viva-v8.2.1.md).
 
 ```mermaid
 flowchart LR
-    Sources["Sources + Markdown"] --> Snapshot["Atomic snapshot"]
-    Packs["Experience packs"] --> Snapshot
-    Events["Typed multi-clock events"] --> Snapshot
-    Snapshot --> World["Spatial world"]
-    Snapshot --> Timeline["Chronoscope + timelines"]
-    Snapshot --> Reader["Reader + operations"]
+    Content["Markdown + approved contexts"] --> Reader["Revision-bound reader"]
+    Reader --> Packet["Bounded task packet"]
+    Packet --> Agent["External context thread"]
+    Agent --> Proposal["Proposal + independent review"]
+    Content --> Snapshot["Optional snapshot + cockpit"]
 ```
 
 ## Try the public synthetic demo
@@ -39,6 +39,8 @@ and Personal Finance scenarios and requires no account, token or private data.
 - deterministic source manifests, extraction, chunking and local search;
 - secret detection everywhere and PII checks at public boundaries;
 - delegated LLM context packages with auditable consolidation;
+- restrictive context policy, approved packet preparation and selective impact;
+- read-only proposal preflight, independent review and optional finite schedule advice;
 - a self-contained source operations workspace for grouping, authorizing,
   inventorying, refreshing and monitoring real sources;
 - typed relations, temporal events and multiple timeline projections;
@@ -62,7 +64,7 @@ python3 scripts/wiki_web_snapshot.py --check-contract
 
 Edit `wiki.config.yaml` to define the repository id, owner label, root entity,
 memory root, contexts and privacy boundary. See [docs/README.md](docs/README.md)
-and the [Wiki Viva skill](.skills/wiki-viva/SKILL.md).
+and the [Wiki Viva skill](.skills/wiki-viva/SKILL.md). For the explicit approved-context path, see the [finite context operation runbook](docs/references/guides/context-operation.md).
 
 Code, comments and official documentation stay in English. Generated pages,
 experience-pack presentation and the cockpit are selectable with
@@ -112,6 +114,8 @@ Detailed operating and configuration contract:
 The previous subject/lane/capsule/attestation machine is retired. Its final
 `upgrade-package.yaml` is frozen as historical documentation; it is not a
 current gate.
+
+For the major-version change, first read the [v9 migration and rollback notes](docs/references/releases/wiki-viva-v9.0.0.md). Use an isolated consumer checkout and review removals before applying C1; a running loader must be retired or repointed before a served root is changed.
 
 The supported flow is a single consumer PR:
 

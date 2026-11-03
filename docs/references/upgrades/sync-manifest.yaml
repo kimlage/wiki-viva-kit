@@ -7,8 +7,6 @@ portable:
     - scripts/wiki_*.py
     - scripts/_common.py
     - scripts/README.md
-    - scripts/openclaw/*.mjs
-    - scripts/openclaw/mission-overlay.json
     - apps/wiki-cockpit/src/**
     - apps/wiki-cockpit/public/**
     - apps/wiki-cockpit/assets/**
@@ -28,9 +26,14 @@ portable:
     - packs/**
     - docs/references/guides/**
     - docs/references/freshness-impact.md
+    - docs/references/context-schedules.md
+    - docs/references/releases/wiki-viva-v9.0.0.md
+    - examples/context-hierarchy/**
+    - examples/context-schedule/**
     - docs/references/releases/hermes-integration-withdrawal-2026-10-22.md
     - docs/references/templates/deploy/**
     - docs/references/templates/wiki/subagent-brief.md
+    - docs/references/templates/wiki/modular-example/**
     - docs/references/schemas/**
   block:
     - apps/wiki-cockpit/src/*.test.*

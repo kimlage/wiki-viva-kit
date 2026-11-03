@@ -484,6 +484,7 @@ export type AdminExecuteResult =
       ok: false;
       errorCode: AdminCommandErrorCode;
       failedPreconditions?: string[];
+      output?: unknown;
     };
 
 function commandErrorCodeOf(payload: unknown): AdminCommandErrorCode {
@@ -606,7 +607,7 @@ export function parseAdminExecuteOutcome(payload: unknown): AdminExecuteOutcome 
   return {
     planId: record.plan_id,
     commandId: record.command_id,
-    status: String(record.status || "success"),
+    status: typeof record.status === "string" && record.status ? record.status : "unknown",
     dryRun: record.dry_run === true,
     output: record.output ?? null,
     affectedPaths: stringList(record.affected_paths),
@@ -679,7 +680,7 @@ export async function planAdminCommand(
     const payload = (await response.json()) as Record<string, unknown>;
     const plan = parseAdminPlan(payload);
     if (response.ok && plan) return { ok: true, plan };
-    const detail = typeof payload.detail === "string" && /^openclaw_[a-z_]+$/.test(payload.detail) ? payload.detail : undefined;
+    const detail = typeof payload.detail === "string" && /^[a-z][a-z0-9_]{0,119}$/.test(payload.detail) ? payload.detail : undefined;
     const preparatoryObservations = stringList(payload.preparatory_observations);
     return { ok: false, errorCode: commandErrorCodeOf(payload), ...(detail ? { detail } : {}),
       ...(preparatoryObservations.length ? { preparatoryObservations } : {}) };
@@ -713,10 +714,14 @@ export async function executeAdminPlan(
     const payload = (await response.json()) as Record<string, unknown>;
     const outcome = parseAdminExecuteOutcome(payload);
     if (response.ok && outcome) return { ok: true, outcome };
+    const output = payload.output;
+    const observed = output && typeof output === "object" ? output as Record<string, unknown> : null;
+    const uncertain = observed?.outcome_uncertain === true || (Array.isArray(observed?.uncertain_paths) && observed.uncertain_paths.length > 0);
     return {
       ok: false,
-      errorCode: commandErrorCodeOf(payload),
-      failedPreconditions: stringList(payload.failed_preconditions)
+      errorCode: uncertain ? "admin_effect_outcome_uncertain" : commandErrorCodeOf(payload),
+      failedPreconditions: stringList(payload.failed_preconditions),
+      ...(output !== undefined ? { output } : {})
     };
   } catch {
     return { ok: false, errorCode: "operator_unreachable" };

@@ -101,9 +101,9 @@ inferred or conflicting evidence cannot qualify current use.
 Revision coverage includes the selected content and the metadata qualifying its
 verification. Git ancestry detects later edits; it does not establish truth or
 prove an external read. Authorized context includes the relevant claim and its
-evidence in the existing revision-bound readset. Current requirements are
-rechecked at admission, and their derived validity bound limits the existing
-OpenClaw mission expiry checked by the inference guard.
+evidence in the existing revision-bound readset. An effect executor must recheck current requirements at admission and bound
+its use by the derived validity interval. The context packet itself does not
+install or qualify an external executor.
 
 This guarantee covers declared requirements and the qualified execution path.
 A packet hash does not certify arbitrary facts in a prompt, unknown external
@@ -124,7 +124,9 @@ Discovery, script completion and inventory review do not constitute factual
 verification or incorporation. Where no source/stream can be resolved, retain
 an explicit unresolved information requirement rather than inventing a source.
 
-The native `sources.review_pending` command projects the complete obligations
+When the optional execution extension is enabled with
+`admin.source_review_enabled: true`, the `sources.review_pending` command
+projects the complete obligations
 into that queue and submits bounded deterministic work to the existing
 [job runner](../../../wiki_core/web/codex_jobs.py). It requires an explicit base,
 `max_sources`, `max_attempts` and `max_adapter_calls`. Only sources qualified by
@@ -158,3 +160,6 @@ merge, verification timestamp or current-fact acceptance is implied by delivery.
 
 The reader presents the recorded verification and intended temporal use.
 Reading alone performs no global refresh and grants no execution permission.
+
+See the [local operator boundary](local-operator.md) for disabled-by-default
+execution and the distinction between availability and authority.

@@ -31,7 +31,7 @@ export type ActionEdit = {
   cancellation_receipt?: string; priority?: string; dialogue_event?: DialogueInput;
 };
 
-export type RuntimeProposal = {
+export type WorkProposal = {
   status: "material_ready" | "prepared" | "received_in_main" | "awaiting_adoption" | "reconciliation_required";
   head: string; proposal_head: string; approved_base: string; branch: string; material_path: string; material_sha256: string;
 };
@@ -48,9 +48,10 @@ export type AccessRequirement = {
 };
 export type CoordinationIndex = {
   schema_version: string; configured: boolean; snapshot_id: string;
+  trust_boundary?: "caller_trust"; policy_enforced?: false; coverage?: string;
   fronts?: WorkFront[]; front_warnings?: { code: string; ref: string }[];
-  profiles: { runtime?: {configured: boolean; label: string; mission_options?: {id: string; label: string; model: string; effort: string}[]}; id: string; label: string; scope: string; action_ids: string[]; access_requirements?: AccessRequirement[] }[];
-  actions: { runtime_error?: string; runtime_attempts?: {effect_key: string; attempted_at: string; has_result: boolean; reconciled?: boolean; resolved_without_result?: boolean; proposal?: RuntimeProposal | null}[]; action_id: string; coordinator: string | null; content_sha256: string; dialogue?: {pending_question_ids: string[]} }[];
+  profiles: { id: string; label: string; scope: string; action_ids: string[]; access_requirements?: AccessRequirement[] }[];
+  actions: { action_id: string; coordinator: string | null; content_sha256: string; dialogue?: {pending_question_ids: string[]} }[];
 };
 
 export type DialogueInput = {

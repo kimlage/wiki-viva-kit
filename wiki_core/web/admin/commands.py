@@ -49,12 +49,6 @@ class AdminCommandSpec:
 # administration PR ships planners with proposal branches and typed targets.
 ADMIN_COMMAND_SPECS: tuple[AdminCommandSpec, ...] = (
     AdminCommandSpec(
-        id="agents.openclaw.tick", title="Observe one configured recurring OpenClaw occurrence",
-        capability=("agents.inspect", "agents.execute"), risk_level="external_write", supports_dry_run=True,
-        parameter_schema={"rule_id": {"required": True}},
-        planner="openclaw_tick", executor="openclaw_tick", undo_strategy=None,
-    ),
-    AdminCommandSpec(
         id="sources.review_pending", title="Queue bounded source review work",
         capability=("sources.plan", "sources.execute", "git.propose"),
         risk_level="proposal_write", supports_dry_run=True,
@@ -63,39 +57,10 @@ ADMIN_COMMAND_SPECS: tuple[AdminCommandSpec, ...] = (
         planner="source_review", executor="source_review", undo_strategy=None,
     ),
     AdminCommandSpec(
-        id="agents.openclaw.resolve_failed", title="Resolve a reviewed failed attempt without a result",
-        capability=("agents.inspect", "agents.execute"), risk_level="proposal_write", supports_dry_run=True,
-        parameter_schema={"profile": {"required": True}, "action_id": {"required": True},
-                          "effect_key": {"required": True}, "review_path": {"required": True},
-                          "review_sha256": {"required": True}},
-        planner="openclaw_resolve_failed", executor="openclaw_resolve_failed", undo_strategy=None,
-    ),
-    AdminCommandSpec(
         id="wiki.proposal.adopt", title="Refresh the approved checkout after PR integration",
         capability=("git.publish",), risk_level="proposal_write", supports_dry_run=True,
         parameter_schema={"expected_head": {"required": True}, "proposal_head": {"required": True}, "pr": {"required": True}},
         planner="proposal_adopt", executor="proposal_adopt", undo_strategy=None,
-    ),
-    AdminCommandSpec(
-        id="agents.openclaw.receipt", title="Prepare receipt material for this action",
-        capability=("agents.inspect", "git.propose"), risk_level="proposal_write", supports_dry_run=True,
-        parameter_schema={"profile": {"required": True}, "action_id": {"required": True},
-                          "effect_key": {"required": True}},
-        planner="openclaw_receipt", executor="openclaw_receipt", undo_strategy=None,
-    ),
-    AdminCommandSpec(
-        id="agents.openclaw.dispatch", title="Dispatch this canonical action to OpenClaw",
-        capability=("agents.execute",), risk_level="external_write", supports_dry_run=True,
-        parameter_schema={"profile": {"required": True}, "action_id": {"required": True},
-                          "action_sha256": {"required": True}, "message": {"required": True}, "mission_id": {"required": True}},
-        planner="openclaw_dispatch", executor="openclaw_dispatch", undo_strategy=None,
-    ),
-    AdminCommandSpec(
-        id="agents.openclaw.inspect", title="Reconcile this action's existing OpenClaw run",
-        capability=("agents.inspect",), risk_level="derive", supports_dry_run=True,
-        parameter_schema={"profile": {"required": True}, "action_id": {"required": True},
-                          "effect_key": {"required": True}},
-        planner="openclaw_inspect", executor="openclaw_inspect", undo_strategy=None,
     ),
     AdminCommandSpec(
         id="system.inspect",
@@ -198,6 +163,8 @@ def command_capabilities_granted(
     capability chips tell one coherent story.
     """
 
+    if spec.id == "sources.review_pending" and not config.admin.get("source_review_enabled", False):
+        return False, "extension_unavailable"
     if not config.admin_enabled:
         return False, "admin_disabled"
     if session is None:
@@ -223,6 +190,8 @@ def admin_commands_payload(
 
     commands = []
     for spec in ADMIN_COMMAND_SPECS:
+        if spec.id == "sources.review_pending" and not config.admin.get("source_review_enabled", False):
+            continue
         granted, reason = command_capabilities_granted(config, spec, session)
         entry: dict[str, Any] = {
             "id": spec.id,

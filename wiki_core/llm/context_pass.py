@@ -27,6 +27,200 @@ CONTEXT_PASS_SCHEMA_VERSION = "wiki_llm_context_pass.v4"
 # traversal (e.g. "../../memorias/x") through --record-result payloads.
 CACHE_KEY_RE = re.compile(r"[0-9a-f]{64}")
 
+DEFAULT_CONTEXT_MAX_BYTES = 100_000
+DEFAULT_REQUEST_MAX_BYTES = 256_000
+
+
+class ContextRequestBlocked(ValueError):
+    """A bounded preparation refused; callers can report it without raw inputs."""
+    def __init__(self, code: str, reason: str):
+        self.code = code
+        super().__init__(reason)
+
+
+def canonical_request_text(request: dict) -> str:
+    """The exact UTF-8 representation delivered and persisted by the callers."""
+    return json.dumps(request, ensure_ascii=False, sort_keys=True,
+                      separators=(",", ":"), allow_nan=False) + "\n"
+
+
+def request_limits(context_max_bytes=DEFAULT_CONTEXT_MAX_BYTES,
+                   request_max_bytes=DEFAULT_REQUEST_MAX_BYTES) -> dict:
+    if any(not isinstance(value, int) or isinstance(value, bool) or value <= 0
+           for value in (context_max_bytes, request_max_bytes)):
+        raise ContextRequestBlocked("invalid_context_budget", "Context and request byte budgets must be positive integers.")
+    return {"context_max_bytes": context_max_bytes, "request_max_bytes": request_max_bytes}
+
+
+def enforce_request_budget(request: dict, *, context_max_bytes=DEFAULT_CONTEXT_MAX_BYTES,
+                           request_max_bytes=DEFAULT_REQUEST_MAX_BYTES) -> dict:
+    limits = request_limits(context_max_bytes, request_max_bytes)
+    context_bytes = len(canonical_request_text(request.get("block_context_package") or {}).encode("utf-8")) - 1
+    if context_bytes > context_max_bytes:
+        raise ContextRequestBlocked("context_budget_exceeded", "Required context exceeds its byte budget; choose an authorized narrower stage or revise the explicit budget.")
+    if request.get("request_limits", limits) != limits:
+        raise ContextRequestBlocked("request_limits_changed", "Rebuild the contextual request when its explicit byte budgets change.")
+    request["request_limits"] = limits
+    request["byte_accounting"] = {"context_bytes": context_bytes,
+        "source_text_bytes": sum(len(row["text"].encode("utf-8")) for row in request.get("chunks", [])),
+        "request_bytes": 0}
+    while True:
+        size = len(canonical_request_text(request).encode("utf-8"))
+        if request["byte_accounting"]["request_bytes"] == size:
+            break
+        request["byte_accounting"]["request_bytes"] = size
+    if size > request_max_bytes:
+        raise ContextRequestBlocked("request_budget_exceeded", "The complete request exceeds its byte budget; choose a smaller explicit source or stage, or revise the authorized budget. No chunk was truncated.")
+    return request
+
+
+def preparation_blocker(exc: Exception, source_id: str, owner: str) -> dict:
+    """Do not echo denied paths, source text, credentials or parser diagnostics."""
+    from wiki_core.context_packet import blocker
+    if not isinstance(exc, ContextRequestBlocked) and "byte budget" in str(exc).casefold():
+        exc = ContextRequestBlocked("context_budget_exceeded", "Required context cannot fit its explicit byte budget; choose an authorized narrower stage or revise the budget.")
+    if isinstance(exc, ContextRequestBlocked):
+        code, reason, status = exc.code, str(exc), "denied" if exc.code.endswith("_denied") else "pending"
+        required = ("Choose an explicit smaller source/stage or an authorized byte budget, then prepare again."
+                    if code in {"context_budget_exceeded", "request_budget_exceeded", "invalid_context_budget", "retained_request_exceeds_budget"}
+                    else "Ask the coordinator to stage an authorized source or resolve the current context/read scope through the supported task interface; then re-emit and read the bound request.")
+    else:
+        denied = "denied" in str(exc).casefold()
+        code = "context_access_denied" if denied else "context_preparation_unavailable"
+        reason = "Approved context is unavailable or denied; no compatibility fallback was used."
+        status = "denied" if denied else "pending"
+        required = "Ask the context owner/integrator to verify the current approved context, exact read scope and available inputs."
+    return {"error_code": code, "blocker": blocker("prepare_context_request", "source:" + source_id,
+        reason, owner, required,
+        "Current approved context is readable and the complete untruncated request fits both explicit byte budgets.",
+        status=status, interface="Calling harness task interface and coordinator task record")}
+
+
+def authorize_ingestion_source(root: Path, source: str, approved_revision: str | None,
+                               policy_context: str | None) -> dict:
+    """Authorize a literal staged source before any stat, extraction or catalog."""
+    import hashlib
+    from urllib.parse import urlsplit
+    from wiki_core.context_policy import load_policy
+    from wiki_core.repository_reader import RepositoryReader, canonical_path
+    if not approved_revision or not policy_context:
+        raise ContextRequestBlocked("approved_source_context_required", "Approved ingestion requires a current approved revision and explicit policy context.")
+    root = Path(root).resolve()
+    policy = load_policy(root, approved_revision)
+    policy.lineage(policy_context)
+    candidate = Path(source).expanduser()
+    if urlsplit(source).scheme and not candidate.is_absolute():
+        raise ContextRequestBlocked("source_staging_required", "External sources require authorized adapter/staging evidence; this caller accepts only an explicitly staged repository-local source.")
+    candidate = candidate if candidate.is_absolute() else root / candidate
+    try:
+        ref = canonical_path(candidate.relative_to(root).as_posix())
+    except ValueError as exc:
+        raise ContextRequestBlocked("source_staging_required", "Stage the source inside an explicitly approved repository read scope before ingestion.") from exc
+    producer = policy.owner_of(ref)
+    if policy.connection(producer, policy_context, ref, "interpretation", "source") != "approved":
+        raise ContextRequestBlocked("source_read_denied", "The requested source has no current exact read authorization; no source content or catalog was read.")
+    cursor = root
+    for part in Path(ref).parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            raise ContextRequestBlocked("unsafe_source_path", "A staged source must be a literal regular file without symlink traversal.")
+    if not candidate.is_file():
+        raise ContextRequestBlocked("source_staging_required", "The authorized staged source is unavailable; restore or stage it through the coordinator's supported interface.")
+    def source_hash():
+        digest = hashlib.sha256()
+        with candidate.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+        return digest.hexdigest()
+    return {"root": root, "path": candidate, "ref": ref, "policy": policy,
+        "context": policy_context, "hash_sha256": source_hash(),
+        "reader": RepositoryReader(root, "HEAD"),
+        "authorization": {"ref": ref, "producer": producer, "context_id": policy_context,
+            "policy_revision": policy.policy_revision, "use": "interpretation", "classification": "source"}}
+
+
+def revalidate_ingestion_source(guard: dict, *, captured_hash: str | None = None) -> None:
+    """Revocation/hash changes stop the next persistence/delivery boundary."""
+    current = authorize_ingestion_source(guard["root"], str(guard["path"]),
+        guard["policy"].policy_revision, guard["context"])
+    if current["hash_sha256"] != guard["hash_sha256"] or (captured_hash is not None and captured_hash != guard["hash_sha256"]):
+        raise ContextRequestBlocked("source_changed", "The staged source changed while preparation was in progress; revalidate and recapture the same task before continuing.")
+
+
+def approved_ingestion_inputs(root, config, guard, *, root_entity_ref=None, omit_root_entity=False):
+    """Task-local root/channel/config metadata from the pinned authorized readset.
+
+    This replaces the global input-stage compiler in approved ingestion; it
+    never loads the generated input-stage body as mandatory task context.
+    """
+    from wiki_core.frontmatter import list_values
+    from wiki_core.input_stage import (_root_payload, _channel_payload,
+        _resolved_perspectives, _quadrant_semantics, _quadrant_boundary_rule)
+    from wiki_core.quadrants import DEFAULT_QUADRANT_MAP
+    policy, reader, context = guard["policy"], guard["reader"], guard["context"]
+    def allowed(ref, classification="context"):
+        return policy.connection(policy.owner_of(ref), context, ref, "interpretation", classification) == "approved"
+    def read_page(ref, classification="context"):
+        from wiki_core.repository_reader import canonical_path
+        ref = canonical_path(ref)
+        if not allowed(ref, classification):
+            raise ContextRequestBlocked("context_read_denied", "A required context input lacks current exact authorization.")
+        if ref not in reader.paths:
+            raise ContextRequestBlocked("context_input_unavailable", "An explicit context path is unavailable at the selected revision; no broader lookup was attempted.")
+        document = reader.read(ref)
+        fm = document["frontmatter"]
+        return {"path": ref, "page_id": fm.get("page_id"), "page_type": fm.get("page_type"),
+            "title": str(fm.get("title") or fm.get("page_id") or ref), "context": str(fm.get("context") or ""), "values": fm}
+    if root_entity_ref is not None and omit_root_entity:
+        raise ContextRequestBlocked("invalid_root_selection", "Select a business root or explicitly omit it; both cannot apply.")
+    root_ref = None if omit_root_entity else root_entity_ref if root_entity_ref is not None else (config.root_entity or {}).get("page")
+    root_page = read_page(root_ref) if root_ref else None
+    if root_page and (not root_page["page_id"] or not root_page["page_type"] or
+                      (root_entity_ref is None and root_page["page_type"] != "root_entity")):
+        raise ContextRequestBlocked("root_context_invalid", "The explicitly configured root entity is invalid; no global fallback was selected.")
+    root_config = config
+    if root_entity_ref is not None and root_page:
+        from dataclasses import replace
+        root_config = replace(config, root_entity={"page": root_ref,
+            "entity_type": str(root_page["values"].get("root_entity_type") or root_page["page_type"]),
+            "perspective_bundle": {"required": [], "optional": []}, "input_stage_page": ""})
+    root_entity = _root_payload(root_page, root_config) if root_page else None
+    source_page = read_page(guard["ref"], "source") if guard["ref"] in reader.paths and guard["ref"].endswith(".md") else None
+    source_config = None
+    config_ref = (source_page or {}).get("values", {}).get("config_ref")
+    if config_ref:
+        page = read_page(str(config_ref)); fm = page["values"]
+        if fm.get("page_type") != "source_config":
+            raise ContextRequestBlocked("source_config_invalid", "The explicitly selected source configuration is invalid.")
+        source_config = {"path": page["path"], "page_id": page["page_id"],
+            **{key: list_values(fm.get(key)) for key in ("perspectives_required", "perspectives_optional", "perspectives_skip_with_reason", "process_refs", "target_pages", "quadrants")},
+            "input_channel_ref": str(fm.get("input_channel_ref") or "")}
+    channel_ref = (source_config or {}).get("input_channel_ref") or (source_page or {}).get("values", {}).get("input_channel_ref")
+    channel = None
+    if channel_ref:
+        if channel_ref in reader.paths:
+            page = read_page(channel_ref)
+            if page["page_type"] != "input_channel":
+                raise ContextRequestBlocked("input_channel_invalid", "The explicitly selected input channel is invalid.")
+            channel = _channel_payload(page)
+        else:
+            paths = [path for path in reader.paths if policy.permits(context, "read", path) and policy.owner_of(path) == context]
+            matches = [row["path"] for row in reader.catalogue(allowed_paths=paths, filters={"page_type": "input_channel"}) if row["page_id"] == channel_ref]
+            if len(matches) != 1:
+                raise ContextRequestBlocked("input_channel_unavailable", "The selected input channel is missing or ambiguous within the authorized context.")
+            channel = _channel_payload(read_page(matches[0]))
+    resolved = _resolved_perspectives(root_entity, channel, source_config)
+    targets = list(dict.fromkeys([ref for ref in [(root_entity or {}).get("path"), *(channel or {}).get("target_pages", []), *(source_config or {}).get("target_pages", [])] if ref]))
+    if any(not allowed(ref) for ref in targets):
+        raise ContextRequestBlocked("context_read_denied", "A required target reference lacks current exact authorization.")
+    return source_config, {"root_entity": root_entity, "input_channel": channel, "source_config": source_config,
+        "quadrant_map": DEFAULT_QUADRANT_MAP, "quadrant_semantics": _quadrant_semantics(config),
+        "quadrant_boundary_rule": _quadrant_boundary_rule(config), "target_pages": targets,
+        "perspectives_required": resolved["required"], "perspectives_optional": resolved["optional"],
+        "input_stage_status": "explicit_authorized_refs_only",
+        "context_omissions": ["Business root intentionally omitted; if the task requires it, block substantive interpretation until an authorized root is supplied."] if omit_root_entity else []}
+
+
 DEFAULT_QUADRANTS = [
     "interior_individual",
     "exterior_individual",
@@ -166,12 +360,15 @@ _CONTEXT_FIELDS = (
     "prompt_name", "prompt", "source_context", "quadrants_required",
     "quadrant_map", "quadrant_semantics", "quadrant_boundary_rule", "root_entity",
     "input_channel", "input_stage_status", "target_pages", "perspectives_required",
-    "perspectives_optional", "block_context_package",
+    "perspectives_optional", "block_context_package", "request_limits", "source_authorization",
 )
 
 
 def context_fingerprint(request: dict, provenance: dict) -> str:
     envelope = {key: request.get(key) for key in _CONTEXT_FIELDS}
+    for optional in ("request_limits", "source_authorization"):
+        if optional not in request:  # Historical envelopes remain inspectable.
+            envelope.pop(optional, None)
     envelope["provenance"] = provenance
     return sha256_text(json.dumps(envelope, sort_keys=True, ensure_ascii=False,
                                   separators=(",", ":"), allow_nan=False))
@@ -231,6 +428,112 @@ def read_matching_result(cache_dir: Path, request: dict, row: dict) -> dict | No
     return result if result_matches_request(result, request, row) else None
 
 
+def ingestion_block_context(root: Path, config, input_context: dict,
+                            perspectives_required: list[str], *,
+                            approved_revision: str | None = None,
+                            policy_context: str | None = None,
+                            task_id: str = "source-context-pass",
+                            context_max_bytes: int = DEFAULT_CONTEXT_MAX_BYTES,
+                            content_revision: str = "HEAD") -> dict:
+    """Construct the real contextual inputs at both production call sites.
+
+    Without an explicit approved revision this preserves the working-tree
+    adapter. It claims no authorization or immutable revision. The approved
+    policy adapter is selected only by a trusted local caller, never by finding
+    an unapproved context.yaml in the worktree.
+    """
+    if approved_revision is not None:
+        return _approved_ingestion_context(root, config, input_context,
+            perspectives_required, approved_revision, policy_context, task_id, context_max_bytes, content_revision)
+
+    if policy_context is not None and approved_revision is None:
+        raise ValueError("policy_context requires an explicit approved_revision")
+    from wiki_core.template_blocks import load_block_world, block_context_package
+    from wiki_core.repository_reader import canonical_path
+    from wiki_core.detectors import scan_text
+    world = load_block_world(root, config)
+    root_info = input_context.get("root_entity") or {}
+    anchor = world.by_id.get(root_info.get("page_id")) or world.by_path.get(root_info.get("path"))
+    package = block_context_package(world, anchor) if anchor else {
+        "schema_version": "wiki_block_stack.v1", "center": None, "stack": [], "lenses": [],
+        "write_policy": "proposal_branch_only", "target_obligations": []}
+    refs = ["AGENTS.md"]
+    refs.extend(path for path in config.audit.get("core_pages", [])
+                if world.by_path.get(path, {}).get("page_type") == "operational_rule")
+    if anchor:
+        refs.append(anchor["path"])
+    refs.extend(str((input_context.get(name) or {}).get("path")) for name in ("input_channel", "source_config") if (input_context.get(name) or {}).get("path"))
+    refs.extend(perspectives_required)
+    documents = []
+    unresolved = []
+    seen = set()
+    for ref in refs:
+        page = world.by_id.get(ref) or world.by_path.get(ref)
+        path = page["path"] if page else ref
+        canonical_path(path)
+        target = root / path
+        if not target.is_file():
+            unresolved.append(ref)
+            continue
+        if path in seen:
+            continue
+        seen.add(path)
+        cursor = root
+        for part in Path(path).parts:
+            cursor = cursor / part
+            if cursor.is_symlink():
+                raise ValueError("symlink context paths are not supported")
+        text = target.read_text(encoding="utf-8")
+        if any(f.category == "secret" for f in scan_text(text)):
+            raise ValueError("access secret in contextual input")
+        documents.append({"path": path, "page_id": page["id"] if page else None,
+            "text": text, "content_sha256": sha256_text(text), "origin": "working_tree"})
+    package.update(policy_mode="legacy_working_tree_compatibility", policy_enforced=False,
+                   documents=documents, unresolved_context_refs=unresolved)
+    return package
+
+
+def _approved_ingestion_context(root, config, input_context, perspectives_required,
+                                approved_revision, policy_context, task_id, context_max_bytes, content_revision):
+    from wiki_core.context_policy import load_policy
+    from wiki_core.context_packet import build_packet
+    from wiki_core.repository_reader import RepositoryReader
+    policy = load_policy(root, approved_revision)
+    if not policy_context:
+        raise ValueError("approved context requires an explicit policy_context")
+    policy.lineage(policy_context)  # Validate identity before cataloguing.
+    reader = RepositoryReader(root, content_revision)
+    allowed = [path for path in reader.paths if policy.permits(policy_context, "read", path)
+               and policy.owner_of(path) == policy_context]
+    catalogue = reader.catalogue(allowed_paths=allowed)
+    by_id = {}
+    for row in catalogue:
+        by_id.setdefault(row["page_id"], []).append(row["path"])
+    refs = []
+    for name in ("root_entity", "input_channel", "source_config"):
+        info = input_context.get(name) or {}
+        if info.get("path"):
+            refs.append(info["path"])
+    for ref in perspectives_required:
+        if ref in allowed:
+            path = ref
+        else:
+            matches = by_id.get(ref, [])
+            if len(matches) != 1:
+                raise ValueError("required perspective missing or ambiguous within authorized context: " + ref)
+            path = matches[0]
+        refs.append(path)
+    evidence = [{"ref": ref, "producer": policy.owner_of(ref),
+        "reason": "Required ingestion interpretation context", "use": "interpretation",
+        "classification": "context"} for ref in dict.fromkeys(refs)]
+    packet = build_packet(root, policy, policy_context, reader.revision, evidence, context_max_bytes,
+        task_id=task_id, goal="Deep contextual reading of the extracted source",
+        output="Recorded LLM context-pass results for each extracted chunk",
+        integrator="Operating ingestion agent under the repository PR review gate",
+        omissions=input_context.get("context_omissions", []))
+    return packet
+
+
 def build_context_request(
     manifest: dict[str, object],
     chunks: list[dict[str, object]],
@@ -251,6 +554,9 @@ def build_context_request(
     target_pages: list[str] | None = None,
     input_stage_status: str | None = None,
     block_context_package: dict[str, object] | None = None,
+    context_max_bytes: int = DEFAULT_CONTEXT_MAX_BYTES,
+    request_max_bytes: int = DEFAULT_REQUEST_MAX_BYTES,
+    source_authorization: dict | None = None,
 ) -> dict[str, object]:
     """Assemble the packet that the repo agent executes. Includes the chunk text,
     the versioned prompt, the output schema and the per-chunk cache status.
@@ -272,6 +578,7 @@ def build_context_request(
     request = {
         "kind": "llm_context_request",
         "context_binding_version": 1,
+        "request_limits": request_limits(context_max_bytes, request_max_bytes),
         "source_context": manifest.get("context", ""),
         "schema_version": schema_version,
         "context_pass_schema_version": CONTEXT_PASS_SCHEMA_VERSION,
@@ -305,6 +612,9 @@ def build_context_request(
         ),
     }
 
+    if source_authorization is not None:
+        request["source_authorization"] = source_authorization
+
     for chunk in chunks:
         source_id = chunk.get("source_id", manifest.get("source_id"))
         origin = chunk.get("source_origin") or manifest.get("source_origin") or {}
@@ -336,7 +646,7 @@ def build_context_request(
         request["chunks"].append(row)
         request["cached_calls" if existing is not None else "pending_llm_calls"] += 1
     request["instructions"] += " Copy context_sha256 and chunk_hash_sha256 from the chunk; retain its exact source_id and chunk_id."
-    return request
+    return enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
 
 
 def source_pending(

@@ -265,3 +265,16 @@ def test_write_result_accepts_sha256_cache_key(tmp_path):
     out = write_result(tmp_path / "cache", _complete_result(HEX_KEY))
     assert out == tmp_path / "cache" / f"{HEX_KEY}.json"
     assert out.exists()
+
+
+@pytest.mark.parametrize('allow_unrequested', [False, True])
+def test_record_error_never_echoes_an_unvalidated_cache_key(tmp_path, monkeypatch, capsys, allow_unrequested):
+    cp = _load('scripts/wiki_llm_context_pass.py', 'cp_gate_key_redaction')
+    monkeypatch.setattr(cp, 'ROOT', tmp_path)
+    marker = 'sensitive-unvalidated-cache-key-value'
+    payload = tmp_path / 'result.json'
+    payload.write_text(json.dumps(_complete_result(marker)))
+    assert cp._record_results(_paths_stub(tmp_path), str(payload), allow_unrequested=allow_unrequested) == 2
+    output = capsys.readouterr()
+    assert marker not in output.out + output.err
+    assert 'invalid cache_key shape' in output.err

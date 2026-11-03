@@ -3831,7 +3831,7 @@ def test_write_deploy_bundle_creates_runtime_config_snapshot_and_proof(
         "mode": "static",
         "repo_label": "Sample Review",
         "snapshot_base": "/sample-review",
-        "codex": {"enabled": True},
+        "codex": {"enabled": False},  # Executors require explicit opt-in.
     }
     proof = (out_dir / "DEPLOYMENT.md").read_text(encoding="utf-8")
     assert "vercel_static" in proof

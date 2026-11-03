@@ -1,0 +1,328 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "wiki.schedule/v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+        },
+        "context_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+        },
+        "policy_revision": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "trigger": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "interval"
+            },
+            "every_seconds": {
+              "type": "integer",
+              "minimum": 3600,
+              "maximum": 31536000
+            },
+            "timezone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96
+            }
+          },
+          "required": [
+            "kind",
+            "every_seconds",
+            "timezone"
+          ]
+        },
+        "task_template": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "mode": {
+          "const": "observe_then_propose"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^(?=.*\\S)[^\\x00-\\x1f\\x7f]+$"
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "concurrent_runs": {
+              "const": 1
+            },
+            "max_tasks_per_wake": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "max_attempts_per_wake": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "max_attempts_per_effect": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "overlap": {
+              "const": "skip_and_record"
+            },
+            "catch_up": {
+              "const": "latest_only"
+            }
+          },
+          "required": [
+            "concurrent_runs",
+            "max_tasks_per_wake",
+            "max_attempts_per_wake",
+            "max_attempts_per_effect",
+            "overlap",
+            "catch_up"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "context_id",
+        "policy_revision",
+        "trigger",
+        "task_template",
+        "mode",
+        "owner",
+        "limits"
+      ]
+    },
+    "wake": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "global_paused": {
+          "type": "boolean"
+        },
+        "now": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        "due_at": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        "latest_due_at": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        "active_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "attempts_this_wake": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "tasks": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "task_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+              },
+              "context_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+              },
+              "fingerprint": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "task_id",
+              "context_id",
+              "fingerprint"
+            ]
+          }
+        },
+        "records": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "task_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+              },
+              "context_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+              },
+              "occurrence_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "fingerprint": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "attempts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "status": {
+                "enum": [
+                  "completed",
+                  "running",
+                  "uncertain",
+                  "denied",
+                  "safe_failure",
+                  "pending"
+                ]
+              }
+            },
+            "required": [
+              "task_id",
+              "context_id",
+              "occurrence_id",
+              "fingerprint",
+              "attempts",
+              "status"
+            ]
+          }
+        }
+      },
+      "required": [
+        "global_paused",
+        "now",
+        "due_at",
+        "latest_due_at",
+        "active_runs",
+        "attempts_this_wake",
+        "tasks",
+        "records"
+      ]
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scheduler": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+        },
+        "host": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9/_-]{0,95}$"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^(?=.*\\S)[^\\x00-\\x1f\\x7f]+$"
+        },
+        "installed": {
+          "type": "boolean"
+        },
+        "last_wake": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "maxLength": 40
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "next_expected": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "maxLength": 40
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "interaction": {
+          "enum": [
+            "available",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "paused": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "scheduler",
+        "host",
+        "owner",
+        "installed",
+        "last_wake",
+        "next_expected",
+        "interaction",
+        "paused"
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schedule": {
+      "$ref": "#/$defs/schedule"
+    },
+    "wake": {
+      "$ref": "#/$defs/wake"
+    },
+    "observation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/observation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schedule",
+    "wake"
+  ]
+}

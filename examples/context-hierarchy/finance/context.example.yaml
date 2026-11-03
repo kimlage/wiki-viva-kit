@@ -1,0 +1,17 @@
+schema_version: wiki.context/v1
+id: finance
+parent: root
+root: examples/context-hierarchy/finance
+purpose: Personal financial interpretation
+owner: finance operator
+instructions: []
+skills: []
+templates: []
+policy:
+  read:
+  - examples/context-hierarchy/root-rules.md
+  - self
+  write:
+  - self
+imports: []
+exports: []

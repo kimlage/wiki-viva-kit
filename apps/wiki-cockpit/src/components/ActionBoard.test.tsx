@@ -397,3 +397,21 @@ it.each([['static',false],['local_operator',true]])('disables creation in %s / d
   expect((button as HTMLButtonElement).disabled).toBe(true); fireEvent.click(button);
   expect(create).not.toHaveBeenCalled(); expect(loadCreationOptions).not.toHaveBeenCalled();
 });
+
+it('labels the legacy caller-trust projection without treating coordinator profiles as protected access',async()=>{
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(readSnapshot('revision-a')),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'Work',frontmatter:{}})};
+  const loadCoordination=vi.fn().mockResolvedValue({schema_version:'wiki_coordination.v1',configured:false,snapshot_id:'revision-a',profiles:[],actions:[],trust_boundary:'caller_trust',policy_enforced:false,coverage:'legacy_global_snapshot'});
+  render(<ActionBoard operator={operator} save={vi.fn()} loadCoordination={loadCoordination}/>);
+  expect(await screen.findByText(/Reading this projection: caller trust/)).toBeTruthy();
+  expect(document.querySelector('[data-context-read-mode="caller_trust"]')).toBeTruthy();
+  expect(screen.getByText("legacy_global_snapshot").closest("details")?.open).toBe(false);
+});
+
+it('never discovers or reads a protected packet from the static demo',async()=>{
+  const operator={loadSnapshotBundle:vi.fn().mockResolvedValue(readSnapshot('revision-a')),loadPageContent:vi.fn().mockResolvedValue({ok:true,body:'Work',frontmatter:{}})};
+  const contextPackets={loadCapability:vi.fn(),preparePacket:vi.fn()};
+  render(<ActionBoard operator={operator} save={vi.fn()} contextPackets={contextPackets} demo/>);
+  fireEvent.click(await screen.findByRole('button',{name:/Async task/}));
+  await screen.findByText('Work', {selector:'.boardMarkdown p'});
+  expect(contextPackets.loadCapability).not.toHaveBeenCalled(); expect(contextPackets.preparePacket).not.toHaveBeenCalled();
+});

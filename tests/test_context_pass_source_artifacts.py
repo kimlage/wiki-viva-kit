@@ -406,3 +406,79 @@ def test_query_without_matches_remains_success(source_check, capsys, monkeypatch
     assert module.main() == 0
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is True and report["chunks"] == 0
+
+
+def test_cli_builds_actual_context_bodies_and_invalidates_same_id(source_check, capsys):
+    source, config, paths, check = source_check
+    config.root_entity.update({'page': 'memories/root.md', 'perspective_bundle': {'required': ['perspective-synthetic'], 'optional': []}})
+    config.audit['core_pages'] = ['memories/policy.md']
+    (paths.root / 'memories').mkdir()
+    (paths.root / 'AGENTS.md').write_text('Synthetic mandatory instruction.\n')
+    (paths.root / 'memories/root.md').write_text('---\npage_id: root\npage_type: root_entity\n---\n# Root\n')
+    policy = paths.root / 'memories/policy.md'
+    policy.write_text('---\npage_id: policy\npage_type: operational_rule\n---\n# Policy\nSynthetic current policy body.\n')
+    (paths.root / 'memories/perspective.md').write_text('---\npage_id: perspective-synthetic\npage_type: perspective\n---\n# Perspective\nSynthetic required perspective body.\n')
+    result = run(str(source), 'system', paths.root, config)
+    request_path = paths.root / result.request_path
+    assert check('--emit-request') == 0
+    capsys.readouterr()
+    before = json.loads(request_path.read_text())
+    text = '\n'.join(row['text'] for row in before['block_context_package']['documents'])
+    assert 'Synthetic mandatory instruction.' in text
+    assert 'Synthetic current policy body.' in text
+    assert 'Synthetic required perspective body.' in text
+    policy.write_text(policy.read_text().replace('Synthetic current policy body.', 'Synthetic updated policy body.'))
+    assert check('--emit-request') == 0
+    capsys.readouterr()
+    after = json.loads(request_path.read_text())
+    assert before['source_id'] == after['source_id']
+    assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']
+
+
+def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bodies(source_check, capsys):
+    import subprocess
+    import yaml
+    from wiki_core.context_policy import PolicyError
+    source, config, paths, check = source_check
+    def git(*args):
+        return subprocess.run(['git', '-C', str(paths.root), *args], check=True, capture_output=True, text=True).stdout.strip()
+    run(str(source), 'system', paths.root, config)
+    capsys.readouterr()
+    git('init', '-q'); git('config', 'user.name', 'Synthetic'); git('config', 'user.email', 'synthetic@example.test')
+    git('add', 'source.md'); git('commit', '-qm', 'Synthetic without policy')
+    sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
+    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report['blocked'] and report['error_code'] == 'context_preparation_unavailable'
+    assert report['blockers'][0]['interface'] and report['blockers'][0]['resume_condition']
+    assert check('--emit-request') == 0  # Explicitly unprotected legacy remains available.
+    capsys.readouterr()
+    (paths.root / 'AGENTS.md').write_text('Current approved CLI policy body.\n')
+    manifest = {'schema_version': 'wiki.context/v1', 'id': 'root', 'parent': None, 'root': '.', 'purpose': 'Synthetic', 'owner': 'operator',
+        'instructions': ['AGENTS.md'], 'skills': [], 'templates': [], 'imports': [], 'exports': [],
+        'policy': {'read': ['self'], 'write': [], 'capabilities': [], 'publication': [], 'deny': {}}}
+    (paths.root / 'context.yaml').write_text(yaml.safe_dump(manifest))
+    git('add', 'AGENTS.md', 'context.yaml'); git('commit', '-qm', 'Approved CLI policy')
+    sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
+    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 0
+    capsys.readouterr()
+    request_path = paths.extraction_events / (build_manifest(str(source), 'system', root=paths.root)['source_id'] + '-llm-context-request.json')
+    before = json.loads(request_path.read_text())
+    assert before['block_context_package']['inputs'][0]['text'] == 'Current approved CLI policy body.\n'
+    from jsonschema import validate
+    from wiki_core.context_packet import validate_result as validate_task_result
+    package = before['block_context_package']
+    validate(package, json.loads((ROOT / 'docs/references/schemas/wiki-task-context-v1.schema.json').read_text()))
+    bound_result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
+        'task_id': package['task_id'], 'context_id': package['context_id'],
+        'packet_digest': package['packet_digest'], 'blockers': [], 'changes': [],
+        'read_coverage': {'observed_refs': package['declared_read_set'], 'missing': []}}
+    assert validate_task_result(bound_result, package) is True
+    (paths.root / 'AGENTS.md').write_text('Revised approved CLI policy under same path.\n')
+    git('add', 'AGENTS.md'); git('commit', '-qm', 'Approved instruction body update')
+    sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
+    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 0
+    capsys.readouterr()
+    after = json.loads(request_path.read_text())
+    assert before['source_id'] == after['source_id']
+    assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']

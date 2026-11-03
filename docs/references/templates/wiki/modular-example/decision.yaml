@@ -1,0 +1,11 @@
+schema_version: wiki_template_sections.v1
+template_id: decision-modular
+template_version: '1'
+sections:
+  - {id: facts, title: Facts, role: facts, required: true}
+  - {id: constraints, title: Constraints, role: constraints, required: true}
+  - {id: decision, title: Decision, role: decision, required: true}
+  - {id: evidence, title: Evidence, role: evidence, required: true}
+  - {id: uncertainty, title: Uncertainty, role: uncertainty, required: false}
+  - {id: next-step, title: Next step, role: next_step, required: false}
+allowed_slots: ['before:decision', 'after:evidence']

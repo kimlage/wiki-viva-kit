@@ -60,7 +60,12 @@ def assess_information_use(graph: dict, consumer: str, *, now: dt.datetime) -> d
                     graph.get('verification_coverage', {}).get(path)) is not True:
                 reasons.append('information_changed_since_verification')
             fields = requirement['fields']
-            if any(f != 'body' and f not in values for f in fields):
+            from wiki_core.content_sections import parse_sections, SectionError
+            try:
+                sections = parse_sections(graph['documents'][path]) if any(f.startswith('section:') for f in fields) else {}
+                if any((f.startswith('section:') and f[8:] not in sections) or (not f.startswith('section:') and f not in {'body','*'} and f.removeprefix('field:') not in values) for f in fields):
+                    reasons.append('information_field_missing')
+            except SectionError:
                 reasons.append('information_field_missing')
             # A claim page is the existing atomic fact surface. A source
             # catalogue timestamp cannot verify arbitrary fields of its streams.
@@ -147,7 +152,9 @@ def verification_covers_content(root, path: str, fields: list[str], evidence: li
         from wiki_core.frontmatter import parse_frontmatter
         def projection(text):
             values, body = parse_frontmatter(text)
-            selectors = set(fields) | {'evidence_refs','confidence','valid_from','valid_to','source_refs'}
+            selectors = {('body' if f.startswith('section:') else f.removeprefix('field:')) for f in fields}
+            if '*' in selectors: return {'all': (values, body)}
+            selectors |= {'evidence_refs','confidence','valid_from','valid_to','source_refs'}
             return {field: (True, body) if field == 'body' else (field in values, values.get(field))
                     for field in sorted(selectors)}
         # Compare the complete selected meaning, including absent/deleted

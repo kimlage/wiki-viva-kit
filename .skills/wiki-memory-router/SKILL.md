@@ -7,9 +7,12 @@ description: Route reading, editing and delegation in Markdown/Git living-wiki r
 
 ## Choose the task first
 
-Identify the authorized checkout, read its AGENTS instructions and configured
-memory index, then use the [existing task entry points](../../scripts/README.md#task-entry-points).
-Consumer-specific context requirements continue to apply.
+Identify your role and authorized read scope before opening repository content.
+An authorized coordinator/integrator uses the checkout instructions, configured
+memory index and [task entry points](../../scripts/README.md#task-entry-points)
+to route work. A packet-bound executor follows the scoped handoff below.
+Consumer-specific requirements apply within the current authority; navigation
+links never grant additional read access.
 
 - For locating or reading a candidate, use direct lookup or the known page.
   Report origin and coverage limits. This alone does not require ingestion,
@@ -21,7 +24,31 @@ Consumer-specific context requirements continue to apply.
   below and its applicable gates. A read-only lookup must not silently turn
   into refresh, publication or a write.
 
+## Packet-bound executor
+
+- Use a packet validated by the trusted coordinator/adapter against current
+  approved policy. A hash or an unverified packet alone cannot establish that
+  authority. Verify the executing instance's actual tools and interface; do not
+  infer accounts or permissions from YAML or the parent's capabilities.
+- Read the delivered instruction/template bodies, local context map and exact
+  evidence selectors. Do not reopen the global memory index, generated input
+  stage or every other front merely because those files are linked. Select a
+  shared skill/template only when applicable to this task and included in its
+  authorized handoff.
+- If required context is absent, expired, denied or exceeds the actual harness
+  window, return the structured blocker to the coordinator. Request a concrete
+  authorized slice or stage; do not expand the readset, truncate a rule or claim
+  complete coverage. Use supported native question/approval interfaces as
+  described in [the context-reading skill](../wiki-llm-context-agent/SKILL.md).
+- Keep proposed writes within the delivered task's scope and review policy.
+  Report selected inputs, changed paths and unresolved gaps to the integrator;
+  do not replace required integration gates with a claim that the packet was read.
+
 ## Workflow for synthesis, ingestion, changes and delegation
+
+The steps below belong to an authorized coordinator/integrator with the needed
+repository scope. They are not a mandate for a scoped executor to read or run
+global maintenance. The integrator retains the applicable final gates.
 
 1. Identify the authorized checkout root, using `git rev-parse --show-toplevel`
    when available. Read that root's [AGENTS.md](../../AGENTS.md) and applicable
@@ -37,8 +64,9 @@ Consumer-specific context requirements continue to apply.
    missing policy reference before relying on a packet for handoff; do not
    silently change configuration during a read-only task. Use the consumer's
    existing locations, not assumed English paths. See [context coordinators](../../docs/references/guides/context-coordinators.md#consumer-configuration).
-4. Open the configured `root_entity.page` and `root_entity.input_stage_page`
-   when present.
+4. Select the configured root entity and applicable source/channel/template
+   inputs. The global generated input-stage catalog is coordinator navigation;
+   do not insert its complete body as every task's mandatory instruction.
 5. Open the operation page resolved by `WikiPaths.operation_page` when it exists.
 6. Open the operational-pass page resolved by `WikiPaths.operational_pass_page`
    when it exists and read the top "Short-term memory" section before older

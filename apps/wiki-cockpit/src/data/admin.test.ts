@@ -466,13 +466,13 @@ async function unlockForBus(token: string) {
 
 describe("command bus client (§11, §12.2)", () => {
   it("retains preparatory observations on a dry-run plan and on a planning refusal", async () => {
-    const observations = ["OpenClaw history read during planning; reconciliation possible"];
+    const observations = ["Proposal metadata read during planning; reconciliation possible"];
     const parsed = parseAdminPlan(planPayload({ dry_run: true, effects: { files_read: [], files_write: [], external_calls: [], preparatory_observations: observations, snapshot_invalidated: false } }));
     expect(parsed?.effects.preparatoryObservations).toEqual(observations);
     expect(parsed?.effects.externalCalls).toEqual([]);
     await unlockForBus("tok-preparatory");
     operatorPost.mockResolvedValueOnce(jsonResponse(409, { ok: false, error_code: "admin_invalid_params", preparatory_observations: observations }));
-    expect(await planAdminCommand("agents.openclaw.dispatch")).toMatchObject({ ok: false, preparatoryObservations: observations });
+    expect(await planAdminCommand("wiki.proposal.prepare")).toMatchObject({ ok: false, preparatoryObservations: observations });
   });
   it("planAdminCommand refuses locally without a session — no request leaves", async () => {
     const result = await planAdminCommand("system.inspect");
@@ -626,4 +626,16 @@ describe("command bus client (§11, §12.2)", () => {
     const malformed = await fetchAdminCommandCatalog();
     expect(malformed.ok).toBe(false);
   });
+});
+
+it("does not infer success from a response without an explicit effect status", () => {
+  expect(parseAdminExecuteOutcome({ ok: true, plan_id: "plan", command_id: "wiki.proposal.prepare" })?.status).toBe("unknown");
+});
+
+it("preserves a redacted non-2xx uncertain outcome rather than losing it as a generic command failure", async () => {
+  await unlockForBus("tok-bus");
+  const plan = parseAdminPlan(planPayload())!;
+  const output = { outcome_uncertain: true, status: "awaiting_reconciliation", target: "synthetic-proposal" };
+  operatorPost.mockResolvedValueOnce(jsonResponse(409, { ok: false, error_code: "admin_command_failed", output }));
+  expect(await executeAdminPlan(plan, null)).toEqual({ ok: false, errorCode: "admin_effect_outcome_uncertain", failedPreconditions: [], output });
 });

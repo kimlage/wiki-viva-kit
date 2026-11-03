@@ -28,26 +28,14 @@ function observation(): RuntimeObservations {
   return {
     ok: true, schema_version: "wiki_runtime_observations.v1", observed_at: "2026-10-31T12:00:00Z",
     operator: { started_at: "2026-10-30T09:00:00Z", boot_source_commit: "code-before", current_source_commit: "code-current", content_source_commit: "content-current", restart_required: true, server_version: "wiki_web_server.v11", frontend: { status: "observed", entry_sha256: "served-hash", source_commit: null } },
-    openclaw: { configured: true, observation_scope: "retained_local_evidence", gateway_status: "not_observed", active_run: null, pending_inputs: null,
-      usage: { status: "not_measured", tokens: null, cost: null }, native_observations: [], errors: [], rules: [],
-      transport: { status: "reachable", scope: "loopback_tcp_only", observed_at: "2026-10-31T11:59:00Z" },
-      attempts: [{ profile: "research", action_id: "first", effect_key: "attempt-a", attempted_at: "2026-10-29T10:00:00Z", result_captured_at: null, status: "awaiting_reconciliation" },
-        { profile: "research", action_id: "second", effect_key: "attempt-b", attempted_at: "2026-10-30T10:00:00Z", result_captured_at: "2026-10-30T11:00:00Z", status: "result_retained" }]
-    }
+
   };
 }
 
-it("scopes retained attempts to the selected action and keeps reachability, liveness and versions separate", () => {
+it("keeps observed content, process and bundle versions separate without claiming execution authority", () => {
   const value = observation();
   value.operator.boot_code_sha256 = "a".repeat(64); value.operator.current_code_sha256 = "b".repeat(64);
-  render(<RuntimeObservationPanel observation={value} actionId="first" snapshotId="snapshot-a" versions />);
-  expect(field("Last attempt")).toBe("2026-10-29T10:00:00Z");
-  expect(field("Retained status")).toContain("live execution unknown");
-  expect(field("Result captured")).toBe("Not observed");
-  expect(field("Tokens / cost")).toBe("Not measured");
-  expect(field("Global execution / pending inputs")).toBe("Not observed");
-  expect(field("Local TCP transport only")).toBe("Listener reachable");
-  expect(screen.getByText(/does not verify Gateway identity/)).toBeTruthy();
+  render(<RuntimeObservationPanel observation={value} snapshotId="snapshot-a" versions />);
   expect(field("Content checkout")).toBe("content-current");
   expect(field("Current code checkout")).toBe("code-current");
   expect(field("Checkout at process start")).toBe("code-before");
@@ -55,82 +43,17 @@ it("scopes retained attempts to the selected action and keeps reachability, live
   expect(field("Current code SHA-256")).toBe("b".repeat(64));
   expect(field("Served entry hash")).toBe("served-hash");
   expect(field("Frontend source commit")).toBe("Not observed");
-  expect(screen.queryByRole("button")).toBeNull();
-  expect(screen.queryByText("2026-10-30T11:00:00Z")).toBeNull();
-});
-
-it("shows resident phases and observation time while keeping global activity and costs unknown", () => {
-  const value = observation();
-  value.openclaw.native_observations = [{ profile: "research", session_status: null, status: "observed", observed_at: "2026-10-31T12:00:00Z",
-    scope: "resident_gateway_owners", complete: false, resident_complete: true, persisted_queue_count: null, error_code: null,
-    process_instance_id: "synthetic-process", has_active_run: false, active_run_ids: [], ids_truncated: false,
-    active_count: 0, terminal_persistence_count: 1, terminal_cleanup_count: 2, queued_turn_count: 3, pending_admission_count: 4 }];
-  render(<RuntimeObservationPanel observation={value} />);
-  expect(field("Active runs")).toBe("0");
-  expect(field("Pending terminal persistence")).toBe("1");
-  expect(field("Pending terminal cleanup")).toBe("2");
-  expect(field("Resident queued turns")).toBe("3");
-  expect(field("Pending admissions")).toBe("4");
-  expect(field("Gateway process")).toBe("synthetic-process");
-  expect(field("Global execution / pending inputs")).toBe("Not observed");
-  expect(field("Tokens / cost")).toBe("Not measured");
-  expect(screen.getByText(/persisted queue and global readiness are unobserved/)).toBeTruthy();
+  expect(screen.getByText(/restart required/)).toBeTruthy();
+  expect(screen.getByText(/Refresh does not perform either operation/)).toBeTruthy();
+  expect(screen.getByText(/scheduler installation are not observed/)).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
 });
 
-it.each([
-  ["en", "Age at last update (s)"],
-  ["pt", "Idade na última atualização (s)"],
-  ["es", "Edad en la última actualización (s)"]
-] as const)("labels the frozen age as the last update in %s after time passes", (language, label) => {
-  configureLanguage(language);
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date("2026-10-31T12:00:10Z"));
-  const value = observation();
-  value.openclaw.native_observations = [{ profile: "research", session_status: null, status: "observed", observed_at: "2026-10-31T12:00:00Z",
-    scope: "resident_gateway_owners", complete: false, resident_complete: true, persisted_queue_count: null, error_code: null,
-    process_instance_id: "synthetic-process", has_active_run: false, active_run_ids: [], ids_truncated: false,
-    active_count: 0, terminal_persistence_count: 0, terminal_cleanup_count: 0, queued_turn_count: 0, pending_admission_count: 0 }];
-  const { rerender } = render(<RuntimeObservationPanel observation={value} />);
-  expect(field(label)).toBe("10");
-  vi.advanceTimersByTime(60_000);
-  expect(field(label)).toBe("10");
-  rerender(<RuntimeObservationPanel observation={value} />);
-  expect(field(label)).toBe("70");
-});
-
-it("keeps receipt adoption distinct from content incorporation and a failed wake distinct from no dispatch", () => {
-  const value = observation();
-  value.openclaw.attempts[0].proposal = { status: "received_in_main", branch: "wiki/result", head: "h", proposal_head: "p", approved_base: "b", material_path: "result.md", material_sha256: "s", content_incorporated_in_main: false };
-  Object.assign(value.openclaw.attempts[0], {
-    run_id: "attempt-a", result: { excerpt: "Existing synthetic result <script>untrusted</script>", text_sha256: "a".repeat(64), truncated: true },
-    authorization: { status: "not_observed" },
-    guard_admission: { status: "retained_chain_verified", model: "synthetic-model", effort: "high", error_code: null },
-    review: { status: "not_observed", head: null }
-  });
-  value.openclaw.rules = [{ rule_id: "daily-check", profile: "research", action_id: "first", interval_minutes: 1440, scheduler_status: "not_observed", next_expected_observation_at: "2026-11-01T09:00:00Z", last_wake: { observed_at: "2026-10-31T09:00:00Z", slot: 1, mode: "dispatch", effect_key: null, status: "failure", error_code: "observation_failed", new_dispatch: null } }];
-  render(<RuntimeObservationPanel observation={value} actionId="first" />);
-  expect(field("Wiki incorporation")).toContain("content incorporation not proved");
-  expect(field("Run / receipt ID")).toBe("attempt-a");
-  expect(field("Current authorization")).toBe("Not observed");
-  expect(field("Independent review")).toBe("Not observed");
-  expect(field("Retained admission")).toContain("Historical");
-  expect(field("Admitted model / effort")).toBe("synthetic-model / high");
-  expect(screen.getByText("Existing synthetic result <script>untrusted</script>").tagName).toBe("PRE");
-  expect(screen.getByText(/hash identifies the full retained text/)).toBeTruthy();
-  expect(screen.queryByRole("button")).toBeNull();
-  expect(field("Wake result")).toBe("Failure recorded");
-  expect(field("New dispatch in this wake")).toBe("Not observed");
-  expect(screen.getByText(/scheduler activity unverified/)).toBeTruthy();
-});
-
-it("does not turn an unavailable observation or an empty retained scope into inactivity", () => {
-  const { rerender } = render(<RuntimeObservationPanel observation={null} unavailable />);
-  expect(screen.queryByText(/No retained attempt/)).toBeNull();
+it("keeps unavailable observations explicit and does not infer a restart from missing data", () => {
+  render(<RuntimeObservationPanel observation={null} unavailable versions />);
   expect(screen.getByRole("status").textContent).toContain("Observation unavailable");
-  const value = observation(); value.openclaw.attempts = [];
-  rerender(<RuntimeObservationPanel observation={value} />);
-  expect(screen.getByText(/This does not prove inactivity/)).toBeTruthy();
+  expect(field("Observed at")).toBe("Not observed");
+  expect(screen.queryByText(/restart required/)).toBeNull();
 });
 
 it("separates event-driven source ingestion, later verification, pending adoption and live access", () => {

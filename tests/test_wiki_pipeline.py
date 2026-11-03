@@ -193,3 +193,93 @@ def test_no_stream_id_leaves_cursor_state_untouched(tmp_path: Path) -> None:
     result = run(str(src), "system", tmp_path, config)
     assert result.stream_cursor_written is False
     assert not (WikiPaths(tmp_path, config).source_state).exists()
+
+
+def test_pipeline_delivers_actual_policy_and_perspective_bodies_and_invalidates_same_id(tmp_path):
+    config = WikiConfig(root_entity={"page": "memories/root.md", "perspective_bundle": {"required": ["perspective-synthetic"], "optional": []}})
+    config.audit['core_pages'] = ['memories/policy.md']
+    _write(tmp_path / 'AGENTS.md', 'Preserve synthetic independent review.\n')
+    _write(tmp_path / 'memories/root.md', '---\npage_id: root\npage_type: root_entity\nblocks: [{id: wiki.block.quadrants.v1}]\n---\n# Synthetic root\n')
+    _write(tmp_path / 'wiki.templates.yaml', 'schema_version: wiki_templates.v1\nblocks:\n  wiki.block.quadrants.v1:\n    kind: interpretation\n')
+    _write(tmp_path / 'memories/policy.md', '---\npage_id: policy\npage_type: operational_rule\n---\n# Synthetic policy\nReview before promotion.\n')
+    perspective = tmp_path / 'memories/perspective.md'
+    _write(perspective, '---\npage_id: perspective-synthetic\npage_type: perspective\n---\n# Synthetic perspective\nInspect exceptions in the original evidence.\n')
+    src = tmp_path / 'source.md'
+    _write(src, '# Synthetic source\n' + LOREM)
+    first = run(str(src), 'system', tmp_path, config)
+    before = json.loads((tmp_path / first.request_path).read_text())
+    package = before['block_context_package']
+    assert package['stack'][0]['id'] == 'wiki.block.quadrants.v1'
+    documents = {row['path']: row['text'] for row in package['documents']}
+    assert 'Preserve synthetic independent review.' in documents['AGENTS.md']
+    assert 'Review before promotion.' in documents['memories/policy.md']
+    assert 'Inspect exceptions in the original evidence.' in documents['memories/perspective.md']
+    assert package['policy_enforced'] is False
+    perspective.write_text(perspective.read_text().replace('Inspect exceptions in the original evidence.', 'Inspect revised exceptions and conflicting evidence.'))
+    second = run(str(src), 'system', tmp_path, config)
+    after = json.loads((tmp_path / second.request_path).read_text())
+    assert before['perspectives_required'] == after['perspectives_required']
+    assert before['source_id'] == after['source_id']
+    assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']
+
+
+def test_approved_pipeline_reads_current_policy_and_committed_perspective_before_cache_binding(tmp_path):
+    import subprocess
+    import yaml
+    import pytest
+    from wiki_core.context_policy import PolicyError
+    def git(*args):
+        return subprocess.run(['git', '-C', str(tmp_path), *args], check=True, capture_output=True, text=True).stdout.strip()
+    config = WikiConfig(root_entity={'page': 'memories/root.md', 'perspective_bundle': {'required': ['perspective-synthetic'], 'optional': []}})
+    _write(tmp_path / 'AGENTS.md', 'Approved instruction body.\n')
+    _write(tmp_path / 'memories/root.md', '---\npage_id: root\npage_type: root_entity\n---\n# Root\n')
+    _write(tmp_path / 'memories/policy.md', 'Approved mandatory policy body.\n')
+    perspective = tmp_path / 'memories/perspective.md'
+    _write(perspective, '---\npage_id: perspective-synthetic\npage_type: perspective\n---\n# Perspective\nOriginal required interpretation.\n')
+    manifest = {'schema_version': 'wiki.context/v1', 'id': 'root', 'parent': None, 'root': '.', 'purpose': 'Synthetic ingestion', 'owner': 'operator',
+        'instructions': ['AGENTS.md', 'memories/policy.md'], 'skills': [], 'templates': [], 'imports': [], 'exports': [],
+        'policy': {'read': ['self'], 'write': [], 'capabilities': [], 'publication': [], 'deny': {}}}
+    _write(tmp_path / 'context.yaml', yaml.safe_dump(manifest))
+    src = tmp_path / 'source.md'
+    _write(src, '# Source\n' + LOREM)
+    git('init', '-q'); git('config', 'user.name', 'Synthetic'); git('config', 'user.email', 'synthetic@example.test')
+    git('add', '.'); git('commit', '-qm', 'Approved synthetic fixture')
+    approved = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', approved)
+    first = run(str(src), 'system', tmp_path, config, approved_revision=approved, policy_context='root')
+    before = json.loads((tmp_path / first.request_path).read_text())
+    package = before['block_context_package']
+    from jsonschema import validate
+    from wiki_core.context_packet import validate_result as validate_task_result
+    schema = json.loads((ROOT / 'docs/references/schemas/wiki-task-context-v1.schema.json').read_text())
+    validate(package, schema)
+    bound_result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
+        'task_id': package['task_id'], 'context_id': package['context_id'],
+        'packet_digest': package['packet_digest'], 'blockers': [], 'changes': [],
+        'read_coverage': {'observed_refs': package['declared_read_set'], 'missing': []}}
+    assert validate_task_result(bound_result, package) is True
+    inputs = {row['ref']: row for row in package['inputs']}
+    assert inputs['AGENTS.md']['text'] == 'Approved instruction body.\n'
+    assert inputs['memories/policy.md']['text'] == 'Approved mandatory policy body.\n'
+    assert 'Original required interpretation.' in inputs['memories/perspective.md']['text']
+    perspective.write_text(perspective.read_text().replace('Original required interpretation.', 'Revised required interpretation under the same page ID.'))
+    (tmp_path / 'memories/policy.md').write_text('Unapproved policy proposal.\n')
+    git('add', 'memories/perspective.md'); git('commit', '-qm', 'New committed content under existing policy')
+    second = run(str(src), 'system', tmp_path, config, approved_revision=approved, policy_context='root')
+    after = json.loads((tmp_path / second.request_path).read_text())
+    inputs = {row['ref']: row for row in after['block_context_package']['inputs']}
+    assert inputs['memories/policy.md']['text'] == 'Approved mandatory policy body.\n'
+    assert 'Revised required interpretation' in inputs['memories/perspective.md']['text']
+    assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']
+    assert after['block_context_package']['policy_revision'] == approved
+    assert after['block_context_package']['content_revision'] != approved
+    manifest['policy']['deny'] = {'read': ['memories/perspective.md']}
+    (tmp_path / 'context.yaml').write_text(yaml.safe_dump(manifest))
+    git('add', 'context.yaml'); git('commit', '-qm', 'Approved read revocation')
+    current = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', current)
+    stale = run(str(src), 'system', tmp_path, config, approved_revision=approved, policy_context='root')
+    revoked = run(str(src), 'system', tmp_path, config, approved_revision=current, policy_context='root')
+    for blocked in (stale, revoked):
+        assert blocked.blocked and not blocked.written and blocked.request_path is None
+        assert blocked.blockers and blocked.context_error_code == 'context_preparation_unavailable'
+        assert 'perspective-synthetic' not in json.dumps(blocked.blockers)
+        assert blocked.stream_cursor_written is False

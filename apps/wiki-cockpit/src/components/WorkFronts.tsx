@@ -17,9 +17,9 @@ export function WorkFronts({ fronts, pages, open, profiles = [], warnings = fals
     const page = pages.find(item => item.id === ref || item.path === ref);
     return page ? <button type="button" onClick={event => open(page.id, event.currentTarget)}>{page.title}</button> : <span>{ref}</span>;
   };
-  const boundary = uiLanguage() === "pt" ? "Atribuição e contexto não autorizam retomada. Confira pausas e escopo na página."
-    : uiLanguage() === "es" ? "La asignación y el contexto no autorizan reanudar. Consulta pausas y alcance en la página."
-    : "Assignment and context do not authorize resumption. Check pauses and scope on the page.";
+  const boundary = uiLanguage() === "pt" ? "Atribuição e contexto não autorizam retomada. Confira pausas e escopo na página. Uma pasta não é sandbox de execução; acesso exige política efetiva do contexto e imports aprovados."
+    : uiLanguage() === "es" ? "La asignación y el contexto no autorizan reanudar. Consulta pausas y alcance en la página. Una carpeta no es un sandbox de ejecución; el acceso requiere política efectiva e imports aprobados."
+    : "Assignment and context do not authorize resumption. Check pauses and scope on the page. A folder is not an execution sandbox; access requires effective context policy and approved imports.";
   return <section className="workFronts" aria-label={copy.title}><h2>{copy.title}</h2><p>{copy.intro}</p><p>{boundary}</p>
     {!fronts ? <p role="status">{copy.unavailable}</p> : fronts.length === 0 ? <p>{copy.empty}</p> : fronts.map(front => <article key={front.page_id}>
       <h3>{front.title}</h3><p>{front.summary}</p><dl>

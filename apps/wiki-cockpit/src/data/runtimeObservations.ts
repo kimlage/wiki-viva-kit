@@ -1,28 +1,3 @@
-import type { RuntimeProposal } from "./actionBoard";
-
-// Resident observations qualify one exact session; global readiness stays unknown.
-export type NativeRuntimeObservation = {
-  profile: string; session_status: null;
-} & ({ status: "unavailable"; observed_at: null; has_active_run: null; active_run_ids: null;
-  error_code: "native_read_api_may_write" | "native_observation_unavailable";
-} | { status: "observed"; observed_at: string; error_code: null;
-  scope: "resident_gateway_owners"; complete: false; resident_complete: true; persisted_queue_count: null;
-  process_instance_id: string; has_active_run: boolean; active_run_ids: string[]; ids_truncated: boolean;
-  active_count: number; terminal_persistence_count: number; terminal_cleanup_count: number;
-  queued_turn_count: number; pending_admission_count: number;
-});
-export type RuntimeAttemptObservation = {
-  profile: string; action_id: string; effect_key: string; attempted_at: string;
-  result_captured_at: string | null;
-  status: "result_retained" | "resolved_without_result" | "awaiting_reconciliation";
-  run_id?: string; action_path?: string;
-  result?: { excerpt: string; text_sha256: string; truncated: boolean } | null;
-  authorization?: { status: "not_observed" };
-  guard_admission?: { status: "retained_chain_verified" | "not_observed" | "unavailable"; model: string | null; effort: string | null; error_code: string | null };
-  review?: { status: "not_observed" | "failure_resolution_reviewed"; head: string | null };
-  proposal?: (RuntimeProposal & { content_incorporated_in_main?: boolean; result_path?: string }) | null;
-  proposal_error_code?: "openclaw_proposal_unavailable_reconcile";
-};
 export type RuntimeObservations = {
   ok: boolean; schema_version: "wiki_runtime_observations.v1"; observed_at: string;
   operator: {
@@ -32,22 +7,5 @@ export type RuntimeObservations = {
     restart_required: boolean | null; server_version: string;
     frontend: { status: "not_served" | "observed" | "unavailable"; entry_sha256: string | null; source_commit: null };
   };
-  openclaw: {
-    configured: boolean; observation_scope: "retained_local_evidence"; gateway_status: "not_observed";
-    active_run: null; pending_inputs: null; usage: { status: "not_measured"; tokens: null; cost: null };
-    transport?: { status: "reachable" | "unreachable" | "not_configured" | "unavailable"; scope: "loopback_tcp_only"; observed_at: string | null };
-    native_observations: NativeRuntimeObservation[];
-    attempts: RuntimeAttemptObservation[];
-    rules: { rule_id: string; profile: string; action_id: string; interval_minutes: number;
-      last_wake: { observed_at: string; slot: number; mode: string; effect_key: string | null;
-        status: "success" | "failure"; error_code: string | null; new_dispatch: boolean | null } | null;
-      next_expected_observation_at: string | null; scheduler_status: "not_observed" }[];
-    errors: string[];
-  };
 };
 export type RuntimeObservationReader = (options?: { signal?: AbortSignal }) => Promise<RuntimeObservations>;
-
-export function latestAttempt(observation: RuntimeObservations | null, actionId?: string): RuntimeAttemptObservation | undefined {
-  return observation?.openclaw.attempts.filter(row => !actionId || row.action_id === actionId)
-    .sort((a, b) => b.attempted_at.localeCompare(a.attempted_at))[0];
-}
