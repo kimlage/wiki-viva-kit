@@ -20,6 +20,9 @@ v9.0.0. Publication of the tag/release is separate from merging these notes.
   not establish current query consumption or grant access to another owner.
 - Query reproduction can reuse successful identical selections within one
   preflight, preserving logical byte budgets and current authority/branch checks.
+- The installed `pytest` gate now reports unavailable instead of reusing a
+  historical pass. Individual and batch controls respect that state; historical
+  receipts remain intact, and consumer test execution is not enabled.
 - Installed-code mode separates pinned code from content and frontend files.
   It remains opt-in; agent jobs, consumer adapters, observers, contribution
   scratch gates and external builds are unavailable in that mode. See the
@@ -36,7 +39,9 @@ Use the reviewed v9.1.0 tag only after publication and verify its target commit.
 Before publication, the approved corrected source is the full commit
 `7769aee73a166ac7fd7b4ab7f35be64576e451ca`; do not substitute the v9.0.0 tag.
 Consumers already pinned to that corrected commit do not need to change runtime
-code merely to acquire a new version label.
+code merely to acquire a new version label. To adopt the gate-availability fix,
+qualify the updated code and rebuild the frontend together; an older installed
+bundle does not demonstrate the corrected interface.
 
 Follow the [v9 migration procedure](wiki-viva-v9.0.0.md#upgrading) with that
 corrected source: isolated consumer checkout, B0 review, C1 verbatim, declared C2,
