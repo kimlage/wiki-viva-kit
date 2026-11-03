@@ -1,7 +1,5 @@
 """Authority for explicitly declared, whole inherited normative inputs."""
-import subprocess
-import re
-from wiki_core.context_policy import PolicyError, load_policy, safe_path, within
+from wiki_core.context_policy import PolicyError, historical_policy, safe_path, within
 
 
 def normative_allowed(policy, context, ref):
@@ -14,17 +12,10 @@ def normative_allowed(policy, context, ref):
 
 def normative_history(policy, context, ref, revision):
     """Check current authority and approved ancestry before historical bodies."""
-    if not isinstance(revision, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision):
-        return False
     if not normative_allowed(policy, context, ref):
         return False
-    root, _, manifest = policy._binding
-    if subprocess.run(['git', '-C', str(root), 'merge-base', '--is-ancestor', revision,
-                       policy.policy_revision], stdout=subprocess.DEVNULL,
-                      stderr=subprocess.DEVNULL).returncode:
-        return False
     try:
-        prior = load_policy(root, revision, manifest, trusted_ref=revision)
+        prior = historical_policy(policy, revision)
         return normative_allowed(prior, context, ref) and prior.owner_of(ref) == policy.owner_of(ref)
     except (PolicyError, KeyError, ValueError):
         return False

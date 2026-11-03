@@ -71,13 +71,13 @@ def authorized_pending_edge(edge, policy, context_id):
     from wiki_core.context_policy import PolicyError
     try:
         source, target = edge['prerequisite'], edge['dependent']
-        if edge.get('use') == 'normative':
+        if edge.get('requirement', {}).get('source_kind') == 'mandatory':
             from wiki_core.context_normative import normative_history
             requirement = edge.get('requirement', {})
             return (edge.get('type') == 'operational_prerequisite'
                 and edge.get('field') == 'information_requirements'
                 and requirement.get('target') == source
-                and requirement.get('fields') == ['*'] and requirement.get('temporal') == 'current'
+                and requirement.get('use') == 'normative' and requirement.get('fields') == ['*'] and requirement.get('temporal') == 'current'
                 and policy.owner_of(target) == context_id and policy.permits(context_id, 'read', target)
                 and normative_history(policy, context_id, source, requirement.get('consumed_revision')))
         if (policy.owner_of(source) != context_id or policy.owner_of(target) != context_id
@@ -235,7 +235,7 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
         normative_consumers = {edge['source'] for edge in current['edges']
             if edge.get('type') == 'operational_prerequisite'
             and edge.get('field') == 'information_requirements'
-            and edge.get('requirement', {}).get('use') == 'normative'}
+            and edge.get('requirement', {}).get('source_kind') == 'mandatory'}
         for path in sorted(normative_consumers):
             pending.append({'path': path, 'seed': path, 'fields': ['*'], 'causes': [], 'chain': [],
                 'state': 'review_pending', 'reason': 'normative_policy_requalification_required',

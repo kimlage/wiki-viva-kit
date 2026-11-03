@@ -131,7 +131,6 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         for value in e.values():
             if isinstance(value, str): _reject_secrets(value)
         ref = safe_path(e['ref'])
-        if e['use'] == 'normative': raise PolicyError('normative use requires mandatory input')
         if any(k in e and (not isinstance(e[k], str) or not e[k]) for k in ('section','field')) or ('section' in e and 'field' in e): raise PolicyError('invalid evidence selector')
         status = policy.connection(e['producer'], context_id, ref, e['use'], e['classification'], section=e.get('section'), field=e.get('field'))
         if status != 'approved': raise PolicyError('connection ' + status)

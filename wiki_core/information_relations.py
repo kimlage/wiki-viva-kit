@@ -346,7 +346,7 @@ def information_requirements(values: dict, resolve) -> list[dict]:
     result = []
     for entry in raw:
         required = {'target', 'fields', 'temporal', 'max_age_days'}
-        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest'}):
+        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest','source_kind'}):
             raise ValueError('information requirement needs target, fields, temporal, max_age_days')
         if (not isinstance(entry['target'], str) or not isinstance(entry['fields'], list)
                 or not entry['fields'] or len(entry['fields']) > 32
@@ -360,7 +360,7 @@ def information_requirements(values: dict, resolve) -> list[dict]:
         if any(k in entry and (not isinstance(entry[k], str) or not entry[k].strip()) for k in ('use','classification')):
             raise ValueError('invalid information use or classification')
         dynamic = {'query','members_digest','selected_digest','query_policy_revision','authority_digest'} & set(entry)
-        if entry.get('use') == 'normative' and (entry['fields'] != ['*'] or entry['temporal'] != 'current' or 'consumed_revision' not in entry or dynamic):
+        if 'source_kind' in entry and (entry['source_kind'] != 'mandatory' or entry.get('use') != 'normative' or entry['fields'] != ['*'] or entry['temporal'] != 'current' or 'consumed_revision' not in entry or dynamic):
             raise ValueError('normative requirement needs current whole pinned input')
         if dynamic:
             from wiki_core.context_selection import normalize_query, requirement_query

@@ -35,12 +35,12 @@ After independently reviewing and serially merging both synthetic proposals, pre
 When an output actually depends on a whole mandatory lineage instruction, skill
 or template, its author may explicitly declare an `information_requirements`
 entry with that exact path, `fields: ['*']`, `temporal: current`, a chosen
-`max_age_days`, `use: normative`, `classification`, and `consumed_revision`
+`max_age_days`, `use: normative`, `source_kind: mandatory`, `classification`, and `consumed_revision`
 equal to the packet's **policy revision**. This is a policy dependency, not a
 claim that an external fact is fresh. The normal requirements helper does not
 implicitly attach all mandatory inputs to every output. Preflight requires the
 whole mandatory input and reported read from the packet; a normative label on
-ordinary evidence is not an authorization.
+ordinary evidence is not an authorization. Evidence with `use: normative` and no `source_kind` remains subject to the usual bilateral connection and may use authorized selectors.
 
 The authorized impact check requires the input to be declared by the current
 lineage and permitted by all applicable denies, and to have been declared in

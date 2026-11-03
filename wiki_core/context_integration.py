@@ -121,7 +121,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                 raw_before=prior.get('information_requirements',[])
                 raw_after=proposed_file['frontmatter'].get('information_requirements',[])
                 has_query=isinstance(raw_after,list) and any(isinstance(r,dict) and 'query' in r for r in raw_after)
-                has_normative=isinstance(raw_after,list) and any(isinstance(r,dict) and r.get('use')=='normative' for r in raw_after)
+                has_normative=isinstance(raw_after,list) and any(isinstance(r,dict) and r.get('source_kind')=='mandatory' for r in raw_after)
                 if raw_before!=raw_after or has_query or has_normative:
                     def resolve(ref): return [ref] if isinstance(ref,str) and ref in base_reader.paths else []
                     try: declared=information_requirements(proposed_file['frontmatter'],resolve)
@@ -132,7 +132,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                     except (ValueError,TypeError) as exc: raise IntegrationError('invalid existing information requirement') from exc
                     for requirement in declared:
                         if requirement in previous:
-                            if requirement.get('use') == 'normative':
+                            if requirement.get('source_kind') == 'mandatory':
                                 from wiki_core.context_normative import normative_history
                                 ref=requirement['target']; consumed=requirement['consumed_revision']
                                 if not normative_history(policy,context_id,ref,consumed):
@@ -173,7 +173,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                             continue
                         for selector in requirement['fields']:
                             def matches(item):
-                                normative = requirement.get('use') == 'normative'
+                                normative = requirement.get('source_kind') == 'mandatory'
                                 if item['kind'] != ('mandatory' if normative else 'evidence') or item['ref']!=requirement['target'] or item['revision']!=consumed: return False
                                 observed={k:item[k] for k in ('ref','section','field','revision')}
                                 if observed not in result['read_coverage']['observed_refs']: return False
