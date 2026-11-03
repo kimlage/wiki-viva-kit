@@ -357,3 +357,91 @@ def test_child_can_explicitly_omit_business_root_without_waiving_lineage_rules(a
         '--context', 'system', '--approved-revision', sha, '--policy-context', 'child', '--omit-root-entity'])
     assert cli.main() == 0
     assert json.loads(capsys.readouterr().out)['blocked'] is False
+
+
+@pytest.mark.parametrize('change', ['hash', 'revocation'])
+def test_empty_extraction_revalidates_before_replacing_artifacts_or_pruning_index(approved, monkeypatch, change):
+    import wiki_core.ingest.pipeline as pipeline
+    from wiki_core.extractors import ExtractedDocument
+    root, source, sha, policy = approved
+    first = execute(approved, stream_id='same-stream')
+    assert not first.blocked and first.chunks_indexed > 0
+    derived = WikiPaths(root, load_config(root)).derived_root
+    before = {path.relative_to(derived).as_posix(): path.read_bytes() for path in derived.rglob('*') if path.is_file()}
+    def empty_then_change(*args, **kwargs):
+        if change == 'hash':
+            source.write_text('A changed source after an empty extraction.\n')
+        else:
+            policy['policy']['deny'] = {'read': ['source.md']}
+            (root / 'context.yaml').write_text(yaml.safe_dump(policy)); approve_files(root)
+        return ExtractedDocument(str(source), 'markdown', '', [], [])
+    def forbidden(*args, **kwargs):
+        pytest.fail('blocked empty extraction persisted or modified the index')
+    monkeypatch.setattr(pipeline, 'extract_source', empty_then_change)
+    for name in ('write_manifest', 'write_source_artifact', 'index_source', 'record_event'):
+        monkeypatch.setattr(pipeline, name, forbidden)
+    result = run(str(source), 'system', root, load_config(root), approved_revision=sha,
+                 policy_context='root', stream_id='same-stream')
+    assert result.blocked and not result.written and result.chunk_count == 0
+    assert result.request_path is None and result.score_event_id is None and not result.stream_cursor_written
+    assert result.context_error_code == ('source_changed' if change == 'hash' else 'context_preparation_unavailable')
+    assert before == {path.relative_to(derived).as_posix(): path.read_bytes() for path in derived.rglob('*') if path.is_file()}
+
+
+def test_nonempty_source_keeps_one_post_extraction_revalidation_fence(approved, monkeypatch):
+    import wiki_core.ingest.pipeline as pipeline
+    original = pipeline.revalidate_ingestion_source
+    calls = []
+    def observe(*args, **kwargs):
+        calls.append(True)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(pipeline, 'revalidate_ingestion_source', observe)
+    result = execute(approved)
+    assert not result.blocked and len(calls) == 2  # Before extraction and before persistence.
+
+
+def test_approved_recording_reads_only_its_exact_request_and_capture(approved, monkeypatch, capsys):
+    root, source, sha, _ = approved
+    first = execute(approved)
+    request = json.loads((root / first.request_path).read_text())
+    row = request['chunks'][0]
+    template = json.loads((BASE / 'tests/fixtures/e2e/context_pass_result.sample.json').read_text())
+    recorded = {**template, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
+        **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
+        'perspectives_required': request['perspectives_required'],
+        'perspectives': {key: {'status': 'extracted'} for key in request['perspectives_required']}}
+    payload = root / 'result.json'; payload.write_text(json.dumps(recorded))
+    paths = WikiPaths(root, load_config(root))
+    foreign = paths.extraction_events / 'unrelated-source-llm-context-request.json'
+    foreign.write_text('Unrelated malformed request; never inspect it for this task.')
+    original_read = Path.read_text
+    original_glob = Path.glob
+    def read(path, *args, **kwargs):
+        if path == foreign:
+            pytest.fail('approved record opened another source request')
+        return original_read(path, *args, **kwargs)
+    def glob(path, *args, **kwargs):
+        if path == paths.extraction_events:
+            pytest.fail('approved record enumerated global requests')
+        return original_glob(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', read)
+    monkeypatch.setattr(Path, 'glob', glob)
+    module = load_script('wiki_llm_context_pass')
+    monkeypatch.setattr(module, 'resolve_source_manifest', lambda *a, **k: pytest.fail('approved record used compatibility capture discovery'))
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+        '--context', 'system', '--approved-revision', sha, '--policy-context', 'root', '--record-result', str(payload)])
+    assert module.main() == 0
+    assert json.loads(capsys.readouterr().out)['count'] == 1
+
+
+def test_approved_missing_exact_capture_blocks_instead_of_legacy_discovery(approved, monkeypatch, capsys):
+    root, source, sha, _ = approved
+    module = load_script('wiki_llm_context_pass')
+    monkeypatch.setattr(module, 'resolve_source_manifest', lambda *a, **k: pytest.fail('approved source attempted legacy discovery'))
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+        '--context', 'system', '--approved-revision', sha, '--policy-context', 'root', '--check'])
+    assert module.main() == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report['blocked'] and report['error_code'] == 'source_capture_required'
+    assert report['blockers'][0]['interface'] and report['blockers'][0]['owner']
+    assert not WikiPaths(root, load_config(root)).derived_root.exists()

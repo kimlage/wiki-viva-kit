@@ -50,7 +50,8 @@ this CLI currently accepts staged local files and returns a blocker for the
 unsupported external path instead of copying it or inventing a login need.
 
 The caller revalidates current authority and captured source hash before the
-next persistence/delivery boundary and before recording. A changed or revoked
+next persistence/delivery boundary and before recording, including captures
+with no extracted chunks. A changed or revoked
 input cannot create chunks, cache results, score or a cursor update through a
 new blocked attempt. Prior complete artifacts remain intact.
 
@@ -97,7 +98,10 @@ python3 scripts/wiki_llm_context_pass.py --root . --source SOURCE \
 ```
 
 Copy each row's exact cache key, source/chunk identities and contextual hashes.
-The caller rebuilds the current request before accepting an approved recording.
+The caller rebuilds the current request before accepting an approved recording
+and opens only that source's exact origin-qualified capture and request paths.
+Compatibility capture discovery and global request inspection remain separate
+trusted legacy paths; this does not isolate all operational-cache I/O.
 Changed context or limits requires a newly emitted and read request; a retained
 request above a smaller current ceiling cannot satisfy it. Approved query mode
 and unrequested-result bypass are refused. Absence, revocation and budget

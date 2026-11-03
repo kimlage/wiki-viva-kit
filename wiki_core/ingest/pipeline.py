@@ -293,9 +293,19 @@ def run(
                 request["source_config_ref"] = source_config["path"]
                 request["source_config_perspectives_applied"] = True
             enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
-            if source_guard is not None:
-                revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
             pending = int(request.get("pending_llm_calls", 0))
+        except (ValueError, OSError) as exc:
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report["blocker"])
+            context_error_code = report["error_code"]
+            pending = chunk_count
+            request = None
+            blocked = True
+    # This fence covers zero-chunk captures too: they may replace artifacts or
+    # prune an existing index even though no LLM request was assembled.
+    if source_guard is not None and not blocked:
+        try:
+            revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
         except (ValueError, OSError) as exc:
             report = preparation_blocker(exc, source_id, config.owner_label)
             blockers.append(report["blocker"])

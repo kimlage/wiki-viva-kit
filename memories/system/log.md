@@ -1616,3 +1616,14 @@ queue or graph and no automatic approval or merge. The
 and specific approval through supported native interfaces and the coordinator's
 existing blocker channel. No source verification dates, credentials, services
 or installed schedules are changed by these contracts.
+
+## [2026-11-02] Empty-capture admission and exact approved request lookup
+
+The [ingestion boundary](../../wiki_core/ingest/pipeline.py) revalidates source
+authority and bytes before persistence even when extraction produced no chunks.
+[Empty-capture regressions](../../tests/test_ingestion_budget.py) retain every
+prior artifact, index and cursor after revocation or source mutation. Approved
+[recording](../../scripts/wiki_llm_context_pass.py) opens the exact source
+request/capture instead of global request discovery; compatibility remains
+explicit. Invalid cache keys are not echoed in errors. These checks do not
+claim a sandbox or additional cache permissions, and source dates stay intact.

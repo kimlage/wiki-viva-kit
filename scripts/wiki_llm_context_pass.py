@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -129,12 +130,19 @@ def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], 
     return manifest, chunks
 
 
-def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None) -> list[dict]:
+def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id: str | None = None) -> list[dict]:
     """Read emitted semantic packets for exact result provenance validation."""
     requests: list[dict] = []
     if not paths.extraction_events.exists():
         return requests
-    for path in paths.extraction_events.glob("*-llm-context-request.json"):
+    if source_id is not None:
+        if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,511}", source_id):
+            return requests
+        exact = paths.extraction_events / f"{source_id}-llm-context-request.json"
+        candidates = [exact] if not exact.is_symlink() and exact.is_file() else []
+    else:  # Explicit trusted compatibility inspection retains its old scan.
+        candidates = paths.extraction_events.glob("*-llm-context-request.json")
+    for path in candidates:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
@@ -164,12 +172,17 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
     data = json.loads(raw)
     results = data if isinstance(data, list) else [data]
     retained_sizes = {}
-    requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes)
+    approved_current = current_request is not None and current_request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1"
+    source_id = str(current_request.get("source_id") or "") if approved_current else None
+    requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes, source_id=source_id)
     limits = limits or request_limits()
     known = {str(row.get("cache_key")) for request in requests for row in request["chunks"] if isinstance(row, dict)}
     written = []
     for result in results:
-        key = str(result.get("cache_key", "")) if isinstance(result, dict) else ""
+        key = result.get("cache_key") if isinstance(result, dict) else None
+        if not isinstance(key, str) or not re.fullmatch(r"[0-9a-f]{64}", key):
+            print("ERROR: invalid cache_key shape; expected a lowercase SHA-256 digest.", file=sys.stderr)
+            return 2
         if not allow_unrequested and key not in known:
             # No silent escape: ZERO requests on disk also rejects (the old
             # `and known` guard let any result through when extraction-events
@@ -180,7 +193,7 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
                 else "no emitted context request contains this cache_key"
             )
             print(
-                f"ERROR: cache_key {key!r} without a corresponding emitted context request "
+                "ERROR: result without a corresponding emitted context request "
                 f"({detail}); result rejected (provenance). Emit the request before "
                 "recording, or use --allow-unrequested for legitimate cases with no "
                 "request on disk.",
@@ -219,7 +232,7 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
         except (ValueError, OSError) as exc:
             if before_write is not None:
                 return _blocked(exc, str(current_request.get("source_id") or "requested-input"), owner)
-            print(f"ERROR: {exc}", file=sys.stderr)
+            print("ERROR: invalid result or unavailable cache output; verify the declared schema and current bound request.", file=sys.stderr)
             return 2
         written.append(str(out.relative_to(getattr(paths, "root", ROOT))))
     print(json.dumps({"recorded": written, "count": len(written)}, ensure_ascii=False, indent=2))
@@ -311,9 +324,13 @@ def main() -> int:
             source = str(root / source)
         manifest = build_manifest(source, args.context, root=root)
         try:
-            manifest = resolve_source_manifest(manifest, paths.source_manifests, paths.chunks, root=root)
+            if source_guard is None:  # Approved callers use the exact origin-qualified artifact ID.
+                manifest = resolve_source_manifest(manifest, paths.source_manifests, paths.chunks, root=root)
             chunks = _chunks_for_source(paths, manifest)
         except ValueError as exc:
+            if source_guard is not None:
+                return _blocked(ContextRequestBlocked("source_capture_required", "The exact authorized capture is unavailable; run canonical ingestion with this source, current approval/context and explicit limits before requesting a pass."),
+                                str(manifest["source_id"]), config.owner_label)
             if args.check:
                 print(json.dumps({
                     "source_id": manifest["source_id"], "required_context_pass": required,
