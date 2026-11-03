@@ -1,6 +1,7 @@
 """Read-only preflight for a short branch; does not approve, merge or run code."""
 from __future__ import annotations
 import re
+from copy import deepcopy
 import json
 import subprocess
 from pathlib import Path
@@ -9,7 +10,7 @@ from wiki_core.context_packet import build_packet, validate_result
 from wiki_core.repository_reader import RepositoryReader
 from wiki_core.detectors import scan_text
 from wiki_core.information_relations import information_requirements
-from wiki_core.context_selection import packet_queries, revalidate_packet_queries, requirement_query, select_query, same_selection, reproduce_query
+from wiki_core.context_selection import packet_queries, revalidate_packet_queries, requirement_query, select_query, same_selection, reproduce_query, normalize_query
 
 class IntegrationError(ValueError): pass
 
@@ -17,6 +18,44 @@ def _git(root,*args):
     p=subprocess.run(['git','-C',str(root),*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     if p.returncode: raise IntegrationError('Git precondition failed')
     return p.stdout
+
+class _QueryReuse:
+    """Operation-local reuse; every hit consumes the same logical read budget."""
+    def __init__(self, root, policy, context_id, budget, *readers):
+        self.root, self.policy, self.context_id, self.budget = root, policy, context_id, budget
+        self.readers = {reader.revision: reader for reader in readers}
+        self.cache = {}
+
+    def reader(self, revision):
+        if revision in self.readers:
+            return self.readers[revision]
+        reader = RepositoryReader(self.root, revision)
+        if len(self.readers) < 18:
+            self.readers[revision] = reader
+        return reader
+
+    def get(self, mode, reader, entry, *, policy_revision=None, expected_authority=None):
+        normalized = normalize_query(entry)
+        key = (mode, reader.revision, self.policy.policy_revision, self.context_id,
+               policy_revision, expected_authority,
+               json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(',', ':')))
+        if key in self.cache:
+            # An immutable content cache does not itself grant authority.
+            self.policy.fresh()
+            receipt, cost = self.cache[key]
+            if cost > self.budget[0]: raise PolicyError('query operation byte limit exceeded')
+            self.budget[0] -= cost
+            return deepcopy(receipt)
+        before = self.budget[0]
+        if mode == 'historical':
+            receipt, _, _ = reproduce_query(self.policy, self.context_id, reader, normalized,
+                policy_revision=policy_revision, expected_authority=expected_authority, read_budget=self.budget)
+        else:
+            receipt, _, _ = select_query(self.policy, self.context_id, reader, normalized, read_budget=self.budget)
+        if len(self.cache) < 96:
+            self.cache[key] = (deepcopy(receipt), before - self.budget[0])
+        return receipt
+
 
 def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     """Return a review candidate, never an approval or merge authorization.
@@ -48,6 +87,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     except (PolicyError, ValueError, KeyError, TypeError) as exc: raise IntegrationError('packet authorization cannot be reproduced') from exc
     if rebuilt!=packet: raise IntegrationError('packet contents cannot be reproduced')
     canonical_query_budget=[32_000_000]
+    query_reuse = _QueryReuse(root, policy, context_id, canonical_query_budget, base_reader, proposal)
     try: revalidate_packet_queries(policy,packet,RepositoryReader(root,packet['content_revision']),base_reader,read_budget=canonical_query_budget)
     except (ValueError,KeyError,TypeError) as exc: raise IntegrationError('query selection cannot be revalidated') from exc
     try: revalidate_packet_queries(policy,packet,RepositoryReader(root,packet['content_revision']),proposal,read_budget=canonical_query_budget)
@@ -93,10 +133,11 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
                         if requirement in previous:
                             if 'query' in requirement:
                                 try:
-                                    consumed_reader=RepositoryReader(root,requirement['consumed_revision'])
-                                    old_query,_,_=reproduce_query(policy,context_id,consumed_reader,requirement_query(requirement),policy_revision=requirement['query_policy_revision'],expected_authority=requirement['authority_digest'],read_budget=canonical_query_budget)
-                                    now_query,_,_=select_query(policy,context_id,base_reader,requirement_query(requirement),read_budget=canonical_query_budget)
-                                    proposed_query,_,_=select_query(policy,context_id,proposal,requirement_query(requirement),read_budget=canonical_query_budget)
+                                    consumed_reader=query_reuse.reader(requirement['consumed_revision'])
+                                    entry=requirement_query(requirement)
+                                    old_query=query_reuse.get('historical',consumed_reader,entry,policy_revision=requirement['query_policy_revision'],expected_authority=requirement['authority_digest'])
+                                    now_query=query_reuse.get('base',base_reader,entry)
+                                    proposed_query=query_reuse.get('proposal',proposal,entry)
                                     if path in {m['ref'] for m in [*old_query['members'],*now_query['members'],*proposed_query['members']]}: raise IntegrationError('query consumer cannot be a member')
                                     if not same_selection(old_query,proposed_query): raise IntegrationError('query selection changed in proposal')
                                     if any(old_query[k]!=requirement[k] for k in ('members_digest','selected_digest')) or not same_selection(old_query,now_query):
