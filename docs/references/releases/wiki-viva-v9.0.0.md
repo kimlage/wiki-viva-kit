@@ -1,6 +1,6 @@
 # Wiki Viva v9.0.0
 
-> **Adoption notice:** the immutable `v9.0.0` tag points to
+> **Adoption notice:** the preserved `v9.0.0` tag points to
 > `d29754569507259be3744690d5ee86df3520ddd5` and predates the reader/catalog
 > secret-output guard. Do not use that tag or its source archives for new
 > adoption. Use approved corrected commit
