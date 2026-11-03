@@ -1493,9 +1493,9 @@ export function WorldView({
     // (per-gate Run + output + fix) instead of firing a blind multi-command
     // action that surfaced only as a cryptic 400.
     const gates = bundle.gates?.gates ?? [];
-    const passing = gates.filter((g) => g.status === "pass").length;
-    const failing = gates.filter((g) => g.status === "fail").map((g) => g.id);
-    const anyRun = gates.some((g) => g.status !== "not_run");
+    const passing = gates.filter((g) => g.status === "pass" && g.available !== false).length;
+    const failing = gates.filter((g) => g.status === "fail" && g.available !== false).map((g) => g.id);
+    const anyRun = gates.some((g) => g.status !== "not_run" && g.available !== false);
     missionRows.push({
       key: "checks",
       label: t("mission.checks.label"),

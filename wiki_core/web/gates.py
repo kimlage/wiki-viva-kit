@@ -4,8 +4,9 @@ The old gate payload hardcoded ``status: "not_run"`` at snapshot time, so the
 cockpit's health verdict could never turn green no matter what the operator did.
 That is the single most demoralizing dishonesty in the app. Here a gate run
 writes a receipt (``derived_root/gate-receipts/<gate_id>.json``) with the real
-outcome, and the read model reports last-known status — so running a gate
-actually turns it green, and "not_run" means genuinely never run this session.
+outcome, and the read model reports last-known status. In installed-code
+mode an unavailable gate is shown as not run in that mode; prior receipts
+remain historical and do not authorize execution or establish a current pass.
 
 Receipts are RUNTIME facts, not content-derived facts, so they live outside the
 content-hash paths: snapshot regeneration stays reproducible and CI diffs clean.
@@ -39,6 +40,11 @@ GATE_COMMANDS: tuple[tuple[str, list[str]], ...] = (
 )
 _GATE_IDS = {gate_id for gate_id, _ in GATE_COMMANDS}
 _GATE_TIMEOUT = 300
+
+
+def _gate_available(gate_id: str) -> bool:
+    """Do not admit consumer test execution from an installed release."""
+    return not (installed_binding.enabled() and gate_id == "pytest")
 
 
 def _redact(text: str) -> str:
@@ -79,26 +85,33 @@ def write_receipt(root: Path, config: WikiConfig, gate_id: str, *, ok: bool, ret
 
 
 def gates_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
-    """The read model: last-known status per gate, honest 'not_run' when never
-    run. Overall status is pass only when ALL gates last passed."""
+    """Report last-known status for available gates; never reuse an unavailable
+    gate's historical pass. Installed receipts lack current input identity, so
+    none establish a current result. Overall status is pass only when all pass."""
     receipts = read_receipts(root, config)
     gates: list[dict[str, Any]] = []
     statuses: list[str] = []
     for gate_id, argv in GATE_COMMANDS:
         receipt = receipts.get(gate_id)
-        if receipt is None:
+        unavailable = not _gate_available(gate_id)
+        if unavailable or receipt is None or installed_binding.enabled():
             status = "not_run"
         else:
             status = "pass" if receipt.get("ok") else "fail"
         statuses.append(status)
-        gates.append(
-            {
-                "id": gate_id,
-                "status": status,
-                "argv": argv,
-                "finished_at": (receipt or {}).get("finished_at"),
-            }
-        )
+        gate = {
+            "id": gate_id,
+            "status": status,
+            "argv": argv,
+            "finished_at": None if unavailable or installed_binding.enabled() else (receipt or {}).get("finished_at"),
+        }
+        if installed_binding.enabled():
+            gate["current_validation_supported"] = False
+            if receipt is not None:
+                gate["historical_receipt"] = True
+        if unavailable:
+            gate.update(available=False, unavailable_reason="installed_gate_unavailable")
+        gates.append(gate)
     if any(status == "fail" for status in statuses):
         overall = "fail"
     elif all(status == "pass" for status in statuses):
@@ -114,6 +127,8 @@ def run_gate(root: Path, config: WikiConfig, gate_id: str, *, timeout_seconds: i
     """Run one gate, persist its receipt, return the redacted result."""
     if gate_id not in _GATE_IDS:
         return {"ok": False, "error": f"unknown gate: {gate_id}", "gate_id": gate_id}
+    if not _gate_available(gate_id):
+        return {"ok": False, "error": "installed_gate_unavailable", "gate_id": gate_id, "returncode": None}
     argv = next(cmd for gid, cmd in GATE_COMMANDS if gid == gate_id)
     try:
         executable, env = installed_binding.command(root, argv) if installed_binding.enabled() else (argv, None)

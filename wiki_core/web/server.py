@@ -1622,7 +1622,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/gates/run":
             gate_id = str(payload.get("gate_id") or "")
             result = self._authorized_effect(("gates.run",), partial(run_gate, self.server.root, self.server.config, gate_id))
-            # A failing gate still RAN (200); only an unknown gate id is a 400.
+            # A gate that ran may fail with 200; unavailable or unknown gates return 400.
             self._send_json(result, status=HTTPStatus.BAD_REQUEST if result.get("error") else HTTPStatus.OK)
             return
         if parsed.path == "/api/actions/create":

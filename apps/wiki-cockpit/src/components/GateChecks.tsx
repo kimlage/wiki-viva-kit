@@ -81,6 +81,7 @@ export function GateChecks({
       onNotice(t("demo.actionsOff"));
       return;
     }
+    if (gates.find((gate) => gate.id === gateId)?.available === false) return;
     setRunning(gateId);
     try {
       await runOne(gateId);
@@ -98,7 +99,7 @@ export function GateChecks({
     try {
       // One failing/skewed gate must not silently strand the rest.
       for (const gate of gates) {
-        await runOne(gate.id);
+        if (gate.available !== false) await runOne(gate.id);
       }
       onRefetch();
     } finally {
@@ -110,20 +111,21 @@ export function GateChecks({
     <>
       <ul className="gatesList">
         {gates.map((gate) => {
-          const runResult = lastRun[gate.id];
+          const unavailable = gate.available === false;
+          const runResult = unavailable ? undefined : lastRun[gate.id];
           // Session run result is fresher than the snapshot receipt (the
           // snapshot lags behind by its cache window).
-          const status = runResult ? (runResult.ok ? "pass" : "fail") : gate.status;
-          const finished = runResult?.finished_at ?? gate.finished_at ?? null;
+          const status = unavailable || gate.current_validation_supported === false ? "not_run" : runResult ? (runResult.ok ? "pass" : "fail") : gate.status;
+          const finished = unavailable || gate.current_validation_supported === false ? null : runResult?.finished_at ?? gate.finished_at ?? null;
           const output = runResult ? trimGateOutput(runResult.stdout ?? "", runResult.stderr ?? "") : "";
-          const rowBusy = running === gate.id || running === "*";
+          const rowBusy = !unavailable && (running === gate.id || running === "*");
           const failing = status === "fail";
           // The one-line WHY of a failure, shown inline so the operator sees
           // what broke without opening anything ("Ver saída" reveals the full
           // log). Loading/running rows show a spinner and mute stale verdicts.
           const reason = failing ? failureReason(output) : "";
           const pillTone = rowBusy ? "muted" : GATE_TONE[status] ?? "muted";
-          const pillLabel = rowBusy ? t("gate.running") : t(`gate.gate.${status}`);
+          const pillLabel = unavailable ? t("gate.unavailable") : rowBusy ? t("gate.running") : t(`gate.gate.${status}`);
           return (
             <li key={gate.id} className={`gateRow gateRow-${rowBusy ? "muted" : GATE_TONE[status] ?? "muted"}`}>
               <div className="gateRowHead">
@@ -141,9 +143,9 @@ export function GateChecks({
                 <button
                   className="textButton gateRunBtn"
                   onClick={() => run(gate.id)}
-                  disabled={Boolean(demo) || rowBusy || Boolean(busy)}
-                  aria-label={demo ? `${t("gate.run")} ${gateName(gate.id)} — ${t("demo.readOnlyControl")}` : undefined}
-                  title={demo ? t("demo.readOnlyControl") : undefined}
+                  disabled={Boolean(demo) || unavailable || rowBusy || Boolean(busy)}
+                  aria-label={unavailable ? `${t("gate.run")} ${gateName(gate.id)} — ${t("gate.unavailable")}` : demo ? `${t("gate.run")} ${gateName(gate.id)} — ${t("demo.readOnlyControl")}` : undefined}
+                  title={unavailable ? t("gate.unavailableDetail") : demo ? t("demo.readOnlyControl") : undefined}
                   type="button"
                 >
                   <Play size={12} />
@@ -151,6 +153,8 @@ export function GateChecks({
                 </button>
               </div>
               <code className="gateRowCmd">{gate.argv.join(" ")}</code>
+              {unavailable && <small className="gateRowHint">{t("gate.unavailableDetail")}</small>}
+              {(gate.historical_receipt || (gate.current_validation_supported === false && runResult)) && <small className="gateRowHint">{t("gate.historicalReceipt")}</small>}
               {finished && <span className="gateRowTime">{finished.replace("T", " ").slice(0, 16)}</span>}
               {failing && reason && <p className="gateRowReason">{reason}</p>}
               {(output || (failing && onComposeBrief)) && (
@@ -191,7 +195,7 @@ export function GateChecks({
         <button
           className="secondaryButton"
           onClick={runAll}
-          disabled={Boolean(demo) || running !== null || Boolean(busy)}
+          disabled={Boolean(demo) || running !== null || Boolean(busy) || !gates.some((gate) => gate.available !== false)}
           aria-label={demo ? `${t("gate.runGates")} — ${t("demo.readOnlyControl")}` : undefined}
           title={demo ? t("demo.readOnlyControl") : undefined}
           type="button"
