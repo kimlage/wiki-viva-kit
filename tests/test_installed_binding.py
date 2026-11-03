@@ -156,6 +156,7 @@ def test_server_separates_code_content_and_frontend(content, tmp_path, monkeypat
 
 def test_real_code_change_and_symlink_rejected(tmp_path, monkeypatch):
     monkeypatch.setattr(binding, '_binding', None)
+    monkeypatch.setattr(binding, '_legacy_sealed', False)
     code = (tmp_path / 'release').resolve(); content = (tmp_path / 'content').resolve()
     (code / 'wiki_core').mkdir(parents=True); (code / 'scripts').mkdir(); content.mkdir()
     (code / 'wiki_core/mod.py').write_text('VALUE = 1\n')
@@ -181,6 +182,7 @@ def test_concurrent_configuration_cannot_replace_binding(tmp_path, monkeypatch):
     import concurrent.futures
     import threading
     monkeypatch.setattr(binding, '_binding', None)
+    monkeypatch.setattr(binding, '_legacy_sealed', False)
     roots = [(tmp_path / name).resolve() for name in ('one', 'two')]
     for root in roots:
         root.mkdir()
