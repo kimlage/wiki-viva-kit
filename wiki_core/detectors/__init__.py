@@ -16,6 +16,7 @@ field is always redacted via :func:`redact` so logs/reports stay safe to share.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 
 
@@ -97,6 +98,34 @@ def scan_text(text: str) -> list[Finding]:
     return deduped
 
 
+def contains_secret_structure(value: object) -> bool:
+    """Scan raw returned strings and serialized associations for access secrets.
+
+    PII findings are not a reason to reject. Invalid or cyclic structures fail
+    without exposing their contents; callers choose their own opaque error.
+    """
+    def secret(text: str) -> bool:
+        return any(finding.category == "secret" for finding in scan_text(text))
+
+    def raw(item: object) -> bool:
+        if isinstance(item, str):
+            return secret(item)
+        if isinstance(item, dict):
+            return any(raw(key) or raw(child) for key, child in item.items())
+        if isinstance(item, (list, tuple)):
+            return any(raw(child) for child in item)
+        if item is None or isinstance(item, (bool, int, float)):
+            return False
+        return secret(str(item))
+
+    try:
+        if raw(value):
+            return True
+        return secret(json.dumps(value, ensure_ascii=False, allow_nan=False, default=str))
+    except (TypeError, ValueError, OverflowError, RecursionError):
+        raise ValueError("invalid structured data") from None
+
+
 def scan_file(path: str | Path) -> list[Finding]:
     """Read ``path`` as text and scan it; return ``[]`` for binary files.
 
@@ -112,4 +141,4 @@ def scan_file(path: str | Path) -> list[Finding]:
     return scan_text(text)
 
 
-__all__ = ["Finding", "redact", "line_of", "scan_text", "scan_file"]
+__all__ = ["Finding", "redact", "line_of", "scan_text", "scan_file", "contains_secret_structure"]

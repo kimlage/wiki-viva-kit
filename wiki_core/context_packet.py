@@ -6,13 +6,16 @@ import datetime as dt
 from pathlib import Path
 from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report
 from .repository_reader import RepositoryReader
-from .detectors import scan_text
+from .detectors import contains_secret_structure
 from .context_selection import select_query, digest
 
 
-def _reject_secrets(text):
-    if any(finding.category == 'secret' for finding in scan_text(text)):
-        raise PolicyError('secret detected in packet input')
+def _reject_secrets(value):
+    try:
+        found = contains_secret_structure(value)
+    except (ValueError, TypeError, RecursionError) as exc:
+        raise PolicyError('invalid packet input') from exc
+    if found: raise PolicyError('secret detected in packet input')
 
 
 def blocker(action, target, reason, owner, required_action, resume_condition, status='pending', interface=None):
@@ -84,7 +87,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     lineage = policy.lineage(context_id)
     if adapter_report is not None and not valid_adapter_report(adapter_report): raise PolicyError('invalid adapter report')
-    if adapter_report is not None: _reject_secrets(json.dumps(adapter_report, ensure_ascii=False))
+    if adapter_report is not None: _reject_secrets(adapter_report)
     if not isinstance(required_capabilities, (list, tuple)):
         raise PolicyError('invalid required capabilities')
     for effect in required_capabilities:
@@ -155,7 +158,7 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         packet['query_selections'] = query_selections
         packet['query_fingerprint'] = digest(query_selections)
         packet['coverage']['mode'] = 'authorized_owner_queries_and_explicit_read_set'
-    _reject_secrets(json.dumps(packet, ensure_ascii=False))
+    _reject_secrets(packet)
     # A fixed-width digest lets the reported byte count include the digest itself.
     packet['packet_digest'] = '0' * 64
     while True:
