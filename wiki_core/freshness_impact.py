@@ -184,10 +184,45 @@ def input_hashes(root: Path, config: WikiConfig, evidence_paths=()) -> dict[str,
     return result
 
 
+def _query_policy_change_marker(root: Path, revisions: tuple[str, str], changed: set[str]) -> set[str]:
+    """Treat a changed declared normative input as policy-sensitive, without granting authority."""
+    import subprocess
+    import yaml
+    from wiki_core.context_policy import UniqueLoader, safe_path
+    if not changed:
+        return set()
+    normative = set()
+    for revision in revisions:
+        listing = subprocess.run(['git', '-C', str(root), 'ls-tree', '-r', '--name-only', '-z', revision], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if listing.returncode:
+            return {'context.yaml'}
+        for raw in listing.stdout.split(b'\0'):
+            if not raw or not (raw == b'context.yaml' or raw.endswith(b'/context.yaml')):
+                continue
+            try:
+                path = raw.decode('utf-8')
+                source = subprocess.run(['git', '-C', str(root), 'show', revision + ':' + path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if source.returncode:
+                    return {'context.yaml'}
+                doc = yaml.load(source.stdout, Loader=UniqueLoader)
+                if not isinstance(doc, dict):
+                    return {'context.yaml'}
+                for key in ('instructions', 'skills', 'templates'):
+                    values = doc.get(key, [])
+                    if not isinstance(values, list):
+                        return {'context.yaml'}
+                    normative.update(safe_path(value) for value in values)
+            except (UnicodeError, ValueError, TypeError, yaml.YAMLError):
+                return {'context.yaml'}
+    return {'context.yaml'} if normative & changed else set()
+
+
 def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                       today: dt.date | None = None,
                       documentary_only: dict[str, str] | None = None,
-                      freshness_reviews: dict[str, dict[str, str]] | None = None) -> dict[str, Any]:
+                      freshness_reviews: dict[str, dict[str, str]] | None = None,
+                      query_context: str | None = None, query_policy_revision: str | None = None,
+                      query_head: str | None = None) -> dict[str, Any]:
     """Freeze one ancestor SHA; reuse exact-base Git inventory/materialization.
 
     Fail closed on missing Git/base, unreadable inputs or concurrent edits. An
@@ -238,7 +273,25 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
         if documentary_only or freshness_reviews:
             raise ValueError("use-scoped impact does not accept per-proposal freshness waivers")
         from wiki_core.information_impact import evaluate_information_impact
-        result = evaluate_information_impact(current, base, changed, today=today or dt.date.today())
+        has_queries = any('query' in edge.get('requirement', {}) for graph in (base, current) for edge in graph['edges'])
+        impact_changed = changed | (_query_policy_change_marker(root, (base_sha, head), changed) if has_queries else set())
+        result = evaluate_information_impact(current, base, impact_changed, today=today or dt.date.today())
+        if any((query_context, query_policy_revision, query_head)):
+            if not all((query_context, query_policy_revision, query_head)) or query_policy_revision != base_sha or query_head != head:
+                raise ValueError('query audit requires exact context, approved base and HEAD')
+            from wiki_core.information_impact import affected_dynamic_queries
+            from wiki_core.dynamic_query_audit import revalidate_affected
+            affected = affected_dynamic_queries(current, base, impact_changed, {r['path'] for r in result['included']})
+            outcomes = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
+                                           affected=affected, changed=impact_changed, current=current)
+            result['integrity_blockers'] = [r for r in result['integrity_blockers'] if r['reason'] != 'dynamic_query_requires_authorized_revalidation']
+            result['integrity_blockers'].extend(r for r in outcomes if r['state'] == 'unknown')
+            result['pending_reviews'].extend(r for r in outcomes if r['state'] == 'review_pending')
+            result['ok'] = not result['integrity_blockers'] and not result['relation_errors']
+            result['query_revalidation'] = {'context': query_context, 'policy_revision': base_sha, 'head': head,
+                'affected': len(affected), 'fact_freshness': 'not_assessed',
+                'audit_authority': 'global_integrator_caller_trust',
+                'context_scope': 'query_recomputation_only_not_auditor_acl'}
         from wiki_core.information_use import bind_verification_coverage, assess_information_use
         qualified = bind_verification_coverage(root,current)
         usage=[]
@@ -260,6 +313,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
         result['removed_pages'] = sorted(set(base['nodes']) - set(current['nodes']))
         result['evaluated_on'] = (today or dt.date.today()).isoformat()
     else:
+        if any((query_context, query_policy_revision, query_head)):
+            raise ValueError("query audit requires use-scoped information impact")
         result = evaluate_impact(current, base, changed, today=today or dt.date.today(),
                                  documentary_only=documentary_only, freshness_reviews=freshness_reviews)
         if information_policy == "shadow":

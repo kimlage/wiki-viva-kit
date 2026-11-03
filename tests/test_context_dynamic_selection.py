@@ -197,6 +197,8 @@ def test_empty_query_becomes_nonempty_and_generic_graph_reports_unsupported(coll
     p=packet(collection,[query(filters={'status':'new'})]);declare(collection,requirement(p));before=commit(collection)
     graph=authored_graph(collection,load_config(collection))
     generic=evaluate_information_impact(graph,graph,set(),today=dt.date(2026,11,3))
+    assert generic['ok'] and generic['integrity_blockers']==[]
+    generic=evaluate_information_impact(graph,graph,{SCOPE+'/new.md'},today=dt.date(2026,11,3))
     assert not generic['ok'] and any(row['reason']=='dynamic_query_requires_authorized_revalidation' for row in generic['integrity_blockers'])
     page(collection,'new.md',status='new');after=commit(collection)
     out=assess_approved_impact(collection,policy(collection),consumers=['finance/costs/result.md'],before=before,after=after,destination_context='costs')
@@ -419,3 +421,236 @@ def test_existing_canonical_receipt_also_checks_proposal_head_with_explicit_only
         'read_coverage':{'observed_refs':explicit['declared_read_set'],'missing':[]}}
     with pytest.raises(IntegrationError,match='existing query requirement'):
         preflight(collection,policy(collection),context_id='costs',base=base,head=git(collection,'rev-parse','HEAD'),branch='wiki/existing-query-change',packet=explicit,result=done)
+
+
+def test_query_preflight_and_scoped_audit_cli_recompute_exact_head(collection, monkeypatch, capsys):
+    from scripts import wiki_audit as audit
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    base=commit(collection); p=packet(collection)
+    git(collection,'checkout','-qb','wiki/query-audit')
+    declare(collection,requirement(p)); git(collection,'add','.'); git(collection,'commit','-qm','declare query')
+    head=git(collection,'rev-parse','HEAD')
+    assert preflight(collection,policy(collection),context_id='costs',base=base,head=head,branch='wiki/query-audit',packet=p,
+        result=result(p,[{'path':TASK['output'],'action':'modified'}]))['state']=='independent_review_required'
+    monkeypatch.setattr(audit,'ROOT',collection)
+    def invoke(*options):
+        monkeypatch.setattr(sys,'argv',['wiki_audit.py','--check','--only','freshness_budget','--freshness-base',base,*options])
+        code=audit.main(); text=capsys.readouterr().out; return code,text
+    args=('--query-context','costs','--query-policy-revision',base,'--query-head',head)
+    assert invoke()[0]==1
+    code,output=invoke(*args)
+    assert code==0,output
+    assert invoke('--query-context','tax','--query-policy-revision',base,'--query-head',head)[0]==1
+    assert invoke('--query-context','costs','--query-policy-revision',base,'--query-head','f'*40)[0]==1
+    (collection/'.git/info/exclude').write_text('ignored.md\n')
+    ignored=collection/'finance/costs/ignored.md'; ignored.write_text('---\npage_id: ignored\npage_type: claim\n---\nignored\n')
+    assert invoke(*args)[0]==1
+    ignored.unlink()
+    (collection/'finance/costs/dirty.md').write_text('untracked')
+    assert invoke(*args)[0]==1
+
+
+def test_source_change_pending_then_consumer_reinterprets(collection):
+    from wiki_core.freshness_impact import repository_report
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    commit(collection)
+    first=packet(collection); declare(collection,requirement(first)); base=commit(collection)
+    git(collection,'checkout','-qb','wiki/source-change')
+    page(collection,'new.md'); git(collection,'add','.'); git(collection,'commit','-qm','source addition')
+    source_head=git(collection,'rev-parse','HEAD'); config=load_config(collection)
+    generic=repository_report(collection,config,base)
+    assert any(x['reason']=='dynamic_query_requires_authorized_revalidation' for x in generic['blockers'])
+    report=repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=source_head)
+    assert not report['blockers'] and any(x['reason']=='dynamic_query_changed' and x['verification_performed'] is False for x in report['pending_reviews'])
+    approve(collection)
+    # A second source proposal must remain reviewable even while the first
+    # approved change still awaits independent consumer interpretation.
+    git(collection,'checkout','-qb','wiki/second-source-change')
+    page(collection,'another.md');git(collection,'add','.');git(collection,'commit','-qm','second source addition')
+    second_head=git(collection,'rev-parse','HEAD')
+    again=repository_report(collection,config,source_head,query_context='costs',query_policy_revision=source_head,query_head=second_head)
+    assert not again['blockers'] and any(x['reason']=='dynamic_query_changed' for x in again['pending_reviews'])
+    approve(collection); source_head=second_head
+    newpacket=packet(collection)
+    git(collection,'checkout','-qb','wiki/consumer-refresh')
+    declare(collection,requirement(newpacket)); git(collection,'add','.'); git(collection,'commit','-qm','refresh query')
+    head=git(collection,'rev-parse','HEAD')
+    assert preflight(collection,policy(collection),context_id='costs',base=source_head,head=head,branch='wiki/consumer-refresh',packet=newpacket,
+        result=result(newpacket,[{'path':TASK['output'],'action':'modified'}]))['state']=='independent_review_required'
+    report=repository_report(collection,config,source_head,query_context='costs',query_policy_revision=source_head,query_head=head)
+    assert not report['blockers'], report['blockers']
+
+
+def test_scoped_query_audit_rejects_forgery_policy_and_self_invalidation(collection):
+    from wiki_core.freshness_impact import repository_report
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    base=commit(collection); p=packet(collection)
+    git(collection,'checkout','-qb','wiki/query-negative')
+    req=requirement(p); req['selected_digest']='0'*64; declare(collection,req)
+    git(collection,'add','.'); git(collection,'commit','-qm','forged digest')
+    head=git(collection,'rev-parse','HEAD'); config=load_config(collection)
+    options={'query_context':'costs','query_policy_revision':base,'query_head':head}
+    assert repository_report(collection,config,base,**options)['blockers']
+    with pytest.raises(ValueError,match='exact context'):
+        repository_report(collection,config,base,**{**options,'query_policy_revision':'f'*40})
+    # An otherwise valid declaration cannot certify a simultaneous scope change.
+    declare(collection,requirement(p)); page(collection,'second.md')
+    git(collection,'add','.');git(collection,'commit','-qm','self invalidation');head=git(collection,'rev-parse','HEAD')
+    assert repository_report(collection,config,base,**{**options,'query_head':head})['blockers']
+
+
+def test_historical_query_revision_must_precede_its_policy_before_blob_reads(collection, monkeypatch):
+    from wiki_core.context_selection import reproduce_query
+    first=packet(collection)['query_selections'][0]
+    old_policy=first['policy_revision']
+    page(collection,'new.md'); later=commit(collection)
+    reader=RepositoryReader(collection,later)
+    monkeypatch.setattr(reader,'read',lambda *args,**kwargs: pytest.fail('opened blob before ancestry validation'))
+    with pytest.raises(PolicyError,match='not an ancestor'):
+        reproduce_query(policy(collection),'costs',reader,query(),policy_revision=old_policy,
+                        expected_authority=first['authority_digest'])
+
+
+def test_unrelated_log_and_normative_input_are_distinguished(collection):
+    from wiki_core.freshness_impact import repository_report
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    commit(collection); p=packet(collection); declare(collection,requirement(p)); base=commit(collection)
+    git(collection,'checkout','-qb','wiki/log-only')
+    (collection/'other.log').write_text('ordinary synthetic log\n');git(collection,'add','.');git(collection,'commit','-qm','unrelated log')
+    config=load_config(collection); report=repository_report(collection,config,base)
+    assert not report['blockers']
+    (collection/'rules.md').write_text('Changed approved rule\n');git(collection,'add','.');git(collection,'commit','-qm','normative change')
+    head=git(collection,'rev-parse','HEAD')
+    assert repository_report(collection,config,base)['blockers']
+    report=repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=head)
+    assert not report['blockers'] and any(r['reason']=='dynamic_query_requalification_required' for r in report['pending_reviews'])
+    (collection/TASK['output']).write_text((collection/TASK['output']).read_text()+'Changed interpretation.\n')
+    git(collection,'add','.');git(collection,'commit','-qm','edit consumer with rule');head=git(collection,'rev-parse','HEAD')
+    assert repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=head)['blockers']
+
+
+def test_revoked_query_can_only_be_replaced_by_current_authorized_receipt(collection,monkeypatch):
+    from wiki_core.freshness_impact import repository_report
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    page(collection,'restricted/old.md'); commit(collection)
+    old=packet(collection); declare(collection,requirement(old)); base=commit(collection)
+    path=collection/'finance/costs/context.yaml'; doc=yaml.safe_load(path.read_text()); doc['policy']['deny']={'read':[SCOPE+'/restricted']}; path.write_text(yaml.safe_dump(doc))
+    git(collection,'checkout','-qb','wiki/revoke-scope');git(collection,'add','.');git(collection,'commit','-qm','approved revocation')
+    revocation=git(collection,'rev-parse','HEAD'); config=load_config(collection)
+    proposed=repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=revocation)
+    assert not proposed['blockers'] and any(r['reason']=='dynamic_query_requalification_required' for r in proposed['pending_reviews'])
+    approve(collection)
+    # Once revocation is approved, the old receipt cannot authorize another
+    # affected query under the newly reduced authority.
+    git(collection,'checkout','-qb','wiki/stale-after-revocation');page(collection,'post-revoke.md')
+    git(collection,'add','.');git(collection,'commit','-qm','new source after revocation'); stale_head=git(collection,'rev-parse','HEAD')
+    assert repository_report(collection,config,revocation,query_context='costs',query_policy_revision=revocation,query_head=stale_head)['blockers']
+    git(collection,'checkout','-q','wiki/revoke-scope')
+    replacement=packet(collection)
+    git(collection,'checkout','-qb','wiki/requalify-query');declare(collection,requirement(replacement))
+    git(collection,'add','.');git(collection,'commit','-qm','requalify under current policy'); head=git(collection,'rev-parse','HEAD')
+    original=RepositoryReader._document
+    def guard(reader,path):
+        assert path != SCOPE+'/restricted/old.md', 'revoked member opened'
+        return original(reader,path)
+    monkeypatch.setattr(RepositoryReader,'_document',guard)
+    report=repository_report(collection,config,revocation,query_context='costs',query_policy_revision=revocation,query_head=head)
+    assert not report['blockers'],report['blockers']
+    forged=requirement(replacement);forged['members_digest']='0'*64;declare(collection,forged)
+    git(collection,'add','.');git(collection,'commit','-qm','forged replacement');head=git(collection,'rev-parse','HEAD')
+    assert repository_report(collection,config,revocation,query_context='costs',query_policy_revision=revocation,query_head=head)['blockers']
+
+
+def test_query_graph_bytes_and_parsed_metadata_must_match_head(collection):
+    from wiki_core.dynamic_query_audit import revalidate_affected
+    p=packet(collection);declare(collection,requirement(p)); base=commit(collection)
+    graph=authored_graph(collection,load_config(collection))
+    path=TASK['output']
+    for mutation in ('bytes','metadata'):
+        forged=deepcopy(graph)
+        if mutation=='bytes': forged['documents'][path]+='changed during graph construction'
+        else: forged['nodes'][path]['information_requirements']=[]
+        with pytest.raises(ValueError,match='graph differs'):
+            revalidate_affected(collection,base=base,head=base,context_id='costs',affected=[],changed=set(),current=forged)
+
+
+def test_query_cli_requires_complete_binding_and_freshness_check(collection,monkeypatch,capsys):
+    from scripts import wiki_audit as audit
+    monkeypatch.setattr(audit,'ROOT',collection)
+    for argv in (['--query-context','costs'], ['--only','frontmatter','--query-context','costs','--query-policy-revision','a'*40,'--query-head','b'*40]):
+        monkeypatch.setattr(sys,'argv',['wiki_audit.py',*argv])
+        with pytest.raises(SystemExit) as error: audit.main()
+        assert error.value.code==2
+
+
+@pytest.mark.parametrize('race',['head','trusted_ref','worktree'])
+def test_query_audit_rejects_concurrent_revision_or_input_changes(collection,monkeypatch,race):
+    from wiki_core.freshness_impact import repository_report
+    import wiki_core.dynamic_query_audit as query_audit
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    base=commit(collection);p=packet(collection)
+    git(collection,'checkout','-qb','wiki/race-query');declare(collection,requirement(p));git(collection,'add','.');git(collection,'commit','-qm','proposed query')
+    head=git(collection,'rev-parse','HEAD'); config=load_config(collection); original=query_audit.select_query; changed=[False]
+    def move(*args,**kwargs):
+        result=original(*args,**kwargs)
+        if not changed[0]:
+            changed[0]=True
+            if race=='trusted_ref': git(collection,'update-ref','refs/remotes/origin/main',head)
+            elif race=='worktree': (collection/'finance/costs/result.md').write_text('changed concurrently')
+            else:
+                (collection/'race.log').write_text('changed concurrently');git(collection,'add','.');git(collection,'commit','-qm','move head')
+        return result
+    monkeypatch.setattr(query_audit,'select_query',move)
+    with pytest.raises(ValueError):
+        repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=head)
+
+
+def test_one_context_binding_cannot_clear_another_context_query(collection):
+    from wiki_core.freshness_impact import repository_report
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    (collection/'finance/tax/index.md').write_text('---\npage_id: tax-anchor\npage_type: source_catalog\n---\n# Synthetic\n')
+    tax=collection/'finance/tax/items';tax.mkdir();(tax/'one.md').write_text('---\npage_id: tax-one\npage_type: claim\nstatus: active\namount: 1\n---\nSynthetic\n')
+    commit(collection)
+    cp=packet(collection);declare(collection,requirement(cp))
+    tax_query={'target':'finance/tax/index.md','reason':'synthetic','use':'interpret','classification':'synthetic','query':{**query()['query'],'scope':'finance/tax/items'}}
+    tp=build_packet(collection,policy(collection),'tax',git(collection,'rev-parse','HEAD'),[],50000,queries=[tax_query],
+        task_id='tax-task',goal='synthetic',output='finance/tax/result.md',integrator='reviewer')
+    (collection/'finance/tax/result.md').write_text('---\n'+yaml.safe_dump({'page_id':'tax-result','page_type':'claim','information_requirements':[requirement(tp)]})+'---\nSynthetic\n')
+    base=commit(collection);git(collection,'checkout','-qb','wiki/multiple-contexts')
+    page(collection,'extra.md');(tax/'two.md').write_text('---\npage_id: tax-two\npage_type: claim\nstatus: active\namount: 2\n---\nSynthetic\n')
+    git(collection,'add','.');git(collection,'commit','-qm','two scopes changed');head=git(collection,'rev-parse','HEAD')
+    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    assert any(r['path']=='finance/tax/result.md' for r in report['blockers'])
+    assert not any(r['path']==TASK['output'] for r in report['blockers'])
+    assert any(r['path']==TASK['output'] and r['reason']=='dynamic_query_changed' for r in report['pending_reviews'])
+
+
+def test_removing_approved_query_does_not_erase_obligation(collection):
+    from wiki_core.freshness_impact import repository_report
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    commit(collection);p=packet(collection);declare(collection,requirement(p));base=commit(collection)
+    git(collection,'checkout','-qb','wiki/remove-query');git(collection,'rm',TASK['output']);git(collection,'commit','-qm','remove consumer')
+    head=git(collection,'rev-parse','HEAD')
+    assert repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)['blockers']
+
+
+def test_proposed_grant_never_authorizes_query_reads(collection,monkeypatch):
+    from wiki_core.freshness_impact import repository_report
+    import wiki_core.dynamic_query_audit as qa
+    (collection/'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n  freshness_scope: impact\n  information_impact: use_scoped\n')
+    page(collection,'restricted/secret.md')
+    manifest_path=collection/'finance/costs/context.yaml';doc=yaml.safe_load(manifest_path.read_text());doc['policy']['deny']={'read':[SCOPE+'/restricted']};manifest_path.write_text(yaml.safe_dump(doc));commit(collection)
+    p=packet(collection);declare(collection,requirement(p));base=commit(collection)
+    git(collection,'checkout','-qb','wiki/proposed-grant');doc['policy']['deny']={};manifest_path.write_text(yaml.safe_dump(doc));git(collection,'add','.');git(collection,'commit','-qm','propose grant')
+    head=git(collection,'rev-parse','HEAD'); original=RepositoryReader._document; selected=qa.select_query
+    def guard(reader,path):
+        assert path!=SCOPE+'/restricted/secret.md', 'proposed grant opened revoked blob'
+        return original(reader,path)
+    def guard_selection(policy,context,reader,entry,**kwargs):
+        assert reader.revision!=head, 'proposed policy was used to evaluate selection'
+        return selected(policy,context,reader,entry,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'_document',guard);monkeypatch.setattr(qa,'select_query',guard_selection)
+    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    assert not report['blockers'] and any(x['reason']=='dynamic_query_requalification_required' for x in report['pending_reviews'])
+    assert report['query_revalidation']['audit_authority']=='global_integrator_caller_trust'
+    assert report['query_revalidation']['context_scope']=='query_recomputation_only_not_auditor_acl'
