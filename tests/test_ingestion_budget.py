@@ -111,7 +111,7 @@ def test_request_limits_change_cache_identity_and_canonical_cli_records_current_
     root, source, sha, _ = approved
     ingest = load_script('wiki_ingest')
     limits = ['--context-max-bytes', '20_000', '--request-max-bytes', '40_000']
-    flags = ['--approved-revision', sha, '--policy-context', 'root', *limits]
+    flags = ['--mode', 'v1', '--approved-revision', sha, '--policy-context', 'root', *limits]
     monkeypatch.setattr(sys, 'argv', ['wiki_ingest.py', '--root', str(root), '--source', str(source), '--context', 'system', *flags])
     assert ingest.main() == 0
     result = json.loads(capsys.readouterr().out)
@@ -134,7 +134,7 @@ def test_request_limits_change_cache_identity_and_canonical_cli_records_current_
     payload = root / 'result.json'; payload.write_text(json.dumps(recorded))
     llm = load_script('wiki_llm_context_pass'); monkeypatch.setattr(llm, 'ROOT', root)
     argv = ['wiki_llm_context_pass.py', '--source', str(source), '--context', 'system', '--record-result', str(payload)]
-    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--context', 'system',
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--mode', 'working-tree', '--context', 'system',
         '--record-result', str(payload), *limits])
     assert llm.main() == 2
     assert json.loads(capsys.readouterr().out)['error_code'] == 'approved_context_revalidation_required'
@@ -143,7 +143,7 @@ def test_request_limits_change_cache_identity_and_canonical_cli_records_current_
     assert llm.main() == 0
     capsys.readouterr()
     assert (WikiPaths(root, load_config(root)).llm_cache / (row['cache_key'] + '.json')).exists()
-    monkeypatch.setattr(sys, 'argv', [*argv, '--approved-revision', sha, '--policy-context', 'root', '--request-max-bytes', '1_000'])
+    monkeypatch.setattr(sys, 'argv', [*argv, '--mode', 'v1', '--approved-revision', sha, '--policy-context', 'root', '--request-max-bytes', '1_000'])
     assert llm.main() == 2
     block = json.loads(capsys.readouterr().out)
     assert block['blocked'] and block['error_code'] == 'request_budget_exceeded'
@@ -167,7 +167,7 @@ def test_exact_request_boundary_accepts_all_bytes_and_one_byte_less_preserves_pr
 def test_canonical_cli_reports_revoked_context_without_overwriting_previous_request(approved, monkeypatch, capsys):
     root, source, sha, policy = approved
     module = load_script('wiki_ingest')
-    argv = ['wiki_ingest.py', '--root', str(root), '--source', str(source), '--context', 'system', '--policy-context', 'root']
+    argv = ['wiki_ingest.py', '--mode', 'v1', '--root', str(root), '--source', str(source), '--context', 'system', '--policy-context', 'root']
     monkeypatch.setattr(sys, 'argv', [*argv, '--approved-revision', sha])
     assert module.main() == 0
     first = json.loads(capsys.readouterr().out)
@@ -312,7 +312,7 @@ def test_approved_routing_delivers_only_applicable_channel_config_and_template_b
 def test_canonical_cli_root_relative_source_keeps_legacy_mode_explicit(approved, monkeypatch, capsys):
     root, source, _, _ = approved
     module = load_script('wiki_ingest')
-    monkeypatch.setattr(sys, 'argv', ['wiki_ingest.py', '--root', str(root), '--source', source.name, '--context', 'system'])
+    monkeypatch.setattr(sys, 'argv', ['wiki_ingest.py', '--mode', 'working-tree', '--root', str(root), '--source', source.name, '--context', 'system'])
     assert module.main() == 0
     result = json.loads(capsys.readouterr().out)
     request = json.loads((root / result['request_path']).read_text())
@@ -353,7 +353,7 @@ def test_child_can_explicitly_omit_business_root_without_waiving_lineage_rules(a
     assert external.blocked and external.context_error_code == 'context_read_denied'
     # Canonical CLI carries the explicit omission, with no new grant.
     cli = load_script('wiki_ingest')
-    monkeypatch.setattr(sys, 'argv', ['wiki_ingest.py', '--root', str(root), '--source', 'area/source.md',
+    monkeypatch.setattr(sys, 'argv', ['wiki_ingest.py', '--mode', 'v1', '--root', str(root), '--source', 'area/source.md',
         '--context', 'system', '--approved-revision', sha, '--policy-context', 'child', '--omit-root-entity'])
     assert cli.main() == 0
     assert json.loads(capsys.readouterr().out)['blocked'] is False
@@ -428,7 +428,7 @@ def test_approved_recording_reads_only_its_exact_request_and_capture(approved, m
     monkeypatch.setattr(Path, 'glob', glob)
     module = load_script('wiki_llm_context_pass')
     monkeypatch.setattr(module, 'resolve_source_manifest', lambda *a, **k: pytest.fail('approved record used compatibility capture discovery'))
-    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--mode', 'v1', '--root', str(root), '--source', str(source),
         '--context', 'system', '--approved-revision', sha, '--policy-context', 'root', '--record-result', str(payload)])
     assert module.main() == 0
     assert json.loads(capsys.readouterr().out)['count'] == 1
@@ -438,7 +438,7 @@ def test_approved_missing_exact_capture_blocks_instead_of_legacy_discovery(appro
     root, source, sha, _ = approved
     module = load_script('wiki_llm_context_pass')
     monkeypatch.setattr(module, 'resolve_source_manifest', lambda *a, **k: pytest.fail('approved source attempted legacy discovery'))
-    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--mode', 'v1', '--root', str(root), '--source', str(source),
         '--context', 'system', '--approved-revision', sha, '--policy-context', 'root', '--check'])
     assert module.main() == 2
     report = json.loads(capsys.readouterr().out)

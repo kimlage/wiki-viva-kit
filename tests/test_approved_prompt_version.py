@@ -43,7 +43,7 @@ def test_approved_ingest_and_context_pass_reject_unsafe_version_without_replacin
     assert request_path.read_bytes() == original
 
     llm = load_script('wiki_llm_context_pass')
-    args = ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+    args = ['wiki_llm_context_pass.py', '--mode', 'v1', '--root', str(root), '--source', str(source),
             '--context', 'system', '--approved-revision', sha, '--policy-context', 'root']
     # The recording payload need not exist: the version gate must refuse before it is read.
     for action in (['--emit-request'], ['--check'], ['--record-result', str(root / 'missing-result.json')]):
@@ -68,7 +68,7 @@ def test_historical_prompt_versions_still_work_in_working_tree_compatibility(app
     assert 'source_authorization' not in request
 
     llm = load_script('wiki_llm_context_pass')
-    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root),
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--mode', 'working-tree', '--root', str(root),
         '--source', str(source), '--context', 'system', '--emit-request'])
     assert llm.main() == 0
     reemitted = root / capsys.readouterr().out.strip()
@@ -102,7 +102,7 @@ def test_approved_default_prompt_gives_source_bound_recording_example(approved, 
     result_path = root / 'result.json'
     result_path.write_text(json.dumps(payload))
     llm = load_script('wiki_llm_context_pass')
-    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--mode', 'v1', '--root', str(root), '--source', str(source),
         '--context', 'system', '--approved-revision', sha, '--policy-context', 'root',
         '--context-max-bytes', '100000', '--request-max-bytes', '256000', '--record-result', str(result_path)])
     assert llm.main() == 0
@@ -125,7 +125,7 @@ def test_missing_v4_never_falls_back_to_existing_v1_in_approved_flow(approved, m
     assert blocked.blocked and blocked.context_error_code == 'approved_prompt_migration_required'
     assert not blocked.written and request_path.read_bytes() == original
     llm = load_script('wiki_llm_context_pass')
-    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--mode', 'v1', '--root', str(root), '--source', str(source),
         '--context', 'system', '--approved-revision', sha, '--policy-context', 'root', '--emit-request'])
     assert llm.main() == 2
     report = json.loads(capsys.readouterr().out)

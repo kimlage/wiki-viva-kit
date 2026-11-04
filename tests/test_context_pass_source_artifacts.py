@@ -31,8 +31,8 @@ def source_check(tmp_path, monkeypatch):
     source.write_text("A synthetic observation that must be read.\n", encoding="utf-8")
     paths = WikiPaths(tmp_path, config)
 
-    def check(*extra, source_override=None):
-        monkeypatch.setattr(sys, "argv", ["wiki_llm_context_pass.py", "--source", str(source_override or source), "--context", "system", *extra])
+    def check(*extra, source_override=None, mode="working-tree"):
+        monkeypatch.setattr(sys, "argv", ["wiki_llm_context_pass.py", "--mode", mode, "--source", str(source_override or source), "--context", "system", *extra])
         return module.main()
 
     return source, config, paths, check
@@ -295,7 +295,7 @@ def test_empty_extraction_character_count_is_exact(source_check, capsys, charact
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is False
     assert "source_extraction_count_mismatch" in report["error"]
-    assert "wiki_ingest.py --source <source> --context <context>" in report["remediation"]
+    assert "wiki_ingest.py --mode working-tree --source <source> --context <context>" in report["remediation"]
 
 
 @pytest.mark.parametrize("kind, text", [
@@ -402,7 +402,7 @@ def test_query_without_matches_remains_success(source_check, capsys, monkeypatch
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "ROOT", paths.root)
     monkeypatch.setattr(module, "load_config", lambda _: config)
-    monkeypatch.setattr(sys, "argv", ["wiki_llm_context_pass.py", "--query", "nomatchunique", "--context", "system", "--check"])
+    monkeypatch.setattr(sys, "argv", ["wiki_llm_context_pass.py", "--mode", "working-tree", "--query", "nomatchunique", "--context", "system", "--check"])
     assert module.main() == 0
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] is True and report["chunks"] == 0
@@ -447,7 +447,7 @@ def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bod
     git('init', '-q'); git('config', 'user.name', 'Synthetic'); git('config', 'user.email', 'synthetic@example.test')
     git('add', 'source.md'); git('commit', '-qm', 'Synthetic without policy')
     sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
-    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 2
+    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root', mode='v1') == 2
     report = json.loads(capsys.readouterr().out)
     assert report['blocked'] and report['error_code'] == 'context_preparation_unavailable'
     assert report['blockers'][0]['interface'] and report['blockers'][0]['resume_condition']
@@ -460,7 +460,7 @@ def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bod
     (paths.root / 'context.yaml').write_text(yaml.safe_dump(manifest))
     git('add', 'AGENTS.md', 'context.yaml'); git('commit', '-qm', 'Approved CLI policy')
     sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
-    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 0
+    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root', mode='v1') == 0
     capsys.readouterr()
     request_path = paths.extraction_events / (build_manifest(str(source), 'system', root=paths.root)['source_id'] + '-llm-context-request.json')
     before = json.loads(request_path.read_text())
@@ -477,7 +477,7 @@ def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bod
     (paths.root / 'AGENTS.md').write_text('Revised approved CLI policy under same path.\n')
     git('add', 'AGENTS.md'); git('commit', '-qm', 'Approved instruction body update')
     sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
-    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 0
+    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root', mode='v1') == 0
     capsys.readouterr()
     after = json.loads(request_path.read_text())
     assert before['source_id'] == after['source_id']

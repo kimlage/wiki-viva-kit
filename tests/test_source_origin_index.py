@@ -179,7 +179,7 @@ def test_ingest_cli_returns_failure_for_incomplete_retry(tmp_path, monkeypatch, 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "ROOT", tmp_path)
-    monkeypatch.setattr(sys, "argv", [str(file), "--source", str(source), "--context", "example"])
+    monkeypatch.setattr(sys, "argv", [str(file), "--mode", "working-tree", "--source", str(source), "--context", "example"])
     assert module.main() == 2
     captured = capsys.readouterr()
     assert json.loads(captured.out)["blocked"] is True

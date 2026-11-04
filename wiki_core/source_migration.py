@@ -308,7 +308,7 @@ def _operator_auth(platform: str) -> dict[str, Any]:
 def operational_recipe_block(
     config_values: dict[str, Any], linked_sources: list[dict[str, Any]]
 ) -> str:
-    """Build an executable recipe only from already-versioned source facts."""
+    """Build a recipe from versioned source facts with unresolved folder selection."""
     primary = linked_sources[0] if linked_sources else {}
     platform, _ = infer_platform({**config_values, **primary})
     locator, locator_is_todo = infer_locator(
@@ -385,6 +385,10 @@ def operational_recipe_block(
                     "{path}",
                     "--context",
                     str(config_values.get("context") or "system"),
+                    "--approved-revision", "{approved_revision}",
+                    "--folder-context", "{folder}",
+                    "--folder-index", "{index}",
+                    "--folder-output", "{output}",
                 ]
             },
         }

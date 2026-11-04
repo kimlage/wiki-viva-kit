@@ -8,16 +8,20 @@ This script does NOT call any model. It:
   - acts as a gate (`--check`): fails while there is a pending chunk and
     `required_context_pass` is enabled.
 
-Approved-context examples (use the same authorized source, approval, context and limits):
-  python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \\
+Approved-context examples for v1 (use the same authorized source, approval, context and limits):
+  python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \\
     --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
-  python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \\
+  python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \\
     --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
-  python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \\
+  python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \\
     --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --check
 
 Working-tree compatibility example (not evidence of approved policy or freshness):
-  python3 scripts/wiki_llm_context_pass.py --query "pending decisions" --context system
+  python3 scripts/wiki_llm_context_pass.py --mode working-tree --query "pending decisions" --context system
+
+Folder mode requires an explicit source, approved revision, folder, index,
+output and trusted host binding. Reuse any selected RAW source page and Git
+repository bindings when re-emitting or recording the same request.
 
 Approved mode requires an explicit source and refuses query mode, unrequested-result
 bypass and invalid or missing authority; it never falls back to compatibility.
@@ -297,6 +301,8 @@ def _blocked(exc, source_id, owner):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--mode', choices=('folder', 'v1', 'working-tree'), default='folder',
+                        help='Folder is the default; legacy authority or working-tree compatibility must be explicit.')
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--source")
     parser.add_argument("--query")
@@ -335,13 +341,12 @@ def main() -> int:
     )
     parser.add_argument("--check", action="store_true", help="exit !=0 if there is a pending pass and required_context_pass")
     args = parser.parse_args()
+    from wiki_core.ingestion_cli_mode import validate_mode
+    validate_mode(parser, args)
 
     root = args.root.resolve()
-    folder_values = (args.folder_context, args.folder_index, args.folder_output)
     folder_selection = None
-    if any(value is not None for value in folder_values) or args.folder_source_ref is not None or args.folder_repo is not None:
-        if not all(folder_values) or not args.approved_revision or args.policy_context is not None:
-            parser.error("folder mode requires approved-revision, folder-context, folder-index and folder-output; policy-context is v1 only")
+    if args.mode == 'folder':
         from wiki_core.folder_ingestion_v2 import selection_from_host_environment
         try:
             folder_selection = selection_from_host_environment(args.folder_context, args.folder_index, args.folder_output, args.folder_source_ref,
@@ -419,7 +424,7 @@ def main() -> int:
                     "ok": False, "error": str(exc),
                     "remediation": (
                         "Restore the same source if missing. Regenerate its artifacts with "
-                        "python3 scripts/wiki_ingest.py --source <source> --context <context>; "
+                        "python3 scripts/wiki_ingest.py --mode working-tree --source <source> --context <context>; "
                         "resolve extraction warnings or missing dependencies, then repeat this check. "
                         "Do not replace missing or inconsistent artifacts with empty lists."
                     ),

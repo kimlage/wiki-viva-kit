@@ -3,6 +3,8 @@ from __future__ import annotations
 import datetime as dt
 from pathlib import Path
 
+import pytest
+
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import parse_frontmatter_flat
 from wiki_core.source_migration import (
@@ -11,6 +13,7 @@ from wiki_core.source_migration import (
     infer_platform,
     initial_sync,
     insert_frontmatter_keys,
+    operational_recipe_block,
     plan_source_migration,
     scaffold_recipe_block,
 )
@@ -75,6 +78,17 @@ def test_scaffold_recipe_is_valid_but_placeholder() -> None:
     # The scaffold is structurally valid (unselected stream carries a skip_reason).
     assert validate_recipe(recipe) == []
     assert recipe.streams[0].selected is False
+
+
+def test_scaffold_cannot_execute_before_folder_selection(tmp_path, monkeypatch):
+    from wiki_core.web import source_operations
+
+    (tmp_path / 'scripts').mkdir()
+    (tmp_path / 'scripts/wiki_ingest.py').write_text('')
+    monkeypatch.setattr(source_operations.installed_binding, 'active', lambda root: False)
+    recipe = parse_recipe(extract_recipe_mapping(operational_recipe_block({'context': 'system'}, [])))
+    with pytest.raises(ValueError, match='source_refresh_unresolved_placeholder'):
+        source_operations._safe_ingest_argv(tmp_path, recipe.ingest_argv, tmp_path / 'source.md')
 
 
 def _seed_source_wiki(root: Path) -> None:
