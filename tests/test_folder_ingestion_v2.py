@@ -14,7 +14,7 @@ from wiki_core.folder_coordination_v2 import FolderHostBinding
 from wiki_core.folder_ingestion_v2 import FolderIngestionSelection
 from wiki_core.ingest import run
 from wiki_core.llm.context_pass import result_matches_request
-from wiki_core.paths import WikiPaths
+from wiki_core.paths import WikiPaths, FolderWikiPaths
 
 
 def setup(project):
@@ -56,9 +56,9 @@ def test_folder_request_includes_native_lineage_selected_index_and_real_output(p
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     data = tmp_path / 'result.json'
     data.write_text(json.dumps({'cache_key': request['chunks'][0]['cache_key']}))
-    assert module._record_results(WikiPaths(project, load_config(project)), str(data)) == 2
+    assert module._record_results(FolderWikiPaths(project, load_config(project), 'a'), str(data)) == 2
     assert json.loads(capsys.readouterr().out)['error_code'] == 'approved_context_revalidation_required'
-    assert not (WikiPaths(project, load_config(project)).llm_cache / (request['chunks'][0]['cache_key'] + '.json')).exists()
+    assert not (FolderWikiPaths(project, load_config(project), 'a').llm_cache / (request['chunks'][0]['cache_key'] + '.json')).exists()
 
 
 def test_unbound_folder_or_output_are_refused_before_source_read(project, monkeypatch):
@@ -96,7 +96,7 @@ def test_known_context_omission_blocks_v2_before_persisting(project):
                  approved_revision=sha, folder_selection=selection, omit_root_entity=True)
     assert result.blocked and not result.written
     assert result.context_error_code == 'context_preparation_unavailable'
-    assert not WikiPaths(project, load_config(project)).derived_root.exists()
+    assert not FolderWikiPaths(project, load_config(project), 'a').derived_root.exists()
 
 
 def test_source_denial_precedes_read(project, monkeypatch):
@@ -168,7 +168,7 @@ def test_approved_ref_move_during_extraction_blocks_persistence(project, monkeyp
     result = run(str(project / 'a/source.md'), 'system', project, load_config(project),
                  approved_revision=sha, folder_selection=selection)
     assert result.blocked and not result.written
-    assert not WikiPaths(project, load_config(project)).derived_root.exists()
+    assert not FolderWikiPaths(project, load_config(project), 'a').derived_root.exists()
 
 
 def test_cli_prepares_folder_request_without_running_a_model(project):
@@ -238,10 +238,11 @@ def test_v2_synthetic_result_records_and_is_reused_only_with_current_binding(pro
     module = _recording_cli(project, sha, request, monkeypatch, tmp_path)
     assert module.main() == 0
     assert json.loads(capsys.readouterr().out)['count'] == 1
-    cached = WikiPaths(project, load_config(project)).llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
+    cached = FolderWikiPaths(project, load_config(project), 'a').llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
     assert cached.exists()
     from wiki_core.llm.cache import cache_summary
-    assert cache_summary(legacy_cache, root=project)['cache_files'] == 2
+    assert cache_summary(legacy_cache, root=project)['cache_files'] == 1
+    assert cache_summary(FolderWikiPaths(project, load_config(project), 'a').llm_cache, root=project)['cache_files'] == 1
     repeated = run(str(project / 'a/source.md'), 'system', project, load_config(project),
                    approved_revision=sha, folder_selection=selection, write=False)
     assert not repeated.blocked and repeated.pending_llm_calls == initial.pending_llm_calls - 1
@@ -265,7 +266,7 @@ def test_v2_recording_revocation_at_write_fence_preserves_cache(project, monkeyp
     assert module.main() == 2
     assert json.loads(capsys.readouterr().out)['blocked']
     assert calls == 3
-    cached = WikiPaths(project, load_config(project)).llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
+    cached = FolderWikiPaths(project, load_config(project), 'a').llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
     assert not cached.exists()
 
 
@@ -275,7 +276,7 @@ def test_folder_result_cache_symlink_is_refused(project, monkeypatch, tmp_path, 
                   approved_revision=sha, folder_selection=selection)
     request = json.loads((project / initial.request_path).read_text())
     outside = tmp_path / 'outside-cache'; outside.mkdir()
-    cache = WikiPaths(project, load_config(project)).llm_cache
+    cache = FolderWikiPaths(project, load_config(project), 'a').llm_cache
     (cache / 'folder-v2').symlink_to(outside, target_is_directory=True)
     module = _recording_cli(project, sha, request, monkeypatch, tmp_path)
     assert module.main() == 2
@@ -285,7 +286,7 @@ def test_folder_result_cache_symlink_is_refused(project, monkeypatch, tmp_path, 
 
 def test_folder_capture_artifact_symlink_is_refused_before_writes(project, tmp_path):
     sha, selection = setup(project)
-    paths = WikiPaths(project, load_config(project))
+    paths = FolderWikiPaths(project, load_config(project), 'a')
     paths.derived_root.mkdir(parents=True)
     outside = tmp_path / 'outside-chunks'; outside.mkdir()
     paths.chunks.symlink_to(outside, target_is_directory=True)
@@ -303,7 +304,7 @@ def test_emit_request_refuses_symlinked_events_ancestor(project, monkeypatch, tm
     module = _recording_cli(project, sha, request, monkeypatch, tmp_path)
     args = sys.argv
     args[args.index('--record-result'):] = ['--emit-request']
-    paths = WikiPaths(project, load_config(project))
+    paths = FolderWikiPaths(project, load_config(project), 'a')
     outside = tmp_path / 'external-events'
     paths.extraction_events.rename(outside)
     paths.extraction_events.symlink_to(outside, target_is_directory=True)
@@ -322,7 +323,7 @@ def test_folder_cache_read_requires_root_and_rejects_symlinked_ancestor(project,
     module = _recording_cli(project, sha, request, monkeypatch, tmp_path)
     assert module.main() == 0
     capsys.readouterr()
-    paths = WikiPaths(project, load_config(project))
+    paths = FolderWikiPaths(project, load_config(project), 'a')
     row = request['chunks'][0]
     assert read_matching_result(paths.llm_cache, request, row) is None
     assert read_matching_result(paths.llm_cache, request, row, root=project) is not None
@@ -436,7 +437,7 @@ def test_raw_bytes_changed_at_record_fence_do_not_replace_cache(project, monkeyp
     monkeypatch.setattr(module, 'revalidate_ingestion_source', change_raw)
     assert module.main() == 2
     assert json.loads(capsys.readouterr().out)['blocked'] and calls == 3
-    cached = WikiPaths(project, load_config(project)).llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
+    cached = FolderWikiPaths(project, load_config(project), 'a').llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
     assert not cached.exists()
 
 
@@ -451,7 +452,7 @@ def test_v2_recording_refuses_unbound_or_incomplete_chunks(project, monkeypatch,
     module = _recording_cli(project, sha, request, monkeypatch, tmp_path)
     assert module.main() == 2
     assert json.loads(capsys.readouterr().out)['blocked']
-    cached = WikiPaths(project, load_config(project)).llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
+    cached = FolderWikiPaths(project, load_config(project), 'a').llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
     assert not cached.exists()
 
 
@@ -469,7 +470,7 @@ def test_v2_recording_refuses_rehashed_chunks_that_do_not_derive_from_source(pro
     module = _recording_cli(project, sha, request, monkeypatch, tmp_path)
     assert module.main() == 2
     assert json.loads(capsys.readouterr().out)['blocked']
-    cached = WikiPaths(project, load_config(project)).llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
+    cached = FolderWikiPaths(project, load_config(project), 'a').llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
     assert not cached.exists()
 
 
@@ -483,4 +484,4 @@ def test_cli_folder_selection_never_creates_its_own_host_binding(project):
         '--folder-context', 'a', '--folder-index', 'a/index.md', '--folder-output', 'a/result.md'],
         capture_output=True, text=True, env=env)
     assert call.returncode == 2
-    assert not WikiPaths(project, load_config(project)).derived_root.exists()
+    assert not FolderWikiPaths(project, load_config(project), 'a').derived_root.exists()

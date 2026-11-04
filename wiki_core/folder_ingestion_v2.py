@@ -105,9 +105,12 @@ def _check_local_boundaries(root, ref):
 
 def validate_folder_artifact_paths(root, paths, source_id, *, stream=False, score=False):
     """Fence the existing pipeline's fixed local artifacts before reads/writes."""
+    from wiki_core.paths import FolderWikiPaths
     if not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9._-]+', source_id):
         raise ValueError('invalid source artifact identity')
     root = Path(root).resolve()
+    if not isinstance(paths, FolderWikiPaths) or paths.root.resolve() != root:
+        raise ValueError('folder-scoped artifact namespace required')
     folders = [paths.source_manifests, paths.source_text, paths.chunks,
                paths.extraction_events, paths.llm_cache]
     files = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',

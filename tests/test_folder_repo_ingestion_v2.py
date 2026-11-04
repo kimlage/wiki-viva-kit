@@ -78,8 +78,8 @@ def test_repository_identity_change_blocks_result_recording(project, monkeypatch
     git(project / 'a/clone', 'remote', 'set-url', 'origin', 'https://example.test/group/other.git')
     assert module.main() == 2
     assert json.loads(capsys.readouterr().out)['blocked']
-    from wiki_core.paths import WikiPaths
-    cache = WikiPaths(project, load_config(project)).llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
+    from wiki_core.paths import FolderWikiPaths
+    cache = FolderWikiPaths(project, load_config(project), 'a').llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
     assert not cache.exists()
 
 
