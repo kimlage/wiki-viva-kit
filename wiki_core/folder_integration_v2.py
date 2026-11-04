@@ -5,7 +5,10 @@ import json
 import re
 from pathlib import Path, PurePosixPath
 
-from wiki_core.context_policy import PolicyError, _git, safe_path
+import yaml
+
+from wiki_core.context_policy import PolicyError, UniqueLoader, _git, safe_path
+from wiki_core.frontmatter import FRONTMATTER_RE
 from wiki_core.repo_read import contains_access_secrets
 from wiki_core.folder_packet_v2 import build_folder_packet_v2
 from wiki_core.folder_policy_v2 import FORMAT
@@ -29,6 +32,20 @@ def _check_current_requirements(prior, document, path, status, packet, approved)
     new = document['frontmatter'].get('information_requirements', absent)
     if old is absent and new is absent:
         return 0
+    # The standard Markdown reader uses a permissive YAML loader. Ambiguous
+    # duplicate keys cannot establish that provenance was preserved.
+    for item in (prior, document):
+        if item is None:
+            continue
+        match = FRONTMATTER_RE.match(item['text'])
+        if match is None:
+            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+        try:
+            strict = yaml.load(match.group(1), Loader=UniqueLoader)
+        except (ValueError, TypeError, yaml.YAMLError, RecursionError):
+            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
+        if not isinstance(strict, dict):
+            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     if status == 'M':
         # Python equality conflates e.g. 30 and 30.0 (or True and 1). The
         # existing declaration must retain its value *and JSON type*, not
