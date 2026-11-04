@@ -112,17 +112,27 @@ For a required perspective with no relevant material:
 
 ## Record results
 
-For an approved request, use the same authorized source, current approval,
-policy context and byte limits that produced this request:
+For a folder-bound request, use the same authorized source, current approval,
+folder, index, output, byte limits and trusted host binding that produced it:
 
 ```bash
 python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --folder-context FOLDER --folder-index INDEX \
+  --folder-output OUTPUT --context-max-bytes CONTEXT_MAX_BYTES \
+  --request-max-bytes REQUEST_MAX_BYTES --record-result RESULT.json
+```
+
+For an explicitly selected v1 request, use its policy context:
+
+```bash
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID \
   --context-max-bytes CONTEXT_MAX_BYTES --request-max-bytes REQUEST_MAX_BYTES \
   --record-result RESULT.json
 ```
 
-Replace placeholders with the actual values supplied by the trusted caller;
+Also retain any explicit RAW source-page and independent repository selections
+used for the request. Replace placeholders with values supplied by the trusted caller;
 they do not grant access. If authority, source, context or limits changed,
 re-emit and read the current request before recording.
 
@@ -130,7 +140,7 @@ For the explicitly trusted working-tree compatibility mode only, an unbound
 recording remains available:
 
 ```bash
-python3 scripts/wiki_llm_context_pass.py --record-result RESULT.json --context SOURCE_CONTEXT
+python3 scripts/wiki_llm_context_pass.py --mode working-tree --record-result RESULT.json --context SOURCE_CONTEXT
 ```
 
 Compatibility does not establish approved policy or source freshness.

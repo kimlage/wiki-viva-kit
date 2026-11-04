@@ -28,7 +28,10 @@ def test_ingestion_plan_exposes_pipeline_and_commands(tmp_path: Path) -> None:
         "system",
         "--dry-run",
     ]
-    assert stages["ingest_dry_run"]["status"] == "ready"
+    assert stages["ingest_dry_run"]["status"] == "waiting"
+    assert stages["ingest_dry_run"]["command"] is None
+    assert stages["llm_request_preview"]["command"] is None
+    assert stages["llm_request_emit"]["command"] is None
     assert stages["proposal_write"]["status"] == "waiting"
     assert stages["llm_request_emit"]["writes"] is True
 
@@ -60,3 +63,13 @@ def test_ingestion_step_rejects_unknown_step(tmp_path: Path) -> None:
 
     assert result["ok"] is False
     assert result["error"] == "unknown ingestion step"
+
+
+def test_planner_does_not_infer_folder_or_legacy_authority(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "source.md").write_text("# Source\n", encoding="utf-8")
+    monkeypatch.setattr("wiki_core.web.ingestion_plan.installed_binding.command",
+                        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not run")))
+    for step in ("ingest_dry_run", "llm_request_preview", "llm_request_emit"):
+        result = run_ingestion_step(tmp_path, _config(), "source.md", "system", step, dry_run=False)
+        assert not result["ok"] and not result["results"]
+        assert "folder" in result["error"].lower()

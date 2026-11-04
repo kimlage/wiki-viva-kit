@@ -765,7 +765,8 @@ def build_context_request(
                "Record with the same explicit authorized source, approved revision, "
                "policy context and byte limits using the approved command in the prompt. "
                if approved else
-               "Record via the working-tree compatibility command in the prompt. ")
+               "Record via the working-tree compatibility command in the prompt; "
+               "for historical prompts add --mode working-tree explicitly. ")
             + "Never write canonical memory directly."
         ),
     }
