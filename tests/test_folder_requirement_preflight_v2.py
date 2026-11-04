@@ -80,9 +80,22 @@ def test_new_claim_rejects_malformed_empty_requirement_values(project, invalid_v
                           + invalid_value + '\n---\nSynthetic\n')
 
 
-def setup_existing(project, *, prior_age='30'):
+@pytest.mark.parametrize('duplicate', ['root', 'nested'])
+def test_new_claim_rejects_ambiguous_duplicate_yaml_keys(project, duplicate):
+    def body(base):
+        content = report_content(base)
+        if duplicate == 'root':
+            return content.replace('information_requirements:', 'information_requirements: []\ninformation_requirements:', 1)
+        return content.replace('    max_age_days: 30', '    max_age_days: 60\n    max_age_days: 30', 1)
+    with pytest.raises(FolderIntegrationError, match='requirement migration'):
+        created_preflight(project, body)
+
+
+def setup_existing(project, *, prior_age='30', duplicate_prior=False):
     put(project, 'a/source.md', '---\namount: 5\n---\nSynthetic source\n')
     prior = report_content('', pinned=False).replace('max_age_days: 30', f'max_age_days: {prior_age}')
+    if duplicate_prior:
+        prior = prior.replace('information_requirements:', 'information_requirements: []\ninformation_requirements:', 1)
     put(project, 'a/report.md', prior); commit(project)
     base = git(project, 'rev-parse', 'HEAD'); policy = load_folder_policy_v2(project, base)
     evidence = [
@@ -103,8 +116,8 @@ def setup_existing(project, *, prior_age='30'):
     return policy, base, packet, result
 
 
-def existing_preflight(project, *, mutate=False, remove_source_report=False, prior_age='30', proposed_age='30'):
-    policy, base, packet, result = setup_existing(project, prior_age=prior_age)
+def existing_preflight(project, *, mutate=False, remove_source_report=False, prior_age='30', proposed_age='30', duplicate_prior=False):
+    policy, base, packet, result = setup_existing(project, prior_age=prior_age, duplicate_prior=duplicate_prior)
     content = (report_content('', pinned=False).replace('Synthetic interpretation', 'Revised interpretation')
                .replace('max_age_days: 30', f'max_age_days: {proposed_age}'))
     if mutate:
@@ -127,6 +140,11 @@ def test_existing_claim_preserves_declaration_and_requires_current_evidence(proj
 def test_existing_claim_rejects_changed_declaration(project):
     with pytest.raises(FolderIntegrationError, match='requirement migration'):
         existing_preflight(project, mutate=True)
+
+
+def test_existing_claim_rejects_ambiguous_prior_yaml(project):
+    with pytest.raises(FolderIntegrationError, match='requirement migration'):
+        existing_preflight(project, duplicate_prior=True)
 
 
 @pytest.mark.parametrize(('prior_age', 'proposed_age'), [('30.0', '30'), ('30', '30.0'), ('true', '1')])
