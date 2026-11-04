@@ -579,18 +579,14 @@ requalification, exhaustive consumer inventory, native sessions across
 independent-repository boundaries, non-query v2 result/review schemas, product
 integration and operational session acceptance remain pending.
 
-## Internal experiments for later integration
+## Internal host-bound coordination
 
-- [Host-bound folder coordination](experimental-folder-host-v2.md) uses an
-  explicit trusted host binding for a v2 packet and limited preflight. It has
-  no endpoint or default activation and does not establish actor or repository
-  identity, ACL, execution or integration.
-- [Multi-owner v1 requalification](experimental-multi-owner-requalification.md)
-  is a caller-trust preview for explicitly selected requirements. Its global
-  coordinator requires actual host authority to inspect historical manifests;
-  results remain review pending and do not establish historical approval.
+[Host-bound folder coordination](experimental-folder-host-v2.md) uses an
+explicit trusted host binding for a v2 packet and limited preflight. It has
+no endpoint or default activation and does not establish actor or repository
+identity, ACL, execution or integration.
 
-These experiments do not migrate active v1 coordination or requirements
+This adapter does not migrate active v1 coordination or requirements
 consumers. [Folder-bound ingestion](bounded-ingestion.md#folder-bound-ingestion)
 and consolidation use explicit folder selections; recorded interpretations do not migrate
 v1 state or integrate memory. The candidate requires aggregate review and gates
