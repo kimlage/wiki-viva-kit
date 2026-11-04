@@ -436,12 +436,12 @@ def test_query_preflight_and_scoped_audit_cli_recompute_exact_head(collection, m
     def invoke(*options):
         monkeypatch.setattr(sys,'argv',['wiki_audit.py','--check','--only','freshness_budget','--freshness-base',base,*options])
         code=audit.main(); text=capsys.readouterr().out; return code,text
-    args=('--query-context','costs','--query-policy-revision',base,'--query-head',head)
+    args=('--query-mode','v1','--query-context','costs','--query-policy-revision',base,'--query-head',head)
     assert invoke()[0]==1
     code,output=invoke(*args)
     assert code==0,output
-    assert invoke('--query-context','tax','--query-policy-revision',base,'--query-head',head)[0]==1
-    assert invoke('--query-context','costs','--query-policy-revision',base,'--query-head','f'*40)[0]==1
+    assert invoke('--query-mode','v1','--query-context','tax','--query-policy-revision',base,'--query-head',head)[0]==1
+    assert invoke('--query-mode','v1','--query-context','costs','--query-policy-revision',base,'--query-head','f'*40)[0]==1
     (collection/'.git/info/exclude').write_text('ignored.md\n')
     ignored=collection/'finance/costs/ignored.md'; ignored.write_text('---\npage_id: ignored\npage_type: claim\n---\nignored\n')
     assert invoke(*args)[0]==1
@@ -460,7 +460,7 @@ def test_source_change_pending_then_consumer_reinterprets(collection):
     source_head=git(collection,'rev-parse','HEAD'); config=load_config(collection)
     generic=repository_report(collection,config,base)
     assert any(x['reason']=='dynamic_query_requires_authorized_revalidation' for x in generic['blockers'])
-    report=repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=source_head)
+    report=repository_report(collection,config,base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=source_head)
     assert not report['blockers'] and any(x['reason']=='dynamic_query_changed' and x['verification_performed'] is False for x in report['pending_reviews'])
     approve(collection)
     # A second source proposal must remain reviewable even while the first
@@ -468,7 +468,7 @@ def test_source_change_pending_then_consumer_reinterprets(collection):
     git(collection,'checkout','-qb','wiki/second-source-change')
     page(collection,'another.md');git(collection,'add','.');git(collection,'commit','-qm','second source addition')
     second_head=git(collection,'rev-parse','HEAD')
-    again=repository_report(collection,config,source_head,query_context='costs',query_policy_revision=source_head,query_head=second_head)
+    again=repository_report(collection,config,source_head,query_mode='v1', query_context='costs',query_policy_revision=source_head,query_head=second_head)
     assert not again['blockers'] and any(x['reason']=='dynamic_query_changed' for x in again['pending_reviews'])
     approve(collection); source_head=second_head
     newpacket=packet(collection)
@@ -477,7 +477,7 @@ def test_source_change_pending_then_consumer_reinterprets(collection):
     head=git(collection,'rev-parse','HEAD')
     assert preflight(collection,policy(collection),context_id='costs',base=source_head,head=head,branch='wiki/consumer-refresh',packet=newpacket,
         result=result(newpacket,[{'path':TASK['output'],'action':'modified'}]))['state']=='independent_review_required'
-    report=repository_report(collection,config,source_head,query_context='costs',query_policy_revision=source_head,query_head=head)
+    report=repository_report(collection,config,source_head,query_mode='v1', query_context='costs',query_policy_revision=source_head,query_head=head)
     assert not report['blockers'], report['blockers']
 
 
@@ -489,7 +489,7 @@ def test_scoped_query_audit_rejects_forgery_policy_and_self_invalidation(collect
     req=requirement(p); req['selected_digest']='0'*64; declare(collection,req)
     git(collection,'add','.'); git(collection,'commit','-qm','forged digest')
     head=git(collection,'rev-parse','HEAD'); config=load_config(collection)
-    options={'query_context':'costs','query_policy_revision':base,'query_head':head}
+    options={'query_mode':'v1','query_context':'costs','query_policy_revision':base,'query_head':head}
     assert repository_report(collection,config,base,**options)['blockers']
     with pytest.raises(ValueError,match='exact context'):
         repository_report(collection,config,base,**{**options,'query_policy_revision':'f'*40})
@@ -522,11 +522,11 @@ def test_unrelated_log_and_normative_input_are_distinguished(collection):
     (collection/'rules.md').write_text('Changed approved rule\n');git(collection,'add','.');git(collection,'commit','-qm','normative change')
     head=git(collection,'rev-parse','HEAD')
     assert repository_report(collection,config,base)['blockers']
-    report=repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(collection,config,base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     assert not report['blockers'] and any(r['reason']=='dynamic_query_requalification_required' for r in report['pending_reviews'])
     (collection/TASK['output']).write_text((collection/TASK['output']).read_text()+'Changed interpretation.\n')
     git(collection,'add','.');git(collection,'commit','-qm','edit consumer with rule');head=git(collection,'rev-parse','HEAD')
-    assert repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=head)['blockers']
+    assert repository_report(collection,config,base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)['blockers']
 
 
 def test_revoked_query_can_only_be_replaced_by_current_authorized_receipt(collection,monkeypatch):
@@ -537,14 +537,14 @@ def test_revoked_query_can_only_be_replaced_by_current_authorized_receipt(collec
     path=collection/'finance/costs/context.yaml'; doc=yaml.safe_load(path.read_text()); doc['policy']['deny']={'read':[SCOPE+'/restricted']}; path.write_text(yaml.safe_dump(doc))
     git(collection,'checkout','-qb','wiki/revoke-scope');git(collection,'add','.');git(collection,'commit','-qm','approved revocation')
     revocation=git(collection,'rev-parse','HEAD'); config=load_config(collection)
-    proposed=repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=revocation)
+    proposed=repository_report(collection,config,base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=revocation)
     assert not proposed['blockers'] and any(r['reason']=='dynamic_query_requalification_required' for r in proposed['pending_reviews'])
     approve(collection)
     # Once revocation is approved, the old receipt cannot authorize another
     # affected query under the newly reduced authority.
     git(collection,'checkout','-qb','wiki/stale-after-revocation');page(collection,'post-revoke.md')
     git(collection,'add','.');git(collection,'commit','-qm','new source after revocation'); stale_head=git(collection,'rev-parse','HEAD')
-    assert repository_report(collection,config,revocation,query_context='costs',query_policy_revision=revocation,query_head=stale_head)['blockers']
+    assert repository_report(collection,config,revocation,query_mode='v1', query_context='costs',query_policy_revision=revocation,query_head=stale_head)['blockers']
     git(collection,'checkout','-q','wiki/revoke-scope')
     replacement=packet(collection)
     git(collection,'checkout','-qb','wiki/requalify-query');declare(collection,requirement(replacement))
@@ -554,11 +554,11 @@ def test_revoked_query_can_only_be_replaced_by_current_authorized_receipt(collec
         assert path != SCOPE+'/restricted/old.md', 'revoked member opened'
         return original(reader,path)
     monkeypatch.setattr(RepositoryReader,'_document',guard)
-    report=repository_report(collection,config,revocation,query_context='costs',query_policy_revision=revocation,query_head=head)
+    report=repository_report(collection,config,revocation,query_mode='v1', query_context='costs',query_policy_revision=revocation,query_head=head)
     assert not report['blockers'],report['blockers']
     forged=requirement(replacement);forged['members_digest']='0'*64;declare(collection,forged)
     git(collection,'add','.');git(collection,'commit','-qm','forged replacement');head=git(collection,'rev-parse','HEAD')
-    assert repository_report(collection,config,revocation,query_context='costs',query_policy_revision=revocation,query_head=head)['blockers']
+    assert repository_report(collection,config,revocation,query_mode='v1', query_context='costs',query_policy_revision=revocation,query_head=head)['blockers']
 
 
 def test_query_graph_bytes_and_parsed_metadata_must_match_head(collection):
@@ -577,10 +577,37 @@ def test_query_graph_bytes_and_parsed_metadata_must_match_head(collection):
 def test_query_cli_requires_complete_binding_and_freshness_check(collection,monkeypatch,capsys):
     from scripts import wiki_audit as audit
     monkeypatch.setattr(audit,'ROOT',collection)
-    for argv in (['--query-context','costs'], ['--only','frontmatter','--query-context','costs','--query-policy-revision','a'*40,'--query-head','b'*40]):
+    for argv in (['--query-mode','v1','--query-context','costs'], ['--only','frontmatter','--query-mode','v1','--query-context','costs','--query-policy-revision','a'*40,'--query-head','b'*40]):
         monkeypatch.setattr(sys,'argv',['wiki_audit.py',*argv])
         with pytest.raises(SystemExit) as error: audit.main()
         assert error.value.code==2
+
+
+def test_query_audit_requires_explicit_v1_before_any_graph_read(collection, monkeypatch):
+    from scripts import wiki_audit as audit
+    from wiki_core.freshness_impact import repository_report
+    import wiki_core.freshness_impact as freshness
+    base = git(collection, 'rev-parse', 'HEAD')
+    monkeypatch.setattr(freshness, 'authored_graph', lambda *a, **k: pytest.fail('global graph read before mode selection'))
+    for mode in (None, 'folder'):
+        with pytest.raises(ValueError, match='explicit v1 mode'):
+            repository_report(collection, load_config(collection), base, query_mode=mode,
+                query_context='costs', query_policy_revision=base, query_head=base)
+    legacy_config = load_config(collection)
+    legacy_config.audit['information_impact'] = 'legacy'
+    with pytest.raises(ValueError, match='requires use-scoped'):
+        repository_report(collection, legacy_config, base, query_mode='v1',
+            query_context='costs', query_policy_revision=base, query_head=base)
+    errors, warnings = [], []
+    audit.audit_freshness_budget(errors, warnings, legacy_config, query_mode='v1')
+    assert errors and not warnings
+    monkeypatch.setattr(audit, 'ROOT', collection)
+    for args in ([], ['--query-mode', 'folder']):
+        monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--only', 'freshness_budget', *args,
+            '--query-context', 'costs', '--query-policy-revision', base, '--query-head', base])
+        with pytest.raises(SystemExit) as exc:
+            audit.main()
+        assert exc.value.code == 2
 
 
 @pytest.mark.parametrize('race',['head','trusted_ref','worktree'])
@@ -602,7 +629,7 @@ def test_query_audit_rejects_concurrent_revision_or_input_changes(collection,mon
         return result
     monkeypatch.setattr(query_audit,'select_query',move)
     with pytest.raises(ValueError):
-        repository_report(collection,config,base,query_context='costs',query_policy_revision=base,query_head=head)
+        repository_report(collection,config,base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
 
 
 def test_one_context_binding_cannot_clear_another_context_query(collection):
@@ -619,7 +646,7 @@ def test_one_context_binding_cannot_clear_another_context_query(collection):
     base=commit(collection);git(collection,'checkout','-qb','wiki/multiple-contexts')
     page(collection,'extra.md');(tax/'two.md').write_text('---\npage_id: tax-two\npage_type: claim\nstatus: active\namount: 2\n---\nSynthetic\n')
     git(collection,'add','.');git(collection,'commit','-qm','two scopes changed');head=git(collection,'rev-parse','HEAD')
-    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(collection,load_config(collection),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     assert any(r['path']=='finance/tax/result.md' for r in report['blockers'])
     assert not any(r['path']==TASK['output'] for r in report['blockers'])
     assert any(r['path']==TASK['output'] and r['reason']=='dynamic_query_changed' for r in report['pending_reviews'])
@@ -631,7 +658,7 @@ def test_removing_approved_query_does_not_erase_obligation(collection):
     commit(collection);p=packet(collection);declare(collection,requirement(p));base=commit(collection)
     git(collection,'checkout','-qb','wiki/remove-query');git(collection,'rm',TASK['output']);git(collection,'commit','-qm','remove consumer')
     head=git(collection,'rev-parse','HEAD')
-    assert repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)['blockers']
+    assert repository_report(collection,load_config(collection),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)['blockers']
 
 
 def test_proposed_grant_never_authorizes_query_reads(collection,monkeypatch):
@@ -650,7 +677,7 @@ def test_proposed_grant_never_authorizes_query_reads(collection,monkeypatch):
         assert reader.revision!=head, 'proposed policy was used to evaluate selection'
         return selected(policy,context,reader,entry,**kwargs)
     monkeypatch.setattr(RepositoryReader,'_document',guard);monkeypatch.setattr(qa,'select_query',guard_selection)
-    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(collection,load_config(collection),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     assert not report['blockers'] and any(x['reason']=='dynamic_query_requalification_required' for x in report['pending_reviews'])
     assert report['query_revalidation']['audit_authority']=='global_integrator_caller_trust'
     assert report['query_revalidation']['context_scope']=='query_recomputation_only_not_auditor_acl'

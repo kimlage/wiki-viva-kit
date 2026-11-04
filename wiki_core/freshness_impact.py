@@ -234,6 +234,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                       today: dt.date | None = None,
                       documentary_only: dict[str, str] | None = None,
                       freshness_reviews: dict[str, dict[str, str]] | None = None,
+                      query_mode: str | None = None,
                       query_context: str | None = None, query_policy_revision: str | None = None,
                       query_head: str | None = None) -> dict[str, Any]:
     """Freeze one ancestor SHA; reuse exact-base Git inventory/materialization.
@@ -244,6 +245,13 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     """
     from scripts.wiki_page_graph import project_memory_at_commit, collect_git_changes, run_git
 
+    query_options = (query_context, query_policy_revision, query_head)
+    if query_mode not in (None, 'v1') or (any(query_options) and query_mode != 'v1'):
+        raise ValueError('query audit requires explicit v1 mode; folder query audit unavailable')
+    if query_mode is not None and not all(query_options):
+        raise ValueError('v1 query audit requires context, approved revision and head')
+    if query_mode == 'v1' and config.audit.get('information_impact', 'legacy') != 'use_scoped':
+        raise ValueError('v1 query audit requires use-scoped information impact')
     if not base_ref:
         raise ValueError("impact freshness requires audit.freshness_base or --freshness-base")
     base_sha = run_git(["rev-parse", "--verify", f"{base_ref}^{{commit}}"], root=root).strip()

@@ -52,7 +52,7 @@ def test_new_folder_boundary_requires_query_requalification(collection, name):
     git(collection, 'add', '.'); git(collection, 'commit', '-qm', 'new boundary')
     head = git(collection, 'rev-parse', 'HEAD')
     report = repository_report(collection, load_config(collection), base,
-                               query_context='costs', query_policy_revision=base, query_head=head)
+                               query_mode='v1', query_context='costs', query_policy_revision=base, query_head=head)
     assert any(r['path'] == TASK['output'] and r['reason'] == 'dynamic_query_requalification_required'
                and not r['verification_performed'] for r in report['pending_reviews'])
 
@@ -77,7 +77,7 @@ def test_folder_controls_change_requires_query_requalification(collection, actio
     assert any(row['path'] == TASK['output'] and row['reason'] == 'dynamic_query_requires_authorized_revalidation'
                for row in unscoped['blockers'])
     selected_v1 = repository_report(collection, config, base,
-        query_context='costs', query_policy_revision=base, query_head=head)
+        query_mode='v1', query_context='costs', query_policy_revision=base, query_head=head)
     assert any(row['path'] == TASK['output'] and row['reason'] == 'dynamic_query_requalification_required'
                and not row['verification_performed'] for row in selected_v1['pending_reviews'])
 
@@ -95,6 +95,46 @@ def test_v2_query_receipt_is_not_revalidated_by_v1_loader(collection, monkeypatc
         affected=[{'path':TASK['output'], 'requirement':req, 'origin':'current'}], changed=set(), current=graph)
     assert len(rows) == 1 and rows[0]['state'] == 'unknown'
     assert rows[0]['reason'] == 'dynamic_query_requires_authorized_revalidation'
+
+
+def test_folder_v2_query_remains_blocked_without_audit_coverage(folder_project, monkeypatch):
+    from tests.test_folder_policy_v2 import put, commit
+    from tests.test_folder_query_packet_v2 import setup_query, query_claim
+    import wiki_core.context_policy as context_policy
+    put(folder_project, 'wiki.config.yaml', 'paths:\n  memory_root: a\naudit:\n'
+        '  freshness_scope: impact\n  information_impact: use_scoped\n')
+    commit(folder_project)
+    _, _, _, packet = setup_query(folder_project)
+    put(folder_project, 'a/result.md', query_claim(packet))
+    commit(folder_project)
+    base = git(folder_project, 'rev-parse', 'HEAD')
+    git(folder_project, 'checkout', '-qb', 'wiki/folder-query-change')
+    put(folder_project, 'a/items/one.md', '---\npage_id: one\nstatus: active\namount: 12\n---\nChanged\n')
+    git(folder_project, 'add', '-A'); git(folder_project, 'commit', '-qm', 'query source changed')
+    monkeypatch.setattr(context_policy, 'load_policy', lambda *a, **k: pytest.fail('legacy loader called'))
+    report = repository_report(folder_project, load_config(folder_project), base)
+    assert any(row['path'] == 'a/result.md' and row['reason'] == 'dynamic_query_requires_authorized_revalidation'
+               for row in report['blockers'])
+
+
+def test_folder_controls_change_keeps_normative_requirement_pending(repo):
+    rev = git(repo, 'rev-parse', 'HEAD')
+    requirement = {'target':'rules.md', 'fields':['*'], 'temporal':'current', 'max_age_days':30,
+        'consumed_revision':rev, 'use':'normative', 'source_kind':'mandatory', 'classification':'internal'}
+    target = repo / 'finance/costs/result.md'
+    target.write_text('---\n' + yaml.safe_dump({'page_id':'task', 'page_type':'claim',
+        'information_requirements':[requirement]}) + '---\nSynthetic\n')
+    (repo / 'wiki.config.yaml').write_text('paths:\n  memory_root: finance\naudit:\n'
+        '  freshness_scope: impact\n  information_impact: use_scoped\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'prior normative requirement'); approve(repo)
+    base = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'checkout', '-qb', 'wiki/folder-controls-normative')
+    (repo / 'wiki-context-controls.yaml').write_text('schema_version: wiki.folder-controls/v2\ncontrols: {}\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'folder controls added')
+    report = repository_report(repo, load_config(repo), base)
+    assert any(row['path'] == 'finance/costs/result.md'
+               and row['reason'] == 'normative_policy_requalification_required'
+               and not row['verification_performed'] for row in report['pending_reviews'])
 
 
 @pytest.mark.parametrize('name', ['AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md', 'CLAUDE.local.md'])

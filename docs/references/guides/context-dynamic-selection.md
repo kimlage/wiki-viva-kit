@@ -163,13 +163,22 @@ query recomputation. It is not an ACL or isolation boundary for the audit as a
 whole. A scoped executor must not run this audit or receive its global output;
 use the owner-only context flow for scoped reads instead.
 
-A trusted global integration operator can bind one context to a clean, exact
-proposal for in-process revalidation; no supplied receipt file is accepted:
+A trusted global integration operator can explicitly select legacy v1 and bind
+one context to a clean, exact proposal for in-process revalidation; no supplied
+receipt file is accepted:
 
 ```sh
 python3 scripts/wiki_audit.py --check --freshness-base APPROVED_SHA \
-  --query-context CONTEXT --query-policy-revision APPROVED_SHA --query-head PROPOSAL_SHA
+  --query-mode v1 --query-context CONTEXT --query-policy-revision APPROVED_SHA --query-head PROPOSAL_SHA
 ```
+
+This legacy mode does not revalidate folder-v2 query receipts. The global audit
+has no folder-scoped proposal-HEAD revalidation mode; its affected v2 queries
+remain blocked when their authority or coverage is unavailable. After an
+authorized integration, a host may use the explicit candidate or scope and
+reports of [folder reassessment](folder-v2-experimental-usage.md) at the current
+approved revision. Its results remain review pending and do not prove execution,
+review or coverage of unselected consumers.
 
 The policy revision must equal the current trusted approval ref and the audit
 base; the proposal HEAD must be exact, committed and clean. Queries in other
