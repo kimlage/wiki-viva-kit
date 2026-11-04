@@ -110,3 +110,48 @@ def test_folder_preview_cli_reads_only_supplied_json_and_does_not_write(project,
     assert preview['state'] == 'independent_review_required'
     assert preview['output'] == 'a/result.md' and preview['write'] == 'not_performed'
     assert not (project / 'a/result.md').exists()
+
+
+def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, tmp_path, capsys):
+    """Synthetic Git merge models a gate; it is not a real independent review."""
+    from wiki_core.folder_coordination_v2 import prepare_folder_preflight
+    from wiki_core.folder_reassessment_host_v2 import prepare_folder_reassessment
+    binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys)
+    packet = request['block_context_package']
+    base = packet['policy_revision']
+    original_branch = git(project, 'branch', '--show-current')
+    preview = prepare_folder_consolidation(project, binding, request, results, candidates=['a/candidate.md'], max_age_days=30)
+    assert preview['write'] == 'not_performed' and not (project / preview['output']).exists()
+
+    git(project, 'checkout', '-qb', 'wiki/synthetic-ingestion')
+    put(project, preview['output'], preview['markdown'])
+    git(project, 'add', preview['output']); git(project, 'commit', '-qm', 'synthetic proposal')
+    head = git(project, 'rev-parse', 'HEAD')
+    report = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed',
+              'task_id':packet['task_id'], 'context_id':packet['context_id'], 'packet_digest':packet['packet_digest'],
+              'observed':[{'path':row['path'], 'kind':row['kind'], 'revision':row['revision'],
+                           'sha256':row['sha256'], 'section':row.get('section'), 'field':row.get('field')}
+                          for row in packet['inputs']],
+              'changes':[{'path':preview['output'], 'action':'created'}]}
+    checked = prepare_folder_preflight(project, binding, {'folder':'a', 'approved_revision':base,
+                'base':base, 'head':head, 'branch':'wiki/synthetic-ingestion', 'packet':packet, 'result':report})
+    assert checked['preflight']['state'] == 'independent_review_required'
+    assert checked['preflight']['requirements_handling']['count'] == 1
+    assert checked['preflight']['merge'] == 'not_performed'
+    # The following synthetic approval and Git merge exercise plumbing only.
+    # They are not evidence of a human/agent review or an operational merge.
+    assert git(project, 'rev-parse', 'wiki/synthetic-ingestion') == head
+    git(project, 'checkout', '-q', original_branch); git(project, 'merge', '--ff-only', 'wiki/synthetic-ingestion')
+    git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    assert (project / preview['output']).read_text() == preview['markdown']
+
+    put(project, 'a/source.md', '# Synthetic changed source\n\n' + ('A changed observation.\n' * 90))
+    git(project, 'add', 'a/source.md'); git(project, 'commit', '-qm', 'synthetic source update')
+    git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    outcome = prepare_folder_reassessment(project, binding, {'folder':'a',
+        'approved_revision':git(project, 'rev-parse', 'HEAD'), 'source':'a/source.md',
+        'candidates':[preview['output']], 'reports':[{'target':preview['output'], 'section':None,
+        'field':None, 'packet':packet, 'result':report}]})['reassessment']
+    assert outcome['consumers'][0]['state'] == 'review_pending'
+    assert outcome['consumers'][0]['impact']['verification'] == 'reported_not_independently_verified'
+    assert (project / preview['output']).read_text() == preview['markdown']
