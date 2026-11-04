@@ -293,6 +293,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
     modified_ingestion_bodies = []
     capture_inspected = False
     repo_inspected = False
+    capture_preserved = False
+    repo_preserved = False
     for path, status in statuses.items():
         if status in ('M', 'D'):
             prior_reads = [row for row in packet['inputs'] if row['kind'] == 'evidence' and row['path'] == path
@@ -322,6 +324,15 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             if contains_access_secrets(document['text']):
                 raise FolderIntegrationError('secret detected in proposed content')
             ingestion_source = None
+            preserve_prior_projections = status == 'M' and path == packet['output'] and bool(query_rows) and ingestion is None
+            if preserve_prior_projections:
+                from wiki_core.folder_query_requirements_v2 import same_json
+                projection = ('source_authorization', 'independent_repo_read',
+                              'independent_repo_additional_reads', 'independent_repo_source_ref')
+                old_projection = {key:prior['frontmatter'][key] for key in projection if key in prior['frontmatter']}
+                new_projection = {key:document['frontmatter'][key] for key in projection if key in document['frontmatter']}
+                if not same_json(old_projection, new_projection):
+                    raise FolderIntegrationError('prior ingestion projections changed')
             if status == 'M' and path == packet['output'] and ingestion is not None:
                 try:
                     auth = source_request['source_authorization']
@@ -383,36 +394,42 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                 # A RAW association needs the original explicit request and
                 # recorded results under a trusted folder binding. A direct
                 # preflight cannot elevate a hash copied into Markdown.
-                if path != packet['output'] or binding is None or not isinstance(source_request, dict):
+                if preserve_prior_projections:
+                    capture_preserved = True
+                elif path != packet['output'] or binding is None or not isinstance(source_request, dict):
                     raise FolderIntegrationError('raw capture requires host-bound revalidation')
-                try:
-                    from wiki_core.folder_capture_v2 import inspect_raw_capture, validate_recorded_capture_request
-                    if not _declares_capture_source(document, capture['canonical_ref'], policy.policy_revision):
-                        raise ValueError('capture source requirement unavailable')
-                    validate_recorded_capture_request(root, packet, source_request, capture)
-                    inspection = inspect_raw_capture(root, binding, packet['context_folder'], policy.policy_revision, capture)
-                    if inspection['captured_sha256'] != inspection['current_sha256']:
-                        raise ValueError('capture changed')
-                    capture_inspected = True
-                except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
-                    raise FolderIntegrationError('raw capture unavailable or changed') from None
+                else:
+                    try:
+                        from wiki_core.folder_capture_v2 import inspect_raw_capture, validate_recorded_capture_request
+                        if not _declares_capture_source(document, capture['canonical_ref'], policy.policy_revision):
+                            raise ValueError('capture source requirement unavailable')
+                        validate_recorded_capture_request(root, packet, source_request, capture)
+                        inspection = inspect_raw_capture(root, binding, packet['context_folder'], policy.policy_revision, capture)
+                        if inspection['captured_sha256'] != inspection['current_sha256']:
+                            raise ValueError('capture changed')
+                        capture_inspected = True
+                    except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
+                        raise FolderIntegrationError('raw capture unavailable or changed') from None
             repo_receipt = document['frontmatter'].get('independent_repo_read')
             additional_repos = document['frontmatter'].get('independent_repo_additional_reads')
             if additional_repos is not None and repo_receipt is None:
                 raise FolderIntegrationError('repository selection requires host-bound revalidation')
             if repo_receipt is not None:
-                if path != packet['output'] or binding is None or not isinstance(source_request, dict):
+                if preserve_prior_projections:
+                    repo_preserved = True
+                elif path != packet['output'] or binding is None or not isinstance(source_request, dict):
                     raise FolderIntegrationError('repository selection requires host-bound revalidation')
-                try:
-                    from wiki_core.folder_capture_v2 import inspect_reported_repository
-                    if not _declares_capture_source(document, source_request['source_authorization']['canonical_ref'],
-                                                    policy.policy_revision):
-                        raise ValueError('repository source requirement unavailable')
-                    inspect_reported_repository(root, binding, packet['context_folder'], policy.policy_revision,
-                                                packet, source_request, repo_receipt, additional_repos)
-                    repo_inspected = True
-                except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
-                    raise FolderIntegrationError('repository selection unavailable or changed') from None
+                else:
+                    try:
+                        from wiki_core.folder_capture_v2 import inspect_reported_repository
+                        if not _declares_capture_source(document, source_request['source_authorization']['canonical_ref'],
+                                                        policy.policy_revision):
+                            raise ValueError('repository source requirement unavailable')
+                        inspect_reported_repository(root, binding, packet['context_folder'], policy.policy_revision,
+                                                    packet, source_request, repo_receipt, additional_repos)
+                        repo_inspected = True
+                    except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
+                        raise FolderIntegrationError('repository selection unavailable or changed') from None
             if (PurePosixPath(path).suffix != '.md' or document['frontmatter'].get('page_type') != 'claim'
                     or (prior and prior['frontmatter'].get('page_type') != 'claim')):
                 raise FolderIntegrationError('ambiguous or normative change requires separate review')
@@ -440,4 +457,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
     if repo_inspected:
         out['repository_handling'] = {'selection': 'matched_request',
                                       'remote_authentication': 'not_verified', 'execution': 'not_proven'}
+    if capture_preserved or repo_preserved:
+        out['prior_ingestion_provenance'] = {
+            'capture': 'preserved_not_revalidated' if capture_preserved else 'absent',
+            'repository': 'preserved_not_revalidated' if repo_preserved else 'absent'}
     return out

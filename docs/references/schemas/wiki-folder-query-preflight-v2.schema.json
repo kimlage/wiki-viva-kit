@@ -96,6 +96,14 @@
         "execution": {"const": "not_proven"}
       }
     },
+    "prior_ingestion_provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["capture", "repository"],
+      "properties": {
+        "capture": {"enum": ["absent", "preserved_not_revalidated"]},
+        "repository": {"enum": ["absent", "preserved_not_revalidated"]}
+      }
+    },
     "modified_ingestion_bodies": {
       "type": "array", "minItems": 1,
       "items": {
