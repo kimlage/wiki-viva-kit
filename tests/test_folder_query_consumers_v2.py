@@ -193,3 +193,38 @@ def test_existing_consumer_cannot_append_duplicate_query_id(project):
     with pytest.raises(ValueError):
         preflight_folder_query_v2(project, policy, base=before, head=git(project, 'rev-parse', 'HEAD'),
                                   branch='wiki/duplicate-query', packet=packet, result=result)
+
+
+def test_reassessment_retains_query_when_another_source_updates_output(project):
+    from wiki_core.folder_query_history_v2 import assess_folder_query_history_v2
+    from wiki_core.folder_policy_v2 import load_folder_policy_v2
+    policy, base, query = fixture_query(project)
+    packet = build_folder_query_packet_v2(project, policy, base_packet=base, queries=[query])
+    req = query_requirements(packet['queries'], 30)[0]
+    result = result_for(packet, [{'path':'a/result.md', 'action':'created'}])
+    put(project, 'a/result.md', '---\n' + yaml.safe_dump({'page_type':'claim',
+        'information_requirements':[req]}, sort_keys=False) + '---\nFirst interpretation\n')
+    commit(project); integrated = git(project, 'rev-parse', 'HEAD')
+    put(project, 'a/additional.md', '---\npage_id: additional\npage_type: source\n---\nAdditional source\n')
+    commit(project); source_revision = git(project, 'rev-parse', 'HEAD')
+    source = {'target':'a/additional.md', 'fields':['*'], 'temporal':'current', 'max_age_days':30,
+              'consumed_revision':source_revision, 'use':'interpretation', 'classification':'source'}
+    put(project, 'a/result.md', '---\n' + yaml.safe_dump({'page_type':'claim',
+        'information_requirements':[req, source]}, sort_keys=False) + '---\nFirst interpretation\nAdditional observation\n')
+    put(project, 'a/items/one.md', '---\npage_id: one\nstatus: active\namount: 12\n---\nChanged\n')
+    commit(project); current = git(project, 'rev-parse', 'HEAD')
+    report = {'target':'a/result.md', 'query_id':req['query_id'], 'packet':packet,
+              'result':result, 'integrated_revision':integrated}
+    out = reassess_query_consumers(project, FolderHostBinding(project, ('a',)), folder='a',
+        approved_revision=current, candidates=['a/result.md'], changed_paths=['a/items/one.md'], reports=[report])
+    assert out['consumers'][0]['query_state'] == 'changed'
+    assert out['consumers'][0]['state'] == 'review_pending'
+    assert out['consumers'][0]['output_binding'] == 'query_declaration_preserved_output_changed'
+    altered = deepcopy(req); altered['selected_digest'] = '0' * 64
+    put(project, 'a/result.md', '---\n' + yaml.safe_dump({'page_type':'claim',
+        'information_requirements':[altered, source]}, sort_keys=False) + '---\nChanged declaration\n')
+    commit(project); policy = load_folder_policy_v2(project, 'HEAD')
+    pending = assess_folder_query_history_v2(project, policy, packet=packet, result=result,
+                                              integrated_revision=integrated, query_id=req['query_id'])
+    assert pending['state'] == 'review_pending' and pending['query_state'] == 'unknown'
+    assert pending['output_binding'] == 'query_declaration_unverified_output_changed'

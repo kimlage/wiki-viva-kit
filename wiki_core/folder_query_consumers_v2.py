@@ -63,6 +63,7 @@ def reassess_query_consumers(root, binding, *, folder, approved_revision, change
                 entry['state'] = impact['state']
                 entry['query_state'] = impact['query_state']
                 entry['read_verification'] = impact['read_verification']
+                entry['output_binding'] = impact['output_binding']
             rows.append(entry)
     if set(indexed) - used:
         raise ValueError('report outside selected query consumers')
