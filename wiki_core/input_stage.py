@@ -28,6 +28,7 @@ from wiki_core.quadrants import (
 from wiki_core.source_config import find_source_config
 
 INPUT_STAGE_SCHEMA_VERSION = "wiki_input_stage.v1"
+LOCAL_FOLDER_INPUT_STATUS = 'local_folder_only_source_configuration_unresolved'
 SOURCE_PAGE_TYPES = {"source", "source_catalog", "artifact"}
 
 SOURCE_STATUS_TO_INPUT_STATUS = {
@@ -453,7 +454,7 @@ def local_folder_input_context() -> dict[str, Any]:
     return {'root_entity': None, 'input_channel': None, 'quadrant_map': {},
             'quadrant_semantics': {}, 'quadrant_boundary_rule': '', 'target_pages': [],
             'perspectives_required': [], 'perspectives_optional': [],
-            'input_stage_status': 'local_folder_only_source_configuration_unresolved'}
+            'input_stage_status': LOCAL_FOLDER_INPUT_STATUS}
 
 
 def input_context_for_source(

@@ -42,6 +42,7 @@ def cache_summary(cache_dir: Path) -> dict[str, object]:
         schema_versions[schema] = schema_versions.get(schema, 0) + 1
     return {
         "cache_files": len(files),
+        "cache_scope": "legacy_root_only",
         "prompt_versions": prompt_versions,
         "schema_versions": schema_versions,
     }

@@ -30,7 +30,7 @@ sys.path.insert(0, str(CODE_ROOT))
 from scripts._common import ROOT
 
 from wiki_core.traversal import wiki_markdown_files
-from wiki_core.llm.context_pass import read_matching_result
+from wiki_core.llm.context_pass import read_matching_result, is_local_folder_request, result_cache_for_request
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.action_adoption import (
     ACTION_ADOPTION_RECEIPT_PATH,
@@ -2196,10 +2196,15 @@ def audit_context_pass_gate(
         if source_id.startswith("query-") or not (chunks_dir / f"{source_id}.json").exists():
             orphans.append(rel)
             continue
-        pending = [
-            chunk for chunk in data.get("chunks", [])
-            if read_matching_result(cache_dir, data, chunk) is None
-        ]
+        try:
+            pending = [
+                chunk for chunk in data.get("chunks", [])
+                if read_matching_result(cache_dir, data, chunk,
+                    root=ROOT if is_local_folder_request(data) else None) is None
+            ]
+        except (ValueError, OSError):
+            errors.append(f'{rel}: local result cache unavailable or unsafe')
+            continue
         if pending:
             errors.append(
                 f"{rel}: pending LLM pass in {len(pending)} chunk(s) with required_context_pass=true"
@@ -2274,7 +2279,17 @@ def audit_llm_cache_metadata(errors: list[str], config: WikiConfig | None = None
     cache_dir = wiki_paths(config or load_config(ROOT)).llm_cache
     if not cache_dir.exists():
         return
-    for path in sorted(cache_dir.glob("*.json")):
+    paths = list(cache_dir.glob('*.json'))
+    local_cache = cache_dir / 'local-folder'
+    try:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(ROOT, directories=(local_cache,))
+        local_paths = list(local_cache.glob('*.json'))
+        require_wiki_boundaries(ROOT, files=local_paths)
+        paths.extend(local_paths)
+    except (ValueError, OSError):
+        errors.append('local result cache unavailable or unsafe')
+    for path in sorted(paths):
         rel = path.relative_to(ROOT).as_posix()
         text = path.read_text(encoding="utf-8", errors="replace")
         for required in ("prompt_version", "schema_version", "cache_key"):
@@ -2310,7 +2325,14 @@ def audit_perspective_coverage(errors: list[str], config: WikiConfig) -> None:
                 errors.append(f"{rel}: required perspective `{perspective_id}` is not a perspective page")
         for chunk in request.get("chunks", []):
             key = str(chunk.get("cache_key") or "")
-            result_path = cache_dir / f"{key}.json"
+            result_path = result_cache_for_request(cache_dir, request) / f"{key}.json"
+            if is_local_folder_request(request):
+                try:
+                    from wiki_core.traversal import require_wiki_boundaries
+                    require_wiki_boundaries(ROOT, files=(result_path,))
+                except (ValueError, OSError):
+                    errors.append(f'{rel}: local result cache unavailable or unsafe')
+                    continue
             if not result_path.exists():
                 continue
             try:

@@ -388,11 +388,17 @@ def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[st
             )
             continue
         chunks = data.get("chunks", []) if isinstance(data, dict) else []
-        pending = [
-            chunk
-            for chunk in chunks
-            if read_matching_result(cache_dir, data, chunk) is None
-        ]
+        from wiki_core.llm.context_pass import is_local_folder_request
+        try:
+            pending = [
+                chunk for chunk in chunks
+                if read_matching_result(cache_dir, data, chunk,
+                    root=ROOT if is_local_folder_request(data) else None) is None
+            ]
+        except (ValueError, OSError):
+            results.append({'name': 'llm_context_pending', 'path': rel, 'ok': False,
+                            'detail': 'local result cache unavailable or unsafe'})
+            continue
         if pending:
             results.append(
                 {
