@@ -149,6 +149,14 @@ below. The approved Git context is pinned to
 the current trusted revision, and the source is rechecked before persistence.
 The dry run returns its summary without writing an inspectable request file;
 omitting `--dry-run` prepares the normal local capture and request artifacts.
+Folder captures keep manifest, text, chunks, request and cache in a namespace
+derived from the selected context folder. Source identity remains unchanged;
+folder-v2 artifacts previously stored in the global location are not migrated
+automatically and require re-emission or an explicit migration. Global audit and
+consolidation checks do not enumerate the new namespaces. The folder flow does
+not update the global FTS index or score ledger and does not support stream
+cursors; these limits are reported rather than silently using global state.
+
 The local caller must maintain cooperative custody of the staged source and
 repository configuration during preparation; path checks and hash fences do
 not provide a filesystem compare-and-swap against concurrent writers.
@@ -168,10 +176,15 @@ Its distinct binding version cannot consume existing v1 cache results.
 Existing v1 and working-tree compatibility paths require explicit mode selection. A known
 context omission blocks preparation rather than silently dropping v1 coverage
 obligations.
-Only a new, currently absent Markdown output in the selected context is
-accepted; existing or untracked work, indexes and instruction files are not
-valid destinations in this preview. Existing outputs require a prior complete
-read and a separately supported result contract.
+For a tracked existing claim, supply `--folder-existing-sha256 SHA256` for the
+exact approved output blob on both capture and result recording. The packet
+includes its full authorized prior content. The proposal preserves that content
+as a starting point, and an integrator may revise it for independent review;
+preflight checks the exact base/head and preservation of existing provenance.
+Untracked changes, a mismatched hash and unsupported destinations block. A claim
+already carrying a distinct RAW or independent-repository capture cannot yet
+receive another such projection automatically; preserve it and report the
+limit rather than overwriting provenance.
 Required perspectives must currently be explicit authorized paths; unqualified
 page IDs require a separate authorized resolution. The selection does not prove
 a native session was started in that folder or provide filesystem isolation.
@@ -195,6 +208,12 @@ revision, path, blob and digests participate in the request fingerprint and
 are rechecked before recording. Inclusion in a request does not prove the
 executor read it. Do not copy the protected request or selected content into
 canonical claims merely to preserve provenance.
+
+To use dynamic queries in the interpretation, pass `--folder-queries
+QUERIES.json` at capture and repeat the exact selection when recording. The
+authorized query envelope is delivered in the request and participates in its
+fingerprint; changed or revoked selection requires a new request and reading.
+A later attached query is not evidence that the reader received it.
 
 After a human or authorized agent actually performs the reading, record its
 result with `scripts/wiki_llm_context_pass.py` using the same source, approved
