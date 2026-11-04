@@ -70,8 +70,8 @@ jobs:
         run: python3 scripts/wiki_build_demo.py --check
       - name: Atomic v8 snapshot contract
         run: python3 scripts/wiki_web_snapshot.py --check-contract
-      - name: Consolidation closed (ingesting = integrating)
-        run: python3 scripts/wiki_consolidate.py --check
+      - name: Legacy consolidation closed (v1 only)
+        run: python3 scripts/wiki_consolidate.py --mode v1 --check
 
   cockpit-v8:
     runs-on: ubuntu-latest

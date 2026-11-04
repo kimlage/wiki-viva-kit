@@ -277,7 +277,7 @@ def test_folder_preview_cli_reads_only_supplied_json_and_does_not_write(project,
     spec = importlib.util.spec_from_file_location('synthetic_folder_consolidate_cli', script)
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     monkeypatch.setattr(module, 'ROOT', project)
-    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--folder-preview',
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py',
                                      '--folder-candidate', 'a/candidate.md', '--max-age-days', '30'])
     class Input:
         buffer = io.BytesIO(json.dumps({'request':request, 'results':results, 'page_metadata':metadata()}).encode())
@@ -470,3 +470,87 @@ def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, 
     assert repository_outcome['consumers'][0]['repository_impact']['verification'] == 'caller_reported_not_independently_verified'
     assert repository_outcome['consumers'][0]['additional_repository_impact'][0]['source_state'] == 'changed'
     assert (project / second_preview['output']).read_text() == second_preview['markdown']
+
+
+def test_legacy_check_requires_explicit_mode_and_remains_effective(project, monkeypatch, capsys):
+    import importlib.util
+    import sys
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_consolidate.py'
+    spec = importlib.util.spec_from_file_location('legacy_folder_consolidate_cli', script)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    monkeypatch.setattr(module, 'ROOT', project)
+    monkeypatch.setattr(module, 'pending_consolidations', lambda *_: [{'source_id':'source-legacy', 'state':'missing_event'}])
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--check'])
+    with pytest.raises(SystemExit) as rejected:
+        module.main()
+    assert rejected.value.code == 2
+    assert '--mode v1' in capsys.readouterr().err
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--mode', 'v1', '--check'])
+    assert module.main() == 1
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result['coverage'] == 'legacy_v1_only'
+    assert result['pending'][0]['state'] == 'missing_event'
+
+
+def test_default_folder_refuses_legacy_flags_and_missing_host(project, monkeypatch, capsys):
+    import importlib.util
+    import sys
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_consolidate.py'
+    spec = importlib.util.spec_from_file_location('default_folder_consolidate_cli', script)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    monkeypatch.setattr(module, 'ROOT', project)
+    for args in (['--source', 'source-test', '--packet'], ['--all-pending'], ['--date', '2026-01-01']):
+        monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', *args])
+        with pytest.raises(SystemExit) as rejected:
+            module.main()
+        assert rejected.value.code == 2
+    monkeypatch.delenv('WIKI_FOLDER_INGEST_HOST_ROOT', raising=False)
+    monkeypatch.delenv('WIKI_FOLDER_INGEST_HOST_FOLDERS', raising=False)
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--max-age-days', '30'])
+    assert module.main() == 1
+    assert 'folder_consolidation_unavailable' in capsys.readouterr().err
+
+
+def test_legacy_mode_does_not_accept_folder_options(project, monkeypatch):
+    import importlib.util
+    import sys
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_consolidate.py'
+    spec = importlib.util.spec_from_file_location('mixed_folder_consolidate_cli', script)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    monkeypatch.setattr(module, 'ROOT', project)
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--mode', 'v1', '--check', '--max-age-days', '30'])
+    with pytest.raises(SystemExit) as rejected:
+        module.main()
+    assert rejected.value.code == 2
+
+
+def test_legacy_path_does_not_consume_folder_result(project, monkeypatch, tmp_path, capsys):
+    import importlib.util
+    import sys
+    _binding, request, _results = fixture_inputs(project, monkeypatch, tmp_path, capsys)
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_consolidate.py'
+    spec = importlib.util.spec_from_file_location('legacy_rejects_folder_consolidation', script)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    monkeypatch.setattr(module, 'ROOT', project)
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--mode', 'v1', '--source', request['source_id'], '--packet'])
+    assert module.main() == 1
+    assert 'no emitted context request' in capsys.readouterr().err
+    assert not (project / 'a/claims/result.md').exists()
+
+
+def test_legacy_pending_gate_never_consumes_folder_requests(project, monkeypatch):
+    import wiki_core.consolidate as module
+    seen = []
+    monkeypatch.setattr(module, 'load_requests', lambda _: [
+        {'source_id':'source-folder', 'context_binding_version':2},
+        {'source_id':'source-legacy'},
+    ])
+    def complete(request, _cache):
+        seen.append(request['source_id'])
+        return True
+    monkeypatch.setattr(module, 'deep_read_complete', complete)
+    monkeypatch.setattr(module, 'find_event_for_source', lambda *_: None)
+    result = module.pending_consolidations(project, load_config(project))
+    assert seen == ['source-legacy']
+    assert result == [{'source_id':'source-legacy', 'state':'missing_event'}]
