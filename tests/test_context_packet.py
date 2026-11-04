@@ -81,6 +81,10 @@ def test_cli_resolve_and_pack(repo, tmp_path):
     prefix=[sys.executable,str(script),'--mode','v1','--repo',str(repo),'--approved-revision',sha,'--manifest','ctx/context.yaml']
     resolved=json.loads(subprocess.check_output(prefix+['resolve','root']))
     assert resolved['policy_revision']==sha and resolved['enforcement_claim']=='none'
+    # A valid legacy policy is never an implicit fallback for folder mode.
+    implicit=subprocess.run([sys.executable,str(script),'--repo',str(repo),'--approved-revision',sha,
+                             'resolve','root','--index','ctx/index.md'],text=True,capture_output=True)
+    assert implicit.returncode != 0 and implicit.stdout == ''
     request=tmp_path/'request.json'; request.write_text(json.dumps({**TASK,'evidence':EVIDENCE,'max_bytes':10000}))
     raw=subprocess.check_output(prefix+['pack','root','--content-revision',sha,'--request',str(request)])
     packet=json.loads(raw)
