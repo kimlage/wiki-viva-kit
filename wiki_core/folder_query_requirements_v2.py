@@ -5,22 +5,29 @@ They have their own version and cannot be interpreted as legacy v1 receipts.
 """
 from __future__ import annotations
 
+import json
 from wiki_core.context_selection import normalize_query
 from wiki_core.folder_query_packet_v2 import build_folder_query_packet_v2, _query_observations
 from wiki_core.repo_read import contains_access_secrets
 
 
+def same_json(left, right):
+    """Compare JSON values with their types, including bool versus integer."""
+    return json.dumps(left, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False) == \
+           json.dumps(right, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
+
+
 def validate_query_report(root, policy, packet, result, *, base_packet):
     """Reproduce the bounded selection and its exact reported read set."""
     if (not isinstance(packet, dict) or packet.get('schema_version') != 'wiki.folder-query-task-context/v2'
-            or packet.get('base_packet') != base_packet or not isinstance(result, dict)
+            or not same_json(packet.get('base_packet'), base_packet) or not isinstance(result, dict)
             or contains_access_secrets((packet, result))):
         raise ValueError('query report unavailable')
     try:
         queries = packet['queries']
         rebuilt = build_folder_query_packet_v2(root, policy, base_packet=base_packet,
                                                queries=[row['receipt']['request'] for row in queries])
-        if rebuilt != packet:
+        if not same_json(rebuilt, packet):
             raise ValueError('query packet differs')
         expected = [{'path':row['path'], 'kind':row['kind'], 'revision':row['revision'],
                      'sha256':row['sha256'], 'section':row.get('section'), 'field':row.get('field')}
