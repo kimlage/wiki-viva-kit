@@ -482,9 +482,13 @@ def build_packet(
 
     def fts(query: str, limit: int = 3) -> list[dict[str, object]]:
         nonlocal initial_signature, signature_error
-        if not db_path.exists() or not query.strip():
+        if not query.strip():
             return []
         try:
+            if not db_path.exists():
+                # Check the boundary even for a missing index, without
+                # calculating the page signature for an absent database.
+                return search(db_path, query, limit=limit, wiki_root=paths.root)
             if signature_error is not None:
                 raise signature_error
             if initial_signature is None:
@@ -494,7 +498,7 @@ def build_packet(
                     signature_error = exc
                     raise
             hits = search(db_path, sanitize_fts_query(query), limit=limit,
-                          page_signature=initial_signature)
+                          page_signature=initial_signature, wiki_root=paths.root)
         except Exception as exc:  # noqa: BLE001 - degrade gracefully, but VISIBLY
             note = (
                 f"fts lookup failed ({type(exc).__name__}: {exc}); "

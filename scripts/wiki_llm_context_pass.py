@@ -121,7 +121,7 @@ def _chunks_for_source(paths: WikiPaths, manifest: dict[str, object]) -> list[di
 
 def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], list[dict[str, object]]]:
     db_path = paths.indexes / "wiki.sqlite"
-    hits = search(db_path, query, limit=20, page_signature=current_page_signature(paths))
+    hits = search(db_path, query, limit=20, page_signature=current_page_signature(paths), wiki_root=paths.root)
     chunks = [
         {
             "chunk_id": hit["chunk_id"],
@@ -375,7 +375,12 @@ def main() -> int:
         except (ValueError, OSError) as exc:
             return _blocked(exc, "requested-input", config.owner_label)
     else:
-        manifest, chunks = _chunks_for_query(paths, args.query or "")
+        try:
+            manifest, chunks = _chunks_for_query(paths, args.query or "")
+        except (ValueError, OSError):
+            return _blocked(ContextRequestBlocked("query_index_unavailable",
+                "The query index is unavailable or outside the selected wiki; inspect its location and rebuild if needed."),
+                "query-context-pass", config.owner_label)
         source_config = None
         input_context = {
             "root_entity": None,
