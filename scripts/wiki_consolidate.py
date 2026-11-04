@@ -150,15 +150,20 @@ def main() -> int:
             folders = os.environ.get('WIKI_FOLDER_INGEST_HOST_FOLDERS', '').strip()
             if not host_root or not folders:
                 raise ValueError('host unavailable')
-            binding = FolderHostBinding(Path(host_root), tuple(item.strip() for item in folders.split(',')))
+            configured = strict_json_loads(os.environ.get('WIKI_FOLDER_INGEST_HOST_REPOSITORIES', '[]'))
+            if not isinstance(configured, list):
+                raise ValueError('invalid repository bindings')
+            binding = FolderHostBinding(Path(host_root), tuple(item.strip() for item in folders.split(',')),
+                                        tuple(tuple(row) for row in configured))
             raw = sys.stdin.buffer.read(2_000_001)
             if len(raw) > 2_000_000:
                 raise ValueError('input budget exceeded')
             payload = strict_json_loads(raw.decode('utf-8'))
-            if not isinstance(payload, dict) or set(payload) != {'request', 'results'}:
+            if not isinstance(payload, dict) or set(payload) != {'request', 'results', 'page_metadata'}:
                 raise ValueError('invalid input')
             preview = prepare_folder_consolidation(ROOT, binding, payload['request'], payload['results'],
-                        candidates=args.folder_candidate, max_age_days=args.max_age_days)
+                        candidates=args.folder_candidate, max_age_days=args.max_age_days,
+                        page_metadata=payload['page_metadata'])
         except (ValueError, OSError, TypeError, KeyError, AttributeError):
             print(json.dumps({'status': 'blocked', 'reason': 'folder_consolidation_unavailable'}), file=sys.stderr)
             return 1
