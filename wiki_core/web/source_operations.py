@@ -17,6 +17,7 @@ from wiki_core.web import installed_binding
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from wiki_core.traversal import reject_nested_git, wiki_files
 from typing import Any
 
 import yaml
@@ -429,7 +430,9 @@ def _inventory_raw_path(root: Path, raw_path: Path) -> tuple[dict[str, Any], str
     path and content-hashed so a later snapshot can classify additions,
     changes and removals without depending on filesystem enumeration order.
     """
-    files = [raw_path] if raw_path.is_file() else sorted(path for path in raw_path.rglob("*") if path.is_file())
+    if raw_path.is_dir():
+        reject_nested_git(raw_path)
+    files = [raw_path] if raw_path.is_file() else wiki_files(raw_path)
     entries: list[dict[str, Any]] = []
     total_bytes = 0
     digest = hashlib.sha256()

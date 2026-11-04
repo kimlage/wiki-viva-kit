@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.action_state import (
     legacy_action_state_from_body,
     resolve_action_state,
@@ -334,7 +335,7 @@ def _page_records(root: Path, config: WikiConfig, today: dt.date) -> list[dict[s
     records: list[dict[str, Any]] = []
     if not memory_root.exists():
         return records
-    for path in sorted(p for p in memory_root.rglob("*.md") if p.is_file()):
+    for path in sorted(p for p in wiki_markdown_files(memory_root, wiki_root=root) if p.is_file()):
         rel = path.relative_to(root).as_posix()
         values, body = parse_frontmatter(path)
         page_id = str(values.get("page_id") or rel).strip()

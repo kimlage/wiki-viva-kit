@@ -29,6 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import load_config  # noqa: E402
 from wiki_core.gate import write_state  # noqa: E402
 from wiki_core.paths import WikiPaths  # noqa: E402
@@ -98,7 +99,7 @@ def rewrite_inbound_links(old_rel: str, new_rel: str, *, apply: bool) -> list[st
 
     name = Path(old_rel).name
     touched: list[str] = []
-    for md in PATHS.memory_root.rglob("*.md"):
+    for md in wiki_markdown_files(PATHS.memory_root, wiki_root=PATHS.root):
         rel = md.relative_to(ROOT).as_posix()
         if rel == new_rel:
             continue

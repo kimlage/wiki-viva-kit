@@ -8,6 +8,7 @@ import re
 import subprocess
 from pathlib import Path
 from typing import Any
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.action_state import CANONICAL_ACTION_STATES, legacy_action_state_from_body, resolve_action_state
 from wiki_core.collections import COLLECTION_RELATION_TYPE, CollectionCompilation, compile_collections, member_collection_refs, relation_cycle_diagnostics
 from wiki_core.closure import build_ingestion_closure_report
@@ -521,7 +522,7 @@ def _markdown_pages(root: Path, config: WikiConfig) -> list[Path]:
     memory_root = root / config.paths["memory_root"]
     if not memory_root.exists():
         return []
-    return sorted(path for path in memory_root.rglob("*.md") if path.is_file())
+    return sorted(path for path in wiki_markdown_files(memory_root, wiki_root=root) if path.is_file())
 
 
 def _page_record(

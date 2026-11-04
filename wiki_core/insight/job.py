@@ -19,10 +19,12 @@ import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.detectors import scan_text
 from wiki_core.ids import sha256_text
 from wiki_core.index.sqlite import search
+from wiki_core.index.page_collection import current_page_signature
 from wiki_core.paths import WikiPaths
 from wiki_core.score import compute_karma, load_events
 
@@ -82,7 +84,8 @@ def _gather_events(paths: WikiPaths, context: str) -> tuple[list[dict[str, objec
 
 
 def _gather_chunks(paths: WikiPaths, theme: str, limit: int) -> list[dict[str, object]]:
-    hits = search(paths.indexes / "wiki.sqlite", theme, limit=limit)
+    hits = search(paths.indexes / "wiki.sqlite", theme, limit=limit,
+                  page_signature=current_page_signature(paths))
     rows: list[dict[str, object]] = []
     for hit in hits:
         text = str(hit.get("text", ""))
@@ -110,7 +113,7 @@ def _gather_pages(paths: WikiPaths, theme: str, limit: int = 10) -> list[str]:
         return []
     needle = theme.lower()
     hits: list[str] = []
-    for path in sorted(memory_root.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(memory_root, wiki_root=root)):
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:

@@ -47,6 +47,7 @@ from wiki_core.frontmatter import (
     parse_frontmatter_flat as parse_frontmatter,
 )
 from wiki_core.paths import WikiPaths
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.score import compute_karma, load_events, record_event, resolve_events_path
 
 # Context hubs are the pages that carry living context per area. Their
@@ -580,12 +581,7 @@ def collect_context_vitality(paths: WikiPaths, today: dt.date) -> list[ContextVi
     # explicitly typed context_hub. Never follow directory or file symlinks.
     if any(p.is_symlink() for p in (paths.memory_root, *paths.memory_root.parents)):
         return rows
-    indexes = []
-    for directory, subdirs, files in os.walk(paths.memory_root, followlinks=False):
-        subdirs[:] = sorted(d for d in subdirs if not (Path(directory) / d).is_symlink())
-        index = Path(directory) / "index.md"
-        if "index.md" in files and not index.is_symlink() and index.is_file():
-            indexes.append(index)
+    indexes = [path for path in wiki_markdown_files(paths.memory_root, wiki_root=paths.root) if path.name == "index.md"]
     for index_path in sorted(indexes):
         fm = parse_frontmatter(index_path.read_text(encoding="utf-8"))
         if fm.get("page_type") != CONTEXT_HUB_TYPE:

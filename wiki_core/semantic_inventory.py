@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.events import (
     IngestionEventIdentity,
@@ -182,7 +183,7 @@ def _authored_pages(root: Path, config: WikiConfig) -> list[AuthoredPage]:
     if not memory_root.is_dir():
         return []
     pages: list[AuthoredPage] = []
-    for path in sorted(memory_root.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(memory_root, wiki_root=root)):
         values, _body = parse_frontmatter(path)
         rel = path.relative_to(root).as_posix()
         page_id = str(values.get("page_id") or rel).strip()

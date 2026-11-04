@@ -32,6 +32,7 @@ from typing import Any
 
 import yaml
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import FRONTMATTER_RE, parse_frontmatter
 from wiki_core.source_recipe import PLATFORMS, extract_recipe_mapping
@@ -554,7 +555,7 @@ def plan_source_migration(
     memory_root = root / str(config.paths.get("memory_root") or "memories")
     if not memory_root.exists():
         return []
-    md_paths = sorted(memory_root.rglob("*.md"))
+    md_paths = sorted(wiki_markdown_files(memory_root, wiki_root=root))
 
     # Index source pages by page_id so a source_config can inherit its entity's
     # platform/locator instead of guessing from the thin config page.

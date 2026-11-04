@@ -40,6 +40,7 @@ from scripts._common import ROOT
 from wiki_core.config import DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION, load_config
 from wiki_core.ids import sha256_text
 from wiki_core.index.sqlite import search
+from wiki_core.index.page_collection import current_page_signature
 from wiki_core.input_stage import input_context_for_source
 from wiki_core.llm import CONTEXT_PASS_SCHEMA_VERSION, build_context_request, write_result
 from wiki_core.llm.context_pass import (result_matches_request, ingestion_block_context,
@@ -120,7 +121,7 @@ def _chunks_for_source(paths: WikiPaths, manifest: dict[str, object]) -> list[di
 
 def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], list[dict[str, object]]]:
     db_path = paths.indexes / "wiki.sqlite"
-    hits = search(db_path, query, limit=20)
+    hits = search(db_path, query, limit=20, page_signature=current_page_signature(paths))
     chunks = [
         {
             "chunk_id": hit["chunk_id"],

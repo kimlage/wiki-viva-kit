@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from wiki_core.config import WikiConfig
+from wiki_core.git_env import local_git_environment, local_git_executable
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, MARKDOWN_LINK_RE
@@ -163,7 +164,7 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
         if normative_revision is not None and (not isinstance(normative_revision,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',normative_revision)):
             return []
         args=(['ls-tree','-z',normative_revision,'--',ref] if normative_revision else ['ls-files','--stage','-z','--',ref])
-        try: result=subprocess.run(['git','-C',str(normative_root or root),'--literal-pathspecs',*args],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+        try: result=subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(normative_root or root),'--literal-pathspecs',*args],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=local_git_environment())
         except OSError: return []
         if result.returncode: return []
         entries=result.stdout.split(b'\0')

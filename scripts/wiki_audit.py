@@ -29,6 +29,7 @@ CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT))
 from scripts._common import ROOT
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.llm.context_pass import read_matching_result
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.action_adoption import (
@@ -2090,7 +2091,7 @@ def audit_ingestion_absolute_paths(errors: list[str], config: WikiConfig) -> Non
     ingest_dir = wiki_paths(config).ingest_dir
     if not ingest_dir.exists():
         return
-    for path in sorted(ingest_dir.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(ingest_dir, wiki_root=ROOT)):
         rel = path.relative_to(ROOT).as_posix()
         for lineno, line in body_lines_without_frontmatter(path.read_text(encoding="utf-8", errors="replace")):
             without_links = MARKDOWN_LINK_RE.sub("", line)

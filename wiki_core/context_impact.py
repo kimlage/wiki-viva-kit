@@ -70,6 +70,7 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
     blocked edge is redacted completely; no protected count/path is returned.
     The graph must be the existing authorized relation inventory for this view.
     """
+    if getattr(policy, 'format_version', None): raise ImpactError('v2 impact is unavailable; v1 receipts require explicit migration')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0]) != Path(root).resolve(): raise ImpactError('unbound policy')
     policy=policy.fresh()
     if destination_context not in policy.contexts: raise ImpactError('unknown destination')
@@ -159,6 +160,7 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
     It is not independent-review proof. A changed interpretation is detected
     from approved Git bytes; only that new change may seed a further impact run.
     """
+    if getattr(policy, 'format_version', None): raise ImpactError('v2 review is unavailable; v1 receipts require explicit migration')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0]) != Path(root).resolve(): raise ImpactError('unbound policy')
     policy=policy.fresh()
     if disposition not in ('updated','still_valid','superseded','blocked') or not isinstance(reason,str) or not reason.strip(): raise ImpactError('invalid disposition')

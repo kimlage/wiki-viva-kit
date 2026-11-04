@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.paths import WikiPaths
@@ -93,7 +94,7 @@ def _repo_path(root: Path, value: str) -> Path | None:
 def _md_pages(paths: WikiPaths) -> list[Path]:
     if not paths.memory_root.exists():
         return []
-    return sorted(path for path in paths.memory_root.rglob("*.md")
+    return sorted(path for path in wiki_markdown_files(paths.memory_root, wiki_root=paths.root)
                   if path.is_file() and not path.is_symlink()
                   and not any(parent.is_symlink() for parent in path.parents
                               if parent != paths.root and paths.root in parent.parents))
@@ -130,7 +131,7 @@ def _source_pages(root: Path, paths: WikiPaths) -> list[dict[str, Any]]:
     if not paths.sources_dir.exists():
         return []
     pages = []
-    for path in sorted(paths.sources_dir.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(paths.sources_dir, wiki_root=paths.root)):
         if path.name in {"index.md", "README.md"}:
             continue
         page = _read_page(root, path)

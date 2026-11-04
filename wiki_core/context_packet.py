@@ -75,6 +75,8 @@ def _context_view(policy, context_id):
 
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=()):
+    if getattr(policy, 'format_version', None):
+        raise PolicyError('v2 policy requires a v2 packet; v1 receipts require explicit migration')
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
     if not getattr(policy, '_binding', None) or Path(policy._binding[0]) != Path(root).resolve(): raise PolicyError('unbound or mismatched policy')
     policy = policy.fresh()

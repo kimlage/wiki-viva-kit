@@ -7,7 +7,9 @@ from pathlib import Path
 
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.index.sqlite import PAGE_SOURCE_PREFIX, search_detailed
+from wiki_core.index.page_collection import current_page_signature
 from wiki_core.paths import WikiPaths
+from wiki_core.traversal import wiki_markdown_files
 
 
 def _local_catalog(root: Path, config) -> tuple[dict, list]:
@@ -22,7 +24,8 @@ def _local_catalog(root: Path, config) -> tuple[dict, list]:
         if not directory.resolve().is_relative_to(root):
             issues.append(dict(kind=kind, reason="metadata_path_outside_local_catalog"))
             continue
-        files.extend((p, kind) for p in sorted(directory.glob(pattern)))
+        candidates = wiki_markdown_files(directory, wiki_root=root) if kind == "page" else sorted(directory.glob(pattern))
+        files.extend((p, kind) for p in candidates)
     for path, kind in files:
         ref = path.relative_to(root).as_posix()
         if path.is_symlink() or not path.resolve().is_relative_to(root):
@@ -66,8 +69,18 @@ def find(root: Path, config, query: str, *, context: str | None = None,
         allowed = {sid for sid, item in resolved.items() if item["context"] == context}
     if source_id is not None:
         allowed = {source_id} if allowed is None else allowed & {source_id}
-    result = search_detailed(WikiPaths(root, config).indexes / "wiki.sqlite", query,
-                             limit=limit, source_ids=allowed)
+    paths = WikiPaths(root, config)
+    source_only = source_id is not None and not source_id.startswith(PAGE_SOURCE_PREFIX)
+    signature = None
+    if not source_only:
+        try:
+            signature = current_page_signature(paths)
+        except (OSError, UnicodeError, ValueError):
+            signature = "unavailable"
+            issues.append(dict(kind="page", reason="page_index_current_state_unavailable"))
+    result = search_detailed(paths.indexes / "wiki.sqlite", query,
+                             limit=limit, source_ids=allowed, page_signature=signature,
+                             source_only=source_only)
     indexed_ids = result.pop("indexed_source_ids")
     gaps = []
     for sid in indexed_ids:
@@ -87,6 +100,7 @@ def find(root: Path, config, query: str, *, context: str | None = None,
         scope=dict(context=context, source_id=source_id, filtered_before_limit=True,
                    metadata_gaps=gaps, catalog_issues=issues),
         coverage=dict(index_revision="unknown", source_completeness="unknown",
+                      page_index="not_checked_source_only" if source_only else "checked",
                       context_scope="partial" if context is not None and (gaps or issues) else
                                     "resolved_metadata_only" if context is not None else "unfiltered"),
         freshness="not_evaluated", read_only=True)

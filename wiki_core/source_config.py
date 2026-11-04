@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
@@ -77,7 +78,7 @@ def find_source_config(root: Path, config: WikiConfig, source: str) -> dict[str,
     config_dir = paths.sources_dir / "config"
     if not config_dir.exists():
         return None
-    for path in sorted(config_dir.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(config_dir, wiki_root=root)):
         values = parse_frontmatter(path)
         if values.get("page_type") != "source_config":
             continue

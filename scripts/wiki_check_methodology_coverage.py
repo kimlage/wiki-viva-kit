@@ -30,6 +30,7 @@ CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT))
 from scripts._common import ROOT
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.llm.context_pass import read_matching_result
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.frontmatter import parse_frontmatter as canonical_parse_frontmatter
@@ -313,7 +314,7 @@ def _real_perceptive_pages(paths: WikiPaths) -> list[dict[str, Any]]:
     pages: list[dict[str, Any]] = []
     if not memory_root.exists():
         return pages
-    for path in sorted(memory_root.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(memory_root, wiki_root=paths.root)):
         text = path.read_text(encoding="utf-8", errors="replace")
         fm = parse_frontmatter(text)
         page_type = str(fm.get("page_type", ""))

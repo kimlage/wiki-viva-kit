@@ -16,6 +16,8 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
 
+from wiki_core.traversal import wiki_markdown_files
+from wiki_core.git_env import local_git_environment, local_git_executable
 from wiki_core.config import WikiConfig
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
@@ -170,7 +172,7 @@ def evaluate_impact(
 
 
 def input_hashes(root: Path, config: WikiConfig, evidence_paths=()) -> dict[str, str | None]:
-    files = sorted((root / str(config.paths["memory_root"])).rglob("*.md"))
+    files = sorted(wiki_markdown_files(root / str(config.paths["memory_root"]), wiki_root=root))
     files.append(root / "wiki.config.yaml")
     result = {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in files}
@@ -188,12 +190,14 @@ def _query_policy_change_marker(root: Path, revisions: tuple[str, str], changed:
     """Treat a changed declared normative input as policy-sensitive, without granting authority."""
     import subprocess
     import yaml
-    from wiki_core.context_policy import UniqueLoader, safe_path
+    from wiki_core.context_policy import UniqueLoader, safe_path, is_context_instruction
     if not changed:
         return set()
+    if any(is_context_instruction(path) for path in changed):
+        return {'context.yaml'}
     normative = set()
     for revision in revisions:
-        listing = subprocess.run(['git', '-C', str(root), 'ls-tree', '-r', '--name-only', '-z', revision], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        listing = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root), 'ls-tree', '-r', '--name-only', '-z', revision], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=local_git_environment())
         if listing.returncode:
             return {'context.yaml'}
         for raw in listing.stdout.split(b'\0'):
@@ -201,7 +205,7 @@ def _query_policy_change_marker(root: Path, revisions: tuple[str, str], changed:
                 continue
             try:
                 path = raw.decode('utf-8')
-                source = subprocess.run(['git', '-C', str(root), 'show', revision + ':' + path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                source = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root), 'show', revision + ':' + path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=local_git_environment())
                 if source.returncode:
                     return {'context.yaml'}
                 doc = yaml.load(source.stdout, Loader=UniqueLoader)

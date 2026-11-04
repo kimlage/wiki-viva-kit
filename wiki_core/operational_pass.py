@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 import yaml
 
+from wiki_core.traversal import wiki_markdown_files
 from .action_state import (
     TERMINAL_ACTION_STATES,
     legacy_action_state_from_body,
@@ -324,7 +325,7 @@ def collect_pages(root: Path, config: WikiConfig) -> tuple[PageRecord, ...]:
     if not paths.memory_root.is_dir():
         return ()
     pages: list[PageRecord] = []
-    for path in sorted(paths.memory_root.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(paths.memory_root, wiki_root=root)):
         pages.append(read_markdown_page(path, root, config.default_context))
     return tuple(pages)
 

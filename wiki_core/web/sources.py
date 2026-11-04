@@ -19,6 +19,7 @@ from pathlib import Path
 from pathlib import PurePosixPath
 from typing import Any
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.paths import WikiPaths
@@ -126,7 +127,7 @@ def _ingestion_events_index(paths: WikiPaths) -> dict[str, dict[str, Any]]:
     memory_root = paths.memory_root
     if not memory_root.exists():
         return index
-    for path in memory_root.rglob("*.md"):
+    for path in wiki_markdown_files(memory_root, wiki_root=paths.root):
         try:
             values, _ = parse_frontmatter(path)
         except Exception:  # noqa: BLE001 — one broken page must not kill the read model
@@ -513,7 +514,7 @@ def build_sources_payload(
     events_index = _ingestion_events_index(paths)
     records: list[dict[str, Any]] = []
     if sources_dir.exists():
-        for path in sorted(sources_dir.rglob("*.md")):
+        for path in sorted(wiki_markdown_files(sources_dir, wiki_root=root)):
             if "/config/" in paths.rel(path):
                 continue
             record = _source_record(root, paths, path, today, events_index)

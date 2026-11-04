@@ -18,49 +18,10 @@ try:  # importing _common bootstraps sys.path so wiki_core resolves
 except ModuleNotFoundError:
     from _common import ROOT  # direct run: scripts/ on sys.path
 
-from wiki_core.chunking import chunk_text
 from wiki_core.config import load_config
-from wiki_core.consolidate import _read_frontmatter
 from wiki_core.index import build_index, check_index, index_pages
+from wiki_core.index.page_collection import collect_page_chunks
 from wiki_core.paths import WikiPaths
-
-
-def collect_page_chunks(root: Path, paths: WikiPaths, config) -> list[tuple[str, list[dict[str, object]]]]:
-    """Chunk every memory page with a page_id (body only, frontmatter excluded)."""
-    target = int(config.llm.get("chunk_target_tokens", 1200))
-    overlap = int(config.llm.get("chunk_overlap_tokens", 150))
-    pages: list[tuple[str, list[dict[str, object]]]] = []
-    memory_root = paths.memory_root
-    if not memory_root.is_dir():
-        return pages
-    for md in sorted(memory_root.rglob("*.md")):
-        fm = _read_frontmatter(md)
-        page_id = str(fm.get("page_id") or "")
-        if not page_id:
-            continue
-        text = md.read_text(encoding="utf-8", errors="replace")
-        if text.startswith("---\n"):
-            end = text.find("\n---", 4)
-            if end != -1:
-                text = text[end + 4 :]
-        chunks = chunk_text(f"page:{page_id}", text, target, overlap)
-        if chunks:
-            pages.append(
-                (
-                    page_id,
-                    [
-                        {
-                            "chunk_id": c.chunk_id,
-                            "ordinal": c.ordinal,
-                            "hash_sha256": c.hash_sha256,
-                            "token_estimate": c.token_estimate,
-                            "text": c.text,
-                        }
-                        for c in chunks
-                    ],
-                )
-            )
-    return pages
 
 
 def main() -> int:
