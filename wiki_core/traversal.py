@@ -19,13 +19,15 @@ def is_in_nested_git(path: Path, *, wiki_root: Path) -> bool:
     """
     path = Path(path)
     wiki_root = Path(wiki_root)
-    if '..' in path.parts or '..' in wiki_root.parts:
-        raise ValueError('unsafe discovery path')
     root = wiki_root.absolute()
     try:
         relative = path.absolute().relative_to(root)
     except ValueError:
         raise ValueError('discovery path outside wiki root') from None
+    if '..' in relative.parts:
+        raise ValueError('unsafe discovery path')
+    root = wiki_root.resolve()
+    path = root / relative
     current = root
     for part in relative.parts[:-1]:
         current /= part
@@ -86,9 +88,7 @@ def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None 
     boundary. A separately selected repository can be traversed as its own root.
     """
     base = Path(base)
-    if '..' in base.parts or (wiki_root is not None and '..' in Path(wiki_root).parts):
-        return []
-    if base.is_symlink() or not base.is_dir():
+    if wiki_root is None and '..' in base.parts:
         return []
     if wiki_root is not None:
         root = Path(wiki_root).absolute()
@@ -96,11 +96,15 @@ def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None 
             relative = base.absolute().relative_to(root)
         except ValueError:
             return []
-        current = root
+        if '..' in relative.parts:
+            return []
+        current = Path(wiki_root).resolve()
         for name in relative.parts:
             current /= name
             if current.is_symlink() or os.path.lexists(current / '.git'):
                 return []
+    if base.is_symlink() or not base.is_dir():
+        return []
     def fail(error: OSError) -> None:
         raise error
     result: list[Path] = []
