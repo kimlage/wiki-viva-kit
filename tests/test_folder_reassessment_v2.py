@@ -198,5 +198,27 @@ def test_real_cli_reassesses_explicit_report_after_source_update(project, tmp_pa
 def test_missing_source_blocks_without_false_empty_inventory(project):
     report = setup_flow(project)
     (project / 'a/source.md').unlink(); commit(project)
+    out = run(project, report)
+    rows = {(row['target'], row['selector']): row for row in out['consumers']}
+    assert rows['a/report.md', 'field:amount']['state'] == 'blocked_missing_source'
+    assert rows['a/report.md', 'field:unreported']['state'] == 'declared_without_report'
+    assert rows['a/second.md', '*']['state'] == 'declared_without_report'
+
+
+def test_missing_denied_source_is_not_opened_or_disclosed(project, monkeypatch):
+    import yaml
+    from wiki_core.repository_reader import RepositoryReader
+    report = setup_flow(project)
+    (project / 'a/source.md').unlink()
+    config = project / 'wiki-context-controls.yaml'
+    controls = yaml.safe_load(config.read_text())
+    controls['controls']['a']['policy']['deny'] = {'read': ['a/source.md']}
+    config.write_text(yaml.safe_dump(controls)); commit(project)
+    original = RepositoryReader.read
+    def guarded(self, path, *args, **kwargs):
+        if path == 'a/source.md':
+            pytest.fail('denied source body opened')
+        return original(self, path, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
     with pytest.raises(ValueError):
         run(project, report)

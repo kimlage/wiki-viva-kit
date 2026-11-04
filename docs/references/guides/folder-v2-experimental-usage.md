@@ -237,7 +237,11 @@ as potentially sensitive and keep them in authorized storage.
 Coverage is limited to selected authorized paths in one owner and the reports
 provided; it does not discover receipts, resolve page IDs, evaluate max age,
 requalify historical or query requirements, or automatically cover external
-repositories. Missing source paths block inventory, and no ACL, completed read,
+repositories. A missing explicitly selected Markdown source is retained only
+as a literal declaration; with an authorized matching report, its assessment
+is `blocked_missing_source`. Without a report it stays
+`declared_without_report`, without asserting source existence or authority.
+Unrelated unresolved targets still block inventory. No ACL, completed read,
 review or integration is inferred. The command does not modify interpretations.
 
 ## Propose requalification of an explicit v1 requirement
