@@ -42,6 +42,8 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
     old = prior['frontmatter'].get('information_requirements', absent) if prior else absent
     new = document['frontmatter'].get('information_requirements', absent)
     if old is absent and new is absent and not require_queries:
+        if ingestion_source is not None or requalify_source:
+            raise FolderIntegrationError('ingestion source requirement unavailable')
         return 0
     # Require strict parsing of both exact versions before comparing declarations.
     for item in (prior, document):
