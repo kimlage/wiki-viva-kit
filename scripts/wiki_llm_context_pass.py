@@ -49,7 +49,7 @@ from wiki_core.input_stage import input_context_for_source
 from wiki_core.llm import CONTEXT_PASS_SCHEMA_VERSION, build_context_request, write_result
 from wiki_core.llm.context_pass import (result_matches_request, ingestion_block_context,
     DEFAULT_CONTEXT_MAX_BYTES, DEFAULT_REQUEST_MAX_BYTES, ContextRequestBlocked,
-    canonical_request_text, enforce_request_budget, preparation_blocker, request_limits,
+    canonical_request_text, context_input_size, enforce_request_budget, preparation_blocker, request_limits,
     authorize_ingestion_source, revalidate_ingestion_source, approved_ingestion_inputs,
     require_approved_prompt_version, result_cache_for_request)
 from wiki_core.paths import WikiPaths
@@ -250,7 +250,7 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             if retained_limits is not None and retained_limits != limits:
                 return _blocked(ContextRequestBlocked("request_limits_changed", "Re-emit the request under the current explicit byte budgets before recording."),
                                 str(request.get("source_id") or "source-context-pass"), owner)
-            context_bytes = len(canonical_request_text(request.get("block_context_package") or {}).encode()) - 1
+            context_bytes = context_input_size(request)
             if retained_sizes[id(request)] > limits["request_max_bytes"] or context_bytes > limits["context_max_bytes"]:
                 return _blocked(ContextRequestBlocked("retained_request_exceeds_budget", "The retained request exceeds the current byte budget; choose a smaller stage and re-emit before recording."),
                                 str(request.get("source_id") or "source-context-pass"), owner)
@@ -315,6 +315,7 @@ def main() -> int:
     parser.add_argument("--folder-output", help="Concrete authorized proposal output.")
     parser.add_argument("--folder-source-ref", help="Approved source page explicitly associated with staged RAW.")
     parser.add_argument("--folder-repo", nargs=4, action="append", metavar=("ROOT", "IDENTITY", "REVISION", "PATH"), help="Explicit host-authorized local Git selection; repeat for each path; no network access.")
+    parser.add_argument("--folder-queries", help="Same explicit JSON query selection used when emitting the request.")
     parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
     parser.add_argument("--request-max-bytes", type=int, default=DEFAULT_REQUEST_MAX_BYTES)
     business_root = parser.add_mutually_exclusive_group()
@@ -346,13 +347,16 @@ def main() -> int:
 
     root = args.root.resolve()
     folder_selection = None
+    folder_queries = None
     if args.mode == 'folder':
-        from wiki_core.folder_ingestion_v2 import selection_from_host_environment
+        from wiki_core.folder_ingestion_v2 import selection_from_host_environment, load_folder_queries
         try:
             folder_selection = selection_from_host_environment(args.folder_context, args.folder_index, args.folder_output, args.folder_source_ref,
                 independent_repo=tuple(args.folder_repo[0]) if args.folder_repo else None,
                 additional_repos=tuple(tuple(row) for row in args.folder_repo[1:]) if args.folder_repo else ())
-        except ValueError:
+            if args.folder_queries is not None:
+                folder_queries = load_folder_queries(args.folder_queries)
+        except (ValueError, OSError):
             parser.error("invalid folder selection")
     config = load_config(root)
     paths = WikiPaths(root, config)
@@ -470,10 +474,12 @@ def main() -> int:
     )
     try:
         if folder_selection is not None:
-            from wiki_core.folder_ingestion_v2 import folder_ingestion_context
+            from wiki_core.folder_ingestion_v2 import folder_ingestion_context, folder_ingestion_queries
             context_package = folder_ingestion_context(root, source_guard, input_context, perspectives_required,
                 task_id=str(manifest.get("source_id") or "source-context-pass"), max_bytes=args.context_max_bytes)
+            query_packet = folder_ingestion_queries(root, source_guard, context_package, folder_queries)
         else:
+            query_packet = None
             context_package = ingestion_block_context(root, config, input_context,
                 perspectives_required, approved_revision=args.approved_revision, policy_context=args.policy_context,
                 task_id=str(manifest.get("source_id") or "source-context-pass"), context_max_bytes=args.context_max_bytes,
@@ -501,6 +507,7 @@ def main() -> int:
             source_authorization=source_guard["authorization"] if source_guard else None,
             independent_repo_content=source_guard.get("independent_repo_content") if source_guard else None,
             independent_repo_additional_content=source_guard.get("independent_repo_additional_content") if source_guard else None,
+            folder_query_packet=query_packet,
             context_root=root,
         )
         if source_config:
@@ -509,12 +516,21 @@ def main() -> int:
         enforce_request_budget(request, context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes)
         if source_guard is not None:
             revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+            if folder_queries is not None:
+                from wiki_core.folder_ingestion_v2 import revalidate_folder_ingestion_queries
+                revalidate_folder_ingestion_queries(root, source_guard, context_package, folder_queries, query_packet)
     except (ValueError, OSError) as exc:
         return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)
+    def before_write():
+        revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+        if folder_queries is not None:
+            from wiki_core.folder_ingestion_v2 import revalidate_folder_ingestion_queries
+            revalidate_folder_ingestion_queries(root, source_guard, context_package, folder_queries, query_packet)
+
     if args.record_result:
         return _record_results(paths, args.record_result, allow_unrequested=args.allow_unrequested,
             current_request=request, limits=limits, owner=config.owner_label,
-            before_write=(lambda: revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))) if source_guard else None)
+            before_write=before_write if source_guard else None)
     if args.check:
         report = {
             "source_id": manifest.get("source_id"),
@@ -532,6 +548,9 @@ def main() -> int:
             try:
                 from wiki_core.folder_ingestion_v2 import _check_local_boundaries
                 revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+                if folder_queries is not None:
+                    from wiki_core.folder_ingestion_v2 import revalidate_folder_ingestion_queries
+                    revalidate_folder_ingestion_queries(root, source_guard, context_package, folder_queries, query_packet)
                 _check_local_boundaries(root, out.relative_to(root).as_posix())
             except (ValueError, OSError) as exc:
                 return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)

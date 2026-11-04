@@ -52,14 +52,19 @@ def request_limits(context_max_bytes=DEFAULT_CONTEXT_MAX_BYTES,
     return {"context_max_bytes": context_max_bytes, "request_max_bytes": request_max_bytes}
 
 
+def context_input_size(request: dict) -> int:
+    """Count all delivered context, including a selected query envelope."""
+    context_bytes = len(canonical_request_text(request.get("block_context_package") or {}).encode("utf-8")) - 1
+    for key in ("independent_repo_content", "independent_repo_additional_content", "folder_query_packet"):
+        if key in request:
+            context_bytes += len(canonical_request_text(request[key]).encode("utf-8"))
+    return context_bytes
+
+
 def enforce_request_budget(request: dict, *, context_max_bytes=DEFAULT_CONTEXT_MAX_BYTES,
                            request_max_bytes=DEFAULT_REQUEST_MAX_BYTES) -> dict:
     limits = request_limits(context_max_bytes, request_max_bytes)
-    context_bytes = len(canonical_request_text(request.get("block_context_package") or {}).encode("utf-8")) - 1
-    if "independent_repo_content" in request:
-        context_bytes += len(canonical_request_text(request["independent_repo_content"]).encode("utf-8"))
-    if "independent_repo_additional_content" in request:
-        context_bytes += len(canonical_request_text(request["independent_repo_additional_content"]).encode("utf-8"))
+    context_bytes = context_input_size(request)
     if context_bytes > context_max_bytes:
         raise ContextRequestBlocked("context_budget_exceeded", "Required context exceeds its byte budget; choose an authorized narrower stage or revise the explicit budget.")
     if request.get("request_limits", limits) != limits:
@@ -398,13 +403,13 @@ _CONTEXT_FIELDS = (
     "prompt_name", "prompt", "source_context", "quadrants_required",
     "quadrant_map", "quadrant_semantics", "quadrant_boundary_rule", "root_entity",
     "input_channel", "input_stage_status", "target_pages", "perspectives_required",
-    "perspectives_optional", "block_context_package", "request_limits", "source_authorization", "independent_repo_content", "independent_repo_additional_content",
+    "perspectives_optional", "block_context_package", "request_limits", "source_authorization", "independent_repo_content", "independent_repo_additional_content", "folder_query_packet",
 )
 
 
 def context_fingerprint(request: dict, provenance: dict) -> str:
     envelope = {key: request.get(key) for key in _CONTEXT_FIELDS}
-    for optional in ("request_limits", "source_authorization", "independent_repo_content", "independent_repo_additional_content"):
+    for optional in ("request_limits", "source_authorization", "independent_repo_content", "independent_repo_additional_content", "folder_query_packet"):
         if optional not in request:  # Historical envelopes remain inspectable.
             envelope.pop(optional, None)
     envelope["provenance"] = provenance
@@ -436,6 +441,20 @@ def result_matches_request(result: object, request: dict, row: dict, *, recordin
                 or authorization.get("canonical_revision") != package.get("content_revision")
                 or authorization.get("source_sha256") != request.get("source_hash_sha256")):
             return False
+        query_packet = request.get('folder_query_packet')
+        if query_packet is not None:
+            from wiki_core.context_selection import digest
+            try:
+                valid_query = (isinstance(query_packet, dict)
+                        and query_packet.get('schema_version') == 'wiki.folder-query-task-context/v2'
+                        and query_packet.get('base_packet') == package
+                        and isinstance(query_packet.get('queries'), list)
+                        and 1 <= len(query_packet['queries']) <= 8
+                        and query_packet.get('packet_digest') == digest({k: v for k, v in query_packet.items() if k != 'packet_digest'}))
+            except (ValueError, TypeError, OverflowError, RecursionError):
+                return False
+            if not valid_query:
+                return False
         try:
             from wiki_core.folder_ingestion_v2 import ingestion_binding_for_authorization
             if package.get("ingestion_binding") != ingestion_binding_for_authorization(authorization):
@@ -697,6 +716,7 @@ def build_context_request(
     source_authorization: dict | None = None,
     independent_repo_content: str | None = None,
     independent_repo_additional_content: list[str] | None = None,
+    folder_query_packet: dict | None = None,
     context_root: Path | None = None,
 ) -> dict[str, object]:
     """Assemble the packet that the repo agent executes. Includes the chunk text,
@@ -713,6 +733,10 @@ def build_context_request(
     target_pages = target_pages or []
     source_hash = _source_hash(manifest)  # packet metadata (not part of the cache_key)
     folder_v2 = (block_context_package or {}).get("schema_version") == "wiki.folder-task-context/v2"
+    if folder_query_packet is not None and (not folder_v2 or not isinstance(folder_query_packet, dict)
+            or folder_query_packet.get('schema_version') != 'wiki.folder-query-task-context/v2'
+            or folder_query_packet.get('base_packet') != block_context_package):
+        raise ValueError('folder query packet must match the ingestion context')
     if folder_v2:
         from wiki_core.folder_ingestion_v2 import ingestion_binding_for_authorization
         if (block_context_package or {}).get("ingestion_binding") != ingestion_binding_for_authorization(source_authorization):
@@ -776,6 +800,10 @@ def build_context_request(
         if folder_v2 and source_authorization.get("source_kind") == "staged_raw":
             request["instructions"] += (" The staged RAW bytes are linked to the selected source page by caller declaration; "
                                         "external origin and freshness are not verified.")
+    if folder_query_packet is not None:
+        request['folder_query_packet'] = folder_query_packet
+        request['instructions'] += (" Interpret selected query evidence together with the source; "
+                                    "retain the selection when recording. Inclusion does not prove reading.")
     if independent_repo_content is not None:
         if not folder_v2 or not isinstance(source_authorization, dict) or "independent_repo_read" not in source_authorization:
             raise ValueError("independent repository content requires a bound folder authorization")

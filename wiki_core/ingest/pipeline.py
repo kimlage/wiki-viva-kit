@@ -133,6 +133,7 @@ def run(
     root_entity_ref: str | None = None,
     omit_root_entity: bool = False,
     folder_selection=None,
+    folder_queries=None,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -143,6 +144,8 @@ def run(
     source_guard = None
     try:
         request_limits(context_max_bytes, request_max_bytes)
+        if folder_queries is not None and folder_selection is None:
+            raise ContextRequestBlocked("folder_selection_required", "Folder queries require an explicit trusted folder selection.")
         if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
             raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
         if folder_selection is not None and policy_context is not None:
@@ -288,10 +291,12 @@ def run(
                 metrics["perspective_count"] = len(perspectives_required) + len(perspectives_optional)
             with _observed(observer, "llm_request", chunk_count=len(chunk_dicts)) as metrics:
                 if folder_selection is not None:
-                    from wiki_core.folder_ingestion_v2 import folder_ingestion_context
+                    from wiki_core.folder_ingestion_v2 import folder_ingestion_context, folder_ingestion_queries
                     context_package = folder_ingestion_context(root, source_guard, input_context,
                         perspectives_required, task_id=source_id, max_bytes=context_max_bytes)
+                    query_packet = folder_ingestion_queries(root, source_guard, context_package, folder_queries)
                 else:
+                    query_packet = None
                     context_package = ingestion_block_context(root, config, input_context,
                         perspectives_required, approved_revision=approved_revision, policy_context=policy_context,
                         task_id=source_id, context_max_bytes=context_max_bytes,
@@ -319,6 +324,7 @@ def run(
                     source_authorization=source_guard["authorization"] if source_guard else None,
                     independent_repo_content=source_guard.get("independent_repo_content") if source_guard else None,
                     independent_repo_additional_content=source_guard.get("independent_repo_additional_content") if source_guard else None,
+                    folder_query_packet=query_packet,
                     context_root=root,
                 )
                 metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
@@ -339,6 +345,9 @@ def run(
     if source_guard is not None and not blocked:
         try:
             revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+            if folder_queries is not None and request is not None:
+                from wiki_core.folder_ingestion_v2 import revalidate_folder_ingestion_queries
+                revalidate_folder_ingestion_queries(root, source_guard, context_package, folder_queries, query_packet)
             if folder_selection is not None:
                 from wiki_core.folder_ingestion_v2 import validate_folder_artifact_paths
                 validate_folder_artifact_paths(root, paths, source_id, stream=bool(stream_id), score=record_score)
