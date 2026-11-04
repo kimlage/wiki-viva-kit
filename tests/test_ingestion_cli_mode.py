@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
     ['--mode', 'v1', '--approved-revision', 'a' * 40],
     ['--mode', 'working-tree', '--approved-revision', 'a' * 40],
     ['--mode', 'working-tree', '--folder-context', 'a'],
+    ['--mode', 'working-tree', '--folder-queries', 'queries.json'],
     ['--mode', 'v1', '--approved-revision', 'a' * 40, '--policy-context', 'root',
      '--folder-context', 'a'],
 ])
