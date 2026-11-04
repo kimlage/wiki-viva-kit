@@ -51,7 +51,8 @@ def reassess_folder_source_v2(root, policy, *, folder, source, reports,
         index[key] = row
 
     inventory = inventory_folder_consumers_v2(root, policy, folder=folder, scope=scope,
-                    candidates=candidates, max_files=max_files, max_bytes=max_bytes)
+                    candidates=candidates, max_files=max_files, max_bytes=max_bytes,
+                    retain_unresolved_target=source if source.endswith('.md') else None)
     rows = []
     used = set()
     declared = set()

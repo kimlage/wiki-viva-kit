@@ -52,6 +52,28 @@ def test_unresolved_page_id_fails_without_cataloguing_bodies(project, monkeypatc
         inventory_folder_consumers_v2(project, policy, folder='a', candidates=['a/consumer.md'])
 
 
+def test_retaining_one_unresolved_literal_never_resolves_other_targets(project):
+    setup_consumers(project)
+    put(project, 'a/consumer.md', '''---
+information_requirements:
+  - target: a/missing.md
+    fields: ["*"]
+    temporal: current
+    max_age_days: 30
+---
+Consumer
+''')
+    commit(project)
+    policy = load_folder_policy_v2(project, 'HEAD')
+    args = dict(folder='a', candidates=['a/consumer.md'])
+    with pytest.raises(FolderConsumersError):
+        inventory_folder_consumers_v2(project, policy, **args)
+    out = inventory_folder_consumers_v2(project, policy, retain_unresolved_target='a/missing.md', **args)
+    assert out['consumers'][0]['requirements'][0]['target'] == 'a/missing.md'
+    with pytest.raises(FolderConsumersError):
+        inventory_folder_consumers_v2(project, policy, retain_unresolved_target='a/other.md', **args)
+
+
 def test_inventory_cli_uses_explicit_owner_and_reports_limited_coverage(project):
     import json
     import subprocess

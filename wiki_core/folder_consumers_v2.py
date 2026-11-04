@@ -19,13 +19,17 @@ class FolderConsumersError(ValueError):
 
 
 def inventory_folder_consumers_v2(root, policy, *, folder, scope=None, candidates=None,
-                                   max_files=256, max_bytes=1_000_000):
+                                   max_files=256, max_bytes=1_000_000,
+                                   retain_unresolved_target=None):
     """Inspect only explicitly selected paths or authorized owner metadata.
 
     Requirements are canonical declarations, not v2 receipts. Resolution is
     limited to exact tracked paths; page IDs and missing paths are not resolved
     by reading other pages. No cross-owner content or unbounded coverage is
     inferred. All candidate permissions and budgets are checked before reads.
+    ``retain_unresolved_target`` preserves one explicitly selected literal
+    Markdown target from an authorized consumer even when it cannot be
+    resolved in the tree. It does not resolve page IDs or authorize its read.
     """
     if getattr(policy, 'format_version', None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise FolderConsumersError('bound v2 policy required')
@@ -34,6 +38,10 @@ def inventory_folder_consumers_v2(root, policy, *, folder, scope=None, candidate
             or type(max_bytes) is not int or not 1 <= max_bytes <= 1_000_000):
         raise FolderConsumersError('bounded explicit paths or one scope required')
     try:
+        if retain_unresolved_target is not None:
+            retain_unresolved_target = safe_path(retain_unresolved_target)
+            if not retain_unresolved_target.endswith('.md'):
+                raise FolderConsumersError('unresolved target must be an exact Markdown path')
         context = policy.folder_ids[folder]
         reader = RepositoryReader(root, policy.policy_revision)
         if reader.invalid_paths:
@@ -78,7 +86,14 @@ def inventory_folder_consumers_v2(root, policy, *, folder, scope=None, candidate
                 path = safe_path(ref)
             except PolicyError:
                 return []
-            return [path] if path in reader.paths else []
+            if path in reader.paths:
+                return [path]
+            # Preserve one explicitly selected literal from an authorized
+            # consumer declaration. This does not grant access, resolve an ID,
+            # or claim that the unavailable target exists or is readable.
+            if path == retain_unresolved_target:
+                return [path]
+            return []
         consumers = []
         for path in paths:
             item = reader.read(path)
