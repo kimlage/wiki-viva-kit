@@ -218,8 +218,10 @@ those authorized pages, and returns Markdown for the exact output plus its
 current-source requirement. It does not use the global catalogue or FTS,
 write the output, record an observed read, perform preflight, merge or establish
 execution. The host needs authority for complete selected blobs. Source age is
-an explicit caller input and is not evaluated as factual freshness. Staged RAW
-remains blocked pending its current-byte and association fence.
+an explicit caller input and is not evaluated as factual freshness. The source
+guard rechecks the current source hash and authorization; for staged RAW, the
+approved source-page association is caller-selected and external origin and
+freshness remain unverified.
 
 ## Compare one reported source and consumer
 
