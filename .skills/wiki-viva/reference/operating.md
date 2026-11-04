@@ -32,11 +32,17 @@ python3 scripts/wiki_input_stage.py --ready
 
 ## 2. Ingest a source
 
+The folder-bound flow is the default for new work: start at the authorized
+context and follow [bounded ingestion](../../../docs/references/guides/bounded-ingestion.md#folder-bound-ingestion),
+then review its proposal, run folder preflight and integrate only under the
+project's authorization. The commands below use the explicit legacy v1 route;
+its global check does not establish folder-v2 closure.
+
 End-to-end orchestrator (manifest → text/chunks → index → secret pre-scan → LLM
 context package → score event):
 
 ```sh
-python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_ingest.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
 # Add --dry-run to compute without writing artifacts.
 ```
@@ -58,12 +64,12 @@ pages, the package includes root entity, input channel, inherited perspectives
 and target pages from the input stage.
 
 ```sh
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
 # ... you read the package and produce the result object/array ...
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --check
 ```
 
@@ -83,7 +89,7 @@ normalized event and the integration packet from the recorded deep read with
 [wiki_consolidate.py](../../../scripts/wiki_consolidate.py):
 
 ```sh
-python3 scripts/wiki_consolidate.py --source <source_id> --emit-event --packet
+python3 scripts/wiki_consolidate.py --mode v1 --source <source_id> --emit-event --packet
 # optional: --source-page <path> / --source-ref <page_id> of the canonical source page
 ```
 
@@ -111,9 +117,9 @@ Close the loop with the gates:
 
 ```sh
 python3 scripts/wiki_audit.py --check          # audit_consolidation: closed events, reverse refs, claims
-python3 scripts/wiki_consolidate.py --check    # fails while a deep-read-complete source is unintegrated (CI)
+python3 scripts/wiki_consolidate.py --mode v1 --check    # fails while a deep-read-complete source is unintegrated (CI)
 python3 scripts/wiki_quality_report.py --check # fails configured quality/hierarchy thresholds
-python3 scripts/wiki_consolidate.py --all-pending   # list what is still waiting
+python3 scripts/wiki_consolidate.py --mode v1 --all-pending   # list what is still waiting
 ```
 
 Only then does the source page get `ingestion_state: ingested` +
@@ -152,7 +158,7 @@ python3 scripts/wiki_operational_pass.py --check     # CI: fails if stale
 
 ```sh
 python3 scripts/wiki_audit.py --check
-python3 scripts/wiki_consolidate.py --check                  # every deep-read source integrated
+python3 scripts/wiki_consolidate.py --mode v1 --check                  # every deep-read source integrated
 python3 scripts/wiki_quality_report.py --check               # quality/hierarchy thresholds
 python3 scripts/wiki_check_methodology_coverage.py --check   # when methodology files changed
 python3 scripts/wiki_operation_compile.py --check
