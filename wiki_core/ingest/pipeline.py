@@ -174,6 +174,12 @@ def run(
             return _blocked_preparation(context, config, exc)
     source_id = str(manifest["source_id"])
     source_type = str(manifest["source_type"])
+    if folder_selection is not None:
+        try:
+            from wiki_core.folder_ingestion_v2 import validate_folder_artifact_paths
+            validate_folder_artifact_paths(root, paths, source_id, stream=bool(stream_id), score=record_score)
+        except (ValueError, OSError) as exc:
+            return _blocked_preparation(context, config, exc)
     warnings: list[str] = []
 
     src_path = source_path
@@ -188,6 +194,9 @@ def run(
             extracted = extract_source(source, source_type)
             metrics["text_characters"] = len(extracted.text)
         warnings = list(extracted.warnings)
+        if folder_selection is not None and warnings:
+            return _blocked_preparation(context, config,
+                ContextRequestBlocked("source_capture_incomplete", "Folder-bound capture has extraction warnings and cannot be recorded as complete."))
         target = int(config.llm.get("chunk_target_tokens", 1200))
         overlap = int(config.llm.get("chunk_overlap_tokens", 150))
         with _observed(
@@ -327,6 +336,9 @@ def run(
     if source_guard is not None and not blocked:
         try:
             revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+            if folder_selection is not None:
+                from wiki_core.folder_ingestion_v2 import validate_folder_artifact_paths
+                validate_folder_artifact_paths(root, paths, source_id, stream=bool(stream_id), score=record_score)
         except (ValueError, OSError) as exc:
             report = preparation_blocker(exc, source_id, config.owner_label)
             blockers.append(report["blocker"])

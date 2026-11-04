@@ -195,7 +195,8 @@ def approved_ingestion_inputs(root, config, guard, *, root_entity_ref=None, omit
             "entity_type": str(root_page["values"].get("root_entity_type") or root_page["page_type"]),
             "perspective_bundle": {"required": [], "optional": []}, "input_stage_page": ""})
     root_entity = _root_payload(root_page, root_config) if root_page else None
-    source_page = read_page(guard["ref"], "source") if guard["ref"] in reader.paths and guard["ref"].endswith(".md") else None
+    source_page_ref = guard.get("canonical_source_ref") or guard["ref"]
+    source_page = read_page(source_page_ref, "source") if source_page_ref in reader.paths and source_page_ref.endswith(".md") else None
     source_config = None
     config_ref = (source_page or {}).get("values", {}).get("config_ref")
     if config_ref:
@@ -411,13 +412,52 @@ def result_matches_request(result: object, request: dict, row: dict, *, recordin
     its original source/chunk IDs remain visible as the provenance of that read.
     New recordings must name the exact emitted source and chunk.
     """
-    # V2 ingestion is request preparation only until recording has its own
-    # fully revalidated contract; never accept a cached or unrequested result.
     if not isinstance(request, dict):
         return False
     package = request.get("block_context_package")
-    if (request.get("context_binding_version") not in (None, 1)
-            or (isinstance(package, dict) and package.get("schema_version") == "wiki.folder-task-context/v2")):
+    version = request.get("context_binding_version")
+    schema = package.get("schema_version") if isinstance(package, dict) else None
+    authorization = request.get("source_authorization")
+    if version == 2:
+        if (schema != "wiki.folder-task-context/v2" or not isinstance(authorization, dict)
+                or authorization.get("version") != "folder/v2"
+                or authorization.get("folder") != package.get("context_folder")
+                or authorization.get("context_id") != package.get("context_id")
+                or authorization.get("policy_revision") != package.get("policy_revision")
+                or authorization.get("canonical_revision") != package.get("content_revision")
+                or authorization.get("source_sha256") != request.get("source_hash_sha256")):
+            return False
+        kind = authorization.get("source_kind")
+        if kind == "git":
+            if (authorization.get("source_revision") != package.get("content_revision")
+                    or authorization.get("canonical_ref") != authorization.get("ref")
+                    or authorization.get("canonical_sha256") != authorization.get("source_sha256")
+                    or authorization.get("association") != "git_blob_verified"):
+                return False
+        elif kind == "staged_raw":
+            if (authorization.get("source_revision") is not None
+                    or authorization.get("canonical_ref") == authorization.get("ref")
+                    or authorization.get("association") != "caller_selected_unverified"
+                    or authorization.get("external_origin_verification") != "not_verified"
+                    or authorization.get("external_freshness") != "not_verified"):
+                return False
+        else:
+            return False
+        inputs = package.get("inputs")
+        selected = [item for item in inputs if isinstance(item, dict) and item.get("kind") == "evidence"
+                    and item.get("path") == authorization.get("canonical_ref")
+                    and item.get("revision") == authorization.get("canonical_revision")
+                    and item.get("document_sha256") == authorization.get("canonical_sha256")
+                    and item.get("producer_context") == authorization.get("canonical_producer")
+                    and item.get("section") is None and item.get("field") is None
+                    and item.get("use") == "interpretation" and item.get("classification") == "source"] if isinstance(inputs, list) else []
+        origin = authorization.get("source_origin")
+        provenance = row.get("provenance") if isinstance(row, dict) else None
+        if (len(selected) != 1 or not isinstance(origin, dict) or not isinstance(provenance, dict)
+                or origin.get("kind") != "repository_path" or origin.get("locator") != authorization.get("ref")
+                or not origin.get("id") or provenance.get("origin_id") != origin.get("id")):
+            return False
+    elif version not in (None, 1) or schema == "wiki.folder-task-context/v2":
         return False
     if not isinstance(result, dict) or not isinstance(row, dict):
         return False
@@ -435,7 +475,7 @@ def result_matches_request(result: object, request: dict, row: dict, *, recordin
         if request.get(field) is not None and result.get(field) != request[field]:
             return False
     bound = row.get("context_sha256")
-    if (request.get("context_binding_version") == 1 or result.get("context_sha256") is not None) and bound is None:
+    if (version in (1, 2) or result.get("context_sha256") is not None) and bound is None:
         return False
     if bound is not None:
         if (not isinstance(row.get("text"), str)
@@ -458,9 +498,18 @@ def result_matches_request(result: object, request: dict, row: dict, *, recordin
     return True
 
 
+def result_cache_for_request(cache_dir: Path, request: dict) -> Path:
+    """Keep folder-v2 recordings distinct from legacy/unrequested results."""
+    return Path(cache_dir) / 'folder-v2' if request.get('context_binding_version') == 2 else Path(cache_dir)
+
+
 def read_matching_result(cache_dir: Path, request: dict, row: dict) -> dict | None:
     key = row.get("cache_key") if isinstance(row, dict) else None
-    result = read_result(cache_dir, key) if isinstance(key, str) else None
+    selected_cache = result_cache_for_request(cache_dir, request)
+    if request.get('context_binding_version') == 2 and (
+            selected_cache.is_symlink() or (isinstance(key, str) and result_path(selected_cache, key).is_symlink())):
+        return None
+    result = read_result(selected_cache, key) if isinstance(key, str) else None
     return result if result_matches_request(result, request, row) else None
 
 
@@ -650,7 +699,8 @@ def build_context_request(
             "The agent running the repo performs the deep read of each chunk with "
             "result_exists=false and produces an object matching result_required_keys "
             "(cache_key = the chunk's). "
-            + ("This folder preview prepares a request only; result recording and integration are not available. "
+            + ("Record with the same authorized source, approved revision, folder selection and byte limits; "
+               "the caller must rebuild and revalidate the current folder-bound request. "
                if folder_v2 else
                "Record with the same explicit authorized source, approved revision, "
                "policy context and byte limits using the approved command in the prompt. "
@@ -662,6 +712,9 @@ def build_context_request(
 
     if source_authorization is not None:
         request["source_authorization"] = source_authorization
+        if folder_v2 and source_authorization.get("source_kind") == "staged_raw":
+            request["instructions"] += (" The staged RAW bytes are linked to the selected source page by caller declaration; "
+                                        "external origin and freshness are not verified.")
 
     for chunk in chunks:
         source_id = chunk.get("source_id", manifest.get("source_id"))

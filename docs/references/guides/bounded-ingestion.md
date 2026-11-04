@@ -120,20 +120,22 @@ explicitly labelled compatibility. Historical envelopes remain inspectable;
 new requests bind the explicit limits as well as the delivered interpretation
 context. Compatibility is not evidence of approved policy or source freshness.
 
-## Experimental folder-bound request preparation
+## Experimental folder-bound ingestion
 
-A trusted local coordinator can explicitly select a context folder, its index
-and the intended output path while preparing an ingestion request:
+A trusted local coordinator configures the host root and allowed folders at
+startup, then explicitly selects a folder, its index and intended output:
 
 ```sh
-python3 scripts/wiki_ingest.py --root . --source SOURCE --context SOURCE_CONTEXT \\
+WIKI_FOLDER_INGEST_HOST_ROOT="$(pwd)" WIKI_FOLDER_INGEST_HOST_FOLDERS="FOLDER" \\
+  python3 scripts/wiki_ingest.py --root . --source SOURCE --context SOURCE_CONTEXT \\
   --approved-revision APPROVED_SHA --folder-context FOLDER \\
   --folder-index INDEX --folder-output OUTPUT --dry-run
 ```
 
 All four folder-mode selections are required and cannot be combined with the v1
-`--policy-context`. The caller constructs the local host binding; a flag is not
-an access grant or actor authentication. The host needs actual permission to
+`--policy-context`. The trusted host supplies the root and folder allowlist
+separately from the request; a flag or environment variable is not an access
+grant or actor authentication. The host needs actual permission to
 read the complete source and context files. The source must be a staged local
 file; files inside independent Git repositories require explicit repository
 selection, not this wiki ingestion path. The approved Git context is pinned to
@@ -144,12 +146,21 @@ The local caller must maintain cooperative custody of the staged source and
 repository configuration during preparation; path checks and hash fences do
 not provide a filesystem compare-and-swap against concurrent writers.
 
-This experimental route prepares a folder-v2 request; it does not run a model,
-record a result, migrate receipts or integrate memory. Its distinct binding
-version cannot consume existing v1 cache results. V2 recording remains blocked
-until a separate revalidation contract is implemented; existing v1 and
-working-tree compatibility paths remain unchanged. A known context omission
-blocks preparation rather than silently dropping v1 coverage obligations.
+This experimental route prepares a folder-v2 request without running a model.
+For a Git-tracked UTF-8 source, staged bytes must match the approved revision;
+the request binds origin, path, revision, hash and whole-source evidence.
+For a staged Gitignored RAW file, add `--folder-source-ref SOURCE_PAGE`, an
+authorized, approved `source` page with a platform and source locator. The
+request binds the approved source page to the local path, hash, origin ID and
+chunks as a **caller-selected, unverified association**. It records no Git
+revision for the RAW, and external origin and freshness remain `not_verified`;
+this does not prove that the local copy matches the provider's object. A RAW
+source without that explicit page is blocked. Non-UTF-8 tracked Git sources
+need a separately qualified provenance adapter.
+Its distinct binding version cannot consume existing v1 cache results.
+Existing v1 and working-tree compatibility paths remain unchanged. A known
+context omission blocks preparation rather than silently dropping v1 coverage
+obligations.
 Only a new, currently absent Markdown output in the selected context is
 accepted; existing or untracked work, indexes and instruction files are not
 valid destinations in this preview. Existing outputs require a prior complete
@@ -157,6 +168,16 @@ read and a separately supported result contract.
 Required perspectives must currently be explicit authorized paths; unqualified
 page IDs require a separate authorized resolution. The selection does not prove
 a native session was started in that folder or provide filesystem isolation.
+
+After a human or authorized agent actually performs the reading, record its
+result with `scripts/wiki_llm_context_pass.py` using the same source, approved
+revision, folder/index/output, byte limits and trusted host binding, plus
+`--record-result RESULT.json`. The command rebuilds the current request and
+checks source hash and authority again and recomputes the deterministic
+extraction and chunks before writing to a separate `folder-v2`
+cache namespace. A legacy unrequested entry cannot satisfy that namespace. A matching recorded
+result remains a report, not proof that a reading occurred. It does not create
+a v2 task-result receipt, integrate canonical memory or bypass a PR gate.
 
 ## Recoverable blockers
 

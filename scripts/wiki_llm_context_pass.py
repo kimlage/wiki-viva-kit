@@ -47,7 +47,7 @@ from wiki_core.llm.context_pass import (result_matches_request, ingestion_block_
     DEFAULT_CONTEXT_MAX_BYTES, DEFAULT_REQUEST_MAX_BYTES, ContextRequestBlocked,
     canonical_request_text, enforce_request_budget, preparation_blocker, request_limits,
     authorize_ingestion_source, revalidate_ingestion_source, approved_ingestion_inputs,
-    require_approved_prompt_version)
+    require_approved_prompt_version, result_cache_for_request)
 from wiki_core.paths import WikiPaths
 from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest, resolve_source_manifest
@@ -70,13 +70,22 @@ def _source_artifact(path: Path, schema: str, source_id: str) -> dict[str, objec
     return data
 
 
-def _chunks_for_source(paths: WikiPaths, manifest: dict[str, object]) -> list[dict[str, object]]:
+def _chunks_for_source(paths: WikiPaths, manifest: dict[str, object], *, require_complete_origin: bool = False) -> list[dict[str, object]]:
     source_id = str(manifest["source_id"])
     if manifest.get("exists") is False:
         raise ValueError("source_not_found: extract the requested source before checking it")
+    if require_complete_origin:
+        from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+        _check_local_boundaries(Path(paths.root), (paths.chunks / f"{source_id}.json").relative_to(paths.root).as_posix())
     data = _source_artifact(paths.chunks / f"{source_id}.json", "wiki_chunks.v1", source_id)
     if "source_hash_sha256" not in data or data["source_hash_sha256"] != manifest.get("hash_sha256"):
         raise ValueError("source_artifact_hash: chunks do not match the requested source")
+    if require_complete_origin:
+        origin = manifest.get("source_origin")
+        if (not isinstance(origin, dict) or not origin.get("id")
+                or data.get("source_origin_id") != origin["id"]
+                or data.get("extraction_complete") is not True):
+            raise ValueError("source_artifact_origin: folder mode needs a complete origin-bound capture")
     chunks = data.get("chunks")
     if not isinstance(chunks, list):
         raise ValueError("source_chunks_schema: an explicit chunks array is required")
@@ -97,6 +106,8 @@ def _chunks_for_source(paths: WikiPaths, manifest: dict[str, object]) -> list[di
     # The ingestion pipeline legitimately writes chunks=[] and no LLM request
     # for empty input. Extraction failures also produce zero chunks, so require
     # the retained extraction observation before accepting this empty result.
+    if require_complete_origin:
+        _check_local_boundaries(Path(paths.root), (paths.source_text / f"{source_id}.json").relative_to(paths.root).as_posix())
     extracted = _source_artifact(paths.source_text / f"{source_id}.json", "wiki_extracted_text.v1", source_id)
     warnings = extracted.get("warnings")
     units = extracted.get("units")
@@ -180,14 +191,17 @@ def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
 
 def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: bool = False,
                     current_request: dict | None = None, limits: dict | None = None, owner: str = "Context owner/integrator", before_write=None) -> int:
-    if current_request is not None and current_request.get("context_binding_version") == 2:
-        return _blocked(ContextRequestBlocked("folder_result_recording_unavailable", "Folder-bound result recording requires its own revalidation contract; this preview only prepares requests."),
+    current_package = (current_request or {}).get("block_context_package") or {}
+    current_schema = current_package.get("schema_version") if isinstance(current_package, dict) else None
+    if current_schema == "wiki.folder-task-context/v2" and (
+            current_request.get("context_binding_version") != 2 or allow_unrequested or not callable(before_write)):
+        return _blocked(ContextRequestBlocked("approved_context_revalidation_required", "Folder-bound recording requires the exact current request and a source revalidation fence."),
                         str(current_request.get("source_id") or "source-context-pass"), owner)
     raw = sys.stdin.read() if payload_path == "-" else Path(payload_path).read_text(encoding="utf-8")
     data = json.loads(raw)
     results = data if isinstance(data, list) else [data]
     retained_sizes = {}
-    approved_current = current_request is not None and current_request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1"
+    approved_current = current_schema in ("wiki.task-context/v1", "wiki.folder-task-context/v2")
     source_id = str(current_request.get("source_id") or "") if approved_current else None
     requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes, source_id=source_id)
     limits = limits or request_limits()
@@ -218,9 +232,6 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
         matching = [request for request in requests if any(row.get("cache_key") == key
                     for row in request["chunks"] if isinstance(row, dict))]
         for request in matching:
-            if request.get("context_binding_version") == 2 or request.get("block_context_package", {}).get("schema_version") == "wiki.folder-task-context/v2":
-                return _blocked(ContextRequestBlocked("folder_result_recording_unavailable", "Folder-bound result recording requires its own revalidation contract; this preview only prepares requests."),
-                                str(request.get("source_id") or "source-context-pass"), owner)
             retained_limits = request.get("request_limits")
             if retained_limits is not None and retained_limits != limits:
                 return _blocked(ContextRequestBlocked("request_limits_changed", "Re-emit the request under the current explicit byte budgets before recording."),
@@ -229,8 +240,12 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             if retained_sizes[id(request)] > limits["request_max_bytes"] or context_bytes > limits["context_max_bytes"]:
                 return _blocked(ContextRequestBlocked("retained_request_exceeds_budget", "The retained request exceeds the current byte budget; choose a smaller stage and re-emit before recording."),
                                 str(request.get("source_id") or "source-context-pass"), owner)
-            if request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1":
-                if current_request is None or current_request.get("block_context_package", {}).get("schema_version") != "wiki.task-context/v1":
+            retained_schema = request.get("block_context_package", {}).get("schema_version")
+            if retained_schema in ("wiki.task-context/v1", "wiki.folder-task-context/v2"):
+                if (current_request is None or current_schema != retained_schema
+                        or (retained_schema == "wiki.folder-task-context/v2"
+                            and (request.get("context_binding_version") != 2
+                                 or current_request.get("context_binding_version") != 2 or not callable(before_write)))):
                     return _blocked(ContextRequestBlocked("approved_context_revalidation_required", "Record approved results with the explicit source, approved revision and policy context so current authority can be revalidated."),
                                     str(request.get("source_id") or "source-context-pass"), owner)
         if current_request is not None and not any(result_matches_request(result, current_request, row, recording=True)
@@ -246,7 +261,13 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
         try:
             if before_write is not None:
                 before_write()
-            out = write_result(paths.llm_cache, result)
+            cache_dir = result_cache_for_request(paths.llm_cache, current_request) if current_request else paths.llm_cache
+            if current_schema == "wiki.folder-task-context/v2":
+                from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+                _check_local_boundaries(Path(paths.root), cache_dir.relative_to(paths.root).as_posix())
+                if cache_dir.is_symlink() or (cache_dir / (key + '.json')).is_symlink():
+                    raise ValueError('folder cache symlink unavailable')
+            out = write_result(cache_dir, result)
         except (ValueError, OSError) as exc:
             if before_write is not None:
                 return _blocked(exc, str(current_request.get("source_id") or "requested-input"), owner)
@@ -273,6 +294,10 @@ def main() -> int:
     parser.add_argument("--profile")
     parser.add_argument("--approved-revision", help="Trusted local caller supplies current approved policy commit; this is not a remote access grant.")
     parser.add_argument("--policy-context", help="Explicit manifest context for the approved-policy adapter.")
+    parser.add_argument("--folder-context", help="Exact folder selected under the trusted host binding.")
+    parser.add_argument("--folder-index", help="Explicit authorized context index.")
+    parser.add_argument("--folder-output", help="Concrete authorized proposal output.")
+    parser.add_argument("--folder-source-ref", help="Approved source page explicitly associated with staged RAW.")
     parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
     parser.add_argument("--request-max-bytes", type=int, default=DEFAULT_REQUEST_MAX_BYTES)
     business_root = parser.add_mutually_exclusive_group()
@@ -301,6 +326,16 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.root.resolve()
+    folder_values = (args.folder_context, args.folder_index, args.folder_output)
+    folder_selection = None
+    if any(value is not None for value in folder_values) or args.folder_source_ref is not None:
+        if not all(folder_values) or not args.approved_revision or args.policy_context is not None:
+            parser.error("folder mode requires approved-revision, folder-context, folder-index and folder-output; policy-context is v1 only")
+        from wiki_core.folder_ingestion_v2 import selection_from_host_environment
+        try:
+            folder_selection = selection_from_host_environment(args.folder_context, args.folder_index, args.folder_output, args.folder_source_ref)
+        except ValueError:
+            parser.error("invalid folder selection")
     config = load_config(root)
     paths = WikiPaths(root, config)
     try:
@@ -341,7 +376,12 @@ def main() -> int:
     if args.source:
         if args.approved_revision is not None:
             try:
-                source_guard = authorize_ingestion_source(root, args.source, args.approved_revision, args.policy_context)
+                if folder_selection is not None:
+                    from wiki_core.folder_ingestion_v2 import authorize_folder_ingestion_source
+                    source_guard = authorize_folder_ingestion_source(root, args.source, args.approved_revision,
+                        folder_selection, context_max_bytes=args.context_max_bytes)
+                else:
+                    source_guard = authorize_ingestion_source(root, args.source, args.approved_revision, args.policy_context)
             except (ValueError, OSError) as exc:
                 return _blocked(exc, "requested-input", config.owner_label)
         source = str(source_guard["path"]) if source_guard else args.source
@@ -351,7 +391,8 @@ def main() -> int:
         try:
             if source_guard is None:  # Approved callers use the exact origin-qualified artifact ID.
                 manifest = resolve_source_manifest(manifest, paths.source_manifests, paths.chunks, root=root)
-            chunks = _chunks_for_source(paths, manifest)
+            chunks = (_chunks_for_source(paths, manifest, require_complete_origin=True)
+                      if folder_selection is not None else _chunks_for_source(paths, manifest))
         except ValueError as exc:
             if source_guard is not None:
                 return _blocked(ContextRequestBlocked("source_capture_required", "The exact authorized capture is unavailable; run canonical ingestion with this source, current approval/context and explicit limits before requesting a pass."),
@@ -372,6 +413,9 @@ def main() -> int:
             return 2
         try:
             if source_guard is not None:
+                if folder_selection is not None:
+                    from wiki_core.folder_ingestion_v2 import revalidate_folder_capture
+                    revalidate_folder_capture(source_guard, manifest, chunks, config)
                 revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
                 source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=args.root_entity_ref, omit_root_entity=args.omit_root_entity)
             else:
@@ -404,6 +448,15 @@ def main() -> int:
         root_optional=list(input_context.get("perspectives_optional") or []),
     )
     try:
+        if folder_selection is not None:
+            from wiki_core.folder_ingestion_v2 import folder_ingestion_context
+            context_package = folder_ingestion_context(root, source_guard, input_context, perspectives_required,
+                task_id=str(manifest.get("source_id") or "source-context-pass"), max_bytes=args.context_max_bytes)
+        else:
+            context_package = ingestion_block_context(root, config, input_context,
+                perspectives_required, approved_revision=args.approved_revision, policy_context=args.policy_context,
+                task_id=str(manifest.get("source_id") or "source-context-pass"), context_max_bytes=args.context_max_bytes,
+                content_revision=source_guard["reader"].revision if source_guard else "HEAD")
         request = build_context_request(
             manifest,
             chunks,
@@ -422,10 +475,7 @@ def main() -> int:
             quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
             target_pages=list(input_context.get("target_pages") or []),
             input_stage_status=str(input_context.get("input_stage_status") or ""),
-            block_context_package=ingestion_block_context(root, config, input_context,
-                perspectives_required, approved_revision=args.approved_revision, policy_context=args.policy_context,
-                task_id=str(manifest.get("source_id") or "source-context-pass"), context_max_bytes=args.context_max_bytes,
-                content_revision=source_guard["reader"].revision if source_guard else "HEAD"),
+            block_context_package=context_package,
             context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes,
             source_authorization=source_guard["authorization"] if source_guard else None,
         )

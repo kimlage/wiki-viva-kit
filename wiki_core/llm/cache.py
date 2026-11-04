@@ -28,7 +28,11 @@ def cache_key(
 
 
 def cache_summary(cache_dir: Path) -> dict[str, object]:
-    files = sorted(cache_dir.glob("*.json"))
+    folder_cache = cache_dir / "folder-v2"
+    files = list(cache_dir.glob("*.json"))
+    if not folder_cache.is_symlink():
+        files.extend(path for path in folder_cache.glob("*.json") if not path.is_symlink())
+    files.sort()
     prompt_versions: dict[str, int] = {}
     schema_versions: dict[str, int] = {}
     for path in files:
