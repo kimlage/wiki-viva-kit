@@ -11,10 +11,67 @@ from wiki_core.folder_packet_v2 import build_folder_packet_v2
 from wiki_core.folder_policy_v2 import FORMAT
 from wiki_core.repository_reader import RepositoryReader
 from wiki_core.folder_auxiliary_v2 import qualify_auxiliary
+from wiki_core.information_relations import information_requirements
 
 
 class FolderIntegrationError(ValueError):
     pass
+
+
+def _check_current_requirements(prior, document, path, status, packet, approved):
+    """Bound a narrow declaration subset to current, explicitly reported inputs.
+
+    This does not establish that a report was executed or that a source is
+    factually fresh, and does not migrate any v1 receipt or historical query.
+    """
+    absent = object()
+    old = prior['frontmatter'].get('information_requirements', absent) if prior else absent
+    new = document['frontmatter'].get('information_requirements', absent)
+    if old is absent and new is absent:
+        return 0
+    if status == 'M' and old != new:
+        raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+    if status not in ('A', 'M') or (status == 'M' and not prior):
+        raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+    if not isinstance(new, list):
+        raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+    if not new:
+        return 0
+    try:
+        requirements = information_requirements(document['frontmatter'],
+                    lambda ref: [ref] if isinstance(ref, str) and ref in approved.paths else [])
+    except (ValueError, TypeError):
+        raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
+    evidence = [row for row in packet['inputs'] if row['kind'] == 'evidence']
+    seen = set()
+    for req in requirements:
+        if (req['temporal'] != 'current' or req['target'] == path
+                or any(name in req for name in ('query', 'members_digest', 'selected_digest',
+                                                'query_policy_revision', 'authority_digest', 'source_kind'))
+                or (status == 'A' and 'consumed_revision' not in req)
+                or ('consumed_revision' in req and req['consumed_revision'] != approved.revision)):
+            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+        for selector in req['fields']:
+            if selector == '*':
+                section, field = None, None
+            elif selector.startswith('field:'):
+                section, field = None, selector.removeprefix('field:')
+            elif selector.startswith('section:'):
+                section, field = selector.removeprefix('section:'), None
+            else:
+                raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+            key = (req['target'], section, field)
+            if key in seen:
+                raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+            seen.add(key)
+            matches = [row for row in evidence if row['path'] == req['target']
+                       and row.get('section') == section and row.get('field') == field
+                       and row['revision'] == approved.revision
+                       and row['use'] == req.get('use', 'interpret')
+                       and row['classification'] == req.get('classification', 'internal')]
+            if len(matches) != 1:
+                raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+    return len(seen)
 
 
 def _rebuild(root, policy, packet):
@@ -117,6 +174,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result):
         raise FolderIntegrationError('reported changes differ from proposal')
     # Establish authority and boundary changes from Git metadata before any
     # proposal body is read. Existing output needs an exact prior full read.
+    covered_requirements = 0
     for path, status in statuses.items():
         if status in ('M', 'D'):
             prior_reads = [row for row in packet['inputs'] if row['kind'] == 'evidence' and row['path'] == path
@@ -145,20 +203,24 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result):
             document = proposed.read(path)
             if contains_access_secrets(document['text']):
                 raise FolderIntegrationError('secret detected in proposed content')
-            if document['frontmatter'].get('information_requirements') or (prior and prior['frontmatter'].get('information_requirements')):
-                raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+            covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved)
             if (PurePosixPath(path).suffix != '.md' or document['frontmatter'].get('page_type') != 'claim'
                     or (prior and prior['frontmatter'].get('page_type') != 'claim')):
                 raise FolderIntegrationError('ambiguous or normative change requires separate review')
-        elif prior and prior['frontmatter'].get('information_requirements'):
+        elif prior and 'information_requirements' in prior['frontmatter']:
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
         elif not prior or PurePosixPath(path).suffix != '.md' or prior['frontmatter'].get('page_type') != 'claim':
             raise FolderIntegrationError('ambiguous or normative change requires separate review')
     policy.fresh()
     if _git(root, 'rev-parse', '--verify', 'refs/heads/' + branch + '^{commit}').decode().strip() != proposed.revision:
         raise FolderIntegrationError('proposal branch moved')
-    return {'schema_version': 'wiki.folder-preflight/v2', 'state': 'independent_review_required',
+    out = {'schema_version': 'wiki.folder-preflight/v2', 'state': 'independent_review_required',
             'policy_revision': policy.policy_revision, 'base': approved.revision, 'head': proposed.revision,
             'branch': branch, 'context_id': packet['context_id'], 'packet_digest': packet['packet_digest'],
             'changes': changes, 'review': 'not_performed', 'gates': 'not_performed', 'merge': 'not_performed',
             'read_coverage': 'reported_not_independently_verified', 'enforcement_claim': 'none'}
+    if covered_requirements:
+        out['requirements_handling'] = {'coverage': 'explicit_current_reported_selections_only',
+              'count': covered_requirements, 'freshness': 'not_assessed',
+              'legacy_receipt_migration': 'not_performed'}
+    return out

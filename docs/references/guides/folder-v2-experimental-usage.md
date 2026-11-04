@@ -127,10 +127,19 @@ The preflight reconstitutes the packet, checks the exact ref and proposed diff,
 and requires an exact whole prior read for every changed or deleted existing
 output. It blocks changes to instructions, skills, indexes and controls for
 separate review. This limited candidate only accepts Markdown explicitly marked
-`page_type: claim`; other or ambiguous types and existing/new
-`information_requirements` fail closed pending their own integration. It reports
-independent review required, not review performed. It cannot establish semantic
-completeness or actual tool isolation.
+`page_type: claim`; other or ambiguous types fail closed. A new claim may declare
+simple current requirements only when each pins the approved Git revision and
+matches exactly one explicitly reported packet input, including its selector,
+use and classification. An existing claim may retain unchanged requirements
+under the same matching rule; changing or deleting those declarations is blocked.
+Historical, query, normative and unsupported selectors remain blocked. Omitted
+use/classification follow `interpret`/`internal`, and declared revision pins must
+match the selected current evidence. Any covered result explicitly reports that
+freshness was not assessed and legacy receipt migration was not performed.
+
+The preflight reports independent review required, not review performed. A
+reported read does not establish execution or factual freshness; it cannot
+establish semantic completeness or actual tool isolation.
 
 ## Bounded current-revision queries
 
