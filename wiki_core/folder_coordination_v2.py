@@ -39,8 +39,8 @@ class FolderHostBinding:
             raise ValueError('bounded host folders required')
         try:
             folders = tuple(safe_path(value, allow_root=True) for value in self.folders)
-        except (ValueError, TypeError) as exc:
-            raise ValueError('invalid host folder binding') from exc
+        except (ValueError, TypeError):
+            raise ValueError('invalid host folder binding') from None
         if folders != self.folders or len(set(folders)) != len(folders):
             raise ValueError('invalid host folder binding')
         object.__setattr__(self, 'root', root.resolve())
@@ -66,8 +66,8 @@ def _bound_policy(root, binding, folder, approved):
         if folder not in policy.folder_ids:
             raise ValueError('folder unavailable')
         return policy
-    except (ValueError, OSError, KeyError, TypeError) as exc:
-        raise FolderCoordinationError('approved folder policy unavailable') from exc
+    except (ValueError, OSError, KeyError, TypeError):
+        raise FolderCoordinationError('approved folder policy unavailable') from None
 
 
 def _output_authorized(policy, folder, output):
@@ -120,6 +120,8 @@ def prepare_folder_packet(root, binding, payload):
     required = {'folder', 'approved_revision', 'content_revision', 'task'}
     if not isinstance(payload, dict) or set(payload) != required:
         raise FolderCoordinationError('invalid request')
+    if contains_access_secrets(payload):
+        raise FolderCoordinationError('invalid request')
     policy = _bound_policy(root, binding, payload['folder'], payload['approved_revision'])
     task = payload['task']
     keys = {'index_path', 'task_id', 'goal', 'output', 'integrator', 'max_bytes', 'evidence'}
@@ -143,14 +145,16 @@ def prepare_folder_packet(root, binding, payload):
                 'packet': packet, 'enforcement_claim': 'none'}
     except FolderCoordinationError:
         raise
-    except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
-        raise FolderCoordinationError('folder packet unavailable') from exc
+    except (ValueError, OSError, KeyError, TypeError, AttributeError):
+        raise FolderCoordinationError('folder packet unavailable') from None
 
 
 def prepare_folder_preflight(root, binding, payload):
     """Preflight an exact v2 proposal, without approving, merging or executing."""
     required = {'folder', 'approved_revision', 'base', 'head', 'branch', 'packet', 'result'}
     if not isinstance(payload, dict) or set(payload) != required:
+        raise FolderCoordinationError('invalid request')
+    if contains_access_secrets(payload):
         raise FolderCoordinationError('invalid request')
     policy = _bound_policy(root, binding, payload['folder'], payload['approved_revision'])
     try:
@@ -190,5 +194,5 @@ def prepare_folder_preflight(root, binding, payload):
                 'preflight': outcome, 'enforcement_claim': 'none'}
     except FolderCoordinationError:
         raise
-    except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
-        raise FolderCoordinationError('folder preflight unavailable') from exc
+    except (ValueError, OSError, KeyError, TypeError, AttributeError):
+        raise FolderCoordinationError('folder preflight unavailable') from None

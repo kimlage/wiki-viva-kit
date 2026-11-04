@@ -198,3 +198,41 @@ def test_v1_result_is_rejected_before_preflight_replays_packet(project, monkeypa
     monkeypatch.setattr(RepositoryReader, 'read', spy)
     with pytest.raises(FolderCoordinationError, match='folder result unavailable'):
         prepare_folder_preflight(project, binding, payload)
+
+
+def test_sensitive_selector_rejected_before_policy_load_without_traceback_leak(project, monkeypatch):
+    import traceback
+    import wiki_core.folder_coordination_v2 as module
+    task = request(project)
+    marker = 'synthetic-private-token-value'
+    task['task']['index_section'] = 'https://example.invalid/x?token=' + marker
+    def never(*args, **kwargs):
+        pytest.fail('policy loaded before secret check')
+    monkeypatch.setattr(module, 'load_folder_policy_v2', never)
+    with pytest.raises(FolderCoordinationError) as caught:
+        prepare_folder_packet(project, FolderHostBinding(project, ('a',)), task)
+    assert marker not in ''.join(traceback.format_exception(caught.value))
+
+
+def test_underlying_error_is_not_disclosed_in_packet_or_preflight_traceback(project, monkeypatch):
+    import traceback
+    import wiki_core.folder_coordination_v2 as module
+    binding = FolderHostBinding(project, ('a',))
+    task = request(project)
+    packet = prepare_folder_packet(project, binding, task)['packet']
+    marker = 'synthetic-sensitive-section-name'
+    task['task']['index_section'] = marker
+    with pytest.raises(FolderCoordinationError) as caught:
+        prepare_folder_packet(project, binding, task)
+    assert marker not in ''.join(traceback.format_exception(caught.value))
+
+    payload = {'folder': 'a', 'approved_revision': task['approved_revision'],
+               'base': task['approved_revision'], 'head': task['approved_revision'],
+               'branch': 'wiki/synthetic', 'packet': packet,
+               'result': {'schema_version': 'wiki.folder-task-result/v2'}}
+    def fail(*args, **kwargs):
+        raise ValueError(marker)
+    monkeypatch.setattr(module, 'preauthorize_index', fail)
+    with pytest.raises(FolderCoordinationError) as caught:
+        prepare_folder_preflight(project, binding, payload)
+    assert marker not in ''.join(traceback.format_exception(caught.value))
