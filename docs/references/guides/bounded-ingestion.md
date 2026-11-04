@@ -175,7 +175,11 @@ For an independent local Git repository, use a tracked wiki source page with
 `WIKI_FOLDER_INGEST_HOST_REPOSITORIES` as a JSON array of exact
 `[folder, absolute_repository_root, normalized_identity, path]` bindings.
 Select one with `--folder-repo ROOT IDENTITY FULL_REVISION PATH` on both
-preparation and result recording. The revision is a full immutable Git SHA.
+preparation and result recording. Repeat the option for up to 16 distinct,
+individually authorized paths from that same root, identity and revision; for
+example, explicitly select both `AGENTS.md` and the source file when both are
+needed. Instructions are never discovered or granted automatically. The
+revision is a full immutable Git SHA.
 The code reads local Git objects only and checks the configured `origin`;
 that identifies configuration and does not authenticate the remote. The
 selected text is present in the protected request as interpretation context,

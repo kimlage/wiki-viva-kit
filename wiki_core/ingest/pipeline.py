@@ -318,6 +318,7 @@ def run(
                     context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
                     source_authorization=source_guard["authorization"] if source_guard else None,
                     independent_repo_content=source_guard.get("independent_repo_content") if source_guard else None,
+                    independent_repo_additional_content=source_guard.get("independent_repo_additional_content") if source_guard else None,
                     context_root=root,
                 )
                 metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
