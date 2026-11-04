@@ -14,7 +14,7 @@ from wiki_core.folder_impact_v2 import _current_packet_authority, _preauthorize_
 from wiki_core.folder_packet_v2 import build_folder_packet_v2
 from wiki_core.folder_policy_v2 import FORMAT, _at_revision
 from wiki_core.folder_query_packet_v2 import build_folder_query_packet_v2, _query_observations
-from wiki_core.folder_query_v2 import _scope_authorized
+from wiki_core.folder_query_v2 import _authority
 from wiki_core.repo_read import contains_access_secrets
 from wiki_core.repository_reader import RepositoryReader
 
@@ -61,14 +61,14 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
             raise FolderQueryHistoryError('one explicit query id required')
         selected = ids.index(query_id)
         entry = entries[selected]
-        if any(item['target'] != index for item in entries) or base['context_id'] != context:
+        if base['context_id'] != context:
             raise FolderQueryHistoryError('query anchor or owner changed')
-        if target == index or any(within(target, item['query']['scope']) for item in entries):
+        if target == index or any(target == item['target'] or within(target, item['query']['scope']) for item in entries):
             raise FolderQueryHistoryError('output intersects query scope')
         # Establish current authority for the complete universe and output before
         # opening any historical instruction, index, source or output body.
         for item in entries:
-            _scope_authorized(policy, folder, item['query']['scope'], index)
+            _authority(policy, folder, item['query']['scope'], index, item['target'])
         if (policy.owner_of(target) != context or not policy.permits(context, 'read', target)
                 or not policy.permits(context, 'write', target)):
             raise FolderQueryHistoryError('current output authority unavailable')
@@ -82,7 +82,7 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
                 or not historical.permits(context, 'write', target) or not integrated.permits(context, 'write', target)):
             raise FolderQueryHistoryError('historical output authority unavailable')
         for item in entries:
-            _scope_authorized(historical, folder, item['query']['scope'], index)
+            _authority(historical, folder, item['query']['scope'], index, item['target'])
         _preauthorize_historical_replay(root, policy, base, folder, context, historical)
         # Only the internally bound ancestor is replayed. Its objects are never
         # returned, and the trusted current ref is checked again before return.

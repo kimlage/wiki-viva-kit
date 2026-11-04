@@ -365,7 +365,7 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None) -
     result = []
     for entry in raw:
         required = {'target', 'fields', 'temporal', 'max_age_days'}
-        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest','source_kind','query_contract','query_reason','query_id','query_receipt_digest'}):
+        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest','source_kind','query_contract','query_reason','query_id','query_receipt_digest','query_index'}):
             raise ValueError('information requirement needs target, fields, temporal, max_age_days')
         if (not isinstance(entry['target'], str) or not isinstance(entry['fields'], list)
                 or not entry['fields'] or len(entry['fields']) > 32
@@ -401,6 +401,13 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None) -
                         if version_keys else requirement_query(entry))
             normalized = normalize_query(selected)
             entry = {**entry, 'query': normalized['query']}
+        if 'query_index' in entry:
+            if not version_keys or not isinstance(entry['query_index'], str):
+                raise ValueError('query index requires a versioned query')
+            indexes = resolve(entry['query_index'])
+            if len(indexes) != 1:
+                raise ValueError('query index is missing or ambiguous')
+            entry = {**entry, 'query_index': indexes[0]}
         resolver = resolve_normative if entry.get('source_kind') == 'mandatory' and resolve_normative else resolve
         targets = resolver(entry['target'])
         if len(targets) != 1:

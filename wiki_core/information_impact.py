@@ -36,7 +36,9 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
             if 'query' not in req:
                 continue
             consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
+            index = req.get('query_index', anchor)
             if not (policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
+                    or index in changed or index in reached
                     or any(within(p, scope) for p in changed | reached)):
                 continue
             key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
