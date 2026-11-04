@@ -166,13 +166,11 @@ def prepare_folder_packet(root, binding, payload):
         _output_authorized(policy, folder, task['output'])
         preauthorize_index(policy, folder, task['index_path'])
         _preauthorize_evidence(binding.root, policy, folder, content, task['evidence'])
-        policy = policy.fresh()
         packet = build_folder_packet_v2(binding.root, policy, folder, task['max_bytes'],
                     content_revision=content, index_path=task['index_path'],
                     index_section=task.get('index_section'), task_id=task['task_id'],
                     goal=task['goal'], output=task['output'], integrator=task['integrator'],
                     evidence=task['evidence'], ingestion_binding=task.get('ingestion_binding'))
-        policy.fresh()
         return {'schema_version': 'wiki.folder-host-packet/v2', 'mode': 'host_bound',
                 'packet': packet, 'enforcement_claim': 'none'}
     except FolderCoordinationError:
