@@ -113,7 +113,7 @@ def test_bilateral_cross_owner_report_and_later_revocation(project,monkeypatch):
             'context_id':base['context_id'],'packet_digest':base['packet_digest'],'observed':observed,
             'changes':[{'path':'a/report.md','action':'created'}]}
     put(project,'a/report.md','---\ninformation_requirements:\n  - target: '+source+
-        '\n    fields: ["*"]\n    temporal: current\n    max_age_days: 30\n---\nSynthetic report\n');commit(project)
+        '\n    fields: ["*"]\n    temporal: current\n    max_age_days: 30\n    classification: synthetic\n---\nSynthetic report\n');commit(project)
     report={'target':'a/report.md','section':None,'field':None,'packet':base,'result':result}
     request={'folder':'a','approved_revision':git(project,'rev-parse','HEAD'),'source':source,
              'reports':[report],'candidates':['a/report.md']}
