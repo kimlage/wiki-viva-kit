@@ -138,7 +138,7 @@ def test_reported_review_requires_current_evidence_and_changed_output(repo):
 def test_cli_impact_is_finite_and_revision_bound(repo,tmp_path):
     before=git(repo,'rev-parse','HEAD'); after=update(repo,'<!-- wiki:section id=amount version=1 -->\n## Amount\nTwo\n')
     file=tmp_path/'inventory.json'; file.write_text(json.dumps(graph(before)))
-    cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',after,'impact','--graph',str(file),'--before',before,'--after',after,'--context','costs','--limit','1']
+    cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--mode','v1','--repo',str(repo),'--approved-revision',after,'impact','--graph',str(file),'--before',before,'--after',after,'--context','costs','--limit','1']
     out=json.loads(subprocess.check_output(cmd))
     assert out['policy_revision']==after and len(out['candidates'])==1
 
@@ -232,7 +232,7 @@ def test_markdown_requirement_flows_through_real_inventory_and_authorized_reader
     assert any(c['target']=='finance/costs/result.md' and c['state']=='review_pending' for c in out['candidates'])
     narrowed=assess_approved_impact(repo,policy(repo),consumers=['finance/costs/result.md'],before=before,after=after,destination_context='costs')
     assert [c['target'] for c in narrowed['candidates']]==['finance/costs/result.md']
-    cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',after,'impact','--consumer','finance/costs/result.md','--before',before,'--after',after,'--context','costs']
+    cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--mode','v1','--repo',str(repo),'--approved-revision',after,'impact','--consumer','finance/costs/result.md','--before',before,'--after',after,'--context','costs']
     assert json.loads(subprocess.check_output(cmd))['candidates']==narrowed['candidates']
 
 def test_requirements_derived_only_from_reported_verified_approved_output(repo):
@@ -246,7 +246,7 @@ def test_requirements_derived_only_from_reported_verified_approved_output(repo):
     validate(out,json.loads((BASE/'docs/references/schemas/wiki-context-requirements-v1.schema.json').read_text()))
     assert out['information_requirements']==[{'target':'finance/tax/source.md','fields':['section:amount'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'interpret','classification':'synthetic'}]
     packet_path=repo/'packet.json'; result_path=repo/'result.json'; packet_path.write_text(json.dumps(packet)); result_path.write_text(json.dumps(result))
-    cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',current.policy_revision,'requirements','--packet',str(packet_path),'--result',str(result_path),'--output','finance/costs/result.md','--proposal-head',head,'--temporal','current','--max-age-days','30']
+    cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--mode','v1','--repo',str(repo),'--approved-revision',current.policy_revision,'requirements','--packet',str(packet_path),'--result',str(result_path),'--output','finance/costs/result.md','--proposal-head',head,'--temporal','current','--max-age-days','30']
     assert json.loads(subprocess.check_output(cmd))==out
     missing={**result,'read_coverage':{'observed_refs':[],'missing':[]}}
     with pytest.raises(RequirementError,match='not reported read'): requirements_from_result(repo,current,**{**args,'result':missing})

@@ -19,8 +19,8 @@ To run this model, copy the entire example directory into a separate synthetic G
 Then run from the synthetic repository root, replacing `/path/to/wiki-viva-kit` with the kit checkout and `/tmp/request.json` with the actual request file:
 
 ```sh
-python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --repo . --approved-revision origin/main --manifest examples/context-hierarchy/context.yaml resolve finance/tax
-python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --repo . --approved-revision origin/main --manifest examples/context-hierarchy/context.yaml pack finance/tax --content-revision origin/main --request /tmp/request.json
+python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --mode v1 --repo . --approved-revision origin/main --manifest examples/context-hierarchy/context.yaml resolve finance/tax
+python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --mode v1 --repo . --approved-revision origin/main --manifest examples/context-hierarchy/context.yaml pack finance/tax --content-revision origin/main --request /tmp/request.json
 ```
 
 Packets include the selected context purpose, owner, root, lineage and scoped policy view, declared reads, selected bytes and digests, missing coverage and a canonical packet digest. The context view omits unapproved cross-context metadata and does not assert sandbox enforcement. `max_bytes` bounds the UTF-8 bytes of the complete canonical JSON packet, including metadata and digest; `bytes_used` is its exact size, and `selected_text_bytes` separately counts selected UTF-8 text. Overflow fails without truncation. This is a byte limit, not a model-token estimate. The existing secret detector checks selected text and returned metadata; detected access secrets block the packet without revealing their values. Personal data is not blocked merely for being personal. Dynamic queries are not yet supported; explicit read sets do not claim complete coverage. The task-result schema binds task and context IDs and packet digest; `validate_result` checks the binding and reported reads against the packet, but cannot independently prove an agent's claimed reading or changes.

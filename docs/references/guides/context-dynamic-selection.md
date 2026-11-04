@@ -1,5 +1,9 @@
 # Authorized dynamic collections
 
+This guide describes the v1 query/receipt contract and uses `--mode v1` on
+the context CLIs. The default folder-v2 query route is documented separately
+in [folder usage](folder-v2-experimental-usage.md); receipts are not converted.
+
 Dynamic selection uses the existing [repository reader](../../../wiki_core/repository_reader.py)
 and [task packet](../schemas/wiki-task-context-v1.schema.json). It builds no
 snapshot, persistent index, additional graph or background process. Exact evidence
@@ -120,9 +124,9 @@ Use [the finite flow CLI](../../../scripts/wiki_context_flow.py) for current
 revalidation or immediate one-hop review candidates:
 
 ```sh
-python3 scripts/wiki_context_flow.py --repo REPO --approved-revision APPROVED_SHA \
+python3 scripts/wiki_context_flow.py --mode v1 --repo REPO --approved-revision APPROVED_SHA \
   revalidate --context OWNER --consumer CONSUMER.md
-python3 scripts/wiki_context_flow.py --repo REPO --approved-revision APPROVED_SHA \
+python3 scripts/wiki_context_flow.py --mode v1 --repo REPO --approved-revision APPROVED_SHA \
   impact --context OWNER --consumer CONSUMER.md --before BEFORE_SHA --after AFTER_SHA
 ```
 

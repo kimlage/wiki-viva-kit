@@ -84,6 +84,27 @@ only the index or section authorized for its task, not an inherited global index
 
 ## Compose and preflight
 
+The primary entry points default to folders. Select the context index explicitly;
+the request contains the task fields and any exact evidence selectors:
+
+```sh
+python3 scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
+  resolve areas/example --index areas/example/index.md
+python3 scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
+  pack areas/example --index areas/example/index.md --content-revision CONTENT_SHA --request REQUEST.json
+python3 scripts/wiki_context_flow.py --repo . --approved-revision APPROVED_SHA \
+  preflight --folder areas/example --index areas/example/index.md --base APPROVED_SHA \
+  --head PROPOSAL_SHA --branch wiki/example --packet PACKET.json --result RESULT.json
+```
+
+`REQUEST.json` is an object with `task_id`, `goal`, `output`, `integrator`,
+`max_bytes`, optional `evidence` and optional bounded `queries`. The folder and
+index must match the packet at preflight. A v1 packet cannot be relabelled or
+silently migrated. Use `--mode v1` explicitly on the same CLIs for their
+legacy manifest, IDs and result contracts; see [v1 reading](context-reader.md)
+and [v1 impact](context-impact-integration.md). The two modes never fall back
+to each other. Read-only folder entry is not a native-session or ACL proof.
+
 Prepare an explicit JSON array of evidence selectors. For a source in the same
 context, an example is:
 
@@ -124,6 +145,8 @@ python3 scripts/wiki_folder_preflight_v2.py --repo . \
 ```
 
 The preflight reconstitutes the packet, checks the exact ref and proposed diff,
+requires a reported change to the packet's declared output (other authorized
+changes still require review),
 and requires an exact whole prior read for every changed or deleted existing
 output. It blocks changes to instructions, skills, indexes and controls for
 separate review. This limited candidate only accepts Markdown explicitly marked
