@@ -489,17 +489,12 @@ def result_cache_for_request(cache_dir: Path, request: object) -> Path:
 
 def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Path | None = None) -> dict | None:
     if is_local_folder_request(request) and root is None:
-        return None  # No selected-root boundary was supplied; never follow the cache path.
+        raise ValueError('local_result_root_unavailable')
     cache_dir = result_cache_for_request(cache_dir, request)
     key = row.get("cache_key") if isinstance(row, dict) else None
     if root is not None and isinstance(key, str) and CACHE_KEY_RE.fullmatch(key):
         from wiki_core.traversal import require_wiki_boundaries
-        try:
-            require_wiki_boundaries(root, files=(result_path(cache_dir, key),))
-        except (ValueError, OSError):
-            if is_local_folder_request(request):
-                return None
-            raise
+        require_wiki_boundaries(root, files=(result_path(cache_dir, key),))
     result = read_result(cache_dir, key) if isinstance(key, str) else None
     return result if result_matches_request(result, request, row) else None
 

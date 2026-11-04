@@ -70,7 +70,8 @@ def test_legacy_paths_do_not_satisfy_local_request(approved, monkeypatch, tmp_pa
     assert cli.main() == 0
     capsys.readouterr()
     assert read_matching_result(paths.llm_cache, request, row, root=root) == result
-    assert read_matching_result(paths.llm_cache, request, row) is None
+    with pytest.raises(ValueError, match='local_result_root_unavailable'):
+        read_matching_result(paths.llm_cache, request, row)
     assert deep_read_complete(request, paths.llm_cache, root=root)
     assert (result_cache_for_request(paths.llm_cache, request) / f"{row['cache_key']}.json").is_file()
     audit = module('wiki_audit')
@@ -123,3 +124,54 @@ def test_local_write_requires_matching_request_and_revalidation(approved):
     with pytest.raises(ValueError, match='revalidation failure'):
         write_result(cache, result, request=request, preserve_existing=True, before_write=denied)
     assert not (cache / 'local-folder').exists()
+
+
+@pytest.mark.parametrize('boundary', ['symlink', 'git_file', 'git_directory'])
+def test_unsafe_local_cache_is_unavailable_not_zero(approved, monkeypatch, tmp_path_factory, capsys, boundary):
+    from tests.test_operation_compile import _load_module
+    from wiki_core.consolidate import pending_consolidations
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area/AGENTS.md').write_text('Local guidance')
+    (root / 'area/index.md').write_text('Local index')
+    config = load_config(root)
+    produced = run(str(source), 'system', root, config, entry_folder='area', record_score=False)
+    assert not produced.blocked
+    request = json.loads((root / produced.request_path).read_text())
+    row = request['chunks'][0]
+    paths = WikiPaths(root, config)
+    assert read_matching_result(paths.llm_cache, request, row, root=root) is None
+    local_cache = paths.llm_cache / 'local-folder'
+    local_cache.parent.mkdir(parents=True, exist_ok=True)
+    if boundary == 'symlink':
+        external = tmp_path_factory.mktemp('external-cache')
+        (external / f"{row['cache_key']}.json").write_text('must not open')
+        local_cache.symlink_to(external, target_is_directory=True)
+    else:
+        local_cache.mkdir()
+        if boundary == 'git_file':
+            (local_cache / '.git').write_text('gitdir: elsewhere')
+        else:
+            (local_cache / '.git').mkdir()
+        (local_cache / f"{row['cache_key']}.json").write_text('must not open')
+    target = local_cache / f"{row['cache_key']}.json"
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        if path == target:
+            pytest.fail('unsafe cache body opened')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    with pytest.raises(ValueError):
+        read_matching_result(paths.llm_cache, request, row, root=root)
+    with pytest.raises(ValueError):
+        pending_consolidations(root, config)
+    cli = module('wiki_consolidate')
+    monkeypatch.setattr(cli, 'ROOT', root)
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--check'])
+    assert cli.main() == 2
+    captured = capsys.readouterr()
+    assert '"total": 0' not in captured.out
+    compile_mod = _load_module()
+    page = compile_mod.build_page(root, config)
+    assert 'Sources awaiting consolidation: unavailable' in page
+    assert 'Sources awaiting consolidation: 0' not in page
