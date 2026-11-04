@@ -2,6 +2,11 @@
 
 This runbook describes a manual, reviewable path from an explicitly selected task to approved content. The coordinator and context packet are finite preparation tools; the chosen external harness supplies a thread and tools, and an authorized integrator performs Git review and integration. No step below starts a resident runner, installs a scheduler, proves a sandbox, or grants a new external account. The two-thread synthetic pilot establishes contract behavior within one harness, not qualification of two harness products or a deployed installation.
 
+The protected manifest/receipt path below is legacy v1; its CLI requires
+explicit `--mode v1`. The default folder packet and preflight entry points are
+documented in [folder usage](folder-v2-experimental-usage.md); no receipts or
+authorizations migrate automatically between them.
+
 ## 1. Select the context and the exact task
 
 Enter through the context folder and its applicable `AGENTS.md` instructions;
@@ -43,7 +48,7 @@ The existing [task-result schema](../schemas/wiki-task-result-v1.schema.json) bi
 The integrator checks the exact base and branch HEAD, packet, result and actual diff. Use `POST /api/coordination/protected/preflight` in a host-bound authenticated operator, or the finite CLI:
 
 ```sh
-python3 scripts/wiki_context_flow.py --repo REPO --approved-revision APPROVED_SHA \
+python3 scripts/wiki_context_flow.py --mode v1 --repo REPO --approved-revision APPROVED_SHA \
   preflight --context CONTEXT --base BASE_SHA --head HEAD_SHA --branch wiki/TASK \
   --packet PACKET.json --result RESULT.json
 ```

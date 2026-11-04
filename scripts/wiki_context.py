@@ -1,24 +1,105 @@
 #!/usr/bin/env python3
-"""Resolve a context or build a bounded packet; approval is external to this CLI."""
+"""Enter a folder context or explicitly select legacy v1 coordination."""
 import argparse
 import json
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from wiki_core.context_selection import strict_json_loads
-from wiki_core.context_policy import load_policy, PolicyError
-from wiki_core.context_packet import build_packet
+from wiki_core.safe_cli import SafeArgumentParser, report_failure
 
 
-def main():
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--repo', default='.')
-    p.add_argument('--approved-revision', required=True, help='externally approved policy revision (not verified by this tool)')
-    p.add_argument('--manifest', default='context.yaml')
-    sub = p.add_subparsers(dest='command', required=True)
+def _mode_and_args(argv):
+    parser = SafeArgumentParser(add_help=False)
+    parser.add_argument('--mode', choices=('folder', 'v1'), default='folder')
+    return parser.parse_known_args(argv)
+
+
+def _read_json(path):
+    with Path(path).open('rb') as stream:
+        raw = stream.read(2_000_001)
+    if len(raw) > 2_000_000:
+        raise ValueError('request exceeds byte limit')
+    return strict_json_loads(raw.decode('utf-8'))
+
+
+def _folder_main(argv):
+    from wiki_core.folder_policy_v2 import load_folder_policy_v2
+    from wiki_core.folder_packet_v2 import build_folder_packet_v2
+    from wiki_core.folder_declarations_v2 import preauthorize_index, authorized_instruction_chain, authorized_index
+    from wiki_core.folder_context import inspect_folder
+    from wiki_core.folder_coordination_v2 import _output_authorized
+    from wiki_core.context_policy import ContextPolicy, safe_path
+    from wiki_core.repository_reader import RepositoryReader
+
+    parser = SafeArgumentParser(description='Enter a folder context without granting access.',
+                                epilog='Use --mode v1 explicitly for the legacy flow.')
+    parser.add_argument('--repo', default='.')
+    parser.add_argument('--approved-revision', required=True)
+    sub = parser.add_subparsers(dest='command', required=True)
+    resolve = sub.add_parser('resolve'); resolve.add_argument('folder'); resolve.add_argument('--index', required=True)
+    resolve.add_argument('--max-instruction-bytes', type=int, default=32768)
+    pack = sub.add_parser('pack'); pack.add_argument('folder'); pack.add_argument('--index', required=True)
+    pack.add_argument('--index-section'); pack.add_argument('--start-folder')
+    pack.add_argument('--content-revision', required=True); pack.add_argument('--request', required=True)
+    args = parser.parse_args(argv)
+    try:
+        policy = load_folder_policy_v2(args.repo, args.approved_revision)
+        if args.command == 'resolve':
+            preauthorize_index(policy, args.folder, args.index)
+            reader = RepositoryReader(args.repo, policy.policy_revision)
+            chain = authorized_instruction_chain(policy, reader, args.folder, max_bytes=args.max_instruction_bytes)
+            authorized_index(policy, args.folder, args.index, chain)
+            output = inspect_folder(args.repo, policy.policy_revision, args.folder,
+                                    index_path=args.index, max_instruction_bytes=args.max_instruction_bytes)
+            output['policy_revision'] = policy.policy_revision
+            output['enforcement_claim'] = 'none'
+        else:
+            request = _read_json(args.request)
+            required = {'max_bytes', 'task_id', 'goal', 'output', 'integrator'}
+            if not isinstance(request, dict) or not required <= set(request) or set(request) - (required | {'evidence', 'queries'}):
+                raise ValueError('invalid folder task request')
+            if args.start_folder is None:
+                _output_authorized(policy, args.folder, request['output'])
+            else:
+                # The builder qualifies the auxiliary lineage next. Check the
+                # ancestor context's owner and limits before opening it.
+                target = safe_path(request['output']); context = policy.folder_ids[args.folder]
+                if (ContextPolicy.owner_of(policy, target) != context or not policy.permits(context, 'read', target)
+                        or not policy.permits(context, 'write', target)):
+                    raise ValueError('output unavailable')
+            output = build_folder_packet_v2(args.repo, policy, args.folder, request['max_bytes'],
+                        content_revision=args.content_revision, index_path=args.index,
+                        index_section=args.index_section, start_folder=args.start_folder,
+                        task_id=request['task_id'], goal=request['goal'], output=request['output'],
+                        integrator=request['integrator'], evidence=request.get('evidence', []))
+            queries = request.get('queries', [])
+            if not isinstance(queries, list):
+                raise ValueError('invalid folder query selection')
+            if queries:
+                from wiki_core.folder_query_packet_v2 import build_folder_query_packet_v2
+                output = build_folder_query_packet_v2(args.repo, policy, base_packet=output, queries=queries)
+        policy.fresh()
+    except (ValueError, KeyError, TypeError, OSError) as exc:
+        report_failure(exc)
+        return 1
+    print(json.dumps(output, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
+def _v1_main(argv):
+    from wiki_core.context_policy import load_policy, PolicyError
+    from wiki_core.context_packet import build_packet
+
+    parser = argparse.ArgumentParser(description='Explicit legacy v1 context and packet.')
+    parser.add_argument('--repo', default='.')
+    parser.add_argument('--approved-revision', required=True)
+    parser.add_argument('--manifest', default='context.yaml')
+    sub = parser.add_subparsers(dest='command', required=True)
     resolve = sub.add_parser('resolve'); resolve.add_argument('context')
     pack = sub.add_parser('pack'); pack.add_argument('context'); pack.add_argument('--content-revision', required=True); pack.add_argument('--request', required=True)
-    args = p.parse_args()
+    args = parser.parse_args(argv)
     try:
         policy = load_policy(args.repo, args.approved_revision, args.manifest)
         if args.command == 'resolve':
@@ -33,5 +114,11 @@ def main():
     except (PolicyError, KeyError, ValueError, OSError) as exc:
         print(str(exc), file=sys.stderr); return 1
     return 0
+
+
+def main(argv=None):
+    args, rest = _mode_and_args(sys.argv[1:] if argv is None else argv)
+    return _v1_main(rest) if args.mode == 'v1' else _folder_main(rest)
+
 
 if __name__ == '__main__': raise SystemExit(main())

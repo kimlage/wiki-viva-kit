@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Finite, read-only context impact and proposal preflight."""
+"""Folder preflight by default; legacy v1 flow requires explicit selection."""
 import argparse
 import json
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from wiki_core.context_selection import strict_json_loads
-from wiki_core.context_policy import load_policy, PolicyError
-from wiki_core.context_impact import assess_impact, report_review, ImpactError
-from wiki_core.context_integration import preflight, IntegrationError
-from wiki_core.context_requirements import assess_approved_impact, requirements_from_result, revalidate_approved_queries, RequirementError
+from wiki_core.safe_cli import SafeArgumentParser, report_failure
 
-def main():
+def _v1_main(argv):
+    from wiki_core.context_policy import load_policy, PolicyError
+    from wiki_core.context_impact import assess_impact, report_review, ImpactError
+    from wiki_core.context_integration import preflight, IntegrationError
+    from wiki_core.context_requirements import assess_approved_impact, requirements_from_result, revalidate_approved_queries, RequirementError
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--repo',default='.')
     p.add_argument('--approved-revision',required=True)
@@ -22,7 +23,7 @@ def main():
     revalidate=sub.add_parser('revalidate'); revalidate.add_argument('--consumer',required=True); revalidate.add_argument('--context',required=True)
     review=sub.add_parser('review'); review.add_argument('--candidate',required=True); review.add_argument('--disposition',required=True,choices=['updated','still_valid','superseded','blocked']); review.add_argument('--reason',required=True); review.add_argument('--evidence-revision',required=True)
     check=sub.add_parser('preflight'); check.add_argument('--context',required=True); check.add_argument('--base',required=True); check.add_argument('--head',required=True); check.add_argument('--branch',required=True); check.add_argument('--packet',required=True); check.add_argument('--result',required=True)
-    args=p.parse_args()
+    args=p.parse_args(argv)
     try:
         policy=load_policy(args.repo,args.approved_revision,args.manifest)
         if args.command=='impact':
@@ -40,4 +41,63 @@ def main():
     except (PolicyError,ImpactError,IntegrationError,RequirementError,ValueError,KeyError,OSError) as exc:
         print(str(exc),file=sys.stderr); return 1
     return 0
+
+
+def _folder_main(argv):
+    from wiki_core.folder_policy_v2 import load_folder_policy_v2
+    from wiki_core.folder_integration_v2 import preflight_folder_v2
+
+    parser = SafeArgumentParser(description='Check an exact folder proposal without approving it.',
+                                epilog='Use --mode v1 explicitly for the legacy flow.')
+    parser.add_argument('--repo', default='.')
+    parser.add_argument('--approved-revision', required=True)
+    sub = parser.add_subparsers(dest='command', required=True)
+    check = sub.add_parser('preflight')
+    check.add_argument('--folder', required=True); check.add_argument('--index', required=True)
+    check.add_argument('--base', required=True); check.add_argument('--head', required=True)
+    check.add_argument('--branch', required=True); check.add_argument('--packet', required=True); check.add_argument('--result', required=True)
+    args = parser.parse_args(argv)
+    try:
+        policy = load_folder_policy_v2(args.repo, args.approved_revision)
+        def read_json(path):
+            with Path(path).open('rb') as stream:
+                raw = stream.read(2_000_001)
+            if len(raw) > 2_000_000:
+                raise ValueError('request exceeds byte limit')
+            return strict_json_loads(raw.decode('utf-8'))
+        packet = read_json(args.packet)
+        result = read_json(args.result)
+        if not isinstance(packet, dict):
+            raise ValueError('folder packet unavailable')
+        if packet.get('schema_version') == 'wiki.folder-query-task-context/v2':
+            base_packet = packet.get('base_packet')
+        elif packet.get('schema_version') == 'wiki.folder-task-context/v2':
+            base_packet = packet
+        else:
+            raise ValueError('v2 packet required; v1 packets need explicit migration')
+        if (not isinstance(base_packet, dict) or base_packet.get('context_folder') != args.folder
+                or base_packet.get('index_path') != args.index):
+            raise ValueError('folder or index differs from packet')
+        if packet.get('schema_version') == 'wiki.folder-query-task-context/v2':
+            from wiki_core.folder_query_packet_v2 import preflight_folder_query_v2
+            output = preflight_folder_query_v2(args.repo, policy, base=args.base, head=args.head,
+                                                branch=args.branch, packet=packet, result=result)
+        else:
+            output = preflight_folder_v2(args.repo, policy, base=args.base, head=args.head,
+                                          branch=args.branch, packet=packet, result=result)
+        policy.fresh()
+    except (ValueError, KeyError, TypeError, OSError) as exc:
+        report_failure(exc)
+        return 1
+    print(json.dumps(output, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
+def main(argv=None):
+    parser = SafeArgumentParser(add_help=False)
+    parser.add_argument('--mode', choices=('folder', 'v1'), default='folder')
+    args, rest = parser.parse_known_args(sys.argv[1:] if argv is None else argv)
+    return _v1_main(rest) if args.mode == 'v1' else _folder_main(rest)
+
+
 if __name__=='__main__': raise SystemExit(main())

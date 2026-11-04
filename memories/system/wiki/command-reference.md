@@ -33,8 +33,8 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) | Inspect derived cache |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Check methodology coverage |
 | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | Compile a deep read into an integration packet |
-| [wiki_context.py](../../../scripts/wiki_context.py) | Resolve current approved context policy or build an explicit or anchored-query v1 task packet |
-| [wiki_context_flow.py](../../../scripts/wiki_context_flow.py) | Assess selective context impact, revalidate dynamic sets, derive canonical requirements and preflight proposals without approving or merging |
+| [wiki_context.py](../../../scripts/wiki_context.py) | Resolve an approved folder with explicit index or build a folder-v2 packet; `--mode v1` explicitly selects legacy packets |
+| [wiki_context_flow.py](../../../scripts/wiki_context_flow.py) | Preflight folder-v2 proposals; `--mode v1` selects legacy impact, requirements and preflight without approving or merging |
 | [wiki_context_schedule.py](../../../scripts/wiki_context_schedule.py) | Evaluate finite context schedule advice without installing or executing it |
 | [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) | Publish ignored artifacts to configured Drive |
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Export context requests in batch format |

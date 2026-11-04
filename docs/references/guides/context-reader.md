@@ -2,14 +2,15 @@
 
 The [repository reader](../../../wiki_core/repository_reader.py) reads regular
 UTF-8 Git blobs from one commit, independently of a cockpit snapshot. Use it
-for an explicitly scoped local lookup. Use the [context policy CLI](../../../scripts/wiki_context.py)
-when preparing a packet under an approved context manifest. Both are read-only;
+for an explicitly scoped local lookup. The [context policy CLI](../../../scripts/wiki_context.py)
+defaults to folder entry; this guide's manifest examples require explicit `--mode v1`.
+Both are read-only;
 preparing content does not prove that an agent read it or authorize execution.
 
 | Route | Content selection | Authority and limits |
 | --- | --- | --- |
 | [wiki_read.py](../../../scripts/wiki_read.py) | Required revision, mode and exact allowed paths; section, field or explicit whole document | The local caller supplies scope. The raw reader does not enforce context policy. |
-| [wiki_context.py](../../../scripts/wiki_context.py) | Approved context, explicit evidence paths and byte budget | Current trusted policy authorizes each selection; inherited mandatory bodies accompany evidence. |
+| [wiki_context.py](../../../scripts/wiki_context.py) with `--mode v1` | Approved manifest context, explicit evidence paths and byte budget | Current trusted policy authorizes each selection; inherited mandatory bodies accompany evidence. For folder mode see [folder usage](folder-v2-experimental-usage.md). |
 | [wiki_coordination.py](../../../scripts/wiki_coordination.py) with explicit context and approval | Explicit task and selected evidence at approved history | Approved policy and current connection checks apply; see [protected coordination](context-coordination-protected.md). |
 | [wiki_coordination.py](../../../scripts/wiki_coordination.py) with a profile | No task bodies | Constant migration response; profile identity supplies no context authority. |
 
@@ -61,9 +62,9 @@ The example manifests are inert `context.example.yaml` templates. To run the exa
 In that isolated synthetic repository, after setting its test-only trusted reference, replace the kit path, revision and request placeholders below with your values:
 
 ```sh
-python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
+python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --mode v1 --repo . --approved-revision APPROVED_SHA \
   --manifest examples/context-hierarchy/context.yaml resolve finance/tax
-python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
+python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --mode v1 --repo . --approved-revision APPROVED_SHA \
   --manifest examples/context-hierarchy/context.yaml pack finance/tax \
   --content-revision CONTENT_SHA --request REQUEST.json
 ```

@@ -211,6 +211,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
         raise FolderIntegrationError('invalid reported changes')
     if not changes or sorted(changes, key=lambda x: x['path']) != sorted(reported, key=lambda x: x['path']):
         raise FolderIntegrationError('reported changes differ from proposal')
+    if not any(row['path'] == packet['output'] for row in changes):
+        raise FolderIntegrationError('declared output change unavailable')
     # Establish authority and boundary changes from Git metadata before any
     # proposal body is read. Existing output needs an exact prior full read.
     covered_requirements = 0
