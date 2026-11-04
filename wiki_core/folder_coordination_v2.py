@@ -30,7 +30,7 @@ class FolderHostBinding:
 
     root: Path
     folders: tuple[str, ...]
-    independent_repos: tuple[tuple[Path, str], ...] = ()
+    independent_repos: tuple[tuple[str, Path, str, str], ...] = ()
 
     def __post_init__(self):
         try:
@@ -57,12 +57,16 @@ class FolderHostBinding:
         normalized = []
         try:
             for pair in self.independent_repos:
-                if not isinstance(pair, tuple) or len(pair) != 2 or not isinstance(pair[1], str):
+                if not isinstance(pair, tuple) or len(pair) != 4 or not isinstance(pair[2], str):
                     raise ValueError('invalid binding')
-                repo_root = Path(pair[0])
-                if not repo_root.is_absolute() or remote_identity('https://' + pair[1])[0] != pair[1]:
+                folder = safe_path(pair[0], allow_root=True)
+                repo_root = Path(pair[1])
+                identity = pair[2]
+                repo_path = safe_path(pair[3])
+                if (folder not in self.folders or not repo_root.is_absolute()
+                        or remote_identity('https://' + identity)[0] != identity):
                     raise ValueError('invalid binding')
-                normalized.append((repo_root.resolve(), pair[1]))
+                normalized.append((folder, repo_root.resolve(), identity, repo_path))
         except (OSError, RuntimeError, ValueError, TypeError):
             raise ValueError('invalid independent repository binding') from None
         if len(set(normalized)) != len(normalized):
