@@ -26,14 +26,25 @@ def test_reported_query_is_projected_and_selectively_reassessed(project, monkeyp
     before = git(project, 'rev-parse', 'HEAD')
     original = git(project, 'branch', '--show-current')
     git(project, 'checkout', '-qb', 'wiki/durable-query')
-    put(project, 'a/result.md', '---\n' + yaml.safe_dump({'page_type':'claim',
-        'information_requirements':[req]}, sort_keys=False) + '---\nInterpretation\n')
+    text = '---\n' + yaml.safe_dump({'page_type':'claim',
+        'information_requirements':[req]}, sort_keys=False) + '---\nInterpretation\n'
+    put(project, 'a/result.md', text)
     git(project, 'add', '-A'); git(project, 'commit', '-qm', 'query consumer')
     head = git(project, 'rev-parse', 'HEAD')
     result = result_for(packet, [{'path':'a/result.md', 'action':'created'}])
     outcome = preflight_folder_query_v2(project, policy, base=before, head=head,
         branch='wiki/durable-query', packet=packet, result=result)
     assert outcome['requirements_handling']['count'] == 1
+    altered_req = deepcopy(req); altered_req['selected_digest'] = '0' * 64
+    put(project, 'a/result.md', '---\n' + yaml.safe_dump({'page_type':'claim',
+        'information_requirements':[altered_req]}, sort_keys=False) + '---\nInterpretation\n')
+    git(project, 'add', 'a/result.md'); git(project, 'commit', '--amend', '-qm', 'altered query declaration')
+    with pytest.raises(ValueError):
+        preflight_folder_query_v2(project, policy, base=before, head=git(project, 'rev-parse', 'HEAD'),
+            branch='wiki/durable-query', packet=packet, result=result)
+    put(project, 'a/result.md', text)
+    git(project, 'add', 'a/result.md'); git(project, 'commit', '--amend', '-qm', 'query consumer')
+    head = git(project, 'rev-parse', 'HEAD')
     with pytest.raises(PolicyError):
         requirement_query(req)
     git(project, 'checkout', '-q', original)
