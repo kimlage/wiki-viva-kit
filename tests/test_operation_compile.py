@@ -176,6 +176,16 @@ def test_build_page_uses_owner_label_and_repo_id(compile_mod, config, minimal_re
     assert "page_id: operations-acme-wiki" in page
 
 
+def test_unavailable_consolidation_is_not_reported_as_zero(compile_mod, config, minimal_repo, monkeypatch):
+    def unavailable(*_args):
+        raise ValueError('synthetic private detail')
+    monkeypatch.setattr(compile_mod, 'pending_consolidations', unavailable)
+    page = compile_mod.build_page(minimal_repo, config)
+    assert 'Fontes aguardando consolidacao: indisponivel' in page
+    assert 'Fontes aguardando consolidacao: 0' not in page
+    assert 'synthetic private detail' not in page
+
+
 def test_build_page_has_no_personal_literals(compile_mod, config, minimal_repo):
     page = compile_mod.build_page(minimal_repo, config)
     for forbidden in ("PrivateName", "PrivateHome", "Downloads", "../../../../"):

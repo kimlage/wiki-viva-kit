@@ -86,7 +86,7 @@ def test_find_refuses_derived_index_and_manifests_inside_nested_repo(tmp_path, m
 @pytest.mark.parametrize('boundary', ['git_file', 'git_directory', 'directory_symlink', 'database_symlink'])
 def test_derived_consumers_refuse_repository_and_symlink_boundaries(tmp_path, monkeypatch, capsys, boundary):
     import sys
-    from scripts import wiki_build_index, wiki_gc
+    from scripts import wiki_build_index, wiki_gc, wiki_consolidate
     from wiki_core.ingest import pipeline
     cfg = WikiConfig(repo_id='synthetic-boundary')
     paths = WikiPaths(tmp_path, cfg)
@@ -119,6 +119,8 @@ def test_derived_consumers_refuse_repository_and_symlink_boundaries(tmp_path, mo
     monkeypatch.setattr(wiki_build_index, 'load_config', lambda _: cfg)
     monkeypatch.setattr(wiki_gc, 'ROOT', tmp_path)
     monkeypatch.setattr(wiki_gc, 'load_config', lambda _: cfg)
+    monkeypatch.setattr(wiki_consolidate, 'ROOT', tmp_path)
+    monkeypatch.setattr(wiki_consolidate, 'load_config', lambda _: cfg)
     monkeypatch.setattr(WikiPaths, 'ensure', lambda _: pytest.fail('derived paths created before guard'))
     monkeypatch.setattr(pipeline, 'build_manifest', lambda *a, **k: pytest.fail('source read before derived guard'))
     monkeypatch.setattr(sqlite3, 'connect', lambda *a, **k: pytest.fail('SQLite opened before guard'))
@@ -130,6 +132,10 @@ def test_derived_consumers_refuse_repository_and_symlink_boundaries(tmp_path, mo
     assert result.blocked and not result.written
     assert wiki_gc.main([]) == (0 if boundary == 'database_symlink' else 2)
     assert wiki_gc.main(['--apply']) == 2
+    if boundary != 'database_symlink':
+        for args in (['--check'], ['--source', 'synthetic', '--packet']):
+            monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', *args])
+            assert wiki_consolidate.main() == 2
     assert sentinel.read_bytes() == before
     assert node.read_text().endswith('nodeword\n')
 
@@ -166,6 +172,32 @@ def test_derived_file_symlinks_are_rejected_before_use(tmp_path, monkeypatch, ca
     assert orphan.is_symlink() and target.read_text() == '{"sentinel":true}'
 
 
+@pytest.mark.parametrize('selection', ['request', 'cache', 'packet'])
+def test_legacy_consolidation_rejects_selected_symlink(tmp_path, monkeypatch, selection):
+    import sys
+    from scripts import wiki_consolidate
+    cfg = WikiConfig(repo_id='synthetic-boundary'); paths = WikiPaths(tmp_path, cfg)
+    paths.ensure()
+    target = tmp_path / 'sentinel.json'; target.write_text('{"sentinel":true}')
+    request_file = paths.extraction_events / 'synthetic-llm-context-request.json'
+    key = 'a' * 64
+    if selection == 'request':
+        request_file.symlink_to(target)
+    elif selection == 'cache':
+        request_file.write_text(json.dumps({'source_id':'synthetic', 'chunks':[{'cache_key':key}]}))
+        (paths.llm_cache / f'{key}.json').symlink_to(target)
+    else:
+        (paths.extraction_events / 'synthetic-integration-packet.json').symlink_to(target)
+    monkeypatch.setattr(wiki_consolidate, 'ROOT', tmp_path)
+    monkeypatch.setattr(wiki_consolidate, 'load_config', lambda _: cfg)
+    if selection != 'packet':
+        monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--check'])
+        assert wiki_consolidate.main() == 2
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--source', 'synthetic', '--packet'])
+    assert wiki_consolidate.main() == 2
+    assert target.read_text() == '{"sentinel":true}'
+
+
 def test_boundary_guard_accepts_relative_selected_root(tmp_path, monkeypatch):
     from wiki_core.traversal import require_wiki_boundaries
     (tmp_path / 'nested').mkdir()
@@ -176,6 +208,26 @@ def test_boundary_guard_accepts_relative_selected_root(tmp_path, monkeypatch):
     (tmp_path / 'data/derived/.git').mkdir()
     with pytest.raises(ValueError, match='derived_path_crosses_repository_boundary'):
         require_wiki_boundaries(root, directories=(root / 'data/derived',))
+
+
+def test_search_and_page_signature_accept_relative_wiki_root(tmp_path, monkeypatch):
+    from wiki_core.index.page_collection import current_page_signature
+    from wiki_core.index.sqlite import search, search_detailed
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    page(paths.memory_root / 'node/index.md', 'node', 'relativeword')
+    db = paths.indexes / 'wiki.sqlite'
+    index_pages(db, collect_page_chunks(tmp_path, paths, cfg))
+    (tmp_path / 'nested').mkdir()
+    monkeypatch.chdir(tmp_path / 'nested')
+    root = Path('..')
+    relative_paths = WikiPaths(root, cfg)
+    signature = current_page_signature(relative_paths)
+    relative_db = relative_paths.indexes / 'wiki.sqlite'
+    assert search(relative_db, 'relativeword', page_signature=signature, wiki_root=root)
+    assert search_detailed(relative_db, 'relativeword', page_signature=signature, wiki_root=root)['hits']
+    assert find(root, cfg, 'relativeword')['hits'][0]['provenance']['path'] == 'memories/node/index.md'
+    assert not wiki_markdown_files(root / 'memories/../memories', wiki_root=root)
 
 
 def test_stream_cursor_boundary_blocks_before_ingestion(tmp_path, monkeypatch):

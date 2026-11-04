@@ -48,7 +48,7 @@ from wiki_core.paths import WikiPaths
 
 
 def _request_for(paths: WikiPaths, source_id: str) -> dict[str, object] | None:
-    for request in load_requests(paths):
+    for request in load_requests(paths, root=paths.root):
         if str(request.get("source_id")) == source_id and request.get("context_binding_version") != 2:
             return request
     return None
@@ -67,23 +67,33 @@ def consolidate_one(
 ) -> int:
     config = load_config(ROOT)
     paths = WikiPaths(ROOT, config)
+    from wiki_core.traversal import require_wiki_boundaries
+    packet_file = paths.extraction_events / f"{source_id}{PACKET_SUFFIX}"
+    directories = [paths.extraction_events, paths.llm_cache]
+    files = [packet_file] if packet else []
+    if emit_event:
+        directories.append(paths.ingest_events_dir)
+        files.append(paths.ingest_events_dir / f"{date.isoformat()}-{_source_slug(source_id)}.md")
+    require_wiki_boundaries(ROOT, directories=directories, files=files)
+    if emit_event and paths.ingest_events_dir.is_dir():
+        require_wiki_boundaries(ROOT, files=paths.ingest_events_dir.glob('*.md'))
     request = _request_for(paths, source_id)
     if request is None:
         print(f"ERROR: no emitted context request for source_id {source_id}", file=sys.stderr)
         return 1
-    if not deep_read_complete(request, paths.llm_cache):
+    if not deep_read_complete(request, paths.llm_cache, root=ROOT):
         print(
             f"ERROR: deep read incomplete for {source_id} — run the LLM pass and "
             f"--record-result first (see wiki_llm_context_pass.py)",
             file=sys.stderr,
         )
         return 1
-    aggregated = aggregate_results(request, paths.llm_cache)
+    aggregated = aggregate_results(request, paths.llm_cache, root=ROOT)
     packet_data = build_packet(aggregated, ROOT, config, paths) if (packet or emit_event) else None
 
     if packet:
         paths.extraction_events.mkdir(parents=True, exist_ok=True)
-        packet_file = paths.extraction_events / f"{source_id}{PACKET_SUFFIX}"
+        require_wiki_boundaries(ROOT, files=(packet_file,))
         packet_file.write_text(
             json.dumps(packet_data, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
@@ -91,7 +101,7 @@ def consolidate_one(
         print(packet_file.relative_to(ROOT).as_posix())
 
     if emit_event:
-        existing = find_event_for_source(paths, source_id)
+        existing = find_event_for_source(paths, source_id, root=ROOT)
         if existing is not None and not force:
             print(
                 f"ERROR: event already exists for {source_id}: "
@@ -117,6 +127,7 @@ def consolidate_one(
         target = existing if existing is not None else (
             event_dir / f"{date.isoformat()}-{_source_slug(source_id)}.md"
         )
+        require_wiki_boundaries(ROOT, files=(target,))
         target.write_text(markdown, encoding="utf-8")
         print(target.relative_to(ROOT).as_posix())
     return 0
@@ -176,7 +187,11 @@ def main() -> int:
         parser.error("folder proposal options are incompatible with --mode v1")
 
     if args.check or args.all_pending:
-        pending = pending_consolidations(ROOT, config)
+        try:
+            pending = pending_consolidations(ROOT, config)
+        except (ValueError, OSError):
+            print('wiki_consolidate: derived_path_crosses_repository_boundary', file=sys.stderr)
+            return 2
         print(json.dumps({"coverage": "legacy_v1_only", "pending": pending, "total": len(pending)}, ensure_ascii=False, indent=2))
         if args.check and pending:
             print(
@@ -191,16 +206,20 @@ def main() -> int:
         parser.error("--source is required (or use --check / --all-pending)")
     if not (args.emit_event or args.packet):
         parser.error("nothing to do: pass --emit-event and/or --packet")
-    return consolidate_one(
-        args.source,
-        emit_event=args.emit_event,
-        packet=args.packet,
-        source_page=args.source_page,
-        source_ref=args.source_ref,
-        context=args.context or config.default_context,
-        date=dt.date.fromisoformat(args.date) if args.date else dt.date.today(),
-        force=args.force,
-    )
+    try:
+        return consolidate_one(
+            args.source,
+            emit_event=args.emit_event,
+            packet=args.packet,
+            source_page=args.source_page,
+            source_ref=args.source_ref,
+            context=args.context or config.default_context,
+            date=dt.date.fromisoformat(args.date) if args.date else dt.date.today(),
+            force=args.force,
+        )
+    except (ValueError, OSError):
+        print('wiki_consolidate: operation stopped; inspect possible partial changes', file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

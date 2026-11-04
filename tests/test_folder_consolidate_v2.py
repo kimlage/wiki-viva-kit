@@ -610,15 +610,15 @@ def test_legacy_path_does_not_consume_folder_result(project, monkeypatch, tmp_pa
 def test_legacy_pending_gate_never_consumes_folder_requests(project, monkeypatch):
     import wiki_core.consolidate as module
     seen = []
-    monkeypatch.setattr(module, 'load_requests', lambda _: [
+    monkeypatch.setattr(module, 'load_requests', lambda _, **_kwargs: [
         {'source_id':'source-folder', 'context_binding_version':2},
         {'source_id':'source-legacy'},
     ])
-    def complete(request, _cache):
+    def complete(request, _cache, **_kwargs):
         seen.append(request['source_id'])
         return True
     monkeypatch.setattr(module, 'deep_read_complete', complete)
-    monkeypatch.setattr(module, 'find_event_for_source', lambda *_: None)
+    monkeypatch.setattr(module, 'find_event_for_source', lambda *_, **_kwargs: None)
     result = module.pending_consolidations(project, load_config(project))
     assert seen == ['source-legacy']
     assert result == [{'source_id':'source-legacy', 'state':'missing_event'}]

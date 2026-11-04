@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -169,7 +170,11 @@ def main(argv: list[str] | None = None) -> int:
             except (ValueError, OSError):
                 print(f'wiki_gc: derived_path_crosses_repository_boundary after {removed} removals; inspect partial changes', file=sys.stderr)
                 return 2
-            path.unlink()
+            try:
+                path.unlink()
+            except OSError:
+                print(f'wiki_gc: removal failed after {removed} removals; index not pruned; inspect partial changes', file=sys.stderr)
+                return 2
             removed += 1
     try:
         require_wiki_boundaries(ROOT, files=(db_path,
@@ -177,7 +182,11 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, OSError):
         print(f'wiki_gc: derived_path_crosses_repository_boundary after {removed} removals; index not pruned', file=sys.stderr)
         return 2
-    pruned = prune_index(db_path, live)
+    try:
+        pruned = prune_index(db_path, live)
+    except (OSError, sqlite3.Error):
+        print(f'wiki_gc: index prune failed after {removed} removals; index state not confirmed; inspect partial changes', file=sys.stderr)
+        return 2
     print(
         json.dumps(
             {"removed_files": removed, "pruned_index_sources": pruned.get("pruned_sources", 0)},
