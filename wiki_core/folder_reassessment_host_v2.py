@@ -69,9 +69,6 @@ def prepare_folder_reassessment(root, binding, payload):
         policy = _bound_policy(root, binding, folder, payload['approved_revision'])
         context = policy.folder_ids[folder]
         reader = RepositoryReader(binding.root, policy.policy_revision)
-        if reader.invalid_paths or any(source == path or source.startswith(path + '/')
-                                       for path in reader.unsupported_paths):
-            raise FolderCoordinationError('source metadata unavailable')
         # Validate explicit candidate ownership before checking any report or
         # opening any selected consumer. Scope enumeration is filtered by the
         # underlying inventory before its first consumer read.
@@ -128,6 +125,12 @@ def prepare_folder_reassessment(root, binding, payload):
                         field=spec.get('field')) != 'approved'):
                     raise FolderCoordinationError('historical evidence authority unavailable')
             historical_reports.append((packet, historical))
+        # Do not reveal whether an unauthorized source is a regular Git blob or
+        # an unsupported object. Source and all report connections are checked
+        # first; only then may the selected source's metadata be classified.
+        if reader.invalid_paths or any(source == path or source.startswith(path + '/')
+                                       for path in reader.unsupported_paths):
+            raise FolderCoordinationError('source metadata unavailable')
         # Only after every report's evidence is authorized may we open current
         # instruction chains, and their historic Git objects are checked before
         # the selected consumer inventory and historical replay.
