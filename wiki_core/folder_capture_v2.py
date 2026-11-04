@@ -34,8 +34,10 @@ def validate_recorded_request(root, packet, request):
                 or len(json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()) > 2_000_000):
             raise ValueError('invalid request')
         auth = request['source_authorization']
+        from wiki_core.folder_ingestion_v2 import ingestion_binding_for_authorization
         if (request.get('context_binding_version') != 2 or request.get('block_context_package') != packet
-                or not isinstance(auth, dict) or request.get('source_hash_sha256') != auth.get('source_sha256')):
+                or not isinstance(auth, dict) or packet.get('ingestion_binding') != ingestion_binding_for_authorization(auth)
+                or request.get('source_hash_sha256') != auth.get('source_sha256')):
             raise ValueError('capture binding unavailable')
         chunks = request['chunks']
         if not isinstance(chunks, list) or not 1 <= len(chunks) <= 256:
@@ -66,6 +68,24 @@ def repository_receipt_projection(receipt):
     return {'identity': receipt['repository']['identity'],
             **{key: receipt[key] for key in ('revision', 'path', 'blob', 'document_sha256',
                                             'content_sha256', 'section', 'field')}}
+
+
+def validate_ingestion_projections(request, metadata):
+    """Require the canonical minimal projections dictated by the recorded authorization."""
+    try:
+        auth = request['source_authorization']
+        capture = ({key: auth[key] for key in CAPTURE_KEYS}
+                   if auth['source_kind'] == 'staged_raw' else None)
+        receipt = auth.get('independent_repo_read')
+        repo = repository_receipt_projection(receipt) if receipt is not None else None
+        additional = [repository_receipt_projection(row)
+                      for row in auth.get('independent_repo_additional_reads', [])] or None
+        if (metadata.get('source_authorization') != capture
+                or metadata.get('independent_repo_read') != repo
+                or metadata.get('independent_repo_additional_reads') != additional):
+            raise ValueError('ingestion projections differ')
+    except (ValueError, TypeError, KeyError, AttributeError):
+        raise ValueError('ingestion projections unavailable') from None
 
 
 def inspect_reported_repository(root, binding, folder, approved_revision, packet, request, projection, additional_projections=None):

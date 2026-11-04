@@ -175,9 +175,16 @@ def prepare_folder_reassessment(root, binding, payload):
                 raise FolderCoordinationError('source request unavailable')
             has_capture = (selected_meta.get('source_authorization') is not None
                            or selected_meta.get('independent_repo_read') is not None)
-            if has_capture and (not isinstance(source_auth, dict)
+            ingestion = selected_report['packet'].get('ingestion_binding')
+            if (has_capture or ingestion is not None) and (not isinstance(source_auth, dict)
                     or source_request.get('block_context_package') != selected_report['packet']):
                 raise FolderCoordinationError('source request unavailable')
+            if ingestion is not None:
+                from wiki_core.folder_capture_v2 import validate_recorded_request, validate_ingestion_projections
+                validate_recorded_request(binding.root, selected_report['packet'], source_request)
+                validate_ingestion_projections(source_request, selected_meta)
+            elif has_capture:
+                raise FolderCoordinationError('ingestion task binding required')
             if selected_meta.get('independent_repo_read') is not None:
                 from wiki_core.folder_capture_v2 import inspect_reported_repository, repository_receipt_projection
                 receipt = source_auth.get('independent_repo_read')

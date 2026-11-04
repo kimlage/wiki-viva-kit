@@ -157,7 +157,7 @@ def prepare_folder_packet(root, binding, payload):
     policy = _bound_policy(root, binding, payload['folder'], payload['approved_revision'])
     task = payload['task']
     keys = {'index_path', 'task_id', 'goal', 'output', 'integrator', 'max_bytes', 'evidence'}
-    if (not isinstance(task, dict) or not keys <= set(task) or set(task) - (keys | {'index_section'})
+    if (not isinstance(task, dict) or not keys <= set(task) or set(task) - (keys | {'index_section', 'ingestion_binding'})
             or type(task['max_bytes']) is not int or not 1 <= task['max_bytes'] <= 1_000_000):
         raise FolderCoordinationError('invalid request')
     try:
@@ -171,7 +171,7 @@ def prepare_folder_packet(root, binding, payload):
                     content_revision=content, index_path=task['index_path'],
                     index_section=task.get('index_section'), task_id=task['task_id'],
                     goal=task['goal'], output=task['output'], integrator=task['integrator'],
-                    evidence=task['evidence'])
+                    evidence=task['evidence'], ingestion_binding=task.get('ingestion_binding'))
         policy.fresh()
         return {'schema_version': 'wiki.folder-host-packet/v2', 'mode': 'host_bound',
                 'packet': packet, 'enforcement_claim': 'none'}
