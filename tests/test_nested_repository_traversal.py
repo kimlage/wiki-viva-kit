@@ -470,3 +470,87 @@ def test_stream_cursor_boundary_blocks_before_ingestion(tmp_path, monkeypatch):
     result = pipeline.run(str(source), 'synthetic', tmp_path, cfg, stream_id='synthetic')
     assert result.blocked and not result.written and not result.stream_cursor_written
     assert not paths.source_manifests.exists()
+
+
+@pytest.mark.parametrize('boundary', ['git_dir', 'git_file', 'symlink', 'regular_file'])
+@pytest.mark.parametrize('relative_root', [False, True])
+def test_index_rebuild_refuses_memory_root_boundary_before_any_index_change(tmp_path, monkeypatch, capsys, boundary, relative_root):
+    from scripts import wiki_build_index
+    root = tmp_path / 'wiki'; root.mkdir()
+    cfg = WikiConfig()
+    paths = WikiPaths(root, cfg)
+    page(paths.memory_root / 'index.md', 'node', 'syntheticword')
+    db = paths.indexes / 'wiki.sqlite'
+    index_pages(db, collect_page_chunks(root, paths, cfg))
+    before = db.read_bytes()
+    assert find(root, cfg, 'syntheticword')['status'] == 'ok'
+    if boundary == 'git_dir':
+        (paths.memory_root / '.git').mkdir()
+    elif boundary == 'git_file':
+        (paths.memory_root / '.git').write_text('gitdir: elsewhere')
+    elif boundary == 'symlink':
+        original = root / 'memory-backup'
+        paths.memory_root.rename(original)
+        paths.memory_root.symlink_to(original, target_is_directory=True)
+    else:
+        paths.memory_root.rename(root / 'memory-backup')
+        paths.memory_root.write_text('not a directory')
+    monkeypatch.chdir(tmp_path)
+    selected_root = Path('wiki') if relative_root else root
+    monkeypatch.setattr(wiki_build_index, 'ROOT', selected_root)
+    monkeypatch.setattr(wiki_build_index, 'load_config', lambda _: cfg)
+    monkeypatch.setattr(wiki_build_index, 'build_index', lambda *_a, **_k: pytest.fail('source index changed before boundary validation'))
+    monkeypatch.setattr(wiki_build_index, 'index_pages', lambda *_a, **_k: pytest.fail('page index changed before boundary validation'))
+    monkeypatch.setattr(sys, 'argv', ['wiki_build_index.py', '--rebuild'])
+    assert wiki_build_index.main() == 2
+    error = capsys.readouterr().err
+    assert ('page_input_unavailable' if boundary == 'regular_file'
+            else 'derived_path_crosses_repository_boundary') in error
+    assert db.read_bytes() == before
+    result = find(selected_root, cfg, 'syntheticword')
+    assert result['status'] == 'index_error'
+    assert result['status'] != 'no_matches'
+
+
+@pytest.mark.parametrize('state', ['empty', 'missing'])
+def test_index_rebuild_accepts_a_truly_empty_memory_root(tmp_path, monkeypatch, capsys, state):
+    from scripts import wiki_build_index
+    cfg = WikiConfig(); paths = WikiPaths(tmp_path, cfg)
+    file = paths.memory_root / 'index.md'
+    page(file, 'node', 'syntheticword')
+    db = paths.indexes / 'wiki.sqlite'
+    index_pages(db, collect_page_chunks(tmp_path, paths, cfg))
+    file.unlink()
+    if state == 'missing':
+        paths.memory_root.rmdir()
+    monkeypatch.setattr(wiki_build_index, 'ROOT', tmp_path)
+    monkeypatch.setattr(wiki_build_index, 'load_config', lambda _: cfg)
+    monkeypatch.setattr(sys, 'argv', ['wiki_build_index.py', '--rebuild'])
+    assert wiki_build_index.main() == 0
+    assert json.loads(capsys.readouterr().out)['pages_indexed'] == 0
+    assert find(tmp_path, cfg, 'syntheticword')['status'] == 'no_matches'
+
+
+def test_index_rebuild_collects_before_writing_when_boundary_changes(tmp_path, monkeypatch, capsys):
+    from scripts import wiki_build_index
+    cfg = WikiConfig(); paths = WikiPaths(tmp_path, cfg)
+    page(paths.memory_root / 'index.md', 'node', 'syntheticword')
+    db = paths.indexes / 'wiki.sqlite'
+    index_pages(db, collect_page_chunks(tmp_path, paths, cfg))
+    before = db.read_bytes()
+    original = wiki_build_index.require_wiki_boundaries
+    calls = 0
+    def change_after_first_check(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        original(*args, **kwargs)
+        if calls == 2:
+            (paths.memory_root / '.git').mkdir()
+    monkeypatch.setattr(wiki_build_index, 'ROOT', tmp_path)
+    monkeypatch.setattr(wiki_build_index, 'load_config', lambda _: cfg)
+    monkeypatch.setattr(wiki_build_index, 'require_wiki_boundaries', change_after_first_check)
+    monkeypatch.setattr(wiki_build_index, 'build_index', lambda *_a, **_k: pytest.fail('index changed before page collection'))
+    monkeypatch.setattr(sys, 'argv', ['wiki_build_index.py', '--rebuild'])
+    assert wiki_build_index.main() == 2
+    assert 'page_input_unavailable' in capsys.readouterr().err
+    assert db.read_bytes() == before

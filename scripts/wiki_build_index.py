@@ -39,14 +39,21 @@ def main() -> int:
             paths.indexes, paths.extraction_events, paths.llm_cache, paths.coverage, paths.input_stage),
             files=(db_path, *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
         if args.rebuild:
-            require_wiki_boundaries(ROOT, files=paths.chunks.glob('*.json'))
+            require_wiki_boundaries(ROOT, directories=(paths.memory_root,), files=paths.chunks.glob('*.json'))
     except (ValueError, OSError):
         print('wiki_build_index: derived_path_crosses_repository_boundary', file=sys.stderr)
         return 2
+    pages = None
+    if args.rebuild:
+        try:
+            pages = collect_page_chunks(ROOT, paths, config)
+        except (ValueError, OSError):
+            print('wiki_build_index: page_input_unavailable', file=sys.stderr)
+            return 2
     paths.ensure()
     if args.rebuild:
         result = build_index(paths.chunks, db_path)
-        result.update(index_pages(db_path, collect_page_chunks(ROOT, paths, config)))
+        result.update(index_pages(db_path, pages))
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
     result = check_index(db_path)

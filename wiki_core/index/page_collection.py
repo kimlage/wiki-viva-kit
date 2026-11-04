@@ -8,7 +8,7 @@ from pathlib import Path
 from wiki_core.chunking import chunk_text
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.paths import WikiPaths
-from wiki_core.traversal import wiki_markdown_files
+from wiki_core.traversal import require_wiki_boundaries, wiki_markdown_files
 
 
 def collect_page_chunks(root: Path, paths: WikiPaths, config) -> list[tuple[str, list[dict[str, object]]]]:
@@ -18,7 +18,10 @@ def collect_page_chunks(root: Path, paths: WikiPaths, config) -> list[tuple[str,
     pages: list[tuple[str, list[dict[str, object]]]] = []
     seen: set[str] = set()
     memory_root = paths.memory_root
+    require_wiki_boundaries(root, directories=(memory_root,))
     if not memory_root.is_dir():
+        if memory_root.exists():
+            raise ValueError('memory root is not a directory')
         return pages
     for md in sorted(wiki_markdown_files(memory_root, wiki_root=root)):
         fm, _ = parse_frontmatter(md)
