@@ -22,6 +22,19 @@ class FolderIntegrationError(ValueError):
     pass
 
 
+def _require_unique_frontmatter(item):
+    """Reject ambiguous YAML in an already authorized, whole document."""
+    match = FRONTMATTER_RE.match(item['text'])
+    if match is None:
+        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable')
+    try:
+        strict = yaml.load(match.group(1), Loader=UniqueLoader)
+    except (ValueError, TypeError, yaml.YAMLError, RecursionError):
+        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable') from None
+    if not isinstance(strict, dict):
+        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable')
+
+
 def _declares_capture_source(document, ref, revision):
     requirements = document['frontmatter'].get('information_requirements')
     return isinstance(requirements, list) and any(
@@ -360,6 +373,9 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
         prior = approved.read(path) if path in approved.paths else None
         if path == packet['output'] and requalify_source and (status != 'M' or ingestion is None):
             raise FolderIntegrationError('requalification requires an existing ingestion-bound claim')
+        if status == 'D' and prior is not None:
+            # Deletion checks must not accept the last of duplicate YAML keys.
+            _require_unique_frontmatter(prior)
         if status != 'D':
             document = proposed.read(path)
             if contains_access_secrets(document['text']):
@@ -369,15 +385,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                 # projection comparison must not silently select one of them,
                 # including when neither document declares requirements.
                 for item in (prior, document):
-                    match = FRONTMATTER_RE.match(item['text'])
-                    if match is None:
-                        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable')
-                    try:
-                        strict = yaml.load(match.group(1), Loader=UniqueLoader)
-                    except (ValueError, TypeError, yaml.YAMLError, RecursionError):
-                        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable') from None
-                    if not isinstance(strict, dict):
-                        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable')
+                    _require_unique_frontmatter(item)
             ingestion_source = None
             if status == 'M' and (path != packet['output'] or ingestion is None):
                 from wiki_core.folder_query_requirements_v2 import same_json

@@ -48,6 +48,34 @@ def test_secondary_projection_removal_is_rejected(project, field):
         preflight_folder_v2(project, policy, **{**common, 'head':git(project, 'rev-parse', 'HEAD'), 'result':deleted})
 
 
+@pytest.mark.parametrize('duplicate', [False, True])
+def test_deletion_checks_unique_prior_frontmatter_with_empty_refs(project, duplicate):
+    first = 'source_refs: [source-prior]\n' if duplicate else ''
+    put(project, 'a/secondary.md', '---\npage_type: claim\n' + first + 'source_refs: []\n---\nPrior\n')
+    commit(project); base = git(project, 'rev-parse', 'HEAD')
+    policy = load_folder_policy_v2(project, base)
+    packet = build_folder_packet_v2(project, policy, 'a', 50000, index_path='a/index.md', content_revision=base,
+        task_id='delete-secondary', goal='review', output='a/result.md', integrator='reviewer',
+        evidence=[{'path':'a/secondary.md', 'producer_folder':'a', 'reason':'prior',
+                   'use':'interpret', 'classification':'synthetic'}])
+    git(project, 'checkout', '-qb', 'wiki/delete-secondary')
+    put(project, 'a/result.md', '---\npage_type: claim\n---\nResult\n')
+    (project / 'a/secondary.md').unlink()
+    git(project, 'add', '-A'); git(project, 'commit', '-qm', 'delete selected claim')
+    result = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed', 'task_id':packet['task_id'],
+        'context_id':packet['context_id'], 'packet_digest':packet['packet_digest'],
+        'observed':[{'path':r['path'], 'kind':r['kind'], 'revision':r['revision'], 'sha256':r['sha256'],
+                     'section':r.get('section'), 'field':r.get('field')} for r in packet['inputs']],
+        'changes':[{'path':'a/result.md', 'action':'created'}, {'path':'a/secondary.md', 'action':'deleted'}]}
+    kwargs = dict(base=base, head=git(project, 'rev-parse', 'HEAD'), branch='wiki/delete-secondary',
+                  packet=packet, result=result)
+    if duplicate:
+        with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
+            preflight_folder_v2(project, policy, **kwargs)
+    else:
+        assert preflight_folder_v2(project, policy, **kwargs)['state'] == 'independent_review_required'
+
+
 def test_secondary_with_empty_source_refs_can_be_deleted(project):
     put(project, 'a/secondary.md', '---\npage_type: claim\nsource_refs: []\n---\nPrior\n')
     commit(project); base = git(project, 'rev-parse', 'HEAD')
