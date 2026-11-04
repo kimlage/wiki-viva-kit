@@ -41,6 +41,14 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | Build a deterministic source manifest |
 | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extract and chunk a source |
 | [wiki_find.py](../../../scripts/wiki_find.py) | Read-only lexical lookup with provenance and explicit index/context gaps |
+| [wiki_folder_consumers_v2.py](../../../scripts/wiki_folder_consumers_v2.py) | Inventory canonical requirements for explicitly authorized v2 owner paths |
+| [wiki_folder_context.py](../../../scripts/wiki_folder_context.py) | Inspect tracked folder instructions and indexes without granting access |
+| [wiki_folder_impact_v2.py](../../../scripts/wiki_folder_impact_v2.py) | Compare one reported source selection with a current v2 consumer without changing it |
+| [wiki_folder_migration_v2.py](../../../scripts/wiki_folder_migration_v2.py) | Preview mechanical v1-to-v2 controls; global coordinator authority is required and writing is explicit |
+| [wiki_folder_packet_v2.py](../../../scripts/wiki_folder_packet_v2.py) | Compose a revision-bound folder packet with selected instructions, index and authorized inputs |
+| [wiki_folder_preflight_v2.py](../../../scripts/wiki_folder_preflight_v2.py) | Check an exact v2 proposal without approval, publication or merge |
+| [wiki_folder_query_history_v2.py](../../../scripts/wiki_folder_query_history_v2.py) | Compare an explicitly selected historical query under current authority; report review candidates |
+| [wiki_folder_requalify_v1.py](../../../scripts/wiki_folder_requalify_v1.py) | Propose read-only requalification of one explicit historical v1 requirement |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Inspect/transition proposal gates |
 | [wiki_gc.py](../../../scripts/wiki_gc.py) | Remove orphan derived artifacts |
 | [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Run end-to-end ingestion |
@@ -67,6 +75,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_quadrant_projection_report.py](../../../scripts/wiki_quadrant_projection_report.py) | Review quadrant projections |
 | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Report quality/cost telemetry |
 | [wiki_read.py](../../../scripts/wiki_read.py) | Read explicitly scoped Git content by revision, stable section or frontmatter field |
+| [wiki_repo_read.py](../../../scripts/wiki_repo_read.py) | Read an explicit independent Git repository path and revision after local root and origin checks |
 | [wiki_score.py](../../../scripts/wiki_score.py) | Record/view karma events |
 | [wiki_semantic_inventory.py](../../../scripts/wiki_semantic_inventory.py) | Verify authored semantics/read models |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Compile the source registry |

@@ -149,7 +149,8 @@ def test_nonintersecting_boundary_is_reviewable_without_reading_auxiliary_body(p
     assert proof['boundary_count'] == 1
     assert all(value == 0 for key, value in proof.items() if key != 'boundary_count')
     assert any('callers' in item for item in report['limitations'])
-    write_folder_controls(root, approved, candidate)
+    written = write_folder_controls(root, approved, candidate)
+    assert written['status'] == 'ready_for_review' and written['written'] is True
     assert (root / CONTROLS_PATH).exists()
 
 

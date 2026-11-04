@@ -297,7 +297,7 @@ def write_folder_controls(root: Path, approved_revision: str, candidate_revision
                     raise FolderMigrationUncertain('proposal_written_binding_uncertain')
         except (OSError, ValueError) as exc:
             raise FolderMigrationUncertain('proposal_written_binding_uncertain') from exc
-        return report
+        return {**report, 'written': True}
     except FolderMigrationError:
         raise
     except (OSError, ValueError) as exc:

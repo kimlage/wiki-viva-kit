@@ -1,6 +1,6 @@
 # Context folder entry template
 
-Use this as an authoring checklist for a context's `AGENTS.md`; keep the actual
+Use this as an authoring checklist for a context's agent-instruction file; keep the actual
 instructions in that file, not a copy of this template. Make the paths below
 real relative Markdown links in the context. Adapt to the project and avoid
 restating applicable ancestor rules. Auxiliary directories do not require an

@@ -1694,3 +1694,12 @@ matching editorial context and a nonblank string page ID. A conventional
 missing-primary-page fallback is diagnostic only; its filename cannot promote a
 wrong-context or malformed page into the domain hub. The flat root-entity
 exception requires the explicitly configured root page.
+
+## [2026-11-04] Folder and repository command catalog
+
+The [command reference](wiki/command-reference.md) now links the folder-v2,
+migration preview and independent-repository commands with their limited scopes.
+The [context-entry template](../../docs/references/templates/wiki/context-entry.md)
+continues to point to canonical instructions without copying project policy.
+This is a technical documentation update; it does not renew source verification
+or establish approval, access, execution or integration.
