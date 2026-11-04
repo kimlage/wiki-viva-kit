@@ -16,7 +16,7 @@ memory index first; retain any stronger consumer context requirement.
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |
 | Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index. Read each result's origin and coverage gaps before treating it as evidence. No index or model is started. |
-| Context | Inspect folder instructions and indexes with [wiki_folder_context.py](wiki_folder_context.py); use [wiki_read.py](wiki_read.py) for a scoped Git read and [wiki_context.py](wiki_context.py) or approved [wiki_coordination.py](wiki_coordination.py) for a protected packet. | Folder inspection does not prove native loading or authorize access; the protected packet still requires its approved policy. See [folder entry](../docs/references/guides/context-folders-sources-repositories.md) and [context operation](../docs/references/guides/context-operation.md). |
+| Context | Use [wiki_context.py](wiki_context.py) to resolve a folder with an explicit index or build its packet; [wiki_context_flow.py](wiki_context_flow.py) checks a folder proposal. | Folder entry does not prove native loading or authorize access. The manifest-based route remains available only with explicit `--mode v1`. See [folder entry](../docs/references/guides/folder-v2-experimental-usage.md) and [legacy context operation](../docs/references/guides/context-operation.md). |
 | Experimental folder v2 | [wiki_folder_packet_v2.py](wiki_folder_packet_v2.py) and [wiki_folder_preflight_v2.py](wiki_folder_preflight_v2.py) support explicit folder packets and bounded current-revision queries. | `--start-folder` selects a qualified auxiliary entry under its existing context; it grants no access and proves no native session. [Explicit historical query comparison](wiki_folder_query_history_v2.py), [selective consumer inventory](wiki_folder_consumers_v2.py), and [source reassessment](wiki_folder_reassessment_v2.py) are narrow candidates under review; general requalification and v1 receipt migration remain blocked. See the [experimental guide](../docs/references/guides/folder-v2-experimental-usage.md) and [auxiliary instructions](../docs/references/guides/context-folders-sources-repositories.md#auxiliary-instruction-folders). |
 | Source | Use the existing source workspace, `GET /api/sources` for identity/location and `GET /api/sources/{source_id}/operations` for receipts, described in [source access](../docs/references/guides/source-access-and-ingestion.md). | Inspect retained identity, location and receipts first. [Refresh preview/run](../docs/references/guides/source-refresh-cadence.md) may contact external systems and requires the existing account and authorized scope; an unavailable original is an explicit gap. |
 | Independent repo | Use [wiki_repo_read.py](wiki_repo_read.py) with an explicit Git root, expected origin identity, revision and exact path. | Local origin verification is not remote authentication or an access grant. A missing clone or unsupported origin is an explicit limitation. |
@@ -60,9 +60,10 @@ wiki_ingest.py -> wiki_llm_context_pass.py -> wiki_consolidate.py
 
 [wiki_read.py](wiki_read.py) requires `--revision`, `--mode` and exact
 `--allow-path` values; reads require `--section`, `--field` or explicit
-`--whole-body`. [wiki_context.py](wiki_context.py) resolves the approved context
-or builds a bounded v1 packet with `--approved-revision` and a separate
-`--content-revision`. The caller supplies the trust boundary; selecting a
+`--whole-body`. [wiki_context.py](wiki_context.py) defaults to an approved
+folder, explicit index and bounded folder-v2 packet, with separate policy and
+content revisions. The older manifest/receipt route requires `--mode v1`;
+v1 receipts are never automatically converted. The caller supplies the trust boundary; selecting a
 revision does not grant access. [wiki_coordination.py](wiki_coordination.py)
 has separate approved packet flags (`--context-id`, `--approved-revision`,
 `--revision`, `--packet-request`) while profile reads return a migration response without content.
@@ -84,9 +85,9 @@ failures return structured blockers and never choose compatibility. Record or
 check through [wiki_llm_context_pass.py](wiki_llm_context_pass.py) using the same
 explicit source, approval, context and limits. See [bounded ingestion](../docs/references/guides/bounded-ingestion.md).
 
-[wiki_context_flow.py](wiki_context_flow.py) reads canonical requirements for
-impact by selected content/revision and independently preflights proposals.
-Its `revalidate --context OWNER --consumer PATH` reports current dynamic-set and
+[wiki_context_flow.py](wiki_context_flow.py) defaults to folder-v2 `preflight`
+with explicit folder and index; it does not approve or merge. Its legacy v1
+operations require `--mode v1`: `revalidate --context OWNER --consumer PATH` reports current dynamic-set and
 selected-byte equivalence under approved authority, separately from fact freshness.
 See [context impact and integration](../docs/references/guides/context-impact-integration.md):
 requirements stay on the canonical page; no additional graph/queue, approval or

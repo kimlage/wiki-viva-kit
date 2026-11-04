@@ -21,6 +21,7 @@ _REASONS = {
     'context boundary or instructions require separate review': 'normative_review_required',
     'v2 requirement migration and revalidation unavailable': 'requirement_migration_required',
     'existing output needs a reported whole prior read': 'whole_prior_read_required',
+    'declared output change unavailable': 'declared_output_change_required',
     'ambiguous or normative change requires separate review': 'normative_review_required',
     'dynamic v1 query requires independent v2 requalification': 'dynamic_query_requalification_required',
     'historical v1 policy access unavailable; normative equivalence not assessed': 'historical_policy_authority_unavailable',

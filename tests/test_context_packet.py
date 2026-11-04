@@ -78,7 +78,7 @@ def test_root_dot_mandatory_ancestor_and_narrow_metadata(repo):
 
 def test_cli_resolve_and_pack(repo, tmp_path):
     script=BASE/'scripts/wiki_context.py'; sha=git(repo,'rev-parse','HEAD')
-    prefix=[sys.executable,str(script),'--repo',str(repo),'--approved-revision',sha,'--manifest','ctx/context.yaml']
+    prefix=[sys.executable,str(script),'--mode','v1','--repo',str(repo),'--approved-revision',sha,'--manifest','ctx/context.yaml']
     resolved=json.loads(subprocess.check_output(prefix+['resolve','root']))
     assert resolved['policy_revision']==sha and resolved['enforcement_claim']=='none'
     request=tmp_path/'request.json'; request.write_text(json.dumps({**TASK,'evidence':EVIDENCE,'max_bytes':10000}))

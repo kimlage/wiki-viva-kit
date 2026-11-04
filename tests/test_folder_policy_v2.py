@@ -265,6 +265,29 @@ def test_v2_preflight_reproduces_packet_and_requires_independent_review(project)
         preflight_folder_v2(project, p, **{**args, 'packet': bad_packet})
 
 
+def test_v2_preflight_requires_declared_output_even_without_host(project):
+    from wiki_core.folder_integration_v2 import preflight_folder_v2, FolderIntegrationError
+    p, base, _, packet, result = proposal_v2(project)
+    git(project, 'rm', '-q', 'a/report.md')
+    put(project, 'a/other.md', '---\npage_type: claim\n---\nSynthetic other claim\n')
+    git(project, 'add', '-A'); git(project, 'commit', '-qm', 'different output')
+    result['changes'] = [{'path':'a/other.md', 'action':'created'}]
+    with pytest.raises(FolderIntegrationError, match='declared output change unavailable'):
+        preflight_folder_v2(project, p, base=base, head=git(project, 'rev-parse', 'HEAD'),
+                            branch='wiki/folder-task', packet=packet, result=result)
+
+
+def test_v2_preflight_allows_additional_authorized_changes_with_output(project):
+    from wiki_core.folder_integration_v2 import preflight_folder_v2
+    p, base, _, packet, result = proposal_v2(project)
+    put(project, 'a/other.md', '---\npage_type: claim\n---\nSynthetic other claim\n')
+    git(project, 'add', '-A'); git(project, 'commit', '-qm', 'additional claim')
+    result['changes'].append({'path':'a/other.md', 'action':'created'})
+    out = preflight_folder_v2(project, p, base=base, head=git(project, 'rev-parse', 'HEAD'),
+                              branch='wiki/folder-task', packet=packet, result=result)
+    assert out['state']=='independent_review_required' and len(out['changes'])==2
+
+
 @pytest.mark.parametrize('path', ['a/new/AGENTS.md', 'a/new/AGENTS.override.md', 'a/new/index.md', 'wiki-context-controls.yaml'])
 def test_v2_preflight_rejects_boundary_changes(project, path):
     from wiki_core.folder_integration_v2 import preflight_folder_v2, FolderIntegrationError
