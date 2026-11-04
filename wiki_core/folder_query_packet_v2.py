@@ -84,7 +84,7 @@ def _query_observations(envelope):
 
 
 def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, result,
-                              binding=None, source_request=None):
+                              binding=None, source_request=None, requalify_source=False):
     """Preflight only if the proposal leaves every selected query scope intact."""
     if getattr(policy,'format_version',None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise FolderQueryPacketError('bound v2 policy required')
@@ -145,11 +145,12 @@ def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, resul
                 'folder': base_packet['context_folder'], 'approved_revision': policy.policy_revision,
                 'base': base_sha, 'head': head_sha, 'branch': branch,
                 'packet': base_packet, 'result': base_result,
-                'source_request': source_request, 'query_packet':packet, 'query_result':result})['preflight']
+                'source_request': source_request, 'query_packet':packet, 'query_result':result,
+                'requalify_source':requalify_source})['preflight']
         else:
             outcome=preflight_folder_v2(root,policy,base=base_sha,head=head_sha,branch=branch,
                                         packet=base_packet,result=base_result,
-                                        query_packet=packet, query_result=result)
+                                        query_packet=packet, query_result=result, requalify_source=requalify_source)
         policy.fresh()
         return {'schema_version':'wiki.folder-query-preflight/v2','state':'independent_review_required',
                 'base':base_sha,'head':head_sha,'branch':branch,'context_id':base_packet['context_id'],

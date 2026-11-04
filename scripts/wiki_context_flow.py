@@ -57,6 +57,7 @@ def _folder_main(argv):
     check.add_argument('--base', required=True); check.add_argument('--head', required=True)
     check.add_argument('--branch', required=True); check.add_argument('--packet', required=True); check.add_argument('--result', required=True)
     check.add_argument('--source-request', help='explicit contextual ingestion request for host-bound capture verification')
+    check.add_argument('--requalify-source', action='store_true', help='explicitly requalify the selected source in an existing claim')
     args = parser.parse_args(argv)
     try:
         policy = load_folder_policy_v2(args.repo, args.approved_revision)
@@ -89,7 +90,8 @@ def _folder_main(argv):
                 binding = selection_from_host_environment(args.folder, args.index, base_packet['output']).host
             output = preflight_folder_query_v2(args.repo, policy, base=args.base, head=args.head,
                                                 branch=args.branch, packet=packet, result=result,
-                                                binding=binding, source_request=source_request)
+                                                binding=binding, source_request=source_request,
+                                                requalify_source=args.requalify_source)
         elif args.source_request:
             from wiki_core.folder_coordination_v2 import prepare_folder_preflight
             from wiki_core.folder_ingestion_v2 import selection_from_host_environment
@@ -98,10 +100,10 @@ def _folder_main(argv):
             output = prepare_folder_preflight(args.repo, selection.host, {'folder':args.folder,
                      'approved_revision':args.approved_revision, 'base':args.base, 'head':args.head,
                      'branch':args.branch, 'packet':packet, 'result':result,
-                     'source_request':source_request})['preflight']
+                     'source_request':source_request, 'requalify_source':args.requalify_source})['preflight']
         else:
             output = preflight_folder_v2(args.repo, policy, base=args.base, head=args.head,
-                                          branch=args.branch, packet=packet, result=result)
+                                          branch=args.branch, packet=packet, result=result, requalify_source=args.requalify_source)
         policy.fresh()
     except (ValueError, KeyError, TypeError, OSError) as exc:
         report_failure(exc)

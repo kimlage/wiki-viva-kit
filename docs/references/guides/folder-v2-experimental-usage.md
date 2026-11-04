@@ -325,11 +325,22 @@ entry. Existing singleton values, requirements and body are preserved in the
 proposal; the preflight checks the newly supplied request and projection, not
 the factual freshness of earlier sources. Duplicate sources, ambiguous prior
 repository projections without a source reference, and reassignment of prior
-projections are blocked. A source already present needs separate requalification.
+projections are blocked.
 The host-bound reassessment selects only the chosen source's projection and
 requires its matching recorded request; changing another source is not proof
 that this source changed. V1 integration refuses the new field; existing v1
 pages and singleton records are not automatically migrated.
+
+To update one already-declared source, explicitly set `requalify_source: true`
+in the consolidation input and pass `--requalify-source` at preflight. Supply
+the new authorized request, recorded results, the exact prior output hash and
+current approved revision. The proposal updates only that source's pinned
+requirement and same-kind projection; other declarations and source references
+are preserved. Preflight compares the exact prior Git blob at the approved base
+with the proposal head, so the previous version remains inspectable in Git;
+this requires retaining that history. Independent review remains required and
+no approval or actual read is inferred. Existing query declarations with the
+same query ID remain a separate requalification case and are blocked here.
 
 When the query envelope and its reported result are provided to folder
 consolidation, the proposed claim records versioned query projections in its
