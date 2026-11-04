@@ -42,8 +42,11 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    event's `consolidated_into`, and maintain source backlinks without a source
    identity page referencing itself. In either flow, update selected hubs and
    concepts, record conflicts and ambiguities, and create or update load-bearing
-   claims where appropriate. Give new pages their appropriate `moc_parent` and
-   quadrant placement. The v1 event check covers only that legacy flow.
+   claims where appropriate, using `supersedes`, `superseded_by`, `conflicts_with`
+   and `conflict_resolution` when claims collide. Give new pages their
+   appropriate `moc_parent` and quadrant placement relative to the active center
+   (`subject_ref`, `subject_role`, `parent_projection` and `projection_overrides`
+   where applicable). The v1 event check covers only that legacy flow.
 8. Run the project's applicable audit, quality and independent review gates for
    the exact proposal. [wiki_new_ingest.py](../../scripts/wiki_new_ingest.py)
    is a separate legacy global proposal tool; it is not a folder-bound step and

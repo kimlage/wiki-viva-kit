@@ -124,7 +124,9 @@ historical v1 flow.
   reading or review.
 - When the excerpt is insufficient, record in `uncertainties` that it is necessary to
   expand the local search — do not invent context.
-- `source_refs` proves provenance; `moc_parent`/parent hub proves navigation.
+- `source_refs` records declared source links; qualify the association and
+  revision using the applicable bound request, provenance and review. A link
+  alone does not prove a read. `moc_parent`/parent hub records navigation.
   Do not leave generated relation pages parallel to the context hierarchy.
 
 
