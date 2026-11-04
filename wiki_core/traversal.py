@@ -72,7 +72,8 @@ def reject_nested_git(base: Path, *, include_hidden: bool = True) -> None:
             raise ValueError('source_directory_symlink: select regular source files')
 
 
-def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None = None) -> list[Path]:
+def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None = None,
+               max_entries: int | None = None) -> list[Path]:
     """Return regular files under base, pruning nested Git roots.
 
     If ``wiki_root`` is supplied, check every component between that root and
@@ -100,7 +101,11 @@ def wiki_files(base: Path, *, wiki_root: Path | None = None, suffix: str | None 
     def fail(error: OSError) -> None:
         raise error
     result: list[Path] = []
+    seen_entries = 0
     for directory, subdirs, files in os.walk(base, followlinks=False, onerror=fail):
+        seen_entries += len(subdirs) + len(files)
+        if max_entries is not None and seen_entries > max_entries:
+            raise ValueError('wiki traversal entry limit exceeded')
         current = Path(directory)
         subdirs[:] = sorted(name for name in subdirs
                            if name != '.git'
