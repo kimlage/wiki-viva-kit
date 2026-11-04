@@ -479,9 +479,10 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             if (PurePosixPath(path).suffix != '.md' or document['frontmatter'].get('page_type') != 'claim'
                     or (prior and prior['frontmatter'].get('page_type') != 'claim')):
                 raise FolderIntegrationError('ambiguous or normative change requires separate review')
-        elif prior and any(key in prior['frontmatter'] for key in ('information_requirements',
+        elif prior and (any(key in prior['frontmatter'] for key in ('information_requirements',
                 'source_authorization', 'independent_repo_read', 'independent_repo_additional_reads',
-                'independent_repo_source_ref', 'folder_source_provenance', 'source_refs')):
+                'independent_repo_source_ref', 'folder_source_provenance'))
+                or ('source_refs' in prior['frontmatter'] and prior['frontmatter']['source_refs'] != [])):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
         elif not prior or PurePosixPath(path).suffix != '.md' or prior['frontmatter'].get('page_type') != 'claim':
             raise FolderIntegrationError('ambiguous or normative change requires separate review')
