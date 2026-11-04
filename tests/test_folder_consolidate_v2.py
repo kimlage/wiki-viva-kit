@@ -94,6 +94,12 @@ def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_re
     result = _synthetic_result(request)
     module = _recording_cli(project, sha, request, monkeypatch, tmp_path,
                             source=source, source_ref=source_ref)
+    if queries:
+        # Synthetic executor receives the bound request before producing its
+        # result and uses the selected value in a reported interpretation.
+        selected = request['folder_query_packet']['queries'][0]['selected'][0]['text']
+        result['claims'] = ['Synthetic selected amount: ' + selected]
+        (tmp_path / 'synthetic-result.json').write_text(json.dumps(result))
     import sys
     argv = list(sys.argv); argv[argv.index('--folder-output') + 1] = 'a/claims/result.md'
     if queries:

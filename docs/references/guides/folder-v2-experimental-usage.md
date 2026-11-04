@@ -314,6 +314,12 @@ Without that report the declaration stays `declared_without_report`; with it,
 the comparison stays `review_pending`. Neither state asserts completed review,
 execution, freshness or exhaustive consumer coverage.
 
+Each report has `target`, `query_id`, `packet`, `result` and
+`integrated_revision`; the packet and result are the exact reported v2 query
+envelope and task result. A modified claim must have included its complete
+prior content as evidence. Keep these inputs in a location authorized for the
+context: they may contain source text. The command never publishes them.
+
 ## Compare one reported source and consumer
 
 ```sh
@@ -354,7 +360,7 @@ An explicitly pinned consumed revision must also match; an omitted pin is not
 invented. A mismatched or duplicate report blocks the preview. Treat report files
 as potentially sensitive and keep them in authorized storage.
 
-Coverage is limited to selected authorized paths in one owner and the reports
+In exact-source mode, coverage is limited to selected authorized paths in one owner and the reports
 provided; it does not discover receipts, resolve page IDs, evaluate max age,
 requalify historical or query requirements, or automatically cover external
 repositories. A missing explicitly selected Markdown source is retained only
