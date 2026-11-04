@@ -212,3 +212,64 @@ def test_proposal_owner_change_blocks_before_output_body(equivalent_repo,monkeyp
     monkeypatch.setattr(RepositoryReader,'read',sentinel)
     with pytest.raises(FolderBatchRequalificationError,match='historical consumer authority unavailable'):
         call(equivalent_repo,batch)
+
+
+def test_second_packet_policy_revocation_blocks_before_first_consumer(equivalent_repo,monkeypatch):
+    from wiki_core.context_selection import digest
+    selections=fixture(equivalent_repo)
+    manifest=equivalent_repo/'b/context.yaml'; original_manifest=manifest.read_text()
+    data=yaml.safe_load(original_manifest); data['policy']['deny']={'read':['b/source.md']}
+    manifest.write_text(yaml.safe_dump(data)); commit(equivalent_repo)
+    revoked=git(equivalent_repo,'rev-parse','HEAD')
+    manifest.write_text(original_manifest); commit(equivalent_repo)
+    proposal=git(equivalent_repo,'rev-parse','HEAD')
+    batch=deepcopy(selections); item=batch[1]; packet=item['packet']
+    packet['policy_revision']=revoked; item['proposal_head']=proposal
+    for row in packet['inputs']:
+        if row['kind']=='mandatory': row['revision']=revoked
+    for row in packet['declared_read_set']:
+        if row['ref']!='b/source.md': row['revision']=revoked
+    packet['packet_digest']=digest({k:v for k,v in packet.items() if k!='packet_digest'})
+    item['result']['packet_digest']=packet['packet_digest']
+    item['result']['read_coverage']['observed_refs']=deepcopy(packet['declared_read_set'])
+    original=RepositoryReader.read
+    def sentinel(self,path,*args,**kwargs):
+        if path in ('a/result.md','b/result.md','a/source.md','b/source.md'):
+            raise AssertionError('selected body read before second historical policy validation')
+        return original(self,path,*args,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',sentinel)
+    with pytest.raises(FolderBatchRequalificationError,match='historical evidence authority unavailable'):
+        call(equivalent_repo,batch)
+
+
+def test_omitted_historical_mandatory_blocks_before_first_consumer(equivalent_repo,monkeypatch):
+    from wiki_core.context_selection import digest
+    selections=fixture(equivalent_repo)
+    manifest=equivalent_repo/'context.yaml'; original_manifest=manifest.read_text()
+    historical=yaml.safe_load(original_manifest)
+    historical['instructions'].append('docs/secret-synthetic.md')
+    manifest.write_text(yaml.safe_dump(historical))
+    put(equivalent_repo,'docs/secret-synthetic.md','Synthetic denied body\n');commit(equivalent_repo)
+    packet_policy=git(equivalent_repo,'rev-parse','HEAD')
+    manifest.write_text(original_manifest)
+    controls=equivalent_repo/'wiki-context-controls.yaml'; data=yaml.safe_load(controls.read_text())
+    data['controls']['b']['policy']['deny']={'read':['docs/secret-synthetic.md']}
+    controls.write_text(yaml.safe_dump(data));commit(equivalent_repo)
+    proposal=git(equivalent_repo,'rev-parse','HEAD')
+    batch=deepcopy(selections);item=batch[1];packet=item['packet']
+    packet['policy_revision']=packet_policy;item['proposal_head']=proposal
+    for row in packet['inputs']:
+        if row['kind']=='mandatory':row['revision']=packet_policy
+    for row in packet['declared_read_set']:
+        if row['ref']!='b/source.md':row['revision']=packet_policy
+    packet['packet_digest']=digest({k:v for k,v in packet.items() if k!='packet_digest'})
+    item['result']['packet_digest']=packet['packet_digest']
+    item['result']['read_coverage']['observed_refs']=deepcopy(packet['declared_read_set'])
+    original=RepositoryReader.read
+    def sentinel(self,path,*args,**kwargs):
+        if path in ('docs/secret-synthetic.md','a/result.md','b/result.md','a/source.md','b/source.md'):
+            raise AssertionError('body opened before complete historical mandatory validation')
+        return original(self,path,*args,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',sentinel)
+    with pytest.raises(FolderBatchRequalificationError,match='historical mandatory readset differs'):
+        call(equivalent_repo,batch)
