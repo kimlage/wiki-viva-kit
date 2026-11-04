@@ -324,7 +324,7 @@ integration and operational session acceptance remain pending.
   results remain review pending and do not establish historical approval.
 
 These experiments do not replace the active v1 coordination, ingestion or
-requirements consumers. An explicit, request-only folder ingestion preview is
-described in [bounded ingestion](bounded-ingestion.md#experimental-folder-bound-request-preparation);
-it does not record results or migrate v1 state. All experiments require an
+requirements consumers. An explicit folder-bound ingestion preview is described
+in [bounded ingestion](bounded-ingestion.md#experimental-folder-bound-ingestion);
+its recorded interpretations do not migrate v1 state or integrate memory. All experiments require an
 aggregate review and gates before any separate adoption decision.
