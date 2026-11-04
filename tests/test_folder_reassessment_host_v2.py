@@ -144,3 +144,42 @@ def test_unsupported_source_and_missing_candidate_fail_before_body(project,monke
     request['source']='a/absent-source.md';request['candidates']=['a/missing.md']
     with pytest.raises(FolderCoordinationError,match='candidate authority'):
         prepare_folder_reassessment(project,FolderHostBinding(project,('a',)),request)
+
+
+def test_unauthorized_cross_owner_source_regular_or_symlink_is_indistinguishable(project,monkeypatch):
+    setup_flow(project)
+    source='a/aux/b/source.md';put(project,source,'Synthetic inaccessible source\n');commit(project)
+    request=payload(project,None);request['source']=source
+    binding=FolderHostBinding(project,('a',));original=RepositoryReader.read
+    def sentinel(self,path,*args,**kwargs):
+        if path in (source,'a/report.md'):pytest.fail('body opened before source authority')
+        return original(self,path,*args,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',sentinel)
+    with pytest.raises(FolderCoordinationError) as regular:
+        prepare_folder_reassessment(project,binding,request)
+    target=project/source;target.unlink();target.symlink_to('other.md');commit(project)
+    request['approved_revision']=git(project,'rev-parse','HEAD')
+    with pytest.raises(FolderCoordinationError) as symlink:
+        prepare_folder_reassessment(project,binding,request)
+    assert str(regular.value)==str(symlink.value)=='cross-owner source requires explicit evidence'
+
+
+def test_ungranted_report_source_regular_or_symlink_is_indistinguishable(project,monkeypatch):
+    from wiki_core.folder_policy_v2 import folder_id
+    report=deepcopy(setup_flow(project));source='a/aux/b/source.md'
+    put(project,source,'Synthetic inaccessible source\n');commit(project)
+    evidence=next(row for row in report['packet']['inputs'] if row['kind']=='evidence')
+    evidence['path']=source;evidence['producer_context']=folder_id('a/aux/b')
+    request=payload(project,report);request['source']=source
+    binding=FolderHostBinding(project,('a',));original=RepositoryReader.read
+    def sentinel(self,path,*args,**kwargs):
+        if path in (source,'a/report.md'):pytest.fail('body opened before bilateral authority')
+        return original(self,path,*args,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',sentinel)
+    with pytest.raises(FolderCoordinationError) as regular:
+        prepare_folder_reassessment(project,binding,request)
+    target=project/source;target.unlink();target.symlink_to('other.md');commit(project)
+    request['approved_revision']=git(project,'rev-parse','HEAD')
+    with pytest.raises(FolderCoordinationError) as symlink:
+        prepare_folder_reassessment(project,binding,request)
+    assert str(regular.value)==str(symlink.value)=='evidence unavailable or unauthorized'
