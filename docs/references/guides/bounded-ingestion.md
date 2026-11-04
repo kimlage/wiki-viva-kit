@@ -137,8 +137,8 @@ All four folder-mode selections are required and cannot be combined with the v1
 separately from the request; a flag or environment variable is not an access
 grant or actor authentication. The host needs actual permission to
 read the complete source and context files. The source must be a staged local
-file; files inside independent Git repositories require explicit repository
-selection, not this wiki ingestion path. The approved Git context is pinned to
+file; independent Git content requires a separately bound selection, described
+below. The approved Git context is pinned to
 the current trusted revision, and the source is rechecked before persistence.
 The dry run returns its summary without writing an inspectable request file;
 omitting `--dry-run` prepares the normal local capture and request artifacts.
@@ -168,6 +168,22 @@ read and a separately supported result contract.
 Required perspectives must currently be explicit authorized paths; unqualified
 page IDs require a separate authorized resolution. The selection does not prove
 a native session was started in that folder or provide filesystem isolation.
+
+For an independent local Git repository, use a tracked wiki source page with
+`page_type: source`, `platform: repo` and a matching `source_locator` as
+`--source`. At trusted host startup, configure
+`WIKI_FOLDER_INGEST_HOST_REPOSITORIES` as a JSON array of exact
+`[folder, absolute_repository_root, normalized_identity, path]` bindings.
+Select one with `--folder-repo ROOT IDENTITY FULL_REVISION PATH` on both
+preparation and result recording. The revision is a full immutable Git SHA.
+The code reads local Git objects only and checks the configured `origin`;
+that identifies configuration and does not authenticate the remote. The
+selected text is present in the protected request as interpretation context,
+while the separate provenance metadata has no source text. Identity,
+revision, path, blob and digests participate in the request fingerprint and
+are rechecked before recording. Inclusion in a request does not prove the
+executor read it. Do not copy the protected request or selected content into
+canonical claims merely to preserve provenance.
 
 After a human or authorized agent actually performs the reading, record its
 result with `scripts/wiki_llm_context_pass.py` using the same source, approved
