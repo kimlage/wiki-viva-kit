@@ -79,7 +79,7 @@ def test_raw_search_rechecks_current_bytes_and_authority(project, monkeypatch):
     capture_file = project/'synthetic-capture.json'; capture_file.write_text(json.dumps(capture))
     script = Path(__file__).resolve().parents[1]/'scripts/wiki_context.py'
     cmd = [sys.executable, str(script), '--repo', str(project), '--approved-revision', approved,
-           'search', 'a', '--index', 'a/index.md', '--raw-capture', str(capture_file), '--literal', 'needle']
+           'search', 'a', '--raw-capture', str(capture_file), '--literal', 'needle']
     env = {**os.environ, 'WIKI_FOLDER_INGEST_HOST_ROOT':str(project), 'WIKI_FOLDER_INGEST_HOST_FOLDERS':'a'}
     called = subprocess.run(cmd, capture_output=True, text=True, env=env)
     assert called.returncode == 0 and json.loads(called.stdout)['hits'][0]['path'] == ref

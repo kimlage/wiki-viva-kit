@@ -103,16 +103,19 @@ only the index or section authorized for its task, not an inherited global index
 
 ## Compose and preflight
 
-The primary entry points default to folders. Select the context index explicitly;
-the request contains the task fields and any exact evidence selectors:
+The primary entry points default to folders. A nested context defaults to its
+own `index.md`; use `--index` for another declared index. The root requires an
+explicit declared index. A missing or denied conventional index blocks the
+operation without selecting another. The request contains the task fields and
+any exact evidence selectors:
 
 ```sh
 python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
-  resolve areas/example --index areas/example/index.md
+  resolve areas/example
 python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
-  pack areas/example --index areas/example/index.md --content-revision CONTENT_SHA --request REQUEST.json > PACKET.json
+  pack areas/example --content-revision CONTENT_SHA --request REQUEST.json > PACKET.json
 python3 "$WIKI_REPO_ROOT/scripts/wiki_context_flow.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
-  preflight --folder areas/example --index areas/example/index.md --base APPROVED_SHA \
+  preflight --folder areas/example --base APPROVED_SHA \
   --head PROPOSAL_SHA --branch wiki/example --packet PACKET.json --result RESULT.json
 ```
 

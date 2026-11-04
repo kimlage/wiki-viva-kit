@@ -57,7 +57,7 @@ def main() -> int:
     parser.add_argument("--approved-revision", help="Current approved policy SHA supplied by the trusted local caller.")
     parser.add_argument("--policy-context", help="Explicit approved context ID; no fallback on refusal.")
     parser.add_argument("--folder-context", help="Opt-in exact folder for a trusted local coordinator; never a grant.")
-    parser.add_argument("--folder-index", help="Explicit authorized folder index.")
+    parser.add_argument("--folder-index", help="Authorized index; defaults to index.md in a nested context, required at root.")
     parser.add_argument("--folder-output", help="Concrete authorized proposal output path.")
     parser.add_argument("--folder-existing-sha256", help="Exact SHA-256 of the explicitly selected existing output blob.")
     parser.add_argument("--folder-source-ref", help="Approved source page explicitly associated with staged RAW.")

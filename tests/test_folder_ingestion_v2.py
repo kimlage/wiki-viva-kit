@@ -176,7 +176,7 @@ def test_cli_prepares_folder_request_without_running_a_model(project):
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_ingest.py'
     call = subprocess.run([sys.executable, str(script), '--root', str(project),
         '--source', 'a/source.md', '--context', 'system', '--approved-revision', sha,
-        '--folder-context', 'a', '--folder-index', 'a/index.md', '--folder-output', 'a/result.md'],
+        '--folder-context', 'a', '--folder-output', 'a/result.md'],
         capture_output=True, text=True, env={**os.environ, 'WIKI_FOLDER_INGEST_HOST_ROOT': str(project),
                                             'WIKI_FOLDER_INGEST_HOST_FOLDERS': 'a'})
     assert call.returncode == 0, call.stderr
@@ -205,7 +205,7 @@ def _recording_cli(project, sha, request, monkeypatch, tmp_path, *, source='a/so
     monkeypatch.setenv('WIKI_FOLDER_INGEST_HOST_FOLDERS', 'a')
     argv = ['wiki_llm_context_pass.py', '--root', str(project),
         '--source', source, '--context', 'system', '--approved-revision', sha,
-        '--folder-context', 'a', '--folder-index', 'a/index.md', '--folder-output', 'a/result.md',
+        '--folder-context', 'a', '--folder-output', 'a/result.md',
         '--record-result', str(result_file)]
     if source_ref is not None:
         argv += ['--folder-source-ref', source_ref]

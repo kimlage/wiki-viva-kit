@@ -27,7 +27,7 @@ def _read_json(path):
 def _folder_main(argv):
     from wiki_core.folder_policy_v2 import load_folder_policy_v2
     from wiki_core.folder_packet_v2 import build_folder_packet_v2
-    from wiki_core.folder_declarations_v2 import preauthorize_index, authorized_instruction_chain, authorized_index
+    from wiki_core.folder_declarations_v2 import preauthorize_index, authorized_instruction_chain, authorized_index, selected_folder_index
     from wiki_core.folder_context import inspect_folder
     from wiki_core.folder_coordination_v2 import _output_authorized
     from wiki_core.context_policy import ContextPolicy, safe_path
@@ -41,16 +41,16 @@ def _folder_main(argv):
     inspect = sub.add_parser('inspect', help='inspect tracked instructions and index under local host access')
     inspect.add_argument('folder'); inspect.add_argument('--revision', required=True)
     inspect.add_argument('--index'); inspect.add_argument('--max-instruction-bytes', type=int, default=32768)
-    resolve = sub.add_parser('resolve'); resolve.add_argument('folder'); resolve.add_argument('--index', required=True)
+    resolve = sub.add_parser('resolve'); resolve.add_argument('folder'); resolve.add_argument('--index')
     resolve.add_argument('--max-instruction-bytes', type=int, default=32768)
-    pack = sub.add_parser('pack'); pack.add_argument('folder'); pack.add_argument('--index', required=True)
+    pack = sub.add_parser('pack'); pack.add_argument('folder'); pack.add_argument('--index')
     pack.add_argument('--index-section'); pack.add_argument('--start-folder')
     pack.add_argument('--content-revision', required=True); pack.add_argument('--request', required=True)
     attach = sub.add_parser('attach-queries', help='attach queries to an existing ingestion packet')
-    attach.add_argument('folder'); attach.add_argument('--index', required=True)
+    attach.add_argument('folder'); attach.add_argument('--index')
     attach.add_argument('--source-request', required=True); attach.add_argument('--queries', required=True)
     search = sub.add_parser('search', help='bounded literal search in an authorized folder or explicit source')
-    search.add_argument('folder'); search.add_argument('--index', required=True); search.add_argument('--literal', required=True)
+    search.add_argument('folder'); search.add_argument('--index'); search.add_argument('--literal', required=True)
     selected = search.add_mutually_exclusive_group(required=True)
     selected.add_argument('--scope'); selected.add_argument('--raw-capture')
     selected.add_argument('--source-repository', nargs=4, metavar=('ROOT', 'IDENTITY', 'REVISION', 'PATH'))
@@ -68,6 +68,7 @@ def _folder_main(argv):
             return 0
         if args.approved_revision is None:
             raise ValueError('approved revision required')
+        args.index = selected_folder_index(args.folder, args.index)
         if args.command == 'search':
             from wiki_core.folder_ingestion_v2 import host_binding_from_environment
             from wiki_core.folder_coordination_v2 import _bound_policy

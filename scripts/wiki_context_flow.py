@@ -53,7 +53,7 @@ def _folder_main(argv):
     parser.add_argument('--approved-revision', required=True)
     sub = parser.add_subparsers(dest='command', required=True)
     check = sub.add_parser('preflight')
-    check.add_argument('--folder', required=True); check.add_argument('--index', required=True)
+    check.add_argument('--folder', required=True); check.add_argument('--index')
     check.add_argument('--base', required=True); check.add_argument('--head', required=True)
     check.add_argument('--branch', required=True); check.add_argument('--packet', required=True); check.add_argument('--result', required=True)
     check.add_argument('--source-request', help='explicit contextual ingestion request for host-bound capture verification')
@@ -61,6 +61,8 @@ def _folder_main(argv):
     check.add_argument('--query-requalifications', help='explicit prior query reports for reviewable replacement')
     args = parser.parse_args(argv)
     try:
+        from wiki_core.folder_declarations_v2 import selected_folder_index
+        args.index = selected_folder_index(args.folder, args.index)
         policy = load_folder_policy_v2(args.repo, args.approved_revision)
         def read_json(path):
             with Path(path).open('rb') as stream:

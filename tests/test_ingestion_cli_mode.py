@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
     ['--approved-revision', 'a' * 40],
     ['--policy-context', 'root'],
     ['--folder-context', 'a'],
+    ['--folder-context', '.', '--folder-output', 'result.md', '--approved-revision', 'a' * 40],
     ['--folder-index', 'a/index.md'],
     ['--folder-source-ref', 'a/source.md'],
     ['--folder-repo', '/tmp/repo', 'synthetic', 'a' * 40, 'README.md'],

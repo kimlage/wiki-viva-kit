@@ -129,7 +129,9 @@ context. Compatibility is not evidence of approved policy or source freshness.
 ## Folder-bound ingestion
 
 A trusted local coordinator configures the host root and allowed folders at
-startup, then explicitly selects a folder, its index and intended output. Set
+startup, then explicitly selects a folder and intended output. A nested folder
+uses its own `index.md` unless `--folder-index` selects another authorized index;
+the root index must be explicit. Set
 `WIKI_REPO_ROOT` to the verified wiki Git root, not an independent clone's
 root. Folder, index and output are relative to that root; the session may
 remain in its nested starting folder:
@@ -139,10 +141,10 @@ WIKI_REPO_ROOT=/absolute/path/to/verified/wiki
 WIKI_FOLDER_INGEST_HOST_ROOT="$WIKI_REPO_ROOT" WIKI_FOLDER_INGEST_HOST_FOLDERS="FOLDER" \
   python3 "$WIKI_REPO_ROOT/scripts/wiki_ingest.py" --root "$WIKI_REPO_ROOT" --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --folder-context FOLDER \
-  --folder-index INDEX --folder-output OUTPUT --dry-run
+  --folder-output OUTPUT --dry-run
 ```
 
-All four folder-mode selections are required and cannot be combined with the v1
+The approved revision, folder and output are required and cannot be combined with the v1
 `--policy-context`. The trusted host supplies the root and folder allowlist
 separately from the request; a flag or environment variable is not an access
 grant or actor authentication. The host needs actual permission to
@@ -178,7 +180,7 @@ this does not prove that the local copy matches the provider's object. A RAW
 source without that explicit page is blocked. Non-UTF-8 tracked Git sources
 need a separately qualified provenance adapter.
 Its distinct binding version cannot consume existing v1 cache results.
-Existing v1 and working-tree compatibility paths require explicit mode selection. A known
+V1 and working-tree compatibility can also be selected explicitly. A known
 context omission blocks preparation rather than silently dropping v1 coverage
 obligations.
 For a tracked existing claim, supply `--folder-existing-sha256 SHA256` for the

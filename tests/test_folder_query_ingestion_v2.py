@@ -31,7 +31,7 @@ def test_query_and_raw_ingestion_share_host_bound_preflight(project, monkeypatch
     scripts = Path(__file__).resolve().parents[1] / 'scripts'
     common = [sys.executable, str(scripts / 'wiki_context.py'), '--repo', str(project),
               '--approved-revision', base]
-    packed = subprocess.run(common + ['attach-queries', 'a', '--index', 'a/index.md',
+    packed = subprocess.run(common + ['attach-queries', 'a',
                 '--source-request', str(request_path), '--queries', str(queries_path)],
                 capture_output=True, text=True)
     assert packed.returncode == 0, packed.stderr
@@ -55,7 +55,7 @@ def test_query_and_raw_ingestion_share_host_bound_preflight(project, monkeypatch
     head = git(project, 'rev-parse', 'HEAD')
     result_path.write_text(json.dumps(result))
     command = [sys.executable, str(scripts / 'wiki_context_flow.py'), '--repo', str(project),
-               '--approved-revision', base, 'preflight', '--folder', 'a', '--index', 'a/index.md',
+               '--approved-revision', base, 'preflight', '--folder', 'a',
                '--base', base, '--head', head, '--branch', 'wiki/query-raw',
                '--packet', str(packet_path), '--result', str(result_path)]
     env = dict(os.environ, WIKI_FOLDER_INGEST_HOST_ROOT=str(project), WIKI_FOLDER_INGEST_HOST_FOLDERS='a')

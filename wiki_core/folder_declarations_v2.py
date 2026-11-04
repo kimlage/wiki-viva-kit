@@ -15,6 +15,20 @@ _HEADINGS = {
 }
 
 
+def selected_folder_index(folder, index_path):
+    """Select only the conventional nested index when none was specified.
+
+    This is a lexical selection, not an existence or authorization check.
+    Root indexes must be chosen explicitly from their declarations.
+    """
+    if index_path is not None:
+        return index_path
+    folder = safe_path(folder, allow_root=True)
+    if folder == '.':
+        raise PolicyError('root context index must be selected explicitly')
+    return folder + '/index.md'
+
+
 def _resolve(agent_path, href):
     if not isinstance(href, str) or not href or '\\' in href or any(ord(c) < 32 for c in href):
         raise PolicyError('invalid declared local reference')

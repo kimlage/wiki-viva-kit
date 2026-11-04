@@ -19,8 +19,8 @@ Approved-context examples for v1 (use the same authorized source, approval, cont
 Working-tree compatibility example (not evidence of approved policy or freshness):
   python3 scripts/wiki_llm_context_pass.py --mode working-tree --query "pending decisions" --context system
 
-Folder mode requires an explicit source, approved revision, folder, index,
-output and trusted host binding. Reuse any selected RAW source page and Git
+Folder mode requires an explicit source, approved revision, folder, output and
+trusted host binding. A root index must be selected explicitly. Reuse any selected RAW source page and Git
 repository bindings when re-emitting or recording the same request.
 
 Approved mode requires an explicit source and refuses query mode, unrequested-result
@@ -334,7 +334,7 @@ def main() -> int:
     parser.add_argument("--approved-revision", help="Trusted local caller supplies current approved policy commit; this is not a remote access grant.")
     parser.add_argument("--policy-context", help="Explicit manifest context for the approved-policy adapter.")
     parser.add_argument("--folder-context", help="Exact folder selected under the trusted host binding.")
-    parser.add_argument("--folder-index", help="Explicit authorized context index.")
+    parser.add_argument("--folder-index", help="Authorized index; defaults to index.md in a nested context, required at root.")
     parser.add_argument("--folder-output", help="Concrete authorized proposal output.")
     parser.add_argument("--folder-existing-sha256", help="Exact SHA-256 of the explicitly selected existing output blob.")
     parser.add_argument("--folder-source-ref", help="Approved source page explicitly associated with staged RAW.")
