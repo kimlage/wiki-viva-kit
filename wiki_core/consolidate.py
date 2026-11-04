@@ -246,7 +246,8 @@ def _aggregate_resolved_results(request: dict[str, object], resolved: list[dict 
 
 
 def prepare_folder_consolidation(root: Path, binding, request: dict, results: list,
-                                 *, candidates: list[str], max_age_days: int) -> dict[str, object]:
+                                 *, candidates: list[str], max_age_days: int,
+                                 page_metadata: dict) -> dict[str, object]:
     """Return a reviewable Markdown proposal from explicit, bound v2 results.
 
     This preview never scans a global catalogue or FTS index, invokes a model,
@@ -257,20 +258,29 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
     from wiki_core.context_policy import safe_path
     from wiki_core.folder_coordination_v2 import _bound_policy, _output_authorized, prepare_folder_packet
     from wiki_core.folder_ingestion_v2 import (_check_local_boundaries, FolderIngestionSelection,
-        authorize_folder_ingestion_source, validate_folder_artifact_paths)
+        authorize_folder_ingestion_source, validate_folder_artifact_paths, independent_repo_selection_for_request,
+        additional_repo_selections_for_request)
     from wiki_core.llm.context_pass import (result_matches_request, read_matching_result,
         revalidate_ingestion_source)
+    from wiki_core.page_types import validate_shape
     from wiki_core.repo_read import contains_access_secrets
     from wiki_core.repository_reader import RepositoryReader
+    from scripts.wiki_audit import REQUIRED_KEYS, RELATION_KEYS, RELATION_PREFIXES
 
     try:
         if (not isinstance(request, dict) or request.get('context_binding_version') != 2
                 or not isinstance(results, list) or not isinstance(candidates, list)
-                or len(candidates) > 128 or type(max_age_days) is not int
+                or len(candidates) > 128 or not isinstance(page_metadata, dict) or type(max_age_days) is not int
                 or not 0 <= max_age_days <= 3650
-                or contains_access_secrets((request, results, candidates))):
+                or contains_access_secrets((request, results, candidates, page_metadata))):
             raise ValueError('invalid inputs')
-        if len(json.dumps((request, results, candidates), ensure_ascii=False, sort_keys=True,
+        metadata_keys = {'page_id', 'context', 'visibility', 'updated_at', 'stale_after_days',
+                         'sources_policy', 'gate', 'sensitive_data_policy', 'moc_parent', 'owner'}
+        if (set(page_metadata) != metadata_keys
+                or any(not isinstance(page_metadata[key], str) or not page_metadata[key].strip() for key in metadata_keys)):
+            raise ValueError('explicit page metadata required')
+        dt.date.fromisoformat(page_metadata['updated_at'])
+        if len(json.dumps((request, results, candidates, page_metadata), ensure_ascii=False, sort_keys=True,
                           separators=(',', ':')).encode()) > 2_000_000:
             raise ValueError('input budget exceeded')
         packet = request['block_context_package']
@@ -335,11 +345,35 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                    'task': task})['packet']
         if rebuilt != packet:
             raise ValueError('packet changed')
+        registry_rows = [row for row in packet['inputs'] if row['path'] == 'wiki.page-types.yaml'
+                         and row['kind'] == 'mandatory']
+        if len(registry_rows) != 1:
+            raise ValueError('authorized page registry required')
+        from wiki_core.context_policy import UniqueLoader
+        registry = yaml.load(registry_rows[0]['text'], Loader=UniqueLoader)
+        shape = registry['page_types']['claim']
+        if not isinstance(shape, dict):
+            raise ValueError('claim registry unavailable')
+        template_path = safe_path(shape['template'])
+        template_rows = [row for row in packet['inputs'] if row['path'] == template_path and row['kind'] == 'mandatory']
+        if len(template_rows) != 1:
+            raise ValueError('authorized claim template required')
+        fenced = re.search(r'(?ms)^```yaml\s*\n---\s*\n(.*?)\n---\s*\n```', template_rows[0]['text'])
+        if not fenced:
+            raise ValueError('claim template frontmatter unavailable')
+        relation_fields = RELATION_KEYS - {'owner', 'source_refs'}
+        empty_fields = re.findall(r'(?m)^([A-Za-z_][A-Za-z0-9_]*):\s*\[\]\s*(?:#.*)?$', fenced.group(1))
+        if any(empty_fields.count(key) != 1 for key in relation_fields):
+            raise ValueError('claim template relations unavailable')
+        independent = independent_repo_selection_for_request(binding, folder, auth)
+        additional = additional_repo_selections_for_request(binding, folder, auth)
         selection = FolderIngestionSelection(binding, folder, packet['index_path'], output,
-                      auth['canonical_ref'] if auth['source_kind'] == 'staged_raw' else None)
+                      auth['canonical_ref'] if auth['source_kind'] == 'staged_raw' else None, independent, additional)
         guard = authorize_folder_ingestion_source(root, auth['ref'], policy.policy_revision,
                                                    selection, context_max_bytes=packet['max_bytes'])
-        if guard['authorization'] != auth or guard['hash_sha256'] != request.get('source_hash_sha256'):
+        if (guard['authorization'] != auth or guard['hash_sha256'] != request.get('source_hash_sha256')
+                or guard.get('independent_repo_content') != request.get('independent_repo_content')
+                or guard.get('independent_repo_additional_content') != request.get('independent_repo_additional_content')):
             raise ValueError('source authorization changed')
         paths = WikiPaths(root, load_config(root))
         validate_folder_artifact_paths(root, paths, request['source_id'])
@@ -357,15 +391,52 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         # Model-produced target suggestions are not authorized selections.
         aggregate['target_pages'] = []
         source = safe_path(auth['canonical_ref'])
-        frontmatter = {'page_type': 'claim', 'information_requirements': [{
+        source_rows = [row for row in packet['inputs'] if row.get('kind') == 'evidence'
+                       and row.get('path') == source and row.get('section') is None and row.get('field') is None]
+        if len(source_rows) != 1:
+            raise ValueError('canonical source evidence unavailable')
+        source_document = reader.read(source)
+        source_id = source_document['frontmatter'].get('page_id')
+        if (source_document['frontmatter'].get('page_type') != 'source'
+                or not isinstance(source_id, str) or not source_id.strip()):
+            raise ValueError('canonical source identity unavailable')
+        if (not source_id.startswith(RELATION_PREFIXES['source_refs'])
+                or not page_metadata['owner'].startswith(RELATION_PREFIXES['owner'])):
+            raise ValueError('relation identity unavailable')
+        if page_metadata['moc_parent'] not in set(chosen) | {packet['index_path']}:
+            raise ValueError('parent was not explicitly selected')
+        frontmatter = {**{key: [] for key in sorted(relation_fields)}, **page_metadata,
+                       'page_type': 'claim', 'source_refs': [source_id], 'information_requirements': [{
             'target': source, 'fields': ['*'], 'temporal': 'current', 'max_age_days': max_age_days,
             'consumed_revision': policy.policy_revision, 'use': 'interpretation', 'classification': 'source'}]}
+        if auth['source_kind'] == 'staged_raw':
+            # Persist only existing capture metadata, never source text or an
+            # access-bearing URL; raw's external association stays unverified.
+            capture_keys = ('source_kind', 'ref', 'source_revision', 'source_sha256', 'source_origin',
+                            'canonical_ref', 'canonical_revision', 'canonical_sha256', 'association',
+                            'external_origin_verification', 'external_freshness')
+            frontmatter['source_authorization'] = {key: auth[key] for key in capture_keys}
+        if auth.get('independent_repo_read') is not None:
+            receipt = auth['independent_repo_read']
+            frontmatter['independent_repo_read'] = {
+                'identity': receipt['repository']['identity'],
+                **{key: receipt[key] for key in ('revision', 'path', 'blob', 'document_sha256',
+                                                   'content_sha256', 'section', 'field')},
+            }
+        if auth.get('independent_repo_additional_reads'):
+            frontmatter['independent_repo_additional_reads'] = [
+                {'identity': receipt['repository']['identity'],
+                 **{key: receipt[key] for key in ('revision', 'path', 'blob', 'document_sha256',
+                                                  'content_sha256', 'section', 'field')}}
+                for receipt in auth['independent_repo_additional_reads']]
         provenance = {key: auth.get(key) for key in ('source_kind', 'ref', 'source_revision', 'source_sha256',
                       'canonical_ref', 'canonical_revision', 'association',
                       'external_origin_verification', 'external_freshness')}
         lines = ['---', yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=False).rstrip(), '---',
-                 '', '# Interpretação proposta', '', 'Conteúdo relatado para revisão independente.',
-                 '', '## Proveniência da captura', '', '> ' + json.dumps(provenance, ensure_ascii=False, sort_keys=True)]
+                 '', '# Interpretação proposta', '', '## Statement', '',
+                 'Conteúdo relatado para revisão independente.', '', '## Related', '',
+                 '> ' + json.dumps(provenance, ensure_ascii=False, sort_keys=True),
+                 '', '## Conflicts and ambiguities', '', 'Revisão independente pendente.']
         for label, key in (('Quadrantes', 'quadrants'), ('Afirmações', 'claims'), ('Decisões', 'decisions'),
                            ('Ações', 'actions'), ('Riscos', 'risks'), ('Incertezas', 'uncertainties'),
                            ('Relações', 'relationships'), ('Entidades', 'entities')):
@@ -373,6 +444,12 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
             if value:
                 lines.extend(['', '## ' + label, '', '> ' + json.dumps(value, ensure_ascii=False, sort_keys=True)])
         markdown = '\n'.join(lines) + '\n'
+        repo_texts = [request.get('independent_repo_content'), *(request.get('independent_repo_additional_content') or [])]
+        if any(isinstance(text, str) and text and (text in markdown
+                or json.dumps(text, ensure_ascii=False)[1:-1] in markdown) for text in repo_texts):
+            raise ValueError('complete repository text cannot be persisted')
+        if not REQUIRED_KEYS <= set(frontmatter) or validate_shape(root, output, frontmatter, markdown, shape):
+            raise ValueError('claim does not satisfy the selected registry')
         result = {'schema_version': 'wiki.folder-consolidation-preview/v2',
                   'state': 'independent_review_required', 'folder': folder,
                   'policy_revision': policy.policy_revision, 'output': packet['output'],
@@ -385,7 +462,7 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         revalidate_ingestion_source(guard, captured_hash=request['source_hash_sha256'])
         policy.fresh()
         return result
-    except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
+    except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError, yaml.YAMLError):
         raise ValueError('folder consolidation unavailable or unauthorized') from None
 
 

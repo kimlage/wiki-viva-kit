@@ -21,6 +21,15 @@ class FolderIntegrationError(ValueError):
     pass
 
 
+def _declares_capture_source(document, ref, revision):
+    requirements = document['frontmatter'].get('information_requirements')
+    return isinstance(requirements, list) and any(
+        isinstance(req, dict) and req.get('target') == ref and req.get('fields') == ['*']
+        and req.get('temporal') == 'current' and req.get('consumed_revision') == revision
+        and req.get('use', 'interpret') == 'interpretation' and req.get('classification', 'internal') == 'source'
+        for req in requirements)
+
+
 def _check_current_requirements(prior, document, path, status, packet, approved):
     """Bound a narrow declaration subset to current, explicitly reported inputs.
 
@@ -133,7 +142,8 @@ def _rebuild(root, policy, packet):
     return rebuilt
 
 
-def preflight_folder_v2(root, policy, *, base, head, branch, packet, result):
+def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
+                        binding=None, source_request=None):
     """Check exact v2 reads and branch; independent review remains required."""
     if getattr(policy, 'format_version', None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise FolderIntegrationError('bound v2 policy required')
@@ -206,6 +216,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result):
     # Establish authority and boundary changes from Git metadata before any
     # proposal body is read. Existing output needs an exact prior full read.
     covered_requirements = 0
+    capture_inspected = False
+    repo_inspected = False
     for path, status in statuses.items():
         if status in ('M', 'D'):
             prior_reads = [row for row in packet['inputs'] if row['kind'] == 'evidence' and row['path'] == path
@@ -235,6 +247,41 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result):
             if contains_access_secrets(document['text']):
                 raise FolderIntegrationError('secret detected in proposed content')
             covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved)
+            capture = document['frontmatter'].get('source_authorization')
+            if capture is not None:
+                # A RAW association needs the original explicit request and
+                # recorded results under a trusted folder binding. A direct
+                # preflight cannot elevate a hash copied into Markdown.
+                if path != packet['output'] or binding is None or not isinstance(source_request, dict):
+                    raise FolderIntegrationError('raw capture requires host-bound revalidation')
+                try:
+                    from wiki_core.folder_capture_v2 import inspect_raw_capture, validate_recorded_capture_request
+                    if not _declares_capture_source(document, capture['canonical_ref'], policy.policy_revision):
+                        raise ValueError('capture source requirement unavailable')
+                    validate_recorded_capture_request(root, packet, source_request, capture)
+                    inspection = inspect_raw_capture(root, binding, packet['context_folder'], policy.policy_revision, capture)
+                    if inspection['captured_sha256'] != inspection['current_sha256']:
+                        raise ValueError('capture changed')
+                    capture_inspected = True
+                except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
+                    raise FolderIntegrationError('raw capture unavailable or changed') from None
+            repo_receipt = document['frontmatter'].get('independent_repo_read')
+            additional_repos = document['frontmatter'].get('independent_repo_additional_reads')
+            if additional_repos is not None and repo_receipt is None:
+                raise FolderIntegrationError('repository selection requires host-bound revalidation')
+            if repo_receipt is not None:
+                if path != packet['output'] or binding is None or not isinstance(source_request, dict):
+                    raise FolderIntegrationError('repository selection requires host-bound revalidation')
+                try:
+                    from wiki_core.folder_capture_v2 import inspect_reported_repository
+                    if not _declares_capture_source(document, source_request['source_authorization']['canonical_ref'],
+                                                    policy.policy_revision):
+                        raise ValueError('repository source requirement unavailable')
+                    inspect_reported_repository(root, binding, packet['context_folder'], policy.policy_revision,
+                                                packet, source_request, repo_receipt, additional_repos)
+                    repo_inspected = True
+                except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
+                    raise FolderIntegrationError('repository selection unavailable or changed') from None
             if (PurePosixPath(path).suffix != '.md' or document['frontmatter'].get('page_type') != 'claim'
                     or (prior and prior['frontmatter'].get('page_type') != 'claim')):
                 raise FolderIntegrationError('ambiguous or normative change requires separate review')
@@ -254,4 +301,10 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result):
         out['requirements_handling'] = {'coverage': 'explicit_current_reported_selections_only',
               'count': covered_requirements, 'freshness': 'not_assessed',
               'legacy_receipt_migration': 'not_performed'}
+    if capture_inspected:
+        out['capture_handling'] = {'local_bytes': 'matched', 'external_origin': 'not_verified',
+                                   'external_freshness': 'not_verified', 'execution': 'not_proven'}
+    if repo_inspected:
+        out['repository_handling'] = {'selection': 'matched_request',
+                                      'remote_authentication': 'not_verified', 'execution': 'not_proven'}
     return out

@@ -22,7 +22,7 @@ def prepare_folder_reassessment(root, binding, payload):
     Direct reassessment APIs/CLIs remain available only to a trusted caller.
     """
     required = {'folder', 'approved_revision', 'source', 'reports'}
-    optional = {'scope', 'candidates', 'max_files', 'max_bytes', 'independent_repo'}
+    optional = {'scope', 'candidates', 'max_files', 'max_bytes', 'independent_repo', 'source_request'}
     if not isinstance(payload, dict) or not required <= set(payload) or set(payload) - required - optional:
         raise FolderCoordinationError('invalid request')
     try:
@@ -157,9 +157,136 @@ def prepare_folder_reassessment(root, binding, payload):
             _current_packet_authority(policy, packet, folder, context)
             _preauthorize_historical_replay(binding.root, policy, packet, folder, context, historical)
         policy.fresh()
+        # Contextual captures must keep their request/cache binding before any
+        # independent Git source is opened by the downstream reassessment.
+        source_request = payload.get('source_request')
+        source_auth = source_request.get('source_authorization') if isinstance(source_request, dict) else None
+        from wiki_core.context_policy import UniqueLoader
+        from wiki_core.frontmatter import FRONTMATTER_RE
+        import yaml
+        for selected_report in reports:
+            selected_document = reader.read(selected_report['target'])
+            frontmatter_match = FRONTMATTER_RE.match(selected_document['text'])
+            try:
+                selected_meta = yaml.load(frontmatter_match.group(1), Loader=UniqueLoader) if frontmatter_match else {}
+            except yaml.YAMLError:
+                raise FolderCoordinationError('source request unavailable') from None
+            if not isinstance(selected_meta, dict):
+                raise FolderCoordinationError('source request unavailable')
+            has_capture = (selected_meta.get('source_authorization') is not None
+                           or selected_meta.get('independent_repo_read') is not None)
+            if has_capture and (not isinstance(source_auth, dict)
+                    or source_request.get('block_context_package') != selected_report['packet']):
+                raise FolderCoordinationError('source request unavailable')
+            if selected_meta.get('independent_repo_read') is not None:
+                from wiki_core.folder_capture_v2 import inspect_reported_repository, repository_receipt_projection
+                receipt = source_auth.get('independent_repo_read')
+                projection = selected_meta['independent_repo_read']
+                if (not isinstance(receipt, dict) or projection != repository_receipt_projection(receipt)
+                        or selected_report.get('repo_read') != {**receipt, 'text':source_request.get('independent_repo_content')}):
+                    raise FolderCoordinationError('repository request unavailable')
+                inspect_reported_repository(binding.root, binding, folder, policy.policy_revision,
+                                            selected_report['packet'], source_request, projection,
+                                            selected_meta.get('independent_repo_additional_reads'))
         outcome = reassess_folder_source_v2(binding.root, policy, folder=folder, source=source,
                     reports=reports, scope=scope, candidates=candidates, max_files=max_files, max_bytes=max_bytes,
                     independent_repo=independent)
+        validated_raw = set()
+        validated_repo = set()
+        source_auth = source_request.get('source_authorization') if isinstance(source_request, dict) else None
+        if source_request is not None and not isinstance(source_auth, dict):
+            raise FolderCoordinationError('source request unavailable')
+        if isinstance(source_auth, dict) and source_auth.get('source_kind') == 'staged_raw':
+            from wiki_core.folder_capture_v2 import inspect_raw_capture, validate_recorded_capture_request
+            from wiki_core.context_policy import UniqueLoader
+            from wiki_core.frontmatter import FRONTMATTER_RE
+            import yaml
+            if not isinstance(source_request, dict):
+                raise FolderCoordinationError('raw capture request unavailable')
+            packet = source_request.get('block_context_package')
+            if not isinstance(packet, dict) or packet.get('context_folder') != folder:
+                raise FolderCoordinationError('raw capture request unavailable')
+            target = safe_path(packet['output'])
+            matches = [report for report in reports if report['target'] == target and report['packet'] == packet]
+            entries = [row for row in outcome['consumers'] if row['target'] == target and row['source'] == source]
+            if len(matches) != 1 or len(entries) != 1:
+                raise FolderCoordinationError('raw capture report unavailable')
+            doc = reader.read(target)
+            match = FRONTMATTER_RE.match(doc['text'])
+            if match is None:
+                raise FolderCoordinationError('raw capture unavailable')
+            try:
+                meta = yaml.load(match.group(1), Loader=UniqueLoader)
+            except yaml.YAMLError:
+                raise FolderCoordinationError('raw capture unavailable') from None
+            capture = meta.get('source_authorization') if isinstance(meta, dict) else None
+            if not isinstance(capture, dict) or capture.get('canonical_ref') != source:
+                raise FolderCoordinationError('raw capture unavailable')
+            validate_recorded_capture_request(binding.root, packet, source_request, capture)
+            validated_raw.add(target)
+            try:
+                inspection = inspect_raw_capture(binding.root, binding, folder, policy.policy_revision, capture)
+            except ValueError:
+                entries[0]['state'] = 'blocked_raw_capture_unavailable'
+            else:
+                entries[0]['raw_capture_impact'] = {'captured_sha256':inspection['captured_sha256'],
+                    'current_sha256':inspection['current_sha256'],
+                    'local_state':'unchanged' if inspection['captured_sha256'] == inspection['current_sha256'] else 'changed',
+                    'association':'caller_selected_unverified', 'external_freshness':'not_verified'}
+                if inspection['captured_sha256'] != inspection['current_sha256'] and entries[0]['state'] == 'verification_pending':
+                    entries[0]['state'] = 'review_pending'
+        if isinstance(source_auth, dict) and source_auth.get('independent_repo_read') is not None:
+            from wiki_core.folder_capture_v2 import inspect_reported_repository, repository_receipt_projection
+            packet = source_request.get('block_context_package')
+            if not isinstance(packet, dict) or packet.get('context_folder') != folder:
+                raise FolderCoordinationError('repository request unavailable')
+            target = safe_path(packet['output'])
+            matched = [report for report in reports if report['target'] == target and report['packet'] == packet]
+            entries = [row for row in outcome['consumers'] if row['target'] == target and row['source'] == source]
+            if len(matched) != 1 or len(entries) != 1 or source_auth.get('canonical_ref') != source:
+                raise FolderCoordinationError('repository request unavailable')
+            doc = reader.read(target)
+            projection = doc['frontmatter'].get('independent_repo_read')
+            if (projection != repository_receipt_projection(source_auth['independent_repo_read'])
+                    or matched[0].get('repo_read') != {**source_auth['independent_repo_read'],
+                                                       'text':source_request.get('independent_repo_content')}):
+                raise FolderCoordinationError('repository request unavailable')
+            inspect_reported_repository(binding.root, binding, folder, policy.policy_revision,
+                                        packet, source_request, projection,
+                                        doc['frontmatter'].get('independent_repo_additional_reads'))
+            from wiki_core.folder_ingestion_v2 import additional_repo_selections_for_request
+            from wiki_core.repo_read import read_independent_repo, _git as repo_git
+            additional = additional_repo_selections_for_request(binding, folder, source_auth)
+            receipts = source_auth.get('independent_repo_additional_reads', [])
+            changes = []
+            for selected, receipt in zip(additional, receipts):
+                repo_root, identity, _revision, path = selected
+                if not independent or independent['identity'] != identity or Path(independent['root']).resolve() != Path(repo_root).resolve():
+                    raise FolderCoordinationError('repository request unavailable')
+                try:
+                    repo_git(Path(repo_root), 'merge-base', '--is-ancestor', receipt['revision'], independent['revision'])
+                    latest = read_independent_repo(Path(repo_root), identity, independent['revision'], path,
+                                                   section=receipt.get('section'), field=receipt.get('field'))
+                except ValueError:
+                    entries[0]['state'] = 'blocked_repository_selection_unavailable'
+                    break
+                changed = latest['content_sha256'] != receipt['content_sha256']
+                changes.append({'path':path, 'consumed_revision':receipt['revision'],
+                                'selected_revision':latest['revision'], 'source_state':'changed' if changed else 'unchanged'})
+            if changes:
+                entries[0]['additional_repository_impact'] = changes
+                if any(row['source_state'] == 'changed' for row in changes) and entries[0]['state'] == 'verification_pending':
+                    entries[0]['state'] = 'review_pending'
+            validated_repo.add(target)
+        # A persisted capture is never marked verified or reviewed if its
+        # corresponding contextual request was not explicitly supplied.
+        for entry in outcome['consumers']:
+            target = entry['target']
+            document = reader.read(target)
+            if document['frontmatter'].get('source_authorization') is not None and target not in validated_raw:
+                entry['state'] = 'blocked_raw_capture_unavailable'
+            if document['frontmatter'].get('independent_repo_read') is not None and target not in validated_repo:
+                entry['state'] = 'blocked_repository_request_unavailable'
         policy.fresh()
         return {'schema_version':'wiki.folder-host-reassessment/v2','mode':'host_bound',
                 'reassessment':outcome,'enforcement_claim':'none'}
