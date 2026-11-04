@@ -12,6 +12,14 @@ from wiki_core.folder_integration_v2 import preflight_folder_v2
 from wiki_core.folder_policy_v2 import load_folder_policy_v2
 
 
+def read_json(path):
+    with Path(path).open('rb') as stream:
+        raw = stream.read(2_000_001)
+    if len(raw) > 2_000_000:
+        raise ValueError('request exceeds byte limit')
+    return strict_json_loads(raw.decode('utf-8'))
+
+
 def main():
     parser = SafeArgumentParser(description=__doc__)
     parser.add_argument('--repo', default='.')
@@ -25,17 +33,13 @@ def main():
     args = parser.parse_args()
     try:
         policy = load_folder_policy_v2(args.repo, args.approved_revision)
-        packet = strict_json_loads(Path(args.packet).read_text(encoding='utf-8'))
-        result = strict_json_loads(Path(args.result).read_text(encoding='utf-8'))
+        packet = read_json(args.packet)
+        result = read_json(args.result)
         if isinstance(packet, dict) and packet.get('schema_version') == 'wiki.folder-query-task-context/v2':
             from wiki_core.folder_query_packet_v2 import preflight_folder_query_v2
             requalifications = None
             if args.query_requalifications:
-                with Path(args.query_requalifications).open('rb') as stream:
-                    raw = stream.read(2_000_001)
-                if len(raw) > 2_000_000:
-                    raise ValueError('query requalification exceeds byte limit')
-                requalifications = strict_json_loads(raw.decode('utf-8'))
+                requalifications = read_json(args.query_requalifications)
             outcome = preflight_folder_query_v2(args.repo, policy, base=args.base, head=args.head,
                                                 branch=args.branch, packet=packet, result=result,
                                                 query_requalifications=requalifications)

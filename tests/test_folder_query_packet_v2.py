@@ -132,6 +132,14 @@ def test_query_packet_and_preflight_clis_use_versioned_contract(project,tmp_path
     out=json.loads(checked.stdout)
     assert out['schema_version']=='wiki.folder-query-preflight/v2'
     assert out['state']=='independent_review_required' and out['merge']=='not_performed'
+    # Valid JSON padded past the limit must not reach preflight in either slot.
+    for path in (pp, rp):
+        original = path.read_bytes()
+        path.write_bytes(original + b' ' * 2_000_001)
+        denied = subprocess.run(checked.args, text=True, capture_output=True)
+        assert denied.returncode != 0
+        assert json.loads(denied.stderr)['reason'] == 'operation_failed'
+        path.write_bytes(original)
 
 
 def test_primary_folder_cli_handles_query_packet_without_v1_fallback(project,tmp_path):
