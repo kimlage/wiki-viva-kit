@@ -235,8 +235,10 @@ def test_new_claim_requires_unique_yaml_without_requirements(project, path, kind
             preflight_folder_v2(project, policy, **kwargs)
 
 
-@pytest.mark.parametrize('action', ['created', 'modified', 'deleted'])
-@pytest.mark.parametrize('kind', ['plain', 'alias', 'cycle'])
+@pytest.mark.parametrize(('action', 'kind'), [
+    ('created', 'alias'), ('modified', 'cycle'), ('deleted', 'alias'),
+    ('created', 'plain'), ('modified', 'plain'), ('deleted', 'plain'),
+])
 def test_claim_changes_reject_yaml_aliases_and_cycles(project, action, kind):
     def claim(which):
         if which == 'alias':
@@ -275,6 +277,18 @@ def test_claim_changes_reject_yaml_aliases_and_cycles(project, action, kind):
     else:
         with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
             preflight_folder_v2(project, policy, **kwargs)
+
+
+@pytest.mark.parametrize('extra', [
+    'source_refs: [source-prior]\nsource_refs: null\n',
+    'metadata:\n  key: first\n  key: null\n',
+    'synthetic: &value [first]\nother: *value\n',
+    'synthetic: &value\n  loop: *value\n',
+])
+def test_frontmatter_validator_rejects_ambiguous_mappings_and_aliases(extra):
+    from wiki_core.folder_integration_v2 import _require_unique_frontmatter
+    with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
+        _require_unique_frontmatter({'text':'---\npage_type: claim\n' + extra + '---\nSynthetic claim\n'})
 
 
 def test_new_claim_deep_frontmatter_returns_controlled_reader_error(project):

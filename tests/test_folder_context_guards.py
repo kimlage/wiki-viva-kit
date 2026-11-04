@@ -18,7 +18,15 @@ from wiki_core.folder_policy_v2 import load_folder_policy_v2
 
 
 @pytest.mark.parametrize('name', ['AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md', 'CLAUDE.local.md'])
-@pytest.mark.parametrize('action', ['added', 'modified', 'deleted'])
+def test_context_instruction_names_are_recognized_at_any_depth(name):
+    assert is_context_instruction(name)
+    assert is_context_instruction('finance/costs/nested/' + name)
+    assert not is_context_instruction('finance/costs/nested/' + name + '.bak')
+
+
+@pytest.mark.parametrize(('name', 'action'), [
+    ('AGENTS.md', 'added'), ('AGENTS.override.md', 'modified'), ('CLAUDE.local.md', 'deleted'),
+])
 def test_preflight_rejects_folder_boundary_changes(repo, name, action):
     path = 'finance/costs/nested/' + name
     target = repo / path
@@ -41,8 +49,8 @@ def test_preflight_rejects_folder_boundary_changes(repo, name, action):
                   branch='wiki/costs-task-1', packet=packet, result=result)
 
 
-@pytest.mark.parametrize('name', ['AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md', 'CLAUDE.local.md'])
-def test_new_folder_boundary_requires_query_requalification(collection, name):
+def test_new_folder_boundary_requires_query_requalification(collection):
+    name = 'AGENTS.md'
     base = setup_chain(collection)
     git(collection, 'checkout', '-qb', 'wiki/folder-boundary')
     child = collection / 'finance/costs/items/nested'
@@ -137,8 +145,8 @@ def test_folder_controls_change_keeps_normative_requirement_pending(repo):
                and not row['verification_performed'] for row in report['pending_reviews'])
 
 
-@pytest.mark.parametrize('name', ['AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md', 'CLAUDE.local.md'])
-def test_new_boundary_does_not_certify_old_normative_coverage(repo, name):
+def test_new_boundary_does_not_certify_old_normative_coverage(repo):
+    name = 'AGENTS.md'
     rev = git(repo, 'rev-parse', 'HEAD')
     req = {'target': 'rules.md', 'fields': ['*'], 'temporal': 'current', 'max_age_days': 30,
            'consumed_revision': rev, 'use': 'normative', 'source_kind': 'mandatory', 'classification': 'internal'}

@@ -167,9 +167,15 @@ def test_preflight_fails_closed_for_normative_or_ambiguous_markdown(project, bod
                             branch='wiki/folder-task', packet=packet, result=result)
 
 
-@pytest.mark.parametrize('location', ['instruction', 'index', 'evidence'])
 @pytest.mark.parametrize('query', ['?X-Goog-Signature=synthetic', '?X%2DGoog%2DSignature=synthetic', '?x=1&amp;X-Goog-Signature=synthetic'])
-def test_v2_rejects_encoded_access_urls_without_echoing(project, location, query):
+def test_access_secret_detector_recognizes_encoded_urls(query):
+    from wiki_core.repo_read import contains_access_secrets
+    assert contains_access_secrets('https://files.example.invalid/synthetic' + query)
+
+
+@pytest.mark.parametrize('location', ['instruction', 'index', 'evidence'])
+def test_v2_rejects_encoded_access_urls_without_echoing(project, location):
+    query = '?x=1&amp;X-Goog-Signature=synthetic'
     fake_url = 'https://files.example.invalid/synthetic' + query
     evidence = []
     if location == 'instruction': put(project, 'a/AGENTS.md', fake_url)
