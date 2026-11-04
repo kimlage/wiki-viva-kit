@@ -14,7 +14,7 @@ from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.graph import build_page_graph
 from wiki_core.graph.page_graph import DEFAULT_ORPHAN_EXEMPT_TYPES, PageGraph
-from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, read_matching_result
+from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION, read_matching_result, is_local_folder_request
 from wiki_core.paths import WikiPaths
 
 QUALITY_REPORT_SCHEMA_VERSION = "wiki_quality_report.v1"
@@ -391,7 +391,8 @@ def build_quality_report(
             row = rows.get(chunk.get("chunk_id"))
             if (row is not None
                     and row.get("chunk_hash_sha256", chunk.get("hash_sha256")) == chunk.get("hash_sha256")
-                    and read_matching_result(paths.llm_cache, request, row) is not None):
+                    and read_matching_result(paths.llm_cache, request, row,
+                        root=paths.root if is_local_folder_request(request) else None) is not None):
                 source_cached += 1
             else:
                 source_pending += 1

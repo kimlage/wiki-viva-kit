@@ -360,7 +360,16 @@ def validate_result(result: dict[str, object]) -> list[str]:
     return errors
 
 
-def write_result(cache_dir: Path, result: dict[str, object], *, preserve_existing: bool = False) -> Path:
+def write_result(cache_dir: Path, result: dict[str, object], *, preserve_existing: bool = False,
+                 request: dict | None = None, before_write=None) -> Path:
+    if request is not None and is_local_folder_request(request):
+        rows = request.get('chunks')
+        if (not preserve_existing or not callable(before_write) or not isinstance(rows, list)
+                or not any(result_matches_request(result, request, row, recording=True)
+                           for row in rows if isinstance(row, dict))):
+            raise ValueError('local result requires bound recording')
+        before_write()
+        cache_dir = result_cache_for_request(cache_dir, request)
     if preserve_existing:
         from wiki_core.repo_read import contains_access_secrets
         if contains_access_secrets(result):
@@ -468,11 +477,29 @@ def result_matches_request(result: object, request: dict, row: dict, *, recordin
     return True
 
 
+def is_local_folder_request(request: object) -> bool:
+    from wiki_core.input_stage import LOCAL_FOLDER_INPUT_STATUS
+    return isinstance(request, dict) and request.get('input_stage_status') == LOCAL_FOLDER_INPUT_STATUS
+
+
+def result_cache_for_request(cache_dir: Path, request: object) -> Path:
+    """Separate selected local results; a cache path is not an access grant."""
+    return Path(cache_dir) / 'local-folder' if is_local_folder_request(request) else Path(cache_dir)
+
+
 def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Path | None = None) -> dict | None:
+    if is_local_folder_request(request) and root is None:
+        return None  # No selected-root boundary was supplied; never follow the cache path.
+    cache_dir = result_cache_for_request(cache_dir, request)
     key = row.get("cache_key") if isinstance(row, dict) else None
     if root is not None and isinstance(key, str) and CACHE_KEY_RE.fullmatch(key):
         from wiki_core.traversal import require_wiki_boundaries
-        require_wiki_boundaries(root, files=(result_path(cache_dir, key),))
+        try:
+            require_wiki_boundaries(root, files=(result_path(cache_dir, key),))
+        except (ValueError, OSError):
+            if is_local_folder_request(request):
+                return None
+            raise
     result = read_result(cache_dir, key) if isinstance(key, str) else None
     return result if result_matches_request(result, request, row) else None
 
@@ -832,7 +859,8 @@ def build_context_request(
         }
         if cache_root is not None:
             from wiki_core.traversal import require_wiki_path
-            require_wiki_path(cache_root, (cache_dir / f"{row['cache_key']}.json").relative_to(cache_root).as_posix())
+            selected_cache = result_cache_for_request(cache_dir, request)
+            require_wiki_path(cache_root, (selected_cache / f"{row['cache_key']}.json").relative_to(cache_root).as_posix())
         existing = read_matching_result(cache_dir, request, row, root=context_root)
         row["result_exists"] = existing is not None
         if existing is not None:

@@ -211,6 +211,7 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
         # snapshot of all derived caches. Pin both score-ledger alternatives,
         # every context request and the exact result keys those requests read.
         from wiki_core.consolidate import REQUEST_SUFFIX
+        from wiki_core.llm.context_pass import result_cache_for_request
         from wiki_core.score.karma import EVENTS_FILENAME, EVENTS_MIRROR_FILENAME
         for filename in (EVENTS_FILENAME, EVENTS_MIRROR_FILENAME):
             ref = (paths.derived_root / filename).relative_to(root).as_posix()
@@ -232,7 +233,7 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
                     continue
                 if not isinstance(key, str) or Path(key).name != key or key in {".", ".."}:
                     raise ProposalError("proposal_unsafe_c2_cache_key")
-                ref = (paths.llm_cache / (key + ".json")).relative_to(root).as_posix()
+                ref = (result_cache_for_request(paths.llm_cache, value) / (key + ".json")).relative_to(root).as_posix()
                 readset[ref] = _bytes(root, ref)
     cache = paths.input_stage_catalog.relative_to(root).as_posix()
     readset[cache] = _bytes(root, cache)

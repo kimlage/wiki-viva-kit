@@ -145,6 +145,16 @@ means persistence did not complete; `partial_effects: unknown` warns that
 partial effects may exist and require inspection before retrying. Folder entry
 does not provide scoped query search.
 
+Local-folder results use the existing cache under a `local-folder` subdirectory;
+recording them requires the current source and folder to be revalidated. Results
+written through the legacy unrequested bypass stay in the legacy cache and do
+not satisfy a local-folder request. Earlier results in the shared legacy cache
+remain intact but are not evidence for the new local entry; re-record after the
+selected inputs are checked. Existing legacy and approved v1 caches retain their
+previous paths. This separation is not an ACL against a process with filesystem
+access. The existing cache-summary command reports the legacy root only; its
+file count does not include `local-folder` results.
+
 ## Recoverable blockers
 
 Preparation failures return exit code 2 and structured blockers using the

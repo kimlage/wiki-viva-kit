@@ -213,6 +213,13 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
         data = json.loads(raw)
     results = data if isinstance(data, list) else [data]
     retained_sizes = {}
+    from wiki_core.llm.context_pass import is_local_folder_request, result_cache_for_request
+    local_request = is_local_folder_request(current_request)
+    if local_request and (allow_unrequested or not preserve_existing or not callable(before_write)):
+        return _blocked(ContextRequestBlocked('local_context_revalidation_required',
+            'Record with the selected local source and folder so current inputs can be revalidated.'),
+            'requested-input', owner)
+    target_cache = result_cache_for_request(paths.llm_cache, current_request) if local_request else paths.llm_cache
     approved_current = current_request is not None and current_request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1"
     source_id = str(current_request.get("source_id") or "") if (approved_current or preserve_existing) else None
     if preserve_existing and source_id:
@@ -225,8 +232,8 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
         if getattr(paths, 'root', None) is not None:
             from wiki_core.traversal import require_wiki_boundaries
             keys = [row.get('cache_key') for row in results if isinstance(row, dict)]
-            require_wiki_boundaries(paths.root, directories=(paths.llm_cache,), files=(
-                paths.llm_cache / f'{key}.json' for key in keys
+            require_wiki_boundaries(paths.root, directories=(target_cache,), files=(
+                target_cache / f'{key}.json' for key in keys
                 if isinstance(key, str) and re.fullmatch(r'[0-9a-f]{64}', key)))
         requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes, source_id=source_id)
     except (ValueError, OSError):
@@ -262,6 +269,10 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             matching = [request for request in requests if any(row.get("cache_key") == key
                         for row in request["chunks"] if isinstance(row, dict))]
             for request in matching:
+                if is_local_folder_request(request) and (not local_request or not preserve_existing or not callable(before_write)):
+                    return _blocked(ContextRequestBlocked('local_context_revalidation_required',
+                        'Record with the selected local source and folder so current inputs can be revalidated.'),
+                        'requested-input', owner)
                 retained_limits = request.get("request_limits")
                 if retained_limits is not None and retained_limits != limits:
                     return _blocked(ContextRequestBlocked("request_limits_changed", "Re-emit the request under the current explicit byte budgets before recording."),
@@ -284,7 +295,7 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
                     if isinstance(row, dict) and row.get("cache_key") == key):
                 print("ERROR: result does not match the emitted context, source, chunk or schema", file=sys.stderr)
                 return 2
-            if before_write is not None:
+            if before_write is not None and not local_request:
                 try:
                     before_write()
                 except (ValueError, OSError) as exc:
@@ -297,8 +308,9 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             try:
                 if preserve_existing:
                     from wiki_core.traversal import require_wiki_path
-                    require_wiki_path(paths.root, (paths.llm_cache / f'{key}.json').relative_to(paths.root).as_posix())
-                out = (write_result(paths.llm_cache, result, preserve_existing=True)
+                    require_wiki_path(paths.root, (target_cache / f'{key}.json').relative_to(paths.root).as_posix())
+                out = (write_result(paths.llm_cache, result, preserve_existing=True,
+                                    request=current_request, before_write=before_write)
                        if preserve_existing else write_result(paths.llm_cache, result))
             except (ValueError, OSError) as exc:
                 if preserve_existing:
