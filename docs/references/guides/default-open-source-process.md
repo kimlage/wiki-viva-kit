@@ -537,7 +537,7 @@ The Python code does not call a model. It emits the package the agent must read.
 The agent reads the request and produces structured results. Each result must
 include all required keys, filled quadrants and `sensitivity.has_pii`. The
 following illustrates the explicit working-tree compatibility mode; for the
-default approved folder flow, use [bounded ingestion](bounded-ingestion.md#folder-bound-ingestion):
+approved folder flow, use [bounded ingestion](bounded-ingestion.md#folder-bound-ingestion):
 
 ```sh
 python3 scripts/wiki_llm_context_pass.py --mode working-tree --record-result result.json --context example

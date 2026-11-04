@@ -7,9 +7,9 @@ Usage:
   python3 scripts/wiki_consolidate.py --mode v1 --check
   python3 scripts/wiki_consolidate.py --mode v1 --all-pending
 
-The default folder mode prepares a reviewable proposal from explicitly selected
-v2 inputs and never writes or claims closure. The historical event/check flow
-requires --mode v1; that gate does not cover folder-v2 ingestion.
+Folder options select a reviewable proposal from explicitly selected v2 inputs
+and never write or claim closure. The existing event/check flow remains the
+default without folder options; its gate does not cover folder-v2 ingestion.
 
 In v1, --emit-event generates the normalized EVENT page from the recorded deep read
 (quadrants filled from llm-cache — never placeholders) with consolidated_into:[]
@@ -126,8 +126,8 @@ def consolidate_one(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     config = load_config(ROOT)
-    parser.add_argument("--mode", choices=("folder", "v1"), default="folder",
-                        help="folder proposal by default; v1 selects the historical global flow")
+    parser.add_argument("--mode", choices=("folder", "v1"),
+                        help="explicitly select folder proposal or the existing global flow")
     parser.add_argument("--source", help="legacy source_id to consolidate (v1 only)")
     parser.add_argument("--all-pending", action="store_true", help="list every pending consolidation (JSON)")
     parser.add_argument("--emit-event", action="store_true", help="generate the normalized event from llm-cache")
@@ -139,16 +139,18 @@ def main() -> int:
     parser.add_argument("--force", action="store_true", help="overwrite an existing event for the source")
     parser.add_argument("--check", action="store_true", help="rc 1 while any consolidation is pending (CI)")
     parser.add_argument("--folder-preview", action="store_true",
-                        help="compatibility alias for the default folder proposal")
+                        help="explicitly select a folder proposal")
     parser.add_argument("--folder-candidate", action="append", default=[],
                         help="explicit authorized wiki page to include in the folder preview")
     parser.add_argument("--max-age-days", type=int, help="explicit source freshness policy for folder preview")
     args = parser.parse_args()
+    if args.mode is None:
+        args.mode = 'folder' if args.folder_preview or args.folder_candidate or args.max_age_days is not None else 'v1'
 
     if args.mode == "folder":
         if (args.check or args.all_pending or args.source or args.emit_event or args.packet
                 or args.source_page or args.source_ref or args.force or args.context or args.date):
-            parser.error("legacy consolidation and its global check require --mode v1; folder closure is not established by this command")
+            parser.error("folder and existing consolidation options cannot be mixed; folder closure is not established by the global check")
         if args.max_age_days is None:
             parser.error("folder proposal requires --max-age-days and explicit request/results JSON on stdin")
         try:

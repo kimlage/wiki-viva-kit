@@ -27,7 +27,7 @@ ingesting = integrating.
 
 ## Flow
 
-For the default folder flow, start in the authorized context, read its index
+For the folder-bound flow, start in the authorized context, read its index
 and relevant bodies, and follow [folder ingestion](../../docs/references/guides/bounded-ingestion.md#folder-bound-ingestion)
 with an explicit host binding. Prepare a folder consolidation proposal, review
 it, run folder preflight and integrate under the project's policy. A proposal

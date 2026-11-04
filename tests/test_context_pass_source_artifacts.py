@@ -32,7 +32,8 @@ def source_check(tmp_path, monkeypatch):
     paths = WikiPaths(tmp_path, config)
 
     def check(*extra, source_override=None, mode="working-tree"):
-        monkeypatch.setattr(sys, "argv", ["wiki_llm_context_pass.py", "--mode", mode, "--source", str(source_override or source), "--context", "system", *extra])
+        mode_args = ["--mode", mode] if mode is not None else []
+        monkeypatch.setattr(sys, "argv", ["wiki_llm_context_pass.py", *mode_args, "--source", str(source_override or source), "--context", "system", *extra])
         return module.main()
 
     return source, config, paths, check
@@ -363,7 +364,7 @@ def test_check_remediation_does_not_echo_extractor_messages(source_check, capsys
 def test_valid_ingestion_pending_then_recorded_and_optional(source_check, capsys):
     source, config, paths, check = source_check
     result = run(str(source), "system", paths.root, config)
-    assert check("--check") == 1
+    assert check("--check", mode=None) == 1
     assert json.loads(capsys.readouterr().out)["pending_llm_calls"] > 0
     config.llm["required_context_pass"] = False
     assert check("--check") == 0
@@ -377,7 +378,7 @@ def test_valid_ingestion_pending_then_recorded_and_optional(source_check, capsys
         recorded.update(perspectives={}, perspectives_required=request.get("perspectives_required", []))
         payload = paths.root / "recorded-result.json"
         payload.write_text(json.dumps(recorded))
-        assert check("--record-result", str(payload)) == 0
+        assert check("--record-result", str(payload), mode=None) == 0
         capsys.readouterr()
         retained = (paths.llm_cache / (chunk["cache_key"] + ".json")).read_bytes()
         payload.write_text(json.dumps({**recorded, "context_sha256": "b" * 64}))

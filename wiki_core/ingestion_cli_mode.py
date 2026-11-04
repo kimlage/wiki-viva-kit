@@ -7,6 +7,13 @@ def validate_mode(parser, args):
     folder_options = (any(value is not None for value in folder) or args.folder_source_ref is not None
                       or args.folder_repo is not None or getattr(args, 'folder_queries', None) is not None
                       or getattr(args, 'folder_existing_sha256', None) is not None)
+    if args.mode is None:
+        if folder_options:
+            args.mode = 'folder'
+        elif args.approved_revision is not None or args.policy_context is not None:
+            args.mode = 'v1'
+        else:
+            args.mode = 'working-tree'
     if args.mode == 'folder':
         if not all(folder) or not args.approved_revision or args.policy_context is not None:
             parser.error('folder mode requires approved-revision, folder-context, folder-index and folder-output; policy-context requires --mode v1')

@@ -34,8 +34,8 @@ folder closure.
 
 ## Automated flow (orchestrator)
 
-The following event/index workflow uses explicit `--mode v1` on the orchestrator,
-context-pass and consolidator commands. It is not the default folder contract.
+The following event/index workflow can use `--mode v1` on the orchestrator,
+context-pass and consolidator commands. It is distinct from folder-v2 closure.
 
 The [orchestrator](../../scripts/wiki_ingest.py) extracts text and chunks in
 memory, performs **pre-scan before persistence** (secret blocks; PII informs),

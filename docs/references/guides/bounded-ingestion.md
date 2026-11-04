@@ -6,8 +6,11 @@ checks its budgets before writing artifacts, indexing, scoring or advancing a
 stream cursor. A blocked attempt preserves prior artifacts and never emits a
 partial request or a successful-reading receipt.
 
-The default is the folder-bound path described below. The following command
-selects the historical v1 path explicitly:
+Without folder or authority selections, the existing working-tree path is used.
+Folder options select the folder-bound path below; `--approved-revision` or
+`--policy-context` without folder options select v1 authority. Modes can also
+be named explicitly. Missing, mixed or refused authority never falls back to
+working-tree. The following command selects the v1 path:
 
 ```sh
 python3 scripts/wiki_ingest.py --mode v1 --root . --source SOURCE --context SOURCE_CONTEXT \
@@ -118,8 +121,8 @@ read a fresh request: v4 has a distinct prompt version and context identity, so
 prior results remain inspectable but cannot satisfy the new request. A missing
 v4 prompt or an unknown version blocks approved preparation without fallback.
 
-The existing working-tree adapter requires explicit `--mode working-tree` and
-remains compatibility. Historical envelopes remain inspectable;
+The existing working-tree adapter can also be selected explicitly with
+`--mode working-tree`. Historical envelopes remain inspectable;
 new requests bind the explicit limits as well as the delivered interpretation
 context. Compatibility is not evidence of approved policy or source freshness.
 
@@ -163,7 +166,7 @@ The local caller must maintain cooperative custody of the staged source and
 repository configuration during preparation; path checks and hash fences do
 not provide a filesystem compare-and-swap against concurrent writers.
 
-The default folder route prepares a folder-v2 request without running a model.
+The selected folder route prepares a folder-v2 request without running a model.
 For a Git-tracked UTF-8 source, staged bytes must match the approved revision;
 the request binds origin, path, revision, hash and whole-source evidence.
 For a staged Gitignored RAW file, add `--folder-source-ref SOURCE_PAGE`, an
