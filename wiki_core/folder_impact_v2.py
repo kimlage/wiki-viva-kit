@@ -10,7 +10,7 @@ from wiki_core.folder_integration_v2 import _rebuild
 from wiki_core.folder_policy_v2 import FORMAT, _at_revision
 from wiki_core.folder_declarations_v2 import authorized_index, authorized_instruction_chain, preauthorize_index
 from wiki_core.repository_reader import RepositoryReader
-from wiki_core.folder_auxiliary_v2 import qualify_auxiliary
+from wiki_core.folder_auxiliary_v2 import qualify_auxiliary, historical_auxiliary_view
 
 
 class FolderImpactError(ValueError):
@@ -57,6 +57,61 @@ def _current_packet_authority(policy, packet, folder, context):
         item = reader.read(row['path'], section=row.get('section'))
         if contains_access_secrets(item['text']) or item['content_digest'] != row['sha256']:
             raise FolderImpactError('current instruction or index changed')
+
+
+def _preauthorize_historical_replay(root, policy, packet, folder, context, historical):
+    """Prove the old builder cannot open an unapproved implicit rule body.
+
+    Git metadata must show the same physical instruction chain and the same
+    full blobs for every currently authorized instruction, mandatory ref and
+    selected index. This intentionally rejects changed unselected index bytes.
+    All explicit evidence is also authorized under both historical policies
+    before replay opens any historical instruction, index or source body.
+    """
+    old_sha = historical.policy_revision
+    content_sha = packet['content_revision']
+    if not isinstance(content_sha, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', content_sha):
+        raise FolderImpactError('fixed prior content revision required')
+    _git(root, 'merge-base', '--is-ancestor', content_sha, old_sha)
+    if historical.folder_ids.get(folder) != context:
+        raise FolderImpactError('historical context changed')
+    content_policy = historical if content_sha == old_sha else _at_revision(Path(root), content_sha, policy.controls_path)
+    if content_policy.folder_ids.get(folder) != context:
+        raise FolderImpactError('historical content context changed')
+    chain_folder = packet.get('start_folder') or folder
+    parts = [] if chain_folder == '.' else safe_path(chain_folder).split('/')
+    directories = ['.'] + ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]
+    for directory in directories:
+        if historical.instruction_paths.get(directory) != policy.instruction_paths.get(directory):
+            raise FolderImpactError('historical instruction chain changed')
+        if packet.get('start_folder') and content_policy.instruction_paths.get(directory) != policy.instruction_paths.get(directory):
+            raise FolderImpactError('historical content instruction chain changed')
+    current_reader = RepositoryReader(root, policy.policy_revision)
+    old_reader = RepositoryReader(root, old_sha)
+    content_reader = old_reader if content_sha == old_sha else RepositoryReader(root, content_sha)
+    for row in packet['inputs']:
+        if row['kind'] not in ('instruction', 'mandatory', 'index'):
+            continue
+        path = safe_path(row['path'])
+        if (path not in current_reader.paths or path not in old_reader.paths
+                or current_reader._entries[path] != old_reader._entries[path]):
+            raise FolderImpactError('historical instruction, mandatory or index blob changed')
+        if (packet.get('start_folder') and row['kind'] == 'instruction'
+                and (path not in content_reader.paths or current_reader._entries[path] != content_reader._entries[path])):
+            raise FolderImpactError('historical content instruction blob changed')
+    if packet.get('start_folder'):
+        historical = historical_auxiliary_view(policy, current_reader, historical, old_reader,
+                                               folder, packet['start_folder'])
+        content_policy = (historical if content_sha == old_sha else historical_auxiliary_view(
+            policy, current_reader, content_policy, content_reader, folder, packet['start_folder']))
+    for row in packet['inputs']:
+        if row['kind'] != 'evidence':
+            continue
+        path = safe_path(row['path']); producer = row['producer_context']
+        for old in (historical, content_policy):
+            if (old.connection(producer, context, path, row['use'], row['classification'],
+                               section=row.get('section'), field=row.get('field')) != 'approved'):
+                raise FolderImpactError('historical evidence authority unavailable')
 
 
 def assess_folder_source_v2(root, policy, *, packet, result, target, source, section=None, field=None):
@@ -107,6 +162,7 @@ def assess_folder_source_v2(root, policy, *, packet, result, target, source, sec
             raise FolderImpactError('fixed prior policy revision required')
         _git(root, 'merge-base', '--is-ancestor', old_sha, policy.policy_revision)
         old = _at_revision(Path(root), old_sha, policy.controls_path)
+        _preauthorize_historical_replay(root, policy, packet, folder, context, old)
         # Historical proof is limited to an ancestor of the current approved ref.
         old._binding = (str(Path(root).resolve()), old_sha, policy.controls_path)
         _rebuild(root, old, packet)

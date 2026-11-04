@@ -24,3 +24,8 @@ a session or that a reported task was executed. It does not replace the v1
 coordination, ingestion, query or requirements paths; their migration and an
 operational task remain separate work. Do not expose this internal interface
 to an untrusted caller as a permission system.
+
+A field or section selector limits what the packet delivers, not what the
+repository reader physically loads: it reads the entire Git blob before
+extracting the selection. The host must be authorized to read that whole blob;
+selectors do not establish owner access or provide an ACL.

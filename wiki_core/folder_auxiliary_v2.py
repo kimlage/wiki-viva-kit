@@ -41,6 +41,67 @@ def has_auxiliary_declaration(text: str) -> bool:
     return seen == 1
 
 
+def require_equivalent_auxiliary_metadata(current, current_reader, historical, historical_reader, folder, start_folder):
+    """Prove historical auxiliary markers match authorized current Git blobs.
+
+    No historical body is read. This is conservative: any changed ancestor
+    instruction or auxiliary boundary requires separate requalification.
+    """
+    if (folder not in current.folder_ids or historical.folder_ids.get(folder) != current.folder_ids[folder]
+            or current_reader.revision != current.policy_revision
+            or historical_reader.revision != historical.policy_revision
+            or Path(current_reader.root).resolve() != Path(historical_reader.root).resolve()):
+        raise PolicyError('historical auxiliary authority unavailable')
+    start_folder = safe_path(start_folder)
+    context = current.folder_ids[folder]
+    if (ContextPolicy.owner_of(current, start_folder) != context
+            or ContextPolicy.owner_of(historical, start_folder) != context):
+        raise PolicyError('historical auxiliary owner changed')
+    parts = start_folder.split('/')
+    directories = ['.'] + ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]
+    for directory in directories:
+        path = current.instruction_paths.get(directory)
+        if historical.instruction_paths.get(directory) != path:
+            raise PolicyError('historical auxiliary instruction chain changed')
+        if path is not None and (path not in current_reader.paths or path not in historical_reader.paths
+                or current_reader._entries[path] != historical_reader._entries[path]):
+            raise PolicyError('historical auxiliary instruction blob changed')
+    root = current.contexts[context]['root']
+    def boundaries(policy):
+        return {path for path in policy.unindexed_instruction_folders
+                if within(start_folder, path) and within(path, root) and path != root}
+    if boundaries(current) != boundaries(historical):
+        raise PolicyError('historical auxiliary boundaries changed')
+
+
+def historical_auxiliary_view(current, current_reader, historical, historical_reader, folder, start_folder):
+    """Preauthorize equivalent historical markers without opening their bodies.
+
+    The caller must first qualify the current view, which validates the marker
+    bodies. Identical Git objects plus equivalent boundaries allow checking all
+    historical evidence connections before any historic marker is opened.
+    """
+    context = current.folder_ids[folder]
+    if getattr(current, '_auxiliary_context', None) != context:
+        raise PolicyError('current auxiliary view is not qualified')
+    require_equivalent_auxiliary_metadata(current, current_reader, historical, historical_reader, folder, start_folder)
+    start_folder = safe_path(start_folder)
+    root = current.contexts[context]['root']
+    boundaries = {path for path in historical.unindexed_instruction_folders
+                  if within(start_folder, path) and within(path, root) and path != root}
+    if (not boundaries or boundaries != set(getattr(current, '_qualified_auxiliary', ()))
+            or not any(path.startswith(start_folder + '/') for path in historical_reader.paths)):
+        raise PolicyError('historical auxiliary boundaries unavailable')
+    for boundary in boundaries:
+        path = historical.instruction_paths[boundary]
+        if (ContextPolicy.owner_of(historical, path) != context or not historical.permits(context, 'read', path)):
+            raise PolicyError('historical auxiliary instruction is not authorized')
+    scoped = copy(historical)
+    scoped._auxiliary_context = context
+    scoped._qualified_auxiliary = frozenset(boundaries)
+    return scoped
+
+
 def qualify_auxiliary(policy, reader, folder: str, start_folder: str, *, max_bytes: int):
     """Return actor-scoped policy view for one selected physical start path.
 

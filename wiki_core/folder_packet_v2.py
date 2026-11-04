@@ -10,7 +10,7 @@ from wiki_core.repo_read import contains_access_secrets
 from wiki_core.folder_policy_v2 import FORMAT, _at_revision
 from wiki_core.folder_declarations_v2 import authorized_index, authorized_instruction_chain, preauthorize_index
 from wiki_core.repository_reader import RepositoryReader
-from wiki_core.folder_auxiliary_v2 import qualify_auxiliary
+from wiki_core.folder_auxiliary_v2 import qualify_auxiliary, historical_auxiliary_view
 
 
 def build_folder_packet_v2(root, policy, folder, max_bytes, *, content_revision, index_path, task_id, goal, output, integrator, evidence=(), index_section=None, start_folder=None):
@@ -52,6 +52,42 @@ def build_folder_packet_v2(root, policy, folder, max_bytes, *, content_revision,
     if start_folder is not None:
         policy = qualify_auxiliary(policy, reader, folder, start_folder, max_bytes=max_bytes)
         preauthorize_index(policy, folder, index_path)
+    # Check every requested selector under current policy before opening any
+    # historical auxiliary marker or source. A later denied item must not be
+    # discovered only after an earlier historical input was read.
+    selections = []
+    for spec in evidence:
+        if not isinstance(spec, dict) or set(spec) - {'path', 'producer_folder', 'reason', 'use', 'classification', 'section', 'field'}:
+            raise PolicyError('invalid v2 evidence selector')
+        if not all(isinstance(spec.get(k), str) and spec[k].strip() for k in ('path', 'producer_folder', 'reason', 'use', 'classification')):
+            raise PolicyError('invalid v2 evidence selector')
+        if 'section' in spec and 'field' in spec:
+            raise PolicyError('section and field are mutually exclusive')
+        for key in ('section', 'field'):
+            if key in spec and (not isinstance(spec[key], str) or not spec[key].strip()):
+                raise PolicyError('invalid v2 evidence selector')
+        path = safe_path(spec['path'])
+        producer = policy.folder_ids.get(spec['producer_folder'])
+        if producer is None:
+            raise PolicyError('v2 evidence producer unavailable')
+        if policy.connection(producer, context, path, spec['use'], spec['classification'],
+                             section=spec.get('section'), field=spec.get('field')) != 'approved':
+            raise PolicyError('v2 evidence connection unavailable')
+        selections.append((spec, path, producer))
+    if selections:
+        historical = policy if content_sha == policy.policy_revision else _at_revision(Path(root), content_sha, policy.controls_path)
+        evidence_reader = reader if content_sha == policy.policy_revision else RepositoryReader(root, content_sha)
+        historical_view = historical
+        if start_folder is not None and historical is not policy:
+            historical_view = historical_auxiliary_view(policy, reader, historical, evidence_reader, folder, start_folder)
+        for spec, path, producer in selections:
+            if (historical_view.folder_ids.get(folder) != context
+                    or historical_view.folder_ids.get(spec['producer_folder']) != producer
+                    or historical_view.connection(producer, context, path, spec['use'], spec['classification'],
+                                                  section=spec.get('section'), field=spec.get('field')) != 'approved'):
+                raise PolicyError('historical v2 evidence authority unavailable')
+        if start_folder is not None and historical is not policy:
+            historical = qualify_auxiliary(historical, evidence_reader, folder, start_folder, max_bytes=max_bytes)
     chain = authorized_instruction_chain(policy, reader, folder, max_bytes=max_bytes, start_folder=start_folder)
     index = authorized_index(policy, folder, index_path, chain)
     required_paths = [row['path'] for row in chain]
@@ -83,34 +119,7 @@ def build_folder_packet_v2(root, policy, folder, max_bytes, *, content_revision,
     rows.append({'kind': 'index', 'path': index, 'revision': reader.revision,
                  'sha256': item['content_digest'], 'document_sha256': item['content_sha256'],
                  'section': index_section, 'text': item['text']})
-    for spec in evidence:
-        if not isinstance(spec, dict) or set(spec) - {'path', 'producer_folder', 'reason', 'use', 'classification', 'section', 'field'}:
-            raise PolicyError('invalid v2 evidence selector')
-        if not all(isinstance(spec.get(k), str) and spec[k].strip() for k in ('path', 'producer_folder', 'reason', 'use', 'classification')):
-            raise PolicyError('invalid v2 evidence selector')
-        if 'section' in spec and 'field' in spec:
-            raise PolicyError('section and field are mutually exclusive')
-        for key in ('section', 'field'):
-            if key in spec and (not isinstance(spec[key], str) or not spec[key].strip()):
-                raise PolicyError('invalid v2 evidence selector')
-        path = safe_path(spec['path'])
-        producer = policy.folder_ids.get(spec['producer_folder'])
-        if producer is None:
-            raise PolicyError('v2 evidence producer unavailable')
-        if policy.connection(producer, context, path, spec['use'], spec['classification'],
-                             section=spec.get('section'), field=spec.get('field')) != 'approved':
-            raise PolicyError('v2 evidence connection unavailable')
-        # Current authority is checked before opening historical source content.
-        if historical is None:
-            historical = policy if content_sha == policy.policy_revision else _at_revision(Path(root), content_sha, policy.controls_path)
-            evidence_reader = reader if content_sha == policy.policy_revision else RepositoryReader(root, content_sha)
-            if start_folder is not None and historical is not policy:
-                historical = qualify_auxiliary(historical, evidence_reader, folder, start_folder, max_bytes=max_bytes)
-        if (historical.folder_ids.get(folder) != context
-                or historical.folder_ids.get(spec['producer_folder']) != producer
-                or historical.connection(producer, context, path, spec['use'], spec['classification'],
-                                         section=spec.get('section'), field=spec.get('field')) != 'approved'):
-            raise PolicyError('historical v2 evidence authority unavailable')
+    for spec, path, producer in selections:
         item = evidence_reader.read(path, section=spec.get('section'), field=spec.get('field'))
         if contains_access_secrets(item['text']):
             raise PolicyError('secret detected in v2 evidence')
