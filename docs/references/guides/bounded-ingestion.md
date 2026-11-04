@@ -130,9 +130,14 @@ approved-policy arguments. Starting inside an auxiliary directory without its
 own index requires explicitly selecting the intended context folder.
 
 This is local context preparation, not proof of native instruction discovery,
-an ACL or a sandbox. The process also uses the existing global source catalog
-and block-world inputs, which the host must authorize. Links are not opened as
-grants. Filesystem checks do not prevent concurrent replacement. Until contextual
+an ACL or a sandbox. The selected entry reads its instructions and index without
+opening the global source catalog or block world. Source configuration, linked
+sources and other context remain unresolved; links do not grant access. The
+source must be an explicitly selected regular file inside the wiki or a URL;
+access-bearing URLs are refused, and independent repositories require a separate
+authorized selection not implemented by this entry. Folder ingestion does not
+update the global search index or score event. Filesystem checks do not prevent
+concurrent replacement. Until contextual
 capture reuse is implemented, a folder ingestion refuses to replace an existing
 capture or request for the same source; a repeated explicit request emission
 also preserves the prior file. Folder entry does not provide scoped query search.

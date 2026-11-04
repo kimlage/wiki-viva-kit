@@ -81,7 +81,9 @@ def preparation_blocker(exc: Exception, source_id: str, owner: str) -> dict:
         exc = ContextRequestBlocked("context_budget_exceeded", "Required context cannot fit its explicit byte budget; choose an authorized narrower stage or revise the budget.")
     if isinstance(exc, ContextRequestBlocked):
         code, reason, status = exc.code, str(exc), "denied" if exc.code.endswith("_denied") else "pending"
-        required = ("Install and configure the approved v4 deep-read prompt, then re-emit and read the bound request."
+        required = ("Check the selected folder and index; for an auxiliary folder explicitly select its indexed ancestor."
+                    if code == "local_folder_unavailable" else
+                    "Install and configure the approved v4 deep-read prompt, then re-emit and read the bound request."
                     if code == "approved_prompt_migration_required"
                     else "Choose an explicit smaller source/stage or an authorized byte budget, then prepare again."
                     if code in {"context_budget_exceeded", "request_budget_exceeded", "invalid_context_budget", "retained_request_exceeds_budget"}
@@ -94,7 +96,9 @@ def preparation_blocker(exc: Exception, source_id: str, owner: str) -> dict:
         required = "Ask the context owner/integrator to verify the current approved context, exact read scope and available inputs."
     return {"error_code": code, "blocker": blocker("prepare_context_request", "source:" + source_id,
         reason, owner, required,
-        ("The v4 deep-read prompt is installed and configured for approved requests."
+        ("The selected folder instructions and index are available without crossing a Git boundary."
+         if code == "local_folder_unavailable" else
+         "The v4 deep-read prompt is installed and configured for approved requests."
          if code == "approved_prompt_migration_required" else
          "Current approved context is readable and the complete untruncated request fits both explicit byte budgets."),
         status=status, interface="Calling harness task interface and coordinator task record")}
@@ -353,6 +357,10 @@ def validate_result(result: dict[str, object]) -> list[str]:
 
 
 def write_result(cache_dir: Path, result: dict[str, object], *, preserve_existing: bool = False) -> Path:
+    if preserve_existing:
+        from wiki_core.repo_read import contains_access_secrets
+        if contains_access_secrets(result):
+            raise ValueError('access secret in selected result')
     errors = validate_result(result)
     if errors:
         raise ValueError("invalid LLM pass result: " + ", ".join(errors))
@@ -466,6 +474,9 @@ def local_entry_selection(root: Path, folder: str | None, index_path: str | None
                           cwd: Path, approved_revision: str | None, policy_context: str | None):
     """Resolve explicit selection or a nested cwd; no access is granted."""
     from wiki_core.context_policy import safe_path
+    from wiki_core.repo_read import contains_access_secrets
+    if contains_access_secrets([folder, index_path]):
+        raise ValueError('context selection unavailable')
     if approved_revision is not None or policy_context is not None:
         if folder is not None or index_path is not None:
             raise ValueError('folder selection cannot replace an approved policy')
@@ -486,12 +497,38 @@ def local_entry_selection(root: Path, folder: str | None, index_path: str | None
     return folder, index_path
 
 
+def validate_local_entry_source(root: Path, source: str) -> str:
+    """Validate an explicit local file without crossing wiki Git boundaries."""
+    from urllib.parse import urlsplit
+    from wiki_core.repo_read import contains_access_secrets
+    from wiki_core.traversal import require_wiki_path
+    if not isinstance(source, str) or contains_access_secrets(source):
+        raise ValueError('source selection unavailable')
+    if urlsplit(source).scheme in ('http', 'https'):
+        return source
+    trusted_root = Path(root).resolve(strict=True)
+    candidate = Path(source).expanduser()
+    if not candidate.is_absolute():
+        candidate = trusted_root / candidate
+    try:
+        relative = candidate.relative_to(trusted_root).as_posix()
+    except ValueError:
+        raise ValueError('source outside wiki requires separately authorized selection') from None
+    selected = require_wiki_path(trusted_root, relative)
+    if not selected.is_file():
+        raise ValueError('selected source unavailable')
+    return str(selected)
+
+
 def _folder_documents(root: Path, folder: str, index_path: str | None, max_bytes: int) -> list[dict]:
     """Read a physical instruction chain and one local index, without grants."""
     from wiki_core.context_policy import safe_path, within
     from wiki_core.detectors import scan_text
+    from wiki_core.repo_read import contains_access_secrets
     from wiki_core.traversal import require_wiki_path
 
+    if contains_access_secrets([folder, index_path]):
+        raise ValueError('context selection unavailable')
     folder = safe_path(folder, allow_root=True)
     directory = require_wiki_path(root, folder)
     if not directory.is_dir():
@@ -520,7 +557,7 @@ def _folder_documents(root: Path, folder: str, index_path: str | None, max_bytes
         if len(raw) > remaining:
             raise ValueError('context document budget exceeded')
         text = raw.decode('utf-8')
-        if any(item.category == 'secret' for item in scan_text(text)):
+        if contains_access_secrets(text) or any(item.category == 'secret' for item in scan_text(text)):
             raise ValueError('access secret in context document')
         return text, len(raw)
 
@@ -577,8 +614,14 @@ def ingestion_block_context(root: Path, config, input_context: dict,
 
     if policy_context is not None and approved_revision is None:
         raise ValueError("policy_context requires an explicit approved_revision")
-    selected = (_folder_documents(root, entry_folder, entry_index, context_max_bytes)
-                if entry_folder is not None else [])
+    if entry_folder is not None:
+        selected = _folder_documents(root, entry_folder, entry_index, context_max_bytes)
+        return {'schema_version': 'wiki_block_stack.v1', 'center': None, 'stack': [], 'lenses': [],
+                'write_policy': 'proposal_branch_only', 'target_obligations': [],
+                'policy_mode': 'legacy_working_tree_compatibility', 'policy_enforced': False,
+                'documents': selected,
+                'unresolved_context_refs': ['source configuration not selected', 'linked sources not inspected',
+                                            'other context not inspected']}
     from wiki_core.template_blocks import load_block_world, block_context_package
     from wiki_core.repository_reader import canonical_path
     from wiki_core.detectors import scan_text
@@ -598,15 +641,10 @@ def ingestion_block_context(root: Path, config, input_context: dict,
     documents = []
     unresolved = []
     seen = set()
-    selected_paths = {item['path'] for item in selected}
-    shadowed = {item['path'].removesuffix('AGENTS.override.md') + 'AGENTS.md'
-                for item in selected if item['path'].endswith('AGENTS.override.md')}
     for ref in refs:
         page = world.by_id.get(ref) or world.by_path.get(ref)
         path = page["path"] if page else ref
         canonical_path(path)
-        if path in selected_paths or path in shadowed:
-            continue
         target = root / path
         if not target.is_file():
             unresolved.append(ref)
@@ -624,8 +662,6 @@ def ingestion_block_context(root: Path, config, input_context: dict,
             raise ValueError("access secret in contextual input")
         documents.append({"path": path, "page_id": page["id"] if page else None,
             "text": text, "content_sha256": sha256_text(text), "origin": "working_tree"})
-    if selected:
-        documents = selected + documents
     package.update(policy_mode="legacy_working_tree_compatibility", policy_enforced=False,
                    documents=documents, unresolved_context_refs=unresolved)
     return package
@@ -695,6 +731,7 @@ def build_context_request(
     context_max_bytes: int = DEFAULT_CONTEXT_MAX_BYTES,
     request_max_bytes: int = DEFAULT_REQUEST_MAX_BYTES,
     source_authorization: dict | None = None,
+    cache_root: Path | None = None,
 ) -> dict[str, object]:
     """Assemble the packet that the repo agent executes. Includes the chunk text,
     the versioned prompt, the output schema and the per-chunk cache status.
@@ -785,6 +822,9 @@ def build_context_request(
                                    model_profile, context_sha256=bound),
             "token_estimate": chunk.get("token_estimate"), "text": chunk.get("text", ""),
         }
+        if cache_root is not None:
+            from wiki_core.traversal import require_wiki_path
+            require_wiki_path(cache_root, (cache_dir / f"{row['cache_key']}.json").relative_to(cache_root).as_posix())
         existing = read_matching_result(cache_dir, request, row)
         row["result_exists"] = existing is not None
         if existing is not None:
