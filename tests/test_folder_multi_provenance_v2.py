@@ -74,20 +74,30 @@ def test_new_claim_rejects_unbound_additional_provenance(project, monkeypatch, t
     preview = prepare_folder_consolidation(project, binding, request, results, candidates=[], max_age_days=30,
                                            page_metadata=metadata())
     fm, body = parse_frontmatter(preview['markdown'])
-    fm[FIELD] = {'schema_version':'wiki.folder-source-provenance/v2', 'entries':[]}
     packet = request['block_context_package']; base = packet['policy_revision']
     git(project, 'checkout', '-qb', 'wiki/unbound-provenance')
-    put(project, packet['output'], '---\n' + yaml.safe_dump(fm, sort_keys=False) + '---\n' + body)
+    put(project, packet['output'], preview['markdown'])
     git(project, 'add', packet['output']); git(project, 'commit', '-qm', 'unbound provenance')
     result = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed', 'task_id':packet['task_id'],
         'context_id':packet['context_id'], 'packet_digest':packet['packet_digest'],
         'observed':[{'path':r['path'], 'kind':r['kind'], 'revision':r['revision'], 'sha256':r['sha256'],
                      'section':r.get('section'), 'field':r.get('field')} for r in packet['inputs']],
-        'changes':[{'path':packet['output'], 'action':'added'}]}
-    with pytest.raises(FolderCoordinationError):
-        prepare_folder_preflight(project, binding, {'folder':'a', 'approved_revision':base, 'base':base,
-            'head':git(project, 'rev-parse', 'HEAD'), 'branch':'wiki/unbound-provenance',
-            'packet':packet, 'result':result, 'source_request':request})
+        'changes':[{'path':packet['output'], 'action':'created'}]}
+    payload = {'folder':'a', 'approved_revision':base, 'base':base,
+        'head':git(project, 'rev-parse', 'HEAD'), 'branch':'wiki/unbound-provenance',
+        'packet':packet, 'result':result, 'source_request':request}
+    assert prepare_folder_preflight(project, binding, payload)['preflight']['state'] == 'independent_review_required'
+    fm[FIELD] = {'schema_version':'wiki.folder-source-provenance/v2', 'entries':[]}
+    put(project, packet['output'], '---\n' + yaml.safe_dump(fm, sort_keys=False) + '---\n' + body)
+    git(project, 'add', packet['output']); git(project, 'commit', '--amend', '-qm', 'unbound provenance')
+    payload['head'] = git(project, 'rev-parse', 'HEAD')
+    with pytest.raises(FolderCoordinationError, match='folder preflight unavailable'):
+        prepare_folder_preflight(project, binding, payload)
+    from wiki_core.folder_integration_v2 import preflight_folder_v2, FolderIntegrationError
+    from wiki_core.folder_policy_v2 import load_folder_policy_v2
+    with pytest.raises(FolderIntegrationError, match='new claim cannot introduce additional source projections'):
+        preflight_folder_v2(project, load_folder_policy_v2(project, base), base=base, head=payload['head'],
+            branch=payload['branch'], packet=packet, result=result, binding=binding, source_request=request)
 
 
 @pytest.mark.parametrize('prior_kind,new_kind', [('raw','raw'), ('raw','repo'), ('repo','raw'), ('repo','repo')])
