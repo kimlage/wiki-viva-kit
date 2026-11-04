@@ -213,6 +213,33 @@ not prove the reported read or integration: the result stays
 coverage is one explicitly reported consumption, not a consumer inventory,
 complete propagation, or evidence that the reported task actually ran.
 
+## Join a source update to selected consumers
+
+The experimental [reassessment command](../../../scripts/wiki_folder_reassessment_v2.py)
+combines the bounded consumer inventory with explicit v2 packet/result reports:
+
+```sh
+python3 scripts/wiki_folder_reassessment_v2.py --repo . --approved-revision CURRENT_APPROVED_SHA \
+  --folder areas/example --source areas/example/source.md --scope areas/example --reports reports.json
+```
+
+`reports.json` is an array of objects with `target`, `section`, `field`,
+`packet` and `result`; exactly one of `section` or `field` may be set, or both
+may be null for the whole source. Packets and results are complete JSON objects,
+not paths. Omit `--reports` to inventory declarations without reported reads.
+An exact declared selector without a matching report is `declared_without_report`.
+Changed and unchanged reported slices retain the impact command's pending
+states; historical, query and unsupported selectors remain explicitly open.
+Declared use, classification and consumed revision, when present, must match the
+report. A mismatched or duplicate report blocks the preview. Treat report files
+as potentially sensitive and keep them in authorized storage.
+
+Coverage is limited to selected authorized paths in one owner and the reports
+provided; it does not discover receipts, resolve page IDs, evaluate max age,
+requalify historical or query requirements, or automatically cover external
+repositories. Missing source paths block inventory, and no ACL, completed read,
+review or integration is inferred. The command does not modify interpretations.
+
 ## Propose requalification of an explicit v1 requirement
 
 For one canonical, explicitly selected requirement, the CLI currently reports a
