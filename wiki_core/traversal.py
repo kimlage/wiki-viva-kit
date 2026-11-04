@@ -11,6 +11,29 @@ import os
 from pathlib import Path
 
 
+def is_in_nested_git(path: Path, *, wiki_root: Path) -> bool:
+    """Identify an existing nested-repository or symlink boundary for a file.
+
+    The parent repository's own .git is not a nested boundary. This check is
+    for automatic discovery; a separately selected repository uses its own root.
+    """
+    path = Path(path)
+    wiki_root = Path(wiki_root)
+    if '..' in path.parts or '..' in wiki_root.parts:
+        raise ValueError('unsafe discovery path')
+    root = wiki_root.absolute()
+    try:
+        relative = path.absolute().relative_to(root)
+    except ValueError:
+        raise ValueError('discovery path outside wiki root') from None
+    current = root
+    for part in relative.parts[:-1]:
+        current /= part
+        if current.is_symlink() or os.path.lexists(current / '.git'):
+            return True
+    return bool(relative.parts and path.is_symlink())
+
+
 def reject_nested_git(base: Path, *, include_hidden: bool = True) -> None:
     """Fail a selected directory collection if it contains another repo.
 

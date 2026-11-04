@@ -71,6 +71,31 @@ def test_tracked_obsidian_state_is_not_read_or_copied_into_preview(prepared, mon
     assert all(".obsidian" not in ref.split("/") for ref in reads)
 
 
+@pytest.mark.parametrize('marker_kind', ['file', 'directory'])
+def test_parent_tracked_input_in_nested_repository_is_rejected_before_read(prepared, monkeypatch, marker_kind):
+    srv, root, params, _unlock, _clock = prepared
+    nested = root / 'memories/nested'
+    nested.mkdir()
+    target = nested / 'page.md'
+    target.write_text('Synthetic tracked parent content\n')
+    _commit_inputs(root, params)
+    marker = nested / '.git'
+    if marker_kind == 'directory':
+        marker.mkdir()
+    else:
+        marker.write_text('gitdir: synthetic\n')
+    assert 'memories/nested/page.md' in _git(root, 'ls-files').splitlines()
+    original_entry = normal_proposal._worktree_entry
+    def guard(where, mode, ref):
+        if ref == 'memories/nested/page.md':
+            pytest.fail('nested tracked body opened before its repository boundary')
+        return original_entry(where, mode, ref)
+    monkeypatch.setattr(normal_proposal, '_worktree_entry', guard)
+    with pytest.raises(normal_proposal.ProposalError, match='proposal_nested_repository_not_eligible'):
+        normal_proposal.preview_proposal(root, srv.server.config, params)
+    assert target.read_text() == 'Synthetic tracked parent content\n'
+
+
 @pytest.mark.parametrize("suffix", ["md", "json", "txt", "xml", "log"])
 def test_documentary_inputs_remain_pinned_at_native_effect(prepared, suffix):
     srv, root, params, unlock, _clock = prepared
