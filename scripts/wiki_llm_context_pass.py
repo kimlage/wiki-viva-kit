@@ -413,7 +413,7 @@ def main() -> int:
     if args.repo is not None and entry_folder is None:
         parser.error('repository selection requires a local folder')
     if entry_folder is not None and (args.allow_unrequested or args.query or args.required_perspective
-                                     or args.optional_perspective or (args.record_result and not args.source)):
+                                     or args.optional_perspective or not args.source or not args.source.strip()):
         parser.error('folder entry requires an explicit source and its requested result')
     config = load_config(root)
     paths = WikiPaths(root, config)

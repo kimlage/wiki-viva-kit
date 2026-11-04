@@ -69,6 +69,8 @@ def main() -> int:
         parser.error(str(exc))
     if args.repo is not None and entry_folder is None:
         parser.error('repository selection requires a local folder')
+    if entry_folder is not None and not args.source.strip():
+        parser.error('folder entry requires an explicit source')
     config = load_config(root)
     source = args.source
     if not Path(source).is_absolute() and not urlsplit(source).scheme:

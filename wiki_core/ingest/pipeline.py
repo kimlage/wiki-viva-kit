@@ -165,6 +165,8 @@ def run(
         if repo_selections is not None and entry_folder is None:
             raise ValueError('repository selection requires a context folder')
         if entry_folder is not None:
+            if not isinstance(source, str) or not source.strip():
+                raise ValueError('source selection unavailable')
             if stream_id is not None:
                 raise ValueError('stream ingestion is unavailable for local folder entry')
             from wiki_core.repo_read import contains_access_secrets
@@ -172,6 +174,7 @@ def run(
             if contains_access_secrets(context):
                 raise ValueError('source selection unavailable')
             report_context = context
+            source = validate_local_entry_source(root, source)
             try:
                 selected_context = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
                     entry_index=entry_index, context_max_bytes=context_max_bytes, repo_selections=repo_selections)

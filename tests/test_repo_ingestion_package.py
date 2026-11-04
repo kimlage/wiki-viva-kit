@@ -282,3 +282,70 @@ def test_missing_or_invalid_retained_request_never_opens_repo_body(approved, rep
             retained.write_text(contents)
         assert module.main() == 2
         assert json.loads(capsys.readouterr().out)['blocked']
+
+
+@pytest.mark.parametrize('script_name', ['wiki_ingest', 'wiki_llm_context_pass'])
+@pytest.mark.parametrize('source_arg', [None, '', '   '])
+def test_folder_repo_cli_refuses_missing_source_before_repo_read(approved, repo, monkeypatch, capsys, script_name, source_arg):
+    from wiki_core import repo_read
+    root, _, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area/AGENTS.md').write_text('Local guidance.')
+    (root / 'area/index.md').write_text('Local index.')
+    chosen = selection(repo)
+    script = Path(__file__).resolve().parents[1] / f'scripts/{script_name}.py'
+    spec = importlib.util.spec_from_file_location(f'repo_missing_source_{script_name}', script)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    monkeypatch.setattr(repo_read, '_read_prepared_repo', lambda *_a, **_k: pytest.fail('repository body opened'))
+    monkeypatch.setattr(repo_read, '_prepare_repo_read', lambda *_a, **_k: pytest.fail('repository metadata opened'))
+    argv = [str(script), '--root', str(root), '--context', 'system', '--folder', 'area', '--repo', *chosen]
+    if source_arg is not None:
+        argv.extend(['--source', source_arg])
+    monkeypatch.setattr(sys, 'argv', argv)
+    with pytest.raises(SystemExit) as error:
+        module.main()
+    assert error.value.code == 2
+    output = capsys.readouterr()
+    assert str(repo) not in output.out + output.err
+    assert chosen[1] not in output.out + output.err
+
+
+@pytest.mark.parametrize('source', ['', '   '])
+def test_folder_repo_api_refuses_empty_source_before_repo_read(approved, repo, monkeypatch, source):
+    from wiki_core import repo_read
+    root, _, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area/AGENTS.md').write_text('Local guidance.')
+    (root / 'area/index.md').write_text('Local index.')
+    monkeypatch.setattr(repo_read, '_read_prepared_repo', lambda *_a, **_k: pytest.fail('repository body opened'))
+    monkeypatch.setattr(repo_read, '_prepare_repo_read', lambda *_a, **_k: pytest.fail('repository metadata opened'))
+    result = run(source, 'system', root, load_config(root), entry_folder='area',
+                 repo_selections=[selection(repo)], record_score=False)
+    assert result.blocked and not result.written
+
+
+@pytest.mark.parametrize('script_name', ['wiki_ingest', 'wiki_llm_context_pass'])
+@pytest.mark.parametrize('source_kind', ['missing', 'symlink', 'signed'])
+def test_folder_repo_cli_refuses_invalid_source_before_repo_read(approved, repo, monkeypatch, capsys, script_name, source_kind):
+    from wiki_core import repo_read
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area/AGENTS.md').write_text('Local guidance.')
+    (root / 'area/index.md').write_text('Local index.')
+    if source_kind == 'missing':
+        selected = str(root / 'missing-private-source.md')
+    elif source_kind == 'symlink':
+        link = root / 'private-source-link.md'; link.symlink_to(source)
+        selected = str(link)
+    else:
+        selected = 'https://example.test/source?%2573ig%253Dsynthetic'
+    script = Path(__file__).resolve().parents[1] / f'scripts/{script_name}.py'
+    spec = importlib.util.spec_from_file_location(f'repo_invalid_source_{script_name}', script)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    monkeypatch.setattr(repo_read, '_read_prepared_repo', lambda *_a, **_k: pytest.fail('repository body opened'))
+    monkeypatch.setattr(repo_read, '_prepare_repo_read', lambda *_a, **_k: pytest.fail('repository metadata opened'))
+    monkeypatch.setattr(sys, 'argv', [str(script), '--root', str(root), '--context', 'system', '--folder', 'area',
+                                     '--repo', *selection(repo), '--source', selected])
+    assert module.main() == 2
+    output = capsys.readouterr()
+    assert selected not in output.out + output.err
