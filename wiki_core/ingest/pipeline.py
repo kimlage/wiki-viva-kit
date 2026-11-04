@@ -221,6 +221,10 @@ def run(
             for chunk in text_chunks
         ]
 
+    if folder_queries is not None and not chunk_dicts:
+        return _blocked_preparation(context, config, ContextRequestBlocked(
+            'folder_query_source_empty', 'Folder queries require a source with at least one readable chunk; no query request was emitted.'))
+
     # --- SCAN-FIRST: pre-screening BEFORE any persistence ---
     # Scans the raw file AND the extracted text (covers a secret that only shows
     # up in the text of a PDF/spreadsheet, invisible in the raw bytes).
