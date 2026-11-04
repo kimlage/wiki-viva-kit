@@ -12,12 +12,25 @@ from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.ingest import run
 
 
-def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False):
+def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_repo=False):
     put(project, 'a/candidate.md', 'An explicitly selected context page\n')
     put(project, 'a/aux/b/other.md', 'Synthetic other owner\n')
     sha, selection = setup(project)
     source = 'a/source.md'
     source_ref = None
+    if with_repo:
+        put(project, '.gitignore', 'data/derived/\na/clone/\n')
+        put(project, 'a/repo-source.md', '---\npage_id: repo-source\npage_type: source\n'
+            'platform: repo\nsource_locator: example.test/group/nested\n---\n'
+            + ('Synthetic repository node observation.\n' * 90))
+        commit(project); sha = git(project, 'rev-parse', 'HEAD')
+        clone = project / 'a/clone'; clone.mkdir()
+        git(clone, 'init', '-q'); git(clone, 'config', 'user.name', 'Synthetic')
+        git(clone, 'config', 'user.email', 'synthetic@example.invalid')
+        git(clone, 'remote', 'add', 'origin', 'https://example.test/group/nested.git')
+        put(clone, 'AGENTS.md', 'Independent repository instructions\n')
+        put(clone, 'guide.md', '---\nalpha: 1\n---\nIndependent synthetic repository\n')
+        git(clone, 'add', '-A'); git(clone, 'commit', '-qm', 'synthetic repository source')
     if raw:
         put(project, '.gitignore', 'data/derived/\na/raw/\n')
         put(project, 'a/source-page.md', '---\npage_id: raw-source\npage_type: source\n'
@@ -114,9 +127,18 @@ def test_folder_preview_cli_reads_only_supplied_json_and_does_not_write(project,
 
 def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, tmp_path, capsys):
     """Synthetic Git merge models a gate; it is not a real independent review."""
-    from wiki_core.folder_coordination_v2 import prepare_folder_preflight
+    import sys
+    from wiki_core.folder_coordination_v2 import FolderHostBinding, prepare_folder_preflight
     from wiki_core.folder_reassessment_host_v2 import prepare_folder_reassessment
-    binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys)
+    from wiki_core.repo_read import read_independent_repo
+    binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys, with_repo=True)
+    clone = project / 'a/clone'
+    identity = 'example.test/group/nested'
+    repo_before = git(clone, 'rev-parse', 'HEAD')
+    repo_read = read_independent_repo(clone, identity, repo_before, 'guide.md', field='alpha')
+    assert repo_read['repository']['identity_evidence'] == 'configured_origin_not_remote_authentication'
+    assert git(project, 'check-ignore', 'a/clone/guide.md') == 'a/clone/guide.md'
+    binding = FolderHostBinding(project, ('a',), (('a', clone, identity, 'guide.md'),))
     packet = request['block_context_package']
     base = packet['policy_revision']
     original_branch = git(project, 'branch', '--show-current')
@@ -145,6 +167,42 @@ def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, 
     git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     assert (project / preview['output']).read_text() == preview['markdown']
 
+    # Prepare a second synthetic task for the wiki node that identifies the
+    # independent repo. The external Git read remains an explicit report.
+    second_base = git(project, 'rev-parse', 'HEAD')
+    selection = FolderIngestionSelection(binding, 'a', 'a/index.md', 'a/repo-result.md')
+    second_capture = run(str(project / 'a/repo-source.md'), 'system', project, load_config(project),
+                         approved_revision=second_base, folder_selection=selection)
+    assert not second_capture.blocked and second_capture.written
+    second_request = json.loads((project / second_capture.request_path).read_text())
+    assert len(second_request['chunks']) == 1
+    second_result = _synthetic_result(second_request)
+    module = _recording_cli(project, second_base, second_request, monkeypatch, tmp_path, source='a/repo-source.md')
+    argv = list(sys.argv); argv[argv.index('--folder-output') + 1] = 'a/repo-result.md'
+    monkeypatch.setattr(sys, 'argv', argv)
+    assert module.main() == 0
+    assert json.loads(capsys.readouterr().out)['count'] == 1
+    second_packet = second_request['block_context_package']
+    second_preview = prepare_folder_consolidation(project, binding, second_request, [second_result], candidates=[], max_age_days=30)
+    git(project, 'checkout', '-qb', 'wiki/synthetic-repository')
+    put(project, second_preview['output'], second_preview['markdown'])
+    git(project, 'add', second_preview['output']); git(project, 'commit', '-qm', 'synthetic repo proposal')
+    second_head = git(project, 'rev-parse', 'HEAD')
+    second_report = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed',
+        'task_id':second_packet['task_id'], 'context_id':second_packet['context_id'],
+        'packet_digest':second_packet['packet_digest'],
+        'observed':[{'path':row['path'], 'kind':row['kind'], 'revision':row['revision'],
+                     'sha256':row['sha256'], 'section':row.get('section'), 'field':row.get('field')}
+                    for row in second_packet['inputs']],
+        'changes':[{'path':second_preview['output'], 'action':'created'}]}
+    second_check = prepare_folder_preflight(project, binding, {'folder':'a', 'approved_revision':second_base,
+        'base':second_base, 'head':second_head, 'branch':'wiki/synthetic-repository',
+        'packet':second_packet, 'result':second_report})
+    assert second_check['preflight']['state'] == 'independent_review_required'
+    git(project, 'checkout', '-q', original_branch); git(project, 'merge', '--ff-only', 'wiki/synthetic-repository')
+    git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    assert (project / second_preview['output']).read_text() == second_preview['markdown']
+
     put(project, 'a/source.md', '# Synthetic changed source\n\n' + ('A changed observation.\n' * 90))
     git(project, 'add', 'a/source.md'); git(project, 'commit', '-qm', 'synthetic source update')
     git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
@@ -155,3 +213,15 @@ def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, 
     assert outcome['consumers'][0]['state'] == 'review_pending'
     assert outcome['consumers'][0]['impact']['verification'] == 'reported_not_independently_verified'
     assert (project / preview['output']).read_text() == preview['markdown']
+    put(clone, 'guide.md', '---\nalpha: 2\n---\nIndependent synthetic repository changed\n')
+    git(clone, 'add', 'guide.md'); git(clone, 'commit', '-qm', 'synthetic repository update')
+    selected_revision = git(clone, 'rev-parse', 'HEAD')
+    repository_outcome = prepare_folder_reassessment(project, binding, {'folder':'a',
+        'approved_revision':git(project, 'rev-parse', 'HEAD'), 'source':'a/repo-source.md',
+        'candidates':[second_preview['output']], 'reports':[{'target':second_preview['output'],
+        'section':None, 'field':None, 'packet':second_packet, 'result':second_report, 'repo_read':repo_read}],
+        'independent_repo':{'root':str(clone), 'identity':identity, 'revision':selected_revision, 'path':'guide.md'}})['reassessment']
+    assert repository_outcome['consumers'][0]['state'] == 'review_pending'
+    assert repository_outcome['consumers'][0]['repository_impact']['selected_revision'] == selected_revision
+    assert repository_outcome['consumers'][0]['repository_impact']['verification'] == 'caller_reported_not_independently_verified'
+    assert (project / second_preview['output']).read_text() == second_preview['markdown']
