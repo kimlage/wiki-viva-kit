@@ -6,7 +6,7 @@ verify current provider pricing. It only TRANSFORMS the
 `*-llm-context-request.json` files already emitted by the pipeline into a JSONL of
 Anthropic Message Batches API requests. Whoever runs the repo (agent/human) submits
 the JSONL, then writes the results back with
-`scripts/wiki_llm_context_pass.py --record-result result.json --context system` (provenance flows through
+`scripts/wiki_llm_context_pass.py --mode working-tree --record-result result.json --context system` (provenance flows through
 custom_id = chunk cache_key).
 
 The intelligence stays outside Python: here there is only JSON reading + assembly of
