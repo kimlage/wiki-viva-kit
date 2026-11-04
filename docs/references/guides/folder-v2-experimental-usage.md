@@ -241,8 +241,10 @@ repositories. A missing explicitly selected Markdown source is retained only
 as a literal declaration; with an authorized matching report, its assessment
 is `blocked_missing_source`. Without a report it stays
 `declared_without_report`, without asserting source existence or authority.
-Unrelated unresolved targets still block inventory. No ACL, completed read,
-review or integration is inferred. The command does not modify interpretations.
+Git symlinks, unsupported objects and unavailable selections block with a
+separate error, rather than being classified as missing. Unrelated unresolved
+targets still block inventory. No ACL, completed read, review or integration
+is inferred. The command does not modify interpretations.
 
 ## Propose requalification of an explicit v1 requirement
 

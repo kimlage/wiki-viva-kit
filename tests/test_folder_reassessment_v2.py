@@ -222,3 +222,21 @@ def test_missing_denied_source_is_not_opened_or_disclosed(project, monkeypatch):
     monkeypatch.setattr(RepositoryReader, 'read', guarded)
     with pytest.raises(ValueError):
         run(project, report)
+
+
+def test_symlink_source_is_unsupported_not_missing(project):
+    report = setup_flow(project)
+    source = project / 'a/source.md'
+    source.unlink()
+    source.symlink_to('other.md')
+    commit(project)
+    with pytest.raises(ValueError, match='unavailable or unsupported'):
+        run(project, report)
+
+
+def test_removed_field_is_not_reported_as_missing_source(project):
+    report = setup_flow(project)
+    put(project, 'a/source.md', '---\nunreported: 1\n---\nSource still exists\n')
+    commit(project)
+    with pytest.raises(ValueError, match='source selection unavailable'):
+        run(project, report)
