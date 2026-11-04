@@ -50,6 +50,8 @@ def main() -> int:
     parser.add_argument("--policy-context", help="Explicit approved context ID; no fallback on refusal.")
     parser.add_argument("--folder", help="Local context folder relative to the wiki root; defaults to nested cwd.")
     parser.add_argument("--index", help="Selected context index relative to the wiki root; required for the root.")
+    parser.add_argument("--repo", nargs=4, action="append", metavar=("ROOT", "IDENTITY", "REVISION", "PATH"),
+                        help="Explicit independent Git file; repeat for each selection; no network access.")
     parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
     parser.add_argument("--request-max-bytes", type=int, default=DEFAULT_REQUEST_MAX_BYTES)
     business_root = parser.add_mutually_exclusive_group()
@@ -65,6 +67,8 @@ def main() -> int:
             approved_revision=args.approved_revision, policy_context=args.policy_context)
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
+    if args.repo is not None and entry_folder is None:
+        parser.error('repository selection requires a local folder')
     config = load_config(root)
     source = args.source
     if not Path(source).is_absolute() and not urlsplit(source).scheme:
@@ -81,7 +85,7 @@ def main() -> int:
         approved_revision=args.approved_revision, policy_context=args.policy_context,
         context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes,
         root_entity_ref=args.root_entity_ref, omit_root_entity=args.omit_root_entity,
-        entry_folder=entry_folder, entry_index=entry_index,
+        entry_folder=entry_folder, entry_index=entry_index, repo_selections=args.repo,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
     if result.secret_findings:
