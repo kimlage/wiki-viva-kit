@@ -42,7 +42,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extract and chunk a source |
 | [wiki_find.py](../../../scripts/wiki_find.py) | Read-only lexical lookup with provenance and explicit index/context gaps |
 | [wiki_folder_consumers_v2.py](../../../scripts/wiki_folder_consumers_v2.py) | Inventory canonical requirements for explicitly authorized v2 owner paths |
-| [wiki_folder_context.py](../../../scripts/wiki_folder_context.py) | Inspect tracked folder instructions and indexes without granting access |
+| [wiki_context.py](../../../scripts/wiki_context.py) `inspect` | Inspect tracked folder instructions and indexes without granting access |
 | [wiki_folder_impact_v2.py](../../../scripts/wiki_folder_impact_v2.py) | Compare one reported source selection with a current v2 consumer without changing it |
 | [wiki_folder_reassessment_v2.py](../../../scripts/wiki_folder_reassessment_v2.py) | Join selected consumer declarations to explicit v2 source reports and flag missing evidence |
 | [wiki_folder_migration_v2.py](../../../scripts/wiki_folder_migration_v2.py) | Preview mechanical v1-to-v2 controls; global coordinator authority is required and writing is explicit |

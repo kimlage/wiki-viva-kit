@@ -243,7 +243,7 @@ def test_preflight_accepts_existing_claim_only_with_full_prior_read(project, ope
 
 
 @pytest.mark.parametrize('script', ['wiki_context.py', 'wiki_context_flow.py',
-                                    'wiki_folder_impact_v2.py', 'wiki_folder_context.py'])
+                                    'wiki_folder_impact_v2.py'])
 def test_context_cli_invalid_arguments_never_echo_sensitive_values(project, script):
     fake = 'https://example.invalid/path?X-Goog-Signature=synthetic'
     tool = Path(__file__).resolve().parents[1] / 'scripts' / script

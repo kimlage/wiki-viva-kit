@@ -1,5 +1,7 @@
 """Synthetic evidence for revision-bound folder guidance, not authorization."""
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -47,6 +49,30 @@ def test_nested_chain_uses_git_revision_override_and_reads_indexes(repo):
     assert result['complete'] is True
     assert result['active_context'] == 'a/aux/nested'
     assert 'No access' in result['limitations'][1]
+
+
+def test_cli_local_inspection_without_controls_does_not_enable_protected_resolve(repo):
+    sha = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', sha)
+    assert not (repo / 'wiki-context-controls.yaml').exists()
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_context.py'
+    base = [sys.executable, str(script), '--repo', str(repo)]
+    inspected = subprocess.run([*base, 'inspect', 'a/aux/nested', '--revision', sha,
+                                '--index', 'a/aux/nested/index.md'], capture_output=True, text=True)
+    assert inspected.returncode == 0, inspected.stderr
+    output = json.loads(inspected.stdout)
+    assert [row['instructions']['text'] for row in output['contexts']] == [
+        'Root instruction', 'Context instruction', 'Nested override']
+    assert output['index']['text'] == 'Nested index'
+    assert output['revision'] == sha and output['complete']
+    protected = subprocess.run([*base, '--approved-revision', sha, 'resolve', 'a/aux/nested',
+                                '--index', 'a/aux/nested/index.md'], capture_output=True, text=True)
+    assert protected.returncode != 0 and not protected.stdout
+    assert json.loads(protected.stderr)['reason'] == 'operation_failed'
+    limited = subprocess.run([*base, 'inspect', 'a/aux/nested', '--revision', sha,
+                              '--max-instruction-bytes', '1'], capture_output=True, text=True)
+    assert limited.returncode != 0 and not limited.stdout
+    assert json.loads(limited.stderr)['reason'] == 'operation_failed'
 
 
 def test_missing_index_and_empty_override(repo):

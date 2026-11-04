@@ -36,8 +36,11 @@ def _folder_main(argv):
     parser = SafeArgumentParser(description='Enter a folder context without granting access.',
                                 epilog='Use --mode v1 explicitly for the legacy flow.')
     parser.add_argument('--repo', default='.')
-    parser.add_argument('--approved-revision', required=True)
+    parser.add_argument('--approved-revision', help='required for protected folder operations')
     sub = parser.add_subparsers(dest='command', required=True)
+    inspect = sub.add_parser('inspect', help='inspect tracked instructions and index under local host access')
+    inspect.add_argument('folder'); inspect.add_argument('--revision', required=True)
+    inspect.add_argument('--index'); inspect.add_argument('--max-instruction-bytes', type=int, default=32768)
     resolve = sub.add_parser('resolve'); resolve.add_argument('folder'); resolve.add_argument('--index', required=True)
     resolve.add_argument('--max-instruction-bytes', type=int, default=32768)
     pack = sub.add_parser('pack'); pack.add_argument('folder'); pack.add_argument('--index', required=True)
@@ -56,6 +59,15 @@ def _folder_main(argv):
     search.add_argument('--max-hits', type=int, default=100)
     args = parser.parse_args(argv)
     try:
+        if args.command == 'inspect':
+            if args.approved_revision is not None:
+                raise ValueError('inspection uses a content revision, not an approval assertion')
+            output = inspect_folder(args.repo, args.revision, args.folder,
+                                    index_path=args.index, max_instruction_bytes=args.max_instruction_bytes)
+            print(json.dumps(output, ensure_ascii=False, sort_keys=True))
+            return 0
+        if args.approved_revision is None:
+            raise ValueError('approved revision required')
         if args.command == 'search':
             from wiki_core.folder_ingestion_v2 import host_binding_from_environment
             from wiki_core.folder_coordination_v2 import _bound_policy

@@ -32,6 +32,20 @@ that an agent actually read any of those texts.
 
 ## Context and controls
 
+For local inspection where the host already authorizes access to the selected
+repository and content, use the existing folder entry without a controls file:
+
+```sh
+python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" \
+  inspect areas/example --revision CONTENT_SHA --index areas/example/index.md
+```
+
+This reads the tracked instruction chain and selected index at that Git
+revision. The host must establish access and trust in the revision separately;
+the result does not prove native instruction loading or authorize an action.
+Untracked or uncommitted changes are not included. Protected `resolve`, `search`
+and packet flows do not fall back to this reader when controls deny access.
+
 A nested context node has tracked `AGENTS.md` or `AGENTS.override.md` and
 `index.md` in the same directory. The root is an instruction context, and its
 index is selected explicitly from links declared in its AGENTS. No README is
