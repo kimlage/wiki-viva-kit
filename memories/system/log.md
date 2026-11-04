@@ -14,6 +14,13 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-04] Clarify folder and legacy ingestion instructions
+
+The [ingestion process](ingestion-process.md), [ingestion flow](wiki/ingestion-flow.md),
+[command reference](wiki/command-reference.md) and [gate guide](wiki/gates-and-audit.md)
+distinguish folder-bound selection, review and readback from the legacy v1
+event and global checks. No source was refreshed or factually verified.
+
 ## [2026-11-03] Clarify ingestion command examples
 
 The [command reference](wiki/command-reference.md), [ingestion flow](wiki/ingestion-flow.md)

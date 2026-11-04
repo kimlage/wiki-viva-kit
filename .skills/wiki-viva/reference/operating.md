@@ -52,11 +52,14 @@ incomplete retry. Resolve the reported cause before proceeding; remove secrets
 upstream and never version them. PII is only reported (it is welcome on a private
 page). The [bounded ingestion guide](../../../docs/references/guides/bounded-ingestion.md)
 describes approved mode and the explicitly labelled working-tree compatibility
-mode. To create just the PR-ready proposal Markdown, use
+mode. On the legacy v1 route, to create just the PR-ready proposal Markdown, use
 [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py); for individual stages
 (manifest, text, index) see the command reference.
 
 ## 3. Deep read (delegated LLM pass)
+
+The commands and global input-stage details in this section are legacy v1.
+For the folder request and its selected results use the bounded guide above.
 
 The pipeline emits a `*-llm-context-request.json` package; **you** read each
 chunk and produce the structured result, then record it. For repo-local source
@@ -82,6 +85,9 @@ For batch/cheap processing, export pending requests with
 Batches format).
 
 ## 4. Consolidate and INTEGRATE (the missing half)
+
+The event and global closure commands in this section are legacy v1. Folder
+consolidation instead prepares a reviewable proposal for selected inputs.
 
 Recording the deep read is **not** ingesting — ingesting = integrating. A source
 is only done when the wiki's concepts reflect the new information. Generate the

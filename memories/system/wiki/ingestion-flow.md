@@ -34,10 +34,23 @@ non-deterministic step, the deep read, is delegated to the agent that runs the r
 corresponding high-level operational process is in
 [ingestion process](../ingestion-process.md); the blocking criteria and the
 gate mechanics are in [gates and auditing](gates-and-audit.md).
-Before a source is interpreted, the repo's configured root entity and generated
-input stage define the default perspective bundle, channels, processes and
+In the legacy v1 path, before a source is interpreted, the repo's configured
+root entity and generated input stage define the default perspective bundle, channels, processes and
 target pages; in this kit those pages are [Wiki Viva Kit](../wiki-viva-kit.md)
 and [Input stage](../input-stage.md).
+
+## Folder-bound entry
+
+For new folder work, select the authorized context and index and follow
+[bounded folder ingestion](../../../docs/references/guides/bounded-ingestion.md#folder-bound-ingestion).
+It prepares a selected request and recorded results in a folder namespace,
+then a reviewable consolidation proposal. Preflight, independent review,
+authorized integration, readback and selective consumer reassessment remain
+separate steps. The folder flow does not generate a legacy v1 event or use the
+global v1 consolidation check as evidence of its closure.
+
+The detailed event, global index, score and command examples below describe the
+explicit legacy v1 workflow. They are not automatic steps in folder mode.
 
 ## Overview of the path
 
@@ -74,8 +87,8 @@ gate column says what can stop the source from advancing:
 | Pre-scan | [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Secret/PII findings | secret BLOCKS (exit 2); PII informs |
 | Context package | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--emit-request` | `-llm-context-request.json` | `required_context_pass` watches this file |
 | Deep read | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--record-result` | Per-chunk result in the cache | `validate_result` rejects empty quadrants |
-| Event | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--emit-event` (template as manual fallback) | Quadrants event with `consolidated_into: []` | empty/placeholder quadrant fails the audit |
-| Integration | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--packet`, then the agent integrates | Targets updated, conflicts resolved/recorded, `consolidated_into` closed | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` fails a read source without integration (CI) |
+| Event | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--mode v1 --emit-event` (template as manual fallback) | Quadrants event with `consolidated_into: []` | empty/placeholder quadrant fails the audit |
+| Integration | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--mode v1 --packet`, then the agent integrates | Targets updated, conflicts resolved/recorded, `consolidated_into` closed | `--mode v1 --check` covers the legacy global flow |
 | Consolidation + PR | [wiki_audit.py](../../../scripts/wiki_audit.py), then a PR | Updated memory | repository PR review before `main` |
 
 Invariant points of the design:
@@ -219,11 +232,11 @@ The working-tree compatibility adapter also supports source-config discovery by
 matching `source_refs`; it does not establish approved policy or freshness.
 
 ```sh
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --check
 ```
 
@@ -237,7 +250,7 @@ When a quadrant does not appear in the source, the absence is filled in explicit
 as an operational finding, never left blank. The event lives in the ingestion
 events folder, referenced by the proposal. Since v6.1 it is generated directly
 from the cache by [wiki_consolidate.py](../../../scripts/wiki_consolidate.py)
-`--emit-event` (quadrants filled — never a placeholder — and
+`--mode v1 --emit-event` (quadrants filled — never a placeholder — and
 `consolidated_into: []` for the agent to close during integration). The proposal created by
 [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py) already includes the
 quadrants table to be filled and points to the manifest, the chunks and the expected event.
@@ -247,7 +260,7 @@ quadrants table to be filled and points to the manifest, the chunks and the expe
 Consolidation transforms the synthesis into context memory - not just a link
 to the source. Ingesting = integrating, and the stage has its own tool:
 [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) with
-`--source <source_id> --emit-event --packet` generates the normalized event
+`--mode v1 --source <source_id> --emit-event --packet` generates the normalized event
 (step 7) and the integration packet (gitignored) with related pages, overlapping
 claims, `root_impact`, target pages and potential conflicts per claim/entity.
 Guided by the packet, the agent
@@ -327,7 +340,7 @@ single command chains manifest, text/chunks, index, pre-scan, context
 package and score-event:
 
 ```sh
-python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_ingest.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
 # Add --dry-run to compute without writing artifacts.
 ```

@@ -70,7 +70,7 @@ folder, explicit index and bounded folder-v2 packet, with separate policy and
 content revisions. The older manifest/receipt route requires `--mode v1`;
 v1 receipts are never automatically converted. The caller supplies the trust boundary; selecting a
 revision does not grant access. [wiki_coordination.py](wiki_coordination.py)
-has separate approved packet flags (`--context-id`, `--approved-revision`,
+uses the legacy v1 manifest path and has separate approved packet flags (`--context-id`, `--approved-revision`,
 `--revision`, `--packet-request`) while profile reads return a migration response without content.
 The protected local API additionally requires a host binding and an authenticated
 operator session. See [protected coordination](../docs/references/guides/context-coordination-protected.md).
@@ -165,7 +165,7 @@ The [standalone action board](../docs/references/guides/native-action-board.md)
 is served by `wiki_web_server.py --frontend`; it does not require a native host.
 The retired Hermes installer is retained in Git history only.
 
-[wiki_coordination.py](wiki_coordination.py) reads the caller-trust operator index, records exact-path dialogue and prepares explicit approved context packets without dispatching agents. See [context coordinators](../docs/references/guides/context-coordinators.md).
+[wiki_coordination.py](wiki_coordination.py) reads the caller-trust operator index, records exact-path dialogue and prepares explicit approved legacy v1 manifest packets without dispatching agents. See [context coordinators](../docs/references/guides/context-coordinators.md).
 
 [wiki_contribution.py](wiki_contribution.py) prepares and reconciles independently
 reviewed action-body proposals with optional local agents. See the

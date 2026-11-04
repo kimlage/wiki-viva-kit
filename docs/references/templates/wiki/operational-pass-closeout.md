@@ -68,10 +68,14 @@ back. Convert it into an explicit action, decision or blocked source row.
 | [wiki_audit.py](../../../../scripts/wiki_audit.py) with `--check` |  |
 | [wiki_page_graph.py](../../../../scripts/wiki_page_graph.py) with `--check --impact --base <reviewed-base-sha>` |  |
 | [wiki_quality_report.py](../../../../scripts/wiki_quality_report.py) with `--check` |  |
-| [wiki_consolidate.py](../../../../scripts/wiki_consolidate.py) with `--check` |  |
+| [wiki_consolidate.py](../../../../scripts/wiki_consolidate.py) with `--mode v1 --check` (legacy v1 only) |  |
 | [wiki_operational_pass.py](../../../../scripts/wiki_operational_pass.py) with `--check` |  |
 | [wiki_operation_compile.py](../../../../scripts/wiki_operation_compile.py) with `--check` |  |
 | `git diff --check` |  |
+
+For a folder-bound ingestion, record its selection, proposal, preflight,
+independent review, integration and destination readback separately. The v1
+check does not establish folder closure.
 
 ## Operational Conclusion
 

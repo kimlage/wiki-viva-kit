@@ -35,7 +35,7 @@ Task bodies come exclusively from the [protected coordination route](context-coo
 
 - `GET /api/coordination`: caller-trust operator index with primary coordinator by canonical action ID and revision, and separate owner/executor fields.
 - `GET /api/coordination/profiles/<id>` and CLI `--profile` without an event: constant `coordination_context_required` migration response, without bodies or a snapshot.
-- [wiki_coordination.py](../../../scripts/wiki_coordination.py) with `--context-id`, `--approved-revision`, `--revision` and `--packet-request`: explicit protected task packet. Read the complete packet's mandatory rules and selected evidence, not a truncated sample.
+- [wiki_coordination.py](../../../scripts/wiki_coordination.py) with `--context-id`, `--approved-revision`, `--revision` and `--packet-request`: legacy v1 manifest protected task packet. Read the complete packet's mandatory rules and selected evidence, not a truncated sample.
 - Dialogue CLI: `--profile`, `--action-id`, exact configured `--action-path`, `--event-file` and `--expected-sha256`; see the protected coordination guide for migration examples.
 
 Packet generation is not evidence of LLM reading, comprehension or execution. Runtime admission separately checks actual capability, authorization, claim/STOP/dedup and permitted operations. Profiles never select a canonical context or bypass a refused admission check. Waiting and terminal states remain canonical; coordinator assignment never changes them. Preserve existing action IDs, executor ownership and conversation history; never import packets as duplicate domain tasks.

@@ -80,7 +80,11 @@ global maintenance. The integrator retains the applicable final gates.
 8. Select the context-specific local skill only after the root memory explains the context.
 9. Treat configured `paths.references_root` as references, templates and audit
    history, not as live memory.
-10. For new sources, create or confirm input-stage context, manifest, text/chunks, event, LLM context plan, integration (consolidated event with `consolidated_into` closed) and PR-ready proposal.
+10. For new sources, confirm authorized routing, manifest, text/chunks and the
+    contextual reading. For folder work, track the selected proposal, preflight,
+    review, integration and readback separately. Only the legacy v1 event flow
+    requires its event and closed `consolidated_into`; neither a plan nor a
+    recorded result alone proves integration.
 11. Before delegating, complete the existing [subagent brief](../../docs/references/templates/wiki/subagent-brief.md)
     under the [delegation contract](../../docs/references/guides/context-coordinators.md#delegation-contract).
     Bind the canonical task/base, policy sources, evidence and destinations.

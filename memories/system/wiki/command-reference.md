@@ -85,7 +85,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_vercel_preview.py](../../../scripts/wiki_vercel_preview.py) | Prepare a synthetic-only Vercel function preview without deploying |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |
 | [wiki_contribution.py](../../../scripts/wiki_contribution.py) | Prepare, review and reconcile provider-neutral action-body contributions under consumer Git policy |
-| [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Prepare an explicit approved task packet, read the caller-trust index or record exact-path dialogue; profile reads return migration; never dispatch |
+| [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Legacy v1 manifest coordinator: prepare an explicit approved task packet, read the caller-trust index or record exact-path dialogue; profile reads return migration; never dispatch |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Run the localhost operator API |
 | [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generate/check atomic cockpit snapshot |
 
@@ -103,7 +103,10 @@ coordinator context. The [finite operation runbook](../../../docs/references/gui
 connects explicit protected coordination to independent preflight, review and readback. Content revision and current policy authority are separate; a digest
 does not prove factual freshness or service access.
 
-Use [wiki_find.py](../../../scripts/wiki_find.py) for direct lookup before
+For folder-scoped search use the explicit authorized selection in the
+[folder usage guide](../../../docs/references/guides/folder-v2-experimental-usage.md).
+Use [wiki_find.py](../../../scripts/wiki_find.py) only where its global index
+is authorized for direct lookup before
 preparing a reading request. `--context` filters observed local metadata before
 the hit limit; `--source` selects an exact indexed identity. Missing/invalid
 index and no matches are distinct states. A zero-result query does not prove
@@ -115,7 +118,7 @@ delegated request and does not filter its retrieved hits.
 
 ```sh
 python3 scripts/wiki_find.py "pending decisions" --context system
-python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
+python3 scripts/wiki_ingest.py --mode v1 --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
 python3 scripts/wiki_sync_from_kit.py --kit . --consumer /path/to/consumer --dry-run
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_performance.py plan --profile cycle1 --out /tmp/wiki-performance-plan.json
