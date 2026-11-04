@@ -10,7 +10,7 @@ from pathlib import Path
 
 from wiki_core.context_policy import _git, safe_path, within
 from wiki_core.context_selection import normalize_query
-from wiki_core.folder_impact_v2 import _current_packet_authority
+from wiki_core.folder_impact_v2 import _current_packet_authority, _preauthorize_historical_replay
 from wiki_core.folder_packet_v2 import build_folder_packet_v2
 from wiki_core.folder_policy_v2 import FORMAT, _at_revision
 from wiki_core.folder_query_packet_v2 import build_folder_query_packet_v2, _query_observations
@@ -83,6 +83,7 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
             raise FolderQueryHistoryError('historical output authority unavailable')
         for item in entries:
             _scope_authorized(historical, folder, item['query']['scope'], index)
+        _preauthorize_historical_replay(root, policy, base, folder, context, historical)
         # Only the internally bound ancestor is replayed. Its objects are never
         # returned, and the trusted current ref is checked again before return.
         rebuilt = build_folder_query_packet_v2(root, historical, base_packet=base, queries=entries)
