@@ -41,6 +41,8 @@ def test_nested_context_source_and_repo_flow_exposes_requirement_gate(project):
     git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'independent synthetic repository')
     repo_sha = git(repo, 'rev-parse', 'HEAD')
     commit(project)
+    assert git(project, 'check-ignore', folder + '/node/repo/guide.md') == folder + '/node/repo/guide.md'
+    assert folder + '/node/repo/guide.md' not in git(project, 'ls-files').splitlines()
     base = git(project, 'rev-parse', 'HEAD')
     original_branch = git(project, 'branch', '--show-current')
 
