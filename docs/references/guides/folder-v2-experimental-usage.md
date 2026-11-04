@@ -131,7 +131,8 @@ separate review. This limited candidate only accepts Markdown explicitly marked
 simple current requirements only when each pins the approved Git revision and
 matches exactly one explicitly reported packet input, including its selector,
 use and classification. An existing claim may retain unchanged requirements
-under the same matching rule; changing or deleting those declarations is blocked.
+under the same matching rule; changing their values or value types, or deleting
+those declarations, is blocked.
 Historical, query, normative and unsupported selectors remain blocked. Omitted
 use/classification follow `interpret`/`internal`, and declared revision pins must
 match the selected current evidence. Any covered result explicitly reports that

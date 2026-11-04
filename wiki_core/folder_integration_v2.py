@@ -29,8 +29,19 @@ def _check_current_requirements(prior, document, path, status, packet, approved)
     new = document['frontmatter'].get('information_requirements', absent)
     if old is absent and new is absent:
         return 0
-    if status == 'M' and old != new:
-        raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+    if status == 'M':
+        # Python equality conflates e.g. 30 and 30.0 (or True and 1). The
+        # existing declaration must retain its value *and JSON type*, not
+        # merely compare equal after YAML parsing.
+        if old is absent or new is absent:
+            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+        try:
+            old_json = json.dumps(old, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
+            new_json = json.dumps(new, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
+        except (TypeError, ValueError, OverflowError, RecursionError):
+            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
+        if old_json != new_json:
+            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     if status not in ('A', 'M') or (status == 'M' and not prior):
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     if not isinstance(new, list):
