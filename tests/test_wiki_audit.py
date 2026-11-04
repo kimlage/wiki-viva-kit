@@ -843,6 +843,44 @@ def test_audit_ignores_unselected_clone_without_blocking_checks(tmp_path, audit,
     assert audit.main() == 0 and checked == [True]
 
 
+def test_audit_preserves_leading_space_in_nul_inventory_before_boundary_check(tmp_path, audit, monkeypatch, capsys):
+    nested = tmp_path / ' leading' / 'repo'
+    nested.mkdir(parents=True)
+    target = nested / 'previously-tracked.md'
+    target.write_text('Synthetic previously tracked content\n')
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    subprocess.run(['git', 'add', ' leading/repo/previously-tracked.md'], cwd=tmp_path, check=True)
+    (nested / '.git').mkdir()
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    assert audit.run_git(['ls-files', '-z']) == ' leading/repo/previously-tracked.md\0'
+    assert audit.run_git(['rev-parse', '--show-toplevel']) == str(tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: WikiConfig())
+    monkeypatch.setattr(audit, 'CHECKS', (('sentinel', lambda _ctx: pytest.fail('audit ran after boundary')),))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--check'])
+    assert audit.main() == 1
+    output = capsys.readouterr().out
+    assert ' leading/repo/previously-tracked.md' in output and 'limits audit coverage' in output
+
+
+@pytest.mark.parametrize('failure', ['git_error', 'git_missing', 'truncated'])
+def test_audit_fails_closed_when_tracked_git_inventory_is_unavailable(tmp_path, audit, monkeypatch, capsys, failure):
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: WikiConfig())
+    monkeypatch.setattr(audit, 'CHECKS', (('sentinel', lambda _ctx: pytest.fail('audit ran without inventory')),))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--check'])
+    original = audit.subprocess.check_output
+    def fail_inventory(args, *positional, **kwargs):
+        if args == ['git', 'ls-files', '-z']:
+            if failure == 'git_missing': raise FileNotFoundError('synthetic unavailable Git')
+            if failure == 'truncated': return b'incomplete-path'
+            raise subprocess.CalledProcessError(1, args)
+        return original(args, *positional, **kwargs)
+    monkeypatch.setattr(audit.subprocess, 'check_output', fail_inventory)
+    assert audit.main() == 1
+    assert 'tracked Git path inventory unavailable' in capsys.readouterr().out
+
+
 def test_audit_rejects_config_symlink_before_loading(tmp_path, audit, monkeypatch, capsys):
     subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
     nested = tmp_path / 'ignored/repo'
