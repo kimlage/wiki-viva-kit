@@ -91,7 +91,7 @@ def prepare_folder_reassessment(root, binding, payload):
 
     This function opens only read-only candidates, does not establish host
     identity, and does not attest execution, review, migration or freshness.
-    Direct reassessment APIs/CLIs remain available only to a trusted caller.
+    The lower-level reassessment API remains available only to a trusted caller.
     """
     required = {'folder', 'approved_revision', 'source', 'reports'}
     optional = {'scope', 'candidates', 'max_files', 'max_bytes', 'independent_repo', 'source_request'}

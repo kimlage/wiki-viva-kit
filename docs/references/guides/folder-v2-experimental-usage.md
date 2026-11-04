@@ -460,11 +460,17 @@ complete propagation, or evidence that the reported task actually ran.
 ## Join a source update to selected consumers
 
 The experimental [reassessment command](../../../scripts/wiki_folder_reassessment_v2.py)
-combines the bounded consumer inventory with explicit v2 packet/result reports:
+combines the bounded consumer inventory with explicit v2 packet/result reports.
+The trusted host must configure `WIKI_FOLDER_INGEST_HOST_ROOT` and
+`WIKI_FOLDER_INGEST_HOST_FOLDERS` as for ingestion; the approved revision is
+the full current approved commit SHA. A repository selection also requires a
+matching `WIKI_FOLDER_INGEST_HOST_REPOSITORIES` entry. See the
+[host binding contract](experimental-host-source-reassessment.md).
 
 ```sh
 python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_reassessment_v2.py" --repo "$WIKI_REPO_ROOT" --approved-revision CURRENT_APPROVED_SHA \
-  --folder areas/example --source areas/example/source.md --scope areas/example --reports reports.json
+  --folder areas/example --source areas/example/source.md --scope areas/example --reports reports.json \
+  --source-request REQUEST.json
 ```
 
 `reports.json` is an array of objects with `target`, `section`, `field`,
@@ -478,7 +484,11 @@ The requirement's use and classification must match the report; omission means
 `interpret` and `internal`, respectively, as in the existing requirement flow.
 An explicitly pinned consumed revision must also match; an omitted pin is not
 invented. A mismatched or duplicate report blocks the preview. Treat report files
-as potentially sensitive and keep them in authorized storage.
+as potentially sensitive and keep them in authorized storage. `--source-request`
+supplies the recorded contextual ingestion request where the source requires it;
+omit it for sources without such a binding. One request is supplied per command;
+consumers bound to different requests require separate selections. Reports and
+the request together must fit the host adapter's 2,000,000-byte JSON limit.
 
 In exact-source mode, coverage is limited to selected authorized paths in one owner and the reports
 provided; it does not discover receipts, resolve page IDs, evaluate max age,

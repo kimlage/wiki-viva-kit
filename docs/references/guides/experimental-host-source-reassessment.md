@@ -1,7 +1,8 @@
 # Experimental host-bound source reassessment
 
-`wiki_core.folder_reassessment_host_v2.prepare_folder_reassessment` is an
-opt-in, read-only adapter around the existing v2 source reassessment. The host
+The [source reassessment command](../../../scripts/wiki_folder_reassessment_v2.py)
+uses `wiki_core.folder_reassessment_host_v2.prepare_folder_reassessment`, a
+read-only adapter around the existing v2 source reassessment. The host
 constructs and retains a `FolderHostBinding` for an absolute repository root and
 an explicit set of folders. Request data must not construct that binding.
 A folder binding is not a grant to other folders or a filesystem ACL.
@@ -37,9 +38,10 @@ the trusted ref, and actual filesystem access. Field and section selection
 limits delivery only: `RepositoryReader` loads the entire Git blob, so the host
 must be authorized to read that whole blob.
 
-This adapter is not automatically applied to `wiki_folder_reassessment_v2.py`
-or direct `reassess_folder_source_v2` calls. Those interfaces have no
-`FolderHostBinding` and must only be offered to a coordinator trusted for
-those accesses. The adapter has no CLI, network endpoint, v1 receipt migration,
-query migration or automatic activation. Independent review and tests are
-required before downstream adoption.
+The CLI constructs its binding from the trusted host environment and accepts a
+recorded contextual ingestion request through `--source-request` when required.
+Its result retains the existing reassessment schema and pending statuses. Direct
+`reassess_folder_source_v2` calls do not have a `FolderHostBinding` and are for
+a trusted coordinator. This does not provide a network endpoint, v1 receipt
+migration, query migration or automatic activation. Independent review and tests
+are required before downstream adoption.

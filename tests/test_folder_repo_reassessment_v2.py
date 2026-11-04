@@ -1,5 +1,6 @@
 """One selected local independent Git source, two synthetic wiki consumers."""
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -214,10 +215,17 @@ def test_cli_uses_existing_source_reassessment_flow(project, tmp_path):
     _clone, reports, selected = make_flow(project)
     report_file = tmp_path / 'reports.json'; report_file.write_text(json.dumps(reports))
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_folder_reassessment_v2.py'
-    proc = subprocess.run([sys.executable, str(script), '--repo', str(project), '--approved-revision', 'HEAD',
+    env = {**os.environ, 'WIKI_FOLDER_INGEST_HOST_ROOT': str(project), 'WIKI_FOLDER_INGEST_HOST_FOLDERS': 'a',
+           'WIKI_FOLDER_INGEST_HOST_REPOSITORIES': json.dumps([['a', selected['root'], IDENTITY, 'guide.md']])}
+    args = [sys.executable, str(script), '--repo', str(project), '--approved-revision', git(project, 'rev-parse', 'HEAD'),
             '--folder', 'a', '--source', 'a/repo-source.md', '--candidate', 'a/first.md', '--candidate', 'a/second.md',
             '--reports', str(report_file), '--independent-root', selected['root'], '--independent-identity', IDENTITY,
-            '--independent-revision', selected['revision'], '--independent-path', 'guide.md'], capture_output=True, text=True)
+            '--independent-revision', selected['revision'], '--independent-path', 'guide.md']
+    refused = subprocess.run(args, capture_output=True, text=True,
+                             env={**env, 'WIKI_FOLDER_INGEST_HOST_REPOSITORIES': '[]'})
+    assert refused.returncode != 0
+    assert not refused.stdout
+    proc = subprocess.run(args, capture_output=True, text=True, env=env)
     assert proc.returncode == 0, proc.stderr
     out = json.loads(proc.stdout)
     assert {r['state'] for r in out['consumers']} == {'review_pending', 'verification_pending'}
