@@ -256,6 +256,39 @@ def test_gc_source_id_of_request(tmp_path: Path) -> None:
     assert gc._source_id_of(q) == "def456"
 
 
+def test_global_gc_preserves_folder_requests_and_collects_legacy_orphan(tmp_path, monkeypatch, capsys):
+    from wiki_core.folder_request_identity_v2 import folder_request_identity, folder_request_path
+    from wiki_core.paths import FolderWikiPaths
+
+    gc = _load_gc()
+    config = WikiConfig()
+    paths = WikiPaths(tmp_path, config)
+    folder = FolderWikiPaths(tmp_path, config, 'area')
+    _proposal(paths.ingest_dir / 'active.md', 'approved', 'src-live')
+    paths.extraction_events.mkdir(parents=True)
+    orphan = paths.extraction_events / 'src-old-llm-context-request.json'
+    orphan.write_text('{}', encoding='utf-8')
+    folder.extraction_events.mkdir(parents=True)
+    request = {'context_binding_version': 2, 'source_id': 'src-live', 'chunks': []}
+    request['folder_request_id'] = folder_request_identity(request)
+    valid = folder_request_path(folder, request)
+    valid.write_text(json.dumps(request), encoding='utf-8')
+    invalid = folder.extraction_events / ('folder-' + '0' * 64 + '-' + '1' * 64 + '-llm-context-request.json')
+    invalid.write_bytes(b'\xffinvalid')
+    before = {path: path.read_bytes() for path in (valid, invalid)}
+    monkeypatch.setattr(gc, 'ROOT', tmp_path)
+    monkeypatch.setattr(gc, 'load_config', lambda _: config)
+    monkeypatch.setattr(gc, 'prune_index', lambda *_: {'pruned_sources': 0})
+
+    assert gc.main([]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report['orphan_files'] == 1
+    assert report['by_dir']['extraction-events'] == [str(orphan.relative_to(tmp_path))]
+    assert gc.main(['--apply']) == 0
+    assert not orphan.exists()
+    assert {path: path.read_bytes() for path in (valid, invalid)} == before
+
+
 def _proposal(path: Path, state: str, source_id: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
