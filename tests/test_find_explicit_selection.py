@@ -155,3 +155,59 @@ def test_io_error_does_not_disclose_path(tmp_path, monkeypatch):
     with pytest.raises(ValueError) as error:
         find(tmp_path, None, 'needle', selections=['node/private-selector.md'])
     assert 'private-selector' not in str(error.value)
+
+
+@pytest.mark.parametrize('unsafe', [
+    'https://example.test/doc?sig=fake',
+    'https://example.test/doc?code=fake',
+    'https://example.test/doc?%2573ig%253Dfake',
+])
+def test_signed_links_in_query_or_content_are_not_returned(tmp_path, unsafe):
+    target = put(tmp_path, 'node/index.md', 'synthetic safe text')
+    with pytest.raises(ValueError) as error:
+        find(tmp_path, None, unsafe, selections=['node'])
+    assert unsafe not in str(error.value)
+    target.write_text('needle ' + unsafe, encoding='utf-8')
+    with pytest.raises(ValueError) as error:
+        find(tmp_path, None, 'needle', selections=['node'])
+    assert unsafe not in str(error.value)
+
+
+@pytest.mark.parametrize('unsafe_name', ['doc?sig=fake.md', 'doc?code=fake.md', 'doc%253F%2573ig%253Dfake.md'])
+def test_signed_selector_and_discovered_name_never_open_or_echo(tmp_path, monkeypatch, unsafe_name):
+    target = put(tmp_path, 'node/' + unsafe_name, 'needle')
+    original_open = Path.open
+    def guarded(path, *args, **kwargs):
+        if path == target:
+            pytest.fail('signed selector body opened')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded)
+    for selected in (['node'], ['node/' + unsafe_name]):
+        with pytest.raises(ValueError) as error:
+            find(tmp_path, None, 'needle', selections=selected)
+        assert unsafe_name not in str(error.value)
+
+
+@pytest.mark.parametrize('flag', ['--context', '--source'])
+def test_cli_rejects_empty_indexed_filter_with_explicit_path(tmp_path, monkeypatch, capsys, flag):
+    import importlib.util
+    import json
+    path = Path(__file__).resolve().parents[1] / 'scripts/wiki_find.py'
+    spec = importlib.util.spec_from_file_location('selected_find_empty_filter', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    put(tmp_path, 'node/index.md', 'needle')
+    monkeypatch.setattr(module, 'ROOT', tmp_path)
+    monkeypatch.setattr(module, 'load_config', lambda _root: None)
+    with pytest.raises(SystemExit) as error:
+        module.main(['needle', '--path', 'node', flag, ''])
+    assert error.value.code == 2
+    assert not capsys.readouterr().out
+    assert module.main(['https://example.test/doc?sig=fake', '--path', 'node']) == 2
+    output = capsys.readouterr().out
+    assert json.loads(output)['status'] == 'selection_unavailable'
+    assert 'sig=fake' not in output
+    assert module.main(['needle', '--path', 'node/doc%253F%2573ig%253Dfake.md']) == 2
+    output = capsys.readouterr().out
+    assert json.loads(output)['status'] == 'selection_unavailable'
+    assert '%253F%2573ig%253Dfake' not in output

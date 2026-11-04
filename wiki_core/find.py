@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from wiki_core.frontmatter import parse_frontmatter
-from wiki_core.detectors.secrets import scan_secrets
+from wiki_core.repo_read import contains_access_secrets
 from wiki_core.index.sqlite import PAGE_SOURCE_PREFIX, search_detailed
 from wiki_core.index.page_collection import current_page_signature
 from wiki_core.paths import WikiPaths
@@ -21,7 +21,7 @@ def _find_selected(root: Path, query: str, selections, limit: int) -> dict:
             or not isinstance(selections, (list, tuple)) or not 1 <= len(selections) <= 16
             or any(not isinstance(item, str) or len(item) > 4096 for item in selections)):
         raise ValueError('invalid selected search')
-    if scan_secrets(query) or any(scan_secrets(item) for item in selections):
+    if contains_access_secrets(query) or contains_access_secrets(selections):
         raise ValueError('selected search unavailable')
     root = Path(root).resolve()
     files = set()
@@ -51,7 +51,7 @@ def _find_selected(root: Path, query: str, selections, limit: int) -> dict:
     # Validate the complete selection and its size before opening any body.
     sizes = []
     for path in sorted(files):
-        if scan_secrets(path.relative_to(root).as_posix()):
+        if contains_access_secrets(path.relative_to(root).as_posix()):
             raise ValueError('selected search unavailable')
         if is_in_nested_git(path, wiki_root=root) or not path.is_file():
             raise ValueError('selected file unavailable')
@@ -79,7 +79,7 @@ def _find_selected(root: Path, query: str, selections, limit: int) -> dict:
         if read_bytes > 8_000_000:
             raise ValueError('selected search byte limit exceeded')
         text = raw.decode('utf-8')
-        if scan_secrets(text):
+        if contains_access_secrets(text):
             raise ValueError('selected search content unavailable')
         folded = text.casefold()
         if all(term in folded for term in terms) and len(hits) < limit:
