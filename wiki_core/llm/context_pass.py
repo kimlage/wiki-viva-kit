@@ -503,13 +503,22 @@ def result_cache_for_request(cache_dir: Path, request: dict) -> Path:
     return Path(cache_dir) / 'folder-v2' if request.get('context_binding_version') == 2 else Path(cache_dir)
 
 
-def read_matching_result(cache_dir: Path, request: dict, row: dict) -> dict | None:
+def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Path | None = None) -> dict | None:
     key = row.get("cache_key") if isinstance(row, dict) else None
-    selected_cache = result_cache_for_request(cache_dir, request)
-    if request.get('context_binding_version') == 2 and (
-            selected_cache.is_symlink() or (isinstance(key, str) and result_path(selected_cache, key).is_symlink())):
+    if not isinstance(key, str) or not CACHE_KEY_RE.fullmatch(key):
         return None
-    result = read_result(selected_cache, key) if isinstance(key, str) else None
+    selected_cache = result_cache_for_request(cache_dir, request)
+    if request.get('context_binding_version') == 2:
+        if root is None:
+            return None
+        try:
+            from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+            root = Path(root).resolve()
+            relative = result_path(selected_cache, key).relative_to(root).as_posix()
+            _check_local_boundaries(root, relative)
+        except (ValueError, OSError, TypeError, RuntimeError):
+            return None
+    result = read_result(selected_cache, key)
     return result if result_matches_request(result, request, row) else None
 
 
@@ -642,6 +651,7 @@ def build_context_request(
     context_max_bytes: int = DEFAULT_CONTEXT_MAX_BYTES,
     request_max_bytes: int = DEFAULT_REQUEST_MAX_BYTES,
     source_authorization: dict | None = None,
+    context_root: Path | None = None,
 ) -> dict[str, object]:
     """Assemble the packet that the repo agent executes. Includes the chunk text,
     the versioned prompt, the output schema and the per-chunk cache status.
@@ -739,7 +749,7 @@ def build_context_request(
                                    model_profile, context_sha256=bound),
             "token_estimate": chunk.get("token_estimate"), "text": chunk.get("text", ""),
         }
-        existing = read_matching_result(cache_dir, request, row)
+        existing = read_matching_result(cache_dir, request, row, root=context_root)
         row["result_exists"] = existing is not None
         if existing is not None:
             row["result_source_id"] = existing.get("source_id")

@@ -241,7 +241,7 @@ def test_v2_synthetic_result_records_and_is_reused_only_with_current_binding(pro
     cached = WikiPaths(project, load_config(project)).llm_cache / 'folder-v2' / (request['chunks'][0]['cache_key'] + '.json')
     assert cached.exists()
     from wiki_core.llm.cache import cache_summary
-    assert cache_summary(legacy_cache)['cache_files'] == 2
+    assert cache_summary(legacy_cache, root=project)['cache_files'] == 2
     repeated = run(str(project / 'a/source.md'), 'system', project, load_config(project),
                    approved_revision=sha, folder_selection=selection, write=False)
     assert not repeated.blocked and repeated.pending_llm_calls == initial.pending_llm_calls - 1
@@ -293,6 +293,49 @@ def test_folder_capture_artifact_symlink_is_refused_before_writes(project, tmp_p
                  approved_revision=sha, folder_selection=selection)
     assert result.blocked and not result.written
     assert list(outside.iterdir()) == [] and not paths.source_manifests.exists()
+
+
+def test_emit_request_refuses_symlinked_events_ancestor(project, monkeypatch, tmp_path, capsys):
+    sha, selection = setup(project)
+    initial = run(str(project / 'a/source.md'), 'system', project, load_config(project),
+                  approved_revision=sha, folder_selection=selection)
+    request = json.loads((project / initial.request_path).read_text())
+    module = _recording_cli(project, sha, request, monkeypatch, tmp_path)
+    args = sys.argv
+    args[args.index('--record-result'):] = ['--emit-request']
+    paths = WikiPaths(project, load_config(project))
+    outside = tmp_path / 'external-events'
+    paths.extraction_events.rename(outside)
+    paths.extraction_events.symlink_to(outside, target_is_directory=True)
+    before = {path.name: path.read_bytes() for path in outside.iterdir()}
+    assert module.main() == 2
+    assert json.loads(capsys.readouterr().out)['blocked']
+    assert {path.name: path.read_bytes() for path in outside.iterdir()} == before
+
+
+def test_folder_cache_read_requires_root_and_rejects_symlinked_ancestor(project, monkeypatch, tmp_path, capsys):
+    from wiki_core.llm.context_pass import read_matching_result
+    sha, selection = setup(project)
+    initial = run(str(project / 'a/source.md'), 'system', project, load_config(project),
+                  approved_revision=sha, folder_selection=selection)
+    request = json.loads((project / initial.request_path).read_text())
+    module = _recording_cli(project, sha, request, monkeypatch, tmp_path)
+    assert module.main() == 0
+    capsys.readouterr()
+    paths = WikiPaths(project, load_config(project))
+    row = request['chunks'][0]
+    assert read_matching_result(paths.llm_cache, request, row) is None
+    assert read_matching_result(paths.llm_cache, request, row, root=project) is not None
+    outside = tmp_path / 'moved-derived'
+    paths.derived_root.rename(outside)
+    paths.derived_root.symlink_to(outside, target_is_directory=True)
+    original = Path.open
+    def guarded(path, *args, **kwargs):
+        if path.name == row['cache_key'] + '.json':
+            pytest.fail('cache body opened through symlinked ancestor')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded)
+    assert read_matching_result(paths.llm_cache, request, row, root=project) is None
 
 
 def test_gitignored_raw_does_not_acquire_fictitious_revision(project):

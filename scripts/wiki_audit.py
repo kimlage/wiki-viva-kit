@@ -2198,7 +2198,7 @@ def audit_context_pass_gate(
             continue
         pending = [
             chunk for chunk in data.get("chunks", [])
-            if read_matching_result(cache_dir, data, chunk) is None
+            if read_matching_result(cache_dir, data, chunk, root=ROOT) is None
         ]
         if pending:
             errors.append(
@@ -2275,10 +2275,13 @@ def audit_llm_cache_metadata(errors: list[str], config: WikiConfig | None = None
     if not cache_dir.exists():
         return
     folder_cache = cache_dir / "folder-v2"
-    if folder_cache.is_symlink():
-        errors.append("folder-v2 result cache must not be a symlink")
-        return
-    files = [*cache_dir.glob("*.json"), *folder_cache.glob("*.json")]
+    files = [*cache_dir.glob("*.json")]
+    try:
+        from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+        _check_local_boundaries(ROOT, folder_cache.relative_to(ROOT).as_posix())
+        files.extend(folder_cache.glob("*.json"))
+    except (ValueError, OSError, RuntimeError):
+        errors.append("folder-v2 result cache path is unavailable or unsafe")
     for path in sorted(files):
         rel = path.relative_to(ROOT).as_posix()
         if path.parent == folder_cache and path.is_symlink():
@@ -2319,9 +2322,13 @@ def audit_perspective_coverage(errors: list[str], config: WikiConfig) -> None:
         for chunk in request.get("chunks", []):
             key = str(chunk.get("cache_key") or "")
             result_path = result_cache_for_request(cache_dir, request) / f"{key}.json"
-            if request.get("context_binding_version") == 2 and (result_path.parent.is_symlink() or result_path.is_symlink()):
-                errors.append(f"{rel}: folder-v2 cache path must not be a symlink")
-                continue
+            if request.get("context_binding_version") == 2:
+                try:
+                    from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+                    _check_local_boundaries(ROOT, result_path.relative_to(ROOT).as_posix())
+                except (ValueError, OSError, RuntimeError):
+                    errors.append(f"{rel}: folder-v2 cache path is unavailable or unsafe")
+                    continue
             if not result_path.exists():
                 continue
             try:
