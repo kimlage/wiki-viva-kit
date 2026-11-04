@@ -90,6 +90,12 @@ def test_selected_requalification_preserves_other_requirements(project, tmp_path
     with pytest.raises(ValueError):
         preflight_folder_query_v2(project, policy, base=current, head=changed_head, branch='wiki/requalify-query',
             packet=changed_packet, result=changed_result, query_requalifications=[report])
+    (project / 'a/result.md').unlink()
+    git(project, 'add', '-A'); git(project, 'commit', '--amend', '-qm', 'deleted output')
+    deleted_result = result_for(next_packet, [{'path':'a/result.md', 'action':'deleted'}])
+    with pytest.raises(ValueError):
+        preflight_folder_query_v2(project, policy, **{**common, 'head':git(project, 'rev-parse', 'HEAD'),
+            'result':deleted_result}, query_requalifications=[report])
     common['head'] = write([updated_req, other])
     pp = tmp_path/'packet.json'; rp = tmp_path/'result.json'; hp = tmp_path/'history.json'
     pp.write_text(json.dumps(next_packet)); rp.write_text(json.dumps(next_result)); hp.write_text(json.dumps([report]))
