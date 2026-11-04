@@ -31,6 +31,7 @@ try:  # importing _common bootstraps sys.path so wiki_core resolves
 except ModuleNotFoundError:
     from _common import ROOT
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import load_config
 from wiki_core.frontmatter import parse_frontmatter_flat
 from wiki_core.source_migration import apply_change, plan_source_migration
@@ -66,7 +67,7 @@ def _report_pinned_gaps(root, config) -> int:
         return 0
     gaps = 0
     lines: list[str] = []
-    for path in sorted(memory_root.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(memory_root, wiki_root=root)):
         values = parse_frontmatter_flat(path)
         page_type = str(values.get("page_type") or "")
         if not page_type or page_type not in registry.raw_types:

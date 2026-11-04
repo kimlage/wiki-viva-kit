@@ -9,6 +9,7 @@ from typing import Mapping
 from wiki_core.context_policy import load_policy, safe_path, PolicyError, revision
 from wiki_core.context_packet import build_packet
 from wiki_core.context_integration import preflight
+from wiki_core.git_env import local_git_environment, local_git_executable
 
 class ProtectedCoordinationError(ValueError):
     def __init__(self, code='coordination_input_unavailable', status='pending'):
@@ -64,7 +65,7 @@ def prepare_packet(root, binding, payload):
     content=payload['content_revision']; task=payload['task']
     if not isinstance(content,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',content): raise ProtectedCoordinationError('coordination_invalid_request')
     # Approved-mode history is confined to ancestors of the trusted tip.
-    if subprocess.run(['git','-C',str(root),'merge-base','--is-ancestor',content,policy.policy_revision],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode: raise ProtectedCoordinationError('coordination_content_not_approved')
+    if subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'merge-base','--is-ancestor',content,policy.policy_revision],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=local_git_environment()).returncode: raise ProtectedCoordinationError('coordination_content_not_approved')
     required={'task_id','goal','output','integrator','max_bytes','evidence'}
     if not isinstance(task,dict) or not required<=set(task) or set(task)-(required|{'omissions','queries'}): raise ProtectedCoordinationError('coordination_invalid_request')
     if type(task['max_bytes']) is not int or not 0<=task['max_bytes']<=1_000_000 or not isinstance(task['evidence'],list) or len(task['evidence'])>128: raise ProtectedCoordinationError('coordination_invalid_request')

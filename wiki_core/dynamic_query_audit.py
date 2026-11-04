@@ -4,17 +4,18 @@ import re
 import hashlib
 import json
 import subprocess
-from wiki_core.context_policy import PolicyError, load_policy, historical_policy, within
+from wiki_core.context_policy import PolicyError, load_policy, historical_policy, within, is_context_instruction
 from wiki_core.context_selection import reproduce_query, select_query, requirement_query, same_selection, authority_digest
 from wiki_core.information_relations import information_requirements
 from wiki_core.repository_reader import RepositoryReader
+from wiki_core.git_env import local_git_environment, local_git_executable
 
 
 def revalidate_affected(root, *, base, head, context_id, affected, changed, current, pending_sources=None, read_budget=None, _selection_cache=None):
     if not all(isinstance(x, str) and re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', x) for x in (base, head)):
         raise ValueError('fixed query base and head required')
     def git(*args):
-        return subprocess.run(['git', '-C', str(root), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=local_git_environment())
     if git('rev-parse', '--verify', 'HEAD').stdout.decode().strip() != head:
         raise ValueError('query head differs from HEAD')
     if (git('diff', '--quiet', '--').returncode or git('diff', '--cached', '--quiet', '--').returncode
@@ -47,7 +48,7 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
         raise ValueError('query context unavailable')
     base_reader, head_reader = RepositoryReader(root, base), RepositoryReader(root, head)
     normative = {p for c in policy.contexts.values() for k in ('instructions', 'skills', 'templates') for p in c[k]}
-    changed_policy = bool(normative & changed) or any(p == 'context.yaml' or p.endswith('/context.yaml') for p in changed)
+    changed_policy = bool(normative & changed) or any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     budget = read_budget if read_budget is not None else [32_000_000]
     outcomes = []
     pending_sources = pending_sources or {}

@@ -14,6 +14,8 @@ from typing import Any, Iterable
 
 from wiki_core.content_sections import select_section
 from wiki_core.frontmatter import parse_frontmatter
+from wiki_core.git_env import local_git_environment, local_git_executable, local_git_tree
+from wiki_core.git_safety import GitSafetyError
 
 
 class RepositoryReadError(ValueError):
@@ -46,7 +48,11 @@ class RepositoryReader:
         if not isinstance(revision, str) or not revision or revision.startswith('-'):
             raise RepositoryReadError('invalid repository revision')
         self.revision = self._git('rev-parse', '--verify', f'{revision}^{{commit}}').decode().strip()
-        entries = self._git('ls-tree', '-r', '-z', self.revision).split(b'\0')
+        try:
+            tree = local_git_tree(self.root, 'ls-tree', '-r', '-z', self.revision)
+        except GitSafetyError as exc:
+            raise RepositoryReadError('repository tree enumeration unavailable or exceeded limit') from exc
+        entries = tree.split(b'\0')
         self._entries = {}
         self._unsupported = []
         self._invalid_paths = []
@@ -91,7 +97,7 @@ class RepositoryReader:
         return int(self._git('cat-file', '-s', self._entries[path]))
 
     def _git(self, *args: str) -> bytes:
-        result = subprocess.run(['git', '-C', str(self.root), *args], capture_output=True)
+        result = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(self.root), *args], capture_output=True, env=local_git_environment())
         if result.returncode:
             raise RepositoryReadError('repository revision or object unavailable')
         return result.stdout
@@ -102,6 +108,8 @@ class RepositoryReader:
             raise RepositoryReadError(f'repository file missing or unsupported: {path}')
         blob = self._entries[path]
         if blob not in self._documents:
+            if self.blob_size(path) > 2_000_000:
+                raise RepositoryReadError('repository file too large')
             raw = self._git('cat-file', 'blob', blob)
             if len(raw) > 2_000_000:
                 raise RepositoryReadError('repository file too large')

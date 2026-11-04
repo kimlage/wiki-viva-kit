@@ -28,9 +28,11 @@ import json
 import re
 from pathlib import Path
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig, freshness_for
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.index.sqlite import sanitize_fts_query, search
+from wiki_core.index.page_collection import current_page_signature
 from wiki_core.llm.context_pass import read_matching_result
 from wiki_core.paths import WikiPaths
 
@@ -448,7 +450,7 @@ def _page_catalog(root: Path, config: WikiConfig) -> dict[str, dict[str, object]
     catalog: dict[str, dict[str, object]] = {}
     if not memory_root.is_dir():
         return catalog
-    for md in sorted(memory_root.rglob("*.md")):
+    for md in sorted(wiki_markdown_files(memory_root, wiki_root=root)):
         fm = _read_frontmatter(md)
         page_id = str(fm.get("page_id") or "")
         if not page_id:
@@ -475,12 +477,24 @@ def build_packet(
     catalog = _page_catalog(root, config)
     db_path = paths.indexes / "wiki.sqlite"
     packet_warnings: list[str] = []
+    initial_signature: str | None = None
+    signature_error: Exception | None = None
 
     def fts(query: str, limit: int = 3) -> list[dict[str, object]]:
+        nonlocal initial_signature, signature_error
         if not db_path.exists() or not query.strip():
             return []
         try:
-            hits = search(db_path, sanitize_fts_query(query), limit=limit)
+            if signature_error is not None:
+                raise signature_error
+            if initial_signature is None:
+                try:
+                    initial_signature = current_page_signature(paths)
+                except Exception as exc:
+                    signature_error = exc
+                    raise
+            hits = search(db_path, sanitize_fts_query(query), limit=limit,
+                          page_signature=initial_signature)
         except Exception as exc:  # noqa: BLE001 - degrade gracefully, but VISIBLY
             note = (
                 f"fts lookup failed ({type(exc).__name__}: {exc}); "
@@ -533,6 +547,18 @@ def build_packet(
                 "potential_conflict": bool(overlaps),
             }
         )
+
+    # Validate again before returning: one scan serves all lookups, while a
+    # changed/unreadable wiki cannot leave earlier page excerpts in the packet.
+    if initial_signature is not None:
+        try:
+            stable = current_page_signature(paths) == initial_signature
+        except Exception:  # noqa: BLE001 - fail closed and report coverage
+            stable = False
+        if not stable:
+            for row in claim_rows:
+                row['related'] = []
+            packet_warnings.append('fts lookup failed (wiki page index changed during packet); related excerpts omitted from this packet')
 
     should_review = sorted(
         {

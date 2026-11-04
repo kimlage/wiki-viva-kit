@@ -20,6 +20,7 @@ import yaml
 from pathlib import Path
 from typing import Any
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.action_transition import integrate_action_body, transition_action_page
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.frontmatter import parse_frontmatter
@@ -199,7 +200,7 @@ def preview_proposal(root: Path, config: WikiConfig, params: dict, *, effect_run
     declared_docs = {d.get("path") for d in material["documents"] if isinstance(d, dict)}
     generated_refs = {p.relative_to(root).as_posix() for p in (
         paths.input_stage_page, paths.operational_pass_page, paths.operation_page)}
-    for page in paths.memory_root.rglob("*.md"):
+    for page in wiki_markdown_files(paths.memory_root, wiki_root=root):
         ref = page.relative_to(root).as_posix()
         if ref not in readset:
             if ref not in declared_docs | generated_refs:

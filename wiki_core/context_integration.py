@@ -5,9 +5,10 @@ from copy import deepcopy
 import json
 import subprocess
 from pathlib import Path
-from wiki_core.context_policy import PolicyError, safe_path
+from wiki_core.context_policy import PolicyError, safe_path, is_context_instruction
 from wiki_core.context_packet import build_packet, validate_result
 from wiki_core.repository_reader import RepositoryReader
+from wiki_core.git_env import local_git_environment, local_git_executable
 from wiki_core.detectors import scan_text
 from wiki_core.information_relations import information_requirements
 from wiki_core.context_selection import packet_queries, revalidate_packet_queries, requirement_query, select_query, same_selection, reproduce_query, normalize_query
@@ -15,7 +16,7 @@ from wiki_core.context_selection import packet_queries, revalidate_packet_querie
 class IntegrationError(ValueError): pass
 
 def _git(root,*args):
-    p=subprocess.run(['git','-C',str(root),*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    p=subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=local_git_environment())
     if p.returncode: raise IntegrationError('Git precondition failed')
     return p.stdout
 
@@ -63,6 +64,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     External independent reviewer and final-head gates remain mandatory. The
     caller is responsible for ensuring its trusted ref is independently kept.
     """
+    if getattr(policy, 'format_version', None): raise IntegrationError('v2 integration is unavailable; v1 results require explicit migration')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0])!=Path(root).resolve(): raise IntegrationError('unbound policy')
     policy=policy.fresh()
     if not isinstance(branch,str) or not re.fullmatch(r'wiki/[A-Za-z0-9][A-Za-z0-9._-]*',branch) or '..' in branch or branch.endswith('.'):
@@ -109,6 +111,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
         try: status=raw[i].decode(); path=safe_path(raw[i+1].decode())
         except (UnicodeError,PolicyError) as exc: raise IntegrationError('invalid diff path') from exc
         if status not in ('A','M','D') or path.endswith('/context.yaml') or path=='context.yaml': raise IntegrationError('unsupported or policy change')
+        if is_context_instruction(path): raise IntegrationError('folder instruction change requires separate policy review')
         if path in normative: raise IntegrationError('normative input requires separate policy review')
         if policy.owner_of(path)!=context_id or not policy.permits(context_id,'write',path): raise IntegrationError('write outside context')
         if not policy.permits(context_id,'read',path): raise IntegrationError('proposal read denied')

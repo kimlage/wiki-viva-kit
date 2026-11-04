@@ -14,11 +14,13 @@ from wiki_core.context_impact import assess_impact, ImpactError
 from wiki_core.detectors import scan_text
 from wiki_core.information_relations import operational_consumption_edges
 from wiki_core.repository_reader import RepositoryReader
+from wiki_core.git_env import local_git_environment, local_git_executable
 from wiki_core.context_selection import revalidate_packet_queries, requirement_query, select_query, same_selection, reproduce_query
 
 class RequirementError(ValueError): pass
 
 def _fresh(root,policy):
+    if getattr(policy, 'format_version', None): raise RequirementError('v2 requirements are unavailable; v1 receipts require explicit migration')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0])!=Path(root).resolve(): raise RequirementError('unbound policy')
     return policy.fresh()
 
@@ -69,7 +71,7 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     encoded=json.dumps(packet,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf-8')
     if len(encoded)!=packet['bytes_used'] or len(encoded)>packet['max_bytes']: raise RequirementError('invalid packet byte accounting')
     if not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',packet['policy_revision']): raise RequirementError('packet policy revision is not fixed')
-    if subprocess.run(['git','-C',str(root),'merge-base','--is-ancestor',packet['policy_revision'],policy.policy_revision],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode: raise RequirementError('packet policy revision is not an approved ancestor')
+    if subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'merge-base','--is-ancestor',packet['policy_revision'],policy.policy_revision],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=local_git_environment()).returncode: raise RequirementError('packet policy revision is not an approved ancestor')
     if packet['context']!=_context_view(policy,packet['context_id']): raise RequirementError('packet context policy changed')
     expected_read_set=[{k:item[k] for k in ('ref','section','field','revision')} for item in packet['inputs']]
     if packet['declared_read_set']!=expected_read_set: raise RequirementError('packet read set differs from inputs')
@@ -82,10 +84,10 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     if output_path not in {c['path'] for c in result['changes'] if c['action'] in ('created','modified')}: raise RequirementError('output absent from result')
     source_revision=packet['content_revision']
     if not isinstance(source_revision,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',source_revision): raise RequirementError('packet content revision is not fixed')
-    if subprocess.run(['git','-C',str(root),'merge-base','--is-ancestor',source_revision,proposal_head],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode: raise RequirementError('packet content revision is not an ancestor of proposal')
-    diff=subprocess.run(['git','-C',str(root),'diff','--no-ext-diff','--no-textconv','--no-renames','--name-only','-z',source_revision,proposal_head,'--',output_path],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+    if subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'merge-base','--is-ancestor',source_revision,proposal_head],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=local_git_environment()).returncode: raise RequirementError('packet content revision is not an ancestor of proposal')
+    diff=subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'diff','--no-ext-diff','--no-textconv','--no-renames','--name-only','-z',source_revision,proposal_head,'--',output_path],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=local_git_environment())
     if diff.returncode or diff.stdout != output_path.encode('utf-8')+b'\0': raise RequirementError('output was not changed by proposal')
-    if subprocess.run(['git','-C',str(root),'merge-base','--is-ancestor',proposal_head,policy.policy_revision],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
+    if subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'merge-base','--is-ancestor',proposal_head,policy.policy_revision],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=local_git_environment()).returncode:
         raise RequirementError('proposal is not incorporated in approved revision')
     current=RepositoryReader(root,policy.policy_revision); proposed=RepositoryReader(root,proposal_head)
     try:

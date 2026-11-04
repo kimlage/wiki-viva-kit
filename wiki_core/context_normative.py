@@ -3,6 +3,8 @@ from wiki_core.context_policy import PolicyError, historical_policy, safe_path, 
 
 
 def normative_allowed(policy, context, ref):
+    if getattr(policy, 'format_version', None):
+        raise PolicyError('v2 normative checks require the versioned v2 interface')
     ref = safe_path(ref)
     if any(within(ref, scope) for scope in policy.effective[context]['deny']['read']):
         return False

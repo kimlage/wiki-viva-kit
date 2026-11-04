@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .ids import sha256_file, slugify
+from .traversal import reject_nested_git
 
 
 def classify_source(source: str) -> str:
@@ -63,6 +64,7 @@ def sha256_directory_listing(path: Path) -> tuple[str, int]:
     and symbolic links cannot silently become a complete capture of a folder.
     Dotfiles/directories remain excluded by the existing collection contract.
     """
+    reject_nested_git(path, include_hidden=False)
     entries: list[str] = []
     def propagate(error: OSError) -> None:
         raise error

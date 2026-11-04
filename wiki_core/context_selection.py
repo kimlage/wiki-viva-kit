@@ -14,6 +14,7 @@ from .context_policy import PolicyError, UniqueLoader, safe_path, within, histor
 from .detectors import contains_secret_structure
 from .frontmatter import FRONTMATTER_RE
 from .repository_reader import canonical_path
+from .git_env import local_git_environment, local_git_executable
 
 
 def digest(value):
@@ -104,8 +105,8 @@ def reproduce_query(policy, context_id, reader, entry, *, policy_revision, expec
         raise PolicyError('query authority changed or unavailable; requalification required')
     # Content must already have existed when its claimed policy was approved.
     if (not getattr(policy, '_binding', None) or subprocess.run(
-            ['git', '-C', str(policy._binding[0]), 'merge-base', '--is-ancestor', reader.revision, policy_revision],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode):
+            [local_git_executable(), '--no-lazy-fetch', '-C', str(policy._binding[0]), 'merge-base', '--is-ancestor', reader.revision, policy_revision],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=local_git_environment()).returncode):
         raise PolicyError('query content is not an ancestor of its policy')
     old=historical_policy(policy,policy_revision)
     if (authority_digest(old,context_id,entry)!=expected_authority
@@ -134,6 +135,8 @@ def _metadata(item):
 
 def select_query(policy, context_id, reader, entry, *, read_budget=None, _candidate_refs=None):
     """Apply current owner/read authorization before opening candidate blobs."""
+    if getattr(policy, 'format_version', None):
+        raise PolicyError('v2 query receipts are unavailable; v1 receipts require explicit migration')
     entry = normalize_query(entry)
     target = entry['target']; q = entry['query']; scope = q['scope']
     if context_id not in policy.contexts: raise PolicyError('unknown query context')

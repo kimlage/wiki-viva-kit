@@ -1,5 +1,6 @@
 """Shared editorial hub discovery; never context-policy authority or read grants."""
 from pathlib import Path
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import parse_frontmatter
 
@@ -43,7 +44,7 @@ def discover_context_hubs(root: Path, config: WikiConfig, *, contexts=None,
     errors: list[str] = []
     if context_memory_root(root, config) is None:
         return {}, ["unsafe context memory root"]
-    for path in sorted(base.rglob("*.md")) if base.is_dir() else []:
+    for path in sorted(wiki_markdown_files(base, wiki_root=root)) if base.is_dir() else []:
         if path.is_symlink() or any(parent.is_symlink() for parent in path.parents if parent != root and root in parent.parents):
             continue
         values, _ = read_page(path)

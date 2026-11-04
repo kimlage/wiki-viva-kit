@@ -10,6 +10,8 @@ import re
 import subprocess
 from pathlib import Path, PurePosixPath
 import yaml
+from wiki_core.git_env import local_git_environment, local_git_executable, local_git_tree
+from wiki_core.git_safety import GitSafetyError
 
 class PolicyError(ValueError): pass
 
@@ -32,8 +34,21 @@ def safe_path(value, *, allow_root=False):
 
 def within(path, scope): return scope == '.' or path == scope or path.startswith(scope + '/')
 
+def is_context_instruction(path):
+    """A potential native instruction boundary, whether added, removed or edited.
+
+    Recognition is deliberately conservative; it does not turn folder
+    instructions into v1 authority or prove native instruction loading.
+    """
+    return isinstance(path, str) and path.rsplit('/', 1)[-1] in ('AGENTS.md', 'AGENTS.override.md')
+
 def _git(root, *args):
-    p = subprocess.run(['git','-C',str(root),*args], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if 'ls-tree' in args and '-r' in args:
+        try:
+            return local_git_tree(Path(root), *args)
+        except GitSafetyError as exc:
+            raise PolicyError('Git tree enumeration unavailable or exceeded limit') from exc
+    p = subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),*args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=local_git_environment())
     if p.returncode: raise PolicyError('Git revision or path unavailable')
     return p.stdout
 
@@ -48,6 +63,12 @@ def git_file(root, rev, path):
     for i in range(1,len(path.split('/'))+1):
         prefix='/'.join(path.split('/')[:i]); entry=_git(root,'ls-tree',rev,'--',prefix).decode().strip()
         if not entry or entry.startswith(('120000 ','160000 ')): raise PolicyError('missing or unsafe Git path')
+    try:
+        size = int(_git(root, 'cat-file', '-s', f'{rev}:{path}'))
+    except ValueError as exc:
+        raise PolicyError('Git object size unavailable') from exc
+    if size < 0 or size > 2_000_000:
+        raise PolicyError('Git object exceeds size limit')
     return _git(root,'show',f'{rev}:{path}')
 
 def _list(v, name):
@@ -212,6 +233,8 @@ def _policy_at(root, sha, manifest_path):
 
 def historical_policy(current, fixed_revision):
     """Approved-ancestor policy for coverage proof only, never permission to read."""
+    if getattr(current, 'format_version', None):
+        raise PolicyError('v2 historical replay is not supported; v1 receipts require explicit migration')
     current = current.fresh()
     if not isinstance(fixed_revision,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',fixed_revision):
         raise PolicyError('query authority revision unavailable')

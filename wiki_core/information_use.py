@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 from wiki_core.information_relations import dependency_edges, semantic_equal
 from wiki_core.temporal import parse_temporal_value, TemporalEventError
+from wiki_core.git_env import local_git_environment, local_git_executable
 
 
 def factual_unit_role(values: dict) -> str:
@@ -166,7 +167,7 @@ def verification_covers_content(root, path: str, fields: list[str], evidence: li
     import re
     import subprocess
     def git(*args):
-        return subprocess.check_output(['git',*args],cwd=root,stderr=subprocess.DEVNULL,text=True)
+        return subprocess.check_output([local_git_executable(), '--no-lazy-fetch',*args],cwd=root,stderr=subprocess.DEVNULL,text=True,env=local_git_environment())
     try:
         raw=(root/path).read_text()
         if git('show','HEAD:'+path)!=raw:
@@ -262,7 +263,7 @@ def _normative_metadata_unchanged(root, source, approved, head):
     from wiki_core.context_policy import safe_path
     source=safe_path(source)
     def git(*args):
-        return subprocess.run(['git','-C',str(root),'--literal-pathspecs',*args],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+        return subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'--literal-pathspecs',*args],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=local_git_environment())
     def tree(revision):
         out=git('ls-tree','-z',revision,'--',source)
         if out.returncode: return None
@@ -310,19 +311,32 @@ def bind_normative_coverage(root, graph, policy, context_id, *, head):
     Unbound/other-owner edges have no proof. Proposed changes to a rule or a
     new requirement do not gain approval from this check.
     """
+    if getattr(policy, 'format_version', None):
+        raise ValueError('v2 normative coverage is unavailable; v1 receipts require explicit migration')
     import subprocess
     import re
     from pathlib import Path
     from wiki_core.context_normative import normative_history
-    from wiki_core.context_policy import PolicyError
+    from wiki_core.context_policy import PolicyError, is_context_instruction
     from wiki_core.detectors import scan_text
     from wiki_core.information_relations import information_requirements
     from wiki_core.repository_reader import RepositoryReader
     policy=policy.fresh()
     if Path(root).resolve()!=Path(policy._binding[0]) or not isinstance(head,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',head):
         raise ValueError('invalid normative binding')
-    ancestor=subprocess.run(['git','-C',str(root),'merge-base','--is-ancestor',policy.policy_revision,head],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    ancestor=subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'merge-base','--is-ancestor',policy.policy_revision,head],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=local_git_environment())
     if ancestor.returncode: raise ValueError('invalid normative binding')
+    # A native instruction boundary can change independently of v1 manifests.
+    # Until that boundary is migrated and requalified, do not certify old
+    # normative consumption from the proposal's new tree.
+    diff=subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'diff','--no-ext-diff','--no-textconv','--no-renames','--name-only','-z',policy.policy_revision,head,'--'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=local_git_environment())
+    if diff.returncode: raise ValueError('normative instruction comparison unavailable')
+    try:
+        changed=[raw.decode('utf-8') for raw in diff.stdout.split(b'\0') if raw]
+    except UnicodeError as exc:
+        raise ValueError('normative instruction comparison unavailable') from exc
+    if any(is_context_instruction(path) for path in changed):
+        return {**graph,'normative_coverage':{},'normative_policy_revision':policy.policy_revision}
     reader=RepositoryReader(root,policy.policy_revision); coverage={}
     dependencies,_=dependency_edges(graph)
     for edge in dependencies:

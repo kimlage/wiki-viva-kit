@@ -8,6 +8,7 @@ from typing import Any
 
 import yaml
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig, freshness_for
 from wiki_core.frontmatter import split_frontmatter
 from wiki_core.ids import slugify
@@ -152,7 +153,7 @@ def migration_inventory(
     if not memory_root.exists():
         return []
     suggestions: list[MigrationSuggestion] = []
-    for path in sorted(memory_root.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(memory_root, wiki_root=root)):
         rel = path.relative_to(root).as_posix()
         suggestion = suggest_frontmatter_for_legacy_page(root, rel, config, registry, today=today)
         if suggestion is not None:

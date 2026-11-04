@@ -15,6 +15,7 @@ import yaml
 from wiki_core.frontmatter import list_values, parse_frontmatter, split_frontmatter
 from wiki_core.ids import slugify
 from wiki_core.output_safety import prepare_managed_output_directory
+from wiki_core.traversal import wiki_markdown_files
 
 OKF_VERSION = "0.1"
 OKF_EXPORT_SCHEMA_VERSION = "wiki_okf_export.v1"
@@ -174,8 +175,8 @@ def _concept_export_rel(source_rel: str) -> str:
     return _reserved_export_rel(source_rel) if _is_reserved(source_rel) else source_rel
 
 
-def _all_markdown(source_root: Path) -> list[Path]:
-    return sorted(path for path in source_root.rglob("*.md") if path.is_file())
+def _all_markdown(source_root: Path, wiki_root: Path) -> list[Path]:
+    return wiki_markdown_files(source_root, wiki_root=wiki_root)
 
 
 def _is_external_link(href: str) -> bool:
@@ -354,7 +355,7 @@ def export_okf_bundle(
         force_unowned=force_unowned_output,
     )
 
-    markdown = _all_markdown(source_base)
+    markdown = _all_markdown(source_base, root)
     mapping = {
         path.relative_to(source_base).as_posix(): _concept_export_rel(path.relative_to(source_base).as_posix())
         for path in markdown
