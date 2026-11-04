@@ -235,6 +235,35 @@ def test_legacy_wiki_query_consumers_refuse_index_across_boundary(tmp_path, monk
     assert search(db, 'nodeword', page_signature=signature)
 
 
+@pytest.mark.parametrize('suffix', ['-journal', '-wal', '-shm'])
+def test_search_refuses_symlinked_sqlite_sidecars_before_open(tmp_path, monkeypatch, suffix):
+    from wiki_core.index.page_collection import current_page_signature
+    from wiki_core.index.sqlite import search, search_detailed
+
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    page(paths.memory_root / 'node' / 'index.md', 'node', 'nodeword')
+    db = paths.indexes / 'wiki.sqlite'
+    index_pages(db, collect_page_chunks(tmp_path, paths, cfg))
+    signature = current_page_signature(paths)
+    separate = tmp_path / 'separate'; separate.mkdir(); (separate / '.git').mkdir()
+    target = separate / 'sidecar'; target.write_bytes(b'synthetic sentinel')
+    sidecar = Path(str(db) + suffix); sidecar.symlink_to(target)
+    original_open = Path.open
+    def guarded_open(path, *args, **kwargs):
+        if path == db:
+            pytest.fail('database opened before sidecar guard')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    monkeypatch.setattr(sqlite3, 'connect', lambda *args, **kwargs: pytest.fail('SQLite connected before sidecar guard'))
+    with pytest.raises(ValueError, match='index_path_crosses_repository_boundary'):
+        search(db, 'nodeword', page_signature=signature, wiki_root=tmp_path)
+    result = search_detailed(db, 'nodeword', page_signature=signature, wiki_root=tmp_path)
+    assert result['status'] == 'index_error'
+    assert result['error'] == 'index_path_crosses_repository_boundary' and result['hits'] == []
+    assert sidecar.is_symlink() and target.read_bytes() == b'synthetic sentinel'
+
+
 def test_rebuild_removes_previously_indexed_clone_but_explicit_git_read_works(tmp_path):
     cfg = WikiConfig()
     paths = WikiPaths(tmp_path, cfg)
