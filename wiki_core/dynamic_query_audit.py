@@ -4,7 +4,7 @@ import re
 import hashlib
 import json
 import subprocess
-from wiki_core.context_policy import PolicyError, load_policy, historical_policy, within, is_context_instruction
+from wiki_core.context_policy import PolicyError, load_policy, historical_policy, within, is_context_policy_change
 from wiki_core.context_selection import reproduce_query, select_query, requirement_query, same_selection, authority_digest
 from wiki_core.information_relations import information_requirements
 from wiki_core.repository_reader import RepositoryReader
@@ -48,7 +48,7 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
         raise ValueError('query context unavailable')
     base_reader, head_reader = RepositoryReader(root, base), RepositoryReader(root, head)
     normative = {p for c in policy.contexts.values() for k in ('instructions', 'skills', 'templates') for p in c[k]}
-    changed_policy = bool(normative & changed) or any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
+    changed_policy = bool(normative & changed) or any(is_context_policy_change(p) for p in changed)
     budget = read_budget if read_budget is not None else [32_000_000]
     outcomes = []
     pending_sources = pending_sources or {}
@@ -57,6 +57,8 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
         path, req = row['path'], row['requirement']
         requirement_id = hashlib.sha256(json.dumps(req, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode('utf-8')).hexdigest()
         try:
+            if req.get('query_contract') is not None:
+                raise PolicyError('versioned query receipt requires its own authority')
             if changed_policy and path in changed: raise PolicyError('consumer and policy or normative input changed together')
             if policy.owner_of(path) != context_id or not policy.permits(context_id, 'read', path):
                 raise PolicyError('consumer outside authorized context')

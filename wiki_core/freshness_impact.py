@@ -190,10 +190,10 @@ def _query_policy_change_marker(root: Path, revisions: tuple[str, str], changed:
     """Treat a changed declared normative input as policy-sensitive, without granting authority."""
     import subprocess
     import yaml
-    from wiki_core.context_policy import UniqueLoader, safe_path, is_context_instruction
+    from wiki_core.context_policy import UniqueLoader, safe_path, is_context_policy_change
     if not changed:
         return set()
-    if any(is_context_instruction(path) for path in changed):
+    if any(is_context_policy_change(path) for path in changed):
         return {'context.yaml'}
     normative = set()
     for revision in revisions:

@@ -57,6 +57,46 @@ def test_new_folder_boundary_requires_query_requalification(collection, name):
                and not r['verification_performed'] for r in report['pending_reviews'])
 
 
+@pytest.mark.parametrize('action', ['added', 'modified', 'deleted'])
+def test_folder_controls_change_requires_query_requalification(collection, action):
+    base = setup_chain(collection)
+    controls = collection / 'wiki-context-controls.yaml'
+    if action != 'added':
+        controls.write_text('schema_version: wiki.folder-controls/v2\ncontrols: {}\n')
+        git(collection, 'add', controls.name); git(collection, 'commit', '-qm', 'prior folder controls'); approve(collection)
+        base = git(collection, 'rev-parse', 'HEAD')
+    git(collection, 'checkout', '-qb', 'wiki/folder-controls-change')
+    if action == 'deleted':
+        controls.unlink()
+    else:
+        controls.write_text('schema_version: wiki.folder-controls/v2\ncontrols: {}\n# changed\n')
+    git(collection, 'add', '-A'); git(collection, 'commit', '-qm', 'change folder controls')
+    head = git(collection, 'rev-parse', 'HEAD')
+    config = load_config(collection)
+    unscoped = repository_report(collection, config, base)
+    assert any(row['path'] == TASK['output'] and row['reason'] == 'dynamic_query_requires_authorized_revalidation'
+               for row in unscoped['blockers'])
+    selected_v1 = repository_report(collection, config, base,
+        query_context='costs', query_policy_revision=base, query_head=head)
+    assert any(row['path'] == TASK['output'] and row['reason'] == 'dynamic_query_requalification_required'
+               and not row['verification_performed'] for row in selected_v1['pending_reviews'])
+
+
+def test_v2_query_receipt_is_not_revalidated_by_v1_loader(collection, monkeypatch):
+    from wiki_core.dynamic_query_audit import revalidate_affected
+    from wiki_core.information_relations import information_requirements
+    import wiki_core.dynamic_query_audit as audit
+    base = setup_chain(collection)
+    graph = authored_graph(collection, load_config(collection))
+    req = information_requirements(graph['nodes'][TASK['output']], lambda ref: [ref])[0]
+    req['query_contract'] = 'wiki.folder-query-receipt/v2'
+    monkeypatch.setattr(audit, 'reproduce_query', lambda *a, **k: pytest.fail('v1 replay used for a v2 receipt'))
+    rows = revalidate_affected(collection, base=base, head=base, context_id='costs',
+        affected=[{'path':TASK['output'], 'requirement':req, 'origin':'current'}], changed=set(), current=graph)
+    assert len(rows) == 1 and rows[0]['state'] == 'unknown'
+    assert rows[0]['reason'] == 'dynamic_query_requires_authorized_revalidation'
+
+
 @pytest.mark.parametrize('name', ['AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md', 'CLAUDE.local.md'])
 def test_new_boundary_does_not_certify_old_normative_coverage(repo, name):
     rev = git(repo, 'rev-parse', 'HEAD')

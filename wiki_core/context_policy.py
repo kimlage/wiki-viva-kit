@@ -44,6 +44,12 @@ def is_context_instruction(path):
         'AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md', 'CLAUDE.local.md'
     )
 
+def is_context_policy_change(path):
+    """Recognize v1 policy, folder controls and physical instruction changes."""
+    return isinstance(path, str) and (path == 'wiki-context-controls.yaml'
+            or path == 'context.yaml' or path.endswith('/context.yaml')
+            or is_context_instruction(path))
+
 def _git(root, *args):
     if 'ls-tree' in args and '-r' in args:
         try:
