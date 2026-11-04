@@ -121,10 +121,19 @@ def assess_folder_source_v2(root, policy, *, packet, result, target, source, sec
         consumer = current.read(target)
         if contains_access_secrets(consumer['text']):
             raise FolderImpactError('secret detected in consumer')
-        try:
-            latest = current.read(source, section=section, field=field)
-        except ValueError:
+        # Missing, unsupported and unreadable selections have different
+        # meanings. Only an absent path in valid Git metadata is "missing";
+        # never turn a symlink, unreadable blob or removed field into absence.
+        if current.invalid_paths or any(source == path or source.startswith(path + '/')
+                                        for path in current.unsupported_paths):
+            raise FolderImpactError('current source unavailable or unsupported')
+        if source not in current.paths:
             latest = None
+        else:
+            try:
+                latest = current.read(source, section=section, field=field)
+            except ValueError:
+                raise FolderImpactError('current source selection unavailable') from None
         if latest and contains_access_secrets(latest['text']):
             raise FolderImpactError('secret detected in source')
         if latest and latest['content_digest'] == row['sha256']:
