@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -37,6 +38,7 @@ from wiki_core.consolidate import (
     find_event_for_source,
     load_requests,
     pending_consolidations,
+    prepare_folder_consolidation,
     _source_slug,
 )
 from wiki_core.paths import WikiPaths
@@ -130,7 +132,40 @@ def main() -> int:
     parser.add_argument("--date", default=dt.date.today().isoformat())
     parser.add_argument("--force", action="store_true", help="overwrite an existing event for the source")
     parser.add_argument("--check", action="store_true", help="rc 1 while any consolidation is pending (CI)")
+    parser.add_argument("--folder-preview", action="store_true",
+                        help="read explicit v2 request/results JSON from stdin and preview without writing")
+    parser.add_argument("--folder-candidate", action="append", default=[],
+                        help="explicit authorized wiki page to include in the folder preview")
+    parser.add_argument("--max-age-days", type=int, help="explicit source freshness policy for folder preview")
     args = parser.parse_args()
+
+    if args.folder_preview:
+        if (args.check or args.all_pending or args.source or args.emit_event or args.packet
+                or args.source_page or args.source_ref or args.force or args.max_age_days is None):
+            parser.error("folder preview requires only explicit candidates and --max-age-days")
+        try:
+            from wiki_core.context_selection import strict_json_loads
+            from wiki_core.folder_coordination_v2 import FolderHostBinding
+            host_root = os.environ.get('WIKI_FOLDER_INGEST_HOST_ROOT', '').strip()
+            folders = os.environ.get('WIKI_FOLDER_INGEST_HOST_FOLDERS', '').strip()
+            if not host_root or not folders:
+                raise ValueError('host unavailable')
+            binding = FolderHostBinding(Path(host_root), tuple(item.strip() for item in folders.split(',')))
+            raw = sys.stdin.buffer.read(2_000_001)
+            if len(raw) > 2_000_000:
+                raise ValueError('input budget exceeded')
+            payload = strict_json_loads(raw.decode('utf-8'))
+            if not isinstance(payload, dict) or set(payload) != {'request', 'results'}:
+                raise ValueError('invalid input')
+            preview = prepare_folder_consolidation(ROOT, binding, payload['request'], payload['results'],
+                        candidates=args.folder_candidate, max_age_days=args.max_age_days)
+        except (ValueError, OSError, TypeError, KeyError, AttributeError):
+            print(json.dumps({'status': 'blocked', 'reason': 'folder_consolidation_unavailable'}), file=sys.stderr)
+            return 1
+        print(json.dumps(preview, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.folder_candidate or args.max_age_days is not None:
+        parser.error("folder candidates and max age require --folder-preview")
 
     if args.check or args.all_pending:
         pending = pending_consolidations(ROOT, config)
