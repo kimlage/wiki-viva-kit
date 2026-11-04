@@ -40,7 +40,9 @@ def is_context_instruction(path):
     Recognition is deliberately conservative; it does not turn folder
     instructions into v1 authority or prove native instruction loading.
     """
-    return isinstance(path, str) and path.rsplit('/', 1)[-1] in ('AGENTS.md', 'AGENTS.override.md')
+    return isinstance(path, str) and path.rsplit('/', 1)[-1] in (
+        'AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md', 'CLAUDE.local.md'
+    )
 
 def _git(root, *args):
     if 'ls-tree' in args and '-r' in args:
