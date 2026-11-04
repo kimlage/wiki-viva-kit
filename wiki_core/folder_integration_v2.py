@@ -26,7 +26,7 @@ def _require_unique_frontmatter(item):
     """Reject ambiguous YAML in an already authorized, whole document."""
     match = FRONTMATTER_RE.match(item['text'])
     if match is None:
-        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable')
+        raise FolderIntegrationError('ambiguous or normative change requires separate review')
     try:
         if any(isinstance(token, yaml.AliasToken) for token in yaml.scan(match.group(1))):
             raise ValueError('YAML aliases unsupported')
