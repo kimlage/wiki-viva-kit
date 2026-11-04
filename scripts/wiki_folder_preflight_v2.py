@@ -21,6 +21,7 @@ def main():
     parser.add_argument('--branch', required=True)
     parser.add_argument('--packet', required=True)
     parser.add_argument('--result', required=True)
+    parser.add_argument('--query-requalifications', help='explicit prior query reports for reviewable replacement')
     args = parser.parse_args()
     try:
         policy = load_folder_policy_v2(args.repo, args.approved_revision)
@@ -28,9 +29,19 @@ def main():
         result = strict_json_loads(Path(args.result).read_text(encoding='utf-8'))
         if isinstance(packet, dict) and packet.get('schema_version') == 'wiki.folder-query-task-context/v2':
             from wiki_core.folder_query_packet_v2 import preflight_folder_query_v2
+            requalifications = None
+            if args.query_requalifications:
+                with Path(args.query_requalifications).open('rb') as stream:
+                    raw = stream.read(2_000_001)
+                if len(raw) > 2_000_000:
+                    raise ValueError('query requalification exceeds byte limit')
+                requalifications = strict_json_loads(raw.decode('utf-8'))
             outcome = preflight_folder_query_v2(args.repo, policy, base=args.base, head=args.head,
-                                                branch=args.branch, packet=packet, result=result)
+                                                branch=args.branch, packet=packet, result=result,
+                                                query_requalifications=requalifications)
         else:
+            if args.query_requalifications:
+                raise ValueError('query requalification requires a query packet')
             outcome = preflight_folder_v2(args.repo, policy, base=args.base, head=args.head,
                                           branch=args.branch, packet=packet, result=result)
     except (ValueError, OSError) as exc:
