@@ -96,3 +96,13 @@ def test_folder_validator_rejects_legacy_artifact_namespace(project):
     import pytest
     with pytest.raises(ValueError, match='folder-scoped artifact namespace required'):
         validate_folder_artifact_paths(project, WikiPaths(project, load_config(project)), 'synthetic')
+
+
+def test_folder_recording_rejects_legacy_artifact_namespace(project, capsys):
+    from scripts.wiki_llm_context_pass import _record_results
+    packet = {'schema_version':'wiki.folder-task-context/v2', 'context_folder':'a'}
+    request = {'source_id':'synthetic', 'context_binding_version':2, 'block_context_package':packet}
+    result = _record_results(WikiPaths(project, load_config(project)), 'nonexistent-payload.json',
+                             current_request=request, before_write=lambda: None)
+    assert result == 2
+    assert json.loads(capsys.readouterr().out)['blocked']
