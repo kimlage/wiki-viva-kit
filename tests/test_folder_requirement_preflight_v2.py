@@ -233,3 +233,45 @@ def test_new_claim_requires_unique_yaml_without_requirements(project, path, kind
     else:
         with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
             preflight_folder_v2(project, policy, **kwargs)
+
+
+@pytest.mark.parametrize('action', ['created', 'modified', 'deleted'])
+@pytest.mark.parametrize('kind', ['plain', 'alias', 'cycle'])
+def test_claim_changes_reject_yaml_aliases_and_cycles(project, action, kind):
+    def claim(which):
+        if which == 'alias':
+            extra = 'synthetic: &value [first]\nother: *value\n'
+        elif which == 'cycle':
+            extra = 'synthetic: &value\n  loop: *value\n'
+        else:
+            extra = 'synthetic: [first]\nother: [first]\n'
+        return '---\npage_type: claim\n' + extra + '---\nClaim\n'
+
+    target = 'a/report.md'
+    if action != 'created':
+        put(project, target, claim(kind if action == 'deleted' else 'plain'))
+        commit(project)
+    base = git(project, 'rev-parse', 'HEAD'); policy = load_folder_policy_v2(project, base)
+    evidence = [] if action == 'created' else [{'path':target, 'producer_folder':'a',
+        'reason':'prior claim', 'use':'interpret', 'classification':'synthetic'}]
+    packet = build_folder_packet_v2(project, policy, 'a', 30000, content_revision=base,
+        index_path='a/index.md', task_id='alias-check', goal='review', output=target,
+        integrator='independent', evidence=evidence)
+    git(project, 'checkout', '-qb', 'wiki/alias-check')
+    if action == 'deleted':
+        (project / target).unlink()
+    else:
+        put(project, target, claim(kind) + 'Revised\n')
+    git(project, 'add', '-A'); git(project, 'commit', '-qm', 'synthetic change')
+    result = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed',
+        'task_id':packet['task_id'], 'context_id':packet['context_id'], 'packet_digest':packet['packet_digest'],
+        'observed':[{'path':row['path'], 'kind':row['kind'], 'revision':row['revision'], 'sha256':row['sha256'],
+                     'section':row.get('section'), 'field':row.get('field')} for row in packet['inputs']],
+        'changes':[{'path':target, 'action':action}]}
+    kwargs = dict(base=base, head=git(project, 'rev-parse', 'HEAD'), branch='wiki/alias-check',
+                  packet=packet, result=result)
+    if kind == 'plain':
+        assert preflight_folder_v2(project, policy, **kwargs)['state'] == 'independent_review_required'
+    else:
+        with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
+            preflight_folder_v2(project, policy, **kwargs)

@@ -28,6 +28,8 @@ def _require_unique_frontmatter(item):
     if match is None:
         raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable')
     try:
+        if any(isinstance(token, yaml.AliasToken) for token in yaml.scan(match.group(1))):
+            raise ValueError('YAML aliases unsupported')
         strict = yaml.load(match.group(1), Loader=UniqueLoader)
     except (ValueError, TypeError, yaml.YAMLError, RecursionError):
         raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable') from None
