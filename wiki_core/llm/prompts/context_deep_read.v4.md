@@ -116,7 +116,7 @@ For a folder-bound request, use the same authorized source, current approval,
 folder, index, output, byte limits and trusted host binding that produced it:
 
 ```bash
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_llm_context_pass.py" --root "$WIKI_REPO_ROOT" --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --folder-context FOLDER --folder-index INDEX \
   --folder-output OUTPUT --context-max-bytes CONTEXT_MAX_BYTES \
   --request-max-bytes REQUEST_MAX_BYTES --record-result RESULT.json
@@ -131,8 +131,10 @@ python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOU
   --record-result RESULT.json
 ```
 
-Also retain any explicit RAW source-page and independent repository selections
-used for the request. Replace placeholders with values supplied by the trusted caller;
+Also retain any explicit RAW source-page, independent repository, query and
+existing-output hash selections used for the request. Set `WIKI_REPO_ROOT` to the
+verified wiki Git root; the session may remain in its starting context folder.
+Replace placeholders with values supplied by the trusted caller;
 they do not grant access. If authority, source, context or limits changed,
 re-emit and read the current request before recording.
 

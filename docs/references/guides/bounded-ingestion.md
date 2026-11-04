@@ -181,10 +181,12 @@ exact approved output blob on both capture and result recording. The packet
 includes its full authorized prior content. The proposal preserves that content
 as a starting point, and an integrator may revise it for independent review;
 preflight checks the exact base/head and preservation of existing provenance.
-Untracked changes, a mismatched hash and unsupported destinations block. A claim
-already carrying a distinct RAW or independent-repository capture cannot yet
-receive another such projection automatically; preserve it and report the
-limit rather than overwriting provenance.
+Untracked changes, a mismatched hash and unsupported destinations block.
+Additional distinct RAW or repository sources are recorded by source on the
+claim; prior projections and requirements are preserved. A historical repo
+projection without an unambiguous source reference blocks expansion. Reusing
+the same source at a newer revision requires separate requalification; no
+existing provenance is silently replaced.
 Required perspectives must currently be explicit authorized paths; unqualified
 page IDs require a separate authorized resolution. The selection does not prove
 a native session was started in that folder or provide filesystem isolation.
