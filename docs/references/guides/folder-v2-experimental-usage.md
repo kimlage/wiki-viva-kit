@@ -296,12 +296,15 @@ python3 "$WIKI_REPO_ROOT/scripts/wiki_context_flow.py" --repo "$WIKI_REPO_ROOT" 
 
 Keep both files in an authorized local location; they may contain source text.
 Each folder request carries `folder_request_id`, derived from the bound context
-and selected chunks. Its emitted file is addressed by that identity and the
+and its complete stable semantic contract. Its emitted file is addressed by that identity and the
 canonical source identity, so distinct query or destination selections can
 coexist. Recording reconstructs the selection from the same explicit inputs
 and opens only its exact request file. Older folder request files at the former
 source-only location need to be re-emitted; no fallback reads them. The v1
 request location remains unchanged.
+The retained file is required again during consolidation and preflight.
+Recording an identical folder result twice is idempotent; a different result
+for the same cache key is rejected and the existing result is preserved.
 
 The host binding must be configured as above. The preflight reproduces the
 query envelope, requires the query observations, and runs the existing

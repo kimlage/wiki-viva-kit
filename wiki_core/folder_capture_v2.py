@@ -46,7 +46,9 @@ def validate_recorded_request(root, packet, request):
         if len(keys) != len(chunks) or len(keys) != len(set(keys)):
             raise ValueError('invalid capture results')
         paths = FolderWikiPaths(Path(root), load_config(Path(root)), packet['context_folder'])
-        validate_folder_artifact_paths(root, paths, request['source_id'])
+        validate_folder_artifact_paths(root, paths, request['source_id'], request=request)
+        from wiki_core.folder_request_identity_v2 import validate_retained_folder_request
+        validate_retained_folder_request(Path(root), paths, request)
         if any(read_matching_result(paths.llm_cache, request, row, root=root) is None for row in chunks):
             raise ValueError('capture results unavailable')
     except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
