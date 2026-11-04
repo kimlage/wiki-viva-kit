@@ -327,7 +327,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             if status == 'M' and (path != packet['output'] or ingestion is None):
                 from wiki_core.folder_query_requirements_v2 import same_json
                 from wiki_core.folder_source_provenance_v2 import SINGLETON, FIELD
-                projection = (*SINGLETON, FIELD)
+                projection = (*SINGLETON, FIELD, 'source_refs')
                 old_projection = {key:prior['frontmatter'][key] for key in projection if key in prior['frontmatter']}
                 new_projection = {key:document['frontmatter'][key] for key in projection if key in document['frontmatter']}
                 if not same_json(old_projection, new_projection):
