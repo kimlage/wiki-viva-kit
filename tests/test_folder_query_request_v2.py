@@ -53,6 +53,75 @@ def test_consolidation_requires_exact_retained_request(project, monkeypatch, tmp
         with pytest.raises(ValueError): validate_recorded_request(project, request['block_context_package'], invalid)
 
 
+@pytest.mark.parametrize('field', ['instructions', 'result_required_keys'])
+def test_new_semantic_contract_cannot_reuse_old_folder_result(project, monkeypatch, tmp_path, capsys, field):
+    from tests.test_folder_consolidate_v2 import fixture_inputs
+    from wiki_core.folder_request_identity_v2 import folder_request_identity, retain_folder_request
+    from wiki_core.llm.context_pass import context_fingerprint, read_matching_result
+    from wiki_core.llm.cache import cache_key
+    _binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys, raw=True)
+    paths = FolderWikiPaths(project, load_config(project), 'a')
+    changed = deepcopy(request)
+    if field == 'instructions': changed[field] += ' A new instruction.'
+    else: changed[field].append('new_required_field')
+    row = changed['chunks'][0]
+    row['context_sha256'] = context_fingerprint(changed, row['provenance'])
+    row['cache_key'] = cache_key(row['chunk_hash_sha256'], changed['prompt_version'], changed['schema_version'],
+                                 changed['model_profile'], context_sha256=row['context_sha256'])
+    changed['folder_request_id'] = folder_request_identity(changed)
+    assert row['cache_key'] != request['chunks'][0]['cache_key']
+    assert not result_matches_request(results[0], changed, row, recording=True)
+    assert read_matching_result(paths.llm_cache, changed, row, root=project) is None
+    retained = retain_folder_request(project, paths, changed)
+    assert retained.exists() and retained != retain_folder_request(project, paths, request)
+    updated = {**results[0], 'cache_key':row['cache_key'], 'context_sha256':row['context_sha256']}
+    if field == 'result_required_keys':
+        assert not result_matches_request(updated, changed, row, recording=True)
+        updated['new_required_field'] = 'synthetic'
+    assert result_matches_request(updated, changed, row, recording=True)
+
+
+def test_folder_retention_limits_reject_before_writing(project, tmp_path):
+    from wiki_core.folder_request_identity_v2 import write_folder_result
+    from wiki_core.llm.context_pass import ContextRequestBlocked, enforce_request_budget
+    with pytest.raises(ContextRequestBlocked, match='2000000'):
+        enforce_request_budget({'context_binding_version':2, 'chunks':[]}, request_max_bytes=2_000_001)
+    template = json.loads((Path(__file__).resolve().parents[1] / 'tests/fixtures/e2e/context_pass_result.sample.json').read_text())
+    result = {**template, 'cache_key':'a'*64, 'source_id':'source-synthetic', 'chunk_id':'chunk',
+              'claims':['x' * 2_000_000]}
+    cache = tmp_path/'result-cache'
+    with pytest.raises(ContextRequestBlocked, match='2000000'):
+        write_folder_result(cache, result)
+    assert not cache.exists()
+
+
+def test_interrupted_publication_leaves_no_final_or_temporary_file(tmp_path, monkeypatch):
+    import os
+    from wiki_core.folder_request_identity_v2 import write_folder_result
+    template = json.loads((Path(__file__).resolve().parents[1] / 'tests/fixtures/e2e/context_pass_result.sample.json').read_text())
+    result = {**template, 'cache_key':'a'*64, 'source_id':'source-synthetic', 'chunk_id':'chunk'}
+    def failed_link(*args, **kwargs): raise OSError('synthetic interruption')
+    monkeypatch.setattr(os, 'link', failed_link)
+    cache = tmp_path/'result-cache'
+    with pytest.raises(OSError): write_folder_result(cache, result)
+    assert list(cache.iterdir()) == []
+
+
+def test_conflicting_result_batch_reports_failure_after_first_result(project, monkeypatch, tmp_path, capsys):
+    sha, selection = setup(project)
+    prepared = run(str(project/'a/source.md'), 'system', project, load_config(project),
+                   approved_revision=sha, folder_selection=selection)
+    request = json.loads((project/prepared.request_path).read_text())
+    first = _synthetic_result(request); second = deepcopy(first)
+    second['claims'] = ['Different synthetic interpretation.']
+    cli = _recording_cli(project, sha, request, monkeypatch, tmp_path)
+    (tmp_path/'synthetic-result.json').write_text(json.dumps([first, second]))
+    assert cli.main() == 2
+    assert json.loads(capsys.readouterr().out)['error_code'] == 'folder_result_conflict'
+    cache = FolderWikiPaths(project, load_config(project), 'a').llm_cache/'folder-v2'/f"{first['cache_key']}.json"
+    assert json.loads(cache.read_text()) == first
+
+
 def setup_query(project):
     _, selection = setup(project)
     put(project, 'a/index.md', '---\npage_id: synthetic-catalog\npage_type: source_catalog\n---\nCollection\n')
@@ -121,6 +190,11 @@ def test_query_selection_is_delivered_before_recording_and_binds_cache(project, 
     assert plain_module.main() == 2
     assert json.loads(capsys.readouterr().out)['error_code'] == 'folder_result_conflict'
     assert plain_cache.read_bytes() == retained
+    before_reemit = (project / plain.request_path).read_bytes()
+    repeated = run(source, 'system', project, load_config(project), approved_revision=sha,
+                   folder_selection=selection)
+    assert repeated.request_path == plain.request_path
+    assert (project / plain.request_path).read_bytes() == before_reemit
     assert json.loads((project / plain.request_path).read_text()) == plain_request
     assert json.loads((project / captured.request_path).read_text()) == request
     old_location = (project / captured.request_path).parent / (request['source_id'] + '-llm-context-request.json')

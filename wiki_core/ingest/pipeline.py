@@ -334,6 +334,7 @@ def run(
                     independent_repo_additional_content=source_guard.get("independent_repo_additional_content") if source_guard else None,
                     folder_query_packet=query_packet,
                     context_root=root,
+                    source_config_ref=source_config['path'] if folder_selection is not None and source_config else None,
                 )
                 metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
             if source_config:
@@ -436,15 +437,19 @@ def run(
 
     if persist and request is not None:
         if folder_selection is not None:
-            from wiki_core.folder_request_identity_v2 import folder_request_path
-            request_file = folder_request_path(paths, request)
+            from wiki_core.folder_request_identity_v2 import retain_folder_request
+            try:
+                request_file = retain_folder_request(root, paths, request)
+            except (ValueError, OSError) as exc:
+                report = preparation_blocker(exc, source_id, config.owner_label)
+                blockers.append(report['blocker'])
+                context_error_code = report['error_code']
+                blocked = True
+                request_file = None
         else:
             request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
-        request_file.write_text(
-            canonical_request_text(request),
-            encoding="utf-8",
-        )
-        request_path = _rel(request_file, root)
+            request_file.write_text(canonical_request_text(request), encoding="utf-8")
+        request_path = _rel(request_file, root) if request_file is not None else None
 
 
     score_event_id: str | None = None

@@ -64,6 +64,8 @@ def context_input_size(request: dict) -> int:
 def enforce_request_budget(request: dict, *, context_max_bytes=DEFAULT_CONTEXT_MAX_BYTES,
                            request_max_bytes=DEFAULT_REQUEST_MAX_BYTES) -> dict:
     limits = request_limits(context_max_bytes, request_max_bytes)
+    if request.get('context_binding_version') == 2 and request_max_bytes > 2_000_000:
+        raise ContextRequestBlocked('folder_request_budget_exceeded', 'Folder requests require a maximum request budget of 2000000 bytes.')
     context_bytes = context_input_size(request)
     if context_bytes > context_max_bytes:
         raise ContextRequestBlocked("context_budget_exceeded", "Required context exceeds its byte budget; choose an authorized narrower stage or revise the explicit budget.")
@@ -408,10 +410,14 @@ _CONTEXT_FIELDS = (
 
 
 def context_fingerprint(request: dict, provenance: dict) -> str:
-    envelope = {key: request.get(key) for key in _CONTEXT_FIELDS}
-    for optional in ("request_limits", "source_authorization", "independent_repo_content", "independent_repo_additional_content", "folder_query_packet"):
-        if optional not in request:  # Historical envelopes remain inspectable.
-            envelope.pop(optional, None)
+    if request.get('context_binding_version') == 2:
+        envelope = {key:value for key,value in request.items() if key not in
+                    ('chunks', 'folder_request_id', 'byte_accounting', 'pending_llm_calls', 'cached_calls')}
+    else:
+        envelope = {key: request.get(key) for key in _CONTEXT_FIELDS}
+        for optional in ("request_limits", "source_authorization", "independent_repo_content", "independent_repo_additional_content", "folder_query_packet"):
+            if optional not in request:  # Historical envelopes remain inspectable.
+                envelope.pop(optional, None)
     envelope["provenance"] = provenance
     return sha256_text(json.dumps(envelope, sort_keys=True, ensure_ascii=False,
                                   separators=(",", ":"), allow_nan=False))
@@ -524,6 +530,24 @@ def result_matches_request(result: object, request: dict, row: dict, *, recordin
         return False
     if not isinstance(result, dict) or not isinstance(row, dict):
         return False
+    if version == 2:
+        required = request.get('result_required_keys')
+        if (not isinstance(required, list) or not required or len(required) > 128
+                or any(not isinstance(key, str) or not key or key not in result for key in required)
+                or len(set(required)) != len(required)):
+            return False
+        try:
+            rows = request['chunks']
+            if not isinstance(rows, list) or not all(isinstance(item, dict) for item in rows):
+                return False
+            descriptors = [{key:value for key,value in item.items() if key not in
+                            ('context_sha256', 'cache_key', 'result_exists', 'result_source_id', 'result_chunk_id')}
+                           for item in rows]
+            if sha256_text(json.dumps(descriptors, sort_keys=True, ensure_ascii=False,
+                           separators=(',', ':'), allow_nan=False)) != request.get('chunk_manifest_sha256'):
+                return False
+        except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
+            return False
     key = row.get("cache_key")
     if not isinstance(key, str) or not CACHE_KEY_RE.fullmatch(key) or result.get("cache_key") != key:
         return False
@@ -577,11 +601,21 @@ def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Pat
         try:
             from wiki_core.folder_ingestion_v2 import _check_local_boundaries
             root = Path(root).resolve()
-            relative = result_path(selected_cache, key).relative_to(root).as_posix()
+            selected_path = result_path(selected_cache, key)
+            relative = selected_path.relative_to(root).as_posix()
             _check_local_boundaries(root, relative)
-        except (ValueError, OSError, TypeError, RuntimeError):
+            if selected_path.is_symlink() or selected_path.stat().st_size > 2_000_000:
+                return None
+            from wiki_core.context_selection import strict_json_loads
+            with selected_path.open('rb') as stream:
+                raw = stream.read(2_000_001)
+            if len(raw) > 2_000_000:
+                return None
+            result = strict_json_loads(raw.decode('utf-8'))
+        except (ValueError, OSError, TypeError, RuntimeError, UnicodeError, RecursionError):
             return None
-    result = read_result(selected_cache, key)
+    else:
+        result = read_result(selected_cache, key)
     return result if result_matches_request(result, request, row) else None
 
 
@@ -718,6 +752,7 @@ def build_context_request(
     independent_repo_additional_content: list[str] | None = None,
     folder_query_packet: dict | None = None,
     context_root: Path | None = None,
+    source_config_ref: str | None = None,
 ) -> dict[str, object]:
     """Assemble the packet that the repo agent executes. Includes the chunk text,
     the versioned prompt, the output schema and the per-chunk cache status.
@@ -817,6 +852,14 @@ def build_context_request(
             raise ValueError("additional repository content requires a bound folder authorization")
         request["independent_repo_additional_content"] = independent_repo_additional_content
 
+    if folder_v2 and source_config_ref is not None:
+        request['source_config_ref'] = source_config_ref
+        request['source_config_perspectives_applied'] = True
+    suffix = " Copy context_sha256 and chunk_hash_sha256 from the chunk; retain its exact source_id and chunk_id."
+    if folder_v2:
+        request['instructions'] += suffix
+
+    prepared = []
     for chunk in chunks:
         source_id = chunk.get("source_id", manifest.get("source_id"))
         origin = chunk.get("source_origin") or manifest.get("source_origin") or {}
@@ -828,26 +871,34 @@ def build_context_request(
                 provenance[field] = chunk.get(field, manifest.get(field))
         if chunk.get("context") is not None:
             provenance["context"] = chunk["context"]
-        bound = context_fingerprint(request, provenance)
         chunk_hash = str(chunk["hash_sha256"])
         if not isinstance(chunk.get("text"), str) or sha256_text(chunk["text"]) != chunk_hash:
             raise ValueError("context_chunk_hash_mismatch: text must match its digest")
         row = {
             "chunk_id": chunk["chunk_id"], "source_id": source_id,
-            "chunk_hash_sha256": chunk_hash, "context_sha256": bound,
+            "chunk_hash_sha256": chunk_hash,
             "provenance": provenance,
-            "cache_key": cache_key(chunk_hash, prompt_version, schema_version,
-                                   model_profile, context_sha256=bound),
             "token_estimate": chunk.get("token_estimate"), "text": chunk.get("text", ""),
         }
+        prepared.append(row)
+    if folder_v2:
+        request['chunk_manifest_sha256'] = sha256_text(json.dumps(prepared, sort_keys=True, ensure_ascii=False,
+                                                  separators=(',', ':'), allow_nan=False))
+    for row in prepared:
+        bound = context_fingerprint(request, row['provenance'])
+        row['context_sha256'] = bound
+        row['cache_key'] = cache_key(row['chunk_hash_sha256'], prompt_version, schema_version,
+                                     model_profile, context_sha256=bound)
+    request['chunks'] = prepared
+    for row in prepared:
         existing = read_matching_result(cache_dir, request, row, root=context_root)
         row["result_exists"] = existing is not None
         if existing is not None:
             row["result_source_id"] = existing.get("source_id")
             row["result_chunk_id"] = existing.get("chunk_id")
-        request["chunks"].append(row)
         request["cached_calls" if existing is not None else "pending_llm_calls"] += 1
-    request["instructions"] += " Copy context_sha256 and chunk_hash_sha256 from the chunk; retain its exact source_id and chunk_id."
+    if not folder_v2:
+        request['instructions'] += suffix
     if folder_v2:
         from wiki_core.folder_request_identity_v2 import folder_request_identity
         request['folder_request_id'] = folder_request_identity(request)

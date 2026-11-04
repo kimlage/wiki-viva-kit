@@ -4,6 +4,21 @@ import json
 import re
 
 
+def _install_once(path, text):
+    """Publish a complete file without replacing a concurrent or earlier one."""
+    import os
+    import tempfile
+    fd, temporary = tempfile.mkstemp(prefix='.wiki-retain-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.link(temporary, path, follow_symlinks=False)
+    finally:
+        os.unlink(temporary)
+
+
 def folder_request_identity(request):
     if (not isinstance(request, dict) or request.get('context_binding_version') != 2
             or not isinstance(request.get('source_id'), str)
@@ -52,21 +67,34 @@ def validate_retained_folder_request(root, paths, request):
         raise ValueError('retained folder request differs')
 
 
+def retain_folder_request(root, paths, request):
+    """Create the semantic request once; a repeat preserves its original bytes."""
+    from wiki_core.llm.context_pass import canonical_request_text
+    path = folder_request_path(paths, request)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        _install_once(path, canonical_request_text(request))
+    except FileExistsError:
+        validate_retained_folder_request(root, paths, request)
+        return path
+    return path
+
+
 def write_folder_result(cache_dir, result):
     """Create once; repeat the same result idempotently, never replace it."""
-    import os
     from wiki_core.context_selection import strict_json_loads
     from wiki_core.llm.context_pass import validate_result, ContextRequestBlocked
     errors = validate_result(result)
     key = result.get('cache_key') if isinstance(result, dict) else None
     if errors or not isinstance(key, str) or not re.fullmatch(r'[0-9a-f]{64}', key):
         raise ValueError('invalid folder result')
-    cache_dir.mkdir(parents=True, exist_ok=True)
     path = cache_dir / (key + '.json')
     text = json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False) + '\n'
+    if len(text.encode('utf-8')) > 2_000_000:
+        raise ContextRequestBlocked('folder_result_too_large', 'Folder result exceeds the 2000000 byte retention limit.')
+    cache_dir.mkdir(parents=True, exist_ok=True)
     try:
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0)
-        fd = os.open(path, flags, 0o600)
+        _install_once(path, text)
     except FileExistsError:
         try:
             if path.is_symlink() or path.stat().st_size > 2_000_000:
@@ -79,6 +107,4 @@ def write_folder_result(cache_dir, result):
             return path
         except (ValueError, OSError, TypeError, UnicodeError, RecursionError):
             raise ContextRequestBlocked('folder_result_conflict', 'A different or unreadable result already exists for this cache key; it was preserved.') from None
-    with os.fdopen(fd, 'w', encoding='utf-8') as stream:
-        stream.write(text)
     return path

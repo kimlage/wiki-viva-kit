@@ -308,6 +308,12 @@ request location remains unchanged.
 The retained file is required again during consolidation and preflight.
 Recording an identical folder result twice is idempotent; a different result
 for the same cache key is rejected and the existing result is preserved.
+The first emitted request bytes are retained on repeat; their cache flags
+describe that original emission. Folder request budgets and serialized results
+are limited to 2,000,000 bytes. The v2 cache fingerprint binds the full stable
+request contract and all selected chunks. Requests and results from the earlier
+folder fingerprint must be re-emitted and read again; v1 cache is unchanged.
+Recording an array of results is not an atomic transaction across all items.
 
 The host binding must be configured as above. The preflight reproduces the
 query envelope, requires the query observations, and runs the existing
