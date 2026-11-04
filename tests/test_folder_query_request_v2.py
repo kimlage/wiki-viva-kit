@@ -108,6 +108,15 @@ def test_query_selection_without_folder_fails_closed(project):
     assert result.blocked and not result.written
 
 
+def test_query_file_rejects_ambiguous_or_empty_input(tmp_path):
+    from wiki_core.folder_ingestion_v2 import load_folder_queries
+    path = tmp_path / 'queries.json'
+    for content in ('[]', '[{"target":"a", "target":"b"}]', '{}'):
+        path.write_text(content)
+        with pytest.raises(ValueError):
+            load_folder_queries(path)
+
+
 def test_empty_source_never_silently_discards_queries(project):
     _, selection, query = setup_query(project)
     put(project, 'a/source.md', '')
