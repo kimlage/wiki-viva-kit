@@ -247,7 +247,7 @@ def _aggregate_resolved_results(request: dict[str, object], resolved: list[dict 
 
 def prepare_folder_consolidation(root: Path, binding, request: dict, results: list,
                                  *, candidates: list[str], max_age_days: int,
-                                 page_metadata: dict) -> dict[str, object]:
+                                 page_metadata: dict, query_packet=None, query_result=None) -> dict[str, object]:
     """Return a reviewable Markdown proposal from explicit, bound v2 results.
 
     This preview never scans a global catalogue or FTS index, invokes a model,
@@ -272,7 +272,7 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                 or not isinstance(results, list) or not isinstance(candidates, list)
                 or len(candidates) > 128 or not isinstance(page_metadata, dict) or type(max_age_days) is not int
                 or not 0 <= max_age_days <= 3650
-                or contains_access_secrets((request, results, candidates, page_metadata))):
+                or contains_access_secrets((request, results, candidates, page_metadata, query_packet, query_result))):
             raise ValueError('invalid inputs')
         metadata_keys = {'page_id', 'context', 'visibility', 'updated_at', 'stale_after_days',
                          'sources_policy', 'gate', 'sensitive_data_policy', 'moc_parent', 'owner'}
@@ -280,7 +280,7 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                 or any(not isinstance(page_metadata[key], str) or not page_metadata[key].strip() for key in metadata_keys)):
             raise ValueError('explicit page metadata required')
         dt.date.fromisoformat(page_metadata['updated_at'])
-        if len(json.dumps((request, results, candidates, page_metadata), ensure_ascii=False, sort_keys=True,
+        if len(json.dumps((request, results, candidates, page_metadata, query_packet, query_result), ensure_ascii=False, sort_keys=True,
                           separators=(',', ':')).encode()) > 2_000_000:
             raise ValueError('input budget exceeded')
         packet = request['block_context_package']
@@ -346,6 +346,19 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                    'task': task})['packet']
         if rebuilt != packet:
             raise ValueError('packet changed')
+        query_requirements = []
+        if (query_packet != request.get('folder_query_packet')
+                or (query_packet is None) != (query_result is None)):
+            raise ValueError('query context differs from the recorded request')
+        if query_packet is not None or query_result is not None:
+            from wiki_core.llm.context_pass import _CONTEXT_FIELDS
+            if 'folder_query_packet' not in _CONTEXT_FIELDS:
+                raise ValueError('query fingerprint binding unavailable')
+            from wiki_core.folder_query_requirements_v2 import validate_query_report, query_requirements as project_queries
+            rows = validate_query_report(root, policy, query_packet, query_result, base_packet=packet)
+            if query_result['changes'] != [{'path': output, 'action': 'created'}]:
+                raise ValueError('query output differs from preview')
+            query_requirements = project_queries(rows, max_age_days)
         registry_rows = [row for row in packet['inputs'] if row['path'] == 'wiki.page-types.yaml'
                          and row['kind'] == 'mandatory']
         if len(registry_rows) != 1:
@@ -416,7 +429,8 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         frontmatter = {**{key: [] for key in sorted(relation_fields)}, **page_metadata,
                        'page_type': 'claim', 'source_refs': [source_id], 'information_requirements': [{
             'target': source, 'fields': ['*'], 'temporal': 'current', 'max_age_days': max_age_days,
-            'consumed_revision': policy.policy_revision, 'use': 'interpretation', 'classification': 'source'}]}
+            'consumed_revision': policy.policy_revision, 'use': 'interpretation', 'classification': 'source'},
+            *query_requirements]}
         if auth['source_kind'] == 'staged_raw':
             # Persist only existing capture metadata, never source text or an
             # access-bearing URL; raw's external association stays unverified.

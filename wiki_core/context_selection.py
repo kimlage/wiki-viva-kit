@@ -210,6 +210,8 @@ def same_selection(before, after):
 
 
 def requirement_query(requirement):
+    if requirement.get('query_contract') is not None:
+        raise PolicyError('folder query requirement cannot be interpreted as a v1 receipt')
     return {'target': requirement['target'], 'query': requirement['query'], 'reason': 'canonical collection requirement',
         'use': requirement.get('use', 'interpret'), 'classification': requirement.get('classification', 'internal')}
 
