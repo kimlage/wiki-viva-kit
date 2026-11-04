@@ -11,7 +11,12 @@ from wiki_core.context_selection import requirement_query
 from wiki_core.folder_coordination_v2 import FolderHostBinding
 from wiki_core.folder_query_consumers_v2 import reassess_query_consumers
 from wiki_core.folder_query_packet_v2 import build_folder_query_packet_v2, preflight_folder_query_v2
-from wiki_core.folder_query_requirements_v2 import query_requirements
+from wiki_core.folder_query_requirements_v2 import query_requirements, same_json
+
+
+def test_query_projection_compares_json_types():
+    assert not same_json({'filter': True}, {'filter': 1})
+    assert same_json({'filter': 1, 'other': 'x'}, {'other': 'x', 'filter': 1})
 
 
 def test_reported_query_is_projected_and_selectively_reassessed(project, monkeypatch):

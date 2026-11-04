@@ -5,7 +5,7 @@ from wiki_core.context_policy import safe_path, within
 from wiki_core.folder_coordination_v2 import _bound_policy
 from wiki_core.folder_consumers_v2 import inventory_folder_consumers_v2
 from wiki_core.folder_query_history_v2 import assess_folder_query_history_v2
-from wiki_core.folder_query_requirements_v2 import query_requirements
+from wiki_core.folder_query_requirements_v2 import query_requirements, same_json
 from wiki_core.repo_read import contains_access_secrets
 
 
@@ -53,7 +53,7 @@ def reassess_query_consumers(root, binding, *, folder, approved_revision, change
                         or packet.get('base_packet', {}).get('context_folder') != folder
                         or packet.get('base_packet', {}).get('output') != consumer['path']
                         or not isinstance(packet.get('queries'), list) or len(packet['queries']) != 1
-                        or query_requirements(packet['queries'], req['max_age_days']) != [req]):
+                        or not same_json(query_requirements(packet['queries'], req['max_age_days']), [req])):
                     raise ValueError('query report differs from declaration')
                 impact = assess_folder_query_history_v2(root, policy, packet=packet, result=report['result'],
                                                        integrated_revision=report['integrated_revision'])

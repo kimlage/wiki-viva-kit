@@ -102,9 +102,9 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
     seen_queries = set()
     for req in requirements:
         if req.get('query_contract') == 'wiki.folder-query-receipt/v2':
-            from wiki_core.folder_query_requirements_v2 import query_requirements
+            from wiki_core.folder_query_requirements_v2 import query_requirements, same_json
             candidates = query_requirements(query_rows, req['max_age_days'])
-            if req not in candidates or req['query_id'] in seen_queries:
+            if not any(same_json(req, item) for item in candidates) or req['query_id'] in seen_queries:
                 raise FolderIntegrationError('folder query requirement differs from report')
             seen_queries.add(req['query_id'])
             continue
@@ -218,7 +218,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
     if ingestion is not None:
         if binding is None or not isinstance(source_request, dict):
             raise FolderIntegrationError('ingestion task requires host-bound request')
-        if source_request.get('folder_query_packet') != query_packet:
+        from wiki_core.folder_query_requirements_v2 import same_json
+        if not same_json(source_request.get('folder_query_packet'), query_packet):
             raise FolderIntegrationError('query context differs from recorded request')
         if query_packet is not None:
             from wiki_core.llm.context_pass import _CONTEXT_FIELDS

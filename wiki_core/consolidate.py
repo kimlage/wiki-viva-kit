@@ -347,7 +347,8 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         if rebuilt != packet:
             raise ValueError('packet changed')
         query_requirements = []
-        if (query_packet != request.get('folder_query_packet')
+        from wiki_core.folder_query_requirements_v2 import same_json
+        if (not same_json(query_packet, request.get('folder_query_packet'))
                 or (query_packet is None) != (query_result is None)):
             raise ValueError('query context differs from the recorded request')
         if query_packet is not None or query_result is not None:

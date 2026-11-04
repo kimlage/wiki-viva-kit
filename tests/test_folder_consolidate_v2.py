@@ -81,8 +81,13 @@ def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_re
         put(project, source, '# Synthetic RAW\n\n' + ('Unverified local observation.\n' * 80))
         selection = FolderIngestionSelection(selection.host, 'a', 'a/index.md', 'a/claims/result.md', source_ref,
                                               existing_output_sha256=existing_hash)
+    queries = None
+    if with_query:
+        queries = [{'target':'a/index.md', 'reason':'synthetic', 'use':'interpret',
+            'classification':'synthetic', 'query':{'scope':'a/items', 'filters':{'status':'active'},
+            'field':'amount', 'max_enumerated':20, 'max_matches':10, 'max_scan_bytes':100000}}]
     initial = run(str(project / source), 'system', project, load_config(project),
-                  approved_revision=sha, folder_selection=selection)
+                  approved_revision=sha, folder_selection=selection, folder_queries=queries)
     assert not initial.blocked and initial.written
     request = json.loads((project / initial.request_path).read_text())
     assert len(request['chunks']) == 1
@@ -91,6 +96,10 @@ def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_re
                             source=source, source_ref=source_ref)
     import sys
     argv = list(sys.argv); argv[argv.index('--folder-output') + 1] = 'a/claims/result.md'
+    if queries:
+        query_file = tmp_path / 'folder-queries.json'
+        query_file.write_text(json.dumps(queries))
+        argv.extend(['--folder-queries', str(query_file)])
     if existing_hash is not None:
         argv.extend(['--folder-existing-sha256', existing_hash])
     if with_repo and existing:
