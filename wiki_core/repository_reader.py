@@ -117,10 +117,16 @@ class RepositoryReader:
                 text = raw.decode('utf-8')
             except UnicodeError as exc:
                 raise RepositoryReadError('repository file is not UTF-8 text') from exc
-            fm, body = parse_frontmatter(text)
+            try:
+                fm, body = parse_frontmatter(text)
+            except RecursionError:
+                raise RepositoryReadError('repository frontmatter exceeds nesting limit') from None
             self._documents[blob] = {'content': raw, 'text': text,
                 'body': body, 'frontmatter': fm, 'content_sha256': hashlib.sha256(raw).hexdigest()}
-        return deepcopy(self._documents[blob])
+        try:
+            return deepcopy(self._documents[blob])
+        except RecursionError:
+            raise RepositoryReadError('repository frontmatter exceeds nesting limit') from None
 
     def catalogue(self, *, allowed_paths: Iterable[str] | None = None,
                   filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:

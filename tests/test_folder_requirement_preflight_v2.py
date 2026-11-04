@@ -275,3 +275,14 @@ def test_claim_changes_reject_yaml_aliases_and_cycles(project, action, kind):
     else:
         with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
             preflight_folder_v2(project, policy, **kwargs)
+
+
+def test_new_claim_deep_frontmatter_returns_controlled_reader_error(project):
+    from wiki_core.repository_reader import RepositoryReadError
+    marker = 'synthetic-private-value'
+    text = ('---\npage_type: claim\ndeep:\n'
+            + ''.join('  ' * (i + 1) + 'key:\n' for i in range(1100))
+            + '  ' * 1101 + marker + '\n---\nBody\n')
+    with pytest.raises(RepositoryReadError, match='frontmatter exceeds nesting limit') as exc:
+        created_preflight(project, lambda _base: text)
+    assert marker not in str(exc.value)

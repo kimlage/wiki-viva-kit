@@ -112,6 +112,22 @@ def test_narrow_selection_does_not_deliver_other_frontmatter(repository):
     assert reader.read('policy', field='context')['frontmatter'] == {'context': 'system'}
 
 
+def test_deep_frontmatter_is_rejected_without_exposing_content(repository):
+    marker = 'synthetic-private-value'
+    text = ('---\npage_type: claim\ndeep:\n'
+            + ''.join('  ' * (i + 1) + 'key:\n' for i in range(1100))
+            + '  ' * 1101 + marker + '\n---\nBody\n')
+    assert len(text.encode()) < 2_000_000
+    (repository / 'memories/deep.md').write_text(text)
+    commit(repository)
+    reader = RepositoryReader(repository)
+    assert reader.read('memories/policy.md')['page_id'] == 'policy'
+    with pytest.raises(RepositoryReadError, match='frontmatter exceeds nesting limit') as exc:
+        reader.read('memories/deep.md')
+    assert marker not in str(exc.value)
+    assert reader.read('memories/policy.md')['page_id'] == 'policy'
+
+
 def test_cli_requires_explicit_scope_revision_and_body_mode(repository):
     import json
     import sys
