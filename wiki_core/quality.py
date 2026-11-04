@@ -391,7 +391,7 @@ def build_quality_report(
             row = rows.get(chunk.get("chunk_id"))
             if (row is not None
                     and row.get("chunk_hash_sha256", chunk.get("hash_sha256")) == chunk.get("hash_sha256")
-                    and read_matching_result(paths.llm_cache, request, row) is not None):
+                    and read_matching_result(paths.llm_cache, request, row, root=paths.root) is not None):
                 source_cached += 1
             else:
                 source_pending += 1

@@ -26,7 +26,7 @@ def main() -> int:
     args = parser.parse_args()
 
     paths = WikiPaths(ROOT, config)
-    summary = cache_summary(paths.llm_cache)
+    summary = cache_summary(paths.llm_cache, root=ROOT)
     summary["manifests"] = len(list(paths.source_manifests.glob("*.json")))
     summary["text_sources"] = len(list(paths.source_text.glob("*.json")))
     summary["chunk_sources"] = len(list(paths.chunks.glob("*.json")))
