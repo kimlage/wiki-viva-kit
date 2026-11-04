@@ -6,8 +6,11 @@ checks its budgets before writing artifacts, indexing, scoring or advancing a
 stream cursor. A blocked attempt preserves prior artifacts and never emits a
 partial request or a successful-reading receipt.
 
+The default is the folder-bound path described below. The following command
+selects the historical v1 path explicitly:
+
 ```sh
-python3 scripts/wiki_ingest.py --root . --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_ingest.py --mode v1 --root . --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID \
   --context-max-bytes 100000 --request-max-bytes 256000
 ```
@@ -91,7 +94,7 @@ Use the same source, policy context, current approval and limits when recording
 an approved result:
 
 ```sh
-python3 scripts/wiki_llm_context_pass.py --root . --source SOURCE \
+python3 scripts/wiki_llm_context_pass.py --mode v1 --root . --source SOURCE \
   --context SOURCE_CONTEXT --approved-revision APPROVED_SHA \
   --policy-context CONTEXT_ID --context-max-bytes 100000 \
   --request-max-bytes 256000 --record-result RESULT.json
@@ -115,12 +118,12 @@ read a fresh request: v4 has a distinct prompt version and context identity, so
 prior results remain inspectable but cannot satisfy the new request. A missing
 v4 prompt or an unknown version blocks approved preparation without fallback.
 
-Without approved-context flags, the existing working-tree adapter remains
-explicitly labelled compatibility. Historical envelopes remain inspectable;
+The existing working-tree adapter requires explicit `--mode working-tree` and
+remains compatibility. Historical envelopes remain inspectable;
 new requests bind the explicit limits as well as the delivered interpretation
 context. Compatibility is not evidence of approved policy or source freshness.
 
-## Experimental folder-bound ingestion
+## Folder-bound ingestion
 
 A trusted local coordinator configures the host root and allowed folders at
 startup, then explicitly selects a folder, its index and intended output:
@@ -146,7 +149,7 @@ The local caller must maintain cooperative custody of the staged source and
 repository configuration during preparation; path checks and hash fences do
 not provide a filesystem compare-and-swap against concurrent writers.
 
-This experimental route prepares a folder-v2 request without running a model.
+The default folder route prepares a folder-v2 request without running a model.
 For a Git-tracked UTF-8 source, staged bytes must match the approved revision;
 the request binds origin, path, revision, hash and whole-source evidence.
 For a staged Gitignored RAW file, add `--folder-source-ref SOURCE_PAGE`, an
@@ -158,7 +161,7 @@ this does not prove that the local copy matches the provider's object. A RAW
 source without that explicit page is blocked. Non-UTF-8 tracked Git sources
 need a separately qualified provenance adapter.
 Its distinct binding version cannot consume existing v1 cache results.
-Existing v1 and working-tree compatibility paths remain unchanged. A known
+Existing v1 and working-tree compatibility paths require explicit mode selection. A known
 context omission blocks preparation rather than silently dropping v1 coverage
 obligations.
 Only a new, currently absent Markdown output in the selected context is

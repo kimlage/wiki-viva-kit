@@ -17,11 +17,19 @@ does not end at the cache. There is no embedded Python LLM client — by design.
 The honesty gate: as long as there is a chunk without a valid recorded result and
 `required_context_pass: true` in `wiki.config.yaml`, the auditor fails. A complex
 source is not consolidated without the deep reading. And the consolidation gate
-([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) `--check`, in
-CI) fails while there is a source with a complete deep read but no closed event:
+([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) `--mode v1 --check`, in
+CI) covers v1 and fails while there is a source with a complete deep read but no closed event:
 ingesting = integrating.
 
 ## Flow
+
+For the default folder flow, start in the authorized context, read its index
+and relevant bodies, and follow [folder ingestion](../../docs/references/guides/bounded-ingestion.md#folder-bound-ingestion)
+with an explicit host binding. Prepare a folder consolidation proposal, review
+it, run folder preflight and integrate under the project's policy. A proposal
+or recorded result does not prove reading, review or integration; the v1 gate
+does not establish folder-v2 closure. The commands below describe the explicit
+historical v1 flow.
 
 1. Use the task's validated packet and selected root/channel/template inputs.
    An authorized coordinator can compile/check [the input stage](../../scripts/wiki_input_stage.py)
@@ -33,7 +41,7 @@ ingesting = integrating.
 2. Use the canonical [ingestion entry](../../scripts/wiki_ingest.py) to extract,
    scan and prepare the full request before persistence:
    ```bash
-   python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000
+   python3 scripts/wiki_ingest.py --mode v1 --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000
    ```
    These positive byte ceilings bound context and complete canonical UTF-8
    request respectively; they do not guarantee a model token window. Select a
@@ -54,21 +62,21 @@ ingesting = integrating.
    (use the `cache_key` of the chunk itself).
 5. Record the results:
    ```bash
-   python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --record-result RESULT.json
+   python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --record-result RESULT.json
    ```
    Accepts a single object or an array. The script validates the schema (including
    non-empty quadrants and `sensitivity.has_pii`) and writes the result to the LLM
    pass cache (`llm-cache/`).
 6. Confirm the gate:
    ```bash
-   python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --check
+   python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --context-max-bytes 100000 --request-max-bytes 256000 --check
    ```
    It should return `ok: true` / exit 0.
 7. Consolidate and INTEGRATE — the work does NOT end at `--record-result`.
    Generate the normalized event and the integration packet with
    [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
    ```bash
-   python3 scripts/wiki_consolidate.py --source <source_id> --emit-event --packet
+   python3 scripts/wiki_consolidate.py --mode v1 --source <source_id> --emit-event --packet
    # optional: --source-page <path> / --source-ref <page_id> of the source's canonical page
    ```
    `--emit-event` generates the normalized event from the deep read recorded in
@@ -86,7 +94,7 @@ ingesting = integrating.
    and never self-reference). Close with the gates green:
    ```bash
    python3 scripts/wiki_audit.py --check
-   python3 scripts/wiki_consolidate.py --check
+   python3 scripts/wiki_consolidate.py --mode v1 --check
    python3 scripts/wiki_quality_report.py --check
    ```
    Only then does the source page receive `ingestion_state: ingested` +

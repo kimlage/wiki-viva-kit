@@ -95,7 +95,7 @@ For a task packet, select the canonical context and complete request:
 ```sh
 python3 scripts/wiki_coordination.py --context-id CONTEXT_ID \
   --approved-revision APPROVED_SHA --revision CONTENT_SHA --packet-request REQUEST.json
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
 ```
 
