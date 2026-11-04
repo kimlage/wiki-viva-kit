@@ -1,5 +1,10 @@
 # Experimental folder context v2: explicit packet, preflight and impact
 
+Set `WIKI_REPO_ROOT` to the verified wiki Git root before running these
+examples. The session may remain in its nested starting folder; do not infer
+the wiki root from a separately cloned repository. Paths in selectors are
+relative to the verified wiki root.
+
 Field and section selectors limit delivered content; `RepositoryReader` first
 loads the entire Git blob. The host must be authorized to read the whole blob.
 Selectors do not grant cross-owner access or enforce an ACL.
@@ -88,11 +93,11 @@ The primary entry points default to folders. Select the context index explicitly
 the request contains the task fields and any exact evidence selectors:
 
 ```sh
-python3 scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
   resolve areas/example --index areas/example/index.md
-python3 scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
   pack areas/example --index areas/example/index.md --content-revision CONTENT_SHA --request REQUEST.json
-python3 scripts/wiki_context_flow.py --repo . --approved-revision APPROVED_SHA \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_context_flow.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
   preflight --folder areas/example --index areas/example/index.md --base APPROVED_SHA \
   --head PROPOSAL_SHA --branch wiki/example --packet PACKET.json --result RESULT.json
 ```
@@ -121,7 +126,7 @@ instructions and index come from the approved policy revision. Supply the
 trusted output location and integrator explicitly:
 
 ```sh
-python3 scripts/wiki_folder_packet_v2.py --repo . \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_packet_v2.py" --repo "$WIKI_REPO_ROOT" \
   --approved-revision APPROVED_SHA --content-revision CONTENT_SHA \
   --index areas/example/index.md \
   --max-bytes 20000 --task-id TASK_ID --goal 'Review the source' \
@@ -139,7 +144,7 @@ path, kind, revision, hash and selector in `observed`; those reports do not prov
 execution. Once the authorized proposal is on a short `wiki/*` branch, run:
 
 ```sh
-python3 scripts/wiki_folder_preflight_v2.py --repo . \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_preflight_v2.py" --repo "$WIKI_REPO_ROOT" \
   --approved-revision APPROVED_SHA --base APPROVED_SHA --head PROPOSAL_SHA \
   --branch wiki/example --packet packet.json --result result.json
 ```
@@ -205,7 +210,7 @@ This separate, explicitly invoked candidate is under independent review and is
 not wired to packet selection, preflight, or automatic consumer discovery:
 
 ```sh
-python3 scripts/wiki_folder_query_history_v2.py --repo . \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_query_history_v2.py" --repo "$WIKI_REPO_ROOT" \
   --approved-revision CURRENT_APPROVED_SHA --integrated-revision OUTPUT_COMMIT_SHA \
   --packet query-packet.json --result query-result.json
 ```
@@ -227,7 +232,7 @@ This separate candidate checks paths in one authorized owner before opening
 their content. Supply repeated `--candidate` arguments or select a scope:
 
 ```sh
-python3 scripts/wiki_folder_consumers_v2.py --repo . --approved-revision CURRENT_APPROVED_SHA \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_consumers_v2.py" --repo "$WIKI_REPO_ROOT" --approved-revision CURRENT_APPROVED_SHA \
   --folder areas/example --scope areas/example
 ```
 
@@ -283,7 +288,7 @@ that the executor received it:
 ```sh
 python3 -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["folder_query_packet"],sys.stdout)' \
   REQUEST.json > query-packet.json
-python3 scripts/wiki_context_flow.py --repo . --approved-revision APPROVED_SHA \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_context_flow.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
   preflight --folder areas/example --index areas/example/index.md \
   --base APPROVED_SHA --head PROPOSAL_SHA --branch wiki/TASK \
   --packet query-packet.json --result QUERY_RESULT.json --source-request REQUEST.json
@@ -326,7 +331,7 @@ context: they may contain source text. The command never publishes them.
 ## Compare one reported source and consumer
 
 ```sh
-python3 scripts/wiki_folder_impact_v2.py --repo . \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_impact_v2.py" --repo "$WIKI_REPO_ROOT" \
   --approved-revision CURRENT_APPROVED_SHA --packet packet.json --result result.json \
   --target areas/example/result.md --source areas/example/source.md --field status
 ```
@@ -346,7 +351,7 @@ The experimental [reassessment command](../../../scripts/wiki_folder_reassessmen
 combines the bounded consumer inventory with explicit v2 packet/result reports:
 
 ```sh
-python3 scripts/wiki_folder_reassessment_v2.py --repo . --approved-revision CURRENT_APPROVED_SHA \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_reassessment_v2.py" --repo "$WIKI_REPO_ROOT" --approved-revision CURRENT_APPROVED_SHA \
   --folder areas/example --source areas/example/source.md --scope areas/example --reports reports.json
 ```
 
@@ -405,7 +410,7 @@ For one canonical, explicitly selected requirement, the CLI currently reports a
 blocking condition rather than reconstructing the historic packet:
 
 ```sh
-python3 scripts/wiki_folder_requalify_v1.py --repo . \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_requalify_v1.py" --repo "$WIKI_REPO_ROOT" \
   --approved-revision CURRENT_APPROVED_SHA --folder areas/example \
   --index areas/example/index.md --consumer areas/example/result.md \
   --requirement-index 0 --packet historical-packet.json --result historical-result.json \
