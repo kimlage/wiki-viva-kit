@@ -309,7 +309,8 @@ def search(db_path: Path, query: str, limit: int = 20, *, page_signature: str | 
 
 
 def search_detailed(db_path: Path, query: str, limit: int = 20, *, source_ids=None,
-                    page_signature: str | None = None, source_only: bool = False) -> dict:
+                    page_signature: str | None = None, source_only: bool = False,
+                    wiki_root: Path | None = None) -> dict:
     """Read the existing FTS index with explicit availability and scope.
 
     This never creates/schema-upgrades a database. The caller can resolve the
@@ -321,6 +322,13 @@ def search_detailed(db_path: Path, query: str, limit: int = 20, *, source_ids=No
                   operator="AND", limit=limit, hits=[], indexed_source_ids=[])
     if not match or type(limit) is not int or not 1 <= limit <= 1000:
         return result
+    if wiki_root is not None:
+        from wiki_core.traversal import is_in_nested_git
+        try:
+            if is_in_nested_git(db_path, wiki_root=wiki_root):
+                return {**result, "status": "index_error", "error": "index_path_crosses_repository_boundary"}
+        except (OSError, ValueError):
+            return {**result, "status": "index_error", "error": "index_path_crosses_repository_boundary"}
     if not db_path.is_file():
         return {**result, "status": "index_missing"}
     allowed = None if source_ids is None else sorted(set(source_ids))
