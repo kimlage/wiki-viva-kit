@@ -139,6 +139,7 @@ def test_explicit_requalification_preserves_other_source_and_git_history(project
     assert new_req[0] == old_req[0]
     assert new_req[1] == {**old_req[1], 'consumed_revision':base}
     assert fm['folder_source_provenance']['entries'][0] != old_fm['folder_source_provenance']['entries'][0]
+    original_branch = git(project, 'branch', '--show-current')
     git(project, 'checkout', '-qb', 'wiki/requalify-source')
     put(project, path, preview['markdown']); git(project, 'add', path); git(project, 'commit', '-qm', 'requalify proposal')
     packet = request['block_context_package']
@@ -163,3 +164,26 @@ def test_explicit_requalification_preserves_other_source_and_git_history(project
         git(project, 'add', path); git(project, 'commit', '--amend', '-qm', 'synthetic altered proposal')
         with pytest.raises(FolderCoordinationError):
             prepare_folder_preflight(project, binding, {**payload, 'head':git(project,'rev-parse','HEAD'), 'requalify_source':True})
+    put(project, path, preview['markdown'])
+    git(project, 'add', path); git(project, 'commit', '--amend', '-qm', 'restored requalification')
+    git(project, 'checkout', '-q', original_branch)
+    git(project, 'merge', '--ff-only', 'wiki/requalify-source')
+    git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    current = git(project, 'rev-parse', 'HEAD')
+    from wiki_core.folder_reassessment_host_v2 import prepare_folder_reassessment
+    report = {'target':path, 'section':None, 'field':None, 'packet':packet, 'result':result_report}
+    reassessment = {'folder':'a', 'approved_revision':current,
+        'source':request['source_authorization']['canonical_ref'], 'candidates':[path],
+        'reports':[report], 'source_request':request}
+    if kind == 'raw':
+        put(project, source, '# Synthetic RAW changed after requalification\n')
+    else:
+        put(clone, 'guide.md', '# Repository changed after requalification\n')
+        git(clone, 'add', 'guide.md'); git(clone, 'commit', '-qm', 'later source')
+        receipt = request['source_authorization']['independent_repo_read']
+        report['repo_read'] = {**receipt, 'text':request['independent_repo_content']}
+        reassessment['independent_repo'] = {'root':str(clone), 'identity':receipt['repository']['identity'],
+            'revision':git(clone, 'rev-parse', 'HEAD'), 'path':receipt['path']}
+    outcome = prepare_folder_reassessment(project, binding, reassessment)['reassessment']
+    assert outcome['consumers'][0]['state'] == 'review_pending'
+    assert (project/path).read_text() == preview['markdown']
