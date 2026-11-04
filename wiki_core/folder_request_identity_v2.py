@@ -19,8 +19,9 @@ def _install_once(path, text):
         os.unlink(temporary)
 
 
-def folder_request_identity(request):
-    if (not isinstance(request, dict) or request.get('context_binding_version') != 2
+def request_identity(request):
+    """Identify a semantic request; this digest does not authorize any read."""
+    if (not isinstance(request, dict) or request.get('context_binding_version') not in (None, 1, 2)
             or not isinstance(request.get('source_id'), str)
             or not isinstance(request.get('chunks'), list)):
         raise ValueError('folder request identity unavailable')
@@ -39,11 +40,25 @@ def folder_request_identity(request):
                         separators=(',', ':'), allow_nan=False).encode()).hexdigest()
 
 
+def folder_request_identity(request):
+    if not isinstance(request, dict) or request.get('context_binding_version') != 2:
+        raise ValueError('folder request identity unavailable')
+    return request_identity(request)
+
+
 def folder_request_path(paths, request):
     request_id = folder_request_identity(request)
     if request.get('folder_request_id') != request_id:
         raise ValueError('folder request identity differs')
-    source_digest = hashlib.sha256(request['source_id'].encode()).hexdigest()
+    return request_identity_path(paths, request['source_id'], request_id)
+
+
+def request_identity_path(paths, source_id, request_id):
+    """Map identities to the established request filename without granting access."""
+    if (not isinstance(source_id, str)
+            or not isinstance(request_id, str) or not re.fullmatch(r'[0-9a-f]{64}', request_id)):
+        raise ValueError('request identity unavailable')
+    source_digest = hashlib.sha256(source_id.encode()).hexdigest()
     return paths.extraction_events / f'folder-{source_digest}-{request_id}-llm-context-request.json'
 
 

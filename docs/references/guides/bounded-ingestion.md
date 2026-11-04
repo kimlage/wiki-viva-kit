@@ -126,6 +126,26 @@ The existing working-tree adapter can also be selected explicitly with
 new requests bind the explicit limits as well as the delivered interpretation
 context. Compatibility is not evidence of approved policy or source freshness.
 
+When the existing consolidation flow finds multiple requests for one source,
+select the exact request with `wiki_consolidate.py --source SOURCE_ID
+--request-id REQUEST_ID`. A trusted caller can compute the selector for an
+already authorized local request file with:
+
+```sh
+python3 -c 'import json,sys; from wiki_core.folder_request_identity_v2 import request_identity; print(request_identity(json.load(open(sys.argv[1]))))' REQUEST.json
+```
+
+The digest identifies a request; it does not authorize reading a file. The
+caller must authorize the exact retained request and the operation's other
+inputs independently. Selection checks the identity-qualified filename and,
+if it does not exist, the exact legacy source filename; it verifies the semantic
+digest before use. It does not create or modify the retained request.
+Consolidation still opens the global page catalog and
+FTS index, so it requires a coordinator authorized to read them. Selected
+events retain that identity. An unbound legacy event does not close an
+identified request; historical requests without an identity retain the older,
+unverified source-level association.
+
 ## Folder-bound ingestion
 
 A trusted local coordinator configures the host root and allowed folders at

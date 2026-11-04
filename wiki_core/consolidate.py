@@ -144,7 +144,7 @@ def _read_frontmatter(path: Path) -> dict[str, object]:
     return values
 
 
-def load_requests(paths: WikiPaths, *, root: Path | None = None) -> list[dict[str, object]]:
+def load_requests(paths: WikiPaths, *, root: Path | None = None, strict: bool = False) -> list[dict[str, object]]:
     """Emitted context requests (skips ad-hoc query- packets)."""
     out: list[dict[str, object]] = []
     events_dir = paths.extraction_events
@@ -157,8 +157,19 @@ def load_requests(paths: WikiPaths, *, root: Path | None = None) -> list[dict[st
         if root is not None:
             require_wiki_boundaries(root, files=(req_file,))
         try:
-            request = json.loads(req_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            text = req_file.read_text(encoding="utf-8")
+            if strict:
+                from wiki_core.context_selection import strict_json_loads
+                request = strict_json_loads(text)
+            else:
+                request = json.loads(text)
+        except (OSError, ValueError, UnicodeError):
+            if strict:
+                raise ValueError('request inventory unavailable') from None
+            continue
+        if not isinstance(request, dict):
+            if strict:
+                raise ValueError('request inventory unavailable')
             continue
         source_id = str(request.get("source_id") or "")
         if not source_id or source_id.startswith("query-"):
@@ -201,9 +212,12 @@ def _dedup(items: list[object]) -> list[object]:
     return seen
 
 
-def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path | None = None) -> dict[str, object]:
+def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path | None = None,
+                      require_complete: bool = False) -> dict[str, object]:
     """Merge the per-chunk deep-read results of one source (order = chunk order)."""
     resolved = [read_matching_result(cache_dir, request, row, root=root) for row in request.get("chunks") or []]
+    if require_complete and (not resolved or any(result is None for result in resolved)):
+        raise ValueError('selected request results unavailable')
     return _aggregate_resolved_results(request, resolved)
 
 
@@ -537,7 +551,10 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         raise ValueError('folder consolidation unavailable or unauthorized') from None
 
 
-def _source_slug(source_id: str) -> str:
+def _source_slug(source_id: str, *, bounded: bool = False) -> str:
+    if bounded:
+        import hashlib
+        return 'source-' + hashlib.sha256(source_id.encode('utf-8')).hexdigest()
     """source-<name>-<digest12> -> <name>; tolerate non-canonical ids."""
     value = str(source_id)
     if value.startswith("source-"):
@@ -573,8 +590,11 @@ def build_event_markdown(
     event_dir: Path | None = None,
     root: Path | None = None,
     impact: dict[str, object] | None = None,
+    request_id: str | None = None,
 ) -> str:
     """The normalized event, generated from the recorded deep read."""
+    if request_id is not None and not re.fullmatch(r'[0-9a-f]{64}', request_id):
+        raise ValueError('invalid request selection')
     source_page = str(source_page or "").strip() or None
     source_ref = str(source_ref or "").strip() or None
     canonical_source_parent = source_page or source_ref
@@ -584,8 +604,8 @@ def build_event_markdown(
         )
     s = _strings(config.language)
     source_id = str(aggregated.get("source_id") or "source")
-    slug = _source_slug(source_id)
-    name = f"{date.isoformat()}-{slug}"
+    slug = _source_slug(source_id, bounded=request_id is not None)
+    name = f"{date.isoformat()}-{slug}" + (f'-{request_id}' if request_id else '')
     quadrants = aggregated.get("quadrants") or {}
     confidence = aggregated.get("quadrant_confidence") or {}
     impact = impact or {}
@@ -656,6 +676,8 @@ def build_event_markdown(
             f"source_id: {source_id}",
         ]
     )
+    if request_id is not None:
+        fm.append(f'folder_request_id: {request_id}')
     if source_ref:
         fm.append(f"source_ref: {source_ref}")
     fm.extend(
@@ -924,22 +946,30 @@ def build_packet(
     }
 
 
-def find_event_for_source(paths: WikiPaths, source_id: str, *, root: Path | None = None) -> Path | None:
+def find_event_for_source(paths: WikiPaths, source_id: str, *, request_id: str | None = None,
+                          root: Path | None = None) -> Path | None:
+    if request_id is not None and not re.fullmatch(r'[0-9a-f]{64}', request_id):
+        raise ValueError('invalid request selection')
     events_dir = paths.ingest_events_dir
     if root is not None:
         from wiki_core.traversal import require_wiki_boundaries
         require_wiki_boundaries(root, directories=(events_dir,))
     if not events_dir.is_dir():
         return None
+    matches = []
     for md in sorted(events_dir.glob("*.md")):
         if md.name == "README.md":
+            continue
+        if request_id is not None and not md.name.endswith(f'-{request_id}.md'):
             continue
         if root is not None:
             require_wiki_boundaries(root, files=(md,))
         fm = _read_frontmatter(md)
-        if str(fm.get("source_id") or "") == source_id:
-            return md
-    return None
+        if str(fm.get("source_id") or "") == source_id and fm.get('folder_request_id') == request_id:
+            matches.append(md)
+    if len(matches) > 1:
+        raise ValueError('ambiguous source event')
+    return matches[0] if matches else None
 
 
 def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, object]]:
@@ -951,17 +981,38 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
     paths = WikiPaths(root, config)
     cache_dir = paths.llm_cache
     out: list[dict[str, object]] = []
-    for request in load_requests(paths, root=root):
-        # The global legacy event gate cannot establish folder-v2 closure.
-        # Keep this exclusion explicit even if folder cache lookup evolves.
-        if request.get("context_binding_version") == 2:
-            continue
+    # The global legacy event gate cannot establish folder-v2 closure.
+    requests = [request for request in load_requests(paths, root=root, strict=True)
+                if request.get('context_binding_version') != 2]
+    from collections import Counter
+    from wiki_core.folder_request_identity_v2 import request_identity
+    counts = Counter(str(request.get('source_id')) for request in requests)
+    identities = {}
+    for request in requests:
+        try:
+            identities[id(request)] = request_identity(request)
+        except (ValueError, TypeError, KeyError):
+            identities[id(request)] = None
+    identity_counts = Counter((str(request.get('source_id')), identities[id(request)]) for request in requests)
+    for request in requests:
         source_id = str(request.get("source_id"))
         if not deep_read_complete(request, cache_dir, root=root):
             continue  # the context-pass gate already covers incomplete reads
-        event = find_event_for_source(paths, source_id, root=root)
+        selected_id = identities[id(request)]
+        declared_id = request.get('folder_request_id')
+        if declared_id is not None and (selected_id is None or declared_id != selected_id):
+            out.append({'source_id': source_id, 'state': 'invalid_request_identity'})
+            continue
+        if counts[source_id] > 1 and (selected_id is None or identity_counts[(source_id, selected_id)] > 1):
+            out.append({'source_id': source_id, 'state': 'ambiguous_request'})
+            continue
+        event = (find_event_for_source(paths, source_id, request_id=selected_id, root=root)
+                 if selected_id is not None else None)
+        if event is None and counts[source_id] == 1 and declared_id is None:
+            event = find_event_for_source(paths, source_id, root=root)
+        identity = {'request_id': selected_id} if counts[source_id] > 1 or declared_id is not None else {}
         if event is None:
-            out.append({"source_id": source_id, "state": "missing_event"})
+            out.append({"source_id": source_id, **identity, "state": "missing_event"})
             continue
         fm = _read_frontmatter(event)
         consolidated = fm.get("consolidated_into")
@@ -969,6 +1020,7 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
             out.append(
                 {
                     "source_id": source_id,
+                    **identity,
                     "state": "missing_consolidated_into",
                     "event": event.relative_to(root).as_posix(),
                 }
