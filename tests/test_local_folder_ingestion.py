@@ -276,6 +276,21 @@ def test_signed_index_selector_is_never_echoed_or_opened(approved, monkeypatch):
     assert result.blocked and not result.written and selector not in json.dumps(result.to_dict())
 
 
+def test_deeply_encoded_context_blocks_without_rechecking_or_echoing(approved, monkeypatch):
+    from wiki_core.ingest import pipeline
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    (root / 'area' / 'index.md').write_text('Local index')
+    encoded = '%41'
+    for _ in range(9):
+        encoded = encoded.replace('%', '%25')
+    monkeypatch.setattr(pipeline, 'build_manifest', lambda *_args, **_kwargs: pytest.fail('source opened'))
+    result = run(str(source), encoded, root, load_config(root), entry_folder='area')
+    assert result.blocked and not result.written and result.context == ''
+    assert encoded not in json.dumps(result.to_dict())
+
+
 @pytest.mark.parametrize('kind', ['git_file', 'git_directory', 'symlink'])
 def test_selected_source_never_opens_nested_repo_or_symlink(approved, monkeypatch, kind):
     from wiki_core.ingest import pipeline
