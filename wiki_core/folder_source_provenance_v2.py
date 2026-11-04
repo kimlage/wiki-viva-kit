@@ -159,6 +159,34 @@ def validate_provenance(metadata):
     _entries(metadata)
 
 
+def requalify_projection(metadata, auth):
+    """Replace only the explicitly selected projection, leaving others intact."""
+    singleton_ref, singleton, entries = _entries(metadata, adding=True)
+    source = safe_path(auth['canonical_ref'])
+    matches = [i for i, row in enumerate(entries) if row['canonical_ref'] == source]
+    if len(matches) > 1:
+        raise ValueError('ambiguous source projection')
+    previous = singleton if singleton_ref == source else (entries[matches[0]] if matches else {})
+    fresh = add_projection({}, auth)
+    old_kind = ('raw' if 'source_authorization' in previous else
+                'repo' if 'independent_repo_read' in previous else 'git')
+    new_kind = ('raw' if 'source_authorization' in fresh else
+                'repo' if 'independent_repo_read' in fresh else 'git')
+    if old_kind != new_kind:
+        raise ValueError('source projection kind changed')
+    result = {k:metadata[k] for k in (*SINGLETON, FIELD) if k in metadata}
+    if singleton_ref == source:
+        for key in SINGLETON:
+            result.pop(key, None)
+        result.update(fresh)
+    elif matches:
+        updated = list(entries)
+        row = {k:v for k,v in fresh.items() if k != 'independent_repo_source_ref'}
+        updated[matches[0]] = {'canonical_ref':source, 'canonical_revision':auth['canonical_revision'], **row}
+        result[FIELD] = {'schema_version':VERSION, 'entries':updated}
+    return result
+
+
 def add_projection(metadata, auth):
     """Preserve old projections exactly and append the current request's projection."""
     singleton_ref, singleton, entries = _entries(metadata, adding=True)

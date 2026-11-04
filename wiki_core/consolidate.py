@@ -247,7 +247,8 @@ def _aggregate_resolved_results(request: dict[str, object], resolved: list[dict 
 
 def prepare_folder_consolidation(root: Path, binding, request: dict, results: list,
                                  *, candidates: list[str], max_age_days: int,
-                                 page_metadata: dict, query_packet=None, query_result=None) -> dict[str, object]:
+                                 page_metadata: dict, query_packet=None, query_result=None,
+                                 requalify_source: bool = False) -> dict[str, object]:
     """Return a reviewable Markdown proposal from explicit, bound v2 results.
 
     This preview never scans a global catalogue or FTS index, invokes a model,
@@ -271,7 +272,7 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         if (not isinstance(request, dict) or request.get('context_binding_version') != 2
                 or not isinstance(results, list) or not isinstance(candidates, list)
                 or len(candidates) > 128 or not isinstance(page_metadata, dict) or type(max_age_days) is not int
-                or not 0 <= max_age_days <= 3650
+                or not 0 <= max_age_days <= 3650 or type(requalify_source) is not bool
                 or contains_access_secrets((request, results, candidates, page_metadata, query_packet, query_result))):
             raise ValueError('invalid inputs')
         metadata_keys = {'page_id', 'context', 'visibility', 'updated_at', 'stale_after_days',
@@ -448,17 +449,39 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
             prior_refs = frontmatter.get('source_refs', [])
             prior_requirements = frontmatter.get('information_requirements', [])
             if (not isinstance(prior_refs, list) or not isinstance(prior_requirements, list)
-                    or any(not isinstance(item, dict) or item.get('target') in (source, source_id)
+                    or any(not isinstance(item, dict) or (not requalify_source and item.get('target') in (source, source_id))
                            or item.get('query_id') in {q['query_id'] for q in query_requirements}
                            for item in prior_requirements)):
                 raise ValueError('existing requirements require separate revalidation')
-            frontmatter['source_refs'] = prior_refs if source_id in prior_refs else [*prior_refs, source_id]
-            frontmatter['information_requirements'] = [*prior_requirements, requirement, *query_requirements]
+            if requalify_source:
+                matches = [i for i, item in enumerate(prior_requirements) if item.get('target') in (source, source_id)]
+                if len(matches) != 1 or source_id not in prior_refs:
+                    raise ValueError('selected source requirement unavailable')
+                index = matches[0]
+                old_requirement = prior_requirements[index]
+                prior_revision = old_requirement.get('consumed_revision')
+                if (not isinstance(prior_revision, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', prior_revision)
+                        or {**old_requirement, 'consumed_revision':requirement['consumed_revision']} != requirement):
+                    raise ValueError('source requalification changes prior requirement')
+                prior_requirements = list(prior_requirements)
+                prior_requirements[index] = requirement
+                frontmatter['source_refs'] = prior_refs
+                frontmatter['information_requirements'] = [*prior_requirements, *query_requirements]
+            else:
+                frontmatter['source_refs'] = prior_refs if source_id in prior_refs else [*prior_refs, source_id]
+                frontmatter['information_requirements'] = [*prior_requirements, requirement, *query_requirements]
         else:
+            if requalify_source:
+                raise ValueError('source requalification requires an existing claim')
             frontmatter = {**{key: [] for key in sorted(relation_fields)}, **page_metadata,
                            'page_type': 'claim', 'source_refs': [source_id], 'information_requirements': [requirement, *query_requirements]}
-        from wiki_core.folder_source_provenance_v2 import add_projection
-        frontmatter.update(add_projection(frontmatter, auth))
+        from wiki_core.folder_source_provenance_v2 import add_projection, requalify_projection, SINGLETON, FIELD
+        # Requalification validates the old projection against its old requirement.
+        projection_meta = yaml.load(FRONTMATTER_RE.match(previous['text']).group(1), Loader=UniqueLoader) if requalify_source else frontmatter
+        projection = requalify_projection(projection_meta, auth) if requalify_source else add_projection(projection_meta, auth)
+        if requalify_source:
+            for key in (*SINGLETON, FIELD): frontmatter.pop(key, None)
+        frontmatter.update(projection)
         provenance = {key: auth.get(key) for key in ('source_kind', 'ref', 'source_revision', 'source_sha256',
                       'canonical_ref', 'canonical_revision', 'association',
                       'external_origin_verification', 'external_freshness')}

@@ -32,7 +32,7 @@ def _declares_capture_source(document, ref, revision):
 
 
 def _check_current_requirements(prior, document, path, status, packet, approved, *,
-                                ingestion_source=None, query_rows=(), require_queries=False):
+                                ingestion_source=None, query_rows=(), require_queries=False, requalify_source=False):
     """Bound a narrow declaration subset to current, explicitly reported inputs.
 
     This does not establish that a report was executed or that a source is
@@ -43,8 +43,7 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
     new = document['frontmatter'].get('information_requirements', absent)
     if old is absent and new is absent and not require_queries:
         return 0
-    # The standard Markdown reader uses a permissive YAML loader. Ambiguous
-    # duplicate keys cannot establish that provenance was preserved.
+    # Require strict parsing of both exact versions before comparing declarations.
     for item in (prior, document):
         if item is None:
             continue
@@ -57,36 +56,42 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
         if not isinstance(strict, dict):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
-    if status not in ('A', 'M') or (status == 'M' and not prior):
-        raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
-    if not isinstance(new, list):
+    if status not in ('A', 'M') or (status == 'M' and not prior) or not isinstance(new, list):
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     validate = new
     if status == 'M':
-        # Existing declarations retain exact JSON values and types. Only the
-        # selected ingestion source may be appended as a new requirement.
         if old is absent:
             if ingestion_source is None:
                 raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
             old = []
         if not isinstance(old, list):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
-        try:
-            def canonical(value):
-                return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
-            if canonical(old) != canonical(new[:len(old)]):
-                raise ValueError('old requirements changed')
-        except (TypeError, ValueError, OverflowError, RecursionError):
-            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
-        validate = new[len(old):]
-        if ingestion_source is None:
-            if validate:
+        from wiki_core.folder_query_requirements_v2 import same_json
+        if requalify_source:
+            indices = [i for i, row in enumerate(old) if isinstance(row, dict) and row.get('target') == ingestion_source]
+            if len(indices) != 1 or len(new) != len(old) + len(query_rows):
+                raise FolderIntegrationError('ingestion source requalification unavailable')
+            index = indices[0]
+            changed = new[index] if isinstance(new[index], dict) else {}
+            previous_revision = old[index].get('consumed_revision')
+            if (not isinstance(previous_revision, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', previous_revision)
+                    or not same_json({**old[index], 'consumed_revision':approved.revision}, changed)
+                    or not same_json(old[:index], new[:index])
+                    or not same_json(old[index+1:], new[index+1:len(old)])):
+                raise FolderIntegrationError('ingestion source requalification unavailable')
+            validate = [changed, *new[len(old):]]
+        else:
+            if not same_json(old, new[:len(old)]):
                 raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
-            validate = new  # preserve existing behavior for non-ingestion tasks
-        elif (len(validate) != 1 + len(query_rows) or not isinstance(validate[0], dict)
-              or validate[0].get('target') != ingestion_source
-              or any(not isinstance(item, dict) or item.get('target') == ingestion_source for item in old)):
-            raise FolderIntegrationError('ingestion source addition unavailable')
+            validate = new[len(old):]
+            if ingestion_source is None:
+                if validate:
+                    raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+                validate = new
+            elif (len(validate) != 1 + len(query_rows) or not isinstance(validate[0], dict)
+                  or validate[0].get('target') != ingestion_source
+                  or any(not isinstance(item, dict) or item.get('target') == ingestion_source for item in old)):
+                raise FolderIntegrationError('ingestion source addition unavailable')
     if not validate and require_queries:
         raise FolderIntegrationError('folder query requirements unavailable')
     if not validate:
@@ -171,8 +176,11 @@ def _rebuild(root, policy, packet):
 
 
 def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
-                        binding=None, source_request=None, query_packet=None, query_result=None):
+                        binding=None, source_request=None, query_packet=None, query_result=None,
+                        requalify_source=False):
     """Check exact v2 reads and branch; independent review remains required."""
+    if type(requalify_source) is not bool or (requalify_source and (binding is None or not isinstance(source_request, dict))):
+        raise FolderIntegrationError('explicit host-bound requalification required')
     if getattr(policy, 'format_version', None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise FolderIntegrationError('bound v2 policy required')
     policy = policy.fresh()
@@ -307,6 +315,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             raise FolderIntegrationError('selected input changed in proposal')
     for path, status in statuses.items():
         prior = approved.read(path) if path in approved.paths else None
+        if path == packet['output'] and requalify_source and (status != 'M' or ingestion is None):
+            raise FolderIntegrationError('requalification requires an existing ingestion-bound claim')
         if status != 'D':
             document = proposed.read(path)
             if contains_access_secrets(document['text']):
@@ -335,9 +345,9 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                         'after_sha256':hashlib.sha256(after_body.encode('utf-8')).hexdigest(),
                         'semantic_review':'independent_review_required'})
                     old_meta, new_meta = prior['frontmatter'], document['frontmatter']
-                    from wiki_core.folder_source_provenance_v2 import add_projection, SINGLETON, FIELD
+                    from wiki_core.folder_source_provenance_v2 import add_projection, requalify_projection, SINGLETON, FIELD
                     projection = set(SINGLETON) | {FIELD}
-                    expected_projection = add_projection(old_meta, auth)
+                    expected_projection = requalify_projection(old_meta, auth) if requalify_source else add_projection(old_meta, auth)
                     actual_projection = {key:new_meta[key] for key in projection if key in new_meta}
                     from wiki_core.folder_query_requirements_v2 import same_json
                     if not same_json(actual_projection, expected_projection):
@@ -347,8 +357,10 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                         raise ValueError('source references unavailable')
                     old_requirements = old_meta.get('information_requirements', [])
                     if (not isinstance(old_requirements, list) or any(not isinstance(row, dict)
-                            or row.get('target') in (ingestion_source, source_id) for row in old_requirements)):
+                            or (not requalify_source and row.get('target') in (ingestion_source, source_id)) for row in old_requirements)):
                         raise ValueError('prior source requirement needs separate revalidation')
+                    if requalify_source and source_id not in old_refs:
+                        raise ValueError('selected source reference unavailable')
                     wanted_refs = old_refs if source_id in old_refs else [*old_refs, source_id]
                     if new_meta.get('source_refs') != wanted_refs:
                         raise ValueError('source references changed')
@@ -362,7 +374,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                     raise FolderIntegrationError('existing ingestion provenance unavailable') from None
             covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved,
                  ingestion_source=ingestion_source, query_rows=query_rows if path == packet['output'] else (),
-                 require_queries=bool(query_rows and ingestion is not None and path == packet['output']))
+                 require_queries=bool(query_rows and ingestion is not None and path == packet['output']),
+                 requalify_source=requalify_source and path == packet['output'])
             selected_meta = document['frontmatter']
             if path == packet['output'] and ingestion is not None:
                 if status == 'A' and 'folder_source_provenance' in document['frontmatter']:
