@@ -274,19 +274,22 @@ is unchanged. Revalidation does not prove execution or authenticate an
 external service; an untrusted party able to replace an entire packet and
 result can still fabricate a different generic task. Query preflight does not
 grant access or attest execution. To retain a bounded query receipt with an
-ingestion-bound task, attach queries to the packet in the exact ingestion
-request and supply that same request to the query preflight:
+ingestion-bound task, select queries with `--folder-queries QUERIES.json` when
+preparing the ingestion request, then repeat that same selection when recording
+the result. Extract the already-bound envelope from the request and supply
+both to the query preflight. A query attached after reading cannot establish
+that the executor received it:
 
 ```sh
-python3 scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
-  attach-queries areas/example --index areas/example/index.md \
-  --source-request REQUEST.json --queries queries.json > query-packet.json
+python3 -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["folder_query_packet"],sys.stdout)' \
+  REQUEST.json > query-packet.json
 python3 scripts/wiki_context_flow.py --repo . --approved-revision APPROVED_SHA \
   preflight --folder areas/example --index areas/example/index.md \
   --base APPROVED_SHA --head PROPOSAL_SHA --branch wiki/TASK \
   --packet query-packet.json --result QUERY_RESULT.json --source-request REQUEST.json
 ```
 
+Keep both files in an authorized local location; they may contain source text.
 The host binding must be configured as above. The preflight reproduces the
 query envelope, requires the query observations, and runs the existing
 host-bound ingestion checks against its original base packet and recorded
