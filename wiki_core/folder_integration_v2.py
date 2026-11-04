@@ -66,8 +66,9 @@ def _check_current_requirements(prior, document, path, status, packet, approved)
     if not new:
         return 0
     try:
+        tracked = set(approved.paths)
         requirements = information_requirements(document['frontmatter'],
-                    lambda ref: [ref] if isinstance(ref, str) and ref in approved.paths else [])
+                    lambda ref: [ref] if isinstance(ref, str) and ref in tracked else [])
     except (ValueError, TypeError):
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
     evidence = [row for row in packet['inputs'] if row['kind'] == 'evidence']
