@@ -32,7 +32,8 @@ def _declares_capture_source(document, ref, revision):
 
 
 def _check_current_requirements(prior, document, path, status, packet, approved, *,
-                                ingestion_source=None, query_rows=(), require_queries=False):
+                                ingestion_source=None, query_rows=(), require_queries=False,
+                                policy=None, query_requalifications=None):
     """Bound a narrow declaration subset to current, explicitly reported inputs.
 
     This does not establish that a report was executed or that a source is
@@ -59,6 +60,8 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     if status not in ('A', 'M') or (status == 'M' and not prior):
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+    if query_requalifications is not None and status != 'M':
+        raise FolderIntegrationError('query requalification requires an existing output')
     if not isinstance(new, list):
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     validate = new
@@ -71,14 +74,26 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
             old = []
         if not isinstance(old, list):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+        replacements = {}
+        if query_requalifications is not None:
+            if ingestion_source is not None or not query_rows or policy is None:
+                raise FolderIntegrationError('query requalification unavailable')
+            try:
+                from wiki_core.folder_query_requalification_v2 import prepare_query_replacements
+                replacements = prepare_query_replacements(approved.root, policy, folder=packet['context_folder'],
+                    target=path, prior_requirements=old, query_rows=query_rows, reports=query_requalifications)
+            except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
+                raise FolderIntegrationError('query requalification unavailable') from None
         try:
             def canonical(value):
                 return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
-            if canonical(old) != canonical(new[:len(old)]):
+            replaced = [replacements.get(item.get('query_id'), item) if isinstance(item, dict) else item for item in old]
+            if canonical(replaced) != canonical(new[:len(old)]):
                 raise ValueError('old requirements changed')
         except (TypeError, ValueError, OverflowError, RecursionError):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
-        validate = new[len(old):]
+        validate = [replacements[item['query_id']] for item in old
+                    if isinstance(item, dict) and item.get('query_id') in replacements] + new[len(old):]
         if ingestion_source is None:
             if query_rows:
                 if len(validate) != len(query_rows):
@@ -91,7 +106,8 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
               or validate[0].get('target') != ingestion_source
               or any(not isinstance(item, dict) or item.get('target') == ingestion_source for item in old)):
             raise FolderIntegrationError('ingestion source addition unavailable')
-        old_query_ids = {item.get('query_id') for item in old if isinstance(item, dict) and item.get('query_id')}
+        old_query_ids = {item.get('query_id') for item in old if isinstance(item, dict)
+                         and item.get('query_id') and item.get('query_id') not in replacements}
         new_query_ids = {item.get('query_id') for item in validate if isinstance(item, dict) and item.get('query_id')}
         if old_query_ids & new_query_ids:
             raise FolderIntegrationError('duplicate folder query requirement')
@@ -179,7 +195,8 @@ def _rebuild(root, policy, packet):
 
 
 def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
-                        binding=None, source_request=None, query_packet=None, query_result=None):
+                        binding=None, source_request=None, query_packet=None, query_result=None,
+                        query_requalifications=None):
     """Check exact v2 reads and branch; independent review remains required."""
     if getattr(policy, 'format_version', None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise FolderIntegrationError('bound v2 policy required')
@@ -225,6 +242,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
         except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
             raise FolderIntegrationError('query report unavailable') from None
     ingestion = packet.get('ingestion_binding')
+    if query_requalifications is not None and (not query_rows or ingestion is not None):
+        raise FolderIntegrationError('query requalification unavailable')
     if ingestion is not None:
         if binding is None or not isinstance(source_request, dict):
             raise FolderIntegrationError('ingestion task requires host-bound request')
@@ -382,7 +401,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                     raise FolderIntegrationError('existing ingestion provenance unavailable') from None
             covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved,
                  ingestion_source=ingestion_source, query_rows=query_rows if path == packet['output'] else (),
-                 require_queries=bool(query_rows and path == packet['output']))
+                 require_queries=bool(query_rows and path == packet['output']), policy=policy,
+                 query_requalifications=query_requalifications if path == packet['output'] else None)
             capture = document['frontmatter'].get('source_authorization')
             if path == packet['output'] and ingestion is not None:
                 try:
@@ -457,6 +477,9 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
     if repo_inspected:
         out['repository_handling'] = {'selection': 'matched_request',
                                       'remote_authentication': 'not_verified', 'execution': 'not_proven'}
+    if query_requalifications is not None:
+        out['query_requalification'] = {'count':len(query_requalifications),
+            'state':'independent_review_required', 'review':'not_performed', 'freshness':'not_assessed'}
     if capture_preserved or repo_preserved:
         out['prior_ingestion_provenance'] = {
             'capture': 'preserved_not_revalidated' if capture_preserved else 'absent',

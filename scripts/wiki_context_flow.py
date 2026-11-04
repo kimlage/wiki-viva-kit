@@ -57,6 +57,7 @@ def _folder_main(argv):
     check.add_argument('--base', required=True); check.add_argument('--head', required=True)
     check.add_argument('--branch', required=True); check.add_argument('--packet', required=True); check.add_argument('--result', required=True)
     check.add_argument('--source-request', help='explicit contextual ingestion request for host-bound capture verification')
+    check.add_argument('--query-requalifications', help='explicit prior query reports for reviewable replacement')
     args = parser.parse_args(argv)
     try:
         policy = load_folder_policy_v2(args.repo, args.approved_revision)
@@ -81,6 +82,7 @@ def _folder_main(argv):
             raise ValueError('folder or index differs from packet')
         if packet.get('schema_version') == 'wiki.folder-query-task-context/v2':
             from wiki_core.folder_query_packet_v2 import preflight_folder_query_v2
+            requalifications = read_json(args.query_requalifications) if args.query_requalifications else None
             binding = None
             source_request = None
             if args.source_request:
@@ -89,8 +91,11 @@ def _folder_main(argv):
                 binding = selection_from_host_environment(args.folder, args.index, base_packet['output']).host
             output = preflight_folder_query_v2(args.repo, policy, base=args.base, head=args.head,
                                                 branch=args.branch, packet=packet, result=result,
-                                                binding=binding, source_request=source_request)
+                                                binding=binding, source_request=source_request,
+                                                query_requalifications=requalifications)
         elif args.source_request:
+            if args.query_requalifications:
+                raise ValueError('query requalification requires a query packet')
             from wiki_core.folder_coordination_v2 import prepare_folder_preflight
             from wiki_core.folder_ingestion_v2 import selection_from_host_environment
             source_request = read_json(args.source_request)
@@ -100,6 +105,8 @@ def _folder_main(argv):
                      'branch':args.branch, 'packet':packet, 'result':result,
                      'source_request':source_request})['preflight']
         else:
+            if args.query_requalifications:
+                raise ValueError('query requalification requires a query packet')
             output = preflight_folder_v2(args.repo, policy, base=args.base, head=args.head,
                                           branch=args.branch, packet=packet, result=result)
         policy.fresh()
