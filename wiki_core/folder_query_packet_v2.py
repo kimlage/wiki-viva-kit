@@ -44,6 +44,15 @@ def build_folder_query_packet_v2(root, policy, *, base_packet, queries):
         raise FolderQueryPacketError('invalid v2 query request') from exc
     if sum(item['query']['max_scan_bytes'] for item in normalized) > 2_000_000:
         raise FolderQueryPacketError('combined query scan limit exceeded')
+    # Authorize every requested anchor and scope before replay opens any body.
+    try:
+        from wiki_core.folder_query_v2 import _authority, _preauthorize_packet_evidence
+        folder = base_packet['context_folder']; index = base_packet['index_path']
+        _preauthorize_packet_evidence(policy, base_packet, folder)
+        for request in normalized:
+            _authority(policy, folder, request['query']['scope'], index, request['target'])
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise FolderQueryPacketError('v2 query authority unavailable') from exc
     results=[]; identities=set()
     for request in normalized:
         try:
@@ -78,6 +87,10 @@ def _query_observations(envelope):
     rows=[]
     for item in envelope['queries']:
         qid=item['receipt']['query_id']
+        if 'anchor' in item:
+            source=item['anchor']
+            rows.append({'kind':'query_anchor','path':source['path'],'revision':source['revision'],
+                         'sha256':source['sha256'],'section':None,'field':None,'query_id':qid})
         for source in item['selected']:
             rows.append({'kind':'query_evidence','path':source['path'],'revision':source['revision'],
                          'sha256':source['sha256'],'section':source['section'],'field':source['field'],'query_id':qid})
@@ -136,8 +149,9 @@ def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, resul
         changed=_git(root,'diff','--no-ext-diff','--no-textconv','--no-renames','--name-only','-z',base_sha,head_sha).split(b'\0')
         paths=[safe_path(raw.decode('utf-8')) for raw in changed if raw]
         for item in queries:
-            scope=item['receipt']['request']['query']['scope']; anchor=item['receipt']['index_path']
-            if any(path == anchor or within(path,scope) for path in paths):
+            scope=item['receipt']['request']['query']['scope']
+            protected = {item['receipt']['index_path'], item['receipt']['request']['target']}
+            if any(path in protected or within(path,scope) for path in paths):
                 raise FolderQueryPacketError('proposal changes query scope; independent requalification required')
         base_result={'schema_version':'wiki.folder-task-result/v2','status':'completed',
                      'task_id':base_packet['task_id'],'context_id':base_packet['context_id'],

@@ -54,8 +54,9 @@
               "instruction",
               "mandatory",
               "index",
-            "evidence",
-              "query_evidence"
+              "evidence",
+              "query_evidence",
+              "query_anchor"
             ]
           },
           "revision": {
@@ -88,7 +89,10 @@
             "if": {
               "properties": {
                 "kind": {
-                  "const": "query_evidence"
+                  "enum": [
+                    "query_evidence",
+                    "query_anchor"
+                  ]
                 }
               }
             },

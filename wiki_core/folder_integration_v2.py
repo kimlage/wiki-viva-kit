@@ -351,8 +351,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             raise FolderIntegrationError('query output must exist')
         for row in query_rows:
             scope = row['receipt']['request']['query']['scope']
-            anchor = row['receipt']['index_path']
-            if any(path == anchor or within(path, scope) for path in statuses):
+            protected = {row['receipt']['index_path'], row['receipt']['request']['target']}
+            if any(path in protected or within(path, scope) for path in statuses):
                 raise FolderIntegrationError('proposal changes query scope')
     # Establish authority and boundary changes from Git metadata before any
     # proposal body is read. Existing output needs an exact prior full read.

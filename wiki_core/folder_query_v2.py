@@ -65,10 +65,16 @@ def _scope_authorized(policy, folder, scope, index):
     return context
 
 
-def _authority(policy, folder, scope, index):
+def _authority(policy, folder, scope, index, anchor=None):
     context = _scope_authorized(policy, folder, scope, index)
-    return digest({'schema_version':'wiki.folder-query-authority/v2','context_id':context,
-                   'folder':folder,'scope':scope,'index':index,'scope_read':'authorized'})
+    anchor = index if anchor is None else safe_path(anchor)
+    if policy.owner_of(anchor) != context or not policy.permits(context, 'read', anchor):
+        raise FolderQueryError('query anchor authority unavailable')
+    value = {'schema_version':'wiki.folder-query-authority/v2','context_id':context,
+             'folder':folder,'scope':scope,'index':index,'scope_read':'authorized'}
+    if anchor != index:
+        value.update(anchor=anchor, anchor_read='authorized')
+    return digest(value)
 
 
 def select_folder_query_v2(root, policy, *, packet, content_revision, request, max_return_bytes=1_000_000):
@@ -96,13 +102,11 @@ def select_folder_query_v2(root, policy, *, packet, content_revision, request, m
         raise FolderQueryError('secret detected in query')
     try:
         folder = packet['context_folder']; index = packet['index_path']
+        entry = normalize_query(request); q = entry['query']; scope = q['scope']; anchor_path = entry['target']
         preauthorize_index(policy,folder,index)
         _preauthorize_packet_evidence(policy,packet,folder)
+        current_auth = _authority(policy,folder,scope,index,anchor_path)
         _rebuild(root,policy,packet)
-        entry = normalize_query(request); q = entry['query']; scope = q['scope']
-        if entry['target'] != index:
-            raise FolderQueryError('query anchor must be the selected index')
-        current_auth = _authority(policy,folder,scope,index)
         content_sha = revision(root,content_revision)
         _git(root,'merge-base','--is-ancestor',content_sha,policy.policy_revision)
         if content_sha != policy.policy_revision:
@@ -115,7 +119,7 @@ def select_folder_query_v2(root, policy, *, packet, content_revision, request, m
             raise FolderQueryError('query tree contains unsupported paths')
         context = policy.folder_ids[folder]
         def allowed(path):
-            return (path != index and path.endswith('.md') and within(path,scope)
+            return (path != anchor_path and path.endswith('.md') and within(path,scope)
                     and policy.owner_of(path) == context and old.owner_of(path) == context
                     and policy.permits(context,'read',path) and old.permits(context,'read',path))
         for path in reader.unsupported_paths:
@@ -134,11 +138,12 @@ def select_folder_query_v2(root, policy, *, packet, content_revision, request, m
             if contains_access_secrets(item['text']):
                 raise FolderQueryError('secret detected in query content')
             return item
-        anchor = read(index)
+        anchor = read(anchor_path)
         anchor_meta = _metadata(anchor)
         if (anchor_meta.get('page_type') not in ('context_hub','ontology_index','source_catalog','root_entity')
-                or not isinstance(anchor_meta.get('page_id'),str) or not anchor_meta['page_id'].strip()):
-            raise FolderQueryError('selected index is not a collection contract')
+                or not isinstance(anchor_meta.get('page_id'),str) or not anchor_meta['page_id'].strip()
+                or (anchor_path != index and any(ord(c)<32 for c in anchor_meta['page_id']))):
+            raise FolderQueryError('query anchor is not a collection contract')
         members=[]; selected=[]; identities={anchor_meta['page_id']}
         for path in candidates:
             item=read(path); meta=_metadata(item); page_id=meta.get('page_id')
@@ -160,17 +165,23 @@ def select_folder_query_v2(root, policy, *, packet, content_revision, request, m
                              'sha256':selection['content_digest'],'document_sha256':selection['content_sha256'],
                              'text':selection['text']})
         query_id=digest({'schema_version':'wiki.folder-query-identity/v2','context_id':context,'request':entry})
+        selection = {'schema_version':'wiki.folder-query-selection/v2','query_id':query_id,
+                     'anchor':anchor['content_digest'],
+                     'selected':[{'path':r['path'],'sha256':r['sha256']} for r in selected]}
+        if anchor_path != index:
+            selection['index'] = next(row['sha256'] for row in packet['inputs'] if row['kind'] == 'index' and row['path'] == index)
         receipt={'schema_version':'wiki.folder-query-receipt/v2','query_id':query_id,'request':entry,
                  'context_id':context,'folder':folder,'index_path':index,'content_revision':content_sha,
                  'policy_revision':policy.policy_revision,'packet_digest':packet['packet_digest'],'authority_digest':current_auth,
                  'members':members,'members_digest':digest({'schema_version':'wiki.folder-query-members/v2','query_id':query_id,'members':members}),
-                 'selected_digest':digest({'schema_version':'wiki.folder-query-selection/v2','query_id':query_id,
-                                           'anchor':anchor['content_digest'],
-                                           'selected':[{'path':r['path'],'sha256':r['sha256']} for r in selected]}),
+                 'selected_digest':digest(selection),
                  'coverage':'complete_only_within_authorized_single_owner_scope','enumerated':len(candidates)}
         receipt['receipt_digest']=digest(receipt)
         out={'schema_version':'wiki.folder-query-result/v2','receipt':receipt,'selected':selected,
              'read_verification':'not_performed','enforcement_claim':'none'}
+        if anchor_path != index:
+            out['anchor'] = {'path':anchor_path,'revision':content_sha,
+                             'sha256':anchor['content_digest'],'text':anchor['text']}
         if contains_access_secrets(out): raise FolderQueryError('secret detected in query result')
         if len(json.dumps(out,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()) > max_return_bytes:
             raise FolderQueryError('query return byte limit exceeded')

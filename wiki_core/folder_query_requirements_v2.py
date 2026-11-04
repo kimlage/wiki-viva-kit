@@ -55,7 +55,8 @@ def query_requirements(queries, max_age_days):
         receipt = row['receipt']; request = normalize_query(receipt['request'])
         if receipt['schema_version'] != 'wiki.folder-query-receipt/v2':
             raise ValueError('folder query receipt required')
-        projections.append({'target':request['target'], 'fields':['*'], 'temporal':'current',
+        projections.append({**({'query_index':receipt['index_path']} if request['target'] != receipt['index_path'] else {}),
+            'target':request['target'], 'fields':['*'], 'temporal':'current',
             'max_age_days':max_age_days, 'consumed_revision':receipt['content_revision'],
             'use':request['use'], 'classification':request['classification'], 'query':request['query'],
             'members_digest':receipt['members_digest'], 'selected_digest':receipt['selected_digest'],

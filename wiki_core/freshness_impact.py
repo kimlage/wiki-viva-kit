@@ -334,13 +334,13 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                     req = edge.get('requirement', {})
                     if ('query' in req and closure_policy.owner_of(edge['dependent']) == query_context
                             and closure_policy.permits(query_context, 'read', edge['dependent'])):
-                        query_contracts.append((req['target'], req['query']['scope']))
+                        query_contracts.append((req['target'], req.get('query_index', req['target']), req['query']['scope']))
             # Recompute provenance from only explicit current-consumption
             # edges. The original global report remains unchanged; its legacy
             # reach is not permission or proof of scoped current consumption.
             for path, row in typed_reasons.items():
                 if path not in current['nodes'] or not row['causes']: continue
-                if not any(path == anchor or within(path, scope) for anchor, scope in query_contracts): continue
+                if not any(path in (anchor, index) or within(path, scope) for anchor, index, scope in query_contracts): continue
                 if closure_policy.owner_of(path) == query_context and closure_policy.permits(query_context, 'read', path):
                     if authorized_typed_provenance(path, typed_reasons, closure_policy, query_context):
                         ordinary_sources.setdefault(path, set()).update(row.get('fields', ['*']))

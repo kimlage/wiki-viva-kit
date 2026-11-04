@@ -198,14 +198,23 @@ array is:
 ```
 
 The envelope and query receipts use separate v2 schemas and digests, tied to
-the base packet. The result must use `wiki.folder-query-task-result/v2`, report
-the base inputs, selected query inputs and exact query IDs. Preflight rebuilds
+the base packet. The query target may be a collection anchor separate from
+the selected context index. The anchor and the complete single-owner scope
+must be readable under the same context before any packet body is opened.
+For a separate anchor the envelope includes its complete content, the result
+reports it as `query_anchor`, and the resulting query requirement records
+`query_index` so a change to either path is detected. The whole envelope and
+scan retain their byte and enumeration limits. The result must use
+`wiki.folder-query-task-result/v2`, report the base inputs, selected query
+inputs and exact query IDs. Preflight rebuilds
 the selection and refuses any proposal touching a query scope or its anchor;
 it still returns independent review required. This is conservative: even an
 irrelevant in-scope edit requires another review. Selection receipts do not
 prove that an agent read the results. The normal selection interface still
 blocks historical queries. The separate candidate below covers a narrow,
-explicit v2 replay; no v1 digest is relabelled as v2. See the [receipt schema](../schemas/wiki-folder-query-receipt-v2.schema.json),
+explicit v2 replay; no v1 or experimental v3 digest is relabelled as v2.
+The replay checks authority before reading prior bodies and rejects a changed
+context index pending separate requalification. See the [receipt schema](../schemas/wiki-folder-query-receipt-v2.schema.json),
 [packet schema](../schemas/wiki-folder-query-task-context-v2.schema.json),
 [result schema](../schemas/wiki-folder-query-task-result-v2.schema.json), and
 [preflight schema](../schemas/wiki-folder-query-preflight-v2.schema.json).
@@ -558,9 +567,6 @@ integration and operational session acceptance remain pending.
   explicit trusted host binding for a v2 packet and limited preflight. It has
   no endpoint or default activation and does not establish actor or repository
   identity, ACL, execution or integration.
-- [Separate collection anchors](experimental-query-anchor-v3.md) keep the
-  selected context index distinct from a query anchor. The isolated v3 format
-  is not a migration of historical queries or receipts.
 - [Multi-owner v1 requalification](experimental-multi-owner-requalification.md)
   is a caller-trust preview for explicitly selected requirements. Its global
   coordinator requires actual host authority to inspect historical manifests;

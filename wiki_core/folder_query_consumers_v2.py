@@ -37,7 +37,7 @@ def reassess_query_consumers(root, binding, *, folder, approved_revision, change
         for req in consumer['requirements']:
             if req.get('query_contract') != 'wiki.folder-query-receipt/v2':
                 continue
-            matched = [path for path in paths if path == req['target'] or within(path, req['query']['scope'])]
+            matched = [path for path in paths if path in (req['target'], req.get('query_index')) or within(path, req['query']['scope'])]
             if not matched:
                 continue
             key = (consumer['path'], req['query_id'])
