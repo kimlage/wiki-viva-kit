@@ -29,7 +29,7 @@ import re
 from pathlib import Path
 
 from wiki_core.traversal import wiki_markdown_files
-from wiki_core.config import WikiConfig, freshness_for
+from wiki_core.config import WikiConfig, freshness_for, load_config
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.index.sqlite import sanitize_fts_query, search
 from wiki_core.index.page_collection import current_page_signature
@@ -256,8 +256,10 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
     import yaml
     from wiki_core.context_policy import safe_path
     from wiki_core.folder_coordination_v2 import _bound_policy, _output_authorized, prepare_folder_packet
-    from wiki_core.folder_ingestion_v2 import _check_local_boundaries
-    from wiki_core.llm.context_pass import result_matches_request
+    from wiki_core.folder_ingestion_v2 import (_check_local_boundaries, FolderIngestionSelection,
+        authorize_folder_ingestion_source, validate_folder_artifact_paths)
+    from wiki_core.llm.context_pass import (result_matches_request, read_matching_result,
+        revalidate_ingestion_source)
     from wiki_core.repo_read import contains_access_secrets
     from wiki_core.repository_reader import RepositoryReader
 
@@ -308,8 +310,7 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                for row, result in zip(chunks, results)):
             raise ValueError('unmatched result')
         auth = request.get('source_authorization')
-        if not isinstance(auth, dict) or auth.get('source_kind') != 'git':
-            # Staged RAW requires its own current-byte fence; never infer one.
+        if not isinstance(auth, dict) or auth.get('source_kind') not in ('git', 'staged_raw'):
             raise ValueError('source kind unavailable')
 
         by_id = {identifier: path for path, identifier in policy.folder_ids.items()}
@@ -334,6 +335,17 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                    'task': task})['packet']
         if rebuilt != packet:
             raise ValueError('packet changed')
+        selection = FolderIngestionSelection(binding, folder, packet['index_path'], output,
+                      auth['canonical_ref'] if auth['source_kind'] == 'staged_raw' else None)
+        guard = authorize_folder_ingestion_source(root, auth['ref'], policy.policy_revision,
+                                                   selection, context_max_bytes=packet['max_bytes'])
+        if guard['authorization'] != auth or guard['hash_sha256'] != request.get('source_hash_sha256'):
+            raise ValueError('source authorization changed')
+        paths = WikiPaths(root, load_config(root))
+        validate_folder_artifact_paths(root, paths, request['source_id'])
+        for row, result in zip(chunks, results):
+            if read_matching_result(paths.llm_cache, request, row, root=root) != result:
+                raise ValueError('matching recorded result unavailable')
         pages = []
         for path in chosen:
             item = reader.read(path)
@@ -348,8 +360,12 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         frontmatter = {'page_type': 'claim', 'information_requirements': [{
             'target': source, 'fields': ['*'], 'temporal': 'current', 'max_age_days': max_age_days,
             'consumed_revision': policy.policy_revision, 'use': 'interpretation', 'classification': 'source'}]}
+        provenance = {key: auth.get(key) for key in ('source_kind', 'ref', 'source_revision', 'source_sha256',
+                      'canonical_ref', 'canonical_revision', 'association',
+                      'external_origin_verification', 'external_freshness')}
         lines = ['---', yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=False).rstrip(), '---',
-                 '', '# Interpretação proposta', '', 'Conteúdo relatado para revisão independente.']
+                 '', '# Interpretação proposta', '', 'Conteúdo relatado para revisão independente.',
+                 '', '## Proveniência da captura', '', '> ' + json.dumps(provenance, ensure_ascii=False, sort_keys=True)]
         for label, key in (('Quadrantes', 'quadrants'), ('Afirmações', 'claims'), ('Decisões', 'decisions'),
                            ('Ações', 'actions'), ('Riscos', 'risks'), ('Incertezas', 'uncertainties'),
                            ('Relações', 'relationships'), ('Entidades', 'entities')):
@@ -366,6 +382,7 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                   'preflight': 'not_performed', 'write': 'not_performed', 'merge': 'not_performed'}
         if contains_access_secrets(result):
             raise ValueError('secret in proposal')
+        revalidate_ingestion_source(guard, captured_hash=request['source_hash_sha256'])
         policy.fresh()
         return result
     except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
