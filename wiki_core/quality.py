@@ -360,54 +360,64 @@ def build_quality_report(
     requests = {}
     for request_path in sorted(paths.extraction_events.glob("*-llm-context-request.json")):
         try:
-            request = json.loads(request_path.read_text(encoding="utf-8"))
+            if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', request_path.name):
+                from wiki_core.llm.context_pass import load_local_request
+                request = load_local_request(paths, request_path)
+            else:
+                request = json.loads(request_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
+            if request_path.name.startswith('folder-'):
+                raise
             continue
         if isinstance(request, dict) and isinstance(request.get("chunks"), list):
-            requests[str(request.get("source_id") or "")] = request
+            requests.setdefault(str(request.get("source_id") or ""), []).append(request)
     source_costs: list[dict[str, Any]] = []
     total_chunks = 0
+    interpretation_chunks = 0
     total_tokens = 0
     cached_calls = 0
     pending_calls = 0
     for payload in chunk_payloads:
         source_chunks = [c for c in payload["chunks"] if isinstance(c, dict)]
-        request = requests.get(str(payload.get("source_id") or ""), {})
-        if any(request.get(field) != expected for field, expected in (
-                ("prompt_version", prompt_version), ("schema_version", schema_version),
-                ("model_profile", model_profile))):
-            request = {}
-        rows = {row.get("chunk_id"): row for row in request.get("chunks", []) if isinstance(row, dict)}
-        source_tokens = 0
-        source_cached = 0
-        source_pending = 0
-        for chunk in source_chunks:
-            total_chunks += 1
-            try:
-                token_estimate = int(chunk.get("token_estimate") or 0)
-            except (TypeError, ValueError):
-                token_estimate = estimate_tokens(str(chunk.get("text") or ""))
-            source_tokens += token_estimate
-            row = rows.get(chunk.get("chunk_id"))
-            if (row is not None
-                    and row.get("chunk_hash_sha256", chunk.get("hash_sha256")) == chunk.get("hash_sha256")
-                    and read_matching_result(paths.llm_cache, request, row,
-                        root=paths.root if is_local_folder_request(request) else None) is not None):
-                source_cached += 1
-            else:
-                source_pending += 1
-        total_tokens += source_tokens
-        cached_calls += source_cached
-        pending_calls += source_pending
-        source_costs.append(
-            {
-                "source_id": str(payload.get("source_id") or ""),
-                "chunks": len(source_chunks),
-                "estimated_tokens": source_tokens,
-                "cached_calls": source_cached,
-                "pending_calls": source_pending,
-            }
-        )
+        total_chunks += len(source_chunks)
+        for request in requests.get(str(payload.get("source_id") or ""), [{}]):
+            request_id = request.get('folder_request_id')
+            if any(request.get(field) != expected for field, expected in (
+                    ("prompt_version", prompt_version), ("schema_version", schema_version),
+                    ("model_profile", model_profile))):
+                request = {}
+            rows = {row.get("chunk_id"): row for row in request.get("chunks", []) if isinstance(row, dict)}
+            source_tokens = 0
+            source_cached = 0
+            source_pending = 0
+            for chunk in source_chunks:
+                interpretation_chunks += 1
+                try:
+                    token_estimate = int(chunk.get("token_estimate") or 0)
+                except (TypeError, ValueError):
+                    token_estimate = estimate_tokens(str(chunk.get("text") or ""))
+                source_tokens += token_estimate
+                row = rows.get(chunk.get("chunk_id"))
+                if (row is not None
+                        and row.get("chunk_hash_sha256", chunk.get("hash_sha256")) == chunk.get("hash_sha256")
+                        and read_matching_result(paths.llm_cache, request, row,
+                            root=paths.root if is_local_folder_request(request) else None) is not None):
+                    source_cached += 1
+                else:
+                    source_pending += 1
+            total_tokens += source_tokens
+            cached_calls += source_cached
+            pending_calls += source_pending
+            source_costs.append(
+                {
+                    "source_id": str(payload.get("source_id") or ""),
+                    **({"folder_request_id": request_id} if request_id else {}),
+                    "chunks": len(source_chunks),
+                    "estimated_tokens": source_tokens,
+                    "cached_calls": source_cached,
+                    "pending_calls": source_pending,
+                }
+            )
 
     events_total = 0
     events_without_consolidated_into: list[str] = []
@@ -453,10 +463,11 @@ def build_quality_report(
             "role_responsibility_edge_mismatch": len(coverage["role_responsibility_edge_mismatch"]),
             "chunk_sources": len(chunk_payloads),
             "chunks_total": total_chunks,
+            "interpretation_chunks": interpretation_chunks,
             "estimated_context_tokens": total_tokens,
             "cached_calls": cached_calls,
             "pending_calls": pending_calls,
-            "cache_reuse_rate": round(cached_calls / max(total_chunks, 1), 4),
+            "cache_reuse_rate": round(cached_calls / max(interpretation_chunks, 1), 4),
         },
         "cost_telemetry": {
             "prompt_version": prompt_version,

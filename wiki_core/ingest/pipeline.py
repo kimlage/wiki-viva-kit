@@ -413,9 +413,8 @@ def run(
             pending = chunk_count
             request = None
             blocked = True
+    capture_reused = False
     if write and entry_folder is not None and not blocked:
-        # Until requests and captures support multiple local contexts, never
-        # replace an existing source's artifacts when entering another folder.
         try:
             current = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
                 entry_index=entry_index, context_max_bytes=context_max_bytes, repo_selections=repo_selections,
@@ -427,15 +426,9 @@ def run(
             current_manifest = build_manifest(current_source, context, root=root)
             if current_manifest.get('hash_sha256') != manifest.get('hash_sha256'):
                 raise ValueError('selected source changed before persistence')
-            from wiki_core.traversal import require_wiki_path
-            existing = (paths.source_manifests / f'{source_id}.json',
-                        paths.source_text / f'{source_id}.json',
-                        paths.chunks / f'{source_id}.json',
-                        paths.extraction_events / f'{source_id}-llm-context-request.json')
-            selected = [require_wiki_path(root, path.relative_to(root).as_posix()) for path in existing]
-            if any(path.exists() for path in selected):
-                raise ContextRequestBlocked('existing_source_context_conflict',
-                    'Existing source capture or request was preserved; contextual reuse is not available yet.')
+            from wiki_core.source_manifest import reusable_capture
+            capture_reused = reusable_capture(paths, manifest, extracted, chunk_dicts, warnings,
+                                               max_bytes=request_max_bytes * 4 + 65536)
         except (ValueError, OSError) as exc:
             report = preparation_blocker(exc, source_id, config.owner_label)
             blockers.append(report['blocker']); context_error_code = report['error_code']
@@ -453,16 +446,19 @@ def run(
         text_path: str | None = None
         chunks_path: str | None = None
         manifest_path: str | None = None
-        if persist:
+        if persist and capture_reused:
+            manifest_path = _rel(paths.source_manifests / f'{source_id}.json', root)
+            text_path = _rel(paths.source_text / f'{source_id}.json', root)
+            chunks_path = _rel(paths.chunks / f'{source_id}.json', root)
+        elif persist:
             with _observed(observer, "persistence") as metrics:
-                manifest_file = write_manifest(manifest, paths.source_manifests)
+                manifest_file = (write_manifest(manifest, paths.source_manifests, preserve_existing=True)
+                                 if entry_folder is not None else write_manifest(manifest, paths.source_manifests))
                 manifest_path = _rel(manifest_file, root)
                 written_files = [manifest_file]
                 if is_local_file and extracted is not None:
                     text_file = paths.source_text / f"{source_id}.json"
-                    text_file.write_text(
-                        json.dumps(
-                            {
+                    text_payload = {
                                 "schema_version": "wiki_extracted_text.v1",
                                 "source_id": source_id,
                                 "source_uri": source,
@@ -471,17 +467,19 @@ def run(
                                 "warnings": warnings,
                                 "text_characters": len(extracted.text),
                                 "units": extracted.units,
-                            },
-                            ensure_ascii=False,
-                            indent=2,
-                            sort_keys=True,
-                        )
-                        + "\n",
-                        encoding="utf-8",
-                    )
+                            }
+                    if entry_folder is not None:
+                        write_source_artifact(text_file, text_payload, preserve_existing=True)
+                    else:
+                        text_file.write_text(json.dumps(text_payload, ensure_ascii=False, indent=2, sort_keys=True)
+                                             + "\n", encoding="utf-8")
                     text_path = _rel(text_file, root)
                     chunks_file = paths.chunks / f"{source_id}.json"
-                    write_source_artifact(chunks_file, chunk_document(manifest, chunk_dicts, warnings=warnings))
+                    if entry_folder is not None:
+                        write_source_artifact(chunks_file, chunk_document(manifest, chunk_dicts, warnings=warnings),
+                                              preserve_existing=True)
+                    else:
+                        write_source_artifact(chunks_file, chunk_document(manifest, chunk_dicts, warnings=warnings))
                     chunks_path = _rel(chunks_file, root)
                     written_files.extend([text_file, chunks_file])
                 metrics["files_written"] = len(written_files)
@@ -506,11 +504,12 @@ def run(
                 metrics["sqlite_bytes"] = index_path.stat().st_size if index_path.exists() else None
 
         if persist and request is not None:
-            request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
-            request_file.write_text(
-                canonical_request_text(request),
-                encoding="utf-8",
-            )
+            if entry_folder is not None:
+                from wiki_core.llm.context_pass import retain_local_request
+                request_file = retain_local_request(paths, request)
+            else:
+                request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
+                request_file.write_text(canonical_request_text(request), encoding="utf-8")
             request_path = _rel(request_file, root)
 
 

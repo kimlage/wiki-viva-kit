@@ -156,6 +156,10 @@ def load_requests(paths: WikiPaths, *, root: Path | None = None) -> list[dict[st
     for req_file in sorted(events_dir.glob(f"*{REQUEST_SUFFIX}")):
         if root is not None:
             require_wiki_boundaries(root, files=(req_file,))
+        if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', req_file.name):
+            from wiki_core.llm.context_pass import load_local_request
+            out.append(load_local_request(paths, req_file))
+            continue
         try:
             request = json.loads(req_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -213,7 +217,7 @@ def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path
     for row in request.get("chunks") or []:
         result = read_matching_result(cache_dir, request, row, root=root)
         if not result:
-            continue
+            raise ValueError('deep read result disappeared or is invalid')
         q = result.get("quadrants")
         if isinstance(q, dict):
             for key in QUADRANT_KEYS:
@@ -232,6 +236,7 @@ def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path
                 lists[name].extend(value)
     return {
         "source_id": request.get("source_id"),
+        **({'folder_request_id': request['folder_request_id']} if request.get('folder_request_id') else {}),
         "prompt_version": request.get("prompt_version"),
         "chunk_count": len(request.get("chunks") or []),
         "root_entity": request.get("root_entity") or {},
@@ -293,7 +298,14 @@ def build_event_markdown(
     s = _strings(config.language)
     source_id = str(aggregated.get("source_id") or "source")
     slug = _source_slug(source_id)
-    name = f"{date.isoformat()}-{slug}"
+    request_id = aggregated.get('folder_request_id')
+    if request_id is not None and (not isinstance(request_id, str) or not re.fullmatch(r'[0-9a-f]{64}', request_id)):
+        raise ValueError('invalid contextual request identity')
+    if request_id:
+        import hashlib
+        name = f"{date.isoformat()}-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}"
+    else:
+        name = f"{date.isoformat()}-{slug}"
     quadrants = aggregated.get("quadrants") or {}
     confidence = aggregated.get("quadrant_confidence") or {}
     impact = impact or {}
@@ -340,6 +352,8 @@ def build_event_markdown(
         source_rows.append(s["row_source_page"].format(label=source_page, href=href))
     source_rows.append(s["row_source_id"].format(source_id=source_id))
     source_rows.append(s["row_generated"].format(script=script_href))
+    if impact.get('coverage') == 'explicit_candidates_only':
+        source_rows.append('- Impact coverage: only explicitly selected candidates; global catalog and FTS were not searched.')
 
     fm: list[str] = [
         "---",
@@ -366,6 +380,10 @@ def build_event_markdown(
     )
     if source_ref:
         fm.append(f"source_ref: {source_ref}")
+    if request_id:
+        fm.append(f"folder_request_id: {request_id}")
+    if impact.get('coverage') == 'explicit_candidates_only':
+        fm.append('impact_coverage: explicit_candidates_only')
     fm.extend(
         [
             f"source_type: {source_type}",
@@ -449,17 +467,53 @@ def build_event_markdown(
     return "\n".join(body)
 
 
-def _page_catalog(root: Path, config: WikiConfig) -> dict[str, dict[str, object]]:
-    """page_id -> {rel, title, aliases, page_type, source_refs} for memory pages."""
+def _page_catalog(root: Path, config: WikiConfig, candidates: list[str] | None = None) -> dict[str, dict[str, object]]:
+    """Read the legacy catalog or the explicitly selected candidate files."""
     memory_root = root / config.paths["memory_root"]
     catalog: dict[str, dict[str, object]] = {}
-    if not memory_root.is_dir():
-        return catalog
-    for md in sorted(wiki_markdown_files(memory_root, wiki_root=root)):
-        fm = _read_frontmatter(md)
+    if candidates is None:
+        files = sorted(wiki_markdown_files(memory_root, wiki_root=root)) if memory_root.is_dir() else []
+    else:
+        from wiki_core.context_policy import safe_path
+        from wiki_core.repo_read import contains_access_secrets
+        from wiki_core.traversal import require_wiki_path
+        if len(candidates) > 128 or contains_access_secrets(candidates):
+            raise ValueError('candidate limit exceeded')
+        refs = [safe_path(ref) for ref in candidates]
+        if len(refs) != len(set(refs)):
+            raise ValueError('duplicate candidate')
+        for ref in refs:
+            require_wiki_path(root, ref)
+        files = [root / ref for ref in refs]
+        if any(path.suffix.lower() != '.md' or not path.is_file() for path in files):
+            raise ValueError('candidate unavailable')
+        if sum(path.stat().st_size for path in files) > 1_000_000:
+            raise ValueError('candidate budget exceeded')
+    remaining = 1_000_000
+    for md in files:
+        if candidates is None:
+            fm = _read_frontmatter(md)
+        else:
+            from wiki_core.context_selection import _metadata
+            from wiki_core.repo_read import contains_access_secrets
+            from wiki_core.traversal import require_wiki_path
+            require_wiki_path(root, md.relative_to(root).as_posix())
+            with md.open('rb') as stream:
+                raw = stream.read(remaining + 1)
+            if len(raw) > remaining:
+                raise ValueError('candidate budget exceeded')
+            remaining -= len(raw)
+            text = raw.decode('utf-8')
+            if contains_access_secrets(text):
+                raise ValueError('candidate unavailable')
+            fm = _metadata({'text': text})
         page_id = str(fm.get("page_id") or "")
         if not page_id:
+            if candidates is not None:
+                raise ValueError('candidate identity unavailable')
             continue
+        if candidates is not None and page_id in catalog:
+            raise ValueError('candidate identity ambiguous')
         aliases = fm.get("aliases") if isinstance(fm.get("aliases"), list) else []
         catalog[page_id] = {
             "rel": md.relative_to(root).as_posix(),
@@ -476,18 +530,20 @@ def _keywords(text: str) -> set[str]:
 
 
 def build_packet(
-    aggregated: dict[str, object], root: Path, config: WikiConfig, paths: WikiPaths
+    aggregated: dict[str, object], root: Path, config: WikiConfig, paths: WikiPaths,
+    *, candidates: list[str] | None = None,
 ) -> dict[str, object]:
     """Integration packet: candidate targets and overlaps for the agent."""
-    catalog = _page_catalog(root, config)
+    catalog = _page_catalog(root, config, candidates)
     db_path = paths.indexes / "wiki.sqlite"
-    packet_warnings: list[str] = []
+    packet_warnings: list[str] = ([] if candidates is None else
+        ['Only explicit candidates were inspected; global catalog and FTS were not searched.'])
     initial_signature: str | None = None
     signature_error: Exception | None = None
 
     def fts(query: str, limit: int = 3) -> list[dict[str, object]]:
         nonlocal initial_signature, signature_error
-        if not query.strip():
+        if candidates is not None or not query.strip():
             return []
         try:
             if not db_path.exists():
@@ -613,6 +669,7 @@ def build_packet(
         "impact": {
             "must_update": must_update,
             "should_review": [page for page in should_review if page not in must_update],
+            **({'coverage': 'explicit_candidates_only'} if candidates is not None else {}),
         },
         "claims": claim_rows,
         "entities": entity_matches,
@@ -632,20 +689,29 @@ def build_packet(
     }
 
 
-def find_event_for_source(paths: WikiPaths, source_id: str, *, root: Path | None = None) -> Path | None:
+def find_event_for_source(paths: WikiPaths, source_id: str, *, root: Path | None = None,
+                          request_id: str | None = None) -> Path | None:
     events_dir = paths.ingest_events_dir
     if root is not None:
         from wiki_core.traversal import require_wiki_boundaries
         require_wiki_boundaries(root, directories=(events_dir,))
     if not events_dir.is_dir():
         return None
-    for md in sorted(events_dir.glob("*.md")):
+    if request_id is not None:
+        import hashlib
+        if not isinstance(request_id, str) or not re.fullmatch(r'[0-9a-f]{64}', request_id):
+            raise ValueError('invalid contextual request identity')
+        source_digest = hashlib.sha256(source_id.encode()).hexdigest()
+        candidates = events_dir.glob(f'*-{source_digest}-{request_id}.md')
+    else:
+        candidates = events_dir.glob("*.md")
+    for md in sorted(candidates):
         if md.name == "README.md":
             continue
         if root is not None:
             require_wiki_boundaries(root, files=(md,))
         fm = _read_frontmatter(md)
-        if str(fm.get("source_id") or "") == source_id:
+        if str(fm.get("source_id") or "") == source_id and fm.get('folder_request_id') == request_id:
             return md
     return None
 
@@ -661,11 +727,16 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
     out: list[dict[str, object]] = []
     for request in load_requests(paths, root=root):
         source_id = str(request.get("source_id"))
+        from wiki_core.llm.context_pass import is_local_folder_request
+        if is_local_folder_request(request) and not request.get('folder_request_id'):
+            out.append({'source_id': source_id, 'state': 'local_request_requires_reemit'})
+            continue
         if not deep_read_complete(request, cache_dir, root=root):
             continue  # the context-pass gate already covers incomplete reads
-        event = find_event_for_source(paths, source_id, root=root)
+        request_id = request.get('folder_request_id')
+        event = find_event_for_source(paths, source_id, root=root, request_id=request_id)
         if event is None:
-            out.append({"source_id": source_id, "state": "missing_event"})
+            out.append({"source_id": source_id, **({'folder_request_id': request_id} if request_id else {}), "state": "missing_event"})
             continue
         fm = _read_frontmatter(event)
         consolidated = fm.get("consolidated_into")
@@ -673,6 +744,7 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
             out.append(
                 {
                     "source_id": source_id,
+                    **({'folder_request_id': request_id} if request_id else {}),
                     "state": "missing_consolidated_into",
                     "event": event.relative_to(root).as_posix(),
                 }

@@ -136,10 +136,10 @@ sources and other context remain unresolved; links do not grant access. The
 source must be an explicitly selected regular file inside the wiki or a URL;
 access-bearing URLs are refused. Folder ingestion does not
 update the global search index or score event. Filesystem checks do not prevent
-concurrent replacement. Until contextual
-capture reuse is implemented, a folder ingestion refuses to replace an existing
-capture or request for the same source; a repeated explicit request emission
-also preserves the prior file. If local persistence fails, `written: false`
+concurrent replacement. Multiple folders may retain distinct requests for the
+same source. A complete, matching source capture is reused; a partial or
+different capture blocks and is preserved. Re-emitting an identical request
+preserves its original bytes. If local persistence fails, `written: false`
 means persistence did not complete; `partial_effects: unknown` warns that
 partial effects may exist and require inspection before retrying. Folder entry
 does not provide scoped query search.
@@ -151,11 +151,12 @@ the credential-free host/path of its configured origin, `REVISION` is a full
 commit SHA, and `PATH` is an exact tracked file. The request retains the root,
 origin, commit, path, blob and hashes with the selected text. The caller must
 provide the same authorized selections again when recording; each is checked
-again before the result is written. The configured origin and the receipt are
+again before the result is written. When recording, also pass `--request`
+with the exact retained request; repeat `--repo` for local consolidation.
+The configured origin and the receipt are
 not authorization or proof of remote identity. Reads use the chosen Git commit,
 without fetching or including working-tree edits; reading an old commit does
-not establish that it is current. Until capture reuse exists, a new selection
-for an already captured source remains blocked and preserves the earlier work.
+not establish that it is current.
 
 Local-folder results use the existing cache under a `local-folder` subdirectory;
 recording them requires the current source and folder to be revalidated. Results
@@ -166,6 +167,30 @@ selected inputs are checked. Existing legacy and approved v1 caches retain their
 previous paths. This separation is not an ACL against a process with filesystem
 access. The existing cache-summary command reports the legacy root only; its
 file count does not include `local-folder` results.
+
+The ingestion response names the retained request. Record each result with the
+same explicit source, folder, index and limits; the CLI selects the matching
+request and revalidates the inputs. Git-bound recording additionally requires
+the exact `--request`. For consolidation, select that request with
+`wiki_consolidate.py --source SOURCE_ID --request REQUEST_PATH --emit-event
+--source-ref SOURCE_PAGE_ID` (add `--packet` when needed). Each interpretation
+has its own event and gate state. For local requests, pass `--candidate PATH`
+for each candidate page to inspect; an empty list is allowed. The packet marks
+that its coverage includes only those candidates and performs no global catalog
+or FTS search. Legacy consolidation keeps its global catalog and search, and
+requires corresponding host access. Neither a folder selection nor a request
+identifier grants access. GC
+preserves contextual requests, their packets and matching source captures for
+explicit review. The request and result formats used by approved v1 remain
+unchanged. Earlier prototype local requests and results remain on disk; their
+folder binding is not silently upgraded to the new identity, so consolidation
+reports them as requiring re-emission. Re-prepare and re-read a new request
+when adopting the new binding.
+
+The shared source manifest retains the context recorded for its first capture.
+A global catalog filtered by that field can therefore omit another interpretation
+of the same source; it does not establish complete coverage for that context.
+Quality telemetry reports physical chunks once and interpretation calls separately.
 
 ## Recoverable blockers
 

@@ -148,7 +148,10 @@ def test_second_folder_preserves_existing_source_capture_and_request(approved):
     retained = [root / first.manifest_path, root / first.text_path, root / first.chunks_path, root / first.request_path]
     before = [path.read_bytes() for path in retained]
     second = run(str(source), 'system', root, config, entry_folder='two', record_score=False)
-    assert second.blocked and second.context_error_code == 'existing_source_context_conflict'
+    assert not second.blocked
+    assert second.source_id == first.source_id
+    assert second.request_path != first.request_path
+    assert (root / second.request_path).is_file()
     assert [path.read_bytes() for path in retained] == before
 
 
@@ -181,7 +184,8 @@ def test_pass_cli_does_not_replace_retained_folder_request(approved):
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
     result = subprocess.run([sys.executable, str(script), '--root', str(root), '--source', str(source),
         '--context', 'system', '--folder', 'area', '--emit-request'], capture_output=True, text=True)
-    assert result.returncode == 2
+    assert result.returncode == 0
+    assert result.stdout.strip() == first.request_path
     assert retained.read_bytes() == before
 
 
@@ -417,6 +421,7 @@ def test_source_replaced_with_symlink_is_not_reopened_at_persistence_fence(appro
 
 
 def test_local_write_failure_reports_unknown_partial_without_path(approved, monkeypatch):
+    from wiki_core.ingest import pipeline
     from wiki_core.paths import WikiPaths
     root, source, _, _ = approved
     (root / 'area').mkdir(exist_ok=True)
@@ -424,12 +429,12 @@ def test_local_write_failure_reports_unknown_partial_without_path(approved, monk
     (root / 'area' / 'index.md').write_text('Local index')
     config = load_config(root)
     paths = WikiPaths(root, config)
-    original = Path.write_text
+    original = pipeline.write_source_artifact
     def fail_after_manifest(path, *args, **kwargs):
         if path.parent == paths.source_text:
             raise OSError('synthetic-sensitive-path-must-not-escape')
         return original(path, *args, **kwargs)
-    monkeypatch.setattr(Path, 'write_text', fail_after_manifest)
+    monkeypatch.setattr(pipeline, 'write_source_artifact', fail_after_manifest)
     result = run(str(source), 'system', root, config, entry_folder='area', record_score=False)
     assert result.blocked and result.written is False and result.partial_effects == 'unknown'
     assert result.context_error_code == 'local_persistence_partial'
@@ -540,3 +545,24 @@ def test_local_path_reuses_boundary_guard_for_terminal_folder_and_relative_root(
     (nested / '.git').write_text('gitdir: elsewhere')
     with pytest.raises(ValueError):
         require_wiki_path(Path('..'), 'nested-terminal')
+
+
+def test_local_capture_does_not_replace_file_created_after_preflight(approved, monkeypatch):
+    from wiki_core.ingest import pipeline
+    from wiki_core.paths import WikiPaths
+    root, source, _, _ = approved
+    (root / 'area').mkdir()
+    (root / 'area/index.md').write_text('Index')
+    (root / 'area/AGENTS.md').write_text('Guidance')
+    config = load_config(root)
+    original = pipeline.write_manifest
+    competitor = b'concurrent uncommitted capture\n'
+    def appear(manifest, directory, **kwargs):
+        path = directory / f"{manifest['source_id']}.json"
+        path.write_bytes(competitor)
+        return original(manifest, directory, **kwargs)
+    monkeypatch.setattr(pipeline, 'write_manifest', appear)
+    result = run(str(source), 'system', root, config, entry_folder='area', record_score=False)
+    assert result.blocked and result.partial_effects == 'unknown'
+    captures = list(WikiPaths(root, config).source_manifests.glob('*.json'))
+    assert len(captures) == 1 and captures[0].read_bytes() == competitor

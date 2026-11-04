@@ -38,11 +38,14 @@ def recorded_result(request):
 
 
 def pass_cli(root, source, chosen, payload, monkeypatch):
+    from wiki_core.paths import WikiPaths
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
     spec = importlib.util.spec_from_file_location('repo_selected_record', script)
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    requests = list(WikiPaths(root, load_config(root)).extraction_events.glob('folder-*-llm-context-request.json'))
+    assert len(requests) == 1
     monkeypatch.setattr(sys, 'argv', [str(script), '--root', str(root), '--source', str(source),
-        '--context', 'system', '--folder', 'area', '--repo', *chosen, '--record-result', str(payload)])
+        '--context', 'system', '--folder', 'area', '--repo', *chosen, '--request', str(requests[0]), '--record-result', str(payload)])
     return module
 
 
@@ -265,7 +268,8 @@ def test_missing_or_invalid_retained_request_never_opens_repo_body(approved, rep
     payload = tmp_path / 'result.json'; payload.write_text(json.dumps(recorded_result(request)))
     module = pass_cli(root, source, chosen, payload, monkeypatch)
     from wiki_core.paths import WikiPaths
-    retained = WikiPaths(root, load_config(root)).extraction_events / f"{request['source_id']}-llm-context-request.json"
+    from wiki_core.llm.context_pass import local_request_path
+    retained = local_request_path(WikiPaths(root, load_config(root)), request)
     other = retained.parent / 'other-source-llm-context-request.json'
     other.write_text(json.dumps(request))
     original_open = Path.open
@@ -349,3 +353,89 @@ def test_folder_repo_cli_refuses_invalid_source_before_repo_read(approved, repo,
     assert module.main() == 2
     output = capsys.readouterr()
     assert selected not in output.out + output.err
+
+
+def test_two_folder_git_requests_record_and_revalidate_before_consolidation(approved, repo, monkeypatch, tmp_path, capsys):
+    import datetime
+    from tests.test_local_result_cache import module, result_for
+    from wiki_core.paths import WikiPaths
+    from wiki_core import repo_read
+    root, source, _, _ = approved
+    config = load_config(root)
+    chosen = selection(repo)
+    prepared = []
+    for folder in ('one', 'two'):
+        (root / folder).mkdir()
+        (root / folder / 'index.md').write_text(f'{folder} index')
+        (root / folder / 'AGENTS.md').write_text(f'{folder} guidance')
+        item = run(str(source), 'system', root, config, entry_folder=folder,
+                   repo_selections=[chosen], record_score=False)
+        assert not item.blocked
+        prepared.append((folder, item, json.loads((root / item.request_path).read_text())))
+    assert prepared[0][1].source_id == prepared[1][1].source_id
+    assert prepared[0][1].request_path != prepared[1][1].request_path
+    cli = module('wiki_llm_context_pass')
+    monkeypatch.chdir(root)
+    mismatch_payload = tmp_path / 'mismatch.json'
+    mismatch_payload.write_text(json.dumps(recorded_result(prepared[0][2])))
+    with monkeypatch.context() as guard:
+        guard.setattr(repo_read, '_read_prepared_repo', lambda *_a, **_k: pytest.fail('opened Git body for mismatched request'))
+        guard.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+            '--context', 'system', '--folder', 'one', '--repo', *chosen,
+            '--request', prepared[1][1].request_path, '--record-result', str(mismatch_payload)])
+        assert cli.main() == 2
+    capsys.readouterr()
+    for folder, item, request in prepared:
+        payload = tmp_path / f'{folder}.json'
+        payload.write_text(json.dumps(list({row['cache_key']: result_for(request, row) for row in request['chunks']}.values())))
+        other_path = root / next(other.request_path for _, other, _ in prepared if other.request_path != item.request_path)
+        original_open = Path.open
+        def guarded_open(path, *args, **kwargs):
+            if path == other_path:
+                pytest.fail('opened unselected request')
+            return original_open(path, *args, **kwargs)
+        with monkeypatch.context() as guarded:
+            guarded.setattr(Path, 'open', guarded_open)
+            guarded.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
+                '--context', 'system', '--folder', folder, '--repo', *chosen,
+                '--request', item.request_path, '--record-result', str(payload)])
+            assert cli.main() == 0
+        capsys.readouterr()
+    consolidate = module('wiki_consolidate')
+    monkeypatch.setattr(consolidate, 'ROOT', root)
+    paths = WikiPaths(root, config)
+    paths.ingest_events_dir.mkdir(parents=True, exist_ok=True)
+    common = dict(emit_event=True, packet=True, source_page=None, source_ref='source-test',
+                  context='system', date=datetime.date(2026, 11, 4), force=False)
+    first = prepared[0][1]
+    with monkeypatch.context() as guard:
+        guard.setattr(repo_read, '_read_prepared_repo', lambda *_a, **_k: pytest.fail('repo opened without explicit selection'))
+        with pytest.raises(ValueError):
+            consolidate.consolidate_one(first.source_id, request_path=first.request_path, **common)
+    assert not list(paths.ingest_events_dir.glob('*.md'))
+    git(repo, 'remote', 'set-url', 'origin', 'https://example.test/group/changed.git')
+    with pytest.raises(ValueError):
+        consolidate.consolidate_one(first.source_id, request_path=first.request_path, repo_selections=[chosen], **common)
+    assert not list(paths.extraction_events.glob('*-integration-packet.json'))
+    git(repo, 'remote', 'set-url', 'origin', 'https://example.test/group/project.git')
+    for _, item, _ in prepared:
+        assert consolidate.consolidate_one(item.source_id, request_path=item.request_path,
+                                            repo_selections=[chosen], **common) == 0
+    assert len(list(paths.ingest_events_dir.glob('*.md'))) == 2
+
+
+def test_selected_request_budget_checked_before_read(approved, repo, monkeypatch):
+    from tests.test_local_result_cache import module
+    from wiki_core.llm.context_pass import local_request_path
+    from wiki_core.paths import WikiPaths
+    root, _, _, request = prepare(approved, repo)
+    paths = WikiPaths(root, load_config(root))
+    retained = local_request_path(paths, request)
+    original_open = Path.open
+    def guarded(path, *args, **kwargs):
+        if path == retained:
+            pytest.fail('opened request exceeding explicit budget')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded)
+    with pytest.raises(ValueError):
+        module('wiki_llm_context_pass')._retained_local_request(paths, request['source_id'], 1, str(retained))

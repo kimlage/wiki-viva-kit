@@ -146,7 +146,8 @@ def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], 
     return manifest, chunks
 
 
-def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id: str | None = None) -> list[dict]:
+def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id: str | None = None,
+                      local_request: dict | None = None) -> list[dict]:
     """Read emitted semantic packets for exact result provenance validation."""
     requests: list[dict] = []
     if getattr(paths, 'root', None) is not None:
@@ -154,6 +155,13 @@ def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id:
         require_wiki_boundaries(paths.root, directories=(paths.extraction_events,))
     if not paths.extraction_events.exists():
         return requests
+    if local_request is not None:
+        from wiki_core.llm.context_pass import local_request_path, load_local_request
+        path = local_request_path(paths, local_request)
+        data = load_local_request(paths, path)
+        if sizes is not None:
+            sizes[id(data)] = path.stat().st_size
+        return [data]
     if source_id is not None:
         if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,511}", source_id):
             return requests
@@ -188,26 +196,16 @@ def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
             for row in request["chunks"] if isinstance(row, dict) and row.get("cache_key")}
 
 
-def _retained_local_request(paths: WikiPaths, source_id: str, max_bytes: int) -> dict:
-    """Read only the exact source request before reopening selected Git bodies."""
-    from wiki_core.context_selection import strict_json_loads
-    from wiki_core.llm.context_pass import is_local_folder_request
-    from wiki_core.traversal import require_wiki_path
+def _retained_local_request(paths: WikiPaths, source_id: str, max_bytes: int, request_path: str) -> dict:
+    """Read one explicit request before reopening selected Git bodies."""
+    from wiki_core.llm.context_pass import load_local_request
     if not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id):
         raise ValueError('retained local request unavailable')
-    path = paths.extraction_events / f'{source_id}-llm-context-request.json'
-    path = require_wiki_path(paths.root, path.relative_to(paths.root).as_posix())
-    if path.is_symlink() or not path.is_file():
-        raise ValueError('retained local request unavailable')
     try:
-        with path.open('rb') as stream:
-            content = stream.read(max_bytes + 1)
-        if len(content) > max_bytes:
-            raise ValueError('retained local request unavailable')
-        request = strict_json_loads(content.decode('utf-8'))
+        request = load_local_request(paths, Path(request_path), max_bytes=max_bytes)
     except (OSError, ValueError, UnicodeError, OverflowError, RecursionError):
         raise ValueError('retained local request unavailable') from None
-    if not is_local_folder_request(request) or request.get('source_id') != source_id:
+    if request.get('source_id') != source_id:
         raise ValueError('retained local request unavailable')
     return request
 
@@ -246,10 +244,12 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
     target_cache = result_cache_for_request(paths.llm_cache, current_request) if local_request else paths.llm_cache
     approved_current = current_request is not None and current_request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1"
     source_id = str(current_request.get("source_id") or "") if (approved_current or preserve_existing) else None
-    if preserve_existing and source_id:
+    if local_request and source_id:
         try:
             from wiki_core.traversal import require_wiki_path
-            require_wiki_path(paths.root, (paths.extraction_events / f'{source_id}-llm-context-request.json').relative_to(paths.root).as_posix())
+            from wiki_core.llm.context_pass import local_request_path
+            request_file = local_request_path(paths, current_request)
+            require_wiki_path(paths.root, request_file.relative_to(paths.root).as_posix())
         except (ValueError, OSError) as exc:
             return _blocked(exc, 'requested-input', owner)
     try:
@@ -259,7 +259,12 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             require_wiki_boundaries(paths.root, directories=(target_cache,), files=(
                 target_cache / f'{key}.json' for key in keys
                 if isinstance(key, str) and re.fullmatch(r'[0-9a-f]{64}', key)))
-        requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes, source_id=source_id)
+        if allow_unrequested:
+            requests = []
+        elif local_request:
+            requests = _emitted_requests(paths, sizes=retained_sizes, source_id=source_id, local_request=current_request)
+        else:
+            requests = _emitted_requests(paths, sizes=retained_sizes, source_id=source_id)
     except (ValueError, OSError):
         print('ERROR: derived path crosses a repository boundary; result not recorded.', file=sys.stderr)
         return 2
@@ -395,6 +400,7 @@ def main() -> int:
     )
     parser.add_argument("--emit-request", action="store_true", help="writes the package to extraction-events/")
     parser.add_argument("--record-result", help="path to JSON (object or array) or '-' for stdin")
+    parser.add_argument("--request", help="exact retained folder request; required to record a Git-bound result")
     parser.add_argument(
         "--allow-unrequested",
         action="store_true",
@@ -402,6 +408,8 @@ def main() -> int:
     )
     parser.add_argument("--check", action="store_true", help="exit !=0 if there is a pending pass and required_context_pass")
     args = parser.parse_args()
+    if args.request is not None and (not args.request or not args.record_result or not args.source):
+        parser.error('--request requires an exact path, source and result recording')
 
     root = args.root.resolve()
     from wiki_core.llm.context_pass import local_entry_selection
@@ -412,6 +420,8 @@ def main() -> int:
         parser.error(str(exc))
     if args.repo is not None and entry_folder is None:
         parser.error('repository selection requires a local folder')
+    if args.request is not None and entry_folder is None:
+        parser.error('request selection requires a local folder')
     if entry_folder is not None and (args.allow_unrequested or args.query or args.required_perspective
                                      or args.optional_perspective or not args.source or not args.source.strip()):
         parser.error('folder entry requires an explicit source and its requested result')
@@ -450,14 +460,18 @@ def main() -> int:
             if args.repo is not None:
                 expected_documents = None
                 if args.record_result:
+                    if args.request is None:
+                        raise ValueError('explicit retained request required for Git-bound result')
                     # Locate the source's one retained request from the current
                     # selected source, never from a result payload or a scan.
                     selected_source = validate_local_entry_source(root, selected_source)
                     observed = build_manifest(selected_source, args.context, root=root)
-                    retained = _retained_local_request(paths, str(observed['source_id']), args.request_max_bytes)
+                    retained = _retained_local_request(paths, str(observed['source_id']), args.request_max_bytes, args.request)
                     package = retained.get('block_context_package')
                     if (not isinstance(package, dict) or not isinstance(package.get('documents'), list)
                             or any(not isinstance(row, dict) for row in package['documents'])
+                            or package.get('entry_folder') != selected_context.get('entry_folder')
+                            or package.get('entry_index') != selected_context.get('entry_index')
                             or retained.get('source_hash_sha256') != observed.get('hash_sha256')
                             or retained.get('source_context') != args.context
                             or retained.get('request_limits') != limits):
@@ -640,6 +654,14 @@ def main() -> int:
             raise ValueError('selected source or folder context changed')
 
     if args.record_result:
+        if args.request is not None:
+            try:
+                retained = _retained_local_request(paths, str(request['source_id']), args.request_max_bytes, args.request)
+                if retained['folder_request_id'] != request.get('folder_request_id'):
+                    raise ValueError('selected request differs from current context')
+            except (ValueError, OSError, KeyError):
+                return _blocked(ContextRequestBlocked('local_request_unavailable',
+                    'The selected request does not match the current source and context.'), 'requested-input', config.owner_label)
         return _record_results(paths, args.record_result, allow_unrequested=args.allow_unrequested,
             current_request=request, limits=limits, owner=config.owner_label,
             before_write=(revalidate_entry if entry_folder is not None else
@@ -661,16 +683,9 @@ def main() -> int:
         if entry_folder is not None:
             try:
                 revalidate_entry()
-                from wiki_core.traversal import require_wiki_path
-                require_wiki_path(root, out.relative_to(root).as_posix())
+                from wiki_core.llm.context_pass import retain_local_request
+                out = retain_local_request(paths, request)
             except (ValueError, OSError) as exc:
-                return _blocked(exc, str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)
-            try:
-                out.parent.mkdir(parents=True, exist_ok=True)
-                require_wiki_path(root, out.relative_to(root).as_posix())
-                with out.open('x', encoding='utf-8') as stream:
-                    stream.write(canonical_request_text(request))
-            except (ValueError, OSError):
                 return _blocked(ContextRequestBlocked('local_persistence_partial',
                     'Local request persistence stopped; partial effects may exist and must be inspected before retrying.'),
                     str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)

@@ -23,7 +23,9 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -102,13 +104,24 @@ def find_orphans(paths: WikiPaths, live: set[str], *, wiki_root: Path | None = N
     orphans: dict[str, list[Path]] = {}
     if wiki_root is not None:
         require_wiki_boundaries(wiki_root, directories=dirs.values())
+    retained = set()
+    if paths.extraction_events.is_dir():
+        for path in paths.extraction_events.glob('folder-*-llm-context-request.json'):
+            match = re.fullmatch(r'folder-([0-9a-f]{64})-[0-9a-f]{64}-llm-context-request\.json', path.name)
+            if match:
+                retained.add(match.group(1))
     for label, directory in dirs.items():
         if not directory.exists():
             continue
         candidates = sorted(directory.glob("*.json"))
         if wiki_root is not None:
             require_wiki_boundaries(wiki_root, files=candidates)
-        found = [p for p in candidates if _source_id_of(p) not in live]
+        # Contextual requests can be independent unfinished work even when no
+        # proposal exists. GC cannot infer their disposition from source_id.
+        found = [p for p in candidates if not (label == 'extraction-events' and
+                 re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-(?:llm-context-request|integration-packet)\.json', p.name))
+                 and _source_id_of(p) not in live and
+                 hashlib.sha256(_source_id_of(p).encode('utf-8')).hexdigest() not in retained]
         if found:
             orphans[label] = found
     return orphans
