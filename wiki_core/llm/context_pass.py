@@ -641,9 +641,12 @@ def _repo_selections(root: Path, selections, expected_documents=None):
     if len(set(selected)) != len(selected):
         raise ValueError('repository selection unavailable')
     if expected_documents is not None:
-        expected = [(row['repository_root'], row['repository_read']['repository']['identity'],
-                     row['repository_read']['revision'], row['repository_read']['path'])
-                    for row in expected_documents if row.get('origin') == 'independent_git']
+        try:
+            expected = [(row['repository_root'], row['repository_read']['repository']['identity'],
+                         row['repository_read']['revision'], row['repository_read']['path'])
+                        for row in expected_documents if row.get('origin') == 'independent_git']
+        except (AttributeError, KeyError, TypeError):
+            raise ValueError('repository selection unavailable') from None
         if selected != expected:
             raise ValueError('repository selection changed')
     return selected

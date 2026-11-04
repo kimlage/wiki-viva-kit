@@ -188,6 +188,30 @@ def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
             for row in request["chunks"] if isinstance(row, dict) and row.get("cache_key")}
 
 
+def _retained_local_request(paths: WikiPaths, source_id: str, max_bytes: int) -> dict:
+    """Read only the exact source request before reopening selected Git bodies."""
+    from wiki_core.context_selection import strict_json_loads
+    from wiki_core.llm.context_pass import is_local_folder_request
+    from wiki_core.traversal import require_wiki_path
+    if not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id):
+        raise ValueError('retained local request unavailable')
+    path = paths.extraction_events / f'{source_id}-llm-context-request.json'
+    path = require_wiki_path(paths.root, path.relative_to(paths.root).as_posix())
+    if path.is_symlink() or not path.is_file():
+        raise ValueError('retained local request unavailable')
+    try:
+        with path.open('rb') as stream:
+            content = stream.read(max_bytes + 1)
+        if len(content) > max_bytes:
+            raise ValueError('retained local request unavailable')
+        request = strict_json_loads(content.decode('utf-8'))
+    except (OSError, ValueError, UnicodeError, OverflowError, RecursionError):
+        raise ValueError('retained local request unavailable') from None
+    if not is_local_folder_request(request) or request.get('source_id') != source_id:
+        raise ValueError('retained local request unavailable')
+    return request
+
+
 def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: bool = False,
                     current_request: dict | None = None, limits: dict | None = None, owner: str = "Context owner/integrator", before_write=None,
                     preserve_existing: bool = False) -> int:
@@ -417,12 +441,35 @@ def main() -> int:
                 raise ValueError('source selection unavailable')
             try:
                 selected_context = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
-                    entry_index=entry_index, context_max_bytes=args.context_max_bytes, repo_selections=args.repo)
+                    entry_index=entry_index, context_max_bytes=args.context_max_bytes)
             except (ValueError, OSError) as exc:
                 raise ContextRequestBlocked('local_folder_unavailable',
                     'Selected folder instructions or index are unavailable; no fallback was used.') from exc
             if args.source:
                 selected_source = validate_local_entry_source(root, args.source)
+            if args.repo is not None:
+                expected_documents = None
+                if args.record_result:
+                    # Locate the source's one retained request from the current
+                    # selected source, never from a result payload or a scan.
+                    selected_source = validate_local_entry_source(root, selected_source)
+                    observed = build_manifest(selected_source, args.context, root=root)
+                    retained = _retained_local_request(paths, str(observed['source_id']), args.request_max_bytes)
+                    package = retained.get('block_context_package')
+                    if (not isinstance(package, dict) or not isinstance(package.get('documents'), list)
+                            or any(not isinstance(row, dict) for row in package['documents'])
+                            or retained.get('source_hash_sha256') != observed.get('hash_sha256')
+                            or retained.get('source_context') != args.context
+                            or retained.get('request_limits') != limits):
+                        raise ValueError('retained local request differs')
+                    expected_documents = package['documents']
+                    local_documents = [row for row in expected_documents
+                                       if isinstance(row, dict) and row.get('origin') != 'independent_git']
+                    if local_documents != selected_context['documents']:
+                        raise ValueError('retained local context differs')
+                selected_context = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
+                    entry_index=entry_index, context_max_bytes=args.context_max_bytes, repo_selections=args.repo,
+                    expected_documents=expected_documents)
         except (ValueError, OSError) as exc:
             return _blocked(exc, 'requested-input', config.owner_label)
     if (args.root_entity_ref is not None or args.omit_root_entity) and not args.approved_revision:
