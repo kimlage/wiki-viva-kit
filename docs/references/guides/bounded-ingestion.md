@@ -156,6 +156,8 @@ automatically and require re-emission or an explicit migration. Global audit and
 consolidation checks do not enumerate the new namespaces. The folder flow does
 not update the global FTS index or score ledger and does not support stream
 cursors; these limits are reported rather than silently using global state.
+The cache inspection CLI also reports only the global artifact location; it
+explicitly marks folder-scoped namespaces as not checked.
 
 The local caller must maintain cooperative custody of the staged source and
 repository configuration during preparation; path checks and hash fences do

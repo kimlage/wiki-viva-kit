@@ -77,7 +77,9 @@ def test_legacy_source_is_discovered_without_reingestion(source_check, capsys, m
     monkeypatch.setattr(module, "load_config", lambda _: config)
     monkeypatch.setattr(sys, "argv", ["wiki_cache_inspect.py", "--source", str(source)])
     assert module.main() == 0
-    inspected = json.loads(capsys.readouterr().out)["source"]
+    response = json.loads(capsys.readouterr().out)
+    assert response['coverage'] == {'scope':'global_artifact_location_only', 'folder_scoped_namespaces':'not_checked'}
+    inspected = response["source"]
     assert inspected["source_id"] == legacy_id and inspected["chunks_exist"]
     assert inspected["identity_resolution"] == "verified_legacy_manifest"
     assert {p: p.read_bytes() for p in paths.derived_root.rglob("*") if p.is_file()} == before
