@@ -331,9 +331,9 @@ def run_git(args: list[str]) -> str:
             text=True,
             stderr=subprocess.DEVNULL,
         )
-        # Blob contents participate in exact receipt replay. Only command
-        # metadata may be trimmed; git show must retain terminal newlines.
-        return output if args and args[0] == "show" else output.strip()
+        # Blob contents and NUL-separated paths must retain exact bytes;
+        # only ordinary textual command metadata may be trimmed.
+        return output if args and (args[0] == "show" or "-z" in args) else output.strip()
     except subprocess.CalledProcessError:
         return ""
 
@@ -802,7 +802,16 @@ def tracked_files() -> list[str]:
 
 def audit_nested_repository_boundary(errors: list[str]) -> None:
     """Report parent-tracked paths excluded from content audit without reading them."""
-    for rel in filter(None, run_git(['ls-files', '-z']).split('\0')):
+    try:
+        inventory = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.CalledProcessError):
+        errors.append('tracked Git path inventory unavailable; audit coverage cannot be established')
+        return
+    if inventory and not inventory.endswith(b'\0'):
+        errors.append('tracked Git path inventory unavailable; audit coverage cannot be established')
+        return
+    for raw in filter(None, inventory.split(b'\0')):
+        rel = os.fsdecode(raw)
         try:
             nested = is_in_nested_git(ROOT / rel, wiki_root=ROOT)
         except ValueError:
