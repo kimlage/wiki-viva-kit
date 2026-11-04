@@ -1,7 +1,8 @@
-"""Isolated read-only, owner-scoped v2 query prototype; not wired to runtime.
+"""Read-only, owner-scoped v2 query used by folder packet and CLI flows.
 
 The receipt has its own v2 identity/digests and cannot be made from a v1 digest.
-No task execution, read attestation, external source access or ACL is asserted.
+No resident service, task execution, read attestation, external source access or
+ACL is asserted.
 """
 from __future__ import annotations
 

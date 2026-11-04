@@ -1,7 +1,8 @@
 """Explicit current-revision v2 query envelope and conservative preflight.
 
-Historical v2 query replay, impact, v1 receipt migration and read attestation
-remain unavailable. A caller-trust host must enforce actual access separately.
+Historical replay and selective impact are provided by the dedicated folder
+history and consumer modules. They do not migrate v1 receipts or attest reads.
+A caller-trust host must enforce actual access separately.
 """
 from __future__ import annotations
 
