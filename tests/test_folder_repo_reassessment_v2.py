@@ -104,7 +104,7 @@ def test_independent_repo_selection_reassesses_two_consumers_without_writes(proj
 
 def test_host_bound_flow_uses_selected_repo_without_granting_access(project):
     clone, reports, selected = make_flow(project)
-    binding = FolderHostBinding(project, ('a',), ((clone, IDENTITY),))
+    binding = FolderHostBinding(project, ('a',), (('a', clone, IDENTITY, 'guide.md'),))
     out = host_call(project, binding, reports, selected)
     rows = {row['target']:row for row in out['reassessment']['consumers']}
     assert rows['a/first.md']['state'] == 'review_pending'
@@ -114,13 +114,15 @@ def test_host_bound_flow_uses_selected_repo_without_granting_access(project):
     assert out['enforcement_claim'] == 'none'
 
 
-@pytest.mark.parametrize('binding_mode', ['empty', 'wrong_root', 'wrong_identity'])
+@pytest.mark.parametrize('binding_mode', ['empty', 'wrong_root', 'wrong_identity', 'wrong_folder', 'wrong_path'])
 def test_host_requires_repo_allowlist_before_repo_read(project, tmp_path, monkeypatch, binding_mode):
     import wiki_core.folder_reassessment_v2 as module
     clone, reports, selected = make_flow(project)
-    repo_bindings = {'empty': (), 'wrong_root': ((tmp_path / 'other', IDENTITY),),
-                     'wrong_identity': ((clone, 'example.test/group/other'),)}[binding_mode]
-    binding = FolderHostBinding(project, ('a',), repo_bindings)
+    repo_bindings = {'empty': (), 'wrong_root': (('a', tmp_path / 'other', IDENTITY, 'guide.md'),),
+                     'wrong_identity': (('a', clone, 'example.test/group/other', 'guide.md'),),
+                     'wrong_folder': (('a/aux/b', clone, IDENTITY, 'guide.md'),),
+                     'wrong_path': (('a', clone, IDENTITY, 'other.md'),)}[binding_mode]
+    binding = FolderHostBinding(project, ('a', 'a/aux/b'), repo_bindings)
     def never(*args, **kwargs):
         pytest.fail('independent repository read without host allowlist')
     monkeypatch.setattr(module, 'read_independent_repo', never)
@@ -134,7 +136,7 @@ def test_host_requires_repo_allowlist_before_repo_read(project, tmp_path, monkey
 ])
 def test_host_binding_rejects_invalid_repo_allowlist(project, root, identity):
     with pytest.raises(ValueError, match='invalid independent repository binding'):
-        FolderHostBinding(project, ('a',), ((Path(root), identity),))
+        FolderHostBinding(project, ('a',), (('a', Path(root), identity, 'guide.md'),))
 
 
 def test_host_denies_wiki_node_before_repo_read_even_with_repo_binding(project, monkeypatch):
@@ -144,7 +146,7 @@ def test_host_denies_wiki_node_before_repo_read_even_with_repo_binding(project, 
     config = project / 'wiki-context-controls.yaml'; controls = yaml.safe_load(config.read_text())
     controls['controls']['a']['policy']['deny'] = {'read':['a/repo-source.md']}
     config.write_text(yaml.safe_dump(controls)); commit(project)
-    binding = FolderHostBinding(project, ('a',), ((clone, IDENTITY),))
+    binding = FolderHostBinding(project, ('a',), (('a', clone, IDENTITY, 'guide.md'),))
     def never(*args, **kwargs):
         pytest.fail('repo opened before wiki node authorization')
     monkeypatch.setattr(module, 'read_independent_repo', never)
