@@ -213,12 +213,13 @@ def test_real_v2_cli_reads_approved_git_and_selects_local_source(project, tmp_pa
     put(project, source, '---\namount: 5\n---\nOwn source\n')
     commit(project)
     request = tmp_path.parent / (tmp_path.name + '-v2-evidence.json')
-    request.write_text(json.dumps([{'path': source, 'producer_folder': 'a', 'reason': 'read',
-                                    'use': 'interpret', 'classification': 'synthetic', 'field': 'amount'}]))
-    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_folder_packet_v2.py'
-    run = subprocess.run([sys.executable, str(script), '--repo', str(project), '--approved-revision', 'HEAD', '--content-revision', 'HEAD', '--index', 'a/index.md',
-                          '--max-bytes', '20000', '--task-id', 'synthetic', '--goal', 'read source',
-                          '--output', 'proposal', '--integrator', 'reviewer', '--evidence', str(request), 'a'],
+    request.write_text(json.dumps({'max_bytes': 20000, 'task_id': 'synthetic', 'goal': 'read source',
+                                  'output': 'a/proposal.md', 'integrator': 'reviewer',
+                                  'evidence': [{'path': source, 'producer_folder': 'a', 'reason': 'read',
+                                                'use': 'interpret', 'classification': 'synthetic', 'field': 'amount'}]}))
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_context.py'
+    run = subprocess.run([sys.executable, str(script), '--repo', str(project), '--approved-revision', 'HEAD',
+                          'pack', 'a', '--content-revision', 'HEAD', '--index', 'a/index.md', '--request', str(request)],
                          text=True, capture_output=True, check=True)
     packet = json.loads(run.stdout)
     assert packet['inputs'][-1]['text'] == '5'

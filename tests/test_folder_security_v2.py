@@ -122,8 +122,8 @@ def test_unverified_result_does_not_close_unchanged_impact(project):
 
 
 @pytest.mark.parametrize('script,args', [
-    ('wiki_folder_packet_v2.py', ['--content-revision','HEAD','--index','a/index.md','--max-bytes','20000','--task-id','x','--goal','x','--output','x','--integrator','x','a']),
-    ('wiki_folder_preflight_v2.py', ['--base','HEAD','--head','HEAD','--branch','wiki/x','--packet','x','--result','x']),
+    ('wiki_context.py', ['pack','a','--content-revision','HEAD','--index','a/index.md','--request','x']),
+    ('wiki_context_flow.py', ['preflight','--folder','a','--index','a/index.md','--base','HEAD','--head','HEAD','--branch','wiki/x','--packet','x','--result','x']),
     ('wiki_folder_impact_v2.py', ['--packet','x','--result','x','--target','a/x','--source','a/y']),
 ])
 def test_cli_never_accepts_caller_selected_controls(project, script, args):
@@ -236,7 +236,7 @@ def test_preflight_accepts_existing_claim_only_with_full_prior_read(project, ope
     assert outcome['state'] == 'independent_review_required' and outcome['merge'] == 'not_performed'
 
 
-@pytest.mark.parametrize('script', ['wiki_folder_packet_v2.py', 'wiki_folder_preflight_v2.py',
+@pytest.mark.parametrize('script', ['wiki_context.py', 'wiki_context_flow.py',
                                     'wiki_folder_impact_v2.py', 'wiki_folder_context.py'])
 def test_context_cli_invalid_arguments_never_echo_sensitive_values(project, script):
     fake = 'https://example.invalid/path?X-Goog-Signature=synthetic'
@@ -247,8 +247,8 @@ def test_context_cli_invalid_arguments_never_echo_sensitive_values(project, scri
 
 
 @pytest.mark.parametrize('script,args', [
-    ('wiki_folder_packet_v2.py', ['--content-revision','HEAD','--index','a/index.md','--max-bytes','20000','--task-id','x','--goal','x','--output','x','--integrator','x','--evidence','SENSITIVE','a']),
-    ('wiki_folder_preflight_v2.py', ['--base','HEAD','--head','HEAD','--branch','wiki/x','--packet','SENSITIVE','--result','x']),
+    ('wiki_context.py', ['pack','a','--content-revision','HEAD','--index','a/index.md','--request','SENSITIVE']),
+    ('wiki_context_flow.py', ['preflight','--folder','a','--index','a/index.md','--base','HEAD','--head','HEAD','--branch','wiki/x','--packet','SENSITIVE','--result','x']),
     ('wiki_folder_impact_v2.py', ['--packet','SENSITIVE','--result','x','--target','a/x','--source','a/y']),
 ])
 def test_v2_cli_file_errors_never_echo_sensitive_paths(project, script, args):

@@ -116,13 +116,15 @@ another YAML reader would accept them. This prevents ambiguous metadata from
 being accepted and later interpreted differently by a query reader; it does not
 change the general reader or v1 behavior.
 
-Prepare an explicit JSON array of evidence selectors. For a source in the same
-context, an example is:
+Prepare a task request with explicit evidence selectors. For a source in the
+same context, an example is:
 
 ```json
-[{"path":"areas/example/source.md","producer_folder":"areas/example",
+{"max_bytes":20000,"task_id":"TASK_ID","goal":"Review the source",
+ "output":"areas/example/result.md","integrator":"independent reviewer",
+ "evidence":[{"path":"areas/example/source.md","producer_folder":"areas/example",
   "reason":"review the selected field","use":"interpret",
-  "classification":"internal","field":"status"}]
+  "classification":"internal","field":"status"}]}
 ```
 
 Select the current approved policy revision and an explicit content revision.
@@ -132,12 +134,9 @@ instructions and index come from the approved policy revision. Supply the
 trusted output location and integrator explicitly:
 
 ```sh
-python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_packet_v2.py" --repo "$WIKI_REPO_ROOT" \
-  --approved-revision APPROVED_SHA --content-revision CONTENT_SHA \
-  --index areas/example/index.md \
-  --max-bytes 20000 --task-id TASK_ID --goal 'Review the source' \
-  --output areas/example/result.md --integrator 'independent reviewer' \
-  --evidence evidence.json areas/example > packet.json
+python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" \
+  --approved-revision APPROVED_SHA pack areas/example --index areas/example/index.md \
+  --content-revision CONTENT_SHA --request request.json > packet.json
 ```
 
 To read only a section of the selected index, pass `--index-section SECTION_ID`.
@@ -150,8 +149,9 @@ path, kind, revision, hash and selector in `observed`; those reports do not prov
 execution. Once the authorized proposal is on a short `wiki/*` branch, run:
 
 ```sh
-python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_preflight_v2.py" --repo "$WIKI_REPO_ROOT" \
-  --approved-revision APPROVED_SHA --base APPROVED_SHA --head PROPOSAL_SHA \
+python3 "$WIKI_REPO_ROOT/scripts/wiki_context_flow.py" --repo "$WIKI_REPO_ROOT" \
+  --approved-revision APPROVED_SHA preflight --folder areas/example --index areas/example/index.md \
+  --base APPROVED_SHA --head PROPOSAL_SHA \
   --branch wiki/example --packet packet.json --result result.json
 ```
 

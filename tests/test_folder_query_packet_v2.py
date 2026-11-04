@@ -106,42 +106,6 @@ def test_shared_noncyclic_query_objects_do_not_bypass_secret_scan():
         contains_access_secrets(cycle)
 
 
-def test_query_packet_and_preflight_clis_use_versioned_contract(project,tmp_path):
-    import json
-    import subprocess
-    import sys
-    from pathlib import Path
-    _,_,entry=fixture_query(project); before=git(project,'rev-parse','HEAD')
-    request=tmp_path.parent/(tmp_path.name+'-queries.json'); request.write_text(json.dumps([entry]))
-    scripts=Path(__file__).resolve().parents[1]/'scripts'
-    built=subprocess.run([sys.executable,str(scripts/'wiki_folder_packet_v2.py'),'--repo',str(project),
-        '--approved-revision','HEAD','--content-revision','HEAD','--index','a/index.md','--max-bytes','50000',
-        '--task-id','x','--goal','x','--output','a/result.md','--integrator','x','--queries',str(request),'a'],
-        text=True,capture_output=True,check=True)
-    packet=json.loads(built.stdout)
-    assert packet['schema_version']=='wiki.folder-query-task-context/v2'
-    git(project,'checkout','-qb','wiki/query-cli')
-    put(project,'a/result.md',query_claim(packet))
-    git(project,'add','-A'); git(project,'commit','-qm','result'); head=git(project,'rev-parse','HEAD')
-    result=result_for(packet,[{'path':'a/result.md','action':'created'}])
-    pp=tmp_path.parent/(tmp_path.name+'-packet.json'); rp=tmp_path.parent/(tmp_path.name+'-result.json')
-    pp.write_text(json.dumps(packet)); rp.write_text(json.dumps(result))
-    checked=subprocess.run([sys.executable,str(scripts/'wiki_folder_preflight_v2.py'),'--repo',str(project),
-        '--approved-revision',before,'--base',before,'--head',head,'--branch','wiki/query-cli',
-        '--packet',str(pp),'--result',str(rp)],text=True,capture_output=True,check=True)
-    out=json.loads(checked.stdout)
-    assert out['schema_version']=='wiki.folder-query-preflight/v2'
-    assert out['state']=='independent_review_required' and out['merge']=='not_performed'
-    # Valid JSON padded past the limit must not reach preflight in either slot.
-    for path in (pp, rp):
-        original = path.read_bytes()
-        path.write_bytes(original + b' ' * 2_000_001)
-        denied = subprocess.run(checked.args, text=True, capture_output=True)
-        assert denied.returncode != 0
-        assert json.loads(denied.stderr)['reason'] == 'operation_failed'
-        path.write_bytes(original)
-
-
 def test_primary_folder_cli_handles_query_packet_without_v1_fallback(project,tmp_path):
     import json
     import subprocess
@@ -170,6 +134,14 @@ def test_primary_folder_cli_handles_query_packet_without_v1_fallback(project,tmp
     out=json.loads(checked.stdout)
     assert out['schema_version']=='wiki.folder-query-preflight/v2'
     assert out['state']=='independent_review_required' and out['merge']=='not_performed'
+    # Oversized inputs must be rejected by the same entry point.
+    for path in (pp, rp):
+        original = path.read_bytes()
+        path.write_bytes(original + b' ' * 2_000_001)
+        denied = subprocess.run(checked.args, text=True, capture_output=True)
+        assert denied.returncode != 0
+        assert json.loads(denied.stderr)['reason'] == 'operation_failed'
+        path.write_bytes(original)
 
 
 @pytest.mark.parametrize('operation',['modified','deleted'])

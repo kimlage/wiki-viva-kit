@@ -76,7 +76,7 @@ auxiliary, without creating another context or owner:
 This folder adds instructions; ownership stays with the nearest context.
 ```
 
-The experimental [folder packet](../../../scripts/wiki_folder_packet_v2.py)
+The [folder packet](../../../scripts/wiki_context.py) `pack` command
 accepts `--start-folder` for that physical entry, with the existing ancestor
 context as its positional `folder` and an authorized context `--index`.
 The approved Git revision must contain the exact declaration. Missing,

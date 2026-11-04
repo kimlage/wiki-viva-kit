@@ -46,8 +46,6 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_folder_impact_v2.py](../../../scripts/wiki_folder_impact_v2.py) | Compare one reported source selection with a current v2 consumer without changing it |
 | [wiki_folder_reassessment_v2.py](../../../scripts/wiki_folder_reassessment_v2.py) | Join selected consumer declarations to explicit v2 source reports and flag missing evidence |
 | [wiki_folder_migration_v2.py](../../../scripts/wiki_folder_migration_v2.py) | Preview mechanical v1-to-v2 controls; global coordinator authority is required and writing is explicit |
-| [wiki_folder_packet_v2.py](../../../scripts/wiki_folder_packet_v2.py) | Compose a revision-bound folder packet with selected instructions, index and authorized inputs |
-| [wiki_folder_preflight_v2.py](../../../scripts/wiki_folder_preflight_v2.py) | Check an exact v2 proposal without approval, publication or merge |
 | [wiki_folder_query_history_v2.py](../../../scripts/wiki_folder_query_history_v2.py) | Compare an explicitly selected historical query under current authority; report review candidates |
 | [wiki_folder_requalify_v1.py](../../../scripts/wiki_folder_requalify_v1.py) | Check an explicit historical v1 request; report the current requalification block |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Inspect/transition proposal gates |
