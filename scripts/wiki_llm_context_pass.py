@@ -308,7 +308,7 @@ def main() -> int:
     parser.add_argument("--folder-index", help="Explicit authorized context index.")
     parser.add_argument("--folder-output", help="Concrete authorized proposal output.")
     parser.add_argument("--folder-source-ref", help="Approved source page explicitly associated with staged RAW.")
-    parser.add_argument("--folder-repo", nargs=4, metavar=("ROOT", "IDENTITY", "REVISION", "PATH"), help="Explicit host-authorized local Git selection; no network access.")
+    parser.add_argument("--folder-repo", nargs=4, action="append", metavar=("ROOT", "IDENTITY", "REVISION", "PATH"), help="Explicit host-authorized local Git selection; repeat for each path; no network access.")
     parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
     parser.add_argument("--request-max-bytes", type=int, default=DEFAULT_REQUEST_MAX_BYTES)
     business_root = parser.add_mutually_exclusive_group()
@@ -345,7 +345,8 @@ def main() -> int:
         from wiki_core.folder_ingestion_v2 import selection_from_host_environment
         try:
             folder_selection = selection_from_host_environment(args.folder_context, args.folder_index, args.folder_output, args.folder_source_ref,
-                independent_repo=tuple(args.folder_repo) if args.folder_repo else None)
+                independent_repo=tuple(args.folder_repo[0]) if args.folder_repo else None,
+                additional_repos=tuple(tuple(row) for row in args.folder_repo[1:]) if args.folder_repo else ())
         except ValueError:
             parser.error("invalid folder selection")
     config = load_config(root)
@@ -494,6 +495,7 @@ def main() -> int:
             context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes,
             source_authorization=source_guard["authorization"] if source_guard else None,
             independent_repo_content=source_guard.get("independent_repo_content") if source_guard else None,
+            independent_repo_additional_content=source_guard.get("independent_repo_additional_content") if source_guard else None,
             context_root=root,
         )
         if source_config:
