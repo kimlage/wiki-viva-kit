@@ -217,6 +217,41 @@ def test_sync_rechecks_nested_boundary_between_b0_and_write(tmp_path: Path) -> N
     assert not (consumer / 'kit.lock').exists()
 
 
+@pytest.mark.parametrize('nested_repo', [False, True])
+def test_consumer_subdirectory_is_not_a_git_root(tmp_path: Path, nested_repo: bool) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    enclosing = _repo(consumer / 'nested') if nested_repo else consumer
+    target = enclosing / 'subdirectory'
+    target.mkdir()
+    sentinel = target / 'sentinel.txt'
+    sentinel.write_text('preserve existing work\n')
+    before = _git(enclosing, 'status', '--porcelain')
+    for args in (('--dry-run', '--json'), ('--allow-dirty',)):
+        result = _run(kit, target, manifest, *args)
+        assert result.returncode != 0
+        assert 'consumer path must be its Git root' in result.stderr
+        assert sentinel.read_text() == 'preserve existing work\n'
+        assert _git(enclosing, 'status', '--porcelain') == before
+        assert not (target / 'portable').exists()
+        assert not (target / 'kit.lock').exists()
+
+
+def test_consumer_git_root_is_rechecked_before_c1(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    git = sync._git
+    def changed_root(root, *args, **kwargs):
+        if root == consumer and args == ('rev-parse', '--show-toplevel'):
+            return str(tmp_path).encode()
+        return git(root, *args, **kwargs)
+    monkeypatch.setattr(sync, '_git', changed_root)
+    with pytest.raises(sync.SyncError, match='consumer path must be its Git root'):
+        sync._copy_c1(kit, consumer, plan)
+    assert not (consumer / 'portable').exists()
+    assert not (consumer / 'kit.lock').exists()
+
+
 def test_sync_rechecks_boundary_after_temporary_file_before_replace(tmp_path: Path, monkeypatch) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     sync = _sync_module()

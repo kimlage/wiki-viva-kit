@@ -371,7 +371,19 @@ def _git_dirty(root: Path) -> list[str]:
     return [item for item in raw.decode('utf-8').split('\0') if item]
 
 
+def _assert_consumer_root(consumer: Path) -> None:
+    """The selected destination must itself be the Git worktree root."""
+    try:
+        git_root = Path(_git(consumer, 'rev-parse', '--show-toplevel').decode('utf-8').strip()).resolve()
+        selected = consumer.resolve()
+    except (UnicodeError, OSError, RuntimeError) as exc:
+        raise SyncError('consumer Git root unavailable') from exc
+    if git_root != selected:
+        raise SyncError('consumer path must be its Git root')
+
+
 def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list[list[str]]) -> dict[str, Any]:
+    _assert_consumer_root(consumer)
     if Path(_git(kit, 'rev-parse', '--show-toplevel').decode('utf-8').strip()).resolve() != kit.resolve():
         raise SyncError('kit path must be its Git root')
     source_sha = _git(kit, 'rev-parse', '--verify', 'HEAD^{commit}').decode('ascii').strip()
@@ -521,6 +533,7 @@ def _replace_bytes(root_fd: int, rel: str, payload: bytes, mode: str, before: di
 
 
 def _copy_c1(kit: Path, consumer: Path, plan: dict[str, Any]) -> None:
+    _assert_consumer_root(consumer)
     _assert_source_snapshot(kit, plan['source_sha'])
     if any(_sha256_bytes(item['payload']) != item['sha256'] for item in plan['_files'].values()):
         raise SyncError('committed kit blob changed before C1')
