@@ -640,6 +640,7 @@ def test_existing_destination_preserves_prior_content_and_provenance(project, mo
     checked = prepare_folder_preflight(project, binding, payload)['preflight']
     assert checked['state'] == 'independent_review_required' and checked['merge'] == 'not_performed'
     assert checked['requirements_handling']['count'] == 1
+    assert checked['prior_requirements_handling'] == 'preserved_not_revalidated'
     bad = deepcopy(new_fm)
     bad['information_requirements'][0]['consumed_revision'] = base
     put(project, packet['output'], '---\n' + yaml.safe_dump(bad, sort_keys=False) + '---\n' + new_body)

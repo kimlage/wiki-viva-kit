@@ -68,6 +68,7 @@ def test_selected_requalification_preserves_other_requirements(project, tmp_path
     out = preflight_folder_query_v2(project, policy, **common, query_requalifications=[report])
     assert out['query_requalification'] == {'count':1, 'state':'independent_review_required',
                                              'review':'not_performed', 'freshness':'not_assessed'}
+    assert out['prior_requirements_handling'] == 'preserved_not_revalidated'
     assert out['merge'] == 'not_performed'
     with pytest.raises(ValueError, match='require separate proposals'):
         preflight_folder_query_v2(project, policy, **common, query_requalifications=[report], requalify_source=True)

@@ -370,6 +370,10 @@ The same rule applies to a generic body edit with no new query or ingestion.
 Unchanged earlier requirements may remain pinned to an older revision; when
 their current evidence was not selected, preflight reports
 `prior_requirements_handling: preserved_not_revalidated` rather than renewing them.
+The same preservation applies to modified secondary pages already selected in
+the packet, including when the output adds an ingestion; it does not select or
+read their earlier sources. Earlier requirements preserved alongside a new query
+or ingestion are likewise reported as not revalidated.
 
 An explicitly authorized host may select consumers and changed paths with
 `wiki_folder_reassessment_v2.py --query-changed PATH --candidate CONSUMER`
