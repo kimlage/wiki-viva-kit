@@ -360,6 +360,10 @@ A later query may update an existing claim while retaining its earlier RAW or
 repository provenance only if every prior projection remains exactly unchanged.
 The preflight reports those preserved projections as `preserved_not_revalidated`;
 it does not claim current source bytes, external origin or remote access were checked.
+The same rule applies to a generic body edit with no new query or ingestion.
+Unchanged earlier requirements may remain pinned to an older revision; when
+their current evidence was not selected, preflight reports
+`prior_requirements_handling: preserved_not_revalidated` rather than renewing them.
 
 An explicitly authorized host may select consumers and changed paths with
 `wiki_folder_reassessment_v2.py --query-changed PATH --candidate CONSUMER`
