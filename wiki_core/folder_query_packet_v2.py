@@ -83,7 +83,8 @@ def _query_observations(envelope):
     return rows
 
 
-def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, result):
+def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, result,
+                              binding=None, source_request=None):
     """Preflight only if the proposal leaves every selected query scope intact."""
     if getattr(policy,'format_version',None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise FolderQueryPacketError('bound v2 policy required')
@@ -91,6 +92,12 @@ def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, resul
     if not isinstance(packet,dict) or packet.get('schema_version') != 'wiki.folder-query-task-context/v2':
         raise FolderQueryPacketError('v2 query packet required; v1 receipts need explicit migration')
     try:
+        base_packet = packet['base_packet']
+        if not isinstance(base_packet, dict):
+            raise FolderQueryPacketError('v2 base packet required')
+        if base_packet.get('ingestion_binding') is not None or source_request is not None:
+            from wiki_core.folder_coordination_v2 import _bound_policy
+            _bound_policy(root, binding, base_packet.get('context_folder'), policy.policy_revision)
         queries=packet['queries']
         if not isinstance(queries,list): raise FolderQueryPacketError('invalid v2 query packet')
         requests=[item['receipt']['request'] for item in queries]
@@ -132,8 +139,16 @@ def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, resul
         base_result={'schema_version':'wiki.folder-task-result/v2','status':'completed',
                      'task_id':base_packet['task_id'],'context_id':base_packet['context_id'],
                      'packet_digest':base_packet['packet_digest'],'observed':base_observed,'changes':result['changes']}
-        outcome=preflight_folder_v2(root,policy,base=base_sha,head=head_sha,branch=branch,
-                                    packet=base_packet,result=base_result)
+        if base_packet.get('ingestion_binding') is not None or source_request is not None:
+            from wiki_core.folder_coordination_v2 import prepare_folder_preflight
+            outcome = prepare_folder_preflight(root, binding, {
+                'folder': base_packet['context_folder'], 'approved_revision': policy.policy_revision,
+                'base': base_sha, 'head': head_sha, 'branch': branch,
+                'packet': base_packet, 'result': base_result,
+                'source_request': source_request})['preflight']
+        else:
+            outcome=preflight_folder_v2(root,policy,base=base_sha,head=head_sha,branch=branch,
+                                        packet=base_packet,result=base_result)
         policy.fresh()
         return {'schema_version':'wiki.folder-query-preflight/v2','state':'independent_review_required',
                 'base':base_sha,'head':head_sha,'branch':branch,'context_id':base_packet['context_id'],

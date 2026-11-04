@@ -273,7 +273,26 @@ Older folder-v2 ingestion requests without this binding must be reissued; v1
 is unchanged. Revalidation does not prove execution or authenticate an
 external service; an untrusted party able to replace an entire packet and
 result can still fabricate a different generic task. Query preflight does not
-accept an ingestion request and fails closed for an ingestion-bound packet.
+grant access or attest execution. To retain a bounded query receipt with an
+ingestion-bound task, attach queries to the packet in the exact ingestion
+request and supply that same request to the query preflight:
+
+```sh
+python3 scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
+  attach-queries areas/example --index areas/example/index.md \
+  --source-request REQUEST.json --queries queries.json > query-packet.json
+python3 scripts/wiki_context_flow.py --repo . --approved-revision APPROVED_SHA \
+  preflight --folder areas/example --index areas/example/index.md \
+  --base APPROVED_SHA --head PROPOSAL_SHA --branch wiki/TASK \
+  --packet query-packet.json --result QUERY_RESULT.json --source-request REQUEST.json
+```
+
+The host binding must be configured as above. The preflight reproduces the
+query envelope, requires the query observations, and runs the existing
+host-bound ingestion checks against its original base packet and recorded
+request. Missing or mismatched bindings, requests and results fail closed.
+Query scope edits still require separate requalification; neither the query
+receipt nor the recorded result proves a semantic read or independent review.
 
 ## Compare one reported source and consumer
 

@@ -80,11 +80,16 @@ def _folder_main(argv):
                 or base_packet.get('index_path') != args.index):
             raise ValueError('folder or index differs from packet')
         if packet.get('schema_version') == 'wiki.folder-query-task-context/v2':
-            if args.source_request:
-                raise ValueError('contextual source request is not supported by query preflight')
             from wiki_core.folder_query_packet_v2 import preflight_folder_query_v2
+            binding = None
+            source_request = None
+            if args.source_request:
+                from wiki_core.folder_ingestion_v2 import selection_from_host_environment
+                source_request = read_json(args.source_request)
+                binding = selection_from_host_environment(args.folder, args.index, base_packet['output']).host
             output = preflight_folder_query_v2(args.repo, policy, base=args.base, head=args.head,
-                                                branch=args.branch, packet=packet, result=result)
+                                                branch=args.branch, packet=packet, result=result,
+                                                binding=binding, source_request=source_request)
         elif args.source_request:
             from wiki_core.folder_coordination_v2 import prepare_folder_preflight
             from wiki_core.folder_ingestion_v2 import selection_from_host_environment
