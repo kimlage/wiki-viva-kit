@@ -82,7 +82,9 @@ def validate_ingestion_projections(request, metadata):
                       for row in auth.get('independent_repo_additional_reads', [])] or None
         if (metadata.get('source_authorization') != capture
                 or metadata.get('independent_repo_read') != repo
-                or metadata.get('independent_repo_additional_reads') != additional):
+                or metadata.get('independent_repo_additional_reads') != additional
+                or (metadata.get('independent_repo_source_ref') is not None
+                    and (repo is None or metadata['independent_repo_source_ref'] != auth['canonical_ref']))):
             raise ValueError('ingestion projections differ')
     except (ValueError, TypeError, KeyError, AttributeError):
         raise ValueError('ingestion projections unavailable') from None

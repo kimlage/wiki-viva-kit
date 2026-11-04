@@ -183,3 +183,37 @@ def test_ungranted_report_source_regular_or_symlink_is_indistinguishable(project
     with pytest.raises(FolderCoordinationError) as symlink:
         prepare_folder_reassessment(project,binding,request)
     assert str(regular.value)==str(symlink.value)=='evidence unavailable or unauthorized'
+
+
+@pytest.mark.parametrize('projection', ['raw', 'repository'])
+def test_reassessment_ignores_well_formed_projection_for_a_different_source(project, projection):
+    from wiki_core.frontmatter import parse_frontmatter
+    report = setup_flow(project)
+    path = project / 'a/report.md'
+    fm, body = parse_frontmatter(path.read_text())
+    if projection == 'raw':
+        fm['source_authorization'] = {'source_kind':'staged_raw', 'ref':'a/raw/other.md',
+            'source_revision':None, 'source_sha256':'1' * 64, 'source_origin':{'kind':'repository_path'},
+            'canonical_ref':'a/other-source.md', 'canonical_revision':'2' * 40, 'canonical_sha256':'3' * 64,
+            'association':'caller_selected_unverified', 'external_origin_verification':'not_verified',
+            'external_freshness':'not_verified'}
+    else:
+        fm['independent_repo_read'] = {'identity':'example.test/group/repo', 'revision':'1' * 40,
+            'path':'guide.md', 'blob':'2' * 40, 'document_sha256':'3' * 64, 'content_sha256':'4' * 64,
+            'section':None, 'field':None}
+        fm['independent_repo_source_ref'] = 'a/other-source.md'
+    put(project, 'a/report.md', '---\n' + yaml.safe_dump(fm, sort_keys=False) + '---\n' + body)
+    commit(project)
+    out = prepare_folder_reassessment(project, FolderHostBinding(project, ('a',)), payload(project, report))
+    assert out['reassessment']['consumers'][0]['state'] == 'verification_pending'
+
+
+def test_ambiguous_projection_fails_closed_during_reassessment(project):
+    from wiki_core.frontmatter import parse_frontmatter
+    report = setup_flow(project)
+    fm, body = parse_frontmatter((project / 'a/report.md').read_text())
+    fm['source_authorization'] = {'source_kind':'staged_raw', 'canonical_ref':'a/other-source.md'}
+    put(project, 'a/report.md', '---\n' + yaml.safe_dump(fm, sort_keys=False) + '---\n' + body)
+    commit(project)
+    with pytest.raises(FolderCoordinationError):
+        prepare_folder_reassessment(project, FolderHostBinding(project, ('a',)), payload(project, report))

@@ -31,6 +31,7 @@ class FolderIngestionSelection:
     source_ref: str | None = None
     independent_repo: tuple[str, str, str, str] | None = None
     additional_repos: tuple[tuple[str, str, str, str], ...] = ()
+    existing_output_sha256: str | None = None
 
 
 def ingestion_binding_for_authorization(authorization):
@@ -44,7 +45,7 @@ def ingestion_binding_for_authorization(authorization):
             'source_authorization_sha256': hashlib.sha256(encoded).hexdigest()}
 
 
-def selection_from_host_environment(folder, index_path, output_path, source_ref=None, env=None, *, independent_repo=None, additional_repos=()):
+def selection_from_host_environment(folder, index_path, output_path, source_ref=None, env=None, *, independent_repo=None, additional_repos=(), existing_output_sha256=None):
     """Use host startup configuration; the request cannot widen its allowlist."""
     env = os.environ if env is None else env
     host_root = env.get('WIKI_FOLDER_INGEST_HOST_ROOT', '').strip()
@@ -59,7 +60,7 @@ def selection_from_host_environment(folder, index_path, output_path, source_ref=
         host = FolderHostBinding(Path(host_root), tuple(part.strip() for part in allowlist.split(',')), repos)
     except (ValueError, TypeError):
         raise ValueError('invalid repository bindings') from None
-    return FolderIngestionSelection(host, folder, index_path, output_path, source_ref, independent_repo, additional_repos)
+    return FolderIngestionSelection(host, folder, index_path, output_path, source_ref, independent_repo, additional_repos, existing_output_sha256)
 
 
 def independent_repo_selection_for_request(host, folder, authorization):
@@ -142,12 +143,26 @@ def authorize_folder_ingestion_source(root, source, approved_revision, selection
         root = Path(selection.host.root)
         reader = RepositoryReader(root, policy.policy_revision)
         _check_local_boundaries(root, output)
-        if (output in reader.paths or any(output == path or output.startswith(path + '/')
-                                          for path in reader.unsupported_paths)
+        existing_hash = selection.existing_output_sha256
+        if existing_hash is not None:
+            if (not isinstance(existing_hash, str) or not re.fullmatch(r'[0-9a-f]{64}', existing_hash)
+                    or output not in reader.paths or reader.blob_size(output) > context_max_bytes):
+                raise ValueError('explicit existing output unavailable')
+            # Only after the owner/write checks, compare the selected approved
+            # complete blob and working copy. Do not discard local edits.
+            previous = reader.read(output)
+            if (previous['content_sha256'] != existing_hash or not (root / output).is_file()
+                    or (root / output).stat().st_size != reader.blob_size(output)
+                    or previous['frontmatter'].get('page_type') != 'claim'):
+                raise ValueError('existing output differs from selected base')
+            with (root / output).open('rb') as stream:
+                local_output = stream.read(context_max_bytes + 1)
+            if len(local_output) > context_max_bytes or hashlib.sha256(local_output).hexdigest() != existing_hash:
+                raise ValueError('existing output differs from selected base')
+        elif (output in reader.paths or any(output == path or output.startswith(path + '/')
+                                           for path in reader.unsupported_paths)
                 or os.path.lexists(root / output)):
-            # Existing output requires a prior whole-output read and a result
-            # contract that this request-only preview does not yet implement.
-            raise ValueError('existing output requires a separate review path')
+            raise ValueError('existing output requires explicit base hash')
         candidate = Path(source).expanduser()
         if urlsplit(source).scheme and not candidate.is_absolute():
             raise ValueError('external source requires authorized staging')
@@ -255,6 +270,8 @@ def authorize_folder_ingestion_source(root, source, approved_revision, selection
                     'canonical_producer': canonical_producer,
                     'association': 'git_blob_verified' if tracked else 'caller_selected_unverified',
                     'external_origin_verification': 'not_verified', 'external_freshness': 'not_verified'}}
+        if existing_hash is not None:
+            result['authorization']['existing_output_sha256'] = existing_hash
         if repo_reads:
             result['independent_repo_content'] = repo_reads[0]['text']
             result['authorization']['independent_repo_read'] = {k: v for k, v in repo_reads[0].items() if k != 'text'}
@@ -296,10 +313,14 @@ def folder_ingestion_context(root, guard, input_context, perspectives_required, 
     evidence = [{'path': source_ref, 'producer_folder': policy.contexts[source_producer]['root'],
                  'reason': 'Approved source for contextual interpretation', 'use': 'interpretation',
                  'classification': 'source'}]
+    if selection.existing_output_sha256 is not None:
+        evidence.append({'path': selection.output_path, 'producer_folder': selection.folder,
+            'reason': 'Explicit whole prior output for review', 'use': 'context',
+            'classification': 'context'})
     for ref in dict.fromkeys(refs):
         ref = safe_path(ref)
         producer = policy.owner_of(ref)
-        if ref == source_ref:
+        if ref == source_ref or ref == selection.output_path:
             continue
         evidence.append({'path': ref, 'producer_folder': policy.contexts[producer]['root'],
             'reason': 'Required ingestion interpretation context', 'use': 'interpretation',
