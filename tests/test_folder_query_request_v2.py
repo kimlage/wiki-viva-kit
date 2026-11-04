@@ -48,8 +48,9 @@ def test_consolidation_requires_exact_retained_request(project, monkeypatch, tmp
     with pytest.raises(ValueError): validate_recorded_request(project, request['block_context_package'], request)
     with pytest.raises(ValueError): prepare_folder_consolidation(project, binding, request, results, **kwargs)
     path.write_bytes(original)
-    with pytest.raises(ValueError):
-        validate_recorded_request(project, request['block_context_package'], {**request, 'folder_request_id':'0'*64})
+    without_id = dict(request); without_id.pop('folder_request_id')
+    for invalid in (without_id, {**request, 'folder_request_id':'0'*64}):
+        with pytest.raises(ValueError): validate_recorded_request(project, request['block_context_package'], invalid)
 
 
 def setup_query(project):
