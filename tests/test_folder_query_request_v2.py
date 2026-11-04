@@ -108,6 +108,16 @@ def test_query_selection_without_folder_fails_closed(project):
     assert result.blocked and not result.written
 
 
+def test_empty_source_never_silently_discards_queries(project):
+    _, selection, query = setup_query(project)
+    put(project, 'a/source.md', '')
+    commit(project)
+    result = run(str(project / 'a/source.md'), 'system', project, load_config(project),
+                 approved_revision=git(project, 'rev-parse', 'HEAD'), folder_selection=selection,
+                 folder_queries=[query])
+    assert result.blocked and not result.written and result.context_error_code == 'folder_query_source_empty'
+
+
 def test_ingest_cli_delivers_selected_query(project, tmp_path):
     sha, _, query = setup_query(project)
     selected = tmp_path / 'queries.json'
