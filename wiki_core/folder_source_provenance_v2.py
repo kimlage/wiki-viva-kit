@@ -159,6 +159,15 @@ def validate_provenance(metadata):
     _entries(metadata)
 
 
+def preserved_projection_kinds(metadata, *, exclude_source=None):
+    """Identify prior declarations without reading or revalidating their sources."""
+    singleton_ref, singleton, entries = _entries(metadata, adding=True)
+    rows = ([singleton] if singleton and singleton_ref != exclude_source else [])
+    rows += [row for row in entries if row['canonical_ref'] != exclude_source]
+    return (any('source_authorization' in row for row in rows),
+            any('independent_repo_read' in row for row in rows))
+
+
 def requalify_projection(metadata, auth):
     """Replace only the explicitly selected projection, leaving others intact."""
     singleton_ref, singleton, entries = _entries(metadata, adding=True)
