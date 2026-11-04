@@ -159,11 +159,10 @@ def test_existing_claim_rejects_incomplete_report(project):
 
 
 @pytest.mark.parametrize(('path', 'version'), [
-    ('a/report.md', 'prior'), ('a/report.md', 'proposed'),
-    ('a/secondary.md', 'prior'), ('a/secondary.md', 'proposed'),
+    ('a/report.md', 'prior'), ('a/secondary.md', 'proposed'),
     (None, None),
 ])
-def test_projection_comparison_requires_unique_yaml_without_requirements(project, path, version):
+def test_projection_comparison_requires_unique_yaml_without_requirements(project, monkeypatch, path, version):
     def content(body, duplicate=False):
         extra = 'source_refs: [source-other]\n' if duplicate else ''
         return '---\npage_type: claim\n' + extra + 'source_refs: [source-original]\n---\n' + body + '\n'
@@ -191,17 +190,24 @@ def test_projection_comparison_requires_unique_yaml_without_requirements(project
     kwargs = dict(base=base, head=git(project, 'rev-parse', 'HEAD'), branch='wiki/unique-projections',
                   packet=packet, result=result)
     if path is None:
+        import wiki_core.folder_integration_v2 as integration
+        original = integration._require_unique_frontmatter
+        checked = []
+        def check(item):
+            checked.append((item['path'], item['revision']))
+            return original(item)
+        monkeypatch.setattr(integration, '_require_unique_frontmatter', check)
         assert preflight_folder_v2(project, policy, **kwargs)['state'] == 'independent_review_required'
+        assert set(checked) >= {(selected, revision) for selected in paths for revision in (base, kwargs['head'])}
     else:
         with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
             preflight_folder_v2(project, policy, **kwargs)
 
 
 @pytest.mark.parametrize(('path', 'kind'), [
-    ('a/report.md', 'root'), ('a/report.md', 'nested'),
-    ('a/secondary.md', 'root'), ('a/secondary.md', 'nested'), (None, None),
+    ('a/report.md', 'root'), ('a/secondary.md', 'nested'), (None, None),
 ])
-def test_new_claim_requires_unique_yaml_without_requirements(project, path, kind):
+def test_new_claim_requires_unique_yaml_without_requirements(project, monkeypatch, path, kind):
     def content(duplicate):
         if duplicate == 'root':
             extra = 'source_refs: [source-prior]\nsource_refs: null\n'
@@ -229,14 +235,24 @@ def test_new_claim_requires_unique_yaml_without_requirements(project, path, kind
     kwargs = dict(base=base, head=git(project, 'rev-parse', 'HEAD'), branch='wiki/new-unique',
                   packet=packet, result=result)
     if path is None:
+        import wiki_core.folder_integration_v2 as integration
+        original = integration._require_unique_frontmatter
+        checked = []
+        def check(item):
+            checked.append((item['path'], item['revision']))
+            return original(item)
+        monkeypatch.setattr(integration, '_require_unique_frontmatter', check)
         assert preflight_folder_v2(project, policy, **kwargs)['state'] == 'independent_review_required'
+        assert set(checked) >= {(selected, kwargs['head']) for selected in paths}
     else:
         with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
             preflight_folder_v2(project, policy, **kwargs)
 
 
-@pytest.mark.parametrize('action', ['created', 'modified', 'deleted'])
-@pytest.mark.parametrize('kind', ['plain', 'alias', 'cycle'])
+@pytest.mark.parametrize(('action', 'kind'), [
+    ('created', 'alias'), ('modified', 'cycle'), ('deleted', 'alias'),
+    ('created', 'plain'), ('modified', 'plain'), ('deleted', 'plain'),
+])
 def test_claim_changes_reject_yaml_aliases_and_cycles(project, action, kind):
     def claim(which):
         if which == 'alias':
@@ -275,6 +291,18 @@ def test_claim_changes_reject_yaml_aliases_and_cycles(project, action, kind):
     else:
         with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
             preflight_folder_v2(project, policy, **kwargs)
+
+
+@pytest.mark.parametrize('extra', [
+    'source_refs: [source-prior]\nsource_refs: null\n',
+    'metadata:\n  key: first\n  key: null\n',
+    'synthetic: &value [first]\nother: *value\n',
+    'synthetic: &value\n  loop: *value\n',
+])
+def test_frontmatter_validator_rejects_ambiguous_mappings_and_aliases(extra):
+    from wiki_core.folder_integration_v2 import _require_unique_frontmatter
+    with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
+        _require_unique_frontmatter({'text':'---\npage_type: claim\n' + extra + '---\nSynthetic claim\n'})
 
 
 def test_new_claim_deep_frontmatter_returns_controlled_reader_error(project):
