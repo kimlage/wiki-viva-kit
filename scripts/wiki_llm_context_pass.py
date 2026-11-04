@@ -191,8 +191,26 @@ def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
 def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: bool = False,
                     current_request: dict | None = None, limits: dict | None = None, owner: str = "Context owner/integrator", before_write=None,
                     preserve_existing: bool = False) -> int:
-    raw = sys.stdin.read() if payload_path == "-" else Path(payload_path).read_text(encoding="utf-8")
-    data = json.loads(raw)
+    if preserve_existing:
+        try:
+            from wiki_core.context_selection import strict_json_loads
+            if payload_path == '-':
+                raw = sys.stdin.read(2_000_001)
+                if len(raw.encode('utf-8')) > 2_000_000:
+                    raise ValueError('result input unavailable')
+            else:
+                with Path(payload_path).open('rb') as stream:
+                    content = stream.read(2_000_001)
+                if len(content) > 2_000_000:
+                    raise ValueError('result input unavailable')
+                raw = content.decode('utf-8')
+            data = strict_json_loads(raw)
+        except (ValueError, OSError, UnicodeError, RecursionError):
+            return _blocked(ContextRequestBlocked('local_result_unavailable',
+                'Selected result input is unavailable or invalid.'), 'requested-input', owner)
+    else:
+        raw = sys.stdin.read() if payload_path == "-" else Path(payload_path).read_text(encoding="utf-8")
+        data = json.loads(raw)
     results = data if isinstance(data, list) else [data]
     retained_sizes = {}
     approved_current = current_request is not None and current_request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1"

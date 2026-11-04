@@ -496,3 +496,47 @@ def test_result_batch_failure_reports_completed_first_result(approved, monkeypat
     assert module._record_results(WikiPaths(root, load_config(root)), str(payload),
         current_request=request, preserve_existing=True) == 2
     assert 'after 1 completed result(s)' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize('kind', ['missing', 'invalid', 'duplicate', 'unreadable'])
+def test_local_result_input_failure_is_opaque(approved, monkeypatch, capsys, tmp_path, kind):
+    from wiki_core.paths import WikiPaths
+    root, _, _, _ = approved
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
+    spec = importlib.util.spec_from_file_location('local_result_input_failure_test', script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    payload = tmp_path / 'synthetic-sensitive-input.json'
+    if kind != 'missing':
+        payload.write_text('{"duplicate": 1, "duplicate": 2}' if kind == 'duplicate' else '{invalid')
+    if kind == 'unreadable':
+        original = Path.open
+        def fail(path, *args, **kwargs):
+            if path == payload:
+                raise PermissionError(f'sensitive path: {payload}')
+            return original(path, *args, **kwargs)
+        monkeypatch.setattr(Path, 'open', fail)
+    request = {'source_id': 'source-selected', 'chunks': [], 'block_context_package': {}}
+    assert module._record_results(WikiPaths(root, load_config(root)), str(payload),
+        current_request=request, preserve_existing=True) == 2
+    captured = capsys.readouterr()
+    assert 'local_result_unavailable' in captured.out
+    assert str(payload) not in captured.out + captured.err
+    assert 'Traceback' not in captured.out + captured.err
+
+
+def test_local_path_reuses_boundary_guard_for_terminal_folder_and_relative_root(approved, monkeypatch):
+    from wiki_core.traversal import require_wiki_path
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    monkeypatch.chdir(root / 'area')
+    assert require_wiki_path(Path('..'), '.') == root
+    assert require_wiki_path(Path('..'), 'source.md') == source
+    for unsafe in ('../outside', '.git/config', 'secrets/file.md'):
+        with pytest.raises(ValueError):
+            require_wiki_path(Path('..'), unsafe)
+    nested = root / 'nested-terminal'
+    nested.mkdir()
+    (nested / '.git').write_text('gitdir: elsewhere')
+    with pytest.raises(ValueError):
+        require_wiki_path(Path('..'), 'nested-terminal')
