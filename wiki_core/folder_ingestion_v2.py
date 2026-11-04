@@ -315,6 +315,36 @@ def folder_ingestion_context(root, guard, input_context, perspectives_required, 
     return prepare_folder_packet(root, selection.host, payload)['packet']
 
 
+def load_folder_queries(path):
+    """Read an explicitly selected bounded JSON query list, without expanding access."""
+    from wiki_core.context_selection import strict_json_loads
+    with Path(path).open('rb') as stream:
+        raw = stream.read(2_000_001)
+    if len(raw) > 2_000_000:
+        raise ValueError('query selection exceeds byte limit')
+    queries = strict_json_loads(raw.decode('utf-8'))
+    if not isinstance(queries, list) or not 1 <= len(queries) <= 8:
+        raise ValueError('one to eight folder queries required')
+    return queries
+
+
+def folder_ingestion_queries(root, guard, packet, queries):
+    """Select queries under the same host and current approved folder policy."""
+    if queries is None:
+        return None
+    from wiki_core.folder_coordination_v2 import _bound_policy
+    from wiki_core.folder_query_packet_v2 import build_folder_query_packet_v2
+    selection = guard['folder_selection']
+    policy = _bound_policy(root, selection.host, selection.folder, guard['policy'].policy_revision)
+    return build_folder_query_packet_v2(root, policy, base_packet=packet, queries=queries)
+
+
+def revalidate_folder_ingestion_queries(root, guard, packet, queries, expected):
+    """Reproduce the complete selection before a persistence boundary."""
+    if folder_ingestion_queries(root, guard, packet, queries) != expected:
+        raise ValueError('folder query selection changed')
+
+
 def revalidate_folder_capture(guard, manifest, chunks, config):
     """Recompute the deterministic capture before accepting a reported result."""
     from wiki_core.chunking import chunk_text

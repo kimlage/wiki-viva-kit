@@ -61,6 +61,7 @@ def main() -> int:
     parser.add_argument("--folder-output", help="Concrete authorized proposal output path.")
     parser.add_argument("--folder-source-ref", help="Approved source page explicitly associated with staged RAW.")
     parser.add_argument("--folder-repo", nargs=4, action="append", metavar=("ROOT", "IDENTITY", "REVISION", "PATH"), help="Explicit host-authorized local Git selection; repeat for each path; no network access.")
+    parser.add_argument("--folder-queries", help="Explicit JSON array of authorized folder queries to include in the request.")
     parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
     parser.add_argument("--request-max-bytes", type=int, default=DEFAULT_REQUEST_MAX_BYTES)
     business_root = parser.add_mutually_exclusive_group()
@@ -72,13 +73,16 @@ def main() -> int:
 
     root = args.root.resolve()
     selection = None
+    folder_queries = None
     if args.mode == 'folder':
-        from wiki_core.folder_ingestion_v2 import selection_from_host_environment
+        from wiki_core.folder_ingestion_v2 import selection_from_host_environment, load_folder_queries
         try:
             selection = selection_from_host_environment(args.folder_context, args.folder_index, args.folder_output, args.folder_source_ref,
                 independent_repo=tuple(args.folder_repo[0]) if args.folder_repo else None,
                 additional_repos=tuple(tuple(row) for row in args.folder_repo[1:]) if args.folder_repo else ())
-        except ValueError:
+            if args.folder_queries is not None:
+                folder_queries = load_folder_queries(args.folder_queries)
+        except (ValueError, OSError):
             parser.error("invalid folder selection")
     config = load_config(root)
     source = args.source
@@ -97,6 +101,7 @@ def main() -> int:
         context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes,
         root_entity_ref=args.root_entity_ref, omit_root_entity=args.omit_root_entity,
         folder_selection=selection,
+        folder_queries=folder_queries,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
     if result.secret_findings:
