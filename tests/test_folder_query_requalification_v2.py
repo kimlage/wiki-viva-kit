@@ -71,6 +71,10 @@ def test_selected_requalification_preserves_other_requirements(project, tmp_path
     assert out['merge'] == 'not_performed'
     with pytest.raises(ValueError, match='require separate proposals'):
         preflight_folder_query_v2(project, policy, **common, query_requalifications=[report], requalify_source=True)
+    from wiki_core.folder_integration_v2 import preflight_folder_v2
+    with pytest.raises(ValueError, match='require separate proposals'):
+        preflight_folder_v2(project, policy, base=current, head=head, branch='wiki/requalify-query',
+            packet=next_base, result={}, query_requalifications=[report], requalify_source=True)
     forged = deepcopy(report); forged['result']['observed_queries'] = []
     with pytest.raises(ValueError):
         preflight_folder_query_v2(project, policy, **common, query_requalifications=[forged])
