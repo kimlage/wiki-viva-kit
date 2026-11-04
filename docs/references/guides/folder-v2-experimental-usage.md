@@ -243,7 +243,15 @@ automatic requalification. Actual host access remains the caller's responsibilit
 ## Preview consolidation from explicit recorded results
 
 `wiki_consolidate.py --folder-preview --max-age-days N` accepts one JSON object
-on standard input containing `request` and ordered `results`. The host must
+on standard input containing `request`, ordered `results` and explicit
+`page_metadata` (page ID, context, visibility, page date, stale threshold,
+source/gate/privacy policies, owner and selected parent). The current authorized
+packet must include the page-type registry and claim template as mandatory
+references; the preview derives the source ID from the selected canonical source
+page and validates the output against that registry. It does not renew a source
+date or invent an owner. It does not prove page-ID uniqueness or resolve every
+relation outside the selected context; repository audit and review remain
+required. The host must
 set `WIKI_FOLDER_INGEST_HOST_ROOT` and `WIKI_FOLDER_INGEST_HOST_FOLDERS`; add
 `--folder-candidate` for each exact current wiki page that may be inspected.
 The preview revalidates the folder packet and reported chunk results, reads only
@@ -254,7 +262,12 @@ execution. The host needs authority for complete selected blobs. Source age is
 an explicit caller input and is not evaluated as factual freshness. The source
 guard rechecks the current source hash and authorization; for staged RAW, the
 approved source-page association is caller-selected and external origin and
-freshness remain unverified.
+freshness remain unverified. Such a claim carries only capture metadata, not
+the RAW text. A selected Git repository contributes only identity/path/revision
+and digests to the claim, not its full contents. Preflight requires the exact
+recorded contextual request via `wiki_context_flow.py ... preflight
+--source-request REQUEST.json` under the trusted host binding; its revalidation
+does not prove execution or authenticate an external service.
 
 ## Compare one reported source and consumer
 
