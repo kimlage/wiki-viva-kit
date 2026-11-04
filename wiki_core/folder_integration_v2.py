@@ -324,6 +324,14 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             if contains_access_secrets(document['text']):
                 raise FolderIntegrationError('secret detected in proposed content')
             ingestion_source = None
+            if status == 'M' and path != packet['output']:
+                from wiki_core.folder_query_requirements_v2 import same_json
+                from wiki_core.folder_source_provenance_v2 import SINGLETON, FIELD
+                projection = (*SINGLETON, FIELD)
+                old_projection = {key:prior['frontmatter'][key] for key in projection if key in prior['frontmatter']}
+                new_projection = {key:document['frontmatter'][key] for key in projection if key in document['frontmatter']}
+                if not same_json(old_projection, new_projection):
+                    raise FolderIntegrationError('prior ingestion projections changed')
             preserve_prior_projections = status == 'M' and path == packet['output'] and bool(query_rows) and ingestion is None
             if preserve_prior_projections:
                 from wiki_core.folder_query_requirements_v2 import same_json
@@ -451,7 +459,9 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             if (PurePosixPath(path).suffix != '.md' or document['frontmatter'].get('page_type') != 'claim'
                     or (prior and prior['frontmatter'].get('page_type') != 'claim')):
                 raise FolderIntegrationError('ambiguous or normative change requires separate review')
-        elif prior and 'information_requirements' in prior['frontmatter']:
+        elif prior and any(key in prior['frontmatter'] for key in ('information_requirements',
+                'source_authorization', 'independent_repo_read', 'independent_repo_additional_reads',
+                'independent_repo_source_ref', 'folder_source_provenance')):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
         elif not prior or PurePosixPath(path).suffix != '.md' or prior['frontmatter'].get('page_type') != 'claim':
             raise FolderIntegrationError('ambiguous or normative change requires separate review')
