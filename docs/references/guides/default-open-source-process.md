@@ -535,12 +535,13 @@ The Python code does not call a model. It emits the package the agent must read.
 ### 8. Delegated deep read
 
 The agent reads the request and produces structured results. Each result must
-include all required keys, filled quadrants and `sensitivity.has_pii`. The result
-is recorded with:
+include all required keys, filled quadrants and `sensitivity.has_pii`. The
+following illustrates the explicit working-tree compatibility mode; for the
+default approved folder flow, use [bounded ingestion](bounded-ingestion.md#folder-bound-ingestion):
 
 ```sh
-python3 scripts/wiki_llm_context_pass.py --record-result result.json --context example
-python3 scripts/wiki_llm_context_pass.py --mode v1 --source path/to/source.md --context example --check
+python3 scripts/wiki_llm_context_pass.py --mode working-tree --record-result result.json --context example
+python3 scripts/wiki_llm_context_pass.py --mode working-tree --source path/to/source.md --context example --check
 ```
 
 The gate checks recorded results, not intentions. A plan to read the source is

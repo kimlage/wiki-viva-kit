@@ -2167,7 +2167,7 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
     if legacy_unconsolidated:
         warnings.append(
             f"{legacy_unconsolidated} legacy event(s) without consolidated_into; "
-            "close them when revisiting those sources (wiki_consolidate.py --check)"
+            "close them when revisiting those sources (wiki_consolidate.py --mode v1 --check)"
         )
 
 
