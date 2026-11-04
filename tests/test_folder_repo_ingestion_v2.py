@@ -143,3 +143,64 @@ def test_host_root_cannot_masquerade_as_independent_repo(project, monkeypatch):
     result = run(str(project / 'a/repo-source.md'), 'system', project, load_config(project),
                  approved_revision=sha, folder_selection=selected)
     assert result.blocked and not result.written
+
+
+def test_unresolvable_repository_root_is_opaque_blocker(project, monkeypatch, tmp_path):
+    from pathlib import Path
+    sha, selection, chosen = repository_fixture(project)
+    alias = tmp_path / 'bad-root'
+    selected = FolderIngestionSelection(selection.host, 'a', 'a/index.md', 'a/result.md', None,
+                                        (str(alias), *chosen[1:]))
+    resolve = Path.resolve
+    def fail_for_alias(path, *args, **kwargs):
+        if path == alias:
+            raise RuntimeError('sensitive path must not escape')
+        return resolve(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'resolve', fail_for_alias)
+    result = run(str(project / 'a/repo-source.md'), 'system', project, load_config(project),
+                 approved_revision=sha, folder_selection=selected)
+    assert result.blocked and not result.written
+    assert result.context_error_code == 'folder_source_unavailable'
+
+
+def test_multiple_explicit_repo_paths_include_agents_and_bind_result(project, monkeypatch, tmp_path, capsys):
+    from wiki_core.folder_ingestion_v2 import additional_repo_selections_for_request
+    sha, selection, chosen = repository_fixture(project)
+    clone = project / 'a/clone'
+    put(clone, 'AGENTS.md', 'Synthetic local instructions.\n')
+    git(clone, 'add', '-A'); git(clone, 'commit', '-qm', 'instructions')
+    rev = git(clone, 'rev-parse', 'HEAD')
+    chosen = (chosen[0], chosen[1], rev, chosen[3])
+    agents = (chosen[0], chosen[1], rev, 'AGENTS.md')
+    binding = FolderHostBinding(project, ('a',), (('a', clone, chosen[1], 'guide.md'), ('a', clone, chosen[1], 'AGENTS.md')))
+    selection = FolderIngestionSelection(binding, 'a', 'a/index.md', 'a/result.md', None, chosen, (agents,))
+    result = run(str(project / 'a/repo-source.md'), 'system', project, load_config(project),
+                 approved_revision=sha, folder_selection=selection)
+    assert not result.blocked and result.written
+    request = json.loads((project / result.request_path).read_text())
+    assert request['independent_repo_additional_content'] == ['Synthetic local instructions.\n']
+    extra = request['source_authorization']['independent_repo_additional_reads'][0]
+    assert extra['path'] == 'AGENTS.md' and 'text' not in extra
+    assert additional_repo_selections_for_request(binding, 'a', request['source_authorization']) == (agents,)
+    reported = _synthetic_result(request)
+    assert result_matches_request(reported, request, request['chunks'][0], recording=True)
+    altered = copy.deepcopy(request); altered['independent_repo_additional_content'][0] += 'changed'
+    assert not result_matches_request(reported, altered, altered['chunks'][0], recording=True)
+    module = _recording_cli(project, sha, request, monkeypatch, tmp_path, source='a/repo-source.md')
+    monkeypatch.setenv('WIKI_FOLDER_INGEST_HOST_REPOSITORIES', json.dumps([
+        ['a', chosen[0], chosen[1], 'guide.md'], ['a', chosen[0], chosen[1], 'AGENTS.md']]))
+    sys.argv.extend(['--folder-repo', *chosen, '--folder-repo', *agents])
+    assert module.main() == 0
+    assert json.loads(capsys.readouterr().out)['count'] == 1
+
+
+def test_all_repo_paths_are_authorized_before_any_repo_body(project, monkeypatch):
+    import pytest
+    import wiki_core.repo_read as reader
+    sha, selection, chosen = repository_fixture(project)
+    not_granted = (chosen[0], chosen[1], chosen[2], 'AGENTS.md')
+    selected = FolderIngestionSelection(selection.host, 'a', 'a/index.md', 'a/result.md', None, chosen, (not_granted,))
+    monkeypatch.setattr(reader, 'read_independent_repo', lambda *a, **k: pytest.fail('partial selection was read'))
+    result = run(str(project / 'a/repo-source.md'), 'system', project, load_config(project),
+                 approved_revision=sha, folder_selection=selected)
+    assert result.blocked and not result.written

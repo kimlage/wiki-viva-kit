@@ -30,9 +30,10 @@ class FolderIngestionSelection:
     output_path: str
     source_ref: str | None = None
     independent_repo: tuple[str, str, str, str] | None = None
+    additional_repos: tuple[tuple[str, str, str, str], ...] = ()
 
 
-def selection_from_host_environment(folder, index_path, output_path, source_ref=None, env=None, *, independent_repo=None):
+def selection_from_host_environment(folder, index_path, output_path, source_ref=None, env=None, *, independent_repo=None, additional_repos=()):
     """Use host startup configuration; the request cannot widen its allowlist."""
     env = os.environ if env is None else env
     host_root = env.get('WIKI_FOLDER_INGEST_HOST_ROOT', '').strip()
@@ -47,7 +48,7 @@ def selection_from_host_environment(folder, index_path, output_path, source_ref=
         host = FolderHostBinding(Path(host_root), tuple(part.strip() for part in allowlist.split(',')), repos)
     except (ValueError, TypeError):
         raise ValueError('invalid repository bindings') from None
-    return FolderIngestionSelection(host, folder, index_path, output_path, source_ref, independent_repo)
+    return FolderIngestionSelection(host, folder, index_path, output_path, source_ref, independent_repo, additional_repos)
 
 
 def independent_repo_selection_for_request(host, folder, authorization):
@@ -69,6 +70,14 @@ def independent_repo_selection_for_request(host, folder, authorization):
     if len(matches) != 1:
         raise ValueError('repository binding unavailable')
     return (str(matches[0]), identity, revision, path)
+
+
+def additional_repo_selections_for_request(host, folder, authorization):
+    """Resolve every additional explicit selection through the trusted host."""
+    receipts = authorization.get('independent_repo_additional_reads', []) if isinstance(authorization, dict) else []
+    if not isinstance(receipts, list) or len(receipts) > 15:
+        raise ValueError('repository binding unavailable')
+    return tuple(independent_repo_selection_for_request(host, folder, {'independent_repo_read': row}) for row in receipts)
 
 
 def _check_local_boundaries(root, ref):
@@ -186,24 +195,34 @@ def authorize_folder_ingestion_source(root, source, approved_revision, selection
         if tracked and canonical_document['content_sha256'] != source_sha:
             raise ContextRequestBlocked('folder_source_revision_changed',
                 'The staged source differs from its approved Git version; requalify the source before preparing a request.')
-        repo_read = None
+        repo_reads = []
+        if not isinstance(selection.additional_repos, tuple) or len(selection.additional_repos) > 15:
+            raise ValueError('invalid repository selections')
+        if selection.independent_repo is None and selection.additional_repos:
+            raise ValueError('repository selection unavailable')
         if selection.independent_repo is not None:
             from wiki_core.repo_read import read_independent_repo
             from wiki_core.folder_reassessment_v2 import _repository_node_matches
-            chosen = selection.independent_repo
-            if (not tracked or not isinstance(chosen, tuple) or len(chosen) != 4
-                    or any(not isinstance(item, str) for item in chosen)):
-                raise ValueError('invalid repository selection')
-            repo_root, identity, revision, repo_path = chosen
-            resolved_repo_root = Path(repo_root).resolve()
-            if (not Path(repo_root).is_absolute() or resolved_repo_root == root
-                    or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision)
-                    or (selection.folder, resolved_repo_root, identity, safe_path(repo_path))
-                    not in selection.host.independent_repos):
-                raise ValueError('repository not bound to this folder')
-            if not _repository_node_matches(canonical_document['text'], identity):
-                raise ValueError('repository source page mismatch')
-            repo_read = read_independent_repo(resolved_repo_root, identity, revision, repo_path)
+            qualified = []
+            for chosen in (selection.independent_repo, *selection.additional_repos):
+                if (not tracked or not isinstance(chosen, tuple) or len(chosen) != 4
+                        or any(not isinstance(item, str) for item in chosen)):
+                    raise ValueError('invalid repository selection')
+                repo_root, identity, revision, repo_path = chosen
+                resolved_repo_root = Path(repo_root).resolve()
+                if (not Path(repo_root).is_absolute() or resolved_repo_root == root
+                        or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision)
+                        or (selection.folder, resolved_repo_root, identity, safe_path(repo_path))
+                        not in selection.host.independent_repos):
+                    raise ValueError('repository not bound to this folder')
+                if not _repository_node_matches(canonical_document['text'], identity):
+                    raise ValueError('repository source page mismatch')
+                item = (resolved_repo_root, identity, revision, repo_path)
+                if qualified and (item[:3] != qualified[0][:3] or repo_path in [q[3] for q in qualified]):
+                    raise ValueError('repository selections must share identity and revision with unique paths')
+                qualified.append(item)
+            # Qualify every path before reading any independent repository body.
+            repo_reads = [read_independent_repo(*item) for item in qualified]
         from wiki_core.source_manifest import source_origin
         origin = source_origin(str(candidate), root)
         policy.fresh()
@@ -225,13 +244,17 @@ def authorize_folder_ingestion_source(root, source, approved_revision, selection
                     'canonical_producer': canonical_producer,
                     'association': 'git_blob_verified' if tracked else 'caller_selected_unverified',
                     'external_origin_verification': 'not_verified', 'external_freshness': 'not_verified'}}
-        if repo_read is not None:
-            result['independent_repo_content'] = repo_read['text']
-            result['authorization']['independent_repo_read'] = {k: v for k, v in repo_read.items() if k != 'text'}
+        if repo_reads:
+            result['independent_repo_content'] = repo_reads[0]['text']
+            result['authorization']['independent_repo_read'] = {k: v for k, v in repo_reads[0].items() if k != 'text'}
+            if len(repo_reads) > 1:
+                result['independent_repo_additional_content'] = [row['text'] for row in repo_reads[1:]]
+                result['authorization']['independent_repo_additional_reads'] = [
+                    {k: v for k, v in row.items() if k != 'text'} for row in repo_reads[1:]]
         return result
     except ContextRequestBlocked:
         raise
-    except (ValueError, OSError, TypeError, KeyError, AttributeError):
+    except (ValueError, OSError, RuntimeError, TypeError, KeyError, AttributeError):
         raise ContextRequestBlocked('folder_source_unavailable',
             'Folder context, destination or source is unavailable or unauthorized, or the context budget is insufficient; no compatibility fallback was used.') from None
 
