@@ -43,6 +43,45 @@ def test_node_stays_visible_and_child_git_file_and_dir_are_pruned(tmp_path):
     assert wiki_markdown_files(tmp_path / '..' / tmp_path.name, wiki_root=tmp_path) == []
 
 
+@pytest.mark.parametrize('marker', ['file', 'directory'])
+def test_find_refuses_derived_index_and_manifests_inside_nested_repo(tmp_path, monkeypatch, marker):
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    node = paths.memory_root / 'node' / 'index.md'
+    page(node, 'node', 'nodeword')
+    paths.source_manifests.mkdir(parents=True)
+    manifest = paths.source_manifests / 'unselected.json'
+    manifest.write_text('{"schema_version":"wiki_source_manifest.v1","source_id":"unselected"}')
+    db = paths.indexes / 'wiki.sqlite'
+    index_pages(db, collect_page_chunks(tmp_path, paths, cfg))
+    marker_path = paths.derived_root / '.git'
+    if marker == 'file':
+        marker_path.write_text('gitdir: ../separate')
+    else:
+        marker_path.mkdir()
+    assert wiki_markdown_files(paths.memory_root, wiki_root=tmp_path) == [node]
+    original_read = Path.read_text
+    original_open = Path.open
+    def guarded_read(path, *args, **kwargs):
+        if path == manifest:
+            pytest.fail('nested repository manifest opened')
+        return original_read(path, *args, **kwargs)
+    def guarded_open(path, *args, **kwargs):
+        if path == db:
+            pytest.fail('nested repository SQLite opened')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded_read)
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    monkeypatch.setattr(sqlite3, 'connect', lambda *args, **kwargs: pytest.fail('nested SQLite connected'))
+    for source in (None, 'source-example'):
+        result = find(tmp_path, cfg, 'nodeword', source_id=source)
+        assert result['status'] == 'index_error'
+        assert result['error'] == 'index_path_crosses_repository_boundary'
+        assert not result['hits']
+        assert any(issue['reason'] == 'metadata_path_crosses_repository_boundary'
+                   for issue in result['scope']['catalog_issues'])
+
+
 def test_rebuild_removes_previously_indexed_clone_but_explicit_git_read_works(tmp_path):
     cfg = WikiConfig()
     paths = WikiPaths(tmp_path, cfg)
