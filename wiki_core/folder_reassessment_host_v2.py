@@ -244,8 +244,10 @@ def prepare_folder_reassessment(root, binding, payload):
                 raise FolderCoordinationError('source request unavailable') from None
             if not isinstance(selected_meta, dict):
                 raise FolderCoordinationError('source request unavailable')
-            raw_relevant = _capture_relevant(selected_meta, source)
-            repo_relevant = _repository_relevant(selected_meta, source)
+            from wiki_core.folder_source_provenance_v2 import selected_projection
+            selected_provenance = selected_projection(selected_meta, source)
+            raw_relevant = _capture_relevant(selected_provenance, source)
+            repo_relevant = _repository_relevant(selected_provenance, source)
             has_capture = raw_relevant or repo_relevant
             ingestion = selected_report['packet'].get('ingestion_binding')
             if (has_capture or ingestion is not None) and (not isinstance(source_auth, dict)
@@ -254,25 +256,19 @@ def prepare_folder_reassessment(root, binding, payload):
             if ingestion is not None:
                 from wiki_core.folder_capture_v2 import validate_recorded_request, validate_ingestion_projections
                 validate_recorded_request(binding.root, selected_report['packet'], source_request)
-                relevant_meta = dict(selected_meta)
-                if not raw_relevant:
-                    relevant_meta.pop('source_authorization', None)
-                if not repo_relevant:
-                    for key in ('independent_repo_read', 'independent_repo_additional_reads', 'independent_repo_source_ref'):
-                        relevant_meta.pop(key, None)
-                validate_ingestion_projections(source_request, relevant_meta)
+                validate_ingestion_projections(source_request, selected_meta)
             elif has_capture:
                 raise FolderCoordinationError('ingestion task binding required')
             if repo_relevant:
                 from wiki_core.folder_capture_v2 import inspect_reported_repository, repository_receipt_projection
                 receipt = source_auth.get('independent_repo_read')
-                projection = selected_meta['independent_repo_read']
+                projection = selected_provenance['independent_repo_read']
                 if (not isinstance(receipt, dict) or projection != repository_receipt_projection(receipt)
                         or selected_report.get('repo_read') != {**receipt, 'text':source_request.get('independent_repo_content')}):
                     raise FolderCoordinationError('repository request unavailable')
                 inspect_reported_repository(binding.root, binding, folder, policy.policy_revision,
                                             selected_report['packet'], source_request, projection,
-                                            selected_meta.get('independent_repo_additional_reads'))
+                                            selected_provenance.get('independent_repo_additional_reads'))
         outcome = reassess_folder_source_v2(binding.root, policy, folder=folder, source=source,
                     reports=reports, scope=scope, candidates=candidates, max_files=max_files, max_bytes=max_bytes,
                     independent_repo=independent)
@@ -304,7 +300,9 @@ def prepare_folder_reassessment(root, binding, payload):
                 meta = yaml.load(match.group(1), Loader=UniqueLoader)
             except yaml.YAMLError:
                 raise FolderCoordinationError('raw capture unavailable') from None
-            capture = meta.get('source_authorization') if isinstance(meta, dict) else None
+            from wiki_core.folder_source_provenance_v2 import selected_projection
+            selected_meta = selected_projection(meta, source) if isinstance(meta, dict) else {}
+            capture = selected_meta.get('source_authorization')
             if not isinstance(capture, dict) or capture.get('canonical_ref') != source:
                 raise FolderCoordinationError('raw capture unavailable')
             validate_recorded_capture_request(binding.root, packet, source_request, capture)
@@ -331,15 +329,17 @@ def prepare_folder_reassessment(root, binding, payload):
             if len(matched) != 1 or len(entries) != 1 or source_auth.get('canonical_ref') != source:
                 raise FolderCoordinationError('repository request unavailable')
             doc = reader.read(target)
-            projection = doc['frontmatter'].get('independent_repo_read')
-            if (not _repository_relevant(doc['frontmatter'], source)
+            from wiki_core.folder_source_provenance_v2 import selected_projection
+            selected_meta = selected_projection(doc['frontmatter'], source)
+            projection = selected_meta.get('independent_repo_read')
+            if (not _repository_relevant(selected_meta, source)
                     or projection != repository_receipt_projection(source_auth['independent_repo_read'])
                     or matched[0].get('repo_read') != {**source_auth['independent_repo_read'],
                                                        'text':source_request.get('independent_repo_content')}):
                 raise FolderCoordinationError('repository request unavailable')
             inspect_reported_repository(binding.root, binding, folder, policy.policy_revision,
                                         packet, source_request, projection,
-                                        doc['frontmatter'].get('independent_repo_additional_reads'))
+                                        selected_meta.get('independent_repo_additional_reads'))
             from wiki_core.folder_ingestion_v2 import additional_repo_selections_for_request
             from wiki_core.repo_read import read_independent_repo, _git as repo_git
             additional = additional_repo_selections_for_request(binding, folder, source_auth)
@@ -369,9 +369,11 @@ def prepare_folder_reassessment(root, binding, payload):
         for entry in outcome['consumers']:
             target = entry['target']
             document = reader.read(target)
-            if _capture_relevant(document['frontmatter'], source) and target not in validated_raw:
+            from wiki_core.folder_source_provenance_v2 import selected_projection
+            selected_meta = selected_projection(document['frontmatter'], source)
+            if _capture_relevant(selected_meta, source) and target not in validated_raw:
                 entry['state'] = 'blocked_raw_capture_unavailable'
-            if _repository_relevant(document['frontmatter'], source) and target not in validated_repo:
+            if _repository_relevant(selected_meta, source) and target not in validated_repo:
                 entry['state'] = 'blocked_repository_request_unavailable'
         policy.fresh()
         return {'schema_version':'wiki.folder-host-reassessment/v2','mode':'host_bound',

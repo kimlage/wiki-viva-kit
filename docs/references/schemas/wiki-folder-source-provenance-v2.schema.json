@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Folder source provenance on one claim",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "entries"],
+  "properties": {
+    "schema_version": {"const": "wiki.folder-source-provenance/v2"},
+    "entries": {
+      "type": "array", "minItems": 1, "maxItems": 64,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["canonical_ref", "canonical_revision"],
+        "properties": {
+          "canonical_ref": {"type": "string", "minLength": 1},
+          "canonical_revision": {"$ref": "#/$defs/gitRevision"},
+          "source_authorization": {"$ref": "#/$defs/capture"},
+          "independent_repo_read": {"$ref": "#/$defs/repository"},
+          "independent_repo_additional_reads": {
+            "type": "array", "minItems": 1, "maxItems": 15,
+            "items": {"$ref": "#/$defs/repository"}
+          }
+        },
+        "oneOf": [
+          {"required": ["source_authorization"], "not": {"anyOf": [{"required": ["independent_repo_read"]}, {"required": ["independent_repo_additional_reads"]}]}},
+          {"required": ["independent_repo_read"], "not": {"required": ["source_authorization"]}}
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "gitRevision": {"type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "repository": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "revision", "path", "blob", "document_sha256", "content_sha256", "section", "field"],
+      "properties": {
+        "identity": {"type": "string", "minLength": 1}, "revision": {"$ref": "#/$defs/gitRevision"},
+        "path": {"type": "string", "minLength": 1}, "blob": {"$ref": "#/$defs/gitRevision"},
+        "document_sha256": {"$ref": "#/$defs/sha256"}, "content_sha256": {"$ref": "#/$defs/sha256"},
+        "section": {"type": "null"}, "field": {"type": "null"}
+      }
+    },
+    "capture": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_kind", "ref", "source_revision", "source_sha256", "source_origin", "canonical_ref", "canonical_revision", "canonical_sha256", "association", "external_origin_verification", "external_freshness"],
+      "properties": {
+        "source_kind": {"const": "staged_raw"}, "ref": {"type": "string", "minLength": 1},
+        "source_revision": {"type": "null"}, "source_sha256": {"$ref": "#/$defs/sha256"},
+        "source_origin": {"type": "object"}, "canonical_ref": {"type": "string", "minLength": 1},
+        "canonical_revision": {"$ref": "#/$defs/gitRevision"}, "canonical_sha256": {"$ref": "#/$defs/sha256"},
+        "association": {"const": "caller_selected_unverified"},
+        "external_origin_verification": {"const": "not_verified"}, "external_freshness": {"const": "not_verified"}
+      }
+    }
+  }
+}

@@ -2068,6 +2068,12 @@ def audit_page_type_registry(errors: list[str], config: WikiConfig) -> None:
             for field in structured_fields:
                 if field in structured_values:
                     shape_values[field] = structured_values[field]
+            if 'folder_source_provenance' in structured_values:
+                try:
+                    from wiki_core.folder_source_provenance_v2 import validate_provenance
+                    validate_provenance(structured_values)
+                except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
+                    errors.append(f"{rel}: invalid folder source provenance")
         errors.extend(validate_shape(ROOT, rel, shape_values, _audit_read_text(path, encoding="utf-8"), shape))
 
     unused = sorted(set(registry.page_types) - used_types)

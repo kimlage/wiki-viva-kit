@@ -445,11 +445,6 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
             if (not isinstance(frontmatter, dict) or frontmatter.get('page_type') != 'claim'
                     or any(frontmatter.get(k) != v for k,v in page_metadata.items())):
                 raise ValueError('existing metadata differs from explicit selection')
-            # Singular capture/repository projections cannot represent multiple
-            # source requests without changing the reassessment contract.
-            if any(frontmatter.get(key) is not None for key in ('source_authorization',
-                       'independent_repo_read', 'independent_repo_additional_reads', 'independent_repo_source_ref')):
-                raise ValueError('existing capture provenance needs separate migration')
             prior_refs = frontmatter.get('source_refs', [])
             prior_requirements = frontmatter.get('information_requirements', [])
             if (not isinstance(prior_refs, list) or not isinstance(prior_requirements, list)
@@ -462,28 +457,8 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         else:
             frontmatter = {**{key: [] for key in sorted(relation_fields)}, **page_metadata,
                            'page_type': 'claim', 'source_refs': [source_id], 'information_requirements': [requirement, *query_requirements]}
-        if auth['source_kind'] == 'staged_raw':
-            # Persist only existing capture metadata, never source text or an
-            # access-bearing URL; raw's external association stays unverified.
-            capture_keys = ('source_kind', 'ref', 'source_revision', 'source_sha256', 'source_origin',
-                            'canonical_ref', 'canonical_revision', 'canonical_sha256', 'association',
-                            'external_origin_verification', 'external_freshness')
-            frontmatter['source_authorization'] = {key: auth[key] for key in capture_keys}
-        if auth.get('independent_repo_read') is not None:
-            receipt = auth['independent_repo_read']
-            frontmatter['independent_repo_read'] = {
-                'identity': receipt['repository']['identity'],
-                **{key: receipt[key] for key in ('revision', 'path', 'blob', 'document_sha256',
-                                                   'content_sha256', 'section', 'field')},
-            }
-        if previous is not None and auth.get('independent_repo_read') is not None:
-            frontmatter['independent_repo_source_ref'] = source
-        if auth.get('independent_repo_additional_reads'):
-            frontmatter['independent_repo_additional_reads'] = [
-                {'identity': receipt['repository']['identity'],
-                 **{key: receipt[key] for key in ('revision', 'path', 'blob', 'document_sha256',
-                                                  'content_sha256', 'section', 'field')}}
-                for receipt in auth['independent_repo_additional_reads']]
+        from wiki_core.folder_source_provenance_v2 import add_projection
+        frontmatter.update(add_projection(frontmatter, auth))
         provenance = {key: auth.get(key) for key in ('source_kind', 'ref', 'source_revision', 'source_sha256',
                       'canonical_ref', 'canonical_revision', 'association',
                       'external_origin_verification', 'external_freshness')}

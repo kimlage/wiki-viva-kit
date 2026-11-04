@@ -63,6 +63,7 @@ page_types:
       - moc_parent
     field_types:
       <<: *relation_field_types
+      folder_source_provenance: object
       perspectives_required: list
       perspectives_optional: list
   context_note:
