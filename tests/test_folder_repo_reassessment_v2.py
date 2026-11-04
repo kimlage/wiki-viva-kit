@@ -7,8 +7,11 @@ from pathlib import Path
 import pytest
 
 from tests.test_folder_policy_v2 import project, put, git, commit
+from wiki_core.folder_coordination_v2 import FolderCoordinationError, FolderHostBinding
+from wiki_core.folder_integration_v2 import preflight_folder_v2
 from wiki_core.folder_packet_v2 import build_folder_packet_v2
 from wiki_core.folder_policy_v2 import load_folder_policy_v2
+from wiki_core.folder_reassessment_host_v2 import prepare_folder_reassessment
 from wiki_core.folder_reassessment_v2 import reassess_folder_source_v2, FolderReassessmentError
 from wiki_core.repo_read import read_independent_repo
 
@@ -32,11 +35,13 @@ def make_flow(project, *, old_locator=IDENTITY, duplicate_locator=False):
     put(project, 'a/repo-source.md', '---\npage_type: source\nplatform: repo\n' + extra + 'source_locator: '
         + old_locator + '\n---\nSynthetic repository node\n')
     commit(project)
-    policy = load_folder_policy_v2(project, 'HEAD')
+    wiki_branch = git(project, 'branch', '--show-current')
     reports = []
-    for target, receipt in [('a/first.md', receipt_a), ('a/second.md', receipt_b)]:
+    for number, (target, receipt) in enumerate([('a/first.md', receipt_a), ('a/second.md', receipt_b)], 1):
+        base = git(project, 'rev-parse', 'HEAD')
+        policy = load_folder_policy_v2(project, base)
         packet = build_folder_packet_v2(project, policy, 'a', 30000, index_path='a/index.md',
-            content_revision='HEAD', task_id=target, goal='read selected source', output=target,
+            content_revision=base, task_id=target, goal='read selected source', output=target,
             integrator='independent', evidence=[{'path':'a/repo-source.md', 'producer_folder':'a',
             'reason':'repository node', 'use':'interpret', 'classification':'internal'}])
         result = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed',
@@ -45,12 +50,22 @@ def make_flow(project, *, old_locator=IDENTITY, duplicate_locator=False):
                          'section': r.get('section'), 'field': r.get('field')} for r in packet['inputs']],
             'changes':[{'path':target, 'action':'created'}]}
         reports.append({'target':target, 'section':None, 'field':None, 'packet':packet, 'result':result, 'repo_read':receipt})
+        branch = f'wiki/repo-consumer-{number}'
+        git(project, 'checkout', '-qb', branch)
         put(project, target, '---\npage_type: claim\ninformation_requirements:\n  - target: a/repo-source.md\n'
-            '    fields: ["*"]\n    temporal: current\n    max_age_days: 30\n---\nIndependent interpretation ' + target + '\n')
+            '    fields: ["*"]\n    temporal: current\n    max_age_days: 30\n    consumed_revision: "'
+            + base + '"\n---\nIndependent interpretation ' + target + '\n')
+        git(project, 'add', '-A'); git(project, 'commit', '-qm', 'synthetic proposal')
+        head = git(project, 'rev-parse', 'HEAD')
+        check = preflight_folder_v2(project, policy, base=base, head=head, branch=branch, packet=packet, result=result)
+        assert check['state'] == 'independent_review_required' and check['merge'] == 'not_performed'
+        # Synthetic Git history only: the fixture does not claim a real review.
+        git(project, 'checkout', '-q', wiki_branch); git(project, 'merge', '--ff-only', branch)
+        git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     if old_locator != IDENTITY or duplicate_locator:
         put(project, 'a/repo-source.md', '---\npage_type: source\nplatform: repo\nsource_locator: '
             + IDENTITY + '\n---\nSynthetic repository node\n')
-    commit(project)
+        commit(project)
     put(clone, 'guide.md', '---\nalpha: 9\nbeta: 2\n---\nSynthetic Git source changed\n')
     git(clone, 'add', '-A'); git(clone, 'commit', '-qm', 'source after')
     selected = {'root':str(clone), 'identity':IDENTITY, 'path':'guide.md', 'revision':git(clone, 'rev-parse', 'HEAD')}
@@ -61,6 +76,13 @@ def call(project, reports, selected):
     policy = load_folder_policy_v2(project, 'HEAD')
     return reassess_folder_source_v2(project, policy, folder='a', source='a/repo-source.md',
                 candidates=['a/first.md', 'a/second.md'], reports=reports, independent_repo=selected)
+
+
+def host_call(project, binding, reports, selected):
+    return prepare_folder_reassessment(project, binding, {'folder':'a',
+        'approved_revision':git(project, 'rev-parse', 'refs/remotes/origin/main'),
+        'source':'a/repo-source.md', 'candidates':['a/first.md', 'a/second.md'],
+        'reports':reports, 'independent_repo':selected})
 
 
 def test_independent_repo_selection_reassesses_two_consumers_without_writes(project):
@@ -78,6 +100,56 @@ def test_independent_repo_selection_reassesses_two_consumers_without_writes(proj
     assert selected['root'] not in json.dumps(out)
     assert [(project / row['target']).read_text() for row in reports] == pages
     assert [git(project, 'status', '--porcelain'), git(clone, 'status', '--porcelain')] == before
+
+
+def test_host_bound_flow_uses_selected_repo_without_granting_access(project):
+    clone, reports, selected = make_flow(project)
+    binding = FolderHostBinding(project, ('a',), ((clone, IDENTITY),))
+    out = host_call(project, binding, reports, selected)
+    rows = {row['target']:row for row in out['reassessment']['consumers']}
+    assert rows['a/first.md']['state'] == 'review_pending'
+    assert rows['a/second.md']['state'] == 'verification_pending'
+    assert rows['a/first.md']['repository_impact']['selected_revision'] == selected['revision']
+    assert 'current_revision' not in rows['a/first.md']['repository_impact']
+    assert out['enforcement_claim'] == 'none'
+
+
+@pytest.mark.parametrize('binding_mode', ['empty', 'wrong_root', 'wrong_identity'])
+def test_host_requires_repo_allowlist_before_repo_read(project, tmp_path, monkeypatch, binding_mode):
+    import wiki_core.folder_reassessment_v2 as module
+    clone, reports, selected = make_flow(project)
+    repo_bindings = {'empty': (), 'wrong_root': ((tmp_path / 'other', IDENTITY),),
+                     'wrong_identity': ((clone, 'example.test/group/other'),)}[binding_mode]
+    binding = FolderHostBinding(project, ('a',), repo_bindings)
+    def never(*args, **kwargs):
+        pytest.fail('independent repository read without host allowlist')
+    monkeypatch.setattr(module, 'read_independent_repo', never)
+    with pytest.raises(FolderCoordinationError, match='independent repository unavailable'):
+        host_call(project, binding, reports, selected)
+
+
+@pytest.mark.parametrize('root,identity', [
+    ('relative/repo', IDENTITY),
+    ('/tmp/synthetic-repo', 'example.test/group/project?token=synthetic'),
+])
+def test_host_binding_rejects_invalid_repo_allowlist(project, root, identity):
+    with pytest.raises(ValueError, match='invalid independent repository binding'):
+        FolderHostBinding(project, ('a',), ((Path(root), identity),))
+
+
+def test_host_denies_wiki_node_before_repo_read_even_with_repo_binding(project, monkeypatch):
+    import yaml
+    import wiki_core.folder_reassessment_v2 as module
+    clone, reports, selected = make_flow(project)
+    config = project / 'wiki-context-controls.yaml'; controls = yaml.safe_load(config.read_text())
+    controls['controls']['a']['policy']['deny'] = {'read':['a/repo-source.md']}
+    config.write_text(yaml.safe_dump(controls)); commit(project)
+    binding = FolderHostBinding(project, ('a',), ((clone, IDENTITY),))
+    def never(*args, **kwargs):
+        pytest.fail('repo opened before wiki node authorization')
+    monkeypatch.setattr(module, 'read_independent_repo', never)
+    with pytest.raises(FolderCoordinationError):
+        host_call(project, binding, reports, selected)
 
 
 def test_wrong_identity_and_reported_path_are_rejected(project):
