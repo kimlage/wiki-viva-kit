@@ -281,8 +281,17 @@ def _page_index_matches(conn: sqlite3.Connection, signature: str | None) -> bool
     return fts == [(row[0], row[1], row[5]) for row in indexed]
 
 
-def search(db_path: Path, query: str, limit: int = 20, *, page_signature: str | None = None) -> list[dict[str, object]]:
+def search(db_path: Path, query: str, limit: int = 20, *, page_signature: str | None = None,
+           wiki_root: Path | None = None) -> list[dict[str, object]]:
     """Search chunks by relevance (BM25). Returns [] for an empty query or missing index."""
+    if wiki_root is not None:
+        from wiki_core.traversal import is_in_nested_git
+        try:
+            crosses_boundary = is_in_nested_git(db_path, wiki_root=wiki_root)
+        except (OSError, ValueError) as exc:
+            raise ValueError('index_path_crosses_repository_boundary') from exc
+        if crosses_boundary:
+            raise ValueError('index_path_crosses_repository_boundary')
     if not db_path.exists():
         return []
     match = sanitize_fts_query(query)
