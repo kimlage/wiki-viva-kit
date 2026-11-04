@@ -107,11 +107,10 @@ def validate_folder_artifact_paths(root, paths, source_id, *, stream=False, scor
     if not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9._-]+', source_id):
         raise ValueError('invalid source artifact identity')
     root = Path(root).resolve()
-    folders = [paths.source_manifests, paths.source_text, paths.chunks, paths.indexes,
-               paths.extraction_events, paths.llm_cache, paths.coverage, paths.input_stage]
+    folders = [paths.source_manifests, paths.source_text, paths.chunks,
+               paths.extraction_events, paths.llm_cache]
     files = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
-             paths.chunks / f'{source_id}.json', paths.extraction_events / f'{source_id}-llm-context-request.json',
-             *(paths.indexes / name for name in ('wiki.sqlite', 'wiki.sqlite-wal', 'wiki.sqlite-shm', 'wiki.sqlite-journal'))]
+             paths.chunks / f'{source_id}.json', paths.extraction_events / f'{source_id}-llm-context-request.json']
     if stream:
         folders.append(paths.source_state)
         files.append(paths.source_state / f'{source_id}.json')
