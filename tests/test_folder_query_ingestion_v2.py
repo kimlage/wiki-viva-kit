@@ -158,6 +158,53 @@ def test_query_and_existing_destination_are_both_bound_before_result(project, mo
     git(project, 'checkout', '-q', old_branch)
     git(project, 'merge', '--ff-only', 'wiki/query-existing-ingestion')
     git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    if not with_repo:
+        # A separate source is ingested into the already integrated claim.
+        # The previous query declaration must survive this second proposal.
+        import hashlib
+        from tests.test_folder_ingestion_v2 import _recording_cli, _synthetic_result
+        from wiki_core.config import load_config
+        from wiki_core.folder_ingestion_v2 import FolderIngestionSelection
+        from wiki_core.ingest import run
+        put(project, 'a/new-source.md', '---\npage_id: source-next\npage_type: source\n---\n'
+            + ('A later synthetic observation.\n' * 90))
+        commit(project); next_base = git(project, 'rev-parse', 'HEAD')
+        previous_hash = hashlib.sha256((project / base['output']).read_bytes()).hexdigest()
+        next_selection = FolderIngestionSelection(binding, 'a', 'a/index.md', base['output'],
+                                                   existing_output_sha256=previous_hash)
+        captured = run(str(project / 'a/new-source.md'), 'system', project, load_config(project),
+                       approved_revision=next_base, folder_selection=next_selection)
+        assert not captured.blocked
+        next_request = json.loads((project / captured.request_path).read_text())
+        next_result = _synthetic_result(next_request)
+        recorder = _recording_cli(project, next_base, next_request, monkeypatch, tmp_path,
+                                  source='a/new-source.md')
+        argv = list(sys.argv); argv[argv.index('--folder-output') + 1] = base['output']
+        argv += ['--folder-existing-sha256', previous_hash]
+        monkeypatch.setattr(sys, 'argv', argv)
+        assert recorder.main() == 0
+        capsys.readouterr()
+        next_preview = prepare_folder_consolidation(project, binding, next_request, [next_result],
+            candidates=[], max_age_days=30, page_metadata=metadata())
+        next_base_packet = next_request['block_context_package']
+        next_task = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed',
+            'task_id':next_base_packet['task_id'], 'context_id':next_base_packet['context_id'],
+            'packet_digest':next_base_packet['packet_digest'],
+            'observed':[{'path':row['path'], 'kind':row['kind'], 'revision':row['revision'],
+                         'sha256':row['sha256'], 'section':row.get('section'), 'field':row.get('field')}
+                        for row in next_base_packet['inputs']],
+            'changes':[{'path':base['output'], 'action':'modified'}]}
+        git(project, 'checkout', '-qb', 'wiki/add-second-source')
+        put(project, base['output'], next_preview['markdown'])
+        git(project, 'add', base['output']); git(project, 'commit', '-qm', 'second synthetic source')
+        next_head = git(project, 'rev-parse', 'HEAD')
+        from wiki_core.folder_coordination_v2 import prepare_folder_preflight
+        assert prepare_folder_preflight(project, binding, {'folder':'a', 'approved_revision':next_base,
+            'base':next_base, 'head':next_head, 'branch':'wiki/add-second-source', 'packet':next_base_packet,
+            'result':next_task, 'source_request':next_request})['preflight']['state'] == 'independent_review_required'
+        git(project, 'checkout', '-q', old_branch)
+        git(project, 'merge', '--ff-only', 'wiki/add-second-source')
+        git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     put(project, 'a/items/one.md', '---\npage_id: one\nstatus: active\namount: 12\n---\nChanged\n')
     commit(project)
     from wiki_core.folder_query_consumers_v2 import reassess_query_consumers
@@ -168,3 +215,5 @@ def test_query_and_existing_destination_are_both_bound_before_result(project, mo
         candidates=[base['output']], changed_paths=['a/items/one.md'], reports=[report])
     assert impact['consumers'][0]['state'] == 'review_pending'
     assert impact['consumers'][0]['query_state'] == 'changed'
+    if not with_repo:
+        assert impact['consumers'][0]['output_binding'] == 'query_declaration_preserved_output_changed'
