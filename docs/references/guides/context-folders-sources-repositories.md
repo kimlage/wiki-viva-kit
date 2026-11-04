@@ -37,6 +37,29 @@ approved structured policy, keep and enforce it until the consumer is migrated
 and reviewed. Native instructions alone do not replace its checks. A packet
 proves neither native instruction discovery nor a semantic read or integration.
 
+### Tool-specific discovery
+
+Codex constructs its instruction chain at session start from its discovery
+root to the starting directory, with override and size rules described in the
+[official instructions guide](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
+A nested Git root can change that chain; verify the actual session and target
+repository separately.
+
+Claude Code's [instruction documentation](https://code.claude.com/docs/en/memory#agentsmd)
+describes different discovery rules: by default a project CLAUDE file on the
+ancestor path can prevent direct AGENTS loading. Where that applies, a CLAUDE
+file beside each relevant context instruction can import its canonical text:
+
+```text
+@AGENTS.md
+```
+
+An ordinary Markdown link or an instruction to read a file does not perform
+that import. Settings, other ancestor files and overrides still affect a real
+session; inspect the installed configuration and verify actual loading. Do
+not change a user's global settings by assumption or treat this documented
+bridge as proof of an operational Claude run.
+
 ### Auxiliary instruction folders
 
 An instruction folder without its own context index remains an unresolved
