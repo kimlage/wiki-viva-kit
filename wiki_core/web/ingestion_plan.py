@@ -147,14 +147,8 @@ def _result(
 def _command_for_step(step_id: str, source: str, context: str) -> list[str] | None:
     if step_id == "proposal_preview":
         return ["python3", "scripts/wiki_new_ingest.py", "--source", source, "--context", context, "--dry-run"]
-    if step_id == "ingest_dry_run":
-        return ["python3", "scripts/wiki_ingest.py", "--source", source, "--context", context, "--dry-run", "--no-score"]
     if step_id == "proposal_write":
         return ["python3", "scripts/wiki_new_ingest.py", "--source", source, "--context", context]
-    if step_id == "llm_request_preview":
-        return ["python3", "scripts/wiki_llm_context_pass.py", "--source", source, "--context", context]
-    if step_id == "llm_request_emit":
-        return ["python3", "scripts/wiki_llm_context_pass.py", "--source", source, "--context", context, "--emit-request"]
     return None
 
 
@@ -209,8 +203,8 @@ def build_ingestion_plan(root: Path, config: WikiConfig, source: str, *, context
         _stage(
             "ingest_dry_run",
             "Run ingest dry-run",
-            status="blocked" if secret_block else "ready",
-            detail="Exercise manifest, extraction, chunking, index and LLM package path without persistence.",
+            status="blocked" if secret_block else "waiting",
+            detail="Folder, index, output, approved revision and trusted host binding must be selected through the folder ingestion entry.",
             command=commands["ingest_dry_run"],
         ),
         _stage(
@@ -228,15 +222,15 @@ def build_ingestion_plan(root: Path, config: WikiConfig, source: str, *, context
         _stage(
             "llm_request_preview",
             "Preview LLM request",
-            status="blocked" if secret_block else "ready",
-            detail="Build the agent handoff package without writing it.",
+            status="blocked" if secret_block else "waiting",
+            detail="Folder-bound context selection is unavailable in this planner; use the authorized folder ingestion entry.",
             command=commands["llm_request_preview"],
         ),
         _stage(
             "llm_request_emit",
             "Emit LLM request",
-            status="blocked" if secret_block else "ready",
-            detail="Write the derived LLM context request package for the agent pass.",
+            status="blocked" if secret_block else "waiting",
+            detail="Folder-bound context selection is unavailable in this planner; use the authorized folder ingestion entry.",
             command=commands["llm_request_emit"],
             writes=True,
         ),
@@ -275,6 +269,9 @@ def run_ingestion_step(
     stage = next((item for item in plan["stages"] if item["id"] == step_id), None)
     if stage is None or step_id not in READ_STEPS | WRITE_STEPS:
         return {"ok": False, "step_id": step_id, "dry_run": dry_run, "summary": "unknown ingestion step", "results": [], "plan": plan, "error": "unknown ingestion step"}
+    if step_id in {"ingest_dry_run", "llm_request_preview", "llm_request_emit"}:
+        return {"ok": False, "step_id": step_id, "dry_run": dry_run, "summary": str(stage["detail"]),
+                "results": [], "plan": plan, "error": str(stage["detail"])}
     if step_id in WRITE_STEPS and dry_run:
         argv = stage.get("command") or []
         return {

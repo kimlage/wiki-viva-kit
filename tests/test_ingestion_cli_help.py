@@ -25,5 +25,8 @@ def test_help_shows_bound_examples_and_labels_compatibility(script, actions):
     for action in actions:
         command = next(line for line in commands if action in line)
         assert all(flag in command for flag in ("--source", "--context", "--approved-revision", "--policy-context"))
+        assert "--mode v1" in command
     assert "Working-tree compatibility example" in output
+    assert "--mode working-tree" in output
+    assert "--folder-context" in output and "--folder-index" in output and "--folder-output" in output
     assert "fall" in output and "compatibility" in output

@@ -8,7 +8,7 @@ the manual step-by-step run (each module had its own CLI). The LLM pass stays
 delegated to the agent running the repo.
 
 Approved-context example (replace placeholders with authorized values):
-  python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT \\
+  python3 scripts/wiki_ingest.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \\
     --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
 
 Folder mode (trusted local coordinator; host binding configured separately):
@@ -17,7 +17,7 @@ Folder mode (trusted local coordinator; host binding configured separately):
     --folder-index INDEX --folder-output OUTPUT --dry-run
 
 Working-tree compatibility example (does not establish approved policy or source freshness):
-  python3 scripts/wiki_ingest.py --source X.md --context system --dry-run
+  python3 scripts/wiki_ingest.py --mode working-tree --source X.md --context system --dry-run
 
 Approved mode requires both flags and refuses invalid or missing authority without
 falling back to compatibility. See docs/references/guides/bounded-ingestion.md.
@@ -41,10 +41,13 @@ from scripts._common import ROOT
 from wiki_core.config import load_config
 from wiki_core.ingest import run
 from wiki_core.llm.context_pass import DEFAULT_CONTEXT_MAX_BYTES, DEFAULT_REQUEST_MAX_BYTES
+from wiki_core.ingestion_cli_mode import validate_mode
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--mode', choices=('folder', 'v1', 'working-tree'), default='folder',
+                        help='Folder is the default; legacy authority or working-tree compatibility must be explicit.')
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--source", required=True)
     parser.add_argument("--context", required=True)
@@ -65,13 +68,11 @@ def main() -> int:
     business_root.add_argument("--omit-root-entity", action="store_true", help="Explicitly omit the business root with missing coverage; mandatory lineage rules still apply.")
     parser.add_argument("--stream", help="source recipe stream id (advances its cursor post-commit)")
     args = parser.parse_args()
+    validate_mode(parser, args)
 
     root = args.root.resolve()
-    folder_values = (args.folder_context, args.folder_index, args.folder_output)
     selection = None
-    if any(value is not None for value in folder_values) or args.folder_source_ref is not None or args.folder_repo is not None:
-        if not all(folder_values) or not args.approved_revision or args.policy_context is not None:
-            parser.error("folder mode requires approved-revision, folder-context, folder-index and folder-output; policy-context is v1 only")
+    if args.mode == 'folder':
         from wiki_core.folder_ingestion_v2 import selection_from_host_environment
         try:
             selection = selection_from_host_environment(args.folder_context, args.folder_index, args.folder_output, args.folder_source_ref,
