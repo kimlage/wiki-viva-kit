@@ -374,3 +374,110 @@ def test_local_result_recording_selects_only_current_request(approved, monkeypat
     assert module._record_results(WikiPaths(root, load_config(root)), str(payload),
         current_request=request, preserve_existing=True) == 2
     assert calls == ['source-selected']
+
+
+def test_source_replaced_with_symlink_is_not_reopened_at_persistence_fence(approved, monkeypatch, tmp_path_factory):
+    from wiki_core.ingest import pipeline
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    (root / 'area' / 'index.md').write_text('Local index')
+    external = tmp_path_factory.mktemp('external-fence') / 'source.md'
+    external.write_bytes(source.read_bytes())
+    original_request = pipeline.build_context_request
+    original_manifest = pipeline.build_manifest
+    def mutate(*args, **kwargs):
+        request = original_request(*args, **kwargs)
+        source.unlink()
+        source.symlink_to(external)
+        return request
+    def guarded_manifest(value, *args, **kwargs):
+        if Path(value).is_symlink():
+            pytest.fail('reopened source through a symlink')
+        return original_manifest(value, *args, **kwargs)
+    monkeypatch.setattr(pipeline, 'build_context_request', mutate)
+    monkeypatch.setattr(pipeline, 'build_manifest', guarded_manifest)
+    result = run(str(source), 'system', root, load_config(root), entry_folder='area', record_score=False)
+    assert result.blocked and result.written is False and result.request_path is None
+
+
+def test_local_write_failure_reports_unknown_partial_without_path(approved, monkeypatch):
+    from wiki_core.paths import WikiPaths
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    (root / 'area' / 'index.md').write_text('Local index')
+    config = load_config(root)
+    paths = WikiPaths(root, config)
+    original = Path.write_text
+    def fail_after_manifest(path, *args, **kwargs):
+        if path.parent == paths.source_text:
+            raise OSError('synthetic-sensitive-path-must-not-escape')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'write_text', fail_after_manifest)
+    result = run(str(source), 'system', root, config, entry_folder='area', record_score=False)
+    assert result.blocked and result.written is False and result.partial_effects == 'unknown'
+    assert result.context_error_code == 'local_persistence_partial'
+    assert 'partial' in json.dumps(result.blockers).lower()
+    assert 'synthetic-sensitive-path' not in json.dumps(result.to_dict())
+    assert list(paths.source_manifests.glob('*.json'))
+
+
+def test_pass_cli_does_not_follow_source_symlink_at_revalidation(approved, monkeypatch, tmp_path_factory):
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    (root / 'area' / 'index.md').write_text('Local index')
+    first = run(str(source), 'system', root, load_config(root), entry_folder='area', record_score=False)
+    assert not first.blocked
+    retained = root / first.request_path
+    before = retained.read_bytes()
+    external = tmp_path_factory.mktemp('external-pass-fence') / 'source.md'
+    external.write_bytes(source.read_bytes())
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
+    spec = importlib.util.spec_from_file_location('local_folder_pass_fence_test', script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    original_request, original_manifest = module.build_context_request, module.build_manifest
+    def mutate(*args, **kwargs):
+        request = original_request(*args, **kwargs)
+        source.unlink()
+        source.symlink_to(external)
+        return request
+    def guarded_manifest(value, *args, **kwargs):
+        if Path(value).is_symlink():
+            pytest.fail('reopened source through a symlink')
+        return original_manifest(value, *args, **kwargs)
+    monkeypatch.setattr(module, 'build_context_request', mutate)
+    monkeypatch.setattr(module, 'build_manifest', guarded_manifest)
+    monkeypatch.setattr(sys, 'argv', [str(script), '--root', str(root), '--source', str(source),
+                                    '--context', 'system', '--folder', 'area', '--emit-request'])
+    assert module.main() == 2
+    assert retained.read_bytes() == before
+
+
+def test_result_batch_failure_reports_completed_first_result(approved, monkeypatch, capsys, tmp_path):
+    from wiki_core.paths import WikiPaths
+    root, _, _, _ = approved
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
+    spec = importlib.util.spec_from_file_location('local_folder_batch_failure_test', script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    key = 'a' * 64
+    request = {'source_id': 'source-selected', 'chunks': [{'cache_key': key}], 'block_context_package': {}}
+    payload = tmp_path / 'batch.json'
+    payload.write_text(json.dumps([{'cache_key': key}, {'cache_key': 'invalid'}]))
+    def requests(_paths, *, sizes, source_id):
+        sizes[id(request)] = 1
+        return [request]
+    def write(cache, _result, **_kwargs):
+        cache.mkdir(parents=True, exist_ok=True)
+        output = cache / f'{key}.json'
+        output.write_text('{}')
+        return output
+    monkeypatch.setattr(module, '_emitted_requests', requests)
+    monkeypatch.setattr(module, 'result_matches_request', lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(module, 'write_result', write)
+    assert module._record_results(WikiPaths(root, load_config(root)), str(payload),
+        current_request=request, preserve_existing=True) == 2
+    assert 'after 1 completed result(s)' in capsys.readouterr().err

@@ -197,67 +197,87 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
     limits = limits or request_limits()
     known = {str(row.get("cache_key")) for request in requests for row in request["chunks"] if isinstance(row, dict)}
     written = []
-    for result in results:
-        key = result.get("cache_key") if isinstance(result, dict) else None
-        if not isinstance(key, str) or not re.fullmatch(r"[0-9a-f]{64}", key):
-            print("ERROR: invalid cache_key shape; expected a lowercase SHA-256 digest.", file=sys.stderr)
-            return 2
-        if not allow_unrequested and key not in known:
-            # No silent escape: ZERO requests on disk also rejects (the old
-            # `and known` guard let any result through when extraction-events
-            # was empty, making the provenance gate forgeable by deletion).
-            detail = (
-                "no emitted context request found on disk"
-                if not known
-                else "no emitted context request contains this cache_key"
-            )
-            print(
-                "ERROR: result without a corresponding emitted context request "
-                f"({detail}); result rejected (provenance). Emit the request before "
-                "recording, or use --allow-unrequested for legitimate cases with no "
-                "request on disk.",
-                file=sys.stderr,
-            )
-            return 2
-        matching = [request for request in requests if any(row.get("cache_key") == key
-                    for row in request["chunks"] if isinstance(row, dict))]
-        for request in matching:
-            retained_limits = request.get("request_limits")
-            if retained_limits is not None and retained_limits != limits:
-                return _blocked(ContextRequestBlocked("request_limits_changed", "Re-emit the request under the current explicit byte budgets before recording."),
-                                str(request.get("source_id") or "source-context-pass"), owner)
-            context_bytes = len(canonical_request_text(request.get("block_context_package") or {}).encode()) - 1
-            if retained_sizes[id(request)] > limits["request_max_bytes"] or context_bytes > limits["context_max_bytes"]:
-                return _blocked(ContextRequestBlocked("retained_request_exceeds_budget", "The retained request exceeds the current byte budget; choose a smaller stage and re-emit before recording."),
-                                str(request.get("source_id") or "source-context-pass"), owner)
-            if request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1":
-                if current_request is None or current_request.get("block_context_package", {}).get("schema_version") != "wiki.task-context/v1":
-                    return _blocked(ContextRequestBlocked("approved_context_revalidation_required", "Record approved results with the explicit source, approved revision and policy context so current authority can be revalidated."),
+    completed = False
+    try:
+        for result in results:
+            key = result.get("cache_key") if isinstance(result, dict) else None
+            if not isinstance(key, str) or not re.fullmatch(r"[0-9a-f]{64}", key):
+                print("ERROR: invalid cache_key shape; expected a lowercase SHA-256 digest.", file=sys.stderr)
+                return 2
+            if not allow_unrequested and key not in known:
+                # No silent escape: ZERO requests on disk also rejects (the old
+                # `and known` guard let any result through when extraction-events
+                # was empty, making the provenance gate forgeable by deletion).
+                detail = (
+                    "no emitted context request found on disk"
+                    if not known
+                    else "no emitted context request contains this cache_key"
+                )
+                print(
+                    "ERROR: result without a corresponding emitted context request "
+                    f"({detail}); result rejected (provenance). Emit the request before "
+                    "recording, or use --allow-unrequested for legitimate cases with no "
+                    "request on disk.",
+                    file=sys.stderr,
+                )
+                return 2
+            matching = [request for request in requests if any(row.get("cache_key") == key
+                        for row in request["chunks"] if isinstance(row, dict))]
+            for request in matching:
+                retained_limits = request.get("request_limits")
+                if retained_limits is not None and retained_limits != limits:
+                    return _blocked(ContextRequestBlocked("request_limits_changed", "Re-emit the request under the current explicit byte budgets before recording."),
                                     str(request.get("source_id") or "source-context-pass"), owner)
-        if current_request is not None and not any(result_matches_request(result, current_request, row, recording=True)
-                for row in current_request["chunks"] if row.get("cache_key") == key):
-            return _blocked(ContextRequestBlocked("current_request_changed", "The current context, source or limits changed; emit and read the current request before recording."),
-                            str(current_request.get("source_id") or "source-context-pass"), owner)
-        if not allow_unrequested and not any(
-                result_matches_request(result, request, row, recording=True)
-                for request in requests for row in request["chunks"]
-                if isinstance(row, dict) and row.get("cache_key") == key):
-            print("ERROR: result does not match the emitted context, source, chunk or schema", file=sys.stderr)
-            return 2
-        try:
+                context_bytes = len(canonical_request_text(request.get("block_context_package") or {}).encode()) - 1
+                if retained_sizes[id(request)] > limits["request_max_bytes"] or context_bytes > limits["context_max_bytes"]:
+                    return _blocked(ContextRequestBlocked("retained_request_exceeds_budget", "The retained request exceeds the current byte budget; choose a smaller stage and re-emit before recording."),
+                                    str(request.get("source_id") or "source-context-pass"), owner)
+                if request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1":
+                    if current_request is None or current_request.get("block_context_package", {}).get("schema_version") != "wiki.task-context/v1":
+                        return _blocked(ContextRequestBlocked("approved_context_revalidation_required", "Record approved results with the explicit source, approved revision and policy context so current authority can be revalidated."),
+                                        str(request.get("source_id") or "source-context-pass"), owner)
+            if current_request is not None and not any(result_matches_request(result, current_request, row, recording=True)
+                    for row in current_request["chunks"] if row.get("cache_key") == key):
+                return _blocked(ContextRequestBlocked("current_request_changed", "The current context, source or limits changed; emit and read the current request before recording."),
+                                str(current_request.get("source_id") or "source-context-pass"), owner)
+            if not allow_unrequested and not any(
+                    result_matches_request(result, request, row, recording=True)
+                    for request in requests for row in request["chunks"]
+                    if isinstance(row, dict) and row.get("cache_key") == key):
+                print("ERROR: result does not match the emitted context, source, chunk or schema", file=sys.stderr)
+                return 2
             if before_write is not None:
-                before_write()
-            if preserve_existing:
-                from wiki_core.traversal import require_wiki_path
-                require_wiki_path(paths.root, (paths.llm_cache / f'{key}.json').relative_to(paths.root).as_posix())
-            out = (write_result(paths.llm_cache, result, preserve_existing=True)
-                   if preserve_existing else write_result(paths.llm_cache, result))
-        except (ValueError, OSError) as exc:
-            if before_write is not None:
-                return _blocked(exc, str(current_request.get("source_id") or "requested-input"), owner)
-            print("ERROR: invalid result or unavailable cache output; verify the declared schema and current bound request.", file=sys.stderr)
-            return 2
-        written.append(str(out.relative_to(getattr(paths, "root", ROOT))))
+                try:
+                    before_write()
+                except (ValueError, OSError) as exc:
+                    if preserve_existing and written:
+                        return _blocked(ContextRequestBlocked('local_persistence_partial',
+                            f'Local recording stopped after {len(written)} completed result(s); '
+                            'inspect them before retrying.'),
+                            str(current_request.get('source_id') or 'requested-input'), owner)
+                    return _blocked(exc, str(current_request.get('source_id') or 'requested-input'), owner)
+            try:
+                if preserve_existing:
+                    from wiki_core.traversal import require_wiki_path
+                    require_wiki_path(paths.root, (paths.llm_cache / f'{key}.json').relative_to(paths.root).as_posix())
+                out = (write_result(paths.llm_cache, result, preserve_existing=True)
+                       if preserve_existing else write_result(paths.llm_cache, result))
+            except (ValueError, OSError) as exc:
+                if preserve_existing:
+                    return _blocked(ContextRequestBlocked('local_persistence_partial',
+                        f'Local result persistence stopped after {len(written)} completed result(s); '
+                        'additional partial effects may exist and must be inspected before retrying.'),
+                        str(current_request.get('source_id') or 'requested-input'), owner)
+                if before_write is not None:
+                    return _blocked(exc, str(current_request.get("source_id") or "requested-input"), owner)
+                print("ERROR: invalid result or unavailable cache output; verify the declared schema and current bound request.", file=sys.stderr)
+                return 2
+            written.append(str(out.relative_to(getattr(paths, "root", ROOT))))
+        completed = True
+    finally:
+        if preserve_existing and written and not completed:
+            print(f"Local recording stopped after {len(written)} completed result(s); "
+                  "inspect them before retrying.", file=sys.stderr)
     print(json.dumps({"recorded": written, "count": len(written)}, ensure_ascii=False, indent=2))
     return 0
 
@@ -381,7 +401,14 @@ def main() -> int:
         source = selected_source if entry_folder is not None else str(source_guard["path"]) if source_guard else args.source
         if not Path(source).is_absolute() and not urlsplit(source).scheme:
             source = str(root / source)
-        manifest = build_manifest(source, args.context, root=root)
+        try:
+            if entry_folder is not None:
+                source = validate_local_entry_source(root, source)
+            manifest = build_manifest(source, args.context, root=root)
+        except (ValueError, OSError) as exc:
+            if entry_folder is None:
+                raise
+            return _blocked(exc, 'requested-input', config.owner_label)
         try:
             if entry_folder is not None:
                 from wiki_core.traversal import require_wiki_path
@@ -485,9 +512,10 @@ def main() -> int:
         return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)
 
     def revalidate_entry():
-        from wiki_core.llm.context_pass import _folder_documents
+        from wiki_core.llm.context_pass import _folder_documents, validate_local_entry_source
         current = _folder_documents(root, entry_folder, entry_index, args.context_max_bytes)
-        observed = build_manifest(source, args.context, root=root)
+        current_source = validate_local_entry_source(root, source)
+        observed = build_manifest(current_source, args.context, root=root)
         if (context_package['documents'][:len(current)] != current
                 or observed.get('hash_sha256') != manifest.get('hash_sha256')):
             raise ValueError('selected source or folder context changed')
@@ -516,12 +544,17 @@ def main() -> int:
                 revalidate_entry()
                 from wiki_core.traversal import require_wiki_path
                 require_wiki_path(root, out.relative_to(root).as_posix())
+            except (ValueError, OSError) as exc:
+                return _blocked(exc, str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)
+            try:
                 out.parent.mkdir(parents=True, exist_ok=True)
                 require_wiki_path(root, out.relative_to(root).as_posix())
                 with out.open('x', encoding='utf-8') as stream:
                     stream.write(canonical_request_text(request))
-            except (ValueError, OSError) as exc:
-                return _blocked(exc, str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)
+            except (ValueError, OSError):
+                return _blocked(ContextRequestBlocked('local_persistence_partial',
+                    'Local request persistence stopped; partial effects may exist and must be inspected before retrying.'),
+                    str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)
         else:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(canonical_request_text(request), encoding="utf-8")

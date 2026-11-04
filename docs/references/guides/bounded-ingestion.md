@@ -140,7 +140,10 @@ update the global search index or score event. Filesystem checks do not prevent
 concurrent replacement. Until contextual
 capture reuse is implemented, a folder ingestion refuses to replace an existing
 capture or request for the same source; a repeated explicit request emission
-also preserves the prior file. Folder entry does not provide scoped query search.
+also preserves the prior file. If local persistence fails, `written: false`
+means persistence did not complete; `partial_effects: unknown` warns that
+partial effects may exist and require inspection before retrying. Folder entry
+does not provide scoped query search.
 
 ## Recoverable blockers
 
