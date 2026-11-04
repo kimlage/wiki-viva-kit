@@ -67,8 +67,12 @@ python3 scripts/wiki_web_snapshot.py --check-contract
 ```
 
 Edit `wiki.config.yaml` to define the repository id, owner label, root entity,
-memory root, contexts and privacy boundary. See [docs/README.md](docs/README.md)
-and the [Wiki Viva skill](.skills/wiki-viva/SKILL.md). For the explicit approved-context path, see the [finite context operation runbook](docs/references/guides/context-operation.md).
+memory root and privacy boundary. Its existing `contexts` slugs are consumed by
+hub discovery, input-stage and operational ordering; they do not describe the
+physical lineage or authorize access. See [docs/README.md](docs/README.md)
+and the [Wiki Viva skill](.skills/wiki-viva/SKILL.md). Enter a context through
+its folder, instructions and index; use the [folder, source and repository guide](docs/references/guides/context-folders-sources-repositories.md)
+and, for the existing approved-context path, the [finite context operation runbook](docs/references/guides/context-operation.md).
 
 Code, comments and official documentation stay in English. Generated pages,
 experience-pack presentation and the cockpit are selectable with

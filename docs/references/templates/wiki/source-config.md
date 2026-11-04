@@ -3,8 +3,7 @@
 Configuration page for **ONE source** (lives in `sources/config/` in memory). It
 holds that source's ingestion, search and business rules, kept off the content
 page (single purpose). The source page points here via `config_ref:`; the
-[source registry](../../../../memories/system/source-registry.md) shows a Config
-column linking this page. The rules are READ by the agent during ingestion (the
+project's source registry shows a Config column linking this page. The rules are READ by the agent during ingestion (the
 intelligence lives in the agent, not in the toolkit).
 
 ```yaml
@@ -85,8 +84,8 @@ recipe:
     mode: on_demand       # one_shot | on_demand | recurring | event_driven
     cadence_days: 0       # >0 only when mode is recurring; otherwise always 0
   how_to_export: |
-    Describe exactly how a human exports the already-authorized RAW for this source
-    (the sandbox has NO network). Point at the export location the agent should read.
+    Describe how the already-authorized source can be obtained and where the
+    agent can read it. State actual access limits; do not assume network access.
   refresh:
     argv: []              # optional metadata-only collection adapter under scripts/
   ingest:
@@ -142,7 +141,10 @@ instructions are shown as the honest next step.
 
 ## Search rules
 
-- How to find what is relevant in this source (filters, windows, tabs, labels).
+- How to find the authorized selection in this source (filters, windows, tabs,
+  labels), and how to report unavailable inputs or incomplete coverage.
+- Preserve the actual source revision or observation with each consuming
+  interpretation; consult the [source workflow](../../guides/context-folders-sources-repositories.md#sources-identity-use-and-revision).
 
 ## Business rules
 

@@ -87,8 +87,7 @@ attachment_policy: "Keep the original traceable; attachments and derivatives mus
 # Source - example
 
 > Illustrate by default: record the source's attributes as a table, not loose
-> prose. See the representation conventions in
-> [obsidian-conventions.md](obsidian-conventions.md).
+> prose. Follow the project's representation conventions.
 
 ## Attributes
 
@@ -100,6 +99,14 @@ attachment_policy: "Keep the original traceable; attachments and derivatives mus
 | Format | pdf / email / sheet / chat / repo / image / audio / note |
 | Original location | Markdown link to the traceable original |
 | Reliability | `low` / `medium` / `high` |
+| Purpose and slice | What this source supports and the relevant selection |
+| Responsibility and access | Responsible context and conditions for authorized consultation |
+| Revision or observation | Revision actually read, or date and scope of the observation |
+
+Link the associated recipe instead of repeating machine settings. A cache,
+index and interpretation are not the source. A wiki edit does not refresh the
+source. Report missing or inaccessible coverage; the same source may support
+different authorized interpretations. See the [source workflow](../../guides/context-folders-sources-repositories.md#sources-identity-use-and-revision).
 
 ## Type
 
@@ -107,10 +114,8 @@ attachment_policy: "Keep the original traceable; attachments and derivatives mus
 
 ## Policy
 
-- This repo is personal and private: the source may be read and have personal data
-  (PII -- names, values, dates, CPF, CNPJ, counterparties, address) extracted into
-  Markdown whenever it improves operational memory, classification, CRM,
-  reconciliation, decision, or context. On a private page it does not raise a warning.
+- Follow the project's privacy and access policy for authorized reads and
+  useful private memory; assess public derivatives at the publication boundary.
 - Keep a link to the original.
 - Never copy a token, cookie, password, access code, credential, individualized
   secure link, or full dump without judgment -- anywhere.
@@ -118,9 +123,8 @@ attachment_policy: "Keep the original traceable; attachments and derivatives mus
 ## Ingestion log
 
 This page is the hierarchical node holding this source's ingestion log: each
-ingestion becomes a row linking the normalized event. The source registry
-([system/source-registry.md](../../../../memories/system/source-registry.md))
-indexes these pages with state and date.
+ingestion becomes a row linking the normalized event. The project's source
+registry indexes these pages with state and date.
 
 Freshness now comes from the **recipe** in `config_ref`, not from this page: each
 stream declares its own `cadence_days`, and the cockpit compares it to the stream's

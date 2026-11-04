@@ -18,6 +18,12 @@ LLM client is required.
 4. Preserve user changes and avoid competing with an active worktree.
 5. Keep public-kit fixtures synthetic and private consumer data private.
 
+For context work, enter the selected folder, verify the actual native instruction
+chain and permissions, and read its index and required bodies. Follow the
+[folder, source and repository guide](../../docs/references/guides/context-folders-sources-repositories.md)
+for source provenance, connected Git repositories and integration. This does
+not replace an installation's approved packet and policy checks.
+
 ## Lifecycle
 
 ```mermaid
@@ -29,8 +35,10 @@ flowchart LR
 
 ### Configure
 
-Set `repo_id`, `owner_label`, `root_entity`, contexts, paths and privacy policy
-in `wiki.config.yaml`. Shared code must not hardcode a consumer path or context.
+Set `repo_id`, `owner_label`, `root_entity`, paths and privacy policy in
+`wiki.config.yaml`. Existing `contexts` slugs support hub discovery, input-stage
+and operational ordering; they do not establish folder lineage or grant access.
+Shared code must not hardcode a consumer path or context.
 
 ### Ingest and read
 

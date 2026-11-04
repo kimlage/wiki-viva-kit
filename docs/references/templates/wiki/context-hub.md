@@ -29,8 +29,12 @@ What this area is and what belongs in it.
 
 ## Map
 
-- The pages, sources and people that live under this area.
+- Pages, child contexts, relevant sources, people and connected repositories.
+- For a connected repository, retain its canonical location, purpose and links
+  to revision/path-specific evidence so this map remains useful without a clone.
+- Follow [context entry](context-entry.md) for the folder instructions; the
+  index is a map, not proof that linked bodies were read or access was granted.
 
 ## Related
 
-- Parent MOC: [memories/index.md](../../../../memories/index.md)
+- Parent MOC: link to the actual parent index chosen by the project.

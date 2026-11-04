@@ -5,6 +5,7 @@ retired release-certification machinery.
 
 ## Start here
 
+- [Context folders, sources and repositories](references/guides/context-folders-sources-repositories.md): native entry, source provenance and independent Git boundaries.
 - [Context operation](references/guides/context-operation.md): selection, packet, result, independent integration and optional wake.
 - [Protected coordination](references/guides/context-coordination-protected.md): explicit host binding, current approved policy and local operator API.
 - [Bounded ingestion](references/guides/bounded-ingestion.md): authorized source admission and separate byte budgets.

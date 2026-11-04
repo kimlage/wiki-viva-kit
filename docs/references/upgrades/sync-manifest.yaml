@@ -34,6 +34,10 @@ portable:
     - docs/references/releases/hermes-integration-withdrawal-2026-10-22.md
     - docs/references/templates/deploy/**
     - docs/references/templates/wiki/subagent-brief.md
+    - docs/references/templates/wiki/context-entry.md
+    - docs/references/templates/wiki/context-hub.md
+    - docs/references/templates/wiki/source.md
+    - docs/references/templates/wiki/source-config.md
     - docs/references/templates/wiki/modular-example/**
     - docs/references/schemas/**
   block:

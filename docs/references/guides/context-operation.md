@@ -4,6 +4,13 @@ This runbook describes a manual, reviewable path from an explicitly selected tas
 
 ## 1. Select the context and the exact task
 
+Enter through the context folder and its applicable `AGENTS.md` instructions;
+read the context index and relevant bodies. Verify native instruction discovery
+and effective permissions for the actual session. The [folder, source and
+repository guide](context-folders-sources-repositories.md) describes that entry
+and its boundaries. It complements the protected packet below, which remains
+required whenever the installation uses that policy path.
+
 The coordinator identifies the purpose, owner, output, integrator and the smallest explicit evidence set. Determine the current approved Git SHA from the trusted host reference and choose an approved content SHA; record omissions and unknown coverage. The executor must have the actual host/service capabilities for its task: a YAML capability or an administrative session is not proof of those capabilities. If an input crosses owners, both the producer's current export and the consumer's exact import must allow the same selector, use and classification. A link, old profile, parent directory or silence is not a grant. Route a specific connection request through an interface allowed to receive its metadata; leave it pending until genuinely approved.
 
 Do not put a page's title, source details or other protected metadata into a task's generic text before that page is authorized. If editing an existing approved output requires reading it, select it as evidence too. Preserve the actual read set: an unrecorded read cannot be hidden by refreshing the result later.

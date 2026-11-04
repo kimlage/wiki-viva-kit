@@ -1,5 +1,10 @@
 # Source configuration and linked-action previews
 
+For the end-to-end relationship between a source, its context, revisions,
+interpretations and connected repositories, start with the [folder, source and
+repository guide](context-folders-sources-repositories.md). Registration and
+recipes below describe configuration; neither grants authority to access a source.
+
 The Sources workspace retains its catalogue, source and record settings,
 authentication method and non-secret reference, inventory refresh and ingestion.
 Configuration changes use the existing content-bound preview/confirmation flow.
