@@ -147,6 +147,7 @@ def run(
     paths = WikiPaths(root, config)
     source_guard = None
     selected_context = None
+    report_context = '' if entry_folder is not None else context
     try:
         request_limits(context_max_bytes, request_max_bytes)
         if (approved_revision is not None or policy_context is not None) and (entry_folder is not None or entry_index is not None):
@@ -160,6 +161,7 @@ def run(
             from wiki_core.llm.context_pass import validate_local_entry_source
             if contains_access_secrets(context):
                 raise ValueError('source selection unavailable')
+            report_context = context
             try:
                 selected_context = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
                     entry_index=entry_index, context_max_bytes=context_max_bytes)
@@ -178,11 +180,7 @@ def run(
             source_guard = authorize_ingestion_source(root, source, approved_revision, policy_context)
             source = str(source_guard["path"])
     except (ValueError, OSError) as exc:
-        if entry_folder is not None:
-            from wiki_core.repo_read import contains_access_secrets
-            if contains_access_secrets(context):
-                context = ''
-        return _blocked_preparation(context, config, exc)
+        return _blocked_preparation(report_context, config, exc)
 
     try:
         if entry_folder is not None:
