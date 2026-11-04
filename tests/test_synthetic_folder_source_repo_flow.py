@@ -8,9 +8,9 @@ from scripts.wiki_build_index import collect_page_chunks
 from wiki_core.config import WikiConfig
 from wiki_core.find import find
 from wiki_core.folder_coordination_v2 import (
-    FolderCoordinationError, FolderHostBinding, prepare_folder_packet, prepare_folder_preflight,
+    FolderHostBinding, prepare_folder_packet, prepare_folder_preflight,
 )
-from wiki_core.folder_integration_v2 import FolderIntegrationError, preflight_folder_v2
+from wiki_core.folder_integration_v2 import preflight_folder_v2
 from wiki_core.folder_policy_v2 import load_folder_policy_v2
 from wiki_core.folder_reassessment_host_v2 import prepare_folder_reassessment
 from wiki_core.index import index_pages
@@ -18,7 +18,7 @@ from wiki_core.paths import WikiPaths
 from wiki_core.repo_read import read_independent_repo
 
 
-def test_nested_context_source_and_repo_flow_exposes_requirement_gate(project):
+def test_nested_context_source_and_repo_flow_stops_at_independent_review(project):
     folder = 'a/aux/b'
     source = folder + '/source.md'
     output = folder + '/report.md'
@@ -82,12 +82,17 @@ def test_nested_context_source_and_repo_flow_exposes_requirement_gate(project):
                            for row in packet['inputs']],
               'changes': [{'path': output, 'action': 'modified'}]}
     policy = load_folder_policy_v2(project, base)
-    with pytest.raises(FolderIntegrationError, match='requirement migration and revalidation unavailable'):
-        preflight_folder_v2(project, policy, base=base, head=head, branch='wiki/synthetic-flow',
-                            packet=packet, result=result)
-    with pytest.raises(FolderCoordinationError):
-        prepare_folder_preflight(project, binding, {'folder': folder, 'approved_revision': base,
-             'base': base, 'head': head, 'branch': 'wiki/synthetic-flow', 'packet': packet, 'result': result})
+    preflight = preflight_folder_v2(project, policy, base=base, head=head, branch='wiki/synthetic-flow',
+                                    packet=packet, result=result)
+    assert preflight['state'] == 'independent_review_required'
+    assert preflight['requirements_handling']['count'] == 1
+    assert preflight['requirements_handling']['freshness'] == 'not_assessed'
+    assert preflight['requirements_handling']['legacy_receipt_migration'] == 'not_performed'
+    assert preflight['read_coverage'] == 'reported_not_independently_verified'
+    assert preflight['merge'] == 'not_performed'
+    bound = prepare_folder_preflight(project, binding, {'folder': folder, 'approved_revision': base,
+            'base': base, 'head': head, 'branch': 'wiki/synthetic-flow', 'packet': packet, 'result': result})
+    assert bound['preflight'] == preflight
 
     # The proposal is deliberately NOT merged. A simulated reported result
     # is not proof of execution; compare an independently updated source against
