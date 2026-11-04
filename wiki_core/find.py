@@ -9,7 +9,7 @@ from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.index.sqlite import PAGE_SOURCE_PREFIX, search_detailed
 from wiki_core.index.page_collection import current_page_signature
 from wiki_core.paths import WikiPaths
-from wiki_core.traversal import wiki_markdown_files
+from wiki_core.traversal import is_in_nested_git, wiki_markdown_files
 
 
 def _local_catalog(root: Path, config) -> tuple[dict, list]:
@@ -23,6 +23,9 @@ def _local_catalog(root: Path, config) -> tuple[dict, list]:
                                       (paths.memory_root, "page", "**/*.md")]:
         if not directory.resolve().is_relative_to(root):
             issues.append(dict(kind=kind, reason="metadata_path_outside_local_catalog"))
+            continue
+        if kind == "manifest" and is_in_nested_git(directory / '_catalog_selection_', wiki_root=root):
+            issues.append(dict(kind=kind, reason="metadata_path_crosses_repository_boundary"))
             continue
         candidates = wiki_markdown_files(directory, wiki_root=root) if kind == "page" else sorted(directory.glob(pattern))
         files.extend((p, kind) for p in candidates)
@@ -80,7 +83,7 @@ def find(root: Path, config, query: str, *, context: str | None = None,
             issues.append(dict(kind="page", reason="page_index_current_state_unavailable"))
     result = search_detailed(paths.indexes / "wiki.sqlite", query,
                              limit=limit, source_ids=allowed, page_signature=signature,
-                             source_only=source_only)
+                             source_only=source_only, wiki_root=root)
     indexed_ids = result.pop("indexed_source_ids")
     gaps = []
     for sid in indexed_ids:
