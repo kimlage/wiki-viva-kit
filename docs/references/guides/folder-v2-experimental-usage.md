@@ -386,6 +386,7 @@ preflight reproduces each historical report and current selection, replaces
 only the corresponding declaration and requires all other requirements to
 remain unchanged. This produces an independent-review candidate; it does not
 approve the change, establish a semantic read or certify factual freshness.
+Source requalification and query requalification require separate proposals.
 
 ## Compare one reported source and consumer
 

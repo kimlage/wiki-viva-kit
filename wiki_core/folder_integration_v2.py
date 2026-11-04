@@ -311,6 +311,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
         raise FolderIntegrationError('reported changes differ from proposal')
     if not any(row['path'] == packet['output'] for row in changes):
         raise FolderIntegrationError('declared output change unavailable')
+    if query_requalifications is not None and statuses[packet['output']] != 'M':
+        raise FolderIntegrationError('query requalification requires an existing output')
     if ingestion is not None and statuses[packet['output']] == 'D':
         raise FolderIntegrationError('ingestion output must exist')
     if query_rows:
