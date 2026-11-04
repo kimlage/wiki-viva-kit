@@ -65,6 +65,10 @@ def test_two_authorized_contexts_keep_same_source_artifacts_distinct(project, mo
     first_request = json.loads((project / first.request_path).read_text())
     first_files = {rel:(project / rel).read_bytes() for rel in
                    (first.manifest_path, first.text_path, first.chunks_path, first.request_path)}
+    legacy = WikiPaths(project, config)
+    legacy.extraction_events.mkdir(parents=True)
+    legacy_request = legacy.extraction_events / (first.source_id + '-llm-context-request.json')
+    legacy_request.write_text('legacy request sentinel\n')
     second = run(source, 'system', project, config, approved_revision=sha, folder_selection=second_selection)
     assert second.written and not second.blocked
     assert first.source_id == second.source_id and first.request_path != second.request_path
@@ -89,7 +93,7 @@ def test_two_authorized_contexts_keep_same_source_artifacts_distinct(project, mo
     capsys.readouterr()
     second_cache = FolderWikiPaths(project, config, 'b').llm_cache / 'folder-v2' / (second_request['chunks'][0]['cache_key'] + '.json')
     assert first_cache.is_file() and second_cache.is_file()
-    assert not WikiPaths(project, config).extraction_events.exists()
+    assert legacy_request.read_text() == 'legacy request sentinel\n'
 
 
 def test_folder_validator_rejects_legacy_artifact_namespace(project):
