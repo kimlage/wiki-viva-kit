@@ -75,10 +75,11 @@ def _repository_relevant(metadata, source):
                        or row['revision'] != receipt['revision'] for row in additional)
                 or len({row['path'] for row in [receipt, *additional]}) != len(additional) + 1):
             raise FolderCoordinationError('repository source unavailable')
-    # Historical records lacked a source reference; keep their conservative
-    # behavior and require the matching request rather than guessing.
+    # A legacy singleton without a source reference cannot be assigned to the
+    # selected source, even if a request names the same repository. Keep its
+    # historical representation readable, but do not requalify it here.
     if ref is None:
-        return True
+        raise FolderCoordinationError('repository source association unavailable')
     try:
         return safe_path(ref) == source
     except (ValueError, TypeError):

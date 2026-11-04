@@ -217,3 +217,41 @@ def test_ambiguous_projection_fails_closed_during_reassessment(project):
     commit(project)
     with pytest.raises(FolderCoordinationError):
         prepare_folder_reassessment(project, FolderHostBinding(project, ('a',)), payload(project, report))
+
+
+@pytest.mark.parametrize('source_ref', [None, 'a/source.md'])
+def test_legacy_repository_reassessment_requires_explicit_source_association(project, source_ref):
+    """Two source nodes may identify the same repository; do not guess which was used."""
+    from wiki_core.frontmatter import parse_frontmatter
+    from wiki_core.folder_source_provenance_v2 import selected_projection
+
+    setup_flow(project)
+    source_node = '---\npage_type: source\nplatform: repo\nsource_locator: example.test/group/repo\n---\nSynthetic node\n'
+    for source in ('a/source.md', 'a/other-source.md'):
+        put(project, source, source_node)
+    fm, body = parse_frontmatter((project / 'a/report.md').read_text())
+    fm['information_requirements'] = [
+        {'target': source, 'fields': ['*'], 'temporal': 'current', 'max_age_days': 30,
+         'classification': 'synthetic'} for source in ('a/source.md', 'a/other-source.md')]
+    fm['independent_repo_read'] = {'identity': 'example.test/group/repo', 'revision': '1' * 40,
+        'path': 'guide.md', 'blob': '2' * 40, 'document_sha256': '3' * 64,
+        'content_sha256': '4' * 64, 'section': None, 'field': None}
+    if source_ref is not None:
+        fm['independent_repo_source_ref'] = source_ref
+    put(project, 'a/report.md', '---\n' + yaml.safe_dump(fm, sort_keys=False) + '---\n' + body)
+    commit(project)
+    binding = FolderHostBinding(project, ('a',))
+    for source in ('a/source.md', 'a/other-source.md'):
+        request = payload(project, None)
+        request['source'] = source
+        if source_ref is None:
+            # Existing historical representation remains inspectable, without
+            # treating the returned singleton as an established association.
+            assert selected_projection(fm, source)['independent_repo_read'] == fm['independent_repo_read']
+            with pytest.raises(FolderCoordinationError, match='repository source association unavailable'):
+                prepare_folder_reassessment(project, binding, request)
+        else:
+            out = prepare_folder_reassessment(project, binding, request)
+            state = out['reassessment']['consumers'][0]['state']
+            assert state == ('blocked_repository_request_unavailable' if source == source_ref
+                             else 'declared_without_report')
