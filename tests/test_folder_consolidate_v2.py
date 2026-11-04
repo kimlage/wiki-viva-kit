@@ -569,6 +569,11 @@ def test_folder_selection_refuses_legacy_flags_and_missing_host(project, monkeyp
     monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--max-age-days', '30'])
     assert module.main() == 1
     assert 'folder_consolidation_unavailable' in capsys.readouterr().err
+    monkeypatch.setenv('WIKI_FOLDER_INGEST_HOST_ROOT', str(project))
+    monkeypatch.setenv('WIKI_FOLDER_INGEST_HOST_FOLDERS', 'a')
+    monkeypatch.setenv('WIKI_FOLDER_INGEST_HOST_REPOSITORIES', '[NaN]')
+    assert module.main() == 1
+    assert 'folder_consolidation_unavailable' in capsys.readouterr().err
 
 
 def test_legacy_mode_does_not_accept_folder_options(project, monkeypatch):
