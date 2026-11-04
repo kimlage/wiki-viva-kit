@@ -144,13 +144,18 @@ def _read_frontmatter(path: Path) -> dict[str, object]:
     return values
 
 
-def load_requests(paths: WikiPaths) -> list[dict[str, object]]:
+def load_requests(paths: WikiPaths, *, root: Path | None = None) -> list[dict[str, object]]:
     """Emitted context requests (skips ad-hoc query- packets)."""
     out: list[dict[str, object]] = []
     events_dir = paths.extraction_events
+    if root is not None:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(root, directories=(events_dir,))
     if not events_dir.is_dir():
         return out
     for req_file in sorted(events_dir.glob(f"*{REQUEST_SUFFIX}")):
+        if root is not None:
+            require_wiki_boundaries(root, files=(req_file,))
         try:
             request = json.loads(req_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -162,13 +167,13 @@ def load_requests(paths: WikiPaths) -> list[dict[str, object]]:
     return out
 
 
-def deep_read_complete(request: dict[str, object], cache_dir: Path) -> bool:
+def deep_read_complete(request: dict[str, object], cache_dir: Path, *, root: Path | None = None) -> bool:
     chunks = request.get("chunks") or []
     if not isinstance(chunks, list) or not chunks:
         return False
     for row in chunks:
         key = str(row.get("cache_key") or "")
-        if not key or read_matching_result(cache_dir, request, row) is None:
+        if not key or read_matching_result(cache_dir, request, row, root=root) is None:
             return False
     return True
 
@@ -196,7 +201,7 @@ def _dedup(items: list[object]) -> list[object]:
     return seen
 
 
-def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, object]:
+def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path | None = None) -> dict[str, object]:
     """Merge the per-chunk deep-read results of one source (order = chunk order)."""
     quadrants: dict[str, list[str]] = {key: [] for key in QUADRANT_KEYS}
     confidence: dict[str, str] = {}
@@ -206,7 +211,7 @@ def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, 
     }
     rank = {"low": 0, "medium": 1, "high": 2}
     for row in request.get("chunks") or []:
-        result = read_matching_result(cache_dir, request, row)
+        result = read_matching_result(cache_dir, request, row, root=root)
         if not result:
             continue
         q = result.get("quadrants")
@@ -627,13 +632,18 @@ def build_packet(
     }
 
 
-def find_event_for_source(paths: WikiPaths, source_id: str) -> Path | None:
+def find_event_for_source(paths: WikiPaths, source_id: str, *, root: Path | None = None) -> Path | None:
     events_dir = paths.ingest_events_dir
+    if root is not None:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(root, directories=(events_dir,))
     if not events_dir.is_dir():
         return None
     for md in sorted(events_dir.glob("*.md")):
         if md.name == "README.md":
             continue
+        if root is not None:
+            require_wiki_boundaries(root, files=(md,))
         fm = _read_frontmatter(md)
         if str(fm.get("source_id") or "") == source_id:
             return md
@@ -649,11 +659,11 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
     paths = WikiPaths(root, config)
     cache_dir = paths.llm_cache
     out: list[dict[str, object]] = []
-    for request in load_requests(paths):
+    for request in load_requests(paths, root=root):
         source_id = str(request.get("source_id"))
-        if not deep_read_complete(request, cache_dir):
+        if not deep_read_complete(request, cache_dir, root=root):
             continue  # the context-pass gate already covers incomplete reads
-        event = find_event_for_source(paths, source_id)
+        event = find_event_for_source(paths, source_id, root=root)
         if event is None:
             out.append({"source_id": source_id, "state": "missing_event"})
             continue

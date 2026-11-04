@@ -10,6 +10,8 @@ from __future__ import annotations
 import importlib.util
 import hashlib
 import json
+import sqlite3
+import pytest
 import sys
 from pathlib import Path
 
@@ -305,3 +307,41 @@ def test_live_source_ids_follows_localized_layout(tmp_path: Path) -> None:
     _proposal(ingest / "arquivo" / "gone.md", "archived", "src-archived")
 
     assert gc.live_source_ids(paths) == {"src-live"}
+
+
+def test_gc_reports_partial_removals_when_second_unlink_fails(tmp_path, monkeypatch, capsys):
+    gc = _load_gc(); cfg = WikiConfig(); paths = WikiPaths(tmp_path, cfg)
+    _proposal(paths.ingest_dir / 'active.md', 'approved', 'live')
+    paths.source_manifests.mkdir(parents=True)
+    first = paths.source_manifests / 'old-a.json'; first.write_text('{}')
+    second = paths.source_manifests / 'old-b.json'; second.write_text('{}')
+    monkeypatch.setattr(gc, 'ROOT', tmp_path)
+    monkeypatch.setattr(gc, 'load_config', lambda _: cfg)
+    monkeypatch.setattr(gc, 'prune_index', lambda *_: pytest.fail('prune must not run after removal failure'))
+    original = Path.unlink
+    def unlink(path, *args, **kwargs):
+        if path == second:
+            raise OSError('synthetic failure')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'unlink', unlink)
+    assert gc.main(['--apply']) == 2
+    report = capsys.readouterr()
+    assert 'after 1 removals' in report.err and 'index not pruned' in report.err
+    assert not first.exists() and second.exists()
+
+
+@pytest.mark.parametrize('error', [OSError, sqlite3.OperationalError])
+def test_gc_reports_unconfirmed_prune_after_removals(tmp_path, monkeypatch, capsys, error):
+    gc = _load_gc(); cfg = WikiConfig(); paths = WikiPaths(tmp_path, cfg)
+    _proposal(paths.ingest_dir / 'active.md', 'approved', 'live')
+    paths.source_manifests.mkdir(parents=True)
+    orphan = paths.source_manifests / 'old.json'; orphan.write_text('{}')
+    monkeypatch.setattr(gc, 'ROOT', tmp_path)
+    monkeypatch.setattr(gc, 'load_config', lambda _: cfg)
+    def fail(*_args):
+        raise error('synthetic failure')
+    monkeypatch.setattr(gc, 'prune_index', fail)
+    assert gc.main(['--apply']) == 2
+    report = capsys.readouterr()
+    assert 'after 1 removals' in report.err and 'index state not confirmed' in report.err
+    assert not orphan.exists()
