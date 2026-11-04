@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import yaml
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -115,6 +116,207 @@ def test_apply_refuses_dirty_consumer_without_explicit_override(tmp_path: Path) 
     assert result.returncode == 2
     assert "apply requires a clean consumer" in result.stderr
     assert not (consumer / "portable/tool.txt").exists()
+
+
+@pytest.mark.parametrize('kind', ['modified', 'staged_addition', 'untracked', 'dirty_manifest'])
+def test_dirty_kit_is_not_a_sha_backed_preview_or_apply(tmp_path: Path, kind: str) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    if kind == 'modified':
+        (kit / 'portable/tool.txt').write_text('uncommitted\n')
+    elif kind == 'staged_addition':
+        (kit / 'portable/new.txt').write_text('staged\n')
+        _git(kit, 'add', 'portable/new.txt')
+    elif kind == 'dirty_manifest':
+        manifest.write_text(manifest.read_text() + "\nc2_commands: [[python3, malicious.py]]\n")
+    else:
+        (kit / 'untracked.txt').write_text('work in progress\n')
+    before = _git(consumer, 'status', '--porcelain')
+    for args in (('--dry-run', '--json'), ('--allow-dirty',)):
+        result = _run(kit, consumer, manifest, *args)
+        assert result.returncode != 0
+        assert 'kit source changed or is dirty' in result.stderr
+        assert _git(consumer, 'status', '--porcelain') == before
+        assert not (consumer / 'kit.lock').exists()
+        assert not (consumer / 'portable/tool.txt').exists()
+
+
+def test_manifest_outside_commit_is_rejected_without_consumer_changes(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    external = tmp_path / 'external.yaml'
+    external.write_bytes(manifest.read_bytes())
+    for args in (('--dry-run',), ()):
+        result = _run(kit, consumer, external, *args)
+        assert result.returncode != 0
+        assert 'sync manifest must belong to the kit' in result.stderr
+        assert not (consumer / 'kit.lock').exists()
+        assert not (consumer / 'portable').exists()
+
+
+def test_b0_and_apply_reject_symlink_ancestor_before_any_read_or_delete(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    (outside / 'tool.txt').write_text('outside sentinel')
+    (consumer / 'old.txt').write_text('preserve')
+    import hashlib
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'managed_files': {
+        'old.txt': {'sha256': hashlib.sha256(b'preserve').hexdigest(), 'mode': '100644'}}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    (consumer / 'portable').symlink_to(outside, target_is_directory=True)
+    for args in (('--dry-run',), ('--allow-dirty',)):
+        result = _run(kit, consumer, manifest, *args)
+        assert result.returncode != 0
+        assert (outside / 'tool.txt').read_text() == 'outside sentinel'
+        assert (consumer / 'old.txt').read_text() == 'preserve'
+
+
+@pytest.mark.parametrize('unsafe', ['../outside', '/tmp/outside', 'a/../../outside', 'a\\outside', '.git/config'])
+def test_untrusted_lock_paths_cannot_escape_or_delete(tmp_path: Path, unsafe: str) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    outside = tmp_path / 'outside'
+    outside.write_text('sentinel')
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'managed_files': {
+        unsafe: {'sha256': 'a' * 64, 'mode': '100644'}}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    for args in (('--dry-run',), ('--allow-dirty',)):
+        result = _run(kit, consumer, manifest, *args)
+        assert result.returncode != 0
+        assert outside.read_text() == 'sentinel'
+        assert not (consumer / 'portable').exists()
+
+
+def test_symlinked_lock_and_unavailable_nofollow_fail_before_writes(tmp_path: Path, monkeypatch, capsys) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    outside = tmp_path / 'external-lock'
+    outside.write_text('sentinel')
+    (consumer / 'kit.lock').symlink_to(outside)
+    result = _run(kit, consumer, manifest, '--allow-dirty')
+    assert result.returncode != 0 and outside.read_text() == 'sentinel'
+    (consumer / 'kit.lock').unlink()
+    sync = _sync_module()
+    monkeypatch.setattr(sync.os, 'supports_dir_fd', set())
+    assert sync.main(['--kit', str(kit), '--consumer', str(consumer), '--manifest', str(manifest)]) != 0
+    assert 'safe no-follow sync is unavailable' in capsys.readouterr().err
+    assert not (consumer / 'portable').exists()
+    assert not (consumer / 'kit.lock').exists()
+
+
+def test_dry_run_ignores_fake_git_and_git_trace_environment(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    fake_dir = tmp_path / 'fake-bin'
+    fake_dir.mkdir()
+    marker = tmp_path / 'fake-git-ran'
+    fake = fake_dir / 'git'
+    fake.write_text('#!/bin/sh\nprintf attempted > "' + str(marker) + '"\nexit 1\n')
+    fake.chmod(0o700)
+    trace = tmp_path / 'git-trace'
+    monkeypatch.setenv('PATH', str(fake_dir))
+    monkeypatch.setenv('GIT_TRACE', str(trace))
+    result = _run(kit, consumer, manifest, '--dry-run', '--json')
+    assert result.returncode == 0
+    assert not marker.exists() and not trace.exists()
+    assert not (consumer / 'kit.lock').exists()
+
+
+@pytest.mark.parametrize('moment', ['before_copy', 'after_copy', 'target_changed'])
+def test_source_or_target_race_never_runs_c2_c3_or_writes_lock(tmp_path: Path, monkeypatch, capsys, moment: str) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    original = sync._copy_c1
+    def raced(kit_arg, consumer_arg, plan):
+        if moment == 'before_copy':
+            (kit / 'portable/tool.txt').write_text('raced source')
+        original(kit_arg, consumer_arg, plan)
+        if moment == 'after_copy':
+            (kit / 'portable/tool.txt').write_text('raced source')
+        if moment == 'target_changed':
+            (consumer / 'portable/tool.txt').write_text('raced consumer')
+    monkeypatch.setattr(sync, '_copy_c1', raced)
+    c3_marker = consumer / 'c3-ran'
+    c3 = f'{sys.executable} -c "from pathlib import Path; Path(\'c3-ran\').write_text(\'x\')"'
+    rc = sync.main(['--kit', str(kit), '--consumer', str(consumer), '--manifest', str(manifest), '--c3-command', c3])
+    assert rc != 0
+    assert 'consumer may be partially changed' in capsys.readouterr().err
+    assert not (consumer / 'derived.txt').exists()
+    assert not c3_marker.exists()
+    assert not (consumer / 'kit.lock').exists()
+    if moment == 'before_copy':
+        assert not (consumer / 'portable/tool.txt').exists()
+    elif moment == 'after_copy':
+        assert (consumer / 'portable/tool.txt').read_text() == 'v1\n'
+
+
+def test_modified_previously_managed_file_is_not_pruned(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    assert _run(kit, consumer, manifest).returncode == 0
+    _git(consumer, 'add', '.')
+    _git(consumer, 'commit', '-qm', 'prior adoption')
+    (consumer / 'portable/tool.txt').write_text('local work in progress')
+    (kit / 'portable/tool.txt').unlink()
+    _git(kit, 'add', '-u')
+    _git(kit, 'commit', '-qm', 'remove portable file')
+    result = _run(kit, consumer, manifest, '--allow-dirty')
+    assert result.returncode != 0
+    assert (consumer / 'portable/tool.txt').read_text() == 'local work in progress'
+
+
+def test_forged_lock_cannot_prune_path_not_in_historical_kit(tmp_path: Path) -> None:
+    import hashlib
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': _git(kit, 'rev-parse', 'HEAD'),
+            'manifest_sha256': sync._canonical_sha256(yaml.safe_load(manifest.read_text())),
+            'managed_files': {'README.md': {'sha256': hashlib.sha256(b'consumer\n').hexdigest(), 'mode': '100644'}}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    result = _run(kit, consumer, manifest, '--allow-dirty')
+    assert result.returncode != 0
+    assert 'managed path was not selected by historical kit' in result.stderr
+    assert (consumer / 'README.md').read_text() == 'consumer\n'
+
+
+def test_unmanaged_ignored_collision_is_preserved_or_identical_noop(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    (consumer / '.gitignore').write_text('portable/\n')
+    _git(consumer, 'add', '.gitignore')
+    _git(consumer, 'commit', '-qm', 'ignore local files')
+    (consumer / 'portable').mkdir()
+    target = consumer / 'portable/tool.txt'
+    target.write_text('ignored local work')
+    assert _git(consumer, 'status', '--porcelain') == ''
+    for args in (('--dry-run',), ()):
+        result = _run(kit, consumer, manifest, *args)
+        assert result.returncode != 0
+        assert 'unmanaged consumer file conflicts' in result.stderr
+        assert target.read_text() == 'ignored local work'
+        assert not (consumer / 'kit.lock').exists()
+    target.write_text('v1\n')
+    before_inode = target.stat().st_ino
+    result = _run(kit, consumer, manifest)
+    assert result.returncode == 0, result.stderr
+    assert target.read_text() == 'v1\n' and target.stat().st_ino == before_inode
+
+
+def test_forged_lock_cannot_overwrite_ignored_work_with_matching_fake_hash(tmp_path: Path) -> None:
+    import hashlib
+    kit, consumer, manifest = _fixture(tmp_path)
+    (consumer / '.gitignore').write_text('portable/\nkit.lock\n')
+    _git(consumer, 'add', '.gitignore')
+    _git(consumer, 'commit', '-qm', 'ignore local files')
+    (consumer / 'portable').mkdir()
+    target = consumer / 'portable/tool.txt'
+    target.write_text('ignored personal work')
+    sync = _sync_module()
+    lock = {'schema_version': 'wiki_viva_kit_lock.v1', 'source_sha': _git(kit, 'rev-parse', 'HEAD'),
+            'manifest_sha256': sync._canonical_sha256(yaml.safe_load(manifest.read_text())),
+            'managed_files': {'portable/tool.txt': {
+                'sha256': hashlib.sha256(b'ignored personal work').hexdigest(), 'mode': '100644'}}}
+    (consumer / 'kit.lock').write_text(yaml.safe_dump(lock))
+    assert _git(consumer, 'status', '--porcelain') == ''
+    for args in (('--dry-run',), ()):
+        result = _run(kit, consumer, manifest, *args)
+        assert result.returncode != 0
+        assert 'managed path differs from historical kit' in result.stderr
+        assert target.read_text() == 'ignored personal work'
 
 
 def test_only_previously_managed_stale_paths_are_removed(tmp_path: Path) -> None:
