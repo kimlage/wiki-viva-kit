@@ -2,12 +2,16 @@
 """Consolidate a deep-read source into the wiki (the integration half).
 
 Usage:
-  python3 scripts/wiki_consolidate.py --source <source_id> --emit-event --packet
-  python3 scripts/wiki_consolidate.py --source <source_id> --source-page memories/sources/x.md
-  python3 scripts/wiki_consolidate.py --check
-  python3 scripts/wiki_consolidate.py --all-pending
+  python3 scripts/wiki_consolidate.py --max-age-days <days> [--folder-candidate <path>] < request.json
+  python3 scripts/wiki_consolidate.py --mode v1 --source <source_id> --emit-event --packet
+  python3 scripts/wiki_consolidate.py --mode v1 --check
+  python3 scripts/wiki_consolidate.py --mode v1 --all-pending
 
---emit-event generates the normalized EVENT page from the recorded deep read
+The default folder mode prepares a reviewable proposal from explicitly selected
+v2 inputs and never writes or claims closure. The historical event/check flow
+requires --mode v1; that gate does not cover folder-v2 ingestion.
+
+In v1, --emit-event generates the normalized EVENT page from the recorded deep read
 (quadrants filled from llm-cache — never placeholders) with consolidated_into:[]
 for the agent to close during integration. --packet emits the integration packet
 (gitignored): related pages, overlapping claims and potential conflicts per
@@ -46,7 +50,7 @@ from wiki_core.paths import WikiPaths
 
 def _request_for(paths: WikiPaths, source_id: str) -> dict[str, object] | None:
     for request in load_requests(paths):
-        if str(request.get("source_id")) == source_id:
+        if str(request.get("source_id")) == source_id and request.get("context_binding_version") != 2:
             return request
     return None
 
@@ -122,27 +126,31 @@ def consolidate_one(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     config = load_config(ROOT)
-    parser.add_argument("--source", help="source_id to consolidate")
+    parser.add_argument("--mode", choices=("folder", "v1"), default="folder",
+                        help="folder proposal by default; v1 selects the historical global flow")
+    parser.add_argument("--source", help="legacy source_id to consolidate (v1 only)")
     parser.add_argument("--all-pending", action="store_true", help="list every pending consolidation (JSON)")
     parser.add_argument("--emit-event", action="store_true", help="generate the normalized event from llm-cache")
     parser.add_argument("--packet", action="store_true", help="emit the integration packet (gitignored)")
     parser.add_argument("--source-page", help="repo-relative path of the canonical source page (linked in the event)")
     parser.add_argument("--source-ref", help="page_id of the canonical source page (source_ref in the event)")
-    parser.add_argument("--context", default=config.default_context)
-    parser.add_argument("--date", default=dt.date.today().isoformat())
+    parser.add_argument("--context", help="legacy event context (v1 only)")
+    parser.add_argument("--date", help="legacy event date (v1 only)")
     parser.add_argument("--force", action="store_true", help="overwrite an existing event for the source")
     parser.add_argument("--check", action="store_true", help="rc 1 while any consolidation is pending (CI)")
     parser.add_argument("--folder-preview", action="store_true",
-                        help="read explicit v2 request/results JSON from stdin and preview without writing")
+                        help="compatibility alias for the default folder proposal")
     parser.add_argument("--folder-candidate", action="append", default=[],
                         help="explicit authorized wiki page to include in the folder preview")
     parser.add_argument("--max-age-days", type=int, help="explicit source freshness policy for folder preview")
     args = parser.parse_args()
 
-    if args.folder_preview:
+    if args.mode == "folder":
         if (args.check or args.all_pending or args.source or args.emit_event or args.packet
-                or args.source_page or args.source_ref or args.force or args.max_age_days is None):
-            parser.error("folder preview requires only explicit candidates and --max-age-days")
+                or args.source_page or args.source_ref or args.force or args.context or args.date):
+            parser.error("legacy consolidation and its global check require --mode v1; folder closure is not established by this command")
+        if args.max_age_days is None:
+            parser.error("folder proposal requires --max-age-days and explicit request/results JSON on stdin")
         try:
             from wiki_core.context_selection import strict_json_loads
             from wiki_core.folder_coordination_v2 import FolderHostBinding
@@ -169,12 +177,12 @@ def main() -> int:
             return 1
         print(json.dumps(preview, ensure_ascii=False, sort_keys=True))
         return 0
-    if args.folder_candidate or args.max_age_days is not None:
-        parser.error("folder candidates and max age require --folder-preview")
+    if args.folder_preview or args.folder_candidate or args.max_age_days is not None:
+        parser.error("folder proposal options are incompatible with --mode v1")
 
     if args.check or args.all_pending:
         pending = pending_consolidations(ROOT, config)
-        print(json.dumps({"pending": pending, "total": len(pending)}, ensure_ascii=False, indent=2))
+        print(json.dumps({"coverage": "legacy_v1_only", "pending": pending, "total": len(pending)}, ensure_ascii=False, indent=2))
         if args.check and pending:
             print(
                 f"wiki_consolidate: {len(pending)} source(s) awaiting consolidation — "
@@ -194,8 +202,8 @@ def main() -> int:
         packet=args.packet,
         source_page=args.source_page,
         source_ref=args.source_ref,
-        context=args.context,
-        date=dt.date.fromisoformat(args.date),
+        context=args.context or config.default_context,
+        date=dt.date.fromisoformat(args.date) if args.date else dt.date.today(),
         force=args.force,
     )
 

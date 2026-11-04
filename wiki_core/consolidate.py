@@ -880,6 +880,10 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
     cache_dir = paths.llm_cache
     out: list[dict[str, object]] = []
     for request in load_requests(paths):
+        # The global legacy event gate cannot establish folder-v2 closure.
+        # Keep this exclusion explicit even if folder cache lookup evolves.
+        if request.get("context_binding_version") == 2:
+            continue
         source_id = str(request.get("source_id"))
         if not deep_read_complete(request, cache_dir):
             continue  # the context-pass gate already covers incomplete reads
