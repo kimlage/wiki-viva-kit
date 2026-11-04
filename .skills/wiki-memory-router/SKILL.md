@@ -76,7 +76,7 @@ global maintenance. The integrator retains the applicable final gates.
 6. Open the operational-pass page resolved by `WikiPaths.operational_pass_page`
    when it exists and read the top "Short-term memory" section before older
    execution/event pages.
-7. When resuming ingestion or integration, run `python3 scripts/wiki_consolidate.py --check` ([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py)): sources stuck mid-flow (deep read without integration) show up immediately.
+7. When resuming v1 ingestion or integration, run `python3 scripts/wiki_consolidate.py --mode v1 --check` ([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py)): it reports pending v1 sources, not folder-v2 closure. For folder work, follow the selected task through review, integration and readback.
 8. Select the context-specific local skill only after the root memory explains the context.
 9. Treat configured `paths.references_root` as references, templates and audit
    history, not as live memory.
@@ -87,7 +87,7 @@ global maintenance. The integrator retains the applicable final gates.
     Verify tools, host/session and account in the executing instance; do not
     assume the parent's capabilities transfer. Record an exact blocker and a
     bounded condition for resuming the same IDs, preserving independent work.
-12. Before finalizing a canonical change, run [scripts/wiki_audit.py](../../scripts/wiki_audit.py), [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) with `--check`, [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py) with `--check`, [scripts/wiki_input_stage.py](../../scripts/wiki_input_stage.py) with `--check`, [scripts/wiki_check_methodology_coverage.py](../../scripts/wiki_check_methodology_coverage.py) when methodology files changed, [scripts/wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) and [scripts/wiki_pr_summary.py](../../scripts/wiki_pr_summary.py).
+12. Before finalizing a canonical change, run [scripts/wiki_audit.py](../../scripts/wiki_audit.py), [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) with `--mode v1 --check` for legacy coverage, [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py) with `--check`, [scripts/wiki_input_stage.py](../../scripts/wiki_input_stage.py) with `--check`, [scripts/wiki_check_methodology_coverage.py](../../scripts/wiki_check_methodology_coverage.py) when methodology files changed, [scripts/wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) and [scripts/wiki_pr_summary.py](../../scripts/wiki_pr_summary.py). Verify folder integration separately.
 
 ## Rules
 

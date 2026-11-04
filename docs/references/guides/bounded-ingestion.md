@@ -126,12 +126,16 @@ context. Compatibility is not evidence of approved policy or source freshness.
 ## Folder-bound ingestion
 
 A trusted local coordinator configures the host root and allowed folders at
-startup, then explicitly selects a folder, its index and intended output:
+startup, then explicitly selects a folder, its index and intended output. Set
+`WIKI_REPO_ROOT` to the verified wiki Git root, not an independent clone's
+root. Folder, index and output are relative to that root; the session may
+remain in its nested starting folder:
 
 ```sh
-WIKI_FOLDER_INGEST_HOST_ROOT="$(pwd)" WIKI_FOLDER_INGEST_HOST_FOLDERS="FOLDER" \\
-  python3 scripts/wiki_ingest.py --root . --source SOURCE --context SOURCE_CONTEXT \\
-  --approved-revision APPROVED_SHA --folder-context FOLDER \\
+WIKI_REPO_ROOT=/absolute/path/to/verified/wiki
+WIKI_FOLDER_INGEST_HOST_ROOT="$WIKI_REPO_ROOT" WIKI_FOLDER_INGEST_HOST_FOLDERS="FOLDER" \
+  python3 "$WIKI_REPO_ROOT/scripts/wiki_ingest.py" --root "$WIKI_REPO_ROOT" --source SOURCE --context SOURCE_CONTEXT \
+  --approved-revision APPROVED_SHA --folder-context FOLDER \
   --folder-index INDEX --folder-output OUTPUT --dry-run
 ```
 
