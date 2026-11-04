@@ -196,8 +196,6 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                         binding=None, source_request=None, query_packet=None, query_result=None,
                         requalify_source=False):
     """Check exact v2 reads and branch; independent review remains required."""
-    if requalify_source and query_requalifications is not None:
-        raise FolderIntegrationError('source and query requalification require separate proposals')
     if type(requalify_source) is not bool or (requalify_source and (binding is None or not isinstance(source_request, dict))):
         raise FolderIntegrationError('explicit host-bound requalification required')
     if getattr(policy, 'format_version', None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
