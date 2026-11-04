@@ -179,7 +179,8 @@ def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
 
 
 def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: bool = False,
-                    current_request: dict | None = None, limits: dict | None = None, owner: str = "Context owner/integrator", before_write=None) -> int:
+                    current_request: dict | None = None, limits: dict | None = None, owner: str = "Context owner/integrator", before_write=None,
+                    preserve_existing: bool = False) -> int:
     raw = sys.stdin.read() if payload_path == "-" else Path(payload_path).read_text(encoding="utf-8")
     data = json.loads(raw)
     results = data if isinstance(data, list) else [data]
@@ -240,7 +241,11 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
         try:
             if before_write is not None:
                 before_write()
-            out = write_result(paths.llm_cache, result)
+            if preserve_existing:
+                from wiki_core.traversal import require_wiki_path
+                require_wiki_path(paths.root, (paths.llm_cache / f'{key}.json').relative_to(paths.root).as_posix())
+            out = (write_result(paths.llm_cache, result, preserve_existing=True)
+                   if preserve_existing else write_result(paths.llm_cache, result))
         except (ValueError, OSError) as exc:
             if before_write is not None:
                 return _blocked(exc, str(current_request.get("source_id") or "requested-input"), owner)
@@ -267,6 +272,8 @@ def main() -> int:
     parser.add_argument("--profile")
     parser.add_argument("--approved-revision", help="Trusted local caller supplies current approved policy commit; this is not a remote access grant.")
     parser.add_argument("--policy-context", help="Explicit manifest context for the approved-policy adapter.")
+    parser.add_argument("--folder", help="Local context folder relative to the wiki root; defaults to nested cwd.")
+    parser.add_argument("--index", help="Selected context index relative to the wiki root; required for the root.")
     parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
     parser.add_argument("--request-max-bytes", type=int, default=DEFAULT_REQUEST_MAX_BYTES)
     business_root = parser.add_mutually_exclusive_group()
@@ -295,6 +302,14 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.root.resolve()
+    from wiki_core.llm.context_pass import local_entry_selection
+    try:
+        entry_folder, entry_index = local_entry_selection(root, args.folder, args.index, cwd=Path.cwd(),
+            approved_revision=args.approved_revision, policy_context=args.policy_context)
+    except (ValueError, OSError) as exc:
+        parser.error(str(exc))
+    if entry_folder is not None and (args.allow_unrequested or args.query or (args.record_result and not args.source)):
+        parser.error('folder entry requires an explicit source and its requested result')
     config = load_config(root)
     paths = WikiPaths(root, config)
     try:
@@ -398,6 +413,11 @@ def main() -> int:
         root_optional=list(input_context.get("perspectives_optional") or []),
     )
     try:
+        context_package = ingestion_block_context(root, config, input_context,
+            perspectives_required, approved_revision=args.approved_revision, policy_context=args.policy_context,
+            task_id=str(manifest.get("source_id") or "source-context-pass"), context_max_bytes=args.context_max_bytes,
+            content_revision=source_guard["reader"].revision if source_guard else "HEAD",
+            entry_folder=entry_folder, entry_index=entry_index)
         request = build_context_request(
             manifest,
             chunks,
@@ -416,10 +436,7 @@ def main() -> int:
             quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
             target_pages=list(input_context.get("target_pages") or []),
             input_stage_status=str(input_context.get("input_stage_status") or ""),
-            block_context_package=ingestion_block_context(root, config, input_context,
-                perspectives_required, approved_revision=args.approved_revision, policy_context=args.policy_context,
-                task_id=str(manifest.get("source_id") or "source-context-pass"), context_max_bytes=args.context_max_bytes,
-                content_revision=source_guard["reader"].revision if source_guard else "HEAD"),
+            block_context_package=context_package,
             context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes,
             source_authorization=source_guard["authorization"] if source_guard else None,
         )
@@ -431,10 +448,21 @@ def main() -> int:
             revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
     except (ValueError, OSError) as exc:
         return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)
+
+    def revalidate_entry():
+        from wiki_core.llm.context_pass import _folder_documents
+        current = _folder_documents(root, entry_folder, entry_index, args.context_max_bytes)
+        observed = build_manifest(source, args.context, root=root)
+        if (context_package['documents'][:len(current)] != current
+                or observed.get('hash_sha256') != manifest.get('hash_sha256')):
+            raise ValueError('selected source or folder context changed')
+
     if args.record_result:
         return _record_results(paths, args.record_result, allow_unrequested=args.allow_unrequested,
             current_request=request, limits=limits, owner=config.owner_label,
-            before_write=(lambda: revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))) if source_guard else None)
+            before_write=(revalidate_entry if entry_folder is not None else
+                (lambda: revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))) if source_guard else None),
+            preserve_existing=entry_folder is not None)
     if args.check:
         report = {
             "source_id": manifest.get("source_id"),
@@ -448,8 +476,20 @@ def main() -> int:
 
     if args.emit_request:
         out = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(canonical_request_text(request), encoding="utf-8")
+        if entry_folder is not None:
+            try:
+                revalidate_entry()
+                from wiki_core.traversal import require_wiki_path
+                require_wiki_path(root, out.relative_to(root).as_posix())
+                out.parent.mkdir(parents=True, exist_ok=True)
+                require_wiki_path(root, out.relative_to(root).as_posix())
+                with out.open('x', encoding='utf-8') as stream:
+                    stream.write(canonical_request_text(request))
+            except (ValueError, OSError) as exc:
+                return _blocked(exc, str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)
+        else:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(canonical_request_text(request), encoding="utf-8")
         print(out.relative_to(root))
         return 0
 

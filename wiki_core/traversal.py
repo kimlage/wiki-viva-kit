@@ -11,6 +11,30 @@ import os
 from pathlib import Path
 
 
+def require_wiki_path(root: Path, relative: str) -> Path:
+    """Select a local path without crossing symlinks or a nested Git root.
+
+    The supplied root is trusted and may itself be relative. This does not
+    authorize access or protect against a concurrent filesystem replacement.
+    """
+    from wiki_core.context_policy import safe_path
+    relative = safe_path(relative, allow_root=True)
+    current = Path(root).resolve(strict=True)
+    if not current.is_dir():
+        raise ValueError('wiki root unavailable')
+    if relative == '.':
+        return current
+    from wiki_core.repository_reader import canonical_path
+    canonical_path(relative)
+    for component in relative.split('/'):
+        current = current / component
+        if current.is_symlink():
+            raise ValueError('selected path crosses a symlink')
+        if current.is_dir() and os.path.lexists(current / '.git'):
+            raise ValueError('selected path crosses an independent repository')
+    return current
+
+
 def reject_nested_git(base: Path, *, include_hidden: bool = True) -> None:
     """Fail a selected directory collection if it contains another repo.
 

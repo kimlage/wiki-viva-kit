@@ -132,6 +132,8 @@ def run(
     request_max_bytes: int = DEFAULT_REQUEST_MAX_BYTES,
     root_entity_ref: str | None = None,
     omit_root_entity: bool = False,
+    entry_folder: str | None = None,
+    entry_index: str | None = None,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -142,6 +144,10 @@ def run(
     source_guard = None
     try:
         request_limits(context_max_bytes, request_max_bytes)
+        if (approved_revision is not None or policy_context is not None) and (entry_folder is not None or entry_index is not None):
+            raise ValueError('folder selection cannot replace an approved policy')
+        if entry_index is not None and entry_folder is None:
+            raise ValueError('index requires a context folder')
         if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
             raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
         if approved_revision is not None or policy_context is not None:
@@ -270,6 +276,11 @@ def run(
                 metrics["target_page_count"] = len(input_context.get("target_pages") or [])
                 metrics["perspective_count"] = len(perspectives_required) + len(perspectives_optional)
             with _observed(observer, "llm_request", chunk_count=len(chunk_dicts)) as metrics:
+                context_package = ingestion_block_context(root, config, input_context,
+                    perspectives_required, approved_revision=approved_revision, policy_context=policy_context,
+                    task_id=source_id, context_max_bytes=context_max_bytes,
+                    content_revision=source_guard["reader"].revision if source_guard else "HEAD",
+                    entry_folder=entry_folder, entry_index=entry_index)
                 request = build_context_request(
                     manifest,
                     chunk_dicts,
@@ -288,9 +299,7 @@ def run(
                     quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
                     target_pages=list(input_context.get("target_pages") or []),
                     input_stage_status=str(input_context.get("input_stage_status") or ""),
-                    block_context_package=ingestion_block_context(root, config, input_context,
-                        perspectives_required, approved_revision=approved_revision, policy_context=policy_context, task_id=source_id, context_max_bytes=context_max_bytes,
-                        content_revision=source_guard["reader"].revision if source_guard else "HEAD"),
+                    block_context_package=context_package,
                     context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
                     source_authorization=source_guard["authorization"] if source_guard else None,
                 )
@@ -319,6 +328,31 @@ def run(
             pending = chunk_count
             request = None
             blocked = True
+    if write and entry_folder is not None and not blocked:
+        # Until requests and captures support multiple local contexts, never
+        # replace an existing source's artifacts when entering another folder.
+        try:
+            from wiki_core.llm.context_pass import _folder_documents
+            if request is not None:
+                current = _folder_documents(root, entry_folder, entry_index, context_max_bytes)
+                if context_package['documents'][:len(current)] != current:
+                    raise ValueError('selected folder context changed before persistence')
+                current_manifest = build_manifest(source, context, root=root)
+                if current_manifest.get('hash_sha256') != manifest.get('hash_sha256'):
+                    raise ValueError('selected source changed before persistence')
+            from wiki_core.traversal import require_wiki_path
+            existing = (paths.source_manifests / f'{source_id}.json',
+                        paths.source_text / f'{source_id}.json',
+                        paths.chunks / f'{source_id}.json',
+                        paths.extraction_events / f'{source_id}-llm-context-request.json')
+            selected = [require_wiki_path(root, path.relative_to(root).as_posix()) for path in existing]
+            if any(path.exists() for path in selected):
+                raise ContextRequestBlocked('existing_source_context_conflict',
+                    'Existing source capture or request was preserved; contextual reuse is not available yet.')
+        except (ValueError, OSError) as exc:
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report['blocker']); context_error_code = report['error_code']
+            pending = chunk_count; request = None; blocked = True
     persist = write and not blocked
 
     if persist:
