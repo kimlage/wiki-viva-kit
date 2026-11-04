@@ -27,6 +27,8 @@ def main() -> int:
 
     paths = WikiPaths(ROOT, config)
     summary = cache_summary(paths.llm_cache, root=ROOT)
+    summary['coverage'] = {'scope': 'global_artifact_location_only',
+                           'folder_scoped_namespaces': 'not_checked'}
     summary["manifests"] = len(list(paths.source_manifests.glob("*.json")))
     summary["text_sources"] = len(list(paths.source_text.glob("*.json")))
     summary["chunk_sources"] = len(list(paths.chunks.glob("*.json")))
