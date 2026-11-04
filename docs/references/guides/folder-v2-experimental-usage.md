@@ -339,6 +339,11 @@ query output must declare all reported queries. This records the selection,
 not proof that the executor read it. The v2 projection retains its own receipt
 identity and cannot be reinterpreted as a v1 receipt.
 
+A later query may update an existing claim while retaining its earlier RAW or
+repository provenance only if every prior projection remains exactly unchanged.
+The preflight reports those preserved projections as `preserved_not_revalidated`;
+it does not claim current source bytes, external origin or remote access were checked.
+
 An explicitly authorized host may select consumers and changed paths with
 `wiki_folder_reassessment_v2.py --query-changed PATH --candidate CONSUMER`
 and a `--reports` file containing the prior query packet, result and integrated
