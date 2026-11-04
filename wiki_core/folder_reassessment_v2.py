@@ -230,7 +230,7 @@ def _reassess_independent_repo(root, policy, *, folder, source, reports, scope, 
             continue
         changed = prior['content_sha256'] != latest['content_sha256']
         entry['repository_impact'] = {'repository': selection['identity'], 'path': path,
-              'consumed_revision': prior['revision'], 'current_revision': latest['revision'],
+              'consumed_revision': prior['revision'], 'selected_revision': latest['revision'],
               'section': prior['section'], 'field': prior['field'],
               'before_digest': prior['content_sha256'], 'after_digest': latest['content_sha256'],
               'source_state': 'changed' if changed else 'unchanged',

@@ -17,7 +17,7 @@ from wiki_core.folder_declarations_v2 import preauthorize_index
 from wiki_core.folder_integration_v2 import preflight_folder_v2
 from wiki_core.folder_packet_v2 import build_folder_packet_v2
 from wiki_core.folder_policy_v2 import _at_revision, load_folder_policy_v2
-from wiki_core.repo_read import contains_access_secrets
+from wiki_core.repo_read import contains_access_secrets, remote_identity
 
 
 class FolderCoordinationError(ValueError):
@@ -30,6 +30,7 @@ class FolderHostBinding:
 
     root: Path
     folders: tuple[str, ...]
+    independent_repos: tuple[tuple[Path, str], ...] = ()
 
     def __post_init__(self):
         try:
@@ -51,6 +52,22 @@ class FolderHostBinding:
         except (OSError, RuntimeError, ValueError, TypeError):
             raise ValueError('invalid host root') from None
         object.__setattr__(self, 'root', root)
+        if not isinstance(self.independent_repos, tuple) or len(self.independent_repos) > 32:
+            raise ValueError('invalid independent repository binding')
+        normalized = []
+        try:
+            for pair in self.independent_repos:
+                if not isinstance(pair, tuple) or len(pair) != 2 or not isinstance(pair[1], str):
+                    raise ValueError('invalid binding')
+                repo_root = Path(pair[0])
+                if not repo_root.is_absolute() or remote_identity('https://' + pair[1])[0] != pair[1]:
+                    raise ValueError('invalid binding')
+                normalized.append((repo_root.resolve(), pair[1]))
+        except (OSError, RuntimeError, ValueError, TypeError):
+            raise ValueError('invalid independent repository binding') from None
+        if len(set(normalized)) != len(normalized):
+            raise ValueError('invalid independent repository binding')
+        object.__setattr__(self, 'independent_repos', tuple(normalized))
 
 
 def _sha(value):

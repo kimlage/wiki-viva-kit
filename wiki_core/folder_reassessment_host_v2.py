@@ -22,7 +22,7 @@ def prepare_folder_reassessment(root, binding, payload):
     Direct reassessment APIs/CLIs remain available only to a trusted caller.
     """
     required = {'folder', 'approved_revision', 'source', 'reports'}
-    optional = {'scope', 'candidates', 'max_files', 'max_bytes'}
+    optional = {'scope', 'candidates', 'max_files', 'max_bytes', 'independent_repo'}
     if not isinstance(payload, dict) or not required <= set(payload) or set(payload) - required - optional:
         raise FolderCoordinationError('invalid request')
     try:
@@ -50,10 +50,16 @@ def prepare_folder_reassessment(root, binding, payload):
         reports = payload['reports']
         if not isinstance(reports, list) or len(reports) > 64:
             raise FolderCoordinationError('invalid reports')
+        independent = payload.get('independent_repo')
+        report_fields = {'target', 'section', 'field', 'packet', 'result'}
+        if independent is not None:
+            if not isinstance(independent, dict) or set(independent) != {'root', 'identity', 'revision', 'path'}:
+                raise FolderCoordinationError('independent repository unavailable or unauthorized')
+            report_fields.add('repo_read')
         report_keys = set()
         historical_reports = []
         for report in reports:
-            if not isinstance(report, dict) or set(report) != {'target', 'section', 'field', 'packet', 'result'}:
+            if not isinstance(report, dict) or set(report) != report_fields:
                 raise FolderCoordinationError('invalid report')
             target = safe_path(report['target']); section = report['section']; field = report['field']
             if ((section is not None and (not isinstance(section, str) or not section.strip()))
@@ -67,6 +73,19 @@ def prepare_folder_reassessment(root, binding, payload):
                 raise FolderCoordinationError('duplicate report')
             report_keys.add(key)
         policy = _bound_policy(root, binding, folder, payload['approved_revision'])
+        if independent is not None:
+            try:
+                repo_root = Path(independent['root'])
+                if not repo_root.is_absolute():
+                    raise ValueError('relative root')
+                repo_key = (repo_root.resolve(), independent['identity'])
+                if repo_key not in binding.independent_repos:
+                    raise ValueError('repository not in host binding')
+                # Subsequent Git operations use the host-authorized canonical
+                # root, not an alias from the request that can be retargeted.
+                independent = {**independent, 'root': str(repo_key[0])}
+            except (OSError, RuntimeError, ValueError, TypeError):
+                raise FolderCoordinationError('independent repository unavailable or unauthorized') from None
         context = policy.folder_ids[folder]
         reader = RepositoryReader(binding.root, policy.policy_revision)
         # Validate explicit candidate ownership before checking any report or
@@ -139,7 +158,8 @@ def prepare_folder_reassessment(root, binding, payload):
             _preauthorize_historical_replay(binding.root, policy, packet, folder, context, historical)
         policy.fresh()
         outcome = reassess_folder_source_v2(binding.root, policy, folder=folder, source=source,
-                    reports=reports, scope=scope, candidates=candidates, max_files=max_files, max_bytes=max_bytes)
+                    reports=reports, scope=scope, candidates=candidates, max_files=max_files, max_bytes=max_bytes,
+                    independent_repo=independent)
         policy.fresh()
         return {'schema_version':'wiki.folder-host-reassessment/v2','mode':'host_bound',
                 'reassessment':outcome,'enforcement_claim':'none'}

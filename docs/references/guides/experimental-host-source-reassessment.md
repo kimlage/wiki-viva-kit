@@ -17,6 +17,17 @@ index. A cross-owner source requires an explicit report with an approved exact
 bilateral connection; without such a report the adapter refuses the request.
 The underlying inventory still checks every selected consumer before reading it.
 
+For an independent local Git selection the same adapter accepts the optional
+`independent_repo` object and reported `repo_read` results described in the
+[source reassessment guide](folder-v2-experimental-usage.md). The trusted host
+must construct its binding with an explicit tuple of `(absolute root, expected
+origin identity)` pairs; the default is empty. The payload cannot add entries
+to the binding. Each requested root is resolved and matched to that list before
+the repository is opened, and wiki source/report permissions are checked before
+selected Git content is read. Matching a node, URL or configured origin does
+not itself grant access or prove remote authentication. The compared commit is
+explicitly selected and is not asserted to be HEAD.
+
 The result is a scoped preview, not consumer discovery or a receipt registry.
 Declarations and reported reads are not independent execution evidence. A
 changed or missing source never approves, writes, merges or proves freshness.

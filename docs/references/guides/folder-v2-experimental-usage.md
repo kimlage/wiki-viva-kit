@@ -287,7 +287,7 @@ is inferred. The command does not modify interpretations.
 
 For a selected independent Git repository, the same command can additionally
 compare reported selections using `--independent-root` (absolute local root),
-`--independent-identity`, `--independent-revision` (fixed current commit) and
+`--independent-identity`, `--independent-revision` (explicitly selected fixed commit) and
 `--independent-path`. The selected wiki source must have `page_type: source`,
 `platform: repo`, and a `source_locator` matching that configured origin in
 both the current node and the whole node reported by the original packet. Each
@@ -296,7 +296,8 @@ explicit consumer report adds `repo_read`: the original output from
 field/section. The wiki-node requirement must select the whole node. After
 checking the wiki reports and current authority, the command verifies each
 reported Git selection locally and compares it with the chosen descendant
-commit; no fetch is performed. A changed selection is `review_pending`, while
+commit; no fetch is performed and the chosen commit is not asserted to be HEAD.
+A changed selection is `review_pending`, while
 an unchanged selection remains `verification_pending`. A missing current
 selection is blocked. Consumers without reports remain unverified.
 

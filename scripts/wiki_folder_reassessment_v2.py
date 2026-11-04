@@ -25,7 +25,7 @@ def main():
     parser.add_argument('--max-bytes', type=int, default=1000000)
     parser.add_argument('--independent-root', help='explicit local Git root; requires other independent options')
     parser.add_argument('--independent-identity', help='expected credential-free configured origin identity')
-    parser.add_argument('--independent-revision', help='selected current immutable commit SHA')
+    parser.add_argument('--independent-revision', help='explicitly selected immutable commit SHA')
     parser.add_argument('--independent-path', help='exact repository-relative source path')
     args = parser.parse_args()
     try:
