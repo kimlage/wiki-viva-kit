@@ -44,8 +44,10 @@ def requalify_v1_as_global_coordinator(root, policy, *, folder, index_path, cons
 
     The caller-trust host is responsible for granting access to every v1 policy
     manifest before invoking this function. This is neither a proof of caller
-    authorization nor an isolation boundary. No write, conversion, execution,
-    publication or approval occurs. Queries are refused and v1 data is retained.
+    authorization nor an isolation boundary. Historical authority is checked
+    at the content, policy and proposal revisions before historical bodies are
+    opened. No write, conversion, execution, publication or approval occurs.
+    Queries are refused and v1 data is retained.
     """
     if getattr(policy, 'format_version', None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise CoordinatorRequalificationError('bound v2 policy required')
@@ -139,12 +141,24 @@ def requalify_v1_as_global_coordinator(root, policy, *, folder, index_path, cons
             raise CoordinatorRequalificationError('proposal does not change consumer')
         # Global v1 policy read belongs solely to the host-authorized caller.
         # A failure is opaque and never exposes other owners' metadata.
-        old = _policy_at(Path(root), old_sha, 'context.yaml')
+        historical_policies = {sha: _policy_at(Path(root), sha, 'context.yaml')
+                               for sha in dict.fromkeys((content_sha, old_sha, proposal_head))}
+        old = historical_policies[old_sha]
         old_context = packet['context_id']
-        if (old_context not in old.contexts or old.contexts[old_context]['root'] != folder
-                or old.owner_of(consumer) != old_context or not old.permits(old_context,'read',consumer)
-                or not old.permits(old_context,'write',consumer)):
-            raise CoordinatorRequalificationError('historical consumer owner or authority unavailable')
+        for historical in historical_policies.values():
+            if (old_context not in historical.contexts or historical.contexts[old_context]['root'] != folder
+                    or historical.owner_of(consumer) != old_context or not historical.permits(old_context,'read',consumer)
+                    or not historical.permits(old_context,'write',consumer)):
+                raise CoordinatorRequalificationError('historical consumer owner or authority unavailable')
+        mandatory = []; seen_mandatory = set()
+        for ancestor in old.lineage(old_context):
+            for category in ('instructions', 'skills', 'templates'):
+                for ref in ancestor[category]:
+                    if ref not in seen_mandatory:
+                        mandatory.append((ref, ancestor['id']))
+                        seen_mandatory.add(ref)
+        if [(row['ref'], row['producer']) for row in packet['inputs'] if row['kind'] == 'mandatory'] != mandatory:
+            raise CoordinatorRequalificationError('historical mandatory readset differs')
         evidence = []
         for row, owner in zip(packet['inputs'], current_owners):
             producer = row['producer']; ref = row['ref']
@@ -152,7 +166,19 @@ def requalify_v1_as_global_coordinator(root, policy, *, folder, index_path, cons
                 raise CoordinatorRequalificationError('historical input owner unavailable')
             if old.contexts[producer]['root'] != policy.contexts[owner]['root']:
                 raise CoordinatorRequalificationError('input owner changed; explicit migration required')
+            if row['kind'] == 'mandatory' and row['revision'] != old_sha:
+                raise CoordinatorRequalificationError('historical mandatory revision unavailable')
+            if row['kind'] == 'mandatory' and any(within(ref, denied) for denied in old.effective[old_context]['deny']['read']):
+                raise CoordinatorRequalificationError('historical mandatory authority unavailable')
             if row['kind'] == 'evidence':
+                if row['revision'] != content_sha:
+                    raise CoordinatorRequalificationError('historical evidence revision unavailable')
+                for historical in historical_policies.values():
+                    if (producer not in historical.contexts or historical.owner_of(ref) != producer
+                            or historical.contexts[producer]['root'] != policy.contexts[owner]['root']
+                            or historical.connection(producer, old_context, ref, row['use'], row['classification'],
+                                                     section=row.get('section'), field=row.get('field')) != 'approved'):
+                        raise CoordinatorRequalificationError('historical evidence authority unavailable')
                 item = {k:row[k] for k in ('ref','producer','reason','use','classification')}
                 for key in ('section','field'):
                     if row.get(key) is not None: item[key] = row[key]
