@@ -118,3 +118,118 @@ def test_coordinator_new_mandatory_rule_never_claims_full_normative_equivalence(
     assert out['normative_bytes']=='changed_review_required'
     assert out['normative_coverage']=='new_or_reordered_rules_require_review'
     assert out['state']=='review_pending'
+
+
+def test_individual_rejects_earlier_content_without_owner_before_historical_reads(equivalent_repo, monkeypatch):
+    from copy import deepcopy
+    from tests.test_folder_requalification_batch_v2 import fixture
+    from wiki_core.context_selection import digest
+
+    earlier = git(equivalent_repo, 'rev-parse', 'HEAD')
+    item = deepcopy(fixture(equivalent_repo)[1])
+    packet = item['packet']
+    packet['content_revision'] = earlier
+    packet['packet_digest'] = digest({key: value for key, value in packet.items() if key != 'packet_digest'})
+    item['result']['packet_digest'] = packet['packet_digest']
+    original = RepositoryReader.read
+    def sentinel(self, ref, *args, **kwargs):
+        if self.revision == earlier and ref == 'b/source.md':
+            pytest.fail('historical source opened before its owner was checked')
+        return original(self, ref, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', sentinel)
+    with pytest.raises(CoordinatorRequalificationError, match='historical consumer owner or authority unavailable'):
+        call(equivalent_repo, packet, item['result'], item['proposal_head'],
+             folder='b', index='b/index.md', consumer='b/result.md')
+
+
+def test_individual_rejects_changed_proposal_owner_before_historical_output(equivalent_repo, monkeypatch):
+    from copy import deepcopy
+    from tests.test_folder_requalification_batch_v2 import fixture
+
+    item = deepcopy(fixture(equivalent_repo)[0])
+    manifest = equivalent_repo / 'a/context.yaml'
+    original_manifest = manifest.read_text()
+    altered = yaml.safe_load(original_manifest)
+    altered['id'] = 'moved-owner'
+    manifest.write_text(yaml.safe_dump(altered)); commit(equivalent_repo)
+    wrong_proposal = git(equivalent_repo, 'rev-parse', 'HEAD')
+    manifest.write_text(original_manifest); commit(equivalent_repo)
+    original = RepositoryReader.read
+    def sentinel(self, ref, *args, **kwargs):
+        if self.revision == wrong_proposal and ref == 'a/result.md':
+            pytest.fail('proposal opened before its owner was checked')
+        return original(self, ref, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', sentinel)
+    with pytest.raises(CoordinatorRequalificationError, match='historical consumer owner or authority unavailable'):
+        call(equivalent_repo, item['packet'], item['result'], wrong_proposal)
+
+
+def test_individual_rejects_revoked_historical_connection_before_source(equivalent_repo, monkeypatch):
+    from copy import deepcopy
+    from tests.test_folder_requalification_batch_v2 import fixture
+    from wiki_core.context_selection import digest
+
+    item = deepcopy(fixture(equivalent_repo, cross=True)[0])
+    manifest = equivalent_repo / 'b/context.yaml'
+    original_manifest = manifest.read_text()
+    changed = yaml.safe_load(original_manifest); changed['exports'] = []
+    manifest.write_text(yaml.safe_dump(changed)); commit(equivalent_repo)
+    content = git(equivalent_repo, 'rev-parse', 'HEAD')
+    manifest.write_text(original_manifest); commit(equivalent_repo)
+    old_sha = git(equivalent_repo, 'rev-parse', 'HEAD')
+    output = equivalent_repo / 'a/result.md'
+    output.write_text(output.read_text() + 'Later synthetic proposal\n'); commit(equivalent_repo)
+    proposal = git(equivalent_repo, 'rev-parse', 'HEAD')
+    packet = item['packet']; packet['policy_revision'] = old_sha; packet['content_revision'] = content
+    for row in packet['inputs']:
+        row['revision'] = old_sha if row['kind'] == 'mandatory' else content
+    for row in packet['declared_read_set']:
+        row['revision'] = content if row['ref'] == 'b/source.md' else old_sha
+    packet['packet_digest'] = digest({key: value for key, value in packet.items() if key != 'packet_digest'})
+    item['result']['packet_digest'] = packet['packet_digest']
+    item['result']['read_coverage']['observed_refs'] = deepcopy(packet['declared_read_set'])
+    original = RepositoryReader.read
+    def sentinel(self, ref, *args, **kwargs):
+        if self.revision == content and ref == 'b/source.md':
+            pytest.fail('historical source opened before its connection was checked')
+        return original(self, ref, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', sentinel)
+    with pytest.raises(CoordinatorRequalificationError, match='historical evidence authority unavailable'):
+        call(equivalent_repo, packet, item['result'], proposal)
+
+
+def test_individual_rejects_omitted_historical_mandatory_before_body(equivalent_repo, monkeypatch):
+    from copy import deepcopy
+    from tests.test_folder_requalification_batch_v2 import fixture
+    from wiki_core.context_selection import digest
+
+    item = deepcopy(fixture(equivalent_repo)[1])
+    manifest = equivalent_repo / 'context.yaml'
+    original_manifest = manifest.read_text()
+    historical = yaml.safe_load(original_manifest)
+    historical['instructions'].append('docs/extra-synthetic.md')
+    manifest.write_text(yaml.safe_dump(historical))
+    put(equivalent_repo, 'docs/extra-synthetic.md', 'Unselected synthetic rule\n')
+    commit(equivalent_repo)
+    old_sha = git(equivalent_repo, 'rev-parse', 'HEAD')
+    manifest.write_text(original_manifest)
+    output = equivalent_repo / 'b/result.md'
+    output.write_text(output.read_text() + 'Later synthetic proposal\n')
+    commit(equivalent_repo)
+    proposal = git(equivalent_repo, 'rev-parse', 'HEAD')
+    packet = item['packet']; packet['policy_revision'] = old_sha
+    for row in packet['inputs']:
+        if row['kind'] == 'mandatory': row['revision'] = old_sha
+    for row in packet['declared_read_set']:
+        if row['ref'] != 'b/source.md': row['revision'] = old_sha
+    packet['packet_digest'] = digest({key: value for key, value in packet.items() if key != 'packet_digest'})
+    item['result']['packet_digest'] = packet['packet_digest']
+    item['result']['read_coverage']['observed_refs'] = deepcopy(packet['declared_read_set'])
+    original = RepositoryReader.read
+    def sentinel(self, ref, *args, **kwargs):
+        if ref == 'docs/extra-synthetic.md':
+            pytest.fail('unselected historical mandatory body was opened')
+        return original(self, ref, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', sentinel)
+    with pytest.raises(CoordinatorRequalificationError, match='historical mandatory readset differs'):
+        call(equivalent_repo, packet, item['result'], proposal, folder='b', index='b/index.md', consumer='b/result.md')

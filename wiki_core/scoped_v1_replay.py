@@ -91,16 +91,51 @@ def replay_root_only_v1(root, policy, *, index_path, packet, result):
             raise ScopedReplayError('invalid v1 result')
         if result['read_coverage']['observed_refs'] != packet['declared_read_set']:
             raise ScopedReplayError('v1 reported reads are incomplete')
-        listing = _git(root, 'ls-tree', '-r', '-z', '--name-only', old_sha).split(b'\0')
-        manifests = {p for p in listing if p and (p == b'context.yaml' or p.endswith(b'/context.yaml'))}
-        if manifests != {b'context.yaml'}:
-            raise ScopedReplayError('historical multi-context projection unavailable')
-        # Legacy global loader is safe only after the immutable Git tree has
-        # been proven to contain exactly the one authorized manifest.
+        for sha in {old_sha, content_sha}:
+            listing = _git(root, 'ls-tree', '-r', '-z', '--name-only', sha).split(b'\0')
+            manifests = {p for p in listing if p and (p == b'context.yaml' or p.endswith(b'/context.yaml'))}
+            if manifests != {b'context.yaml'}:
+                raise ScopedReplayError('historical multi-context projection unavailable')
+        # Both trees must have exactly one currently authorized manifest before
+        # either historical policy body is loaded. The root-only policy at the
+        # content revision then governs each historical selection.
         old = _policy_at(Path(root), old_sha, 'context.yaml')
         old._binding = (str(Path(root).resolve()), old_sha, 'context.yaml')
         if packet['context_id'] not in old.contexts or old.contexts[packet['context_id']]['root'] != '.':
             raise ScopedReplayError('historical root identity unavailable')
+        content_policy = old if content_sha == old_sha else _policy_at(Path(root), content_sha, 'context.yaml')
+        old_context = packet['context_id']
+        if old_context not in content_policy.contexts or content_policy.contexts[old_context]['root'] != '.':
+            raise ScopedReplayError('historical content root identity unavailable')
+        mandatory = []
+        seen_mandatory = set()
+        for ancestor in old.lineage(old_context):
+            for category in ('instructions', 'skills', 'templates'):
+                for ref in ancestor[category]:
+                    if ref not in seen_mandatory:
+                        mandatory.append((ref, ancestor['id']))
+                        seen_mandatory.add(ref)
+        actual_mandatory = [(row['ref'], row.get('producer')) for row in packet['inputs'] if row['kind'] == 'mandatory']
+        if actual_mandatory != mandatory:
+            raise ScopedReplayError('historical mandatory readset differs')
+        for ref, producer in mandatory:
+            if (accepted.get(ref) != context or old.owner_of(ref) != producer
+                    or any(within(ref, denied) for denied in old.effective[old_context]['deny']['read'])):
+                raise ScopedReplayError('historical mandatory authority unavailable')
+        for row in packet['inputs']:
+            ref = safe_path(row['ref'])
+            if (row['kind'] == 'mandatory' and (row.get('revision') != old_sha
+                    or row.get('section') is not None or row.get('field') is not None)):
+                raise ScopedReplayError('historical mandatory authority unavailable')
+            if row['kind'] == 'evidence' and row.get('revision') != content_sha:
+                raise ScopedReplayError('historical evidence revision unavailable')
+            if (row.get('producer') != old_context or content_policy.owner_of(ref) != old_context
+                    or not content_policy.permits(old_context, 'read', ref)):
+                raise ScopedReplayError('historical content authority unavailable')
+            if row['kind'] == 'evidence' and content_policy.connection(
+                    old_context, old_context, ref, row['use'], row['classification'],
+                    section=row.get('section'), field=row.get('field')) != 'approved':
+                raise ScopedReplayError('historical content authority unavailable')
         rebuilt = build_packet(root, old, packet['context_id'], content_sha, evidence, packet['max_bytes'],
                     adapter_report=packet['capability_evidence'], required_capabilities=packet['required_capabilities'],
                     omissions=packet['coverage']['missing'], task_id=packet['task_id'], goal=packet['goal'],

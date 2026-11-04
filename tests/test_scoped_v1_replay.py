@@ -39,8 +39,8 @@ def root_only(tmp_path):
     return tmp_path
 
 
-def receipt(repo):
-    packet=build_packet(repo,load_policy(repo,'HEAD'),'root','HEAD',
+def receipt(repo, content_revision='HEAD'):
+    packet=build_packet(repo,load_policy(repo,'HEAD'),'root',content_revision,
         [{'ref':'source.md','producer':'root','reason':'synthetic','use':'interpret','classification':'synthetic','field':'status'}],
         30000,task_id='x',goal='x',output='report.md',integrator='independent')
     result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'x','context_id':'root',
@@ -56,6 +56,104 @@ def test_one_manifest_root_rebuilds_v1_packet_and_context_exactly(root_only):
     assert out['historical_policy_revision']==packet['policy_revision']
     assert out['projection']=='single_root_manifest_only' and out['normative_equivalence']=='not_assessed'
     assert out['read_verification']=='reported_not_independently_verified' and out['review']=='not_performed'
+
+
+def test_earlier_authorized_root_content_replays(root_only):
+    content=git(root_only,'rev-parse','HEAD')
+    put(root_only,'unrelated.md','A later synthetic revision\n'); commit(root_only)
+    packet,result=receipt(root_only,content)
+    out=replay_root_only_v1(root_only,load_folder_policy_v2(root_only,'HEAD'),
+                            index_path='memories/index.md',packet=packet,result=result)
+    assert out['state']=='reproduced' and out['content_revision']==content
+    assert out['historical_policy_revision']!=content
+
+
+def test_earlier_multi_context_tree_is_blocked_before_historical_bodies(root_only,monkeypatch):
+    child={'schema_version':'wiki.context/v1','id':'other','parent':'root','root':'other','purpose':'synthetic',
+           'owner':'fixture','instructions':[],'skills':[],'templates':[],
+           'policy':{'read':['self'],'write':['self']},'imports':[],'exports':[]}
+    put(root_only,'other/context.yaml',yaml.safe_dump(child)); commit(root_only)
+    content=git(root_only,'rev-parse','HEAD')
+    (root_only/'other/context.yaml').unlink(); commit(root_only)
+    packet,result=receipt(root_only,content)
+    import wiki_core.context_policy as legacy
+    monkeypatch.setattr(legacy,'git_file',lambda *a,**k: pytest.fail('historical manifest body was read'))
+    with pytest.raises(ScopedReplayError,match='multi-context projection unavailable'):
+        replay_root_only_v1(root_only,load_folder_policy_v2(root_only,'HEAD'),
+                            index_path='memories/index.md',packet=packet,result=result)
+
+
+@pytest.mark.parametrize('change', ['deny_source', 'root_identity'])
+def test_earlier_content_authority_is_checked_before_historical_source(root_only,monkeypatch,change):
+    path=root_only/'context.yaml'; original=path.read_text(); historical=yaml.safe_load(original)
+    if change=='deny_source':
+        historical['policy']['deny']={'read':['source.md']}
+    else:
+        historical['id']='previous-root'
+    path.write_text(yaml.safe_dump(historical)); commit(root_only)
+    content=git(root_only,'rev-parse','HEAD')
+    path.write_text(original); commit(root_only)
+    packet,result=receipt(root_only,content)
+    from wiki_core.repository_reader import RepositoryReader
+    original_read=RepositoryReader.read
+    def spy(self, ref, *args, **kwargs):
+        if self.revision == content and ref == 'source.md':
+            pytest.fail('historical source read before content authority')
+        return original_read(self,ref,*args,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',spy)
+    with pytest.raises(ScopedReplayError,match='historical content (authority|root identity) unavailable'):
+        replay_root_only_v1(root_only,load_folder_policy_v2(root_only,'HEAD'),
+                            index_path='memories/index.md',packet=packet,result=result)
+
+
+def test_omitted_historical_mandatory_blocks_before_body_read(root_only,monkeypatch):
+    from wiki_core.context_selection import digest
+    from wiki_core.repository_reader import RepositoryReader
+    packet,result=receipt(root_only)
+    packet['inputs']=[row for row in packet['inputs'] if row['ref']!='docs/rule.md']
+    packet['declared_read_set']=[row for row in packet['declared_read_set'] if row['ref']!='docs/rule.md']
+    packet['packet_digest']=digest({key:value for key,value in packet.items() if key!='packet_digest'})
+    result['packet_digest']=packet['packet_digest']
+    result['read_coverage']['observed_refs']=packet['declared_read_set']
+    instruction=root_only/'AGENTS.md'
+    instruction.write_text(instruction.read_text().replace(
+        '## Wiki v2: mandatory references\n\n- [Rule](docs/rule.md)\n\n',''))
+    commit(root_only)
+    original_read=RepositoryReader.read
+    def spy(self, ref, *args, **kwargs):
+        if ref=='docs/rule.md':
+            pytest.fail('historical mandatory body read before readset check')
+        return original_read(self,ref,*args,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',spy)
+    with pytest.raises(ScopedReplayError,match='historical mandatory readset differs'):
+        replay_root_only_v1(root_only,load_folder_policy_v2(root_only,'HEAD'),
+                            index_path='memories/index.md',packet=packet,result=result)
+
+
+@pytest.mark.parametrize('change', ['order', 'producer', 'mandatory_revision', 'evidence_revision'])
+def test_historical_readset_binding_blocks_before_body_read(root_only,monkeypatch,change):
+    from wiki_core.context_selection import digest
+    from wiki_core.repository_reader import RepositoryReader
+    packet,result=receipt(root_only)
+    if change=='order':
+        packet['inputs'][0],packet['inputs'][1]=packet['inputs'][1],packet['inputs'][0]
+    elif change=='producer':
+        packet['inputs'][1]['producer']='another-owner'
+    elif change=='mandatory_revision':
+        packet['inputs'][1]['revision']='0'*40
+    else:
+        packet['inputs'][-1]['revision']='0'*40
+    packet['packet_digest']=digest({key:value for key,value in packet.items() if key!='packet_digest'})
+    result['packet_digest']=packet['packet_digest']
+    original_read=RepositoryReader.read
+    def spy(self, ref, *args, **kwargs):
+        if ref in ('docs/rule.md','source.md'):
+            pytest.fail('historical body read before readset binding check')
+        return original_read(self,ref,*args,**kwargs)
+    monkeypatch.setattr(RepositoryReader,'read',spy)
+    with pytest.raises(ScopedReplayError,match='historical (mandatory|evidence)'):
+        replay_root_only_v1(root_only,load_folder_policy_v2(root_only,'HEAD'),
+                            index_path='memories/index.md',packet=packet,result=result)
 
 
 def test_other_owner_manifest_is_not_opened_even_if_historically_present(root_only,monkeypatch):
