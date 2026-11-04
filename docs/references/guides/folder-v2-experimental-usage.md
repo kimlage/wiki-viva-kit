@@ -110,6 +110,12 @@ legacy manifest, IDs and result contracts; see [v1 reading](context-reader.md)
 and [v1 impact](context-impact-integration.md). The two modes never fall back
 to each other. Read-only folder entry is not a native-session or ACL proof.
 
+Folder preflight parses the frontmatter of each selected created, modified or
+deleted claim strictly: duplicate YAML keys and aliases are rejected even when
+another YAML reader would accept them. This prevents ambiguous metadata from
+being accepted and later interpreted differently by a query reader; it does not
+change the general reader or v1 behavior.
+
 Prepare an explicit JSON array of evidence selectors. For a source in the same
 context, an example is:
 
