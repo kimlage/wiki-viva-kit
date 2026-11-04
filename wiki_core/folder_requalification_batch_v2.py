@@ -113,6 +113,7 @@ def requalify_explicit_batch_as_global_coordinator(root, policy, *, selections):
                     raise FolderBatchRequalificationError('current instruction authority unavailable')
         policy.fresh()
         reader = RepositoryReader(root, policy.policy_revision)
+        accepted_by_selection = []
         for selection in selections:
             folder = selection['folder']
             chain = authorized_instruction_chain(policy, reader, folder, max_bytes=selection['packet']['max_bytes'])
@@ -128,32 +129,56 @@ def requalify_explicit_batch_as_global_coordinator(root, policy, *, selections):
                     ref = safe_path(row['ref'])
                     if accepted.get(ref) != policy.owner_of(ref):
                         raise FolderBatchRequalificationError('current mandatory authority unavailable')
+            accepted_by_selection.append(accepted)
         policy.fresh()
-        # The legacy coordinator checks the packet policy and current v2
-        # authority, but content may predate the packet policy and proposal
-        # ownership may differ. Check both additional v1 states before any
-        # historical source or proposal body is opened. Global manifest access
-        # remains a caller-trust host responsibility, never inferred here.
-        for selection in selections:
+        # Check every relevant v1 policy for every item before the individual
+        # coordinator can open even the first current consumer body. Global
+        # manifest access remains a caller-trust host responsibility.
+        historical_policies = {}
+        def historical_at(sha):
+            if sha not in historical_policies:
+                historical_policies[sha] = _policy_at(Path(root), sha, 'context.yaml')
+            return historical_policies[sha]
+        for selection, accepted in zip(selections, accepted_by_selection):
             folder = selection['folder']; packet = selection['packet']
             old_id = packet['context_id']; consumer = selection['consumer']
-            content_policy = _policy_at(Path(root), packet['content_revision'], 'context.yaml')
-            proposal_policy = _policy_at(Path(root), selection['proposal_head'], 'context.yaml')
-            for historical in (content_policy, proposal_policy):
+            content_policy = historical_at(packet['content_revision'])
+            packet_policy = historical_at(packet['policy_revision'])
+            proposal_policy = historical_at(selection['proposal_head'])
+            for historical in (content_policy, packet_policy, proposal_policy):
                 if (old_id not in historical.contexts or historical.contexts[old_id]['root'] != folder
                         or historical.owner_of(consumer) != old_id
                         or not historical.permits(old_id, 'read', consumer)
                         or not historical.permits(old_id, 'write', consumer)):
                     raise FolderBatchRequalificationError('historical consumer authority unavailable')
+            mandatory = []; seen_mandatory = set()
+            for context in packet_policy.lineage(old_id):
+                for category in ('instructions', 'skills', 'templates'):
+                    for ref in context[category]:
+                        if ref not in seen_mandatory:
+                            mandatory.append((ref, context['id']))
+                            seen_mandatory.add(ref)
+            actual_mandatory = [(row['ref'], row['producer']) for row in packet['inputs'] if row['kind'] == 'mandatory']
+            if actual_mandatory != mandatory:
+                raise FolderBatchRequalificationError('historical mandatory readset differs')
+            for ref, producer in mandatory:
+                if (accepted.get(ref) != policy.owner_of(ref) or packet_policy.owner_of(ref) != producer
+                        or any(within(ref, denied) for denied in packet_policy.effective[old_id]['deny']['read'])):
+                    raise FolderBatchRequalificationError('historical mandatory authority unavailable')
             for row in packet['inputs']:
-                if row['kind'] != 'evidence':
-                    continue
                 ref = safe_path(row['ref']); producer = row['producer']
-                if (producer not in content_policy.contexts or content_policy.owner_of(ref) != producer
-                        or content_policy.contexts[producer]['root'] != policy.contexts[policy.owner_of(ref)]['root']
-                        or content_policy.connection(producer, old_id, ref, row['use'], row['classification'],
+                if row['kind'] == 'mandatory':
+                    if row['revision'] != packet['policy_revision']:
+                        raise FolderBatchRequalificationError('historical mandatory authority unavailable')
+                    continue
+                if row['revision'] != packet['content_revision']:
+                    raise FolderBatchRequalificationError('historical evidence revision unavailable')
+                for historical in (content_policy, packet_policy, proposal_policy):
+                    if (producer not in historical.contexts or historical.owner_of(ref) != producer
+                            or historical.contexts[producer]['root'] != policy.contexts[policy.owner_of(ref)]['root']
+                            or historical.connection(producer, old_id, ref, row['use'], row['classification'],
                                                      section=row.get('section'), field=row.get('field')) != 'approved'):
-                    raise FolderBatchRequalificationError('historical evidence authority unavailable')
+                        raise FolderBatchRequalificationError('historical evidence authority unavailable')
         policy.fresh()
         # Only after every selected chain passes may the trusted coordinator
         # open selected consumer/evidence and global historical manifests.

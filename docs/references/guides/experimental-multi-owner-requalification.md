@@ -15,9 +15,10 @@ current evidence connections and denies. It checks all instruction-path denies
 before opening any current instruction chain. It then opens the selected
 `AGENTS` chains to verify declared indexes and mandatory references for every
 item. The host-authorized global coordinator next checks v1 ownership and
-read/write limits at both the consumed-content revision and the proposal
-revision, as well as historical source ownership and bilateral connections at
-the consumed-content revision. It verifies ancestry before opening those
+read/write limits at the consumed-content, packet-policy and proposal
+revisions, as well as source ownership and bilateral connections at those
+three revisions. It checks the packet policy's mandatory declarations and
+denies. It verifies ancestry before opening those
 historical manifest bodies. Only after these checks can it read selected
 consumer or source bodies. Cross-owner evidence
 still requires the exact current bilateral connection; a list of selections
