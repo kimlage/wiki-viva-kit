@@ -393,7 +393,9 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
             raise ValueError('source authorization changed')
         from wiki_core.paths import FolderWikiPaths
         paths = FolderWikiPaths(root, load_config(root), folder)
-        validate_folder_artifact_paths(root, paths, request['source_id'])
+        validate_folder_artifact_paths(root, paths, request['source_id'], request=request)
+        from wiki_core.folder_request_identity_v2 import validate_retained_folder_request
+        validate_retained_folder_request(root, paths, request)
         for row, result in zip(chunks, results):
             if read_matching_result(paths.llm_cache, request, row, root=root) != result:
                 raise ValueError('matching recorded result unavailable')

@@ -223,9 +223,10 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             source_id = current_request.get("source_id")
             if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,511}", source_id):
                 raise ValueError('invalid source identity')
-            from wiki_core.folder_request_identity_v2 import folder_request_path
+            from wiki_core.folder_request_identity_v2 import folder_request_path, validate_retained_folder_request
             for path in (folder_request_path(paths, current_request), paths.llm_cache):
                 _check_local_boundaries(Path(paths.root), path.relative_to(paths.root).as_posix())
+            validate_retained_folder_request(Path(paths.root), paths, current_request)
         except (ValueError, OSError, TypeError, RuntimeError) as exc:
             return _blocked(exc, str(current_request.get("source_id") or "source-context-pass"), owner)
     raw = sys.stdin.read() if payload_path == "-" else Path(payload_path).read_text(encoding="utf-8")
@@ -299,7 +300,11 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
                 _check_local_boundaries(Path(paths.root), cache_dir.relative_to(paths.root).as_posix())
                 if cache_dir.is_symlink() or (cache_dir / (key + '.json')).is_symlink():
                     raise ValueError('folder cache symlink unavailable')
-            out = write_result(cache_dir, result)
+            if current_schema == 'wiki.folder-task-context/v2':
+                from wiki_core.folder_request_identity_v2 import write_folder_result
+                out = write_folder_result(cache_dir, result)
+            else:
+                out = write_result(cache_dir, result)
         except (ValueError, OSError) as exc:
             if before_write is not None:
                 return _blocked(exc, str(current_request.get("source_id") or "requested-input"), owner)
@@ -541,6 +546,9 @@ def main() -> int:
         if source_config:
             request["source_config_ref"] = source_config["path"]
             request["source_config_perspectives_applied"] = True
+        if folder_selection is not None:
+            from wiki_core.folder_request_identity_v2 import folder_request_identity
+            request['folder_request_id'] = folder_request_identity(request)
         enforce_request_budget(request, context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes)
         if source_guard is not None:
             revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))

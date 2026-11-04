@@ -17,6 +17,41 @@ from wiki_core.llm.context_pass import context_input_size, result_matches_reques
 from wiki_core.paths import FolderWikiPaths
 
 
+def test_identity_covers_contract_including_empty_chunks_and_excludes_cache_status():
+    from wiki_core.folder_request_identity_v2 import folder_request_identity
+    request = {'context_binding_version':2, 'source_id':'source-synthetic', 'chunks':[],
+               'instructions':'Read A', 'result_required_keys':['a'], 'model_profile':'one',
+               'prompt_version':'v4', 'schema_version':'v1', 'pending_llm_calls':0, 'cached_calls':0}
+    first = folder_request_identity(request)
+    for key, value in [('instructions','Read B'), ('result_required_keys',['b']),
+                       ('model_profile','two'), ('prompt_version','v5'), ('schema_version','v2')]:
+        assert folder_request_identity({**request, key:value}) != first
+    assert folder_request_identity({**request, 'pending_llm_calls':1, 'byte_accounting':{'request_bytes':99}}) == first
+
+
+def test_consolidation_requires_exact_retained_request(project, monkeypatch, tmp_path, capsys):
+    from tests.test_folder_consolidate_v2 import fixture_inputs, metadata
+    from wiki_core.consolidate import prepare_folder_consolidation
+    from wiki_core.folder_capture_v2 import validate_recorded_request
+    from wiki_core.folder_request_identity_v2 import folder_request_path
+    binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys, raw=True)
+    paths = FolderWikiPaths(project, load_config(project), 'a')
+    path = folder_request_path(paths, request)
+    kwargs = dict(candidates=[], max_age_days=30, page_metadata=metadata())
+    assert prepare_folder_consolidation(project, binding, request, results, **kwargs)['markdown']
+    original = path.read_bytes()
+    altered = deepcopy(request); altered['instructions'] += ' changed'
+    path.write_text(json.dumps(altered))
+    with pytest.raises(ValueError): validate_recorded_request(project, request['block_context_package'], request)
+    with pytest.raises(ValueError): prepare_folder_consolidation(project, binding, request, results, **kwargs)
+    path.unlink()
+    with pytest.raises(ValueError): validate_recorded_request(project, request['block_context_package'], request)
+    with pytest.raises(ValueError): prepare_folder_consolidation(project, binding, request, results, **kwargs)
+    path.write_bytes(original)
+    with pytest.raises(ValueError):
+        validate_recorded_request(project, request['block_context_package'], {**request, 'folder_request_id':'0'*64})
+
+
 def setup_query(project):
     _, selection = setup(project)
     put(project, 'a/index.md', '---\npage_id: synthetic-catalog\npage_type: source_catalog\n---\nCollection\n')
@@ -76,6 +111,15 @@ def test_query_selection_is_delivered_before_recording_and_binds_cache(project, 
     capsys.readouterr()
     plain_cache = FolderWikiPaths(project, load_config(project), 'a').llm_cache / 'folder-v2' / (plain_request['chunks'][0]['cache_key'] + '.json')
     assert plain_cache.exists()
+    retained = plain_cache.read_bytes()
+    assert plain_module.main() == 0
+    capsys.readouterr()
+    different = _synthetic_result(plain_request)
+    different['claims'] = ['Another synthetic interpretation.']
+    (tmp_path / 'synthetic-result.json').write_text(json.dumps(different))
+    assert plain_module.main() == 2
+    assert json.loads(capsys.readouterr().out)['error_code'] == 'folder_result_conflict'
+    assert plain_cache.read_bytes() == retained
     assert json.loads((project / plain.request_path).read_text()) == plain_request
     assert json.loads((project / captured.request_path).read_text()) == request
     old_location = (project / captured.request_path).parent / (request['source_id'] + '-llm-context-request.json')
