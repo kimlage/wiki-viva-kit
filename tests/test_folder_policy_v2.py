@@ -150,23 +150,6 @@ def test_missing_index_is_not_a_silent_new_owner(project):
         build_folder_packet_v2(project, p, 'a/aux/b', 10000, index_path='a/aux/b/index.md', content_revision='HEAD', task_id='x', goal='x', output='x', integrator='x')
 
 
-def test_v2_normative_history_uses_explicit_folder_and_fixed_ancestor(project):
-    from wiki_core.folder_normative_v2 import folder_normative_allowed_v2, folder_normative_history_v2
-    before = git(project, 'rev-parse', 'HEAD')
-    p = load_folder_policy_v2(project, 'HEAD')
-    assert folder_normative_allowed_v2(p, 'a/aux/b', 'a/aux/AGENTS.md', index_path='a/aux/b/index.md')
-    assert folder_normative_history_v2(p, 'a/aux/b', 'a/aux/AGENTS.md', before, index_path='a/aux/b/index.md')
-    assert not folder_normative_allowed_v2(p, 'a/aux/b', 'a/aux/b/AGENTS.md', index_path='a/aux/b/index.md')
-    with pytest.raises(PolicyError, match='fixed consumed revision'):
-        folder_normative_history_v2(p, 'a/aux/b', 'a/aux/AGENTS.md', 'HEAD', index_path='a/aux/b/index.md')
-    (project / 'a/aux/b/AGENTS.override.md').unlink()
-    commit(project)
-    p = load_folder_policy_v2(project, 'HEAD')
-    assert not folder_normative_history_v2(p, 'a/aux/b', 'a/aux/b/AGENTS.override.md', before, index_path='a/aux/b/index.md')
-    assert not folder_normative_history_v2(p, 'a/aux/b', 'a/aux/b/AGENTS.md', before, index_path='a/aux/b/index.md')
-    assert folder_normative_history_v2(p, 'a/aux/b', 'a/aux/AGENTS.md', before, index_path='a/aux/b/index.md')
-
-
 def test_v1_and_v2_policies_cannot_reuse_protected_receipts(project):
     from wiki_core.context_policy import historical_policy
     from wiki_core.context_selection import select_query

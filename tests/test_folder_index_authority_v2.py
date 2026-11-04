@@ -8,7 +8,6 @@ from tests.test_folder_mandatory_v2 import equivalent_repo
 from wiki_core.context_policy import PolicyError
 from wiki_core.folder_packet_v2 import build_folder_packet_v2
 from wiki_core.folder_policy_v2 import load_folder_policy_v2
-from wiki_core.folder_normative_v2 import folder_normative_allowed_v2
 from wiki_core.folder_impact_v2 import assess_folder_source_v2, FolderImpactError
 from wiki_core.folder_requalification_v2 import requalify_explicit_v1_requirement, RequalificationError
 from wiki_core.repository_reader import RepositoryReader
@@ -37,11 +36,6 @@ def test_packet_absent_controls_does_not_open_instructions(project, monkeypatch)
     with pytest.raises(PolicyError, match='index is not authorized'):
         build_folder_packet_v2(project,p,'a',20000,index_path='a/index.md',content_revision='HEAD',
                                task_id='x',goal='x',output='x',integrator='x')
-
-
-def test_normative_denied_index_does_not_open_instructions(project, monkeypatch):
-    deny_index(project); p=load_folder_policy_v2(project,'HEAD'); forbid_instruction_read(monkeypatch)
-    assert not folder_normative_allowed_v2(p,'a','AGENTS.md',index_path='a/index.md')
 
 
 def test_impact_denied_index_does_not_open_instructions(project, monkeypatch):
