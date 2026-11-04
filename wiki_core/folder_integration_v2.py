@@ -324,7 +324,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             if contains_access_secrets(document['text']):
                 raise FolderIntegrationError('secret detected in proposed content')
             ingestion_source = None
-            if status == 'M' and path != packet['output']:
+            if status == 'M' and (path != packet['output'] or ingestion is None):
                 from wiki_core.folder_query_requirements_v2 import same_json
                 from wiki_core.folder_source_provenance_v2 import SINGLETON, FIELD
                 projection = (*SINGLETON, FIELD)
