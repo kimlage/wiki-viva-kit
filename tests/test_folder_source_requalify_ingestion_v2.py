@@ -16,6 +16,48 @@ from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.ingest import run
 
 
+@pytest.mark.parametrize('requalify', [False, True])
+def test_git_ingestion_preflight_requires_source_requirement(project, monkeypatch, tmp_path, capsys, requalify):
+    import yaml
+    from wiki_core.folder_integration_v2 import preflight_folder_v2, FolderIntegrationError
+    from wiki_core.folder_policy_v2 import load_folder_policy_v2
+    binding, old_request, _ = fixture_inputs(project, monkeypatch, tmp_path, capsys, existing=True)
+    path = old_request['block_context_package']['output']
+    fm, body = parse_frontmatter((project/path).read_text())
+    fm.pop('information_requirements')
+    if requalify: fm['source_refs'] = ['source-synthetic']
+    prior = '---\n' + yaml.safe_dump(fm, sort_keys=False) + '---\n' + body
+    put(project, path, prior); git(project, 'add', path); git(project, 'commit', '-qm', 'synthetic prior')
+    git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    base = git(project, 'rev-parse', 'HEAD')
+    old_hash = hashlib.sha256(prior.encode()).hexdigest()
+    selection = FolderIngestionSelection(binding, 'a', 'a/index.md', path, existing_output_sha256=old_hash)
+    prepared = run(str(project/'a/source.md'), 'system', project, load_config(project),
+                   approved_revision=base, folder_selection=selection)
+    assert not prepared.blocked
+    request = json.loads((project/prepared.request_path).read_text())
+    cli = _recording_cli(project, base, request, monkeypatch, tmp_path)
+    argv = list(sys.argv); argv[argv.index('--folder-output')+1] = path
+    argv.extend(['--folder-existing-sha256', old_hash]); monkeypatch.setattr(sys, 'argv', argv)
+    assert cli.main() == 0
+    capsys.readouterr()
+    git(project, 'checkout', '-qb', 'wiki/missing-requirement')
+    proposed = deepcopy(fm)
+    if not requalify: proposed['source_refs'].append('source-synthetic')
+    put(project, path, '---\n' + yaml.safe_dump(proposed, sort_keys=False) + '---\n' + body + '\nSynthetic revision\n')
+    git(project, 'add', path); git(project, 'commit', '-qm', 'proposal without requirement')
+    packet = request['block_context_package']
+    result = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed', 'task_id':packet['task_id'],
+        'context_id':packet['context_id'], 'packet_digest':packet['packet_digest'],
+        'observed':[{'path':r['path'], 'kind':r['kind'], 'revision':r['revision'], 'sha256':r['sha256'],
+                     'section':r.get('section'), 'field':r.get('field')} for r in packet['inputs']],
+        'changes':[{'path':path, 'action':'modified'}]}
+    with pytest.raises(FolderIntegrationError, match='ingestion source requirement unavailable'):
+        preflight_folder_v2(project, load_folder_policy_v2(project, base), base=base,
+            head=git(project, 'rev-parse', 'HEAD'), branch='wiki/missing-requirement', packet=packet,
+            result=result, binding=binding, source_request=request, requalify_source=requalify)
+
+
 @pytest.mark.parametrize('selected', ['raw', 'repo'])
 def test_requalification_updates_only_selected_projection(selected):
     from tests.test_folder_multi_provenance_v2 import prior_raw
