@@ -28,6 +28,21 @@ def setup(project):
     return sha, selection
 
 
+def test_shared_host_binding_rejects_ambiguous_json(tmp_path):
+    from wiki_core.folder_ingestion_v2 import host_binding_from_environment
+    host = {'WIKI_FOLDER_INGEST_HOST_ROOT': str(tmp_path), 'WIKI_FOLDER_INGEST_HOST_FOLDERS': 'a'}
+    allowed = [['a', str(tmp_path / 'clone'), 'example.test/group/repo', 'guide.md']]
+    binding = host_binding_from_environment({**host, 'WIKI_FOLDER_INGEST_HOST_REPOSITORIES': json.dumps(allowed)})
+    assert binding.independent_repos == (('a', tmp_path / 'clone', 'example.test/group/repo', 'guide.md'),)
+    # A duplicate object key is ambiguous even if the resulting keys could be
+    # interpreted as a valid binding tuple.
+    duplicate = '[{' + ','.join(json.dumps(k) + ':0' for k in
+        ('a', str(tmp_path / 'clone'), 'example.test/group/repo', 'guide.md', 'a')) + '}]'
+    for invalid in (duplicate, '[NaN]'):
+        with pytest.raises(ValueError):
+            host_binding_from_environment({**host, 'WIKI_FOLDER_INGEST_HOST_REPOSITORIES': invalid})
+
+
 def test_folder_request_includes_native_lineage_selected_index_and_real_output(project, tmp_path, capsys):
     sha, selection = setup(project)
     result = run(str(project / 'a/source.md'), 'system', project, load_config(project),

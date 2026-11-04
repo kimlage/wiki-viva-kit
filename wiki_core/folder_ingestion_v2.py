@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 from wiki_core.context_policy import safe_path
+from wiki_core.context_selection import strict_json_loads
 from wiki_core.folder_coordination_v2 import (
     FolderHostBinding, _bound_policy, _output_authorized, prepare_folder_packet,
 )
@@ -53,7 +54,7 @@ def host_binding_from_environment(env=None):
     if not host_root or not allowlist:
         raise ValueError('host binding unavailable')
     try:
-        configured = json.loads(env.get('WIKI_FOLDER_INGEST_HOST_REPOSITORIES', '[]'))
+        configured = strict_json_loads(env.get('WIKI_FOLDER_INGEST_HOST_REPOSITORIES', '[]'))
         if not isinstance(configured, list):
             raise ValueError('invalid repository bindings')
         repos = tuple(tuple(row) for row in configured)

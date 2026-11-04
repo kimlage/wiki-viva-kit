@@ -356,10 +356,6 @@ def _consumer_snapshot(consumer: Path, paths: dict[str, dict[str, Any]]) -> tupl
         os.close(root_fd)
 
 
-def _consumer_state(consumer: Path, paths: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    return _consumer_snapshot(consumer, paths)[0]
-
-
 def _git_dirty(root: Path) -> list[str]:
     try:
         if dangerous_local_config_keys(root):

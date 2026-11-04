@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -155,16 +154,8 @@ def main() -> int:
             parser.error("folder proposal requires --max-age-days and explicit request/results JSON on stdin")
         try:
             from wiki_core.context_selection import strict_json_loads
-            from wiki_core.folder_coordination_v2 import FolderHostBinding
-            host_root = os.environ.get('WIKI_FOLDER_INGEST_HOST_ROOT', '').strip()
-            folders = os.environ.get('WIKI_FOLDER_INGEST_HOST_FOLDERS', '').strip()
-            if not host_root or not folders:
-                raise ValueError('host unavailable')
-            configured = strict_json_loads(os.environ.get('WIKI_FOLDER_INGEST_HOST_REPOSITORIES', '[]'))
-            if not isinstance(configured, list):
-                raise ValueError('invalid repository bindings')
-            binding = FolderHostBinding(Path(host_root), tuple(item.strip() for item in folders.split(',')),
-                                        tuple(tuple(row) for row in configured))
+            from wiki_core.folder_ingestion_v2 import host_binding_from_environment
+            binding = host_binding_from_environment()
             raw = sys.stdin.buffer.read(2_000_001)
             if len(raw) > 2_000_000:
                 raise ValueError('input budget exceeded')
