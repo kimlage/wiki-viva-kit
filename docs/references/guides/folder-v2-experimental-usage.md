@@ -215,16 +215,18 @@ python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_query_history_v2.py" --repo "$WIKI_
   --packet query-packet.json --result query-result.json
 ```
 
-It accepts one v2 query with a whole index, no auxiliary start, and one reported
-output. For modification or deletion the old packet must include the complete
+It accepts a v2 envelope with up to eight queries, a whole index, no auxiliary
+start, and one reported output. Select `--query-id` when more than one query is
+present. The complete original envelope and readset are reproduced before the
+selected query is compared. For modification or deletion the old packet must include the complete
 prior output as authorized evidence. Current and historical permissions and
 the current instruction chain are checked before replay; changed instructions
 or revoked authority block it. The output commit must be an ancestor of the
 current approved revision, and matching output bytes or absence must also exist
 at that revision. The output is always `review_pending`: this comparison does
 not prove who produced the output, that an agent read anything, or that review
-or a merge occurred. It does not enumerate consumers, migrate v1 receipts, or
-cover more than one query. Other cases remain blocked.
+or a merge occurred. It does not enumerate consumers or migrate v1 receipts.
+Other cases remain blocked.
 
 ## Selectively inspect consumer declarations
 
@@ -328,9 +330,8 @@ pages and singleton records are not automatically migrated.
 When the query envelope and its reported result are provided to folder
 consolidation, the proposed claim records versioned query projections in its
 existing `information_requirements`. The query preflight rebuilds the envelope
-and compares the projections to the reported selection; it requires them for
-an ingestion-bound query. Generic query-only proposals may omit them and then
-cannot be discovered as durable query consumers. This records the selection,
+and compares the projections to the reported selection. A created or modified
+query output must declare all reported queries. This records the selection,
 not proof that the executor read it. The v2 projection retains its own receipt
 identity and cannot be reinterpreted as a v1 receipt.
 
@@ -340,7 +341,7 @@ and a `--reports` file containing the prior query packet, result and integrated
 revision for each matching consumer. The host uses the same root and folder
 bindings as ingestion. Only the selected owner and paths are inventoried; an
 anchor or scope intersection selects a candidate, including a newly added
-member. The narrow historical replay supports one query per supplied report.
+member. Each report selects one query ID from the complete original envelope.
 Without that report the declaration stays `declared_without_report`; with it,
 the comparison stays `review_pending`. Neither state asserts completed review,
 execution, freshness or exhaustive consumer coverage.

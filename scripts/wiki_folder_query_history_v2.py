@@ -18,13 +18,14 @@ def main():
     parser.add_argument('--integrated-revision', required=True)
     parser.add_argument('--packet', required=True)
     parser.add_argument('--result', required=True)
+    parser.add_argument('--query-id', help='explicit query identity when the envelope contains multiple queries')
     args = parser.parse_args()
     try:
         policy = load_folder_policy_v2(args.repo, args.approved_revision)
         packet = strict_json_loads(Path(args.packet).read_text(encoding='utf-8'))
         result = strict_json_loads(Path(args.result).read_text(encoding='utf-8'))
         outcome = assess_folder_query_history_v2(args.repo, policy, packet=packet, result=result,
-                                                 integrated_revision=args.integrated_revision)
+                                                 integrated_revision=args.integrated_revision, query_id=args.query_id)
     except (ValueError, OSError) as exc:
         report_failure(exc)
         return 1

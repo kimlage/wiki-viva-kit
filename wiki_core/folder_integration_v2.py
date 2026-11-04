@@ -63,10 +63,10 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     validate = new
     if status == 'M':
-        # Existing declarations retain exact JSON values and types. Only the
-        # selected ingestion source may be appended as a new requirement.
+        # Existing declarations retain exact values and types. A selected
+        # ingestion source and the reported queries may be appended.
         if old is absent:
-            if ingestion_source is None:
+            if ingestion_source is None and not query_rows:
                 raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
             old = []
         if not isinstance(old, list):
@@ -80,13 +80,21 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
         validate = new[len(old):]
         if ingestion_source is None:
-            if validate:
+            if query_rows:
+                if len(validate) != len(query_rows):
+                    raise FolderIntegrationError('folder query requirements unavailable')
+            elif validate:
                 raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
-            validate = new  # preserve existing behavior for non-ingestion tasks
+            else:
+                validate = new  # preserve existing behavior for non-ingestion tasks
         elif (len(validate) != 1 + len(query_rows) or not isinstance(validate[0], dict)
               or validate[0].get('target') != ingestion_source
               or any(not isinstance(item, dict) or item.get('target') == ingestion_source for item in old)):
             raise FolderIntegrationError('ingestion source addition unavailable')
+        old_query_ids = {item.get('query_id') for item in old if isinstance(item, dict) and item.get('query_id')}
+        new_query_ids = {item.get('query_id') for item in validate if isinstance(item, dict) and item.get('query_id')}
+        if old_query_ids & new_query_ids:
+            raise FolderIntegrationError('duplicate folder query requirement')
     if not validate and require_queries:
         raise FolderIntegrationError('folder query requirements unavailable')
     if not validate:
@@ -210,8 +218,10 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
     query_rows = ()
     if query_packet is not None or query_result is not None:
         try:
-            from wiki_core.folder_query_requirements_v2 import validate_query_report
+            from wiki_core.folder_query_requirements_v2 import validate_query_report, same_json
             query_rows = validate_query_report(root, policy, query_packet, query_result, base_packet=packet)
+            if not same_json(query_result['changes'], result['changes']):
+                raise ValueError('query result changes differ from base result')
         except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
             raise FolderIntegrationError('query report unavailable') from None
     ingestion = packet.get('ingestion_binding')
@@ -362,7 +372,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                     raise FolderIntegrationError('existing ingestion provenance unavailable') from None
             covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved,
                  ingestion_source=ingestion_source, query_rows=query_rows if path == packet['output'] else (),
-                 require_queries=bool(query_rows and ingestion is not None and path == packet['output']))
+                 require_queries=bool(query_rows and path == packet['output']))
             selected_meta = document['frontmatter']
             if path == packet['output'] and ingestion is not None:
                 if status == 'A' and 'folder_source_provenance' in document['frontmatter']:
