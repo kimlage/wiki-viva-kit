@@ -1,0 +1,146 @@
+"""Host-bound, read-only source reassessment; not an ACL or transport."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from wiki_core.context_policy import _git, safe_path, within
+from wiki_core.folder_coordination_v2 import (FolderCoordinationError, _bound_policy,
+    _preauthorize_evidence, _sha)
+from wiki_core.folder_impact_v2 import _current_packet_authority, _preauthorize_historical_replay
+from wiki_core.folder_policy_v2 import _at_revision
+from wiki_core.folder_reassessment_v2 import reassess_folder_source_v2
+from wiki_core.repo_read import contains_access_secrets
+from wiki_core.repository_reader import RepositoryReader
+
+
+def prepare_folder_reassessment(root, binding, payload):
+    """Join selected declarations and reports under a trusted host binding.
+
+    This function opens only read-only candidates, does not establish host
+    identity, and does not attest execution, review, migration or freshness.
+    Direct reassessment APIs/CLIs remain available only to a trusted caller.
+    """
+    required = {'folder', 'approved_revision', 'source', 'reports'}
+    optional = {'scope', 'candidates', 'max_files', 'max_bytes'}
+    if not isinstance(payload, dict) or not required <= set(payload) or set(payload) - required - optional:
+        raise FolderCoordinationError('invalid request')
+    try:
+        if contains_access_secrets(payload):
+            raise FolderCoordinationError('invalid request')
+        if len(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()) > 2_000_000:
+            raise FolderCoordinationError('request exceeds byte limit')
+        folder = safe_path(payload['folder'], allow_root=True)
+        source = safe_path(payload['source'])
+        scope = payload.get('scope'); candidates = payload.get('candidates')
+        max_files = payload.get('max_files', 256); max_bytes = payload.get('max_bytes', 1_000_000)
+        if ((scope is None) == (candidates is None) or type(max_files) is not int or not 1 <= max_files <= 256
+                or type(max_bytes) is not int or not 1 <= max_bytes <= 1_000_000):
+            raise FolderCoordinationError('invalid selection')
+        if scope is not None:
+            scope = safe_path(scope, allow_root=True)
+            if not within(scope, folder):
+                raise FolderCoordinationError('invalid selection')
+        else:
+            if not isinstance(candidates, list) or not candidates or len(candidates) > max_files:
+                raise FolderCoordinationError('invalid selection')
+            candidates = [safe_path(item) for item in candidates]
+            if len(candidates) != len(set(candidates)):
+                raise FolderCoordinationError('invalid selection')
+        reports = payload['reports']
+        if not isinstance(reports, list) or len(reports) > 64:
+            raise FolderCoordinationError('invalid reports')
+        report_keys = set()
+        historical_reports = []
+        for report in reports:
+            if not isinstance(report, dict) or set(report) != {'target', 'section', 'field', 'packet', 'result'}:
+                raise FolderCoordinationError('invalid report')
+            target = safe_path(report['target']); section = report['section']; field = report['field']
+            if ((section is not None and (not isinstance(section, str) or not section.strip()))
+                    or (field is not None and (not isinstance(field, str) or not field.strip()))
+                    or (section is not None and field is not None)
+                    or (scope is not None and not within(target, scope))
+                    or (candidates is not None and target not in candidates)):
+                raise FolderCoordinationError('invalid report selection')
+            key = (target, section, field)
+            if key in report_keys:
+                raise FolderCoordinationError('duplicate report')
+            report_keys.add(key)
+        policy = _bound_policy(root, binding, folder, payload['approved_revision'])
+        context = policy.folder_ids[folder]
+        reader = RepositoryReader(binding.root, policy.policy_revision)
+        if reader.invalid_paths or any(source == path or source.startswith(path + '/')
+                                       for path in reader.unsupported_paths):
+            raise FolderCoordinationError('source metadata unavailable')
+        # Validate explicit candidate ownership before checking any report or
+        # opening any selected consumer. Scope enumeration is filtered by the
+        # underlying inventory before its first consumer read.
+        if candidates is not None:
+            for target in candidates:
+                if (target not in reader.paths or not target.endswith('.md')
+                        or policy.owner_of(target) != context or not policy.permits(context, 'read', target)):
+                    raise FolderCoordinationError('candidate authority unavailable')
+        elif scope != '.' and policy.owner_of(scope) != context:
+            raise FolderCoordinationError('scope authority unavailable')
+        producer = policy.owner_of(source)
+        if not policy.permits(producer, 'read', source) or not policy.permits(context, 'read', source):
+            raise FolderCoordinationError('source authority unavailable')
+        if producer != context and not reports:
+            raise FolderCoordinationError('cross-owner source requires explicit evidence')
+        by_id = {value:key for key,value in policy.folder_ids.items()}
+        for report in reports:
+            target = report['target']; packet = report['packet']; result = report['result']
+            if policy.owner_of(target) != context or not policy.permits(context, 'read', target):
+                raise FolderCoordinationError('consumer authority unavailable')
+            if (not isinstance(packet, dict) or packet.get('schema_version') != 'wiki.folder-task-context/v2'
+                    or packet.get('context_folder') != folder or packet.get('context_id') != context
+                    or packet.get('output') != target or packet.get('start_folder') is not None
+                    or not isinstance(packet.get('inputs'), list)
+                    or not isinstance(result, dict) or result.get('schema_version') != 'wiki.folder-task-result/v2'):
+                raise FolderCoordinationError('report binding unavailable')
+            old = _sha(packet['policy_revision']); content = _sha(packet['content_revision'])
+            _git(binding.root, 'merge-base', '--is-ancestor', content, old)
+            _git(binding.root, 'merge-base', '--is-ancestor', old, policy.policy_revision)
+            evidence = []; matches = 0
+            for row in packet['inputs']:
+                if not isinstance(row, dict):
+                    raise FolderCoordinationError('invalid report input')
+                if row.get('kind') != 'evidence':
+                    continue
+                spec = {key:row[key] for key in ('path','reason','use','classification')}
+                spec['producer_folder'] = by_id[row['producer_context']]
+                for key in ('section','field'):
+                    if row.get(key) is not None: spec[key] = row[key]
+                evidence.append(spec)
+                if (row.get('path') == source and row.get('section') == report['section']
+                        and row.get('field') == report['field']):
+                    matches += 1
+            if matches != 1:
+                raise FolderCoordinationError('report source selection unavailable')
+            _preauthorize_evidence(binding.root, policy, folder, content, evidence)
+            historical = _at_revision(Path(binding.root), old, policy.controls_path)
+            if historical.folder_ids.get(folder) != context:
+                raise FolderCoordinationError('historical context unavailable')
+            for spec in evidence:
+                old_producer = historical.folder_ids.get(spec['producer_folder'])
+                if (old_producer is None or historical.connection(old_producer, context, spec['path'],
+                        spec['use'], spec['classification'], section=spec.get('section'),
+                        field=spec.get('field')) != 'approved'):
+                    raise FolderCoordinationError('historical evidence authority unavailable')
+            historical_reports.append((packet, historical))
+        # Only after every report's evidence is authorized may we open current
+        # instruction chains, and their historic Git objects are checked before
+        # the selected consumer inventory and historical replay.
+        for packet, historical in historical_reports:
+            _current_packet_authority(policy, packet, folder, context)
+            _preauthorize_historical_replay(binding.root, policy, packet, folder, context, historical)
+        policy.fresh()
+        outcome = reassess_folder_source_v2(binding.root, policy, folder=folder, source=source,
+                    reports=reports, scope=scope, candidates=candidates, max_files=max_files, max_bytes=max_bytes)
+        policy.fresh()
+        return {'schema_version':'wiki.folder-host-reassessment/v2','mode':'host_bound',
+                'reassessment':outcome,'enforcement_claim':'none'}
+    except FolderCoordinationError:
+        raise
+    except (ValueError, OSError, KeyError, TypeError, AttributeError, RuntimeError):
+        raise FolderCoordinationError('source reassessment unavailable') from None
