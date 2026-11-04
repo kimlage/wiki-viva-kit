@@ -172,9 +172,12 @@ python3 scripts/wiki_audit.py --check --freshness-base APPROVED_SHA \
   --query-mode v1 --query-context CONTEXT --query-policy-revision APPROVED_SHA --query-head PROPOSAL_SHA
 ```
 
-This legacy mode does not revalidate folder-v2 query receipts. The global audit
-has no folder-scoped proposal-HEAD revalidation mode; its affected v2 queries
-remain blocked when their authority or coverage is unavailable. After an
+This legacy mode does not revalidate folder-v2 query receipts. When impact
+freshness uses `information_impact: use_scoped`, affected folder-v2 queries
+remain blocked by the global impact audit because folder proposal-HEAD
+revalidation is unavailable. The `legacy`, `shadow` and global freshness modes
+do not enforce that blocker; their successful audit does not establish folder
+query coverage. Use the authorized folder flow and project review gates. After an
 authorized integration, a host may use the explicit candidate or scope and
 reports of [folder reassessment](folder-v2-experimental-usage.md) at the current
 approved revision. Its results remain review pending and do not prove execution,
