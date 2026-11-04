@@ -15,6 +15,12 @@ anchor body separately as a required reported input, along with selected source
 bodies and a new v3 receipt and identity. The full envelope shares the base
 packet byte budget.
 
+The collection universe consists only of eligible regular Markdown files in
+the authorized scope that declare a `page_id`. Markdown files without a
+`page_id` are inspected for metadata but do not become collection members; the
+receipt does not claim they were selected. Invalid or duplicate page IDs fail
+closed. Other file types are outside the collection universe.
+
 `preflight_anchor_query_v3` reconstructs the packet, requires reports for all
 base inputs, the anchor and selected results, and rejects any proposal changing
 the anchor, index or query scope before reading proposal bodies. It delegates
