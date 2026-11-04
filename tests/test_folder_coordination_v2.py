@@ -171,7 +171,8 @@ def test_preflight_revocation_blocks_all_evidence_before_replay(project, monkeyp
     packet['policy_revision'] = current
     payload = {'folder': 'a', 'approved_revision': current, 'base': current, 'head': current,
                'branch': 'wiki/synthetic', 'packet': packet,
-               'result': {'schema_version': 'wiki.folder-task-result/v2'}}
+               'result': {'schema_version': 'wiki.folder-task-result/v2',
+                          'changes': [{'path': packet['output'], 'action': 'created'}]}}
     original = RepositoryReader.read
     def spy(self, path, *args, **kwargs):
         if path in ('a/first.md', 'a/second.md'):
@@ -229,10 +230,49 @@ def test_underlying_error_is_not_disclosed_in_packet_or_preflight_traceback(proj
     payload = {'folder': 'a', 'approved_revision': task['approved_revision'],
                'base': task['approved_revision'], 'head': task['approved_revision'],
                'branch': 'wiki/synthetic', 'packet': packet,
-               'result': {'schema_version': 'wiki.folder-task-result/v2'}}
+               'result': {'schema_version': 'wiki.folder-task-result/v2',
+                          'changes': [{'path': packet['output'], 'action': 'created'}]}}
     def fail(*args, **kwargs):
         raise ValueError(marker)
     monkeypatch.setattr(module, 'preauthorize_index', fail)
     with pytest.raises(FolderCoordinationError) as caught:
         prepare_folder_preflight(project, binding, payload)
     assert marker not in ''.join(traceback.format_exception(caught.value))
+
+
+def test_root_resolution_errors_are_opaque(project, monkeypatch):
+    import traceback
+    from pathlib import Path
+    binding = FolderHostBinding(project, ('a',))
+    task = request(project)
+    marker = 'synthetic-private-root'
+    def fail(*args, **kwargs):
+        raise RuntimeError(marker)
+    monkeypatch.setattr(Path, 'resolve', fail)
+    with pytest.raises(FolderCoordinationError) as caught:
+        prepare_folder_packet(project, binding, task)
+    assert marker not in ''.join(traceback.format_exception(caught.value))
+    with pytest.raises(ValueError) as caught:
+        FolderHostBinding(project, ('a',))
+    assert marker not in ''.join(traceback.format_exception(caught.value))
+
+
+def test_preflight_requires_change_to_declared_output(project):
+    binding = FolderHostBinding(project, ('a',))
+    task = request(project)
+    packet = prepare_folder_packet(project, binding, task)['packet']
+    git(project, 'checkout', '-qb', 'wiki/unrelated-only')
+    put(project, 'a/unrelated.md', 'Different output\n')
+    git(project, 'add', '-A'); git(project, 'commit', '-qm', 'unrelated proposal')
+    observed = [{'path': row['path'], 'kind': row['kind'], 'revision': row['revision'],
+                 'sha256': row['sha256'], 'section': row.get('section'), 'field': row.get('field')}
+                for row in packet['inputs']]
+    result = {'schema_version': 'wiki.folder-task-result/v2', 'status': 'completed',
+              'task_id': packet['task_id'], 'context_id': packet['context_id'],
+              'packet_digest': packet['packet_digest'], 'observed': observed,
+              'changes': [{'path': 'a/unrelated.md', 'action': 'created'}]}
+    payload = {'folder': 'a', 'approved_revision': task['approved_revision'],
+               'base': task['approved_revision'], 'head': git(project, 'rev-parse', 'HEAD'),
+               'branch': 'wiki/unrelated-only', 'packet': packet, 'result': result}
+    with pytest.raises(FolderCoordinationError, match='declared output'):
+        prepare_folder_preflight(project, binding, payload)

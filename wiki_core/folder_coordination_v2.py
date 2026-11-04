@@ -32,7 +32,10 @@ class FolderHostBinding:
     folders: tuple[str, ...]
 
     def __post_init__(self):
-        root = Path(self.root)
+        try:
+            root = Path(self.root)
+        except (OSError, RuntimeError, ValueError, TypeError):
+            raise ValueError('invalid host root') from None
         if not root.is_absolute():
             raise ValueError('absolute host root required')
         if not isinstance(self.folders, tuple) or not 1 <= len(self.folders) <= 64:
@@ -43,7 +46,11 @@ class FolderHostBinding:
             raise ValueError('invalid host folder binding') from None
         if folders != self.folders or len(set(folders)) != len(folders):
             raise ValueError('invalid host folder binding')
-        object.__setattr__(self, 'root', root.resolve())
+        try:
+            root = root.resolve()
+        except (OSError, RuntimeError, ValueError, TypeError):
+            raise ValueError('invalid host root') from None
+        object.__setattr__(self, 'root', root)
 
 
 def _sha(value):
@@ -58,7 +65,11 @@ def _bound_policy(root, binding, folder, approved):
         raise FolderCoordinationError('host binding unavailable')
     if not isinstance(folder, str) or folder not in binding.folders:
         raise FolderCoordinationError('folder unavailable or unauthorized')
-    if Path(root).resolve() != binding.root:
+    try:
+        requested_root = Path(root).resolve()
+    except (OSError, RuntimeError, ValueError, TypeError):
+        raise FolderCoordinationError('repository unavailable or unauthorized') from None
+    if requested_root != binding.root:
         raise FolderCoordinationError('repository unavailable or unauthorized')
     approved = _sha(approved)
     try:
@@ -172,6 +183,11 @@ def prepare_folder_preflight(root, binding, payload):
                 or payload['result'].get('schema_version') != 'wiki.folder-task-result/v2'
                 or contains_access_secrets(packet) or contains_access_secrets(payload['result'])):
             raise FolderCoordinationError('folder result unavailable')
+        changes = payload['result'].get('changes')
+        if (not isinstance(changes, list) or not any(
+                isinstance(change, dict) and change.get('path') == packet.get('output')
+                and change.get('action') in ('created', 'modified', 'deleted') for change in changes)):
+            raise FolderCoordinationError('declared output change unavailable')
         _output_authorized(policy, payload['folder'], packet['output'])
         preauthorize_index(policy, payload['folder'], packet['index_path'])
         by_id = {value: key for key, value in policy.folder_ids.items()}
