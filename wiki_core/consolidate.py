@@ -396,8 +396,15 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         if len(source_rows) != 1:
             raise ValueError('canonical source evidence unavailable')
         source_document = reader.read(source)
-        source_id = source_document['frontmatter'].get('page_id')
-        if (source_document['frontmatter'].get('page_type') != 'source'
+        from wiki_core.frontmatter import FRONTMATTER_RE
+        source_match = FRONTMATTER_RE.match(source_document['text'])
+        if source_match is None:
+            raise ValueError('canonical source identity unavailable')
+        source_values = yaml.load(source_match.group(1), Loader=UniqueLoader)
+        if not isinstance(source_values, dict):
+            raise ValueError('canonical source identity unavailable')
+        source_id = source_values.get('page_id')
+        if (source_values.get('page_type') != 'source'
                 or not isinstance(source_id, str) or not source_id.strip()):
             raise ValueError('canonical source identity unavailable')
         if (not source_id.startswith(RELATION_PREFIXES['source_refs'])

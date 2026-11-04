@@ -130,6 +130,9 @@ def test_raw_preview_preserves_unverified_association_and_rechecks_bytes(project
 
 def test_raw_capture_is_revalidated_at_preflight_and_after_local_change(project, monkeypatch, tmp_path, capsys):
     from copy import deepcopy
+    import os
+    import subprocess
+    import sys
     from wiki_core.folder_coordination_v2 import FolderCoordinationError, prepare_folder_preflight
     from wiki_core.folder_integration_v2 import FolderIntegrationError, preflight_folder_v2
     from wiki_core.folder_policy_v2 import load_folder_policy_v2
@@ -167,6 +170,19 @@ def test_raw_capture_is_revalidated_at_preflight_and_after_local_change(project,
     assert out['state'] == 'independent_review_required'
     assert out['capture_handling'] == {'local_bytes':'matched', 'external_origin':'not_verified',
                                        'external_freshness':'not_verified', 'execution':'not_proven'}
+    packet_file = tmp_path / 'raw-packet.json'; packet_file.write_text(json.dumps(packet))
+    result_file = tmp_path / 'raw-task-result.json'; result_file.write_text(json.dumps(result))
+    request_file = tmp_path / 'raw-request.json'; request_file.write_text(json.dumps(request))
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_context_flow.py'
+    args = [sys.executable, str(script), '--repo', str(project), '--approved-revision', base, 'preflight',
+            '--folder', 'a', '--index', 'a/index.md', '--base', base, '--head', head,
+            '--branch', 'wiki/synthetic-raw', '--packet', str(packet_file), '--result', str(result_file)]
+    env = dict(os.environ, WIKI_FOLDER_INGEST_HOST_ROOT=str(project), WIKI_FOLDER_INGEST_HOST_FOLDERS='a')
+    refused = subprocess.run(args, env=env, text=True, capture_output=True)
+    assert refused.returncode != 0
+    cli = subprocess.run([*args, '--source-request', str(request_file)], env=env, text=True, capture_output=True)
+    assert cli.returncode == 0, cli.stderr
+    assert json.loads(cli.stdout)['capture_handling']['local_bytes'] == 'matched'
     # The fixture's Git merge is simulated; it does not establish real review.
     git(project, 'checkout', '-q', original_branch); git(project, 'merge', '--ff-only', 'wiki/synthetic-raw')
     git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
@@ -211,6 +227,8 @@ def test_folder_preview_cli_reads_only_supplied_json_and_does_not_write(project,
 
 def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, tmp_path, capsys):
     """Synthetic Git merge models a gate; it is not a real independent review."""
+    import os
+    import subprocess
     import sys
     from copy import deepcopy
     from wiki_core.folder_coordination_v2 import FolderHostBinding, prepare_folder_preflight
@@ -325,6 +343,22 @@ def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, 
         prepare_folder_preflight(project, binding, {'folder':'a', 'approved_revision':second_base,
             'base':second_base, 'head':second_head, 'branch':'wiki/synthetic-repository',
             'packet':second_packet, 'result':second_report})
+    packet_file = tmp_path / 'repo-packet.json'; packet_file.write_text(json.dumps(second_packet))
+    result_file = tmp_path / 'repo-task-result.json'; result_file.write_text(json.dumps(second_report))
+    request_file = tmp_path / 'repo-request.json'; request_file.write_text(json.dumps(second_request))
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_context_flow.py'
+    args = [sys.executable, str(script), '--repo', str(project), '--approved-revision', second_base,
+            'preflight', '--folder', 'a', '--index', 'a/index.md', '--base', second_base,
+            '--head', second_head, '--branch', 'wiki/synthetic-repository',
+            '--packet', str(packet_file), '--result', str(result_file)]
+    env = dict(os.environ, WIKI_FOLDER_INGEST_HOST_ROOT=str(project), WIKI_FOLDER_INGEST_HOST_FOLDERS='a',
+               WIKI_FOLDER_INGEST_HOST_REPOSITORIES=json.dumps([
+                   ['a', str(clone), identity, 'guide.md'], ['a', str(clone), identity, 'AGENTS.md']]))
+    assert subprocess.run(args, env=env, text=True, capture_output=True).returncode != 0
+    cli = subprocess.run([*args, '--source-request', str(request_file)], env=env, text=True, capture_output=True)
+    assert cli.returncode == 0, cli.stderr
+    assert json.loads(cli.stdout)['repository_handling']['selection'] == 'matched_request'
+    assert repo_read['text'] not in cli.stdout
     git(project, 'checkout', '-q', original_branch); git(project, 'merge', '--ff-only', 'wiki/synthetic-repository')
     git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     assert (project / second_preview['output']).read_text() == second_preview['markdown']
@@ -344,12 +378,18 @@ def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, 
     put(clone, 'AGENTS.md', 'Updated independent repository instructions\n')
     git(clone, 'add', 'guide.md', 'AGENTS.md'); git(clone, 'commit', '-qm', 'synthetic repository update')
     selected_revision = git(clone, 'rev-parse', 'HEAD')
-    repository_outcome = prepare_folder_reassessment(project, binding, {'folder':'a',
+    repo_payload = {'folder':'a',
         'approved_revision':git(project, 'rev-parse', 'HEAD'), 'source':'a/repo-source.md',
         'candidates':[second_preview['output']], 'reports':[{'target':second_preview['output'],
         'section':None, 'field':None, 'packet':second_packet, 'result':second_report, 'repo_read':repo_read}],
         'independent_repo':{'root':str(clone), 'identity':identity, 'revision':selected_revision, 'path':'guide.md'},
-        'source_request':second_request})['reassessment']
+        'source_request':second_request}
+    import wiki_core.folder_reassessment_v2 as reassessment_module
+    with monkeypatch.context() as patcher:
+        patcher.setattr(reassessment_module, 'read_independent_repo', lambda *_args, **_kwargs: pytest.fail('repo read without contextual request'))
+        with pytest.raises(ValueError):
+            prepare_folder_reassessment(project, binding, {key:value for key,value in repo_payload.items() if key != 'source_request'})
+    repository_outcome = prepare_folder_reassessment(project, binding, repo_payload)['reassessment']
     assert repository_outcome['consumers'][0]['state'] == 'review_pending'
     assert repository_outcome['consumers'][0]['repository_impact']['selected_revision'] == selected_revision
     assert repository_outcome['consumers'][0]['repository_impact']['verification'] == 'caller_reported_not_independently_verified'
