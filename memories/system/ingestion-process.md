@@ -19,7 +19,23 @@ Updated on: 2026-08-28
 This process turns a new source into a reviewable proposal, consolidated memory,
 or a decision not to ingest.
 
+## Folder-bound flow
+
+For new folder work, start in the authorized context and read its index and
+required bodies. Follow [bounded folder ingestion](../../docs/references/guides/bounded-ingestion.md#folder-bound-ingestion)
+with an explicit host binding, approved revision, folder, index, source and
+destination. Record the contextual result, prepare a reviewable folder
+consolidation proposal, run its preflight and obtain the project's independent
+review before authorized integration. Read back the destination and reassess
+selected affected consumers. These are separate states: a result or preview
+does not prove execution, review or integration. Folder artifacts use their own
+namespace; the legacy event and global v1 consolidation check do not establish
+folder closure.
+
 ## Automated flow (orchestrator)
+
+The following event/index workflow uses explicit `--mode v1` on the orchestrator,
+context-pass and consolidator commands. It is not the default folder contract.
 
 The [orchestrator](../../scripts/wiki_ingest.py) extracts text and chunks in
 memory, performs **pre-scan before persistence** (secret blocks; PII informs),
@@ -34,7 +50,8 @@ The LLM pass remains delegated to the operating agent, which reads the package
 and records its result. Required deep reading (`required_context_pass`) remains
 a gate. Reading does not finish ingestion: the
 [consolidator](../../scripts/wiki_consolidate.py) emits the event and integration
-packet; `--check` detects a missing event or empty `consolidated_into`. The
+packet; `--mode v1 --check` detects a missing event or empty `consolidated_into`
+in the legacy global namespace. The
 [auditor](../../scripts/wiki_audit.py) separately verifies valid destinations,
 source backlinks and synthesis beyond the source catalogue. Normal independent
 PR review, applicable gates and privacy remain required.
@@ -68,10 +85,12 @@ The deterministic stages, the command that runs each, and what gates it:
 | Index | [wiki_build_index.py](../../scripts/wiki_build_index.py) | none |
 | Orchestrated extraction + context package | [wiki_ingest.py](../../scripts/wiki_ingest.py) | pre-scan before persistence; request requires chunks and is written only in write mode |
 | Deep read | [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) | `required_context_pass` requires a recorded result |
-| Consolidate + integrate | [wiki_consolidate.py](../../scripts/wiki_consolidate.py) | new event needs `consolidated_into`; `--check` fails a read source without integration (CI) |
+| Consolidate + integrate | [wiki_consolidate.py](../../scripts/wiki_consolidate.py) | v1 event needs `consolidated_into`; `--mode v1 --check` covers the legacy global flow |
 | Consolidation + audit | [wiki_audit.py](../../scripts/wiki_audit.py) | destinations, source backlinks, synthesis, contract/links/secrets; repository review policy on the PR |
 
 ## Flow
+
+The following sequence describes legacy v1.
 
 1. Identify the source without copying access secrets into the conversation.
 2. Classify the source as `memory`, `reference`, `artifact`, `raw`, or
@@ -91,7 +110,7 @@ The deterministic stages, the command that runs each, and what gates it:
 7. Plan the contextual LLM pass with [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py)
    and record the cache/plan or a skip justification.
 8. Consolidate and INTEGRATE with [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
-   `--source <source_id> --emit-event --packet`, with either `--source-page` or
+   `--mode v1 --source <source_id> --emit-event --packet`, with either `--source-page` or
    `--source-ref` identifying the canonical source, generates the normalized event
    from the recorded deep read (quadrants filled, candidate claims/decisions/
    actions, `consolidated_into: []` to close) and the integration packet
@@ -101,7 +120,7 @@ The deterministic stages, the command that runs each, and what gates it:
    `conflicts_with`/`conflict_resolution` when claims collide); resolve or
    record every conflict and ambiguity; fill in the event's `consolidated_into`
    (each target references the source in `source_refs`; the source identity page
-   must not reference itself). `--check` detects a missing event or empty
+   must not reference itself). `--mode v1 --check` detects a missing event or empty
    destination list; the [auditor](../../scripts/wiki_audit.py) verifies actual
    destinations, backlinks and synthesis beyond the source catalogue.
 9. If the decision is not trivial, generate a proposal in

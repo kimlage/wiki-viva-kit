@@ -33,34 +33,30 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    candidates, `consolidated_into: []` to close) plus the gitignored integration
    packet; the consumer's configured ingestion-event template stays as the
    manual fallback.
-7. INTEGRATE — ingesting = integrating, the work does not end at the recorded
-   result: guided by the packet, update the target hubs/concepts incrementally
-   before creating parallel relation pages;
-   create/update load-bearing claim pages (conflict fields `supersedes`/
-   `superseded_by`/`conflicts_with`/`conflict_resolution` when claims collide);
-   resolve or record every conflict and ambiguity; fill the event's
-   `consolidated_into` (each non-source target page references the source in
-   `source_refs`; source identity targets use the event/lifecycle closure and
-   never self-reference); every new action/claim/decision/meeting/person/project/source
-   page declares the hub it belongs under in `moc_parent`; keep its
-   quadrant placement relative to the page's active center (`subject_ref`,
-   `subject_role`, `parent_projection` for nested roots/templates, and
-   `projection_overrides` for exceptions) instead of flattening everything
-   against the wiki root; run
-   [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) `--mode v1 --check` (v1 coverage only),
-   [scripts/wiki_audit.py](../../scripts/wiki_audit.py) `--check` and
-   [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py)
-   `--check` green.
-8. Generate or update the ingestion proposal with [scripts/wiki_new_ingest.py](../../scripts/wiki_new_ingest.py).
+7. INTEGRATE — the recorded result is not integration. In folder mode, review
+   the exact proposal and preflight, incorporate it only with the project's
+   authorization, then read back the selected destination and assess affected
+   consumers. Preserve prior source projections and requirements. The folder
+   proposal does not generate or close a legacy v1 event.
+   In v1 mode, use the event and packet from step 6: resolve conflicts, fill the
+   event's `consolidated_into`, and maintain source backlinks without a source
+   identity page referencing itself. In either flow, update selected hubs and
+   concepts, record conflicts and ambiguities, and create or update load-bearing
+   claims where appropriate. Give new pages their appropriate `moc_parent` and
+   quadrant placement. The v1 event check covers only that legacy flow.
+8. Run the project's applicable audit, quality and independent review gates for
+   the exact proposal. [wiki_new_ingest.py](../../scripts/wiki_new_ingest.py)
+   is a separate legacy global proposal tool; it is not a folder-bound step and
+   requires a coordinator authorized for its actual readset and output.
 
 ## Output
 
 - Manifest path.
 - Text/chunk paths.
 - LLM context status.
-- Input-stage status and inherited target pages.
-- Event path.
-- Integration status: packet path, targets updated, `consolidated_into` closed.
-- Proposal path.
+- Folder mode: selected request/results, proposal, preflight, review,
+  integration, destination readback and reassessment states.
+- V1 mode: input-stage status, inherited targets, event and packet paths,
+  targets updated and `consolidated_into` state.
 - Pages impacted.
 - Privacy and gate risks.

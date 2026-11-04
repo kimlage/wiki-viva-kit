@@ -11,7 +11,7 @@ preparing content does not prove that an agent read it or authorize execution.
 | --- | --- | --- |
 | [wiki_read.py](../../../scripts/wiki_read.py) | Required revision, mode and exact allowed paths; section, field or explicit whole document | The local caller supplies scope. The raw reader does not enforce context policy. |
 | [wiki_context.py](../../../scripts/wiki_context.py) with `--mode v1` | Approved manifest context, explicit evidence paths and byte budget | Current trusted policy authorizes each selection; inherited mandatory bodies accompany evidence. For folder mode see [folder usage](folder-v2-experimental-usage.md). |
-| [wiki_coordination.py](../../../scripts/wiki_coordination.py) with explicit context and approval | Explicit task and selected evidence at approved history | Approved policy and current connection checks apply; see [protected coordination](context-coordination-protected.md). |
+| [wiki_coordination.py](../../../scripts/wiki_coordination.py) with explicit context and approval (legacy v1 manifest) | Explicit task and selected evidence at approved history | Approved policy and current connection checks apply; see [protected coordination](context-coordination-protected.md). |
 | [wiki_coordination.py](../../../scripts/wiki_coordination.py) with a profile | No task bodies | Constant migration response; profile identity supplies no context authority. |
 
 ## Local reads and stable sections

@@ -89,7 +89,7 @@ recipe:
   refresh:
     argv: []              # optional metadata-only collection adapter under scripts/
   ingest:
-    argv: ["python3", "scripts/wiki_ingest.py", "--source", "{path}"]
+    argv: []              # unconfigured until the complete authorized flow is available
     mcp_hint: ""          # optional connector/tool hint, e.g. google_drive.list_folder
 ```
 
@@ -105,6 +105,11 @@ The interface only runs `ingest.argv` directly when it is an allowlisted
 `ingest.argv` and `refresh.argv` are empty and `ingest.mcp_hint` is present, the update is delegated to a
 usable agent that actually exposes that connector. Otherwise the manual export
 instructions are shown as the honest next step.
+
+An allowlisted command and a resolved path do not supply the folder, index,
+host binding or approved selection. Keep `argv` empty until a complete supported
+invocation is configured for the authorized flow; see
+[bounded ingestion](../../guides/bounded-ingestion.md#folder-bound-ingestion).
 
 ## Ingestion rules
 

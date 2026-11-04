@@ -2,8 +2,9 @@
 
 This runbook describes a manual, reviewable path from an explicitly selected task to approved content. The coordinator and context packet are finite preparation tools; the chosen external harness supplies a thread and tools, and an authorized integrator performs Git review and integration. No step below starts a resident runner, installs a scheduler, proves a sandbox, or grants a new external account. The two-thread synthetic pilot establishes contract behavior within one harness, not qualification of two harness products or a deployed installation.
 
-The protected manifest/receipt path below is legacy v1; its CLI requires
-explicit `--mode v1`. The default folder packet and preflight entry points are
+The protected manifest/receipt path below is legacy v1; the context and
+preflight CLIs require explicit `--mode v1`. The coordinator CLI in step 2 is
+itself a legacy manifest route. The default folder packet and preflight entry points are
 documented in [folder usage](folder-v2-experimental-usage.md); no receipts or
 authorizations migrate automatically between them.
 

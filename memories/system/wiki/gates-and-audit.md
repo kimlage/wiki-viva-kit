@@ -49,7 +49,7 @@ python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_operational_pass.py --check
 python3 scripts/wiki_source_registry.py --check
 python3 scripts/wiki_input_stage.py --check
-python3 scripts/wiki_consolidate.py --check
+python3 scripts/wiki_consolidate.py --mode v1 --check
 python3 scripts/wiki_quality_report.py --check
 ```
 
@@ -61,7 +61,7 @@ The honesty gates at a glance — what each verifies and where it runs in CI:
 | Secret block | No access secret in any versioned text file | `wiki_audit.py --check` (`audit_secrets`) |
 | PII boundary | PII only crosses the public boundary when redacted | `wiki_audit.py --check` (`audit_pii`) |
 | LLM pass | Applicable source requests have a recorded result; explicit query/orphan cases are handled separately | `wiki_audit.py --check` (`audit_context_pass_gate`) |
-| Consolidation closed | New event needs existing destinations, at least one non-source target, backlinks from non-source targets when the event supplies origins, and claims or `sem_claim` | [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (CI) |
+| Legacy v1 consolidation | New event needs existing destinations, at least one non-source target, backlinks from non-source targets when the event supplies origins, and claims or `sem_claim` | [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--mode v1 --check` (CI) |
 | Quality and hierarchy | Low-density/repeated pages, open integration flags, operational-coverage gaps and relation pages without `moc_parent` when configured | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) `--check` |
 | Gate state | Every proposal carries a valid `gate_state` | `wiki_audit.py --check` (`audit_ingestion_proposals_gate_state`) |
 | Methodology coverage | Required pages/templates exist with real content | `wiki_check_methodology_coverage.py --check` |
@@ -90,6 +90,12 @@ Other invariants of the same script: `audit_operation_page` (the cockpit must be
 
 ### LLM pass gate (required_context_pass)
 
+The global request/cache gate below describes the legacy v1 path. Folder-bound
+requests use their selected namespace and complete request contract; consult
+[bounded ingestion](../../../docs/references/guides/bounded-ingestion.md#folder-bound-ingestion)
+for their preparation and checking. A global gate does not establish folder
+coverage or integration.
+
 The deep read is delegated to the agent that runs the repo, not to a Python client — the architecture is in [wiki_core/llm/context_pass.py](../../../wiki_core/llm/context_pass.py). The deterministic code assembles a context PACKAGE (request) with the text of the chunks, the versioned prompt and the per-chunk cache status; the agent executes the read and writes the RESULT. The honesty gate closes that circuit from two sides:
 
 - `validate_result` (in [context_pass.py](../../../wiki_core/llm/context_pass.py)) rejects a result that is missing any mandatory key, leaves any quadrant empty, or does not declare `sensitivity.has_pii`. Only a valid result is written to the cache.
@@ -98,13 +104,13 @@ The deep read is delegated to the agent that runs the repo, not to a Python clie
 Triggering the pass manually (recording of the result by the agent via skill):
 
 ```sh
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source SOURCE --context SOURCE_CONTEXT \
   --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
 ```
 
 ### Consolidation gate (ingesting = integrating)
 
-The deep read written to the cache does not end the ingestion: the source is only ingested when the wiki concepts reflect the new information. The gate closes that circuit from two sides — `audit_consolidation` (in [wiki_audit.py](../../../scripts/wiki_audit.py)) validates the events already emitted, and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (in CI) fails while any source with a complete deep read has no event, or has an event with an empty `consolidated_into`. The gate's row in the honesty-gates table above is "Consolidation closed".
+The deep read written to the cache does not end the ingestion: the source is only ingested when the wiki concepts reflect the new information. In legacy v1, `audit_consolidation` (in [wiki_audit.py](../../../scripts/wiki_audit.py)) validates emitted events, and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--mode v1 --check` (in CI) fails while any source with a complete deep read has no event, or has an event with an empty `consolidated_into`. This check does not establish folder closure: the selected folder proposal, preflight, review, integration and readback are separate states.
 
 `--all-pending` lists the pending consolidations in JSON, and the cockpit ([memories/operations.md](../../operations.md)) shows the alert "Sources awaiting consolidation: N" while anything is pending. The audit consolidation check skips events without `source_id`; those also lacking `consolidated_into` contribute to an aggregate warning. Other applicable gates still apply.
 

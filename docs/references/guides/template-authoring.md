@@ -119,8 +119,8 @@ override of which *fields* count as which lens.
 
 ## 3. Source types carry a recipe
 
-A `source_config` page adds one more thing: a **recipe** — the executable
-ingestion manual, as data (schema `wiki_source_recipe.v1`), in a fenced
+A `source_config` page adds one more thing: a **recipe** — ingestion metadata
+and optional configured commands, as data (schema `wiki_source_recipe.v1`), in a fenced
 ` ```yaml ` block. It tells an agent how to ingest the source on demand, with
 **no credentials ever** (structural metadata only — the validator rejects any
 `token`/`secret`/`key` field).
@@ -146,8 +146,13 @@ recipe:
       skip_reason: "off-topic — no wiki value"
   how_to_export: "Slack → export the channel history as JSON, drop it in data/raw/."
   ingest:
-    argv: [python3, scripts/wiki_ingest.py, --source, "<export>", --stream, eng-releases]
+    argv: [] # no executable command has been configured
 ```
+
+This example is intentionally not executable: a selected stream does not
+authorize a folder, index, host binding or source. Configure an invocation only
+when the complete authorized flow is supported; the folder ingestion path does
+not currently accept `--stream`. See [bounded ingestion](bounded-ingestion.md#folder-bound-ingestion).
 
 The cockpit's **source dock** (`?dock=source&src=<id>`) reads this to show sync
 health, per-stream freshness vs cadence, and an "ingest N channels" brief.

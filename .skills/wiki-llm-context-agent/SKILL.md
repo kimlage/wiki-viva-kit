@@ -115,8 +115,13 @@ historical v1 flow.
 - Mark `sensitivity.has_pii: true` when there is personal data (PII -- allowed
   on a private page) and `sensitivity.has_secret: true` when there is an access
   secret (always blocked). Never repeat the raw value in either case.
-- Reuse the cache: do not reprocess a chunk whose `cache_key` already has a result, unless
-  the source, the chunk, the prompt_version, the schema_version, or the profile changes.
+- Reuse only a result matching the current request's cache key and complete
+  bound contract. In folder mode, changes to instructions, selected context,
+  queries, limits or the chunk manifest can require a new read even if the
+  source and model versions are unchanged. Rebuild the current request and
+  inspect `result_exists` or the selected `--check` pending count: retained
+  request flags describe the original emission. Cache reuse does not prove
+  reading or review.
 - When the excerpt is insufficient, record in `uncertainties` that it is necessary to
   expand the local search — do not invent context.
 - `source_refs` proves provenance; `moc_parent`/parent hub proves navigation.

@@ -1,6 +1,6 @@
 # Protected coordination: local host binding
 
-The protected route prepares the existing `wiki.task-context/v1` packet using an explicitly selected context, approved policy revision, content revision and evidence. It does not dispatch an agent, write a result or merge. [Preflight](../../../wiki_core/context_integration.py) remains a read-only check that ends at independent review required. Profiles in the older coordination configuration do not grant access or select a protected context.
+The protected route is the legacy v1 manifest path: it prepares the existing `wiki.task-context/v1` packet using an explicitly selected context, approved policy revision, content revision and evidence. It does not dispatch an agent, write a result or merge. [Preflight](../../../wiki_core/context_integration.py) remains a read-only check that ends at independent review required. Profiles in the older coordination configuration do not grant access or select a protected context. For folder-bound packets see [folder usage](folder-v2-experimental-usage.md).
 
 ## Trusted local startup
 
