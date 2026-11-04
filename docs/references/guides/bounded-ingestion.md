@@ -120,6 +120,23 @@ explicitly labelled compatibility. Historical envelopes remain inspectable;
 new requests bind the explicit limits as well as the delivered interpretation
 context. Compatibility is not evidence of approved policy or source freshness.
 
+For a local folder entry, start in the nested directory or select it explicitly
+with `--folder FOLDER`; paths are relative to the wiki root. The request includes
+the physical ancestor `AGENTS.override.md`/`AGENTS.md` chain and the selected
+folder's `index.md`. Use `--index PATH` to choose another index inside the folder;
+the root requires an explicit index. Missing instructions or index, symlinks and
+nested Git roots block preparation. A selected folder cannot be mixed with
+approved-policy arguments. Starting inside an auxiliary directory without its
+own index requires explicitly selecting the intended context folder.
+
+This is local context preparation, not proof of native instruction discovery,
+an ACL or a sandbox. The process also uses the existing global source catalog
+and block-world inputs, which the host must authorize. Links are not opened as
+grants. Filesystem checks do not prevent concurrent replacement. Until contextual
+capture reuse is implemented, a folder ingestion refuses to replace an existing
+capture or request for the same source; a repeated explicit request emission
+also preserves the prior file. Folder entry does not provide scoped query search.
+
 ## Recoverable blockers
 
 Preparation failures return exit code 2 and structured blockers using the

@@ -352,7 +352,7 @@ def validate_result(result: dict[str, object]) -> list[str]:
     return errors
 
 
-def write_result(cache_dir: Path, result: dict[str, object]) -> Path:
+def write_result(cache_dir: Path, result: dict[str, object], *, preserve_existing: bool = False) -> Path:
     errors = validate_result(result)
     if errors:
         raise ValueError("invalid LLM pass result: " + ", ".join(errors))
@@ -364,10 +364,22 @@ def write_result(cache_dir: Path, result: dict[str, object]) -> Path:
         )
     cache_dir.mkdir(parents=True, exist_ok=True)
     path = result_path(cache_dir, key)
-    path.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    payload = json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    if preserve_existing:
+        try:
+            with path.open('x', encoding='utf-8') as stream:
+                stream.write(payload)
+        except FileExistsError:
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > 2_000_000:
+                raise ValueError('existing result unavailable; preserved') from None
+            from wiki_core.context_selection import strict_json_loads
+            with path.open('rb') as stream:
+                existing = strict_json_loads(stream.read(2_000_001).decode('utf-8'))
+            if json.dumps(existing, sort_keys=True, ensure_ascii=False, allow_nan=False) != \
+                    json.dumps(result, sort_keys=True, ensure_ascii=False, allow_nan=False):
+                raise ValueError('existing result differs; preserved') from None
+    else:
+        path.write_text(payload, encoding='utf-8')
     return path
 
 
@@ -453,13 +465,104 @@ def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Pat
     return result if result_matches_request(result, request, row) else None
 
 
+def local_entry_selection(root: Path, folder: str | None, index_path: str | None, *,
+                          cwd: Path, approved_revision: str | None, policy_context: str | None):
+    """Resolve explicit selection or a nested cwd; no access is granted."""
+    from wiki_core.context_policy import safe_path
+    if approved_revision is not None or policy_context is not None:
+        if folder is not None or index_path is not None:
+            raise ValueError('folder selection cannot replace an approved policy')
+        return None, None
+    if folder is None:
+        try:
+            relative = Path(cwd).resolve(strict=True).relative_to(Path(root).resolve(strict=True))
+        except ValueError:
+            relative = None
+        if relative is not None and relative.parts:
+            folder = relative.as_posix()
+        elif index_path is not None:
+            folder = '.'
+    if folder is not None:
+        folder = safe_path(folder, allow_root=True)
+    if index_path is not None:
+        index_path = safe_path(index_path)
+    return folder, index_path
+
+
+def _folder_documents(root: Path, folder: str, index_path: str | None, max_bytes: int) -> list[dict]:
+    """Read a physical instruction chain and one local index, without grants."""
+    from wiki_core.context_policy import safe_path, within
+    from wiki_core.detectors import scan_text
+    from wiki_core.traversal import require_wiki_path
+
+    folder = safe_path(folder, allow_root=True)
+    directory = require_wiki_path(root, folder)
+    if not directory.is_dir():
+        raise ValueError('selected context folder unavailable')
+    if index_path is None:
+        if folder == '.':
+            raise ValueError('root context requires an explicit index')
+        index_path = folder + '/index.md'
+    index_path = safe_path(index_path)
+    if not within(index_path, folder):
+        raise ValueError('selected index is outside the context folder')
+    parts = [] if folder == '.' else folder.split('/')
+    directories = ['.'] + ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]
+    documents = []
+    remaining = max_bytes
+
+    def read(ref):
+        nonlocal remaining
+        path = require_wiki_path(root, ref)
+        if not path.exists():
+            return None
+        if not path.is_file():
+            raise ValueError('context document unavailable')
+        with path.open('rb') as stream:
+            raw = stream.read(remaining + 1)
+        if len(raw) > remaining:
+            raise ValueError('context document budget exceeded')
+        text = raw.decode('utf-8')
+        if any(item.category == 'secret' for item in scan_text(text)):
+            raise ValueError('access secret in context document')
+        return text, len(raw)
+
+    for directory_ref in directories:
+        prefix = '' if directory_ref == '.' else directory_ref + '/'
+        selected = None
+        for name in ('AGENTS.override.md', 'AGENTS.md'):
+            ref = prefix + name
+            item = read(ref)
+            if item is not None and item[0].strip():
+                selected = (ref, *item)
+                break
+        if selected is not None:
+            ref, text, size = selected
+            remaining -= size
+            documents.append({'path': ref, 'page_id': None, 'text': text,
+                              'content_sha256': sha256_text(text), 'origin': 'working_tree'})
+    if not documents:
+        raise ValueError('context instructions unavailable')
+    if any(item['path'] == index_path for item in documents):
+        raise ValueError('index must be distinct from instructions')
+    selected_index = read(index_path)
+    if selected_index is None or not selected_index[0].strip():
+        raise ValueError('selected context index unavailable')
+    text, _size = selected_index
+    documents.append({'path': index_path, 'page_id': None, 'text': text,
+                      'content_sha256': sha256_text(text), 'origin': 'working_tree'})
+    return documents
+
+
 def ingestion_block_context(root: Path, config, input_context: dict,
                             perspectives_required: list[str], *,
                             approved_revision: str | None = None,
                             policy_context: str | None = None,
                             task_id: str = "source-context-pass",
                             context_max_bytes: int = DEFAULT_CONTEXT_MAX_BYTES,
-                            content_revision: str = "HEAD") -> dict:
+                            content_revision: str = "HEAD",
+                            entry_folder: str | None = None,
+                            entry_index: str | None = None) -> dict:
     """Construct the real contextual inputs at both production call sites.
 
     Without an explicit approved revision this preserves the working-tree
@@ -467,12 +570,18 @@ def ingestion_block_context(root: Path, config, input_context: dict,
     policy adapter is selected only by a trusted local caller, never by finding
     an unapproved context.yaml in the worktree.
     """
+    if approved_revision is not None and (entry_folder is not None or entry_index is not None):
+        raise ValueError('folder selection cannot replace an approved policy')
+    if entry_index is not None and entry_folder is None:
+        raise ValueError('index requires a context folder')
     if approved_revision is not None:
         return _approved_ingestion_context(root, config, input_context,
             perspectives_required, approved_revision, policy_context, task_id, context_max_bytes, content_revision)
 
     if policy_context is not None and approved_revision is None:
         raise ValueError("policy_context requires an explicit approved_revision")
+    selected = (_folder_documents(root, entry_folder, entry_index, context_max_bytes)
+                if entry_folder is not None else [])
     from wiki_core.template_blocks import load_block_world, block_context_package
     from wiki_core.repository_reader import canonical_path
     from wiki_core.detectors import scan_text
@@ -492,10 +601,15 @@ def ingestion_block_context(root: Path, config, input_context: dict,
     documents = []
     unresolved = []
     seen = set()
+    selected_paths = {item['path'] for item in selected}
+    shadowed = {item['path'].removesuffix('AGENTS.override.md') + 'AGENTS.md'
+                for item in selected if item['path'].endswith('AGENTS.override.md')}
     for ref in refs:
         page = world.by_id.get(ref) or world.by_path.get(ref)
         path = page["path"] if page else ref
         canonical_path(path)
+        if path in selected_paths or path in shadowed:
+            continue
         target = root / path
         if not target.is_file():
             unresolved.append(ref)
@@ -513,6 +627,8 @@ def ingestion_block_context(root: Path, config, input_context: dict,
             raise ValueError("access secret in contextual input")
         documents.append({"path": path, "page_id": page["id"] if page else None,
             "text": text, "content_sha256": sha256_text(text), "origin": "working_tree"})
+    if selected:
+        documents = selected + documents
     package.update(policy_mode="legacy_working_tree_compatibility", policy_enforced=False,
                    documents=documents, unresolved_context_refs=unresolved)
     return package

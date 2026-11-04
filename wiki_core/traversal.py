@@ -47,6 +47,24 @@ def require_wiki_boundaries(wiki_root: Path, *, directories=(), files=()) -> Non
     for path in files:
         if is_in_nested_git(selected(path), wiki_root=resolved_root):
             raise ValueError('derived_path_crosses_repository_boundary')
+def require_wiki_path(root: Path, relative: str) -> Path:
+    """Select a local path without crossing symlinks or a nested Git root.
+
+    The supplied root is trusted and may itself be relative. This does not
+    authorize access or protect against a concurrent filesystem replacement.
+    """
+    from wiki_core.context_policy import safe_path
+    relative = safe_path(relative, allow_root=True)
+    current = Path(root).resolve(strict=True)
+    if not current.is_dir():
+        raise ValueError('wiki root unavailable')
+    if relative == '.':
+        return current
+    from wiki_core.repository_reader import canonical_path
+    canonical_path(relative)
+    selected = current / relative
+    require_wiki_boundaries(current, directories=(selected,))
+    return selected
 
 
 def reject_nested_git(base: Path, *, include_hidden: bool = True) -> None:
