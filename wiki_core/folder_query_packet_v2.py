@@ -86,6 +86,8 @@ def _query_observations(envelope):
 def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, result,
                               binding=None, source_request=None, requalify_source=False, query_requalifications=None):
     """Preflight only if the proposal leaves every selected query scope intact."""
+    if requalify_source and query_requalifications is not None:
+        raise FolderQueryPacketError('source and query requalification require separate proposals')
     if getattr(policy,'format_version',None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise FolderQueryPacketError('bound v2 policy required')
     policy=policy.fresh()
