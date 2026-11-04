@@ -32,14 +32,13 @@ that an agent actually read any of those texts.
 
 ## Context and controls
 
-A nested context node has tracked `AGENTS.md` or `AGENTS.override.md` and
-`index.md` in the same directory. The root is an instruction context, and its
-index is selected explicitly from links declared in its AGENTS. No README is
-automatically substituted for a canonical wiki index. The
-selected override wins; a nonempty whitespace-only override is conservatively
-rejected when read. A directory with instructions but no index can contribute to
-the instruction chain, but ownership inside that area remains unavailable until
-a deeper indexed context; it is not silently promoted to an owner.
+For folder structure and auxiliary instructions, see
+[context folders](context-folders-sources-repositories.md). At the approved Git
+revision, a nested context has tracked `AGENTS.md` or `AGENTS.override.md` and
+`index.md` together. The root index must be declared and explicitly selected;
+a README is not substituted. The override wins and a nonempty whitespace-only
+override is rejected. Instructions without an index can contribute to the chain,
+but do not establish ownership; a qualified auxiliary folder is an exception.
 
 The optional `wiki-context-controls.yaml` contains mechanical restrictions and
 connections only. It is read from the exact approved revision, which must match
@@ -96,7 +95,7 @@ the request contains the task fields and any exact evidence selectors:
 python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
   resolve areas/example --index areas/example/index.md
 python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
-  pack areas/example --index areas/example/index.md --content-revision CONTENT_SHA --request REQUEST.json
+  pack areas/example --index areas/example/index.md --content-revision CONTENT_SHA --request REQUEST.json > PACKET.json
 python3 "$WIKI_REPO_ROOT/scripts/wiki_context_flow.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
   preflight --folder areas/example --index areas/example/index.md --base APPROVED_SHA \
   --head PROPOSAL_SHA --branch wiki/example --packet PACKET.json --result RESULT.json
@@ -130,14 +129,8 @@ same context, an example is:
 Select the current approved policy revision and an explicit content revision.
 The content revision must be an ancestor of the approved policy. Current and
 historical authority are checked before a historical evidence body is read;
-instructions and index come from the approved policy revision. Supply the
-trusted output location and integrator explicitly:
-
-```sh
-python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" \
-  --approved-revision APPROVED_SHA pack areas/example --index areas/example/index.md \
-  --content-revision CONTENT_SHA --request request.json > packet.json
-```
+instructions and index come from the approved policy revision. The request
+supplies the trusted output location and integrator explicitly.
 
 To read only a section of the selected index, pass `--index-section SECTION_ID`.
 The section selection is not a new access grant and is recorded in the packet.
@@ -146,14 +139,7 @@ The section selection is not a new access grant and is recorded in the packet.
 location and never assume it may be published. The result must use
 `wiki.folder-task-result/v2`, bind to the packet digest and report each selected
 path, kind, revision, hash and selector in `observed`; those reports do not prove
-execution. Once the authorized proposal is on a short `wiki/*` branch, run:
-
-```sh
-python3 "$WIKI_REPO_ROOT/scripts/wiki_context_flow.py" --repo "$WIKI_REPO_ROOT" \
-  --approved-revision APPROVED_SHA preflight --folder areas/example --index areas/example/index.md \
-  --base APPROVED_SHA --head PROPOSAL_SHA \
-  --branch wiki/example --packet packet.json --result result.json
-```
+execution. Run preflight after the authorized proposal is on a short `wiki/*` branch.
 
 The preflight reconstitutes the packet, checks the exact ref and proposed diff,
 requires a reported change to the packet's declared output (other authorized
@@ -178,8 +164,8 @@ establish semantic completeness or actual tool isolation.
 
 ## Bounded current-revision queries
 
-For one to eight finite queries, provide `--queries queries.json` to the packet
-command. `--evidence` may also provide exact current-revision inputs, including
+For one to eight finite queries, put the query array in `REQUEST.json` under
+`queries`; `evidence` in that object may provide exact current-revision inputs, including
 the whole prior output needed to modify or delete it. All evidence permissions
 are checked before packet replay. The selected index must be read whole, identify
 an existing collection contract and be the query anchor. The base packet and
@@ -237,10 +223,12 @@ Other cases remain blocked.
 
 ## Bounded literal search
 
-Use the selected folder and its index with the trusted host binding described
-above. For example, search tracked Markdown owned and readable by that folder:
+Configure the trusted host binding before searching, as in
+[folder-bound ingestion](bounded-ingestion.md#folder-bound-ingestion). For
+example, search tracked Markdown owned and readable by the selected folder:
 
 ```sh
+WIKI_FOLDER_INGEST_HOST_ROOT="$WIKI_REPO_ROOT" WIKI_FOLDER_INGEST_HOST_FOLDERS="areas/example" \
 python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
   search areas/example --index areas/example/index.md --scope areas/example --literal "selected phrase"
 ```
@@ -303,20 +291,18 @@ references; the preview derives the source ID from the selected canonical source
 page and validates the output against that registry. It does not renew a source
 date or invent an owner. It does not prove page-ID uniqueness or resolve every
 relation outside the selected context; repository audit and review remain
-required. The host must
-set `WIKI_FOLDER_INGEST_HOST_ROOT` and `WIKI_FOLDER_INGEST_HOST_FOLDERS`; add
-`--folder-candidate` for each exact current wiki page that may be inspected.
+required. Configure the [folder host binding](bounded-ingestion.md#folder-bound-ingestion)
+and add `--folder-candidate` for each exact current wiki page to inspect.
 The preview revalidates the folder packet and reported chunk results, reads only
 those authorized pages, and returns Markdown for the exact output plus its
 current-source requirement. It does not use the global catalogue or FTS,
 write the output, record an observed read, perform preflight, merge or establish
-execution. The host needs authority for complete selected blobs. Source age is
-an explicit caller input and is not evaluated as factual freshness. The source
-guard rechecks the current source hash and authorization; for staged RAW, the
-approved source-page association is caller-selected and external origin and
-freshness remain unverified. Such a claim carries only capture metadata, not
-the RAW text. A selected Git repository contributes only identity/path/revision
-and digests to the claim, not its full contents. Preflight requires the exact
+execution. Source age is an explicit caller input and is not evaluated as
+factual freshness. The source guard rechecks the current source hash and
+authorization. RAW associations and selected Git provenance follow the
+[ingestion contract](bounded-ingestion.md#folder-bound-ingestion); claims carry
+capture metadata or repository identity/path/revision and digests, not source
+text. Preflight requires the exact
 recorded contextual request via `wiki_context_flow.py ... preflight
 --source-request REQUEST.json` under the trusted host binding, including for
 Git-only ingestion. The packet binds the authorization digest and preflight
@@ -325,12 +311,9 @@ Older folder-v2 ingestion requests without this binding must be reissued; v1
 is unchanged. Revalidation does not prove execution or authenticate an
 external service; an untrusted party able to replace an entire packet and
 result can still fabricate a different generic task. Query preflight does not
-grant access or attest execution. To retain a bounded query receipt with an
-ingestion-bound task, select queries with `--folder-queries QUERIES.json` when
-preparing the ingestion request, then repeat that same selection when recording
-the result. Extract the already-bound envelope from the request and supply
-both to the query preflight. A query attached after reading cannot establish
-that the executor received it:
+grant access or attest execution. Follow the ingestion contract to bind queries
+before recording; then extract the already-bound envelope and supply both the
+envelope and request to query preflight:
 
 ```sh
 python3 -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["folder_query_packet"],sys.stdout)' \
@@ -359,12 +342,10 @@ request contract and all selected chunks. Requests and results from the earlier
 folder fingerprint must be re-emitted and read again; v1 cache is unchanged.
 Recording an array of results is not an atomic transaction across all items.
 
-The host binding must be configured as above. The preflight reproduces the
-query envelope, requires the query observations, and runs the existing
-host-bound ingestion checks against its original base packet and recorded
-request. Missing or mismatched bindings, requests and results fail closed.
-Query scope edits still require separate requalification; neither the query
-receipt nor the recorded result proves a semantic read or independent review.
+Preflight reproduces the query envelope and observations against its base packet
+and recorded request. Missing or mismatched bindings, requests and results fail
+closed; query scope edits require separate requalification. Neither a query
+receipt nor recorded result proves a semantic read or independent review.
 
 An existing claim can retain a prior RAW or independent-repository singleton
 and add a different source through `folder_source_provenance`, a bounded
@@ -464,8 +445,17 @@ combines the bounded consumer inventory with explicit v2 packet/result reports.
 The trusted host must configure `WIKI_FOLDER_INGEST_HOST_ROOT` and
 `WIKI_FOLDER_INGEST_HOST_FOLDERS` as for ingestion; the approved revision is
 the full current approved commit SHA. A repository selection also requires a
-matching `WIKI_FOLDER_INGEST_HOST_REPOSITORIES` entry. See the
-[host binding contract](experimental-host-source-reassessment.md).
+matching `WIKI_FOLDER_INGEST_HOST_REPOSITORIES` tuple of folder, absolute root,
+expected identity and exact repository-relative path. The request cannot add
+bindings. The host must independently authorize the actor and actual reads;
+the binding proves neither identity nor filesystem isolation.
+
+The host checks current ownership, permissions and all reported historical
+connections before opening selected consumers or independent Git content. A
+cross-owner source requires an explicit report and approved bilateral connection.
+Historical replay requires matching instruction, mandatory-reference and index
+blobs; auxiliary-start packets are refused. Direct lower-level reassessment
+calls have no host binding and are only for a trusted coordinator.
 
 ```sh
 python3 "$WIKI_REPO_ROOT/scripts/wiki_folder_reassessment_v2.py" --repo "$WIKI_REPO_ROOT" --approved-revision CURRENT_APPROVED_SHA \
@@ -489,6 +479,10 @@ supplies the recorded contextual ingestion request where the source requires it;
 omit it for sources without such a binding. One request is supplied per command;
 consumers bound to different requests require separate selections. Reports and
 the request together must fit the host adapter's 2,000,000-byte JSON limit.
+The process opens the `--reports` and `--source-request` paths with its own
+filesystem identity before hosted validation. A trusted host must supply paths
+it is authorized to read; the folder binding is not authorization for those
+files and is not a filesystem ACL.
 
 In exact-source mode, coverage is limited to selected authorized paths in one owner and the reports
 provided; it does not discover receipts, resolve page IDs, evaluate max age,
@@ -518,13 +512,9 @@ A changed selection is `review_pending`, while
 an unchanged selection remains `verification_pending`. A missing current
 selection is blocked. Consumers without reports remain unverified.
 
-The association between a report and a repository read is caller-reported,
-not independent proof the consumer actually read or used the source. Origin
-configuration is not authentication, a link is not access, and a field/section
-reader loads the whole blob. The caller must be authorized for each Git
-repository and whole blob; report files can contain source text and must stay
-in authorized storage. This does not create a registry, mutate the wiki or
-refresh source dates, and coverage is only the explicitly selected reports.
+Repository consumption remains caller-reported, not proof of a read. This
+preview creates no registry, mutates no wiki page and does not refresh source
+dates.
 
 ## Propose requalification of an explicit v1 requirement
 
