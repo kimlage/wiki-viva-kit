@@ -338,6 +338,7 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
             evidence.append(item)
         task = {key: packet[key] for key in ('index_path', 'task_id', 'goal', 'output', 'integrator', 'max_bytes')}
         task['evidence'] = evidence
+        task['ingestion_binding'] = packet.get('ingestion_binding')
         if packet.get('index_section') is not None:
             task['index_section'] = packet['index_section']
         rebuilt = prepare_folder_packet(root, binding, {'folder': folder,

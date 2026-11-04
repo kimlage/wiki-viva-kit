@@ -134,7 +134,8 @@ def _rebuild(root, policy, packet):
                     index_path=packet['index_path'], index_section=packet['index_section'],
                     start_folder=packet.get('start_folder'),
                     task_id=packet['task_id'], goal=packet['goal'], output=packet['output'],
-                    integrator=packet['integrator'], evidence=evidence)
+                    integrator=packet['integrator'], evidence=evidence,
+                    ingestion_binding=packet.get('ingestion_binding'))
     except (ValueError, KeyError, TypeError) as exc:
         raise FolderIntegrationError('v2 packet cannot be reproduced') from exc
     if rebuilt != packet:
@@ -179,6 +180,17 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                  'section': row.get('section'), 'field': row.get('field')} for row in packet['inputs']]
     if result['observed'] != expected:
         raise FolderIntegrationError('all selected inputs require an exact reported read')
+    ingestion = packet.get('ingestion_binding')
+    if ingestion is not None:
+        if binding is None or not isinstance(source_request, dict):
+            raise FolderIntegrationError('ingestion task requires host-bound request')
+        try:
+            from wiki_core.folder_capture_v2 import validate_recorded_request
+            validate_recorded_request(root, packet, source_request)
+        except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
+            raise FolderIntegrationError('ingestion request unavailable') from None
+    elif source_request is not None:
+        raise FolderIntegrationError('ingestion task binding required')
     raw = _git(root, 'diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-status', '-z', approved.revision, proposed.revision).split(b'\0')
     if raw and raw[-1] == b'': raw.pop()
     if len(raw) % 2:
@@ -213,6 +225,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
         raise FolderIntegrationError('reported changes differ from proposal')
     if not any(row['path'] == packet['output'] for row in changes):
         raise FolderIntegrationError('declared output change unavailable')
+    if ingestion is not None and statuses[packet['output']] == 'D':
+        raise FolderIntegrationError('ingestion output must exist')
     # Establish authority and boundary changes from Git metadata before any
     # proposal body is read. Existing output needs an exact prior full read.
     covered_requirements = 0
@@ -248,6 +262,12 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                 raise FolderIntegrationError('secret detected in proposed content')
             covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved)
             capture = document['frontmatter'].get('source_authorization')
+            if path == packet['output'] and ingestion is not None:
+                try:
+                    from wiki_core.folder_capture_v2 import validate_ingestion_projections
+                    validate_ingestion_projections(source_request, document['frontmatter'])
+                except (ValueError, TypeError, KeyError, AttributeError):
+                    raise FolderIntegrationError('ingestion projections unavailable') from None
             if capture is not None:
                 # A RAW association needs the original explicit request and
                 # recorded results under a trusted folder binding. A direct

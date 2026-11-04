@@ -77,6 +77,21 @@ def metadata(page_id='claim-synthetic'):
             'owner':'person-synthetic'}
 
 
+def amend_without_fields(project, preview, fields):
+    fm, body = parse_frontmatter(preview['markdown'])
+    for field in fields:
+        fm.pop(field, None)
+    put(project, preview['output'], '---\n' + yaml.safe_dump(fm, sort_keys=False) + '---\n' + body)
+    git(project, 'add', preview['output']); git(project, 'commit', '--amend', '-qm', 'synthetic changed proposal')
+    return git(project, 'rev-parse', 'HEAD')
+
+
+def restore_proposal(project, preview):
+    put(project, preview['output'], preview['markdown'])
+    git(project, 'add', preview['output']); git(project, 'commit', '--amend', '-qm', 'synthetic proposal restored')
+    return git(project, 'rev-parse', 'HEAD')
+
+
 def test_preview_only_uses_selected_pages_and_returns_reviewable_markdown(project, monkeypatch, tmp_path, capsys):
     import wiki_core.consolidate as module
     binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys)
@@ -151,11 +166,40 @@ def test_raw_capture_is_revalidated_at_preflight_and_after_local_change(project,
               'observed':[{'path':row['path'], 'kind':row['kind'], 'revision':row['revision'],
                            'sha256':row['sha256'], 'section':row.get('section'), 'field':row.get('field')}
                           for row in packet['inputs']], 'changes':[{'path':preview['output'], 'action':'created'}]}
-    with pytest.raises(FolderIntegrationError, match='host-bound revalidation'):
+    with pytest.raises(FolderIntegrationError, match='host-bound request'):
         preflight_folder_v2(project, load_folder_policy_v2(project, base), base=base, head=head,
                             branch='wiki/synthetic-raw', packet=packet, result=result)
     payload = {'folder':'a', 'approved_revision':base, 'base':base, 'head':head,
                'branch':'wiki/synthetic-raw', 'packet':packet, 'result':result, 'source_request':request}
+    assert packet['ingestion_binding']['source_kind'] == 'staged_raw'
+    payload['head'] = amend_without_fields(project, preview, ['source_authorization'])
+    with pytest.raises(FolderCoordinationError):
+        prepare_folder_preflight(project, binding, payload)
+    with pytest.raises(FolderCoordinationError):
+        prepare_folder_preflight(project, binding, {key:value for key,value in payload.items() if key != 'source_request'})
+    head = payload['head'] = restore_proposal(project, preview)
+    downgraded = deepcopy(packet); downgraded.pop('ingestion_binding')
+    # Even a rebuilt generic packet cannot use the original task result.
+    from wiki_core.folder_packet_v2 import build_folder_packet_v2
+    from wiki_core.folder_integration_v2 import _rebuild
+    policy = load_folder_policy_v2(project, base)
+    by_id = {value:key for key,value in policy.folder_ids.items()}
+    evidence = []
+    for row in packet['inputs']:
+        if row['kind'] == 'evidence':
+            item = {key:row[key] for key in ('path', 'reason', 'use', 'classification')}
+            item['producer_folder'] = by_id[row['producer_context']]
+            for key in ('section', 'field'):
+                if row.get(key) is not None: item[key] = row[key]
+            evidence.append(item)
+    downgraded = build_folder_packet_v2(project, policy, packet['context_folder'], packet['max_bytes'],
+        content_revision=packet['content_revision'], index_path=packet['index_path'],
+        index_section=packet['index_section'], task_id=packet['task_id'], goal=packet['goal'],
+        output=packet['output'], integrator=packet['integrator'], evidence=evidence)
+    assert _rebuild(project, policy, downgraded) == downgraded
+    with pytest.raises(FolderIntegrationError, match='result does not match'):
+        preflight_folder_v2(project, policy, base=base, head=head, branch='wiki/synthetic-raw',
+                            packet=downgraded, result=result)
     with pytest.raises(FolderCoordinationError):
         prepare_folder_preflight(project, binding, {key:value for key,value in payload.items() if key != 'source_request'})
     divergent = deepcopy(payload)
@@ -260,7 +304,8 @@ def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, 
                           for row in packet['inputs']],
               'changes':[{'path':preview['output'], 'action':'created'}]}
     checked = prepare_folder_preflight(project, binding, {'folder':'a', 'approved_revision':base,
-                'base':base, 'head':head, 'branch':'wiki/synthetic-ingestion', 'packet':packet, 'result':report})
+                'base':base, 'head':head, 'branch':'wiki/synthetic-ingestion', 'packet':packet, 'result':report,
+                'source_request':request})
     assert checked['preflight']['state'] == 'independent_review_required'
     assert checked['preflight']['requirements_handling']['count'] == 1
     assert checked['preflight']['merge'] == 'not_performed'
@@ -328,6 +373,16 @@ def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, 
     second_payload = {'folder':'a', 'approved_revision':second_base,
         'base':second_base, 'head':second_head, 'branch':'wiki/synthetic-repository',
         'packet':second_packet, 'result':second_report, 'source_request':second_request}
+    assert second_packet['ingestion_binding']['source_kind'] == 'git'
+    second_payload['head'] = amend_without_fields(project, second_preview, ['independent_repo_additional_reads'])
+    with pytest.raises(ValueError):
+        prepare_folder_preflight(project, binding, second_payload)
+    second_payload['head'] = amend_without_fields(project, second_preview, ['independent_repo_read', 'independent_repo_additional_reads'])
+    with pytest.raises(ValueError):
+        prepare_folder_preflight(project, binding, second_payload)
+    with pytest.raises(ValueError):
+        prepare_folder_preflight(project, binding, {key:value for key,value in second_payload.items() if key != 'source_request'})
+    second_head = second_payload['head'] = restore_proposal(project, second_preview)
     divergent = deepcopy(second_payload)
     divergent['source_request']['independent_repo_content'] += 'changed'
     with pytest.raises(ValueError):
@@ -370,7 +425,7 @@ def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, 
     outcome = prepare_folder_reassessment(project, binding, {'folder':'a',
         'approved_revision':git(project, 'rev-parse', 'HEAD'), 'source':'a/source.md',
         'candidates':[preview['output']], 'reports':[{'target':preview['output'], 'section':None,
-        'field':None, 'packet':packet, 'result':report}]})['reassessment']
+        'field':None, 'packet':packet, 'result':report}], 'source_request':request})['reassessment']
     assert outcome['consumers'][0]['state'] == 'review_pending'
     assert outcome['consumers'][0]['impact']['verification'] == 'reported_not_independently_verified'
     assert (project / preview['output']).read_text() == preview['markdown']

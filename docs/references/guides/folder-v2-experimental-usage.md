@@ -266,8 +266,14 @@ freshness remain unverified. Such a claim carries only capture metadata, not
 the RAW text. A selected Git repository contributes only identity/path/revision
 and digests to the claim, not its full contents. Preflight requires the exact
 recorded contextual request via `wiki_context_flow.py ... preflight
---source-request REQUEST.json` under the trusted host binding; its revalidation
-does not prove execution or authenticate an external service.
+--source-request REQUEST.json` under the trusted host binding, including for
+Git-only ingestion. The packet binds the authorization digest and preflight
+requires the matching recorded request and every applicable claim projection.
+Older folder-v2 ingestion requests without this binding must be reissued; v1
+is unchanged. Revalidation does not prove execution or authenticate an
+external service; an untrusted party able to replace an entire packet and
+result can still fabricate a different generic task. Query preflight does not
+accept an ingestion request and fails closed for an ingestion-bound packet.
 
 ## Compare one reported source and consumer
 
