@@ -44,6 +44,20 @@ Context selects retrieval results; account and session controls govern access.
 An index configured for WAL is reported as unsupported instead of creating
 SQLite sidecars or silently ignoring uncheckpointed data. Its journal mode is
 never changed by lookup.
+
+For a task with explicit local selections, repeat `--path` for each folder or
+file, for example `python3 scripts/wiki_find.py "release review" --path memories/project`.
+This reads selected UTF-8 Markdown/text files directly, using case-insensitive
+substring AND matching; it does not open the global catalog or SQLite index.
+Nested Git repositories and symbolic links are excluded; an explicitly selected
+path across either boundary is refused. Results report partial coverage and do
+not establish freshness, authorization or that any agent read a source. A path
+selection is subject to the host process's actual permissions. Up to 16 paths,
+1,000 files, 1 MB per file and 8 MB in total are accepted; traversal is also
+bounded. The full selected set and sizes are checked before reading bodies;
+reading stops at the hit limit and reports the number of unread files. Errors
+in their contents cannot be detected without reading them. Select an independent
+repository through its own explicit read flow.
 Use [wiki_build_index.py](wiki_build_index.py) explicitly when a rebuild is
 needed. The `--context` option on [wiki_llm_context_pass.py](wiki_llm_context_pass.py)
 describes a delegated reading request; it does not filter that command's query.

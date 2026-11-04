@@ -19,10 +19,20 @@ def main(argv=None) -> int:
     parser.add_argument("query")
     parser.add_argument("--context", help="Filter by observed local metadata before limiting hits")
     parser.add_argument("--source", help="Exact indexed source_id, including page:<page_id>")
+    parser.add_argument("--path", action="append", help="Explicit local text file or folder; repeat for each selection")
     parser.add_argument("--limit", type=int, default=20)
     args = parser.parse_args(argv)
-    result = find(ROOT, load_config(ROOT), args.query, context=args.context,
-                  source_id=args.source, limit=args.limit)
+    if args.path is not None and (args.context is not None or args.source is not None):
+        parser.error('--path cannot be combined with indexed filters')
+    if args.path:
+        try:
+            result = find(ROOT, load_config(ROOT), args.query, limit=args.limit, selections=args.path)
+        except (ValueError, OSError):
+            print(json.dumps({'status': 'selection_unavailable', 'coverage': 'partial'}))
+            return 2
+    else:
+        result = find(ROOT, load_config(ROOT), args.query, context=args.context,
+                      source_id=args.source, limit=args.limit)
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return 0 if result["status"] in {"ok", "no_matches"} else 2
 
