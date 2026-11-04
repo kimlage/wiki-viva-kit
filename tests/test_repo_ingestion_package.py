@@ -226,3 +226,59 @@ def test_same_blob_at_distinct_revisions_has_distinct_bound_result(approved, rep
                                       first['schema_version'], first['model_profile'], context_sha256=fingerprint)}
     assert first['source_id'] == second['source_id'] and new_row['cache_key'] != old_row['cache_key']
     assert not result_matches_request(result, second, new_row, recording=True)
+
+
+def test_retargeted_repo_alias_between_capture_and_record_is_refused_before_blob(approved, repo, monkeypatch, tmp_path, capsys):
+    import subprocess
+    from wiki_core import repo_read
+    from wiki_core.llm.context_pass import read_matching_result
+    from wiki_core.paths import WikiPaths
+
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area/AGENTS.md').write_text('Local guidance.')
+    (root / 'area/index.md').write_text('Local index.')
+    alias = tmp_path / 'repo-link'
+    alias.symlink_to(repo, target_is_directory=True)
+    chosen = [str(alias), *selection(repo)[1:]]
+    captured = run(str(source), 'system', root, load_config(root), entry_folder='area',
+                   repo_selections=[chosen], record_score=False)
+    assert not captured.blocked
+    request = json.loads((root / captured.request_path).read_text())
+    second = tmp_path / 'other-repo'
+    subprocess.run(['git', 'clone', '--quiet', '--no-local', str(repo), str(second)], check=True)
+    git(second, 'remote', 'set-url', 'origin', 'https://example.test/group/project.git')
+    assert git(second, 'rev-parse', 'HEAD') == chosen[2]
+    alias.unlink(); alias.symlink_to(second, target_is_directory=True)
+    payload = tmp_path / 'result.json'; payload.write_text(json.dumps(recorded_result(request)))
+    module = pass_cli(root, source, chosen, payload, monkeypatch)
+    monkeypatch.setattr(repo_read, '_read_prepared_repo', lambda *_a, **_k: pytest.fail('retargeted repository body opened'))
+    assert module.main() == 2
+    assert json.loads(capsys.readouterr().out)['blocked']
+    assert read_matching_result(WikiPaths(root, load_config(root)).llm_cache,
+                                request, request['chunks'][0], root=root) is None
+
+
+def test_missing_or_invalid_retained_request_never_opens_repo_body(approved, repo, monkeypatch, tmp_path, capsys):
+    from wiki_core import repo_read
+    root, source, chosen, request = prepare(approved, repo)
+    payload = tmp_path / 'result.json'; payload.write_text(json.dumps(recorded_result(request)))
+    module = pass_cli(root, source, chosen, payload, monkeypatch)
+    from wiki_core.paths import WikiPaths
+    retained = WikiPaths(root, load_config(root)).extraction_events / f"{request['source_id']}-llm-context-request.json"
+    other = retained.parent / 'other-source-llm-context-request.json'
+    other.write_text(json.dumps(request))
+    original_open = Path.open
+    def guarded_open(path, *args, **kwargs):
+        if path == other:
+            pytest.fail('unselected retained request opened')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    monkeypatch.setattr(repo_read, '_read_prepared_repo', lambda *_a, **_k: pytest.fail('repository body opened'))
+    for contents in (None, '{"input_stage_status": 1, "input_stage_status": 2}', '[' * 1100 + '0' + ']' * 1100):
+        if contents is None:
+            retained.unlink(missing_ok=True)
+        else:
+            retained.write_text(contents)
+        assert module.main() == 2
+        assert json.loads(capsys.readouterr().out)['blocked']
