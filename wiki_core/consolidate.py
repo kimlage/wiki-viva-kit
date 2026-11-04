@@ -198,6 +198,12 @@ def _dedup(items: list[object]) -> list[object]:
 
 def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, object]:
     """Merge the per-chunk deep-read results of one source (order = chunk order)."""
+    resolved = [read_matching_result(cache_dir, request, row) for row in request.get("chunks") or []]
+    return _aggregate_resolved_results(request, resolved)
+
+
+def _aggregate_resolved_results(request: dict[str, object], resolved: list[dict | None]) -> dict[str, object]:
+    """Merge already selected results; validation belongs to the calling route."""
     quadrants: dict[str, list[str]] = {key: [] for key in QUADRANT_KEYS}
     confidence: dict[str, str] = {}
     lists: dict[str, list[object]] = {
@@ -205,8 +211,7 @@ def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, 
         "uncertainties": [], "relationships": [], "entities": [],
     }
     rank = {"low": 0, "medium": 1, "high": 2}
-    for row in request.get("chunks") or []:
-        result = read_matching_result(cache_dir, request, row)
+    for result in resolved:
         if not result:
             continue
         q = result.get("quadrants")
@@ -238,6 +243,133 @@ def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, 
         "quadrant_confidence": confidence,
         **{name: _dedup(values) for name, values in lists.items()},
     }
+
+
+def prepare_folder_consolidation(root: Path, binding, request: dict, results: list,
+                                 *, candidates: list[str], max_age_days: int) -> dict[str, object]:
+    """Return a reviewable Markdown proposal from explicit, bound v2 results.
+
+    This preview never scans a global catalogue or FTS index, invokes a model,
+    writes a file, attests an observed read or performs preflight or merge. A
+    trusted host must be authorized for the complete selected Git blobs.
+    """
+    import yaml
+    from wiki_core.context_policy import safe_path
+    from wiki_core.folder_coordination_v2 import _bound_policy, _output_authorized, prepare_folder_packet
+    from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+    from wiki_core.llm.context_pass import result_matches_request
+    from wiki_core.repo_read import contains_access_secrets
+    from wiki_core.repository_reader import RepositoryReader
+
+    try:
+        if (not isinstance(request, dict) or request.get('context_binding_version') != 2
+                or not isinstance(results, list) or not isinstance(candidates, list)
+                or len(candidates) > 128 or type(max_age_days) is not int
+                or not 0 <= max_age_days <= 3650
+                or contains_access_secrets((request, results, candidates))):
+            raise ValueError('invalid inputs')
+        if len(json.dumps((request, results, candidates), ensure_ascii=False, sort_keys=True,
+                          separators=(',', ':')).encode()) > 2_000_000:
+            raise ValueError('input budget exceeded')
+        packet = request['block_context_package']
+        if not isinstance(packet, dict) or packet.get('schema_version') != 'wiki.folder-task-context/v2':
+            raise ValueError('invalid packet')
+        folder = safe_path(packet['context_folder'], allow_root=True)
+        policy = _bound_policy(root, binding, folder, packet['policy_revision'])
+        root = binding.root
+        context = policy.folder_ids[folder]
+        if (packet.get('context_id') != context or packet.get('start_folder') is not None
+                or packet.get('content_revision') != policy.policy_revision):
+            raise ValueError('unsupported context')
+        output = safe_path(packet['output'])
+        _output_authorized(policy, folder, output)
+        chosen = [safe_path(path) for path in candidates]
+        if len(chosen) != len(set(chosen)):
+            raise ValueError('duplicate candidate')
+        reader = RepositoryReader(root, policy.policy_revision)
+        _check_local_boundaries(Path(root), output)
+        if (output in reader.paths or any(output == path or output.startswith(path + '/') for path in reader.unsupported_paths)
+                or (Path(root) / output).exists() or (Path(root) / output).is_symlink()):
+            raise ValueError('existing output requires a separate proposal')
+        for path in chosen:
+            if (path not in reader.paths or not path.endswith('.md')
+                    or policy.owner_of(path) != context or not policy.permits(context, 'read', path)):
+                raise ValueError('candidate unavailable')
+        if sum(reader.blob_size(path) for path in chosen) > 1_000_000:
+            raise ValueError('candidate budget exceeded')
+
+        chunks = request['chunks']
+        if not isinstance(chunks, list) or not 1 <= len(chunks) <= 256 or len(results) != len(chunks):
+            raise ValueError('incomplete results')
+        keys = [row.get('cache_key') for row in chunks if isinstance(row, dict)]
+        if len(keys) != len(chunks) or len(keys) != len(set(keys)):
+            raise ValueError('invalid chunk selection')
+        if any(not result_matches_request(result, request, row, recording=True)
+               for row, result in zip(chunks, results)):
+            raise ValueError('unmatched result')
+        auth = request.get('source_authorization')
+        if not isinstance(auth, dict) or auth.get('source_kind') != 'git':
+            # Staged RAW requires its own current-byte fence; never infer one.
+            raise ValueError('source kind unavailable')
+
+        by_id = {identifier: path for path, identifier in policy.folder_ids.items()}
+        evidence = []
+        for row in packet['inputs']:
+            if not isinstance(row, dict):
+                raise ValueError('invalid packet input')
+            if row.get('kind') != 'evidence':
+                continue
+            item = {key: row[key] for key in ('path', 'reason', 'use', 'classification')}
+            item['producer_folder'] = by_id[row['producer_context']]
+            for key in ('section', 'field'):
+                if row.get(key) is not None:
+                    item[key] = row[key]
+            evidence.append(item)
+        task = {key: packet[key] for key in ('index_path', 'task_id', 'goal', 'output', 'integrator', 'max_bytes')}
+        task['evidence'] = evidence
+        if packet.get('index_section') is not None:
+            task['index_section'] = packet['index_section']
+        rebuilt = prepare_folder_packet(root, binding, {'folder': folder,
+                   'approved_revision': policy.policy_revision, 'content_revision': packet['content_revision'],
+                   'task': task})['packet']
+        if rebuilt != packet:
+            raise ValueError('packet changed')
+        pages = []
+        for path in chosen:
+            item = reader.read(path)
+            if contains_access_secrets(item['text']):
+                raise ValueError('secret in selected page')
+            pages.append({'path': path, 'revision': reader.revision,
+                          'sha256': item['content_sha256'], 'text': item['text']})
+        aggregate = _aggregate_resolved_results(request, results)
+        # Model-produced target suggestions are not authorized selections.
+        aggregate['target_pages'] = []
+        source = safe_path(auth['canonical_ref'])
+        frontmatter = {'page_type': 'claim', 'information_requirements': [{
+            'target': source, 'fields': ['*'], 'temporal': 'current', 'max_age_days': max_age_days,
+            'consumed_revision': policy.policy_revision, 'use': 'interpretation', 'classification': 'source'}]}
+        lines = ['---', yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=False).rstrip(), '---',
+                 '', '# Interpretação proposta', '', 'Conteúdo relatado para revisão independente.']
+        for label, key in (('Quadrantes', 'quadrants'), ('Afirmações', 'claims'), ('Decisões', 'decisions'),
+                           ('Ações', 'actions'), ('Riscos', 'risks'), ('Incertezas', 'uncertainties'),
+                           ('Relações', 'relationships'), ('Entidades', 'entities')):
+            value = aggregate[key]
+            if value:
+                lines.extend(['', '## ' + label, '', '> ' + json.dumps(value, ensure_ascii=False, sort_keys=True)])
+        markdown = '\n'.join(lines) + '\n'
+        result = {'schema_version': 'wiki.folder-consolidation-preview/v2',
+                  'state': 'independent_review_required', 'folder': folder,
+                  'policy_revision': policy.policy_revision, 'output': packet['output'],
+                  'packet_digest': packet['packet_digest'], 'selected_pages': pages,
+                  'markdown': markdown, 'coverage': 'explicit_selected_pages_only',
+                  'reads': 'reported_not_independently_verified', 'execution': 'not_proven',
+                  'preflight': 'not_performed', 'write': 'not_performed', 'merge': 'not_performed'}
+        if contains_access_secrets(result):
+            raise ValueError('secret in proposal')
+        policy.fresh()
+        return result
+    except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
+        raise ValueError('folder consolidation unavailable or unauthorized') from None
 
 
 def _source_slug(source_id: str) -> str:

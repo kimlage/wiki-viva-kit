@@ -240,6 +240,20 @@ File and byte limits apply before opening candidates. Declarations are neither
 v2 query receipts nor proof of a read, and this command creates no registry or
 automatic requalification. Actual host access remains the caller's responsibility.
 
+## Preview consolidation from explicit recorded results
+
+`wiki_consolidate.py --folder-preview --max-age-days N` accepts one JSON object
+on standard input containing `request` and ordered `results`. The host must
+set `WIKI_FOLDER_INGEST_HOST_ROOT` and `WIKI_FOLDER_INGEST_HOST_FOLDERS`; add
+`--folder-candidate` for each exact current wiki page that may be inspected.
+The preview revalidates the folder packet and reported chunk results, reads only
+those authorized pages, and returns Markdown for the exact output plus its
+current-source requirement. It does not use the global catalogue or FTS,
+write the output, record an observed read, perform preflight, merge or establish
+execution. The host needs authority for complete selected blobs. Source age is
+an explicit caller input and is not evaluated as factual freshness. Staged RAW
+remains blocked pending its current-byte and association fence.
+
 ## Compare one reported source and consumer
 
 ```sh
