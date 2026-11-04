@@ -134,8 +134,7 @@ an ACL or a sandbox. The selected entry reads its instructions and index without
 opening the global source catalog or block world. Source configuration, linked
 sources and other context remain unresolved; links do not grant access. The
 source must be an explicitly selected regular file inside the wiki or a URL;
-access-bearing URLs are refused, and independent repositories require a separate
-authorized selection not implemented by this entry. Folder ingestion does not
+access-bearing URLs are refused. Folder ingestion does not
 update the global search index or score event. Filesystem checks do not prevent
 concurrent replacement. Until contextual
 capture reuse is implemented, a folder ingestion refuses to replace an existing
@@ -144,6 +143,19 @@ also preserves the prior file. If local persistence fails, `written: false`
 means persistence did not complete; `partial_effects: unknown` warns that
 partial effects may exist and require inspection before retrying. Folder entry
 does not provide scoped query search.
+
+To include an independently authorized Git file with this source, append
+`--repo ROOT IDENTITY REVISION PATH` to both ingestion and result recording;
+repeat it for each selected file. `ROOT` is its local Git root, `IDENTITY` is
+the credential-free host/path of its configured origin, `REVISION` is a full
+commit SHA, and `PATH` is an exact tracked file. The request retains the root,
+origin, commit, path, blob and hashes with the selected text. The caller must
+provide the same authorized selections again when recording; each is checked
+again before the result is written. The configured origin and the receipt are
+not authorization or proof of remote identity. Reads use the chosen Git commit,
+without fetching or including working-tree edits; reading an old commit does
+not establish that it is current. Until capture reuse exists, a new selection
+for an already captured source remains blocked and preserves the earlier work.
 
 Local-folder results use the existing cache under a `local-folder` subdirectory;
 recording them requires the current source and folder to be revalidated. Results

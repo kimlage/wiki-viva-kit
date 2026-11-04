@@ -122,9 +122,10 @@ def contains_access_secrets(value: object) -> bool:
     return False
 
 
-def read_independent_repo(root: Path, expected_identity: str, revision: str, path: str,
-                          *, section: str | None = None, field: str | None = None) -> dict:
-    """Read one exact Git path from the selected root and immutable revision."""
+def _prepare_repo_read(root: Path, expected_identity: str, revision: str, path: str, *, max_bytes: int):
+    """Validate repository metadata and blob size before opening its body."""
+    if type(max_bytes) is not int or not 1 <= max_bytes <= _MAX_BLOB_BYTES:
+        raise RepoReadError('invalid_repository_byte_limit')
     root = Path(root).expanduser()
     if not root.is_dir():
         raise RepoReadError('repository_missing')
@@ -149,8 +150,17 @@ def read_independent_repo(root: Path, expected_identity: str, revision: str, pat
         reader = _LocalRepositoryReader(root, revision)
         if normalized not in reader.paths:
             raise RepoReadError('repository_path_missing_or_unsupported')
-        if reader.blob_size(normalized) > _MAX_BLOB_BYTES:
+        size = reader.blob_size(normalized)
+        if size > max_bytes:
             raise RepoReadError('repository_file_too_large')
+    except RepositoryReadError as exc:
+        raise RepoReadError('repository_revision_or_path_unavailable') from exc
+    return reader, normalized, identity, transport, size
+
+
+def _read_prepared_repo(prepared, *, section=None, field=None):
+    reader, normalized, identity, transport, _size = prepared
+    try:
         item = reader.read(normalized, section=section, field=field)
     except RepositoryReadError as exc:
         raise RepoReadError('repository_revision_or_path_unavailable') from exc
@@ -166,3 +176,11 @@ def read_independent_repo(root: Path, expected_identity: str, revision: str, pat
     if contains_access_secrets(result):
         raise RepoReadError('selected_content_contains_access_secrets')
     return result
+
+
+def read_independent_repo(root: Path, expected_identity: str, revision: str, path: str,
+                          *, section: str | None = None, field: str | None = None,
+                          max_bytes: int = _MAX_BLOB_BYTES) -> dict:
+    """Read one exact Git path from the selected root and immutable revision."""
+    prepared = _prepare_repo_read(root, expected_identity, revision, path, max_bytes=max_bytes)
+    return _read_prepared_repo(prepared, section=section, field=field)

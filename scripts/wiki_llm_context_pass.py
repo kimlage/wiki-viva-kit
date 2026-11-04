@@ -350,6 +350,8 @@ def main() -> int:
     parser.add_argument("--policy-context", help="Explicit manifest context for the approved-policy adapter.")
     parser.add_argument("--folder", help="Local context folder relative to the wiki root; defaults to nested cwd.")
     parser.add_argument("--index", help="Selected context index relative to the wiki root; required for the root.")
+    parser.add_argument("--repo", nargs=4, action="append", metavar=("ROOT", "IDENTITY", "REVISION", "PATH"),
+                        help="Explicit independent Git file; repeat the selection when recording.")
     parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
     parser.add_argument("--request-max-bytes", type=int, default=DEFAULT_REQUEST_MAX_BYTES)
     business_root = parser.add_mutually_exclusive_group()
@@ -384,6 +386,8 @@ def main() -> int:
             approved_revision=args.approved_revision, policy_context=args.policy_context)
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
+    if args.repo is not None and entry_folder is None:
+        parser.error('repository selection requires a local folder')
     if entry_folder is not None and (args.allow_unrequested or args.query or args.required_perspective
                                      or args.optional_perspective or (args.record_result and not args.source)):
         parser.error('folder entry requires an explicit source and its requested result')
@@ -413,7 +417,7 @@ def main() -> int:
                 raise ValueError('source selection unavailable')
             try:
                 selected_context = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
-                    entry_index=entry_index, context_max_bytes=args.context_max_bytes)
+                    entry_index=entry_index, context_max_bytes=args.context_max_bytes, repo_selections=args.repo)
             except (ValueError, OSError) as exc:
                 raise ContextRequestBlocked('local_folder_unavailable',
                     'Selected folder instructions or index are unavailable; no fallback was used.') from exc
@@ -578,11 +582,13 @@ def main() -> int:
         return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)
 
     def revalidate_entry():
-        from wiki_core.llm.context_pass import _folder_documents, validate_local_entry_source
-        current = _folder_documents(root, entry_folder, entry_index, args.context_max_bytes)
+        from wiki_core.llm.context_pass import validate_local_entry_source
+        current = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
+            entry_index=entry_index, context_max_bytes=args.context_max_bytes, repo_selections=args.repo,
+            expected_documents=context_package['documents'])
         current_source = validate_local_entry_source(root, source)
         observed = build_manifest(current_source, args.context, root=root)
-        if (context_package['documents'][:len(current)] != current
+        if (context_package != current
                 or observed.get('hash_sha256') != manifest.get('hash_sha256')):
             raise ValueError('selected source or folder context changed')
 
