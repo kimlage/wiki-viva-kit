@@ -21,6 +21,7 @@ information_requirements:
     fields: [field:amount, field:unreported]
     temporal: current
     max_age_days: 30
+    classification: synthetic
 ---
 Independent interpretation
 ''')
@@ -30,6 +31,7 @@ information_requirements:
     fields: ['*']
     temporal: current
     max_age_days: 30
+    classification: synthetic
 ---
 Another interpretation
 ''')
@@ -96,6 +98,57 @@ def test_declared_revision_and_use_must_match_report(project):
         run(project, report)
 
 
+@pytest.mark.parametrize(
+    ('requirement_extra', 'packet_use', 'packet_classification', 'matches'),
+    [
+        ('', 'interpret', 'internal', True),
+        ('', 'interpret', 'synthetic', False),
+        ('', 'summarize', 'internal', False),
+        ('    use: summarize\n    classification: synthetic\n', 'summarize', 'synthetic', True),
+        ('    use: summarize\n', 'summarize', 'synthetic', False),
+    ],
+)
+def test_omitted_requirement_constraints_use_existing_defaults(
+        project, monkeypatch, requirement_extra, packet_use, packet_classification, matches):
+    from wiki_core.folder_packet_v2 import build_folder_packet_v2
+    from wiki_core.repository_reader import RepositoryReader
+
+    put(project, 'a/source.md', '---\namount: 5\n---\nSynthetic source\n'); commit(project)
+    p = load_folder_policy_v2(project, 'HEAD')
+    packet = build_folder_packet_v2(project, p, 'a', 20000, index_path='a/index.md',
+             content_revision='HEAD', task_id='defaults', goal='review', output='a/report.md',
+             integrator='independent', evidence=[{'path': 'a/source.md', 'producer_folder': 'a',
+             'reason': 'synthetic', 'use': packet_use, 'classification': packet_classification,
+             'field': 'amount'}])
+    result = {'schema_version': 'wiki.folder-task-result/v2', 'status': 'completed',
+              'task_id': packet['task_id'], 'context_id': packet['context_id'],
+              'packet_digest': packet['packet_digest'],
+              'observed': [{'path': r['path'], 'kind': r['kind'], 'revision': r['revision'],
+                            'sha256': r['sha256'], 'section': r.get('section'), 'field': r.get('field')}
+                           for r in packet['inputs']],
+              'changes': [{'path': 'a/report.md', 'action': 'created'}]}
+    put(project, 'a/report.md', '---\ninformation_requirements:\n  - target: a/source.md\n'
+        '    fields: [field:amount]\n    temporal: current\n    max_age_days: 30\n'
+        + requirement_extra + '---\nSynthetic interpretation\n')
+    commit(project)
+    p = load_folder_policy_v2(project, 'HEAD')
+    report = {'target': 'a/report.md', 'section': None, 'field': 'amount', 'packet': packet, 'result': result}
+    args = {'folder': 'a', 'source': 'a/source.md', 'candidates': ['a/report.md']}
+    if not matches:
+        original = RepositoryReader.read
+        def spy(self, path, *args, **kwargs):
+            if path == 'a/source.md':
+                pytest.fail('source body read for a report with mismatched constraints')
+            return original(self, path, *args, **kwargs)
+        monkeypatch.setattr(RepositoryReader, 'read', spy)
+        with pytest.raises(FolderReassessmentError, match='report differs from declared source constraints'):
+            reassess_folder_source_v2(project, p, reports=[report], **args)
+    else:
+        out = reassess_folder_source_v2(project, p, reports=[report], **args)
+        assert out['consumers'][0]['state'] == 'verification_pending'
+        assert out['consumers'][0]['impact']['verification'] == 'reported_not_independently_verified'
+
+
 def test_multiple_reported_consumers_of_same_source_are_independent(project):
     from wiki_core.folder_packet_v2 import build_folder_packet_v2
     first = setup_flow(project)
@@ -110,6 +163,7 @@ information_requirements:
     fields: [field:unreported]
     temporal: current
     max_age_days: 30
+    classification: synthetic
 ---
 Second independent interpretation
 ''')

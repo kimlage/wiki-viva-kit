@@ -89,9 +89,11 @@ def reassess_folder_source_v2(root, policy, *, folder, source, reports,
                         matching = [item for item in inputs if isinstance(item, dict)
                                     and item.get('kind') == 'evidence' and item.get('path') == source
                                     and item.get('section') == section and item.get('field') == selected_field] if isinstance(inputs, list) else []
-                        if len(matching) != 1 or any(
-                                requirement[name] != matching[0].get('revision' if name == 'consumed_revision' else name)
-                                for name in ('use', 'classification', 'consumed_revision') if name in requirement):
+                        if (len(matching) != 1
+                                or matching[0].get('use') != requirement.get('use', 'interpret')
+                                or matching[0].get('classification') != requirement.get('classification', 'internal')
+                                or ('consumed_revision' in requirement
+                                    and requirement['consumed_revision'] != matching[0].get('revision'))):
                             raise FolderReassessmentError('report differs from declared source constraints')
                         impact = assess_folder_source_v2(root, policy, packet=report['packet'], result=report['result'],
                                   target=target, source=source, section=section, field=selected_field)

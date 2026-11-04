@@ -230,8 +230,10 @@ not paths. Omit `--reports` to inventory declarations without reported reads.
 An exact declared selector without a matching report is `declared_without_report`.
 Changed and unchanged reported slices retain the impact command's pending
 states; historical, query and unsupported selectors remain explicitly open.
-Declared use, classification and consumed revision, when present, must match the
-report. A mismatched or duplicate report blocks the preview. Treat report files
+The requirement's use and classification must match the report; omission means
+`interpret` and `internal`, respectively, as in the existing requirement flow.
+An explicitly pinned consumed revision must also match; an omitted pin is not
+invented. A mismatched or duplicate report blocks the preview. Treat report files
 as potentially sensitive and keep them in authorized storage.
 
 Coverage is limited to selected authorized paths in one owner and the reports
