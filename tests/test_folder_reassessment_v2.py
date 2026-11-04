@@ -1,5 +1,6 @@
 """End-to-end source reassessment uses only synthetic Git content."""
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -226,9 +227,15 @@ Independent historical interpretation
 def test_real_cli_reports_missing_consumption_in_selected_scope(project):
     setup_flow(project)
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_folder_reassessment_v2.py'
-    call = subprocess.run([sys.executable, str(script), '--repo', str(project), '--approved-revision', 'HEAD',
-                           '--folder', 'a', '--source', 'a/source.md', '--candidate', 'a/second.md'],
-                          text=True, capture_output=True)
+    env = {**os.environ, 'WIKI_FOLDER_INGEST_HOST_ROOT': str(project), 'WIKI_FOLDER_INGEST_HOST_FOLDERS': 'a'}
+    args = [sys.executable, str(script), '--repo', str(project), '--approved-revision', git(project, 'rev-parse', 'HEAD'),
+            '--folder', 'a', '--source', 'a/source.md', '--candidate', 'a/second.md']
+    unbound_env = {key: value for key, value in env.items() if key not in
+                   ('WIKI_FOLDER_INGEST_HOST_ROOT', 'WIKI_FOLDER_INGEST_HOST_FOLDERS')}
+    refused = subprocess.run(args, text=True, capture_output=True, env=unbound_env)
+    assert refused.returncode != 0
+    assert not refused.stdout
+    call = subprocess.run(args, text=True, capture_output=True, env=env)
     assert call.returncode == 0, call.stderr
     assert json.loads(call.stdout)['consumers'][0]['state'] == 'declared_without_report'
 
@@ -239,9 +246,10 @@ def test_real_cli_reassesses_explicit_report_after_source_update(project, tmp_pa
     reports = tmp_path.parent / (tmp_path.name + '-reports.json')
     reports.write_text(json.dumps([report]))
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_folder_reassessment_v2.py'
-    call = subprocess.run([sys.executable, str(script), '--repo', str(project), '--approved-revision', 'HEAD',
+    env = {**os.environ, 'WIKI_FOLDER_INGEST_HOST_ROOT': str(project), 'WIKI_FOLDER_INGEST_HOST_FOLDERS': 'a'}
+    call = subprocess.run([sys.executable, str(script), '--repo', str(project), '--approved-revision', git(project, 'rev-parse', 'HEAD'),
                            '--folder', 'a', '--source', 'a/source.md', '--candidate', 'a/report.md',
-                           '--reports', str(reports)], text=True, capture_output=True)
+                           '--reports', str(reports)], text=True, capture_output=True, env=env)
     assert call.returncode == 0, call.stderr
     rows = json.loads(call.stdout)['consumers']
     assert rows[0]['state'] == 'review_pending'

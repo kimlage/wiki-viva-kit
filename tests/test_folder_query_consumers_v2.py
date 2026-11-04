@@ -19,7 +19,7 @@ def test_query_projection_compares_json_types():
     assert same_json({'filter': 1, 'other': 'x'}, {'other': 'x', 'filter': 1})
 
 
-def test_reported_query_is_projected_and_selectively_reassessed(project, monkeypatch):
+def test_reported_query_is_projected_and_selectively_reassessed(project, monkeypatch, tmp_path):
     policy, base_packet, query = fixture_query(project)
     packet = build_folder_query_packet_v2(project, policy, base_packet=base_packet, queries=[query])
     req = query_requirements(packet['queries'], 30)[0]
@@ -61,6 +61,21 @@ def test_reported_query_is_projected_and_selectively_reassessed(project, monkeyp
     assert out['consumers'][0]['state'] == 'review_pending'
     assert out['consumers'][0]['query_state'] == 'changed'
     assert out['consumers'][0]['read_verification'] == 'reported_not_independently_verified'
+    import json
+    import os
+    from pathlib import Path
+    import subprocess
+    import sys
+    reports_file = tmp_path / 'query-reports.json'
+    reports_file.write_text(json.dumps([report]))
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_folder_reassessment_v2.py'
+    cli = subprocess.run([sys.executable, str(script), '--repo', str(project), '--approved-revision', current,
+                          '--folder', 'a', '--query-changed', 'a/items/two.md', '--candidate', 'a/result.md',
+                          '--reports', str(reports_file)], text=True, capture_output=True,
+                         env={**os.environ, 'WIKI_FOLDER_INGEST_HOST_ROOT': str(project),
+                              'WIKI_FOLDER_INGEST_HOST_FOLDERS': 'a'})
+    assert cli.returncode == 0, cli.stderr
+    assert json.loads(cli.stdout) == out
     assert not reassess_query_consumers(project, binding, changed_paths=['a/unrelated.md'],
                                          reports=[], **common)['consumers']
     assert reassess_query_consumers(project, binding, changed_paths=['a/items/two.md'],

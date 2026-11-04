@@ -316,6 +316,19 @@ def test_raw_capture_is_revalidated_at_preflight_and_after_local_change(project,
     assert row['raw_capture_impact']['association'] == 'caller_selected_unverified'
     assert row['raw_capture_impact']['external_freshness'] == 'not_verified'
     assert (project / preview['output']).read_text() == preview['markdown']
+    reports_file = tmp_path / 'reassessment-reports.json'
+    reports_file.write_text(json.dumps(reassessment['reports']))
+    reassess_script = Path(__file__).resolve().parents[1] / 'scripts/wiki_folder_reassessment_v2.py'
+    reassess_args = [sys.executable, str(reassess_script), '--repo', str(project),
+                     '--approved-revision', reassessment['approved_revision'], '--folder', 'a',
+                     '--source', reassessment['source'], '--candidate', preview['output'],
+                     '--reports', str(reports_file)]
+    refused = subprocess.run(reassess_args, env=env, text=True, capture_output=True)
+    assert refused.returncode != 0
+    cli = subprocess.run([*reassess_args, '--source-request', str(request_file)],
+                         env=env, text=True, capture_output=True)
+    assert cli.returncode == 0, cli.stderr
+    assert json.loads(cli.stdout) == outcome
 
 
 def test_folder_preview_cli_reads_only_supplied_json_and_does_not_write(project, monkeypatch, tmp_path, capsys):
