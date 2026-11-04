@@ -33,6 +33,7 @@ except ModuleNotFoundError:
 from wiki_core.config import load_config
 from wiki_core.index.sqlite import prune_index
 from wiki_core.paths import WikiPaths
+from wiki_core.traversal import require_wiki_boundaries
 
 REQUEST_SUFFIX = "-llm-context-request.json"
 
@@ -55,7 +56,7 @@ def _frontmatter_value(text: str, key: str) -> str | None:
     return None
 
 
-def live_source_ids(paths: WikiPaths) -> set[str]:
+def live_source_ids(paths: WikiPaths, *, wiki_root: Path | None = None) -> set[str]:
     """source_ids referenced by LIVE ingestion proposals.
 
     Live = top-level proposal whose gate_state is not in NON_LIVE_STATES
@@ -65,9 +66,13 @@ def live_source_ids(paths: WikiPaths) -> set[str]:
     """
     ingest_dir = paths.ingest_dir
     live: set[str] = set()
+    if wiki_root is not None:
+        require_wiki_boundaries(wiki_root, directories=(ingest_dir,))
     if not ingest_dir.exists():
         return live
     for md in ingest_dir.glob("*.md"):
+        if wiki_root is not None:
+            require_wiki_boundaries(wiki_root, files=(md,))
         text = md.read_text(encoding="utf-8")
         if (_frontmatter_value(text, "gate_state") or "") in NON_LIVE_STATES:
             continue
@@ -84,7 +89,7 @@ def _source_id_of(path: Path) -> str:
     return path.stem
 
 
-def find_orphans(paths: WikiPaths, live: set[str]) -> dict[str, list[Path]]:
+def find_orphans(paths: WikiPaths, live: set[str], *, wiki_root: Path | None = None) -> dict[str, list[Path]]:
     dirs = {
         "source-manifests": paths.source_manifests,
         "source-text": paths.source_text,
@@ -92,12 +97,15 @@ def find_orphans(paths: WikiPaths, live: set[str]) -> dict[str, list[Path]]:
         "extraction-events": paths.extraction_events,
     }
     orphans: dict[str, list[Path]] = {}
+    if wiki_root is not None:
+        require_wiki_boundaries(wiki_root, directories=dirs.values())
     for label, directory in dirs.items():
         if not directory.exists():
             continue
-        found = [
-            p for p in sorted(directory.glob("*.json")) if _source_id_of(p) not in live
-        ]
+        candidates = sorted(directory.glob("*.json"))
+        if wiki_root is not None:
+            require_wiki_boundaries(wiki_root, files=candidates)
+        found = [p for p in candidates if _source_id_of(p) not in live]
         if found:
             orphans[label] = found
     return orphans
@@ -112,8 +120,16 @@ def main(argv: list[str] | None = None) -> int:
 
     config = load_config(ROOT)
     paths = WikiPaths(ROOT, config)
-    live = live_source_ids(paths)
-    orphans = find_orphans(paths, live)
+    db_path = paths.indexes / 'wiki.sqlite'
+    try:
+        if args.apply:
+            require_wiki_boundaries(ROOT, directories=(paths.indexes,),
+                files=(db_path, *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
+        live = live_source_ids(paths, wiki_root=ROOT)
+        orphans = find_orphans(paths, live, wiki_root=ROOT)
+    except (ValueError, OSError):
+        print('wiki_gc: derived_path_crosses_repository_boundary', file=sys.stderr)
+        return 2
     total = sum(len(v) for v in orphans.values())
 
     report = {
@@ -136,12 +152,32 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    try:
+        require_wiki_boundaries(ROOT, directories=(paths.source_manifests, paths.source_text,
+            paths.chunks, paths.extraction_events, paths.indexes),
+            files=(db_path, *(path for files in orphans.values() for path in files),
+                   *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
+    except (ValueError, OSError):
+        print('wiki_gc: derived_path_crosses_repository_boundary', file=sys.stderr)
+        return 2
+
     removed = 0
     for files in orphans.values():
         for path in files:
+            try:
+                require_wiki_boundaries(ROOT, files=(path,))
+            except (ValueError, OSError):
+                print(f'wiki_gc: derived_path_crosses_repository_boundary after {removed} removals; inspect partial changes', file=sys.stderr)
+                return 2
             path.unlink()
             removed += 1
-    pruned = prune_index(paths.indexes / "wiki.sqlite", live)
+    try:
+        require_wiki_boundaries(ROOT, files=(db_path,
+            *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
+    except (ValueError, OSError):
+        print(f'wiki_gc: derived_path_crosses_repository_boundary after {removed} removals; index not pruned', file=sys.stderr)
+        return 2
+    pruned = prune_index(db_path, live)
     print(
         json.dumps(
             {"removed_files": removed, "pruned_index_sources": pruned.get("pruned_sources", 0)},

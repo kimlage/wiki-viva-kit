@@ -148,6 +148,12 @@ page-index coverage reported as unchecked. Verification scans the page corpus
 and indexed page rows, so its cost grows with the wiki. Raw low-level SQLite
 search without this validation is not a protected wiki search.
 
+Index rebuild/check, ingestion and garbage collection reject selected derived
+paths that cross a nested repository or symlink before using them. These checks
+are not atomic against concurrent filesystem changes; keep cooperative custody
+of the wiki and derived paths during the operation. If garbage collection stops
+after a removal, inspect the reported partial changes before retrying.
+
 Revision-bound authority readers use Git's `--no-lazy-fetch` option and fail
 closed if the installed Git cannot run it. Git 2.50.1 was tested locally;
 other versions and platforms require their own validation. The kit sync uses
