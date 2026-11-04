@@ -145,8 +145,14 @@ def authorize_ingestion_source(root: Path, source: str, approved_revision: str |
 
 def revalidate_ingestion_source(guard: dict, *, captured_hash: str | None = None) -> None:
     """Revocation/hash changes stop the next persistence/delivery boundary."""
-    current = authorize_ingestion_source(guard["root"], str(guard["path"]),
-        guard["policy"].policy_revision, guard["context"])
+    if guard.get("folder_selection") is not None:
+        from wiki_core.folder_ingestion_v2 import authorize_folder_ingestion_source
+        current = authorize_folder_ingestion_source(guard["root"], str(guard["path"]),
+            guard["policy"].policy_revision, guard["folder_selection"],
+            context_max_bytes=guard["context_max_bytes"])
+    else:
+        current = authorize_ingestion_source(guard["root"], str(guard["path"]),
+            guard["policy"].policy_revision, guard["context"])
     if current["hash_sha256"] != guard["hash_sha256"] or (captured_hash is not None and captured_hash != guard["hash_sha256"]):
         raise ContextRequestBlocked("source_changed", "The staged source changed while preparation was in progress; revalidate and recapture the same task before continuing.")
 
@@ -405,6 +411,14 @@ def result_matches_request(result: object, request: dict, row: dict, *, recordin
     its original source/chunk IDs remain visible as the provenance of that read.
     New recordings must name the exact emitted source and chunk.
     """
+    # V2 ingestion is request preparation only until recording has its own
+    # fully revalidated contract; never accept a cached or unrequested result.
+    if not isinstance(request, dict):
+        return False
+    package = request.get("block_context_package")
+    if (request.get("context_binding_version") not in (None, 1)
+            or (isinstance(package, dict) and package.get("schema_version") == "wiki.folder-task-context/v2")):
+        return False
     if not isinstance(result, dict) or not isinstance(row, dict):
         return False
     key = row.get("cache_key")
@@ -593,7 +607,8 @@ def build_context_request(
     perspectives_optional = perspectives_optional or []
     target_pages = target_pages or []
     source_hash = _source_hash(manifest)  # packet metadata (not part of the cache_key)
-    approved = ((block_context_package or {}).get("schema_version") == "wiki.task-context/v1"
+    folder_v2 = (block_context_package or {}).get("schema_version") == "wiki.folder-task-context/v2"
+    approved = ((block_context_package or {}).get("schema_version") == "wiki.task-context/v1" or folder_v2
                 or source_authorization is not None)
     if approved:
         if prompt_name != "context_deep_read":
@@ -605,7 +620,7 @@ def build_context_request(
         result_required_keys.append("perspectives")
     request = {
         "kind": "llm_context_request",
-        "context_binding_version": 1,
+        "context_binding_version": 2 if folder_v2 else 1,
         "request_limits": request_limits(context_max_bytes, request_max_bytes),
         "source_context": manifest.get("context", ""),
         "schema_version": schema_version,
@@ -635,7 +650,9 @@ def build_context_request(
             "The agent running the repo performs the deep read of each chunk with "
             "result_exists=false and produces an object matching result_required_keys "
             "(cache_key = the chunk's). "
-            + ("Record with the same explicit authorized source, approved revision, "
+            + ("This folder preview prepares a request only; result recording and integration are not available. "
+               if folder_v2 else
+               "Record with the same explicit authorized source, approved revision, "
                "policy context and byte limits using the approved command in the prompt. "
                if approved else
                "Record via the working-tree compatibility command in the prompt. ")

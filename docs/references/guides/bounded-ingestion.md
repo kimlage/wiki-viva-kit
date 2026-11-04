@@ -120,6 +120,44 @@ explicitly labelled compatibility. Historical envelopes remain inspectable;
 new requests bind the explicit limits as well as the delivered interpretation
 context. Compatibility is not evidence of approved policy or source freshness.
 
+## Experimental folder-bound request preparation
+
+A trusted local coordinator can explicitly select a context folder, its index
+and the intended output path while preparing an ingestion request:
+
+```sh
+python3 scripts/wiki_ingest.py --root . --source SOURCE --context SOURCE_CONTEXT \\
+  --approved-revision APPROVED_SHA --folder-context FOLDER \\
+  --folder-index INDEX --folder-output OUTPUT --dry-run
+```
+
+All four folder-mode selections are required and cannot be combined with the v1
+`--policy-context`. The caller constructs the local host binding; a flag is not
+an access grant or actor authentication. The host needs actual permission to
+read the complete source and context files. The source must be a staged local
+file; files inside independent Git repositories require explicit repository
+selection, not this wiki ingestion path. The approved Git context is pinned to
+the current trusted revision, and the source is rechecked before persistence.
+The dry run returns its summary without writing an inspectable request file;
+omitting `--dry-run` prepares the normal local capture and request artifacts.
+The local caller must maintain cooperative custody of the staged source and
+repository configuration during preparation; path checks and hash fences do
+not provide a filesystem compare-and-swap against concurrent writers.
+
+This experimental route prepares a folder-v2 request; it does not run a model,
+record a result, migrate receipts or integrate memory. Its distinct binding
+version cannot consume existing v1 cache results. V2 recording remains blocked
+until a separate revalidation contract is implemented; existing v1 and
+working-tree compatibility paths remain unchanged. A known context omission
+blocks preparation rather than silently dropping v1 coverage obligations.
+Only a new, currently absent Markdown output in the selected context is
+accepted; existing or untracked work, indexes and instruction files are not
+valid destinations in this preview. Existing outputs require a prior complete
+read and a separately supported result contract.
+Required perspectives must currently be explicit authorized paths; unqualified
+page IDs require a separate authorized resolution. The selection does not prove
+a native session was started in that folder or provide filesystem isolation.
+
 ## Recoverable blockers
 
 Preparation failures return exit code 2 and structured blockers using the

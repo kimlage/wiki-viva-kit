@@ -180,6 +180,9 @@ def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
 
 def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: bool = False,
                     current_request: dict | None = None, limits: dict | None = None, owner: str = "Context owner/integrator", before_write=None) -> int:
+    if current_request is not None and current_request.get("context_binding_version") == 2:
+        return _blocked(ContextRequestBlocked("folder_result_recording_unavailable", "Folder-bound result recording requires its own revalidation contract; this preview only prepares requests."),
+                        str(current_request.get("source_id") or "source-context-pass"), owner)
     raw = sys.stdin.read() if payload_path == "-" else Path(payload_path).read_text(encoding="utf-8")
     data = json.loads(raw)
     results = data if isinstance(data, list) else [data]
@@ -215,6 +218,9 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
         matching = [request for request in requests if any(row.get("cache_key") == key
                     for row in request["chunks"] if isinstance(row, dict))]
         for request in matching:
+            if request.get("context_binding_version") == 2 or request.get("block_context_package", {}).get("schema_version") == "wiki.folder-task-context/v2":
+                return _blocked(ContextRequestBlocked("folder_result_recording_unavailable", "Folder-bound result recording requires its own revalidation contract; this preview only prepares requests."),
+                                str(request.get("source_id") or "source-context-pass"), owner)
             retained_limits = request.get("request_limits")
             if retained_limits is not None and retained_limits != limits:
                 return _blocked(ContextRequestBlocked("request_limits_changed", "Re-emit the request under the current explicit byte budgets before recording."),

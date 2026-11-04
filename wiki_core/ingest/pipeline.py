@@ -132,6 +132,7 @@ def run(
     request_max_bytes: int = DEFAULT_REQUEST_MAX_BYTES,
     root_entity_ref: str | None = None,
     omit_root_entity: bool = False,
+    folder_selection=None,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -144,13 +145,20 @@ def run(
         request_limits(context_max_bytes, request_max_bytes)
         if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
             raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
-        if approved_revision is not None or policy_context is not None:
-            if not approved_revision or not policy_context:
+        if folder_selection is not None and policy_context is not None:
+            raise ContextRequestBlocked("ambiguous_policy", "Choose either the approved v1 context or the explicit folder selection.")
+        if approved_revision is not None or policy_context is not None or folder_selection is not None:
+            if not approved_revision or (not policy_context and folder_selection is None):
                 raise ContextRequestBlocked("approved_source_context_required", "Approved ingestion requires a current approved revision and explicit policy context.")
             prompt_version = str(config.llm.get("prompt_versions", {}).get(
                 "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION))
             require_approved_prompt_version(prompt_version)
-            source_guard = authorize_ingestion_source(root, source, approved_revision, policy_context)
+            if folder_selection is not None:
+                from wiki_core.folder_ingestion_v2 import authorize_folder_ingestion_source
+                source_guard = authorize_folder_ingestion_source(root, source, approved_revision, folder_selection,
+                                                                 context_max_bytes=context_max_bytes)
+            else:
+                source_guard = authorize_ingestion_source(root, source, approved_revision, policy_context)
             source = str(source_guard["path"])
     except (ValueError, OSError) as exc:
         return _blocked_preparation(context, config, exc)
@@ -270,6 +278,15 @@ def run(
                 metrics["target_page_count"] = len(input_context.get("target_pages") or [])
                 metrics["perspective_count"] = len(perspectives_required) + len(perspectives_optional)
             with _observed(observer, "llm_request", chunk_count=len(chunk_dicts)) as metrics:
+                if folder_selection is not None:
+                    from wiki_core.folder_ingestion_v2 import folder_ingestion_context
+                    context_package = folder_ingestion_context(root, source_guard, input_context,
+                        perspectives_required, task_id=source_id, max_bytes=context_max_bytes)
+                else:
+                    context_package = ingestion_block_context(root, config, input_context,
+                        perspectives_required, approved_revision=approved_revision, policy_context=policy_context,
+                        task_id=source_id, context_max_bytes=context_max_bytes,
+                        content_revision=source_guard["reader"].revision if source_guard else "HEAD")
                 request = build_context_request(
                     manifest,
                     chunk_dicts,
@@ -288,9 +305,7 @@ def run(
                     quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
                     target_pages=list(input_context.get("target_pages") or []),
                     input_stage_status=str(input_context.get("input_stage_status") or ""),
-                    block_context_package=ingestion_block_context(root, config, input_context,
-                        perspectives_required, approved_revision=approved_revision, policy_context=policy_context, task_id=source_id, context_max_bytes=context_max_bytes,
-                        content_revision=source_guard["reader"].revision if source_guard else "HEAD"),
+                    block_context_package=context_package,
                     context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
                     source_authorization=source_guard["authorization"] if source_guard else None,
                 )
