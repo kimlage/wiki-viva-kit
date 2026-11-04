@@ -48,7 +48,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_folder_packet_v2.py](../../../scripts/wiki_folder_packet_v2.py) | Compose a revision-bound folder packet with selected instructions, index and authorized inputs |
 | [wiki_folder_preflight_v2.py](../../../scripts/wiki_folder_preflight_v2.py) | Check an exact v2 proposal without approval, publication or merge |
 | [wiki_folder_query_history_v2.py](../../../scripts/wiki_folder_query_history_v2.py) | Compare an explicitly selected historical query under current authority; report review candidates |
-| [wiki_folder_requalify_v1.py](../../../scripts/wiki_folder_requalify_v1.py) | Propose read-only requalification of one explicit historical v1 requirement |
+| [wiki_folder_requalify_v1.py](../../../scripts/wiki_folder_requalify_v1.py) | Check an explicit historical v1 request; report the current requalification block |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Inspect/transition proposal gates |
 | [wiki_gc.py](../../../scripts/wiki_gc.py) | Remove orphan derived artifacts |
 | [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Run end-to-end ingestion |
