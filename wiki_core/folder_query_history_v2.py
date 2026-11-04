@@ -119,6 +119,7 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
             raise FolderQueryHistoryError('integrated creation unavailable')
         if action != 'created' and target not in old_reader.paths:
             raise FolderQueryHistoryError('prior output unavailable')
+        output_binding = 'matching_integrated_absence_only' if action == 'deleted' else 'matching_integrated_bytes_only'
         if action == 'deleted':
             if target in integrated_reader.paths or target in current_reader.paths:
                 raise FolderQueryHistoryError('integrated deletion unavailable')
@@ -127,11 +128,41 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
                 raise FolderQueryHistoryError('integrated output unavailable')
             integrated_output = integrated_reader.read(target)
             current_output = current_reader.read(target)
-            if (contains_access_secrets(integrated_output['text']) or contains_access_secrets(current_output['text'])
-                    or integrated_output['content_sha256'] != current_output['content_sha256']):
-                raise FolderQueryHistoryError('integrated output differs or is unavailable')
+            if contains_access_secrets(integrated_output['text']) or contains_access_secrets(current_output['text']):
+                raise FolderQueryHistoryError('integrated output unavailable')
             if action == 'modified' and old_reader.read(target)['content_sha256'] == integrated_output['content_sha256']:
                 raise FolderQueryHistoryError('integrated modification unavailable')
+            if integrated_output['content_sha256'] != current_output['content_sha256']:
+                # An independently updated claim can preserve this reported
+                # query. Compare its explicit declaration, not just whole-file
+                # bytes; neither match proves review or semantic correctness.
+                from wiki_core.context_selection import _metadata
+                from wiki_core.folder_query_requirements_v2 import query_requirements, same_json
+                from wiki_core.information_relations import information_requirements
+                preserved = True
+                try:
+                    declarations = []
+                    for document, reader in ((integrated_output, integrated_reader), (current_output, current_reader)):
+                        parsed = information_requirements(_metadata(document),
+                            lambda ref: [ref] if isinstance(ref, str) and ref in reader.paths else [])
+                        chosen = [row for row in parsed if row.get('query_contract') == 'wiki.folder-query-receipt/v2'
+                                  and row.get('query_id') == query_id]
+                        if len(chosen) != 1 or not same_json(chosen, query_requirements([queries[selected]], chosen[0]['max_age_days'])):
+                            raise ValueError('query declaration unavailable')
+                        declarations.append(chosen[0])
+                    preserved = same_json(*declarations)
+                except (ValueError, KeyError, TypeError, AttributeError):
+                    preserved = False
+                output_binding = ('query_declaration_preserved_output_changed' if preserved
+                                  else 'query_declaration_unverified_output_changed')
+                if not preserved:
+                    policy.fresh()
+                    return {'schema_version':'wiki.folder-query-impact/v2', 'state':'review_pending',
+                            'query_state':'unknown', 'query_id':query_id, 'target':target,
+                            'consumed_revision':old_sha, 'integrated_revision':integrated_revision,
+                            'current_revision':policy.policy_revision, 'output_binding':output_binding,
+                            'read_verification':'reported_not_independently_verified',
+                            'review':'not_performed', 'enforcement_claim':'none'}
         current_base = build_folder_packet_v2(root, policy, folder, base['max_bytes'],
                         content_revision=policy.policy_revision, index_path=index, task_id=base['task_id'],
                         goal=base['goal'], output=target, integrator=base['integrator'])
@@ -149,8 +180,7 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
                 'before_members_digest': before['members_digest'], 'after_members_digest': after['members_digest'],
                 'before_selected_digest': before['selected_digest'], 'after_selected_digest': after['selected_digest'],
                 'read_verification': 'reported_not_independently_verified', 'review': 'not_performed',
-                'output_binding': ('matching_integrated_absence_only' if action == 'deleted'
-                                   else 'matching_integrated_bytes_only'), 'enforcement_claim': 'none'}
+                'output_binding': output_binding, 'enforcement_claim': 'none'}
     except (KeyError, TypeError, AttributeError) as exc:
         raise FolderQueryHistoryError('historical query authority or content unavailable') from exc
     except ValueError as exc:

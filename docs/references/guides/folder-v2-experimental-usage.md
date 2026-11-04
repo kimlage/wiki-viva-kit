@@ -222,8 +222,9 @@ selected query is compared. For modification or deletion the old packet must inc
 prior output as authorized evidence. Current and historical permissions and
 the current instruction chain are checked before replay; changed instructions
 or revoked authority block it. The output commit must be an ancestor of the
-current approved revision, and matching output bytes or absence must also exist
-at that revision. The output is always `review_pending`: this comparison does
+current approved revision. If the output changed later, the command compares
+the exact selected query declaration in both versions; if it cannot establish
+that match, it returns `query_state: unknown` for review. The output is always `review_pending`: this comparison does
 not prove who produced the output, that an agent read anything, or that review
 or a merge occurred. It does not enumerate consumers or migrate v1 receipts.
 Other cases remain blocked.
@@ -343,7 +344,8 @@ bindings as ingestion. Only the selected owner and paths are inventoried; an
 anchor or scope intersection selects a candidate, including a newly added
 member. Each report selects one query ID from the complete original envelope.
 Without that report the declaration stays `declared_without_report`; with it,
-the comparison stays `review_pending`. Neither state asserts completed review,
+the comparison stays `review_pending`, including when the selected declaration
+was preserved in a subsequently changed output. Neither state asserts completed review,
 execution, freshness or exhaustive consumer coverage.
 
 Each report has `target`, `query_id`, `packet`, `result` and
