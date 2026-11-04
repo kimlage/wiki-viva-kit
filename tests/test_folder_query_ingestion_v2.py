@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 import subprocess
 import sys
+import pytest
 
 from tests.test_folder_consolidate_v2 import fixture_inputs, metadata
 from tests.test_folder_policy_v2 import project, put, git, commit
@@ -91,15 +92,14 @@ def test_query_and_raw_ingestion_share_host_bound_preflight(project, monkeypatch
                           capture_output=True).returncode != 0
 
 
-def test_query_and_existing_destination_are_both_bound_before_result(project, monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize('with_repo', [False, True])
+def test_query_and_existing_destination_are_both_bound_before_result(project, monkeypatch, tmp_path, capsys, with_repo):
     from wiki_core.folder_query_packet_v2 import preflight_folder_query_v2
     from wiki_core.folder_policy_v2 import load_folder_policy_v2
     from wiki_core.llm.context_pass import result_matches_request
     from wiki_core.frontmatter import parse_frontmatter
-    import pytest
-
     binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys,
-                                                existing=True, with_query=True)
+                                                existing=True, with_query=True, with_repo=with_repo)
     base = request['block_context_package']; packet = request['folder_query_packet']
     assert packet['queries'][0]['selected'][0]['text'] == '11'
     assert len([row for row in base['inputs'] if row['path'] == base['output']]) == 1
@@ -117,6 +117,7 @@ def test_query_and_existing_destination_are_both_bound_before_result(project, mo
         max_age_days=30, page_metadata=metadata(), query_packet=packet, query_result=result)
     fm, body = parse_frontmatter(preview['markdown'])
     assert 'Existing claim content preserved.' in body
+    assert 'Synthetic selected amount: 11' in body
     assert any(row.get('query_id') == packet['queries'][0]['receipt']['query_id']
                for row in fm['information_requirements'])
     old_branch = git(project, 'branch', '--show-current')
@@ -131,6 +132,9 @@ def test_query_and_existing_destination_are_both_bound_before_result(project, mo
     assert checked['state'] == 'independent_review_required'
     assert checked['requirements_handling']['count'] == 2
     assert checked['modified_ingestion_bodies'][0]['semantic_review'] == 'independent_review_required'
+    if with_repo:
+        assert checked['repository_handling'] == {'selection':'matched_request',
+            'remote_authentication':'not_verified', 'execution':'not_proven'}
     from jsonschema import validate
     schema = Path(__file__).resolve().parents[1] / 'docs/references/schemas/wiki-folder-query-preflight-v2.schema.json'
     validate(checked, json.loads(schema.read_text()))
