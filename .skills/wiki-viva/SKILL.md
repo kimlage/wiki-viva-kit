@@ -42,7 +42,7 @@ Shared code must not hardcode a consumer path or context.
 
 ### Ingest and read
 
-Start in the authorized context folder, read its index and relevant bodies, then use [wiki_ingest.py](../../scripts/wiki_ingest.py) with the approved revision and explicit folder, index, output and trusted host binding. See the [bounded ingestion guide](../../docs/references/guides/bounded-ingestion.md) for the command, provenance and limits. Legacy v1 and working-tree compatibility require explicit mode selection.
+Start in the authorized context folder, read its index and relevant bodies, then use [wiki_ingest.py](../../scripts/wiki_ingest.py) with the approved revision, folder, output and trusted host binding. A nested context uses its own `index.md` unless another index is selected; the root index is explicit. See the [bounded ingestion guide](../../docs/references/guides/bounded-ingestion.md) for the commands, provenance and limits of folder, v1 and working-tree paths.
 Inspect the generated context request, perform the deep read, persist the
 cache result through the repo's LLM-context skill, then consolidate. Never
 invent provenance or store access credentials.

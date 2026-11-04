@@ -15,8 +15,15 @@ def validate_mode(parser, args):
         else:
             args.mode = 'working-tree'
     if args.mode == 'folder':
+        if args.folder_context and args.folder_index is None:
+            from wiki_core.folder_declarations_v2 import selected_folder_index
+            try:
+                args.folder_index = selected_folder_index(args.folder_context, None)
+            except ValueError:
+                parser.error('folder index selection unavailable')
+            folder = (args.folder_context, args.folder_index, args.folder_output)
         if not all(folder) or not args.approved_revision or args.policy_context is not None:
-            parser.error('folder mode requires approved-revision, folder-context, folder-index and folder-output; policy-context requires --mode v1')
+            parser.error('folder mode requires approved-revision, folder-context and folder-output; root index must be explicit and policy-context requires --mode v1')
         if hasattr(args, 'source') and not args.source:
             parser.error('folder mode requires an explicit source')
         if getattr(args, 'query', None) is not None or getattr(args, 'allow_unrequested', False):

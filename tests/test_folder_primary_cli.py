@@ -1,8 +1,12 @@
 """The main context CLIs enter folders unless v1 is explicitly selected."""
 import json
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
+import yaml
 
 from tests.test_folder_policy_v2 import project, put, git, commit, proposal_v2
 
@@ -18,7 +22,7 @@ def test_main_folder_cli_resolve_packet_and_preflight(project, tmp_path):
     put(project, 'a/source.md', 'Synthetic source\n'); commit(project)
     base = git(project, 'rev-parse', 'HEAD')
     common = ['--repo', project, '--approved-revision', base]
-    resolved = run('wiki_context.py', *common, 'resolve', 'a', '--index', 'a/index.md')
+    resolved = run('wiki_context.py', *common, 'resolve', 'a')
     assert resolved.returncode == 0, resolved.stderr
     entry = json.loads(resolved.stdout)
     assert entry['active_context'] == 'a' and entry['index']['path'] == 'a/index.md'
@@ -28,7 +32,7 @@ def test_main_folder_cli_resolve_packet_and_preflight(project, tmp_path):
     request_file.write_text(json.dumps({'max_bytes':20000, 'task_id':'synthetic', 'goal':'review',
         'output':'a/report.md', 'integrator':'independent', 'evidence':[{'path':'a/source.md',
         'producer_folder':'a', 'reason':'source', 'use':'interpret', 'classification':'internal'}]}))
-    built = run('wiki_context.py', *common, 'pack', 'a', '--index', 'a/index.md',
+    built = run('wiki_context.py', *common, 'pack', 'a',
                 '--content-revision', base, '--request', request_file)
     assert built.returncode == 0, built.stderr
     packet = json.loads(built.stdout)
@@ -45,21 +49,21 @@ def test_main_folder_cli_resolve_packet_and_preflight(project, tmp_path):
         'changes':[{'path':'a/report.md', 'action':'created'}]}
     packet_file = tmp_path.parent / (tmp_path.name + '-folder-packet.json'); packet_file.write_text(json.dumps(packet))
     result_file = tmp_path.parent / (tmp_path.name + '-folder-result.json'); result_file.write_text(json.dumps(result))
-    options = [*common, 'preflight', '--folder', 'a', '--index', 'a/index.md', '--base', base,
+    options = [*common, 'preflight', '--folder', 'a', '--base', base,
                '--head', head, '--branch', 'wiki/primary-cli', '--packet', packet_file, '--result', result_file]
     checked = run('wiki_context_flow.py', *options)
     assert checked.returncode == 0, checked.stderr
     result_out = json.loads(checked.stdout)
     assert result_out['state'] == 'independent_review_required' and result_out['merge'] == 'not_performed'
-    wrong_index = options.copy(); wrong_index[wrong_index.index('a/index.md')] = 'a/other.md'
+    wrong_index = [*options, '--index', 'a/other.md']
     assert run('wiki_context_flow.py', *wrong_index).returncode != 0
     wrong_folder = options.copy(); wrong_folder[wrong_folder.index('a')] = 'a/aux/b'
     assert run('wiki_context_flow.py', *wrong_folder).returncode != 0
 
 
-def test_folder_default_never_falls_back_to_legacy_or_guesses_index(project, tmp_path):
+def test_folder_default_never_falls_back_to_legacy_or_guesses_root_index(project, tmp_path):
     sha = git(project, 'rev-parse', 'HEAD'); common = ['--repo', project, '--approved-revision', sha]
-    assert run('wiki_context.py', *common, 'resolve', 'a').returncode != 0
+    assert run('wiki_context.py', *common, 'resolve', '.').returncode != 0
     assert run('wiki_context.py', *common, '--manifest', 'context.yaml', 'resolve', 'a').returncode != 0
     assert run('wiki_context_flow.py', *common, 'revalidate', '--context', 'a', '--consumer', 'a/x.md').returncode != 0
     request = tmp_path.parent / (tmp_path.name + '-invalid-request.json')
@@ -72,6 +76,53 @@ def test_folder_default_never_falls_back_to_legacy_or_guesses_index(project, tmp
     denied = run('wiki_context.py', *common, 'pack', 'a', '--index', 'a/index.md',
                  '--content-revision', sha, '--request', request)
     assert denied.returncode != 0 and denied.stdout == ''
+
+
+@pytest.mark.parametrize('condition', ['missing', 'denied'])
+def test_conventional_index_refused_before_instruction_bodies(project, monkeypatch, capsys, condition):
+    if condition == 'missing':
+        (project / 'a/index.md').unlink()
+        controls = yaml.safe_load((project / 'wiki-context-controls.yaml').read_text())
+        del controls['controls']['a']
+        put(project, 'wiki-context-controls.yaml', yaml.safe_dump(controls))
+    else:
+        controls = yaml.safe_load((project / 'wiki-context-controls.yaml').read_text())
+        controls['controls']['a']['policy']['deny'] = {'read':['a/index.md']}
+        put(project, 'wiki-context-controls.yaml', yaml.safe_dump(controls))
+        put(project, 'a/AGENTS.md', 'Context a\n\n## Wiki v2: indexes\n\n- [Alternate](alternate.md)\n')
+        put(project, 'a/alternate.md', 'Alternate authorized index\n')
+    commit(project)
+    from wiki_core.repository_reader import RepositoryReader
+    original = RepositoryReader.read
+    def guard(reader, path, *args, **kwargs):
+        if path.endswith('AGENTS.md') or path.endswith('AGENTS.override.md') or path == 'a/index.md':
+            pytest.fail('instruction or index opened before index authorization')
+        return original(reader, path, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guard)
+    spec = importlib.util.spec_from_file_location('conventional_index_cli', SCRIPTS / 'wiki_context.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    code = module._folder_main(['--repo', str(project), '--approved-revision', git(project, 'rev-parse', 'HEAD'),
+                                'resolve', 'a'])
+    output = capsys.readouterr()
+    assert code == 1 and not output.out
+    if condition == 'denied':
+        explicit = run('wiki_context.py', '--repo', project, '--approved-revision', git(project, 'rev-parse', 'HEAD'),
+                       'resolve', 'a', '--index', 'a/alternate.md')
+        assert explicit.returncode == 0, explicit.stderr
+        assert json.loads(explicit.stdout)['index']['path'] == 'a/alternate.md'
+
+
+def test_root_multiple_declared_indexes_require_explicit_selection(project):
+    put(project, 'AGENTS.md', 'Root instructions\n\n## Wiki v2: indexes\n\n'
+        '- [First](first.md)\n- [Second](second.md)\n')
+    put(project, 'first.md', 'First root index\n')
+    put(project, 'second.md', 'Second root index\n')
+    commit(project)
+    common = ['--repo', project, '--approved-revision', git(project, 'rev-parse', 'HEAD')]
+    assert run('wiki_context.py', *common, 'resolve', '.').returncode != 0
+    explicit = run('wiki_context.py', *common, 'resolve', '.', '--index', 'second.md')
+    assert explicit.returncode == 0, explicit.stderr
+    assert json.loads(explicit.stdout)['index']['path'] == 'second.md'
 
 
 def test_v1_receipt_is_not_implicitly_converted(project, tmp_path):

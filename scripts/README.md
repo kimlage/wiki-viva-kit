@@ -66,7 +66,7 @@ wiki_ingest.py -> wiki_llm_context_pass.py -> wiki_consolidate.py
 [wiki_read.py](wiki_read.py) requires `--revision`, `--mode` and exact
 `--allow-path` values; reads require `--section`, `--field` or explicit
 `--whole-body`. [wiki_context.py](wiki_context.py) defaults to an approved
-folder, explicit index and bounded folder-v2 packet, with separate policy and
+folder and bounded folder-v2 packet, with separate policy and
 content revisions. The older manifest/receipt route requires `--mode v1`;
 v1 receipts are never automatically converted. The caller supplies the trust boundary; selecting a
 revision does not grant access. [wiki_coordination.py](wiki_coordination.py)
@@ -84,7 +84,8 @@ existing collection contract, with explicit read/enumeration/match limits; see
 
 [wiki_ingest.py](wiki_ingest.py) uses the existing working-tree route when no
 authority or folder selection is supplied. Folder selections require an approved
-revision, folder/index/output and trusted host binding; v1 authority selections
+revision, folder/output and trusted host binding; a nested folder defaults to
+its own index, while the root needs an explicit index. V1 authority selections
 require an approved revision and policy context. Explicit modes remain available.
 `--context-max-bytes` (100000) and `--request-max-bytes` (256000) are byte ceilings. Context is
 included once with every extracted chunk; the complete canonical UTF-8 request
@@ -98,7 +99,7 @@ reports `legacy_v1_only` coverage; it does not establish folder-v2 closure.
 See [bounded ingestion](../docs/references/guides/bounded-ingestion.md).
 
 [wiki_context_flow.py](wiki_context_flow.py) defaults to folder-v2 `preflight`
-with explicit folder and index; it does not approve or merge. Its legacy v1
+with a selected folder and its index; it does not approve or merge. Its legacy v1
 operations require `--mode v1`: `revalidate --context OWNER --consumer PATH` reports current dynamic-set and
 selected-byte equivalence under approved authority, separately from fact freshness.
 See [context impact and integration](../docs/references/guides/context-impact-integration.md):
