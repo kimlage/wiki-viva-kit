@@ -32,7 +32,7 @@ python3 scripts/wiki_input_stage.py --ready
 
 ## 2. Ingest a source
 
-The folder-bound flow is the default for new work: start at the authorized
+For the folder-bound flow, start at the authorized
 context and follow [bounded ingestion](../../../docs/references/guides/bounded-ingestion.md#folder-bound-ingestion),
 then review its proposal, run folder preflight and integrate only under the
 project's authorization. The commands below use the explicit legacy v1 route;

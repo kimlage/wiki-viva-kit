@@ -324,8 +324,8 @@ def _blocked(exc, source_id, owner):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--mode', choices=('folder', 'v1', 'working-tree'), default='folder',
-                        help='Folder is the default; legacy authority or working-tree compatibility must be explicit.')
+    parser.add_argument('--mode', choices=('folder', 'v1', 'working-tree'),
+                        help='Select the authority mode explicitly; otherwise infer it from the supplied selections.')
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--source")
     parser.add_argument("--query")

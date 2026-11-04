@@ -82,17 +82,18 @@ existing collection contract, with explicit read/enumeration/match limits; see
 
 ## Bounded canonical ingestion
 
-[wiki_ingest.py](wiki_ingest.py) defaults to folder-bound ingestion with an
-approved revision, explicit folder/index/output and trusted host binding. The
-v1 policy-context and working-tree adapters require explicit mode selection.
+[wiki_ingest.py](wiki_ingest.py) uses the existing working-tree route when no
+authority or folder selection is supplied. Folder selections require an approved
+revision, folder/index/output and trusted host binding; v1 authority selections
+require an approved revision and policy context. Explicit modes remain available.
 `--context-max-bytes` (100000) and `--request-max-bytes` (256000) are byte ceilings. Context is
 included once with every extracted chunk; the complete canonical UTF-8 request
 must fit before persistence, indexing, scoring or cursor advancement. Approved
 failures return structured blockers and never choose compatibility. Record or
 check through [wiki_llm_context_pass.py](wiki_llm_context_pass.py) using the same
-explicit source, approval, folder selection, host binding and limits. The default
-[consolidation](wiki_consolidate.py) returns a folder proposal; it does not
-integrate it. The historical global gate requires `--mode v1 --check` and
+explicit source, approval, folder selection, host binding and limits. Folder
+options select a [consolidation](wiki_consolidate.py) proposal; it does not
+integrate it. The historical global gate runs with `--check` and
 reports `legacy_v1_only` coverage; it does not establish folder-v2 closure.
 See [bounded ingestion](../docs/references/guides/bounded-ingestion.md).
 

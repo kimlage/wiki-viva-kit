@@ -111,7 +111,7 @@ def test_request_limits_change_cache_identity_and_canonical_cli_records_current_
     root, source, sha, _ = approved
     ingest = load_script('wiki_ingest')
     limits = ['--context-max-bytes', '20_000', '--request-max-bytes', '40_000']
-    flags = ['--mode', 'v1', '--approved-revision', sha, '--policy-context', 'root', *limits]
+    flags = ['--approved-revision', sha, '--policy-context', 'root', *limits]
     monkeypatch.setattr(sys, 'argv', ['wiki_ingest.py', '--root', str(root), '--source', str(source), '--context', 'system', *flags])
     assert ingest.main() == 0
     result = json.loads(capsys.readouterr().out)
@@ -167,7 +167,7 @@ def test_exact_request_boundary_accepts_all_bytes_and_one_byte_less_preserves_pr
 def test_canonical_cli_reports_revoked_context_without_overwriting_previous_request(approved, monkeypatch, capsys):
     root, source, sha, policy = approved
     module = load_script('wiki_ingest')
-    argv = ['wiki_ingest.py', '--mode', 'v1', '--root', str(root), '--source', str(source), '--context', 'system', '--policy-context', 'root']
+    argv = ['wiki_ingest.py', '--root', str(root), '--source', str(source), '--context', 'system', '--policy-context', 'root']
     monkeypatch.setattr(sys, 'argv', [*argv, '--approved-revision', sha])
     assert module.main() == 0
     first = json.loads(capsys.readouterr().out)

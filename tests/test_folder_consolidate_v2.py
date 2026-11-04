@@ -536,7 +536,7 @@ def test_synthetic_ingestion_to_proposal_and_reassessment(project, monkeypatch, 
     assert (project / second_preview['output']).read_text() == second_preview['markdown']
 
 
-def test_legacy_check_requires_explicit_mode_and_remains_effective(project, monkeypatch, capsys):
+def test_existing_check_remains_effective_without_mode(project, monkeypatch, capsys):
     import importlib.util
     import sys
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_consolidate.py'
@@ -545,11 +545,6 @@ def test_legacy_check_requires_explicit_mode_and_remains_effective(project, monk
     monkeypatch.setattr(module, 'ROOT', project)
     monkeypatch.setattr(module, 'pending_consolidations', lambda *_: [{'source_id':'source-legacy', 'state':'missing_event'}])
     monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--check'])
-    with pytest.raises(SystemExit) as rejected:
-        module.main()
-    assert rejected.value.code == 2
-    assert '--mode v1' in capsys.readouterr().err
-    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--mode', 'v1', '--check'])
     assert module.main() == 1
     captured = capsys.readouterr()
     result = json.loads(captured.out)
@@ -557,7 +552,7 @@ def test_legacy_check_requires_explicit_mode_and_remains_effective(project, monk
     assert result['pending'][0]['state'] == 'missing_event'
 
 
-def test_default_folder_refuses_legacy_flags_and_missing_host(project, monkeypatch, capsys):
+def test_folder_selection_refuses_legacy_flags_and_missing_host(project, monkeypatch, capsys):
     import importlib.util
     import sys
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_consolidate.py'
@@ -565,7 +560,7 @@ def test_default_folder_refuses_legacy_flags_and_missing_host(project, monkeypat
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     monkeypatch.setattr(module, 'ROOT', project)
     for args in (['--source', 'source-test', '--packet'], ['--all-pending'], ['--date', '2026-01-01']):
-        monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', *args])
+        monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--mode', 'folder', *args])
         with pytest.raises(SystemExit) as rejected:
             module.main()
         assert rejected.value.code == 2
@@ -584,6 +579,10 @@ def test_legacy_mode_does_not_accept_folder_options(project, monkeypatch):
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     monkeypatch.setattr(module, 'ROOT', project)
     monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--mode', 'v1', '--check', '--max-age-days', '30'])
+    with pytest.raises(SystemExit) as rejected:
+        module.main()
+    assert rejected.value.code == 2
+    monkeypatch.setattr(sys, 'argv', ['wiki_consolidate.py', '--check', '--max-age-days', '30'])
     with pytest.raises(SystemExit) as rejected:
         module.main()
     assert rejected.value.code == 2

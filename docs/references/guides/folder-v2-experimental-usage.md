@@ -588,7 +588,7 @@ integration and operational session acceptance remain pending.
   results remain review pending and do not establish historical approval.
 
 These experiments do not migrate active v1 coordination or requirements
-consumers. The candidate defaults to [folder-bound ingestion](bounded-ingestion.md#folder-bound-ingestion)
-and a folder consolidation proposal; recorded interpretations do not migrate
+consumers. [Folder-bound ingestion](bounded-ingestion.md#folder-bound-ingestion)
+and consolidation use explicit folder selections; recorded interpretations do not migrate
 v1 state or integrate memory. The candidate requires aggregate review and gates
 before any separate adoption decision.
