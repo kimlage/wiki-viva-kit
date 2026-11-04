@@ -134,6 +134,8 @@ def run(
     omit_root_entity: bool = False,
     folder_selection=None,
     folder_queries=None,
+    entry_folder: str | None = None,
+    entry_index: str | None = None,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -144,9 +146,15 @@ def run(
     source_guard = None
     try:
         request_limits(context_max_bytes, request_max_bytes)
+        if entry_index is not None and entry_folder is None:
+            raise ValueError('folder index requires folder entry')
+        if entry_folder is not None and (approved_revision is not None or policy_context is not None or folder_selection is not None):
+            raise ValueError('working-tree folder entry cannot replace approved policy')
+        if entry_folder is not None and entry_index is None:
+            entry_index = ('index.md' if entry_folder == '.' else entry_folder + '/index.md')
         if folder_queries is not None and folder_selection is None:
             raise ContextRequestBlocked("folder_selection_required", "Folder queries require an explicit trusted folder selection.")
-        if folder_selection is not None and stream_id:
+        if (folder_selection is not None or entry_folder is not None) and stream_id:
             raise ContextRequestBlocked("folder_stream_cursor_unavailable", "Folder-bound stream cursors are not scoped; use a separately authorized coordinator operation.")
         if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
             raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
@@ -171,6 +179,8 @@ def run(
         return _blocked_preparation(context, config, exc)
 
     source_path = Path(source).expanduser()
+    if entry_folder is not None and not source_path.is_file():
+        return _blocked_preparation(context, config, ValueError('working-tree folder entry requires an explicit local source file'))
     source_bytes = source_path.stat().st_size if source_path.is_file() else None
     with _observed(observer, "manifest_hash", bytes_read=source_bytes):
         manifest = build_manifest(source, context, root=root)
@@ -201,7 +211,7 @@ def run(
             extracted = extract_source(source, source_type)
             metrics["text_characters"] = len(extracted.text)
         warnings = list(extracted.warnings)
-        if folder_selection is not None and warnings:
+        if (folder_selection is not None or entry_folder is not None) and warnings:
             return _blocked_preparation(context, config,
                 ContextRequestBlocked("source_capture_incomplete", "Folder-bound capture has extraction warnings and cannot be recorded as complete."))
         target = int(config.llm.get("chunk_target_tokens", 1200))
@@ -284,6 +294,10 @@ def run(
             with _observed(observer, "input_stage_context") as metrics:
                 if source_guard is not None:
                     source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=root_entity_ref, omit_root_entity=omit_root_entity)
+                elif entry_folder is not None:
+                    source_config = None
+                    input_context = input_context_for_source(root, config, source, entry_folder=entry_folder,
+                        entry_index=entry_index, context_max_bytes=context_max_bytes)
                 else:
                     source_config = find_source_config(root, config, source)
                     input_context = input_context_for_source(root, config, source)
@@ -370,6 +384,32 @@ def run(
             pending = chunk_count
             request = None
             blocked = True
+    if entry_folder is not None and request is not None and not blocked:
+        try:
+            from wiki_core.folder_context import read_folder_entry
+            actual = read_folder_entry(root, entry_folder, entry_index, max_bytes=context_max_bytes)
+            expected = input_context['folder_entry']
+            current = build_manifest(source, context, root=root)
+            if (actual != expected or current.get('source_id') != source_id
+                    or current.get('hash_sha256') != manifest.get('hash_sha256')
+                    or not current.get('hash_sha256')):
+                raise ValueError('working-tree source or folder context changed')
+        except (ValueError, OSError, KeyError) as exc:
+            exc = ContextRequestBlocked('working_tree_context_changed', 'The selected working-tree source or context changed; no capture was replaced.')
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report['blocker']); context_error_code = report['error_code']
+            pending = chunk_count; request = None; blocked = True
+    capture_reused = False
+    if write and entry_folder is not None and not blocked:
+        try:
+            from wiki_core.source_manifest import reusable_capture
+            capture_reused = reusable_capture(paths, manifest, extracted, chunk_dicts, warnings,
+                                               max_bytes=request_max_bytes * 4 + 65536)
+        except (ValueError, OSError, TypeError, KeyError) as exc:
+            exc = ContextRequestBlocked('working_tree_capture_conflict', 'The existing source capture is incomplete or differs; it was preserved.')
+            report = preparation_blocker(exc, source_id, config.owner_label)
+            blockers.append(report['blocker']); context_error_code = report['error_code']
+            pending = chunk_count; request = None; blocked = True
     persist = write and not blocked
 
     if persist:
@@ -383,7 +423,11 @@ def run(
     text_path: str | None = None
     chunks_path: str | None = None
     manifest_path: str | None = None
-    if persist:
+    if persist and capture_reused:
+        manifest_path = _rel(paths.source_manifests / f"{source_id}.json", root)
+        text_path = _rel(paths.source_text / f"{source_id}.json", root)
+        chunks_path = _rel(paths.chunks / f"{source_id}.json", root)
+    elif persist:
         with _observed(observer, "persistence") as metrics:
             manifest_file = write_manifest(manifest, paths.source_manifests)
             manifest_path = _rel(manifest_file, root)
@@ -419,7 +463,7 @@ def run(
 
     chunks_indexed = 0
     index_diagnostics = {}
-    if persist and folder_selection is None and (chunk_dicts or extracted is not None and not warnings):
+    if persist and folder_selection is None and entry_folder is None and (chunk_dicts or extracted is not None and not warnings):
         # INCREMENTAL indexing: only the just-written source is (re)indexed,
         # instead of a full rebuild of the whole directory on every ingestion
         # (finding 13).
@@ -436,7 +480,7 @@ def run(
             metrics["sqlite_bytes"] = index_path.stat().st_size if index_path.exists() else None
 
     if persist and request is not None:
-        if folder_selection is not None:
+        if folder_selection is not None or entry_folder is not None:
             from wiki_core.folder_request_identity_v2 import retain_folder_request
             try:
                 request_file = retain_folder_request(root, paths, request)
@@ -453,7 +497,7 @@ def run(
 
 
     score_event_id: str | None = None
-    if persist and record_score and chunk_count > 0 and folder_selection is None:
+    if persist and record_score and chunk_count > 0 and folder_selection is None and entry_folder is None:
         with _observed(observer, "score_event"):
             event = record_event(
                 paths.derived_root / "score-events.jsonl",

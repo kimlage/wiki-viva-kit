@@ -158,12 +158,25 @@ def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], 
 
 
 def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id: str | None = None,
-                      folder_request: dict | None = None) -> list[dict]:
+                      folder_request: dict | None = None, request_path: str | None = None) -> list[dict]:
     """Read emitted semantic packets for exact result provenance validation."""
     requests: list[dict] = []
     if not paths.extraction_events.exists():
         return requests
-    if folder_request is not None:
+    if request_path is not None:
+        try:
+            from wiki_core.folder_request_identity_v2 import load_retained_request
+            data = load_retained_request(paths.root, paths, request_path)
+            if (data.get('context_binding_version') != 1
+                    or (data.get('block_context_package') or {}).get('policy_mode') != 'working_tree_folder_entry'):
+                return requests
+            if sizes is not None:
+                from wiki_core.folder_request_identity_v2 import folder_request_path
+                sizes[id(data)] = folder_request_path(paths, data).stat().st_size
+            return [data]
+        except (ValueError, OSError, TypeError, KeyError, AttributeError):
+            return requests
+    elif folder_request is not None:
         from wiki_core.folder_request_identity_v2 import folder_request_path
         exact = folder_request_path(paths, folder_request)
         candidates = [exact] if not exact.is_symlink() and exact.is_file() else []
@@ -172,8 +185,9 @@ def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id:
             return requests
         exact = paths.extraction_events / f"{source_id}-llm-context-request.json"
         candidates = [exact] if not exact.is_symlink() and exact.is_file() else []
-    else:  # Explicit trusted compatibility inspection retains its old scan.
-        candidates = paths.extraction_events.glob("*-llm-context-request.json")
+    else:  # Legacy scan excludes scoped requests, which need an exact path.
+        candidates = (path for path in paths.extraction_events.glob("*-llm-context-request.json")
+                      if not re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', path.name))
     for path in candidates:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -207,7 +221,8 @@ def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
 
 
 def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: bool = False,
-                    current_request: dict | None = None, limits: dict | None = None, owner: str = "Context owner/integrator", before_write=None) -> int:
+                    current_request: dict | None = None, limits: dict | None = None, owner: str = "Context owner/integrator", before_write=None,
+                    request_path: str | None = None) -> int:
     current_package = (current_request or {}).get("block_context_package") or {}
     current_schema = current_package.get("schema_version") if isinstance(current_package, dict) else None
     if current_schema == "wiki.folder-task-context/v2" and (
@@ -236,7 +251,7 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
     approved_current = current_schema in ("wiki.task-context/v1", "wiki.folder-task-context/v2")
     source_id = str(current_request.get("source_id") or "") if approved_current else None
     requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes, source_id=source_id,
-                folder_request=current_request if current_schema == 'wiki.folder-task-context/v2' else None)
+                folder_request=current_request if current_schema == 'wiki.folder-task-context/v2' else None, request_path=request_path)
     limits = limits or request_limits()
     known = {str(row.get("cache_key")) for request in requests for row in request["chunks"] if isinstance(row, dict)}
     written = []
@@ -292,22 +307,36 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             print("ERROR: result does not match the emitted context, source, chunk or schema", file=sys.stderr)
             return 2
         try:
+            # A retained working-tree entry identifies what to re-read; it is
+            # not an access grant. Detect edits, new overrides and missing paths.
+            from wiki_core.folder_context import read_folder_entry
+            for retained in matching:
+                package = retained.get('block_context_package') or {}
+                if package.get('policy_mode') == 'working_tree_folder_entry':
+                    actual = read_folder_entry(paths.root, package['entry_folder'], package['entry_index'],
+                                               max_bytes=limits['context_max_bytes'])
+                    expected = {'folder':package['entry_folder'], 'index_path':package['entry_index'],
+                                'documents':package['documents']}
+                    if actual != expected:
+                        raise ValueError('working-tree folder context changed')
             if before_write is not None:
                 before_write()
             cache_dir = result_cache_for_request(paths.llm_cache, current_request) if current_request else paths.llm_cache
-            if current_schema == "wiki.folder-task-context/v2":
+            if current_schema == "wiki.folder-task-context/v2" or request_path is not None:
                 from wiki_core.folder_ingestion_v2 import _check_local_boundaries
                 _check_local_boundaries(Path(paths.root), cache_dir.relative_to(paths.root).as_posix())
                 if cache_dir.is_symlink() or (cache_dir / (key + '.json')).is_symlink():
                     raise ValueError('folder cache symlink unavailable')
-            if current_schema == 'wiki.folder-task-context/v2':
+            if current_schema == 'wiki.folder-task-context/v2' or any((r.get('block_context_package') or {}).get('policy_mode') == 'working_tree_folder_entry' for r in matching):
                 from wiki_core.folder_request_identity_v2 import write_folder_result
                 out = write_folder_result(cache_dir, result)
             else:
                 out = write_result(cache_dir, result)
-        except (ValueError, OSError) as exc:
-            if before_write is not None:
-                return _blocked(exc, str(current_request.get("source_id") or "requested-input"), owner)
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            if request_path is not None:
+                exc = ContextRequestBlocked('working_tree_context_changed', 'The selected working-tree source or context changed; the result was not recorded.')
+            if before_write is not None or request_path is not None:
+                return _blocked(exc, str((current_request or {}).get("source_id") or "requested-input"), owner)
             print("ERROR: invalid result or unavailable cache output; verify the declared schema and current bound request.", file=sys.stderr)
             return 2
         written.append(str(out.relative_to(getattr(paths, "root", ROOT))))
@@ -333,6 +362,8 @@ def main() -> int:
     parser.add_argument("--profile")
     parser.add_argument("--approved-revision", help="Trusted local caller supplies current approved policy commit; this is not a remote access grant.")
     parser.add_argument("--policy-context", help="Explicit manifest context for the approved-policy adapter.")
+    parser.add_argument("--entry-folder", help="Explicit working-tree context folder; no access grant.")
+    parser.add_argument("--entry-index", help="Explicit working-tree context index (defaults to folder/index.md).")
     parser.add_argument("--folder-context", help="Exact folder selected under the trusted host binding.")
     parser.add_argument("--folder-index", help="Explicit authorized context index.")
     parser.add_argument("--folder-output", help="Concrete authorized proposal output.")
@@ -359,6 +390,7 @@ def main() -> int:
     )
     parser.add_argument("--emit-request", action="store_true", help="writes the package to extraction-events/")
     parser.add_argument("--record-result", help="path to JSON (object or array) or '-' for stdin")
+    parser.add_argument("--request", help="Exact retained working-tree folder request to revalidate while recording.")
     parser.add_argument(
         "--allow-unrequested",
         action="store_true",
@@ -368,8 +400,14 @@ def main() -> int:
     args = parser.parse_args()
     from wiki_core.ingestion_cli_mode import validate_mode
     validate_mode(parser, args)
+    if args.request and (args.mode != 'working-tree' or not args.record_result or not args.source or args.allow_unrequested):
+        parser.error('--request requires a source and requested-result recording in working-tree mode')
 
     root = args.root.resolve()
+    if args.entry_folder is not None and args.entry_index is None:
+        args.entry_index = ('index.md' if args.entry_folder == '.' else args.entry_folder + '/index.md')
+    if args.entry_folder is not None and (args.required_perspective or args.optional_perspective):
+        parser.error('working-tree folder entry requires explicitly read perspectives, not catalog resolution')
     folder_selection = None
     folder_queries = None
     if args.mode == 'folder':
@@ -410,7 +448,7 @@ def main() -> int:
             return _blocked(exc, "source-context-pass", config.owner_label)
     if args.record_result and not args.source and not args.query:
         return _record_results(paths, args.record_result, allow_unrequested=args.allow_unrequested,
-            limits=limits, owner=config.owner_label)
+            limits=limits, owner=config.owner_label, request_path=args.request)
 
     if not args.source and not args.query:
         parser.error("provide --source, --query or --record-result")
@@ -473,9 +511,20 @@ def main() -> int:
                 revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
                 source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=args.root_entity_ref, omit_root_entity=args.omit_root_entity)
             else:
-                source_config = find_source_config(root, config, args.source)
-                input_context = input_context_for_source(root, config, args.source)
-                input_context["source_config"] = source_config
+                if args.request and args.entry_folder is None:
+                    retained = _emitted_requests(paths, request_path=args.request)
+                    if len(retained) != 1 or retained[0].get('source_id') != manifest['source_id']:
+                        raise ValueError('retained working-tree request unavailable')
+                    package = retained[0]['block_context_package']
+                    args.entry_folder, args.entry_index = package['entry_folder'], package['entry_index']
+                if args.entry_folder is not None:
+                    source_config = None
+                    input_context = input_context_for_source(root, config, args.source, entry_folder=args.entry_folder,
+                        entry_index=args.entry_index, context_max_bytes=args.context_max_bytes)
+                else:
+                    source_config = find_source_config(root, config, args.source)
+                    input_context = input_context_for_source(root, config, args.source)
+                    input_context["source_config"] = source_config
         except (ValueError, OSError) as exc:
             return _blocked(exc, "requested-input", config.owner_label)
     else:
@@ -559,7 +608,14 @@ def main() -> int:
     except (ValueError, OSError) as exc:
         return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)
     def before_write():
-        revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+        if source_guard is not None:
+            revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+        elif args.entry_folder is not None:
+            current = build_manifest(source, args.context, root=root)
+            if (current.get('source_id') != manifest.get('source_id')
+                    or current.get('hash_sha256') != manifest.get('hash_sha256')
+                    or not current.get('hash_sha256')):
+                raise ValueError('working-tree source changed or unavailable')
         if folder_queries is not None:
             from wiki_core.folder_ingestion_v2 import revalidate_folder_ingestion_queries
             revalidate_folder_ingestion_queries(root, source_guard, context_package, folder_queries, query_packet)
@@ -567,7 +623,7 @@ def main() -> int:
     if args.record_result:
         return _record_results(paths, args.record_result, allow_unrequested=args.allow_unrequested,
             current_request=request, limits=limits, owner=config.owner_label,
-            before_write=before_write if source_guard else None)
+            before_write=before_write if source_guard or args.entry_folder is not None else None, request_path=args.request)
     if args.check:
         report = {
             "source_id": manifest.get("source_id"),
@@ -580,28 +636,19 @@ def main() -> int:
         return 1 if (required and request["pending_llm_calls"] > 0) else 0
 
     if args.emit_request:
-        if folder_selection is not None:
-            from wiki_core.folder_request_identity_v2 import folder_request_path
-            out = folder_request_path(paths, request)
-        else:
-            out = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"
-        if folder_selection is not None:
-            try:
-                from wiki_core.folder_ingestion_v2 import _check_local_boundaries
-                revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
-                if folder_queries is not None:
-                    from wiki_core.folder_ingestion_v2 import revalidate_folder_ingestion_queries
-                    revalidate_folder_ingestion_queries(root, source_guard, context_package, folder_queries, query_packet)
-                _check_local_boundaries(root, out.relative_to(root).as_posix())
-            except (ValueError, OSError) as exc:
-                return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)
-        if folder_selection is not None:
+        if folder_selection is not None or args.entry_folder is not None:
             try:
                 from wiki_core.folder_request_identity_v2 import retain_folder_request
+                if folder_selection is not None:
+                    revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+                    if folder_queries is not None:
+                        from wiki_core.folder_ingestion_v2 import revalidate_folder_ingestion_queries
+                        revalidate_folder_ingestion_queries(root, source_guard, context_package, folder_queries, query_packet)
                 out = retain_folder_request(root, paths, request)
             except (ValueError, OSError) as exc:
-                return _blocked(exc, str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)
+                return _blocked(exc, str(request.get('source_id') or 'source-context-pass'), config.owner_label)
         else:
+            out = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(canonical_request_text(request), encoding="utf-8")
         print(out.relative_to(root))

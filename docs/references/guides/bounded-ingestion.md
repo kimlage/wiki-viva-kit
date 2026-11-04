@@ -229,6 +229,64 @@ cache namespace. A legacy unrequested entry cannot satisfy that namespace. A mat
 result remains a report, not proof that a reading occurred. It does not create
 a v2 task-result receipt, integrate canonical memory or bypass a PR gate.
 
+## Working-tree folder entry
+
+A local caller with actual access can select a context without claiming an
+approved policy or native instruction loading. The entry reads the current
+working-tree AGENTS chain and the selected folder index, including uncommitted
+and untracked files. It does not read other context indexes or automatically
+follow links:
+
+```sh
+python3 "$WIKI_REPO_ROOT/scripts/wiki_ingest.py" --mode working-tree \
+  --root "$WIKI_REPO_ROOT" --source SOURCE --context SOURCE_CONTEXT \
+  --entry-folder FOLDER --entry-index FOLDER/index.md
+```
+
+`--entry-index` defaults to `FOLDER/index.md`; for the root it defaults to
+`index.md`. Both paths are relative to the selected wiki root. The selected
+folder must contain an AGENTS instruction, and the selected index must be inside
+it. The process checks symlinks, nested Git boundaries, the byte budget and
+secrets; a host must independently authorize the actual source and context reads.
+Neither the files nor a stored request grant access or prove a native session
+loaded them. Cooperatively protect the files against concurrent changes.
+
+This selection does not automatically resolve source configuration, target
+pages, linked sources or independent repositories; their coverage remains
+unassessed. Select and authorize them separately. Repository links and a configured
+origin do not prove authentication, access or the selected revision. Requests for
+the same source in distinct contexts are retained separately using the existing
+request identity. Complete, identical source captures are reused without
+replacing their bytes; a partial or divergent capture blocks. This path does not
+update the global FTS index, score ledger or stream cursor. Existing unscoped
+requests remain readable.
+
+After the authorized reading, use the exact emitted `REQUEST.json` and explicit
+source to record its result; folder and index are recovered from the request and
+rechecked against the current working tree. The current local source hash is also
+rechecked; this does not establish external origin or freshness:
+
+```sh
+python3 "$WIKI_REPO_ROOT/scripts/wiki_llm_context_pass.py" --mode working-tree \
+  --root "$WIKI_REPO_ROOT" --source SOURCE --context SOURCE_CONTEXT \
+  --request REQUEST.json --record-result RESULT.json
+```
+
+The consolidation command accepts `--request REQUEST.json` with its `--source`
+selection and explicitly selected `--folder-candidate` pages. Without candidates,
+no other pages are inspected. This path does not use the global catalog or FTS;
+its event reports `explicit_candidates_only` impact coverage. A scoped request
+must be selected exactly, and the command never selects it by source alone. The
+retained request identity distinguishes the resulting events; it is a binding
+to reported content, not proof of reading, review or integration. Historical
+requests and events without that binding remain available but cannot certify a
+new contextual interpretation. The generic audit reports pending requests in
+its selected directory; the audit can still block on each retained pending request, even if its task is
+no longer relevant. The legacy consolidation gate can likewise retain completed
+requests awaiting events. Existing request fields do not link them to a task's
+current dependencies, so relevance is not determined. The generic audit does
+not enumerate the separate folder-v2 namespaces.
+
 ## Recoverable blockers
 
 Preparation failures return exit code 2 and structured blockers using the

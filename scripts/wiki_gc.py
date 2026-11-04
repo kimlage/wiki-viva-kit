@@ -77,8 +77,24 @@ def live_source_ids(paths: WikiPaths) -> set[str]:
     return live
 
 
-def _source_id_of(path: Path) -> str:
+def _source_id_of(path: Path) -> str | None:
     name = path.name
+    if name.startswith('folder-') and name.endswith(REQUEST_SUFFIX):
+        # Scoped requests have a hashed filename. An unreadable or forged
+        # request is unknown, never evidence that deletion is safe.
+        import hashlib
+        try:
+            from wiki_core.folder_request_identity_v2 import folder_request_identity
+            if path.is_symlink() or path.stat().st_size > 2_000_000:
+                return None
+            data = json.loads(path.read_text(encoding='utf-8'))
+            source_id = data['source_id']
+            expected = hashlib.sha256(source_id.encode()).hexdigest()
+            if name != f"folder-{expected}-{folder_request_identity(data)}{REQUEST_SUFFIX}":
+                return None
+            return source_id
+        except (ValueError, OSError, KeyError, TypeError, AttributeError):
+            return None
     if name.endswith(REQUEST_SUFFIX):
         return name[: -len(REQUEST_SUFFIX)]
     return path.stem
@@ -95,9 +111,8 @@ def find_orphans(paths: WikiPaths, live: set[str]) -> dict[str, list[Path]]:
     for label, directory in dirs.items():
         if not directory.exists():
             continue
-        found = [
-            p for p in sorted(directory.glob("*.json")) if _source_id_of(p) not in live
-        ]
+        found = [p for p in sorted(directory.glob("*.json"))
+                 if (source_id := _source_id_of(p)) is not None and source_id not in live]
         if found:
             orphans[label] = found
     return orphans

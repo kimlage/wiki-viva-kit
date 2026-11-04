@@ -7,6 +7,14 @@ def validate_mode(parser, args):
     folder_options = (any(value is not None for value in folder) or args.folder_source_ref is not None
                       or args.folder_repo is not None or getattr(args, 'folder_queries', None) is not None
                       or getattr(args, 'folder_existing_sha256', None) is not None)
+    entry_folder = getattr(args, 'entry_folder', None)
+    entry_index = getattr(args, 'entry_index', None)
+    if entry_index is not None and entry_folder is None:
+        parser.error('entry-index requires entry-folder')
+    if args.mode != 'working-tree' and (entry_folder is not None or entry_index is not None):
+        parser.error('working-tree entry selection requires --mode working-tree')
+    if entry_folder is not None and (getattr(args, 'query', None) is not None or getattr(args, 'allow_unrequested', False)):
+        parser.error('working-tree folder entry requires a source and requested result')
     if args.mode == 'folder':
         if not all(folder) or not args.approved_revision or args.policy_context is not None:
             parser.error('folder mode requires approved-revision, folder-context, folder-index and folder-output; policy-context requires --mode v1')

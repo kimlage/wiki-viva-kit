@@ -48,11 +48,19 @@ from wiki_core.consolidate import (
 from wiki_core.paths import WikiPaths
 
 
-def _request_for(paths: WikiPaths, source_id: str) -> dict[str, object] | None:
-    for request in load_requests(paths):
-        if str(request.get("source_id")) == source_id and request.get("context_binding_version") != 2:
-            return request
-    return None
+def _request_for(paths: WikiPaths, source_id: str, request_path: str | None = None) -> dict[str, object] | None:
+    if request_path is not None:
+        from wiki_core.folder_request_identity_v2 import load_retained_request
+        request = load_retained_request(paths.root, paths, request_path)
+        if (request.get('source_id') != source_id or request.get('context_binding_version') != 1
+                or (request.get('block_context_package') or {}).get('policy_mode') != 'working_tree_folder_entry'):
+            raise ValueError('selected request differs from source')
+        return request
+    matches = [request for request in load_requests(paths, include_scoped=False)
+               if str(request.get('source_id')) == source_id and request.get('context_binding_version') != 2]
+    if len(matches) > 1:
+        raise ValueError('multiple context requests require an exact request selection')
+    return matches[0] if matches else None
 
 
 def consolidate_one(
@@ -65,10 +73,16 @@ def consolidate_one(
     context: str,
     date: dt.date,
     force: bool,
+    request_path: str | None = None,
+    candidates: list[str] | None = None,
 ) -> int:
     config = load_config(ROOT)
     paths = WikiPaths(ROOT, config)
-    request = _request_for(paths, source_id)
+    try:
+        request = _request_for(paths, source_id, request_path)
+    except (ValueError, OSError, TypeError, KeyError):
+        print("ERROR: select one exact retained context request for this source", file=sys.stderr)
+        return 1
     if request is None:
         print(f"ERROR: no emitted context request for source_id {source_id}", file=sys.stderr)
         return 1
@@ -80,19 +94,47 @@ def consolidate_one(
         )
         return 1
     aggregated = aggregate_results(request, paths.llm_cache)
-    packet_data = build_packet(aggregated, ROOT, config, paths) if (packet or emit_event) else None
+    scoped = (request.get('block_context_package') or {}).get('policy_mode') == 'working_tree_folder_entry'
+    if candidates and not scoped:
+        print('ERROR: explicit candidates require a selected working-tree folder request', file=sys.stderr)
+        return 1
+    if scoped and context != request.get('source_context'):
+        print('ERROR: selected context differs from the retained request', file=sys.stderr)
+        return 1
+    try:
+        if scoped:
+            from wiki_core.folder_context import read_folder_entry
+            package = request['block_context_package']
+            actual = read_folder_entry(ROOT, package['entry_folder'], package['entry_index'],
+                                       max_bytes=request['request_limits']['context_max_bytes'])
+            if actual != {'folder':package['entry_folder'], 'index_path':package['entry_index'],
+                          'documents':package['documents']}:
+                raise ValueError('working-tree context changed')
+        packet_data = build_packet(aggregated, ROOT, config, paths, candidates=(candidates or []) if scoped else None) if (packet or emit_event) else None
+    except (ValueError, OSError, TypeError, KeyError):
+        print('ERROR: selected context or consolidation candidates unavailable', file=sys.stderr)
+        return 1
 
     if packet:
         paths.extraction_events.mkdir(parents=True, exist_ok=True)
-        packet_file = paths.extraction_events / f"{source_id}{PACKET_SUFFIX}"
-        packet_file.write_text(
-            json.dumps(packet_data, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        request_id = request.get('folder_request_id')
+        packet_file = paths.extraction_events / f"{source_id}{('-' + request_id) if request_id else ''}{PACKET_SUFFIX}"
+        packet_text = json.dumps(packet_data, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        if scoped:
+            from wiki_core.folder_request_identity_v2 import _install_once
+            try:
+                _install_once(packet_file, packet_text)
+            except FileExistsError:
+                if packet_file.is_symlink() or packet_file.read_text(encoding='utf-8') != packet_text:
+                    print('ERROR: existing integration packet differs and was preserved', file=sys.stderr)
+                    return 1
+        else:
+            packet_file.write_text(packet_text, encoding="utf-8")
         print(packet_file.relative_to(ROOT).as_posix())
 
     if emit_event:
-        existing = find_event_for_source(paths, source_id)
+        request_id = request.get('folder_request_id')
+        existing = find_event_for_source(paths, source_id, request_id)
         if existing is not None and not force:
             print(
                 f"ERROR: event already exists for {source_id}: "
@@ -116,9 +158,24 @@ def consolidate_one(
             impact=dict(packet_data.get("impact") or {}) if packet_data else None,
         )
         target = existing if existing is not None else (
-            event_dir / f"{date.isoformat()}-{_source_slug(source_id)}.md"
+            event_dir / f"{date.isoformat()}-{_source_slug(source_id)}{('-' + request_id) if request_id else ''}.md"
         )
-        target.write_text(markdown, encoding="utf-8")
+        if scoped:
+            try:
+                from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+                _check_local_boundaries(ROOT, target.relative_to(ROOT).as_posix())
+            except (ValueError, OSError):
+                print('ERROR: event destination unavailable', file=sys.stderr)
+                return 1
+        if scoped and existing is None:
+            try:
+                with target.open('x', encoding='utf-8') as stream:
+                    stream.write(markdown)
+            except FileExistsError:
+                print('ERROR: existing event path was preserved', file=sys.stderr)
+                return 1
+        else:
+            target.write_text(markdown, encoding="utf-8")
         print(target.relative_to(ROOT).as_posix())
     return 0
 
@@ -129,6 +186,7 @@ def main() -> int:
     parser.add_argument("--mode", choices=("folder", "v1"), default="folder",
                         help="folder proposal by default; v1 selects the historical global flow")
     parser.add_argument("--source", help="legacy source_id to consolidate (v1 only)")
+    parser.add_argument("--request", help="Exact retained working-tree context request (v1 only)")
     parser.add_argument("--all-pending", action="store_true", help="list every pending consolidation (JSON)")
     parser.add_argument("--emit-event", action="store_true", help="generate the normalized event from llm-cache")
     parser.add_argument("--packet", action="store_true", help="emit the integration packet (gitignored)")
@@ -146,7 +204,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.mode == "folder":
-        if (args.check or args.all_pending or args.source or args.emit_event or args.packet
+        if (args.check or args.all_pending or args.source or args.request or args.emit_event or args.packet
                 or args.source_page or args.source_ref or args.force or args.context or args.date):
             parser.error("legacy consolidation and its global check require --mode v1; folder closure is not established by this command")
         if args.max_age_days is None:
@@ -179,7 +237,7 @@ def main() -> int:
             return 1
         print(json.dumps(preview, ensure_ascii=False, sort_keys=True))
         return 0
-    if args.folder_preview or args.folder_candidate or args.max_age_days is not None:
+    if args.folder_preview or args.max_age_days is not None:
         parser.error("folder proposal options are incompatible with --mode v1")
 
     if args.check or args.all_pending:
@@ -207,6 +265,8 @@ def main() -> int:
         context=args.context or config.default_context,
         date=dt.date.fromisoformat(args.date) if args.date else dt.date.today(),
         force=args.force,
+        request_path=args.request,
+        candidates=args.folder_candidate,
     )
 
 

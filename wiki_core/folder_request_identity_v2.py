@@ -20,9 +20,12 @@ def _install_once(path, text):
 
 
 def folder_request_identity(request):
-    if (not isinstance(request, dict) or request.get('context_binding_version') != 2
-            or not isinstance(request.get('source_id'), str)
+    if (not isinstance(request, dict) or not isinstance(request.get('source_id'), str)
             or not isinstance(request.get('chunks'), list)):
+        raise ValueError('folder request identity unavailable')
+    if (request.get('context_binding_version') != 2
+            and not (request.get('context_binding_version') == 1
+                     and (request.get('block_context_package') or {}).get('policy_mode') == 'working_tree_folder_entry')):
         raise ValueError('folder request identity unavailable')
     chunks = []
     for row in request['chunks']:
@@ -67,11 +70,33 @@ def validate_retained_folder_request(root, paths, request):
         raise ValueError('retained folder request differs')
 
 
+def load_retained_request(root, paths, path):
+    """Load one exact request selected by the caller, without granting access."""
+    from pathlib import Path
+    from wiki_core.context_selection import strict_json_loads
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = Path(root) / candidate
+    if (candidate.is_symlink() or candidate.parent.resolve() != paths.extraction_events.resolve()
+            or not candidate.is_file() or candidate.stat().st_size > 2_000_000):
+        raise ValueError('retained folder request unavailable')
+    with candidate.open('rb') as stream:
+        request = strict_json_loads(stream.read(2_000_001).decode('utf-8'))
+    if folder_request_path(paths, request) != candidate:
+        raise ValueError('retained folder request differs')
+    validate_retained_folder_request(root, paths, request)
+    return request
+
+
 def retain_folder_request(root, paths, request):
     """Create the semantic request once; a repeat preserves its original bytes."""
+    from pathlib import Path
     from wiki_core.llm.context_pass import canonical_request_text
     path = folder_request_path(paths, request)
+    from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+    _check_local_boundaries(Path(root), path.relative_to(root).as_posix())
     path.parent.mkdir(parents=True, exist_ok=True)
+    _check_local_boundaries(Path(root), path.relative_to(root).as_posix())
     try:
         _install_once(path, canonical_request_text(request))
     except FileExistsError:

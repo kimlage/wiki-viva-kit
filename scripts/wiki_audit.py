@@ -2372,6 +2372,13 @@ def audit_context_pass_gate(
             # deleting/corrupting the request closed the gate with no error.
             errors.append(f"{rel}: unreadable LLM pass request (invalid JSON)")
             continue
+        if (data.get('block_context_package') or {}).get('policy_mode') == 'working_tree_folder_entry':
+            try:
+                from wiki_core.folder_request_identity_v2 import load_retained_request
+                data = load_retained_request(ROOT, paths, path)
+            except (ValueError, OSError, TypeError, KeyError, AttributeError):
+                errors.append(f"{rel}: invalid retained context request")
+                continue
         source_id = str(data.get("source_id") or path.name[: -len(suffix)])
         if source_id.startswith("query-") or not (chunks_dir / f"{source_id}.json").exists():
             orphans.append(rel)
