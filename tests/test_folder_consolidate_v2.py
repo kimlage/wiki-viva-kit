@@ -77,6 +77,26 @@ def metadata(page_id='claim-synthetic'):
             'owner':'person-synthetic'}
 
 
+@pytest.mark.parametrize('field,path', [
+    ('ref', 'a/credentials/example.txt'),
+    ('ref', 'a/local/example.pem'),
+    ('canonical_ref', 'a/.env.example'),
+    ('canonical_ref', 'a/secrets/example.md'),
+])
+def test_raw_capture_rejects_reserved_paths_before_policy_or_reads(tmp_path, monkeypatch, field, path):
+    from wiki_core import folder_capture_v2 as capture_module
+    capture = {'source_kind':'staged_raw', 'ref':'a/raw/example.md', 'source_revision':None,
+        'source_sha256':'0' * 64, 'source_origin':'a/raw/example.md', 'canonical_ref':'a/source.md',
+        'canonical_revision':'1' * 40, 'canonical_sha256':'2' * 64,
+        'association':'caller_selected_unverified', 'external_origin_verification':'not_verified',
+        'external_freshness':'not_verified'}
+    capture[field] = path
+    monkeypatch.setattr(capture_module, '_bound_policy',
+                        lambda *_args, **_kwargs: pytest.fail('policy or source accessed before path validation'))
+    with pytest.raises(ValueError, match='capture unavailable or unauthorized'):
+        capture_module.inspect_raw_capture(tmp_path, None, 'a', '1' * 40, capture)
+
+
 def amend_without_fields(project, preview, fields):
     fm, body = parse_frontmatter(preview['markdown'])
     for field in fields:
