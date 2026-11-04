@@ -30,7 +30,7 @@ sys.path.insert(0, str(CODE_ROOT))
 from scripts._common import ROOT
 
 from wiki_core.traversal import wiki_markdown_files
-from wiki_core.llm.context_pass import read_matching_result
+from wiki_core.llm.context_pass import read_matching_result, result_cache_for_request
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.action_adoption import (
     ACTION_ADOPTION_RECEIPT_PATH,
@@ -2274,8 +2274,16 @@ def audit_llm_cache_metadata(errors: list[str], config: WikiConfig | None = None
     cache_dir = wiki_paths(config or load_config(ROOT)).llm_cache
     if not cache_dir.exists():
         return
-    for path in sorted(cache_dir.glob("*.json")):
+    folder_cache = cache_dir / "folder-v2"
+    if folder_cache.is_symlink():
+        errors.append("folder-v2 result cache must not be a symlink")
+        return
+    files = [*cache_dir.glob("*.json"), *folder_cache.glob("*.json")]
+    for path in sorted(files):
         rel = path.relative_to(ROOT).as_posix()
+        if path.parent == folder_cache and path.is_symlink():
+            errors.append(f"{rel}: folder-v2 cache result must not be a symlink")
+            continue
         text = path.read_text(encoding="utf-8", errors="replace")
         for required in ("prompt_version", "schema_version", "cache_key"):
             if required not in text:
@@ -2310,7 +2318,10 @@ def audit_perspective_coverage(errors: list[str], config: WikiConfig) -> None:
                 errors.append(f"{rel}: required perspective `{perspective_id}` is not a perspective page")
         for chunk in request.get("chunks", []):
             key = str(chunk.get("cache_key") or "")
-            result_path = cache_dir / f"{key}.json"
+            result_path = result_cache_for_request(cache_dir, request) / f"{key}.json"
+            if request.get("context_binding_version") == 2 and (result_path.parent.is_symlink() or result_path.is_symlink()):
+                errors.append(f"{rel}: folder-v2 cache path must not be a symlink")
+                continue
             if not result_path.exists():
                 continue
             try:
