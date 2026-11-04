@@ -157,12 +157,17 @@ def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], 
     return manifest, chunks
 
 
-def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id: str | None = None) -> list[dict]:
+def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id: str | None = None,
+                      folder_request: dict | None = None) -> list[dict]:
     """Read emitted semantic packets for exact result provenance validation."""
     requests: list[dict] = []
     if not paths.extraction_events.exists():
         return requests
-    if source_id is not None:
+    if folder_request is not None:
+        from wiki_core.folder_request_identity_v2 import folder_request_path
+        exact = folder_request_path(paths, folder_request)
+        candidates = [exact] if not exact.is_symlink() and exact.is_file() else []
+    elif source_id is not None:
         if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,511}", source_id):
             return requests
         exact = paths.extraction_events / f"{source_id}-llm-context-request.json"
@@ -181,6 +186,14 @@ def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id:
                 file=sys.stderr,
             )
             continue
+        if folder_request is not None:
+            from wiki_core.folder_request_identity_v2 import folder_request_identity
+            try:
+                if (data.get('folder_request_id') != folder_request['folder_request_id']
+                        or folder_request_identity(data) != folder_request['folder_request_id']):
+                    continue
+            except (ValueError, TypeError, KeyError, AttributeError):
+                continue
         if isinstance(data, dict) and isinstance(data.get("chunks"), list):
             requests.append(data)
             if sizes is not None:
@@ -210,7 +223,8 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             source_id = current_request.get("source_id")
             if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,511}", source_id):
                 raise ValueError('invalid source identity')
-            for path in (paths.extraction_events / f"{source_id}-llm-context-request.json", paths.llm_cache):
+            from wiki_core.folder_request_identity_v2 import folder_request_path
+            for path in (folder_request_path(paths, current_request), paths.llm_cache):
                 _check_local_boundaries(Path(paths.root), path.relative_to(paths.root).as_posix())
         except (ValueError, OSError, TypeError, RuntimeError) as exc:
             return _blocked(exc, str(current_request.get("source_id") or "source-context-pass"), owner)
@@ -220,7 +234,8 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
     retained_sizes = {}
     approved_current = current_schema in ("wiki.task-context/v1", "wiki.folder-task-context/v2")
     source_id = str(current_request.get("source_id") or "") if approved_current else None
-    requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes, source_id=source_id)
+    requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes, source_id=source_id,
+                folder_request=current_request if current_schema == 'wiki.folder-task-context/v2' else None)
     limits = limits or request_limits()
     known = {str(row.get("cache_key")) for request in requests for row in request["chunks"] if isinstance(row, dict)}
     written = []
@@ -556,7 +571,11 @@ def main() -> int:
         return 1 if (required and request["pending_llm_calls"] > 0) else 0
 
     if args.emit_request:
-        out = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"
+        if folder_selection is not None:
+            from wiki_core.folder_request_identity_v2 import folder_request_path
+            out = folder_request_path(paths, request)
+        else:
+            out = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"
         if folder_selection is not None:
             try:
                 from wiki_core.folder_ingestion_v2 import _check_local_boundaries

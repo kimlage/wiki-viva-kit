@@ -848,6 +848,9 @@ def build_context_request(
         request["chunks"].append(row)
         request["cached_calls" if existing is not None else "pending_llm_calls"] += 1
     request["instructions"] += " Copy context_sha256 and chunk_hash_sha256 from the chunk; retain its exact source_id and chunk_id."
+    if folder_v2:
+        from wiki_core.folder_request_identity_v2 import folder_request_identity
+        request['folder_request_id'] = folder_request_identity(request)
     return enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
 
 

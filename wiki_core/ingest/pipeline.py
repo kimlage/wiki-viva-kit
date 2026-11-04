@@ -358,7 +358,7 @@ def run(
                 revalidate_folder_ingestion_queries(root, source_guard, context_package, folder_queries, query_packet)
             if folder_selection is not None:
                 from wiki_core.folder_ingestion_v2 import validate_folder_artifact_paths
-                validate_folder_artifact_paths(root, paths, source_id)
+                validate_folder_artifact_paths(root, paths, source_id, request=request)
         except (ValueError, OSError) as exc:
             report = preparation_blocker(exc, source_id, config.owner_label)
             blockers.append(report["blocker"])
@@ -432,7 +432,11 @@ def run(
             metrics["sqlite_bytes"] = index_path.stat().st_size if index_path.exists() else None
 
     if persist and request is not None:
-        request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
+        if folder_selection is not None:
+            from wiki_core.folder_request_identity_v2 import folder_request_path
+            request_file = folder_request_path(paths, request)
+        else:
+            request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
         request_file.write_text(
             canonical_request_text(request),
             encoding="utf-8",

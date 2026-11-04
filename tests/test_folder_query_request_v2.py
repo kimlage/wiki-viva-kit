@@ -39,6 +39,9 @@ def test_query_selection_is_delivered_before_recording_and_binds_cache(project, 
                    folder_selection=selection, folder_queries=[query])
     assert not captured.blocked and captured.written
     request = json.loads((project / captured.request_path).read_text())
+    assert plain.request_path != captured.request_path
+    assert plain_request['folder_request_id'] != request['folder_request_id']
+    assert json.loads((project / plain.request_path).read_text()) == plain_request
     envelope = request['folder_query_packet']
     assert envelope['base_packet'] == request['block_context_package']
     assert envelope['queries'][0]['selected'][0]['text'] == '11'
@@ -68,6 +71,19 @@ def test_query_selection_is_delivered_before_recording_and_binds_cache(project, 
     assert module.main() == 0
     capsys.readouterr()
     assert cache.exists()
+    plain_module = _recording_cli(project, sha, plain_request, monkeypatch, tmp_path)
+    assert plain_module.main() == 0
+    capsys.readouterr()
+    plain_cache = FolderWikiPaths(project, load_config(project), 'a').llm_cache / 'folder-v2' / (plain_request['chunks'][0]['cache_key'] + '.json')
+    assert plain_cache.exists()
+    assert json.loads((project / plain.request_path).read_text()) == plain_request
+    assert json.loads((project / captured.request_path).read_text()) == request
+    old_location = (project / captured.request_path).parent / (request['source_id'] + '-llm-context-request.json')
+    old_location.write_text(json.dumps(request))
+    (project / captured.request_path).unlink()
+    module = _recording_cli(project, sha, request, monkeypatch, tmp_path)
+    monkeypatch.setattr(sys, 'argv', [*sys.argv, '--folder-queries', str(query_file)])
+    assert module.main() == 2
 
 
 def test_query_revocation_blocks_preparation_and_previous_result(project):
@@ -99,6 +115,31 @@ def test_query_revocation_blocks_preparation_and_previous_result(project):
                  folder_selection=selection, folder_queries=[query])
     assert old.blocked and denied.blocked and not old.written and not denied.written
     assert json.loads((project / second.request_path).read_text()) == updated
+
+
+def test_distinct_destinations_preserve_and_record_both_requests(project, monkeypatch, tmp_path, capsys):
+    from dataclasses import replace
+    sha, selection = setup(project)
+    config = load_config(project)
+    source = str(project / 'a/source.md')
+    first = run(source, 'system', project, config, approved_revision=sha, folder_selection=selection)
+    other = replace(selection, output_path='a/another-result.md')
+    second = run(source, 'system', project, config, approved_revision=sha, folder_selection=other)
+    assert not first.blocked and not second.blocked and first.request_path != second.request_path
+    first_request = json.loads((project / first.request_path).read_text())
+    second_request = json.loads((project / second.request_path).read_text())
+    assert first_request['source_id'] == second_request['source_id']
+    assert first_request['folder_request_id'] != second_request['folder_request_id']
+    cli = _recording_cli(project, sha, second_request, monkeypatch, tmp_path)
+    argv = list(sys.argv); argv[argv.index('--folder-output') + 1] = other.output_path
+    monkeypatch.setattr(sys, 'argv', argv)
+    assert cli.main() == 0
+    capsys.readouterr()
+    cli = _recording_cli(project, sha, first_request, monkeypatch, tmp_path)
+    assert cli.main() == 0
+    capsys.readouterr()
+    assert json.loads((project / first.request_path).read_text()) == first_request
+    assert json.loads((project / second.request_path).read_text()) == second_request
 
 
 def test_query_selection_without_folder_fails_closed(project):
