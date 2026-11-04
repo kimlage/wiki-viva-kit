@@ -127,6 +127,114 @@ def test_legacy_wiki_query_consumers_refuse_index_across_boundary(tmp_path, monk
     assert search(db, 'nodeword', page_signature=signature)
 
 
+@pytest.mark.parametrize('boundary', ['git_file', 'git_directory', 'directory_symlink', 'database_symlink'])
+def test_derived_consumers_refuse_repository_and_symlink_boundaries(tmp_path, monkeypatch, capsys, boundary):
+    import sys
+    from scripts import wiki_build_index, wiki_gc
+    from wiki_core.ingest import pipeline
+    cfg = WikiConfig(repo_id='synthetic-boundary')
+    paths = WikiPaths(tmp_path, cfg)
+    node = paths.memory_root / 'node' / 'index.md'
+    page(node, 'node', 'nodeword')
+    source = tmp_path / 'source.md'
+    source.write_text('Synthetic source\n')
+    if boundary == 'directory_symlink':
+        foreign = tmp_path / 'foreign'; foreign.mkdir()
+        paths.derived_root.parent.mkdir(parents=True, exist_ok=True)
+        paths.derived_root.symlink_to(foreign, target_is_directory=True)
+    else:
+        paths.derived_root.mkdir(parents=True)
+        if boundary == 'git_file':
+            (paths.derived_root / '.git').write_text('gitdir: ../separate')
+        elif boundary == 'git_directory':
+            (paths.derived_root / '.git').mkdir()
+    paths.indexes.mkdir(parents=True)
+    db = paths.indexes / 'wiki.sqlite'
+    if boundary == 'database_symlink':
+        foreign_db = tmp_path / 'foreign.sqlite'
+        foreign_db.write_bytes(b'synthetic protected index')
+        db.symlink_to(foreign_db)
+        sentinel = foreign_db
+    else:
+        db.write_bytes(b'synthetic protected index')
+        sentinel = db
+    before = sentinel.read_bytes()
+    monkeypatch.setattr(wiki_build_index, 'ROOT', tmp_path)
+    monkeypatch.setattr(wiki_build_index, 'load_config', lambda _: cfg)
+    monkeypatch.setattr(wiki_gc, 'ROOT', tmp_path)
+    monkeypatch.setattr(wiki_gc, 'load_config', lambda _: cfg)
+    monkeypatch.setattr(WikiPaths, 'ensure', lambda _: pytest.fail('derived paths created before guard'))
+    monkeypatch.setattr(pipeline, 'build_manifest', lambda *a, **k: pytest.fail('source read before derived guard'))
+    monkeypatch.setattr(sqlite3, 'connect', lambda *a, **k: pytest.fail('SQLite opened before guard'))
+    for args in (['--check'], ['--rebuild']):
+        monkeypatch.setattr(sys, 'argv', ['wiki_build_index.py', *args])
+        assert wiki_build_index.main() == 2
+        assert 'derived_path_crosses_repository_boundary' in capsys.readouterr().err
+    result = pipeline.run(str(source), 'synthetic', tmp_path, cfg)
+    assert result.blocked and not result.written
+    assert wiki_gc.main([]) == (0 if boundary == 'database_symlink' else 2)
+    assert wiki_gc.main(['--apply']) == 2
+    assert sentinel.read_bytes() == before
+    assert node.read_text().endswith('nodeword\n')
+
+
+def test_derived_file_symlinks_are_rejected_before_use(tmp_path, monkeypatch, capsys):
+    import sys
+    from scripts import wiki_build_index, wiki_gc
+    from wiki_core.ingest import pipeline
+    from wiki_core.llm.context_pass import read_matching_result
+    from wiki_core.source_manifest import build_manifest
+    cfg = WikiConfig(repo_id='synthetic-boundary')
+    paths = WikiPaths(tmp_path, cfg)
+    paths.ensure()
+    source = tmp_path / 'source.md'; source.write_text('Synthetic source\n')
+    target = tmp_path / 'sentinel.json'; target.write_text('{"sentinel":true}')
+    source_id = build_manifest(str(source), 'synthetic', root=tmp_path)['source_id']
+    (paths.source_manifests / f'{source_id}.json').symlink_to(target)
+    result = pipeline.run(str(source), 'synthetic', tmp_path, cfg)
+    assert result.blocked and not result.written
+    orphan = paths.chunks / 'orphan.json'; orphan.symlink_to(target)
+    monkeypatch.setattr(wiki_build_index, 'ROOT', tmp_path)
+    monkeypatch.setattr(wiki_build_index, 'load_config', lambda _: cfg)
+    monkeypatch.setattr(sys, 'argv', ['wiki_build_index.py', '--rebuild'])
+    monkeypatch.setattr(WikiPaths, 'ensure', lambda _: pytest.fail('ensure called before symlink check'))
+    assert wiki_build_index.main() == 2
+    capsys.readouterr()
+    monkeypatch.setattr(wiki_gc, 'ROOT', tmp_path)
+    monkeypatch.setattr(wiki_gc, 'load_config', lambda _: cfg)
+    assert wiki_gc.main(['--apply']) == 2
+    key = 'a' * 64
+    (paths.llm_cache / f'{key}.json').symlink_to(target)
+    with pytest.raises(ValueError, match='derived_path_crosses_repository_boundary'):
+        read_matching_result(paths.llm_cache, {}, {'cache_key':key}, root=tmp_path)
+    assert orphan.is_symlink() and target.read_text() == '{"sentinel":true}'
+
+
+def test_boundary_guard_accepts_relative_selected_root(tmp_path, monkeypatch):
+    from wiki_core.traversal import require_wiki_boundaries
+    (tmp_path / 'nested').mkdir()
+    monkeypatch.chdir(tmp_path / 'nested')
+    root = Path('..')
+    require_wiki_boundaries(root, directories=(root / 'data/derived',))
+    (tmp_path / 'data/derived').mkdir(parents=True)
+    (tmp_path / 'data/derived/.git').mkdir()
+    with pytest.raises(ValueError, match='derived_path_crosses_repository_boundary'):
+        require_wiki_boundaries(root, directories=(root / 'data/derived',))
+
+
+def test_stream_cursor_boundary_blocks_before_ingestion(tmp_path, monkeypatch):
+    from wiki_core.ingest import pipeline
+    cfg = WikiConfig(repo_id='synthetic-boundary')
+    paths = WikiPaths(tmp_path, cfg)
+    paths.source_state.mkdir(parents=True)
+    (paths.source_state / '.git').mkdir()
+    source = tmp_path / 'source.md'; source.write_text('Synthetic source\n')
+    monkeypatch.setattr(pipeline, 'build_manifest', lambda *a, **k: pytest.fail('source opened before cursor boundary'))
+    result = pipeline.run(str(source), 'synthetic', tmp_path, cfg, stream_id='synthetic')
+    assert result.blocked and not result.written and not result.stream_cursor_written
+    assert not paths.source_manifests.exists()
+
+
 def test_rebuild_removes_previously_indexed_clone_but_explicit_git_read_works(tmp_path):
     cfg = WikiConfig()
     paths = WikiPaths(tmp_path, cfg)

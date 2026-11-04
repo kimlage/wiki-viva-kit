@@ -144,6 +144,14 @@ def run(
     source_guard = None
     try:
         request_limits(context_max_bytes, request_max_bytes)
+        if folder_selection is None:
+            from wiki_core.traversal import require_wiki_boundaries
+            db_path = paths.indexes / 'wiki.sqlite'
+            require_wiki_boundaries(root, directories=(paths.source_manifests, paths.source_text, paths.chunks,
+                paths.indexes, paths.extraction_events, paths.llm_cache, paths.coverage, paths.input_stage,
+                *((paths.source_state, paths.source_state / '.locks') if stream_id else ())),
+                files=(paths.derived_root / 'score-events.jsonl', db_path,
+                       *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
         if folder_queries is not None and folder_selection is None:
             raise ContextRequestBlocked("folder_selection_required", "Folder queries require an explicit trusted folder selection.")
         if folder_selection is not None and stream_id:
@@ -181,6 +189,17 @@ def run(
             return _blocked_preparation(context, config, exc)
     source_id = str(manifest["source_id"])
     source_type = str(manifest["source_type"])
+    if folder_selection is None:
+        try:
+            state_files = ()
+            if stream_id:
+                from wiki_core.source_state import _state_file
+                state_files = (_state_file(paths.source_state, source_id),)
+            require_wiki_boundaries(root, files=(paths.source_manifests / f'{source_id}.json',
+                paths.source_text / f'{source_id}.json', paths.chunks / f'{source_id}.json',
+                paths.extraction_events / f'{source_id}-llm-context-request.json', *state_files))
+        except (ValueError, OSError) as exc:
+            return _blocked_preparation(context, config, exc)
     if folder_selection is not None:
         try:
             from wiki_core.folder_ingestion_v2 import validate_folder_artifact_paths

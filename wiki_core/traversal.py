@@ -34,6 +34,27 @@ def is_in_nested_git(path: Path, *, wiki_root: Path) -> bool:
     return bool(relative.parts and path.is_symlink())
 
 
+def require_wiki_boundaries(wiki_root: Path, *, directories=(), files=()) -> None:
+    """Reject selected paths across a nested repository or symlink before use."""
+    root = Path(wiki_root)
+    absolute_root = root.absolute()
+    resolved_root = root.resolve()
+    def selected(path):
+        try:
+            relative = Path(path).absolute().relative_to(absolute_root)
+        except ValueError:
+            raise ValueError('derived_path_crosses_repository_boundary') from None
+        if '..' in relative.parts:
+            raise ValueError('derived_path_crosses_repository_boundary')
+        return resolved_root / relative
+    for directory in directories:
+        if is_in_nested_git(selected(Path(directory) / '_wiki_boundary_'), wiki_root=resolved_root):
+            raise ValueError('derived_path_crosses_repository_boundary')
+    for path in files:
+        if is_in_nested_git(selected(path), wiki_root=resolved_root):
+            raise ValueError('derived_path_crosses_repository_boundary')
+
+
 def reject_nested_git(base: Path, *, include_hidden: bool = True) -> None:
     """Fail a selected directory collection if it contains another repo.
 

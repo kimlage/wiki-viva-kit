@@ -595,6 +595,9 @@ def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Pat
     if not isinstance(key, str) or not CACHE_KEY_RE.fullmatch(key):
         return None
     selected_cache = result_cache_for_request(cache_dir, request)
+    if root is not None and request.get('context_binding_version') != 2:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(Path(root), files=(result_path(selected_cache, key),))
     if request.get('context_binding_version') == 2:
         if root is None:
             return None
