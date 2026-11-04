@@ -210,6 +210,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                         binding=None, source_request=None, query_packet=None, query_result=None,
                         requalify_source=False, query_requalifications=None):
     """Check exact v2 reads and branch; independent review remains required."""
+    if requalify_source and query_requalifications is not None:
+        raise FolderIntegrationError('source and query requalification require separate proposals')
     if type(requalify_source) is not bool or (requalify_source and (binding is None or not isinstance(source_request, dict))):
         raise FolderIntegrationError('explicit host-bound requalification required')
     if getattr(policy, 'format_version', None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
@@ -500,7 +502,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                 raise FolderIntegrationError('ambiguous or normative change requires separate review')
         elif prior and any(key in prior['frontmatter'] for key in ('information_requirements',
                 'source_authorization', 'independent_repo_read', 'independent_repo_additional_reads',
-                'independent_repo_source_ref', 'folder_source_provenance')):
+                'independent_repo_source_ref', 'folder_source_provenance', 'source_refs')):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
         elif not prior or PurePosixPath(path).suffix != '.md' or prior['frontmatter'].get('page_type') != 'claim':
             raise FolderIntegrationError('ambiguous or normative change requires separate review')
