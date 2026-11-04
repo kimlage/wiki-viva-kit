@@ -167,11 +167,13 @@ def main() -> int:
             if len(raw) > 2_000_000:
                 raise ValueError('input budget exceeded')
             payload = strict_json_loads(raw.decode('utf-8'))
-            if not isinstance(payload, dict) or set(payload) != {'request', 'results', 'page_metadata'}:
+            if (not isinstance(payload, dict) or not {'request', 'results', 'page_metadata'} <= set(payload)
+                    or set(payload) - {'request', 'results', 'page_metadata', 'query_packet', 'query_result'}):
                 raise ValueError('invalid input')
             preview = prepare_folder_consolidation(ROOT, binding, payload['request'], payload['results'],
                         candidates=args.folder_candidate, max_age_days=args.max_age_days,
-                        page_metadata=payload['page_metadata'])
+                        page_metadata=payload['page_metadata'], query_packet=payload.get('query_packet'),
+                        query_result=payload.get('query_result'))
         except (ValueError, OSError, TypeError, KeyError, AttributeError):
             print(json.dumps({'status': 'blocked', 'reason': 'folder_consolidation_unavailable'}), file=sys.stderr)
             return 1

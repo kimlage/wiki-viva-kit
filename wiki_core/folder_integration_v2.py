@@ -31,7 +31,8 @@ def _declares_capture_source(document, ref, revision):
         for req in requirements)
 
 
-def _check_current_requirements(prior, document, path, status, packet, approved, *, ingestion_source=None):
+def _check_current_requirements(prior, document, path, status, packet, approved, *,
+                                ingestion_source=None, query_rows=(), require_queries=False):
     """Bound a narrow declaration subset to current, explicitly reported inputs.
 
     This does not establish that a report was executed or that a source is
@@ -40,7 +41,7 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
     absent = object()
     old = prior['frontmatter'].get('information_requirements', absent) if prior else absent
     new = document['frontmatter'].get('information_requirements', absent)
-    if old is absent and new is absent:
+    if old is absent and new is absent and not require_queries:
         return 0
     # The standard Markdown reader uses a permissive YAML loader. Ambiguous
     # duplicate keys cannot establish that provenance was preserved.
@@ -82,10 +83,12 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
             if validate:
                 raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
             validate = new  # preserve existing behavior for non-ingestion tasks
-        elif (len(validate) != 1 or not isinstance(validate[0], dict)
+        elif (len(validate) != 1 + len(query_rows) or not isinstance(validate[0], dict)
               or validate[0].get('target') != ingestion_source
               or any(not isinstance(item, dict) or item.get('target') == ingestion_source for item in old)):
             raise FolderIntegrationError('ingestion source addition unavailable')
+    if not validate and require_queries:
+        raise FolderIntegrationError('folder query requirements unavailable')
     if not validate:
         return 0
     try:
@@ -96,7 +99,15 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
     evidence = [row for row in packet['inputs'] if row['kind'] == 'evidence']
     seen = set()
+    seen_queries = set()
     for req in requirements:
+        if req.get('query_contract') == 'wiki.folder-query-receipt/v2':
+            from wiki_core.folder_query_requirements_v2 import query_requirements
+            candidates = query_requirements(query_rows, req['max_age_days'])
+            if req not in candidates or req['query_id'] in seen_queries:
+                raise FolderIntegrationError('folder query requirement differs from report')
+            seen_queries.add(req['query_id'])
+            continue
         if (req['temporal'] != 'current' or req['target'] == path
                 or any(name in req for name in ('query', 'members_digest', 'selected_digest',
                                                 'query_policy_revision', 'authority_digest', 'source_kind'))
@@ -123,7 +134,9 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
                        and row['classification'] == req.get('classification', 'internal')]
             if len(matches) != 1:
                 raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
-    return len(seen)
+    if (require_queries or seen_queries) and seen_queries != {row['receipt']['query_id'] for row in query_rows}:
+        raise FolderIntegrationError('folder query requirements unavailable')
+    return len(seen) + len(seen_queries)
 
 
 def _rebuild(root, policy, packet):
@@ -158,7 +171,7 @@ def _rebuild(root, policy, packet):
 
 
 def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
-                        binding=None, source_request=None):
+                        binding=None, source_request=None, query_packet=None, query_result=None):
     """Check exact v2 reads and branch; independent review remains required."""
     if getattr(policy, 'format_version', None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise FolderIntegrationError('bound v2 policy required')
@@ -194,10 +207,23 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                  'section': row.get('section'), 'field': row.get('field')} for row in packet['inputs']]
     if result['observed'] != expected:
         raise FolderIntegrationError('all selected inputs require an exact reported read')
+    query_rows = ()
+    if query_packet is not None or query_result is not None:
+        try:
+            from wiki_core.folder_query_requirements_v2 import validate_query_report
+            query_rows = validate_query_report(root, policy, query_packet, query_result, base_packet=packet)
+        except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
+            raise FolderIntegrationError('query report unavailable') from None
     ingestion = packet.get('ingestion_binding')
     if ingestion is not None:
         if binding is None or not isinstance(source_request, dict):
             raise FolderIntegrationError('ingestion task requires host-bound request')
+        if source_request.get('folder_query_packet') != query_packet:
+            raise FolderIntegrationError('query context differs from recorded request')
+        if query_packet is not None:
+            from wiki_core.llm.context_pass import _CONTEXT_FIELDS
+            if 'folder_query_packet' not in _CONTEXT_FIELDS:
+                raise FolderIntegrationError('query fingerprint binding unavailable')
         try:
             from wiki_core.folder_capture_v2 import validate_recorded_request
             validate_recorded_request(root, packet, source_request)
@@ -241,6 +267,15 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
         raise FolderIntegrationError('declared output change unavailable')
     if ingestion is not None and statuses[packet['output']] == 'D':
         raise FolderIntegrationError('ingestion output must exist')
+    if query_rows:
+        from wiki_core.context_policy import within
+        if ingestion is not None and statuses[packet['output']] == 'D':
+            raise FolderIntegrationError('query output must exist')
+        for row in query_rows:
+            scope = row['receipt']['request']['query']['scope']
+            anchor = row['receipt']['index_path']
+            if any(path == anchor or within(path, scope) for path in statuses):
+                raise FolderIntegrationError('proposal changes query scope')
     # Establish authority and boundary changes from Git metadata before any
     # proposal body is read. Existing output needs an exact prior full read.
     covered_requirements = 0
@@ -324,7 +359,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                 except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
                     raise FolderIntegrationError('existing ingestion provenance unavailable') from None
             covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved,
-                                                                 ingestion_source=ingestion_source)
+                 ingestion_source=ingestion_source, query_rows=query_rows if path == packet['output'] else (),
+                 require_queries=bool(query_rows and ingestion is not None and path == packet['output']))
             capture = document['frontmatter'].get('source_authorization')
             if path == packet['output'] and ingestion is not None:
                 try:

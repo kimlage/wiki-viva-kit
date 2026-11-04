@@ -365,7 +365,7 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None) -
     result = []
     for entry in raw:
         required = {'target', 'fields', 'temporal', 'max_age_days'}
-        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest','source_kind'}):
+        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest','source_kind','query_contract','query_reason','query_id','query_receipt_digest'}):
             raise ValueError('information requirement needs target, fields, temporal, max_age_days')
         if (not isinstance(entry['target'], str) or not isinstance(entry['fields'], list)
                 or not entry['fields'] or len(entry['fields']) > 32
@@ -381,6 +381,13 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None) -
         dynamic = {'query','members_digest','selected_digest','query_policy_revision','authority_digest'} & set(entry)
         if 'source_kind' in entry and (entry['source_kind'] != 'mandatory' or entry.get('use') != 'normative' or entry['fields'] != ['*'] or entry['temporal'] != 'current' or 'consumed_revision' not in entry or dynamic):
             raise ValueError('normative requirement needs current whole pinned input')
+        version_keys = {'query_contract', 'query_reason', 'query_id', 'query_receipt_digest'} & set(entry)
+        if version_keys and (version_keys != {'query_contract', 'query_reason', 'query_id', 'query_receipt_digest'}
+                or entry['query_contract'] != 'wiki.folder-query-receipt/v2'
+                or not isinstance(entry['query_reason'], str) or not entry['query_reason'].strip()
+                or any(not isinstance(entry[k], str) or not re.fullmatch(r'[0-9a-f]{64}', entry[k])
+                       for k in ('query_id', 'query_receipt_digest')) or not dynamic):
+            raise ValueError('invalid folder query requirement version')
         if dynamic:
             from wiki_core.context_selection import normalize_query, requirement_query
             if dynamic != {'query','members_digest','selected_digest','query_policy_revision','authority_digest'} or not {'consumed_revision','use','classification'} <= set(entry) or entry['fields'] != ['*']:
@@ -389,7 +396,10 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None) -
                 raise ValueError('invalid query requirement digest')
             if not isinstance(entry['query_policy_revision'],str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',entry['query_policy_revision']) or not isinstance(entry['authority_digest'],str) or not re.fullmatch(r'[0-9a-f]{64}',entry['authority_digest']):
                 raise ValueError('query authority proof required')
-            normalized = normalize_query(requirement_query(entry))
+            selected = ({'target':entry['target'], 'query':entry['query'], 'reason':entry['query_reason'],
+                         'use':entry['use'], 'classification':entry['classification']}
+                        if version_keys else requirement_query(entry))
+            normalized = normalize_query(selected)
             entry = {**entry, 'query': normalized['query']}
         resolver = resolve_normative if entry.get('source_kind') == 'mandatory' and resolve_normative else resolve
         targets = resolver(entry['target'])

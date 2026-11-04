@@ -39,13 +39,18 @@ def test_query_and_raw_ingestion_share_host_bound_preflight(project, monkeypatch
     assert packet['queries'][0]['selected'][0]['text'] == '11'
     packet_path.write_text(json.dumps(packet))
 
+    result = result_for(packet, [{'path':base_packet['output'], 'action':'created'}])
     preview = prepare_folder_consolidation(project, binding, request, results,
-                                            candidates=[], max_age_days=30, page_metadata=metadata())
+        candidates=[], max_age_days=30, page_metadata=metadata(), query_packet=packet, query_result=result)
+    from wiki_core.frontmatter import parse_frontmatter
+    requirements = parse_frontmatter(preview['markdown'])[0]['information_requirements']
+    query_requirement = next(row for row in requirements if row.get('query_contract'))
+    assert query_requirement['query_id'] == packet['queries'][0]['receipt']['query_id']
+    assert query_requirement['query_reason'] == 'synthetic'
     git(project, 'checkout', '-qb', 'wiki/query-raw')
     put(project, preview['output'], preview['markdown'])
     git(project, 'add', preview['output']); git(project, 'commit', '-qm', 'synthetic proposal')
     head = git(project, 'rev-parse', 'HEAD')
-    result = result_for(packet, [{'path':preview['output'], 'action':'created'}])
     result_path.write_text(json.dumps(result))
     command = [sys.executable, str(scripts / 'wiki_context_flow.py'), '--repo', str(project),
                '--approved-revision', base, 'preflight', '--folder', 'a', '--index', 'a/index.md',
@@ -56,7 +61,14 @@ def test_query_and_raw_ingestion_share_host_bound_preflight(project, monkeypatch
     checked = subprocess.run(command + ['--source-request', str(request_path)], env=env,
                              capture_output=True, text=True)
     assert checked.returncode == 0, checked.stderr
-    assert json.loads(checked.stdout)['state'] == 'independent_review_required'
+    outcome = json.loads(checked.stdout)
+    assert outcome['state'] == 'independent_review_required'
+    assert outcome['requirements_handling']['count'] == 2
+    assert outcome['capture_handling'] == {'local_bytes':'matched', 'external_origin':'not_verified',
+                                           'external_freshness':'not_verified', 'execution':'not_proven'}
+    from jsonschema import validate
+    schema = scripts.parent / 'docs/references/schemas/wiki-folder-query-preflight-v2.schema.json'
+    validate(outcome, json.loads(schema.read_text()))
 
     wrong_host = dict(env, WIKI_FOLDER_INGEST_HOST_FOLDERS='a/aux/b')
     assert subprocess.run(command + ['--source-request', str(request_path)], env=wrong_host,

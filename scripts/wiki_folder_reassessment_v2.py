@@ -16,7 +16,8 @@ def main():
     parser.add_argument('--repo', default='.')
     parser.add_argument('--approved-revision', required=True)
     parser.add_argument('--folder', required=True)
-    parser.add_argument('--source', required=True)
+    parser.add_argument('--source')
+    parser.add_argument('--query-changed', action='append', help='changed wiki path for bounded query-consumer reassessment')
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument('--scope')
     selection.add_argument('--candidate', action='append')
@@ -41,9 +42,22 @@ def main():
         if any(independent) and not all(independent):
             raise ValueError('complete independent repository selection required')
         selected = dict(zip(('root', 'identity', 'revision', 'path'), independent)) if all(independent) else None
-        output = reassess_folder_source_v2(args.repo, policy, folder=args.folder, source=args.source,
-                    scope=args.scope, candidates=args.candidate, reports=reports,
-                    max_files=args.max_files, max_bytes=args.max_bytes, independent_repo=selected)
+        if args.query_changed:
+            if args.source or selected is not None:
+                raise ValueError('select either query changes or an exact source')
+            from wiki_core.folder_ingestion_v2 import selection_from_host_environment
+            from wiki_core.folder_query_consumers_v2 import reassess_query_consumers
+            binding = selection_from_host_environment(args.folder, 'unused', 'unused').host
+            output = reassess_query_consumers(args.repo, binding, folder=args.folder,
+                        approved_revision=args.approved_revision, changed_paths=args.query_changed,
+                        scope=args.scope, candidates=args.candidate, reports=reports,
+                        max_files=args.max_files, max_bytes=args.max_bytes)
+        else:
+            if not args.source:
+                raise ValueError('source or query change required')
+            output = reassess_folder_source_v2(args.repo, policy, folder=args.folder, source=args.source,
+                        scope=args.scope, candidates=args.candidate, reports=reports,
+                        max_files=args.max_files, max_bytes=args.max_bytes, independent_repo=selected)
     except (ValueError, OSError) as exc:
         report_failure(exc)
         return 1

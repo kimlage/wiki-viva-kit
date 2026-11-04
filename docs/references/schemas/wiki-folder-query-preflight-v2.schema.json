@@ -70,6 +70,32 @@
     "query_coverage": {
       "const": "reported_not_independently_verified"
     },
+    "requirements_handling": {
+      "type": "object", "additionalProperties": false,
+      "required": ["coverage", "count", "freshness", "legacy_receipt_migration"],
+      "properties": {
+        "coverage": {"const": "explicit_current_reported_selections_only"},
+        "count": {"type": "integer", "minimum": 1},
+        "freshness": {"const": "not_assessed"},
+        "legacy_receipt_migration": {"const": "not_performed"}
+      }
+    },
+    "capture_handling": {
+      "type": "object", "additionalProperties": false,
+      "required": ["local_bytes", "external_origin", "external_freshness", "execution"],
+      "properties": {
+        "local_bytes": {"const": "matched"}, "external_origin": {"const": "not_verified"},
+        "external_freshness": {"const": "not_verified"}, "execution": {"const": "not_proven"}
+      }
+    },
+    "repository_handling": {
+      "type": "object", "additionalProperties": false,
+      "required": ["selection", "remote_authentication", "execution"],
+      "properties": {
+        "selection": {"const": "matched_request"}, "remote_authentication": {"const": "not_verified"},
+        "execution": {"const": "not_proven"}
+      }
+    },
     "review": {
       "const": "not_performed"
     },

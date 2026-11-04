@@ -145,14 +145,17 @@ def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, resul
                 'folder': base_packet['context_folder'], 'approved_revision': policy.policy_revision,
                 'base': base_sha, 'head': head_sha, 'branch': branch,
                 'packet': base_packet, 'result': base_result,
-                'source_request': source_request})['preflight']
+                'source_request': source_request, 'query_packet':packet, 'query_result':result})['preflight']
         else:
             outcome=preflight_folder_v2(root,policy,base=base_sha,head=head_sha,branch=branch,
-                                        packet=base_packet,result=base_result)
+                                        packet=base_packet,result=base_result,
+                                        query_packet=packet, query_result=result)
         policy.fresh()
         return {'schema_version':'wiki.folder-query-preflight/v2','state':'independent_review_required',
                 'base':base_sha,'head':head_sha,'branch':branch,'context_id':base_packet['context_id'],
                 'packet_digest':packet['packet_digest'],'changes':outcome['changes'],
+                **{key:outcome[key] for key in ('requirements_handling', 'capture_handling',
+                                                  'repository_handling') if key in outcome},
                 'query_coverage':'reported_not_independently_verified','review':'not_performed',
                 'merge':'not_performed','enforcement_claim':'none'}
     except (KeyError,TypeError,AttributeError,UnicodeError) as exc:
