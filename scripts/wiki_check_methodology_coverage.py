@@ -391,7 +391,7 @@ def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[st
         pending = [
             chunk
             for chunk in chunks
-            if read_matching_result(cache_dir, data, chunk) is None
+            if read_matching_result(cache_dir, data, chunk, root=ROOT) is None
         ]
         if pending:
             results.append(

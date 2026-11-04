@@ -27,11 +27,17 @@ def cache_key(
 
 
 
-def cache_summary(cache_dir: Path) -> dict[str, object]:
+def cache_summary(cache_dir: Path, *, root: Path | None = None) -> dict[str, object]:
     folder_cache = cache_dir / "folder-v2"
     files = list(cache_dir.glob("*.json"))
-    if not folder_cache.is_symlink():
-        files.extend(path for path in folder_cache.glob("*.json") if not path.is_symlink())
+    if root is not None:
+        try:
+            from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+            root = Path(root).resolve()
+            _check_local_boundaries(root, folder_cache.relative_to(root).as_posix())
+            files.extend(path for path in folder_cache.glob("*.json") if not path.is_symlink())
+        except (ValueError, OSError, TypeError, RuntimeError):
+            pass  # Unsafe folder-v2 cache is never followed.
     files.sort()
     prompt_versions: dict[str, int] = {}
     schema_versions: dict[str, int] = {}

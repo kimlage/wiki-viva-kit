@@ -197,6 +197,16 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
             current_request.get("context_binding_version") != 2 or allow_unrequested or not callable(before_write)):
         return _blocked(ContextRequestBlocked("approved_context_revalidation_required", "Folder-bound recording requires the exact current request and a source revalidation fence."),
                         str(current_request.get("source_id") or "source-context-pass"), owner)
+    if current_schema == "wiki.folder-task-context/v2":
+        try:
+            from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+            source_id = current_request.get("source_id")
+            if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,511}", source_id):
+                raise ValueError('invalid source identity')
+            for path in (paths.extraction_events / f"{source_id}-llm-context-request.json", paths.llm_cache):
+                _check_local_boundaries(Path(paths.root), path.relative_to(paths.root).as_posix())
+        except (ValueError, OSError, TypeError, RuntimeError) as exc:
+            return _blocked(exc, str(current_request.get("source_id") or "source-context-pass"), owner)
     raw = sys.stdin.read() if payload_path == "-" else Path(payload_path).read_text(encoding="utf-8")
     data = json.loads(raw)
     results = data if isinstance(data, list) else [data]
@@ -389,6 +399,9 @@ def main() -> int:
             source = str(root / source)
         manifest = build_manifest(source, args.context, root=root)
         try:
+            if folder_selection is not None:
+                from wiki_core.folder_ingestion_v2 import validate_folder_artifact_paths
+                validate_folder_artifact_paths(root, paths, str(manifest['source_id']))
             if source_guard is None:  # Approved callers use the exact origin-qualified artifact ID.
                 manifest = resolve_source_manifest(manifest, paths.source_manifests, paths.chunks, root=root)
             chunks = (_chunks_for_source(paths, manifest, require_complete_origin=True)
@@ -478,6 +491,7 @@ def main() -> int:
             block_context_package=context_package,
             context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes,
             source_authorization=source_guard["authorization"] if source_guard else None,
+            context_root=root,
         )
         if source_config:
             request["source_config_ref"] = source_config["path"]
@@ -504,6 +518,13 @@ def main() -> int:
 
     if args.emit_request:
         out = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"
+        if folder_selection is not None:
+            try:
+                from wiki_core.folder_ingestion_v2 import _check_local_boundaries
+                revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
+                _check_local_boundaries(root, out.relative_to(root).as_posix())
+            except (ValueError, OSError) as exc:
+                return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(canonical_request_text(request), encoding="utf-8")
         print(out.relative_to(root))

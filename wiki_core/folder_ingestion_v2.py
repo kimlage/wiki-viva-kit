@@ -42,6 +42,7 @@ def selection_from_host_environment(folder, index_path, output_path, source_ref=
 
 
 def _check_local_boundaries(root, ref):
+    ref = safe_path(ref)
     cursor = root
     for part in Path(ref).parts:
         cursor = cursor / part
