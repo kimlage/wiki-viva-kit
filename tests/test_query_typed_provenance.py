@@ -33,7 +33,7 @@ def make_case(root, mode, binding='costs', before_report=None):
     if mode=='typed_plus_legacy': (root/local).write_text('---\npage_id: local\npage_type: claim\n---\nLocal changed.\n')
     git(root,'add','.');git(root,'commit','-qm','source update');head=git(root,'rev-parse','HEAD')
     if before_report is not None: before_report()
-    options = {} if binding is None else {'query_context':binding,'query_policy_revision':base,'query_head':head}
+    options = {} if binding is None else {'query_mode':'v1','query_context':binding,'query_policy_revision':base,'query_head':head}
     return repository_report(root,load_config(root),base,**options)
 
 
@@ -80,7 +80,7 @@ def test_direct_anchor_edit_still_revalidates_the_collection(collection):
     commit(root);p=packet(root)
     (root/'finance/costs/result.md').write_text('---\n'+yaml.safe_dump({'page_id':'consumer','page_type':'claim','information_requirements':[requirement(p)]})+'---\nInterpretation.\n')
     base=commit(root);git(root,'checkout','-qb','wiki/anchor-change');anchor=root/ANCHOR;anchor.write_text(anchor.read_text()+'Updated collection contract.\n');git(root,'add','.');git(root,'commit','-qm','anchor change');head=git(root,'rev-parse','HEAD')
-    report=repository_report(root,load_config(root),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(root,load_config(root),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     assert any(r['path']=='finance/costs/result.md' and r['reason']=='dynamic_query_changed' and not r['verification_performed'] for r in report['pending_reviews'])
 
 
@@ -119,7 +119,7 @@ def test_converging_typed_paths_cannot_hide_unauthorized_upstream(collection):
     anchor=root/ANCHOR;anchor.write_text('---\n'+yaml.safe_dump({'page_id':'cost-collection','page_type':'source_catalog','information_requirements':[{'target':x,'fields':['*'],'temporal':'current','max_age_days':30} for x in (local,middle)]})+'---\nCollection.\n')
     commit(root);p=packet(root);(root/'finance/costs/result.md').write_text('---\n'+yaml.safe_dump({'page_id':'consumer','page_type':'claim','information_requirements':[requirement(p)]})+'---\nInterpretation.\n')
     base=commit(root);git(root,'checkout','-qb','wiki/converging-paths');write_page(local,'a-local',[],'Local after');write_page(outside,'external',[],'Outside after');git(root,'add','.');git(root,'commit','-qm','two source changes');head=git(root,'rev-parse','HEAD')
-    report=repository_report(root,load_config(root),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(root,load_config(root),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     assert any(r['path']==ANCHOR and r['reason']=='dynamic_impact_authority_boundary' for r in report['blockers'])
 
 

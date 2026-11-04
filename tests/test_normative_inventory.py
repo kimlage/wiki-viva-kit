@@ -68,7 +68,7 @@ def test_bound_full_audit_qualifies_only_current_inherited_rule(repo,inside,monk
     assert row['review']=='not_assessed' and row['fact_freshness']=='not_assessed'
     other=bind_normative_coverage(repo,graph,policy(repo),'tax',head=head)
     assert assess_information_use(other,target,now=dt.datetime.now(dt.timezone.utc))['requirements'][0]['blockers']==['information_normative_authority_required']
-    report=repository_report(repo,load_config(repo),head,query_context='costs',query_policy_revision=head,query_head=head)
+    report=repository_report(repo,load_config(repo),head,query_mode='v1', query_context='costs',query_policy_revision=head,query_head=head)
     assert not report['relation_errors']
     assert next(row for row in report['information_use'] if row['consumer']==target)['ready']
     assert report['query_revalidation']['normative_scope']=='selected_context_only_not_auditor_acl'
@@ -77,11 +77,11 @@ def test_bound_full_audit_qualifies_only_current_inherited_rule(repo,inside,monk
         from scripts import wiki_audit as audit
         monkeypatch.setattr(audit,'ROOT',repo)
         monkeypatch.setattr(sys,'argv',['wiki_audit.py','--check','--only','freshness_budget','--freshness-base',head,
-            '--query-context','costs','--query-policy-revision',head,'--query-head',head])
+            '--query-mode','v1','--query-context','costs','--query-policy-revision',head,'--query-head',head])
         code=audit.main(); output=capsys.readouterr().out
         assert code==0,output
     (repo/rule).write_text('Changed rule\n');git(repo,'add','.');git(repo,'commit','-qm','rule revision');new=git(repo,'rev-parse','HEAD')
-    proposed=repository_report(repo,load_config(repo),head,query_context='costs',query_policy_revision=head,query_head=new)
+    proposed=repository_report(repo,load_config(repo),head,query_mode='v1', query_context='costs',query_policy_revision=head,query_head=new)
     row=next(row for row in proposed['information_use'] if row['consumer']==target)
     assert row['requirements'][0]['blockers']==['information_normative_changed']
     assert any(r['path']==target and r['reason']=='information_changed' for r in proposed['pending_reviews'])
@@ -105,7 +105,7 @@ def test_bound_normative_revocation_never_reads_denied_rule(repo,monkeypatch):
     monkeypatch.setattr(RepositoryReader,'read',spy)
     qualified=bind_normative_coverage(repo,graph,policy(repo),'costs',head=head)
     assert assess_information_use(qualified,target,now=dt.datetime.now(dt.timezone.utc))['requirements'][0]['blockers']==['information_normative_authority_required']
-    report=repository_report(repo,load_config(repo),head,query_context='costs',query_policy_revision=head,query_head=head)
+    report=repository_report(repo,load_config(repo),head,query_mode='v1', query_context='costs',query_policy_revision=head,query_head=head)
     row=next(r for r in report['information_use'] if r['consumer']==target)
     assert row['requirements'][0]['blockers']==['information_normative_authority_required']
 

@@ -34,7 +34,7 @@ def test_changed_dynamic_member_reaches_downstream_ordinary_and_query(collection
     if change=='addition': page(collection,'added.md')
     else: (collection/SCOPE/'first.md').unlink()
     git(collection,'add','.');git(collection,'commit','-qm','change input');head=git(collection,'rev-parse','HEAD')
-    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(collection,load_config(collection),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     reasons={r['path']:r['reason'] for r in report['pending_reviews']}
     assert TASK['output'] in reasons
     assert reasons['finance/costs/downstream.md']=='upstream_interpretation_pending'
@@ -44,7 +44,7 @@ def test_changed_dynamic_member_reaches_downstream_ordinary_and_query(collection
     if change=='removal': return
     out=tmp_path/'cli-report.json'
     script="import sys; from pathlib import Path; import scripts.wiki_audit as a; a.ROOT=Path(sys.argv.pop(1)); sys.argv[0]='wiki_audit.py'; raise SystemExit(a.main())"
-    proc=subprocess.run([sys.executable,'-c',script,str(collection),'--check','--only','freshness_budget','--freshness-base',base,'--query-context','costs','--query-policy-revision',base,'--query-head',head,'--freshness-report',str(out)],cwd=KIT,text=True,capture_output=True)
+    proc=subprocess.run([sys.executable,'-c',script,str(collection),'--check','--only','freshness_budget','--freshness-base',base,'--query-mode','v1','--query-context','costs','--query-policy-revision',base,'--query-head',head,'--freshness-report',str(out)],cwd=KIT,text=True,capture_output=True)
     assert proc.returncode==0,proc.stdout+proc.stderr
     cli=json.loads(out.read_text()); assert 'finance/costs/downstream.md' in {r['path'] for r in cli['pending_reviews']}
 
@@ -76,7 +76,7 @@ def test_cross_context_or_denied_destination_is_visible_boundary(collection):
 def test_policy_change_remains_requalification_not_fact_change(collection):
     base=setup_chain(collection);git(collection,'checkout','-qb','wiki/policy-closure')
     (collection/'rules.md').write_text('Updated synthetic rule\n');git(collection,'add','.');git(collection,'commit','-qm','policy change');head=git(collection,'rev-parse','HEAD')
-    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(collection,load_config(collection),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     rows=[r for r in report['pending_reviews'] if r['path']==TASK['output']]
     assert any(r['reason']=='dynamic_query_requalification_required' and r['verification_performed'] is False for r in rows)
     assert not report['blockers']
@@ -107,7 +107,7 @@ def test_ordinary_change_reaches_query_with_unchanged_member(collection):
     qp=build_packet(root,policy(root),'costs',git(root,'rev-parse','HEAD'),[],50000,queries=[q],task_id='q-task',goal='review',output='finance/costs/q.md',integrator='reviewer')
     (root/'finance/costs/q.md').write_text('---\n'+yaml.safe_dump({'page_id':'q','page_type':'claim','information_requirements':[requirement(qp)]})+'---\nQuery dependent.\n')
     base=commit(root);git(root,'checkout','-qb','wiki/ordinary-query');(root/source).write_text('---\npage_id: source\npage_type: claim\n---\nAfter.\n');git(root,'add','.');git(root,'commit','-qm','source update');head=git(root,'rev-parse','HEAD')
-    report=repository_report(root,load_config(root),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(root,load_config(root),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     reasons={(r['path'],r['reason']) for r in report['pending_reviews']}
     assert (TASK['output'],'information_changed') in reasons
     assert ('finance/costs/q.md','dynamic_query_upstream_pending') in reasons
@@ -160,7 +160,7 @@ def test_equivalent_affected_query_does_not_repeat_or_seed_age_debt(collection,m
     calls=[]; original=qa.revalidate_affected
     def counted(*args,**kwargs): calls.append(1); return original(*args,**kwargs)
     monkeypatch.setattr(qa,'revalidate_affected',counted)
-    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(collection,load_config(collection),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     assert len(calls)==1
     assert not any(r['reason'] in ('dynamic_query_changed','dynamic_query_upstream_pending','upstream_interpretation_pending') for r in report['pending_reviews'])
 
@@ -203,7 +203,7 @@ def test_distinct_query_requirements_retain_separate_pending_causes(collection):
     target.write_text('---\n'+yaml.safe_dump(values)+'---\n'+body)
     base=commit(collection);git(collection,'checkout','-qb','wiki/distinct-query-reasons')
     page(collection,'added.md');git(collection,'add','.');git(collection,'commit','-qm','new member');head=git(collection,'rev-parse','HEAD')
-    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(collection,load_config(collection),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     rows=[r for r in report['pending_reviews'] if r['path']=='finance/costs/query-downstream.md' and r['reason']=='dynamic_query_upstream_pending']
     assert len(rows)==2 and len({r['requirement_id'] for r in rows})==2, (report['pending_reviews'],report['blockers'])
 
@@ -218,7 +218,7 @@ def test_ordinary_seed_does_not_import_unauthorized_provenance(collection):
     qp=build_packet(root,policy(root),'costs',git(root,'rev-parse','HEAD'),[],50000,queries=[q],task_id='q-task',goal='review',output='finance/costs/q.md',integrator='reviewer')
     (root/'finance/costs/q.md').write_text('---\n'+yaml.safe_dump({'page_id':'q','page_type':'claim','information_requirements':[requirement(qp)]})+'---\nQuery dependent.\n')
     base=commit(root);git(root,'checkout','-qb','wiki/unapproved-provenance');(root/source).write_text('Changed unrelated owner.\n');git(root,'add','.');git(root,'commit','-qm','outside source update');head=git(root,'rev-parse','HEAD')
-    report=repository_report(root,load_config(root),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(root,load_config(root),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     assert any(x['reason']=='dynamic_impact_authority_boundary' and x['path']==TASK['output'] for x in report['blockers'])
     assert not any(x['path']=='finance/costs/q.md' and x['reason']=='dynamic_query_upstream_pending' for x in report['pending_reviews'])
 
@@ -231,7 +231,7 @@ def test_existing_narrow_pending_row_widens_after_dynamic_dependency(collection)
     consumer.write_text('---\n'+yaml.safe_dump(values)+'---\n'+body)
     base=commit(collection);git(collection,'checkout','-qb','wiki/widen-existing-pending')
     page(collection,'first.md',amount=33);git(collection,'add','.');git(collection,'commit','-qm','change selected field');head=git(collection,'rev-parse','HEAD')
-    report=repository_report(collection,load_config(collection),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(collection,load_config(collection),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     target='finance/costs/downstream.md'
     rows=[r for r in report['pending_reviews'] if r['path']==target and r['reason']=='information_changed']
     included=next(r for r in report['included'] if r['path']==target)
@@ -252,7 +252,7 @@ def test_ordinary_global_impact_does_not_create_query_authority_boundary(collect
         p=packet(root)
         (root/'finance/costs/unrelated-query.md').write_text('---\n'+yaml.safe_dump({'page_id':'unrelated-query','page_type':'claim','information_requirements':[requirement(p)]})+'---\nOther collection.\n')
     base=commit(root) if unrelated_query else git(root,'rev-parse','HEAD');git(root,'checkout','-qb','wiki/unrelated-impact');(root/source).write_text('---\npage_id: source\npage_type: claim\n---\nAfter.\n');git(root,'add','.');git(root,'commit','-qm','source update');head=git(root,'rev-parse','HEAD')
-    report=repository_report(root,load_config(root),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(root,load_config(root),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     assert any(r['path']==TASK['output'] and r['reason']=='information_changed' for r in report['pending_reviews'])
     assert not any(r['reason']=='dynamic_impact_authority_boundary' for r in report['blockers'])
 
@@ -274,7 +274,7 @@ def test_unselected_member_with_pending_filter_field_causes_query_review(collect
     assert revalidate_affected(root,**args,pending_sources={TASK['output']:{'status'}})[0]['reason']=='dynamic_query_upstream_pending'
     assert revalidate_affected(root,**args,pending_sources={SCOPE+'/first.md':{'page_id'}})[0]['reason']=='dynamic_query_upstream_pending'
     git(root,'checkout','-qb','wiki/filter-candidate');(root/source).write_text('---\npage_id: source\npage_type: claim\n---\nAfter.\n');git(root,'add','.');git(root,'commit','-qm','source update');head=git(root,'rev-parse','HEAD')
-    report=repository_report(root,load_config(root),base,query_context='costs',query_policy_revision=base,query_head=head)
+    report=repository_report(root,load_config(root),base,query_mode='v1', query_context='costs',query_policy_revision=base,query_head=head)
     assert any(r['path']=='finance/costs/q.md' and r['reason']=='dynamic_query_upstream_pending' for r in report['pending_reviews'])
 
 

@@ -59,7 +59,7 @@ is not a grant, and the inventory does not open that external rule body. An
 untracked or unsafe target remains an inventory error. Generic information-use
 readiness reports `information_normative_authority_required`, not factual
 claim/evidence/verification blockers. The existing scoped freshness audit
-binding (`--query-context`, `--query-policy-revision`, `--query-head`) also
+binding (`--query-mode v1`, `--query-context`, `--query-policy-revision`, `--query-head`) also
 qualifies normative requirements for the selected owner only. It compares the
 approved declaration and historical/current authority and whole bytes, and
 requires the proposed rule to be unchanged. Git tree/index and worktree stat
