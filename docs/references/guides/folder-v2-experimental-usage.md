@@ -297,6 +297,26 @@ request. Missing or mismatched bindings, requests and results fail closed.
 Query scope edits still require separate requalification; neither the query
 receipt nor the recorded result proves a semantic read or independent review.
 
+When the query envelope and its reported result are provided to folder
+consolidation, the proposed claim records versioned query projections in its
+existing `information_requirements`. The query preflight rebuilds the envelope
+and compares the projections to the reported selection; it requires them for
+an ingestion-bound query. Generic query-only proposals may omit them and then
+cannot be discovered as durable query consumers. This records the selection,
+not proof that the executor read it. The v2 projection retains its own receipt
+identity and cannot be reinterpreted as a v1 receipt.
+
+An explicitly authorized host may select consumers and changed paths with
+`wiki_folder_reassessment_v2.py --query-changed PATH --candidate CONSUMER`
+and a `--reports` file containing the prior query packet, result and integrated
+revision for each matching consumer. The host uses the same root and folder
+bindings as ingestion. Only the selected owner and paths are inventoried; an
+anchor or scope intersection selects a candidate, including a newly added
+member. The narrow historical replay supports one query per supplied report.
+Without that report the declaration stays `declared_without_report`; with it,
+the comparison stays `review_pending`. Neither state asserts completed review,
+execution, freshness or exhaustive consumer coverage.
+
 ## Compare one reported source and consumer
 
 ```sh

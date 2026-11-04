@@ -184,7 +184,7 @@ def prepare_folder_packet(root, binding, payload):
 def prepare_folder_preflight(root, binding, payload):
     """Preflight an exact v2 proposal, without approving, merging or executing."""
     required = {'folder', 'approved_revision', 'base', 'head', 'branch', 'packet', 'result'}
-    if not isinstance(payload, dict) or not required <= set(payload) or set(payload) - (required | {'source_request'}):
+    if not isinstance(payload, dict) or not required <= set(payload) or set(payload) - (required | {'source_request', 'query_packet', 'query_result'}):
         raise FolderCoordinationError('invalid request')
     if contains_access_secrets(payload):
         raise FolderCoordinationError('invalid request')
@@ -226,7 +226,8 @@ def prepare_folder_preflight(root, binding, payload):
         policy = policy.fresh()
         outcome = preflight_folder_v2(binding.root, policy, base=base, head=head,
                          branch=payload['branch'], packet=packet, result=payload['result'],
-                         binding=binding, source_request=payload.get('source_request'))
+                         binding=binding, source_request=payload.get('source_request'),
+                         query_packet=payload.get('query_packet'), query_result=payload.get('query_result'))
         policy.fresh()
         return {'schema_version': 'wiki.folder-host-preflight/v2', 'mode': 'host_bound',
                 'preflight': outcome, 'enforcement_claim': 'none'}
