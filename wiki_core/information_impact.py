@@ -27,9 +27,9 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
 
 def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str]) -> list[dict]:
     """Select query declarations touched by paths or dependency closure, without reading members."""
-    from wiki_core.context_policy import within, is_context_instruction
+    from wiki_core.context_policy import within, is_context_policy_change
     found = {}
-    policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
+    policy_changed = any(is_context_policy_change(p) for p in changed)
     for origin, graph in (('base', base), ('current', current)):
         for edge in dependency_edges(graph, origin=origin)[0]:
             req = edge.get('requirement', {})
@@ -231,8 +231,8 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     # A manifest change can revoke or remove an inherited normative input even
     # when neither its body nor its consumer changed. The global caller-trust
     # audit cannot prove the new authority; preserve a visible review obligation.
-    from wiki_core.context_policy import is_context_instruction
-    if any(path == 'context.yaml' or path.endswith('/context.yaml') or is_context_instruction(path) for path in changed):
+    from wiki_core.context_policy import is_context_policy_change
+    if any(is_context_policy_change(path) for path in changed):
         normative_consumers = {edge['source'] for edge in current['edges']
             if edge.get('type') == 'operational_prerequisite'
             and edge.get('field') == 'information_requirements'
