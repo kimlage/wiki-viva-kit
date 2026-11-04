@@ -20,7 +20,7 @@ import yaml
 from pathlib import Path
 from typing import Any
 
-from wiki_core.traversal import wiki_markdown_files
+from wiki_core.traversal import is_in_nested_git, wiki_markdown_files
 from wiki_core.action_transition import integrate_action_body, transition_action_page
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.frontmatter import parse_frontmatter
@@ -62,6 +62,8 @@ def _safe(root: Path, ref: str) -> Path:
             break
         if parent.is_symlink():
             raise ProposalError("proposal_symlink_not_eligible")
+    if is_in_nested_git(target, wiki_root=root):
+        raise ProposalError("proposal_nested_repository_not_eligible")
     return target
 
 

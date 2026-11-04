@@ -72,6 +72,7 @@ def test_shape_audit_keeps_typed_action_dialogue(tmp_path, monkeypatch, audit, c
     )) + "---\n\n# Example\n")
     registry = SimpleNamespace(schema_version=audit.PAGE_TYPES_SCHEMA_VERSION,
                               page_types={"action": {"field_types": {"action_state_history": "list"}}})
+    (tmp_path / 'wiki.page-types.yaml').write_text('{}\n')
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     monkeypatch.setattr(audit, "markdown_files", lambda: ["memories/actions/example.md"])
     monkeypatch.setattr(audit, "load_page_type_registry", lambda root: registry)
@@ -259,7 +260,8 @@ Test content.
 """
 
 
-def test_parse_frontmatter_valid(tmp_path, audit):
+def test_parse_frontmatter_valid(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
     path = tmp_path / "valid.md"
     path.write_text(VALID_FRONTMATTER, encoding="utf-8")
     values, errors = audit.parse_frontmatter(path)
@@ -270,7 +272,8 @@ def test_parse_frontmatter_valid(tmp_path, audit):
     assert values["page_type"] == "dashboard"
 
 
-def test_parse_frontmatter_missing_block(tmp_path, audit):
+def test_parse_frontmatter_missing_block(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
     path = tmp_path / "no-frontmatter.md"
     path.write_text("# No frontmatter\n\nbody only here.\n", encoding="utf-8")
     values, errors = audit.parse_frontmatter(path)
@@ -278,7 +281,8 @@ def test_parse_frontmatter_missing_block(tmp_path, audit):
     assert "missing frontmatter block" in errors
 
 
-def test_parse_frontmatter_strips_quotes(tmp_path, audit):
+def test_parse_frontmatter_strips_quotes(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
     # Finding 15: quoted visibility escaped the public PII block.
     path = tmp_path / "quoted.md"
     path.write_text(
@@ -740,6 +744,222 @@ def test_text_storage_checks_ignored_files_only_inside_explicit_content_roots(tm
     assert len(errors) == 1 and "docs/original.pdf" in errors[0]
 
 
+@pytest.mark.parametrize('marker', ['directory', 'file'])
+def test_audit_does_not_open_parent_tracked_file_under_nested_git(tmp_path, audit, monkeypatch, capsys, marker):
+    nested = tmp_path / 'docs' / 'node' / 'repo'
+    nested.mkdir(parents=True)
+    selected = nested / 'previously-tracked.md'
+    selected.write_text('Synthetic previously tracked document\n')
+    outside = tmp_path / 'docs' / 'node' / 'index.md'
+    outside.write_text('Synthetic wiki node\n')
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    subprocess.run(['git', 'add', 'docs'], cwd=tmp_path, check=True)
+    if marker == 'directory':
+        (nested / '.git').mkdir()
+    else:
+        (nested / '.git').write_text('gitdir: synthetic\n')
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    audit.tracked_files.cache_clear()
+    try:
+        ref = 'docs/node/repo/previously-tracked.md'
+        assert ref in audit.tracked_files()  # Metadata inventory is retained.
+        assert ref not in audit.markdown_files()
+        assert ref not in audit._scannable_text_files()
+        assert 'docs/node/index.md' in audit.markdown_files()
+        original_read = Path.read_text
+        def deny_nested_read(path, *args, **kwargs):
+            if path == selected:
+                pytest.fail('audit opened nested repository content')
+            return original_read(path, *args, **kwargs)
+        monkeypatch.setattr(Path, 'read_text', deny_nested_read)
+        audit.audit_old_paths([], WikiConfig())
+        monkeypatch.setattr(audit, 'context_hub_pages', lambda _config: ([], []))
+        primary_errors, warnings = [], []
+        audit.audit_frontmatter(primary_errors, warnings, WikiConfig(audit={'core_pages': [ref]}))
+        assert any(ref in error and 'nested repository' in error for error in primary_errors)
+        original_open = audit.os.open
+        def deny_nested_open(path, *args, **kwargs):
+            if Path(path) == selected:
+                pytest.fail('text storage opened nested repository content')
+            return original_open(path, *args, **kwargs)
+        monkeypatch.setattr(audit.os, 'open', deny_nested_open)
+        errors = []
+        audit.audit_wiki_text_storage(errors, WikiConfig(audit={
+            'wiki_text_storage': {'enabled': True, 'roots': ['docs']}}))
+        assert any(ref in error and 'nested repository' in error for error in errors)
+        monkeypatch.setattr(audit, 'load_config', lambda _root: WikiConfig())
+        monkeypatch.setattr(audit, 'CHECKS', (('old_paths', lambda _ctx: pytest.fail('audit check ran after boundary')),))
+        monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--only', 'old_paths', '--check'])
+        assert audit.main() == 1
+        captured = capsys.readouterr().out
+        assert ref in captured and 'limits audit coverage' in captured
+    finally:
+        audit.tracked_files.cache_clear()
+
+
+@pytest.mark.parametrize('selection', ['command_reference', 'operation', 'core', 'concept', 'memory_root', 'custody'])
+def test_audit_blocks_untracked_configured_path_inside_ignored_clone_before_checks(
+        tmp_path, audit, monkeypatch, capsys, selection):
+    nested = tmp_path / 'memories' / 'node' / 'repo'
+    nested.mkdir(parents=True)
+    target = nested / 'example.md'
+    target.write_text('Synthetic untracked repository content\n')
+    (nested / '.git').mkdir()
+    (tmp_path / '.gitignore').write_text('memories/node/repo/\n')
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    config = WikiConfig()
+    rel = 'memories/node/repo/example.md'
+    if selection == 'command_reference': config.paths['command_reference_page'] = rel
+    elif selection == 'operation': config.paths['operation_page'] = rel
+    elif selection == 'core': config.audit['core_pages'] = [rel]
+    elif selection == 'concept': config.audit['operational_concept_links'] = {rel: {}}
+    elif selection == 'memory_root': config.paths['memory_root'] = 'memories/node/repo'
+    else: config.audit['wiki_text_storage'] = {'enabled': True, 'roots': ['memories/node/repo']}
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: config)
+    monkeypatch.setattr(audit, 'CHECKS', (('sentinel', lambda _ctx: pytest.fail('audit check ran after boundary')),))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--check'])
+    original_read = Path.read_text
+    def deny_nested_read(path, *args, **kwargs):
+        if path == target: pytest.fail('configured nested body was opened')
+        return original_read(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', deny_nested_read)
+    assert audit.main() == 1
+    assert 'configured path crosses a nested repository' in capsys.readouterr().out
+
+
+def test_audit_ignores_unselected_clone_without_blocking_checks(tmp_path, audit, monkeypatch):
+    nested = tmp_path / 'memories' / 'node' / 'repo'
+    nested.mkdir(parents=True)
+    (nested / '.git').mkdir()
+    (nested / 'example.md').write_text('Synthetic ignored repository content\n')
+    (tmp_path / '.gitignore').write_text('memories/node/repo/\n')
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: WikiConfig())
+    checked = []
+    monkeypatch.setattr(audit, 'CHECKS', (('sentinel', lambda _ctx: checked.append(True)),))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--check'])
+    assert audit.main() == 0 and checked == [True]
+
+
+def test_audit_rejects_config_symlink_before_loading(tmp_path, audit, monkeypatch, capsys):
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    nested = tmp_path / 'ignored/repo'
+    nested.mkdir(parents=True)
+    (nested / '.git').mkdir()
+    config = nested / 'wiki.config.yaml'
+    config.write_text('repo_id: synthetic\n')
+    (tmp_path / 'wiki.config.yaml').symlink_to(config)
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: pytest.fail('nested configuration was opened'))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--check'])
+    assert audit.main() == 1
+    assert 'configuration crosses' in capsys.readouterr().out
+
+
+def test_audit_rejects_report_destination_in_nested_repo_before_checks(tmp_path, audit, monkeypatch, capsys):
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    nested = tmp_path / 'ignored/repo'
+    nested.mkdir(parents=True); (nested / '.git').mkdir()
+    report = nested / 'report.json'
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: WikiConfig())
+    monkeypatch.setattr(audit, 'CHECKS', (('freshness_budget', lambda _ctx: pytest.fail('check ran before report fence')),))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--only', 'freshness_budget',
+                                    '--freshness-report', str(report), '--check'])
+    assert audit.main() == 1
+    assert 'report path crosses' in capsys.readouterr().out
+    assert not report.exists()
+
+
+def test_audit_rejects_selected_pack_boundary_before_delegated_reads(tmp_path, audit, monkeypatch, capsys):
+    from wiki_core import experience_packs
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    (tmp_path / 'wiki.page-types.yaml').write_text('schema_version: wiki_page_types.v1\npage_types: {}\n')
+    first = tmp_path / '.wiki-viva/packs/first/1.0.0'
+    second = tmp_path / '.wiki-viva/packs/second/1.0.0'
+    first.mkdir(parents=True); second.mkdir(parents=True)
+    clone = second / 'fixtures/clone'
+    clone.mkdir(parents=True); (clone / '.git').mkdir()
+    lock = {'packs': {'first': {'status': 'active', 'installed_path': '.wiki-viva/packs/first/1.0.0'},
+                      'second': {'status': 'active', 'installed_path': '.wiki-viva/packs/second/1.0.0'}}}
+    monkeypatch.setattr(experience_packs, 'load_lock', lambda _root: lock)
+    monkeypatch.setattr(audit, 'load_page_type_registry', lambda _root: pytest.fail('delegated registry read ran'))
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: WikiConfig(audit={'page_type_registry_check': True}))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--only', 'page_type_registry', '--check'])
+    assert audit.main() == 1
+    assert 'boundary' in capsys.readouterr().out
+
+
+def test_audit_rejects_selected_template_inside_nested_repo(tmp_path, audit, monkeypatch, capsys):
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    nested = tmp_path / 'memories/node/repo'
+    nested.mkdir(parents=True); (nested / '.git').mkdir()
+    template = nested / 'template.md'
+    template.write_text('Synthetic nested template\n')
+    registry = tmp_path / 'wiki.page-types.yaml'
+    registry.write_text('schema_version: wiki_page_types.v1\npage_types:\n  claim:\n    template: memories/node/repo/template.md\n')
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: WikiConfig(audit={'page_type_registry_check': True}))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--only', 'page_type_registry', '--check'])
+    original = Path.read_bytes
+    def sentinel(path, *args, **kwargs):
+        if path == template: pytest.fail('nested template was opened')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_bytes', sentinel)
+    assert audit.main() == 1
+    assert 'boundary' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('selected', ['prompt_checksums', 'drive_artifact_links', 'llm_cache_metadata', 'consolidation'])
+def test_selected_fixed_and_dynamic_audit_reads_reject_nested_repo(
+        tmp_path, audit, monkeypatch, capsys, selected):
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    config = WikiConfig()
+    if selected == 'prompt_checksums':
+        nested = tmp_path / 'wiki_core/llm/prompts'
+        nested.mkdir(parents=True)
+        target = nested / '.checksums'
+    elif selected == 'drive_artifact_links':
+        nested = tmp_path / 'data'
+        nested.mkdir()
+        target = nested / 'drive_artifacts_manifest.json'
+        (tmp_path / 'docs').mkdir()
+        config.paths['raw_root'] = 'staging/raw'
+        config.paths['derived_root'] = 'staging/derived'
+        config.audit['wiki_text_storage'] = {'enabled': True, 'roots': ['docs']}
+    elif selected == 'llm_cache_metadata':
+        nested = tmp_path / 'data/derived/wiki/llm-cache'
+        nested.mkdir(parents=True)
+        target = nested / 'result.json'
+    else:
+        nested = tmp_path / 'memories/node/repo'
+        nested.mkdir(parents=True)
+        target = nested / 'claim.md'
+        event = tmp_path / 'memories/system/ingestion/events/event.md'
+        event.parent.mkdir(parents=True)
+        event.write_text('---\nsource_id: synthetic\nconsolidated_into:\n  - memories/node/repo/claim.md\n---\n')
+    target.write_text('synthetic nested content\n')
+    (nested / '.git').mkdir()
+    (tmp_path / '.gitignore').write_text(str(nested.relative_to(tmp_path)) + '/\n')
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: config)
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py', '--only', selected, '--check'])
+    original_text, original_bytes = Path.read_text, Path.read_bytes
+    def deny_text(path, *args, **kwargs):
+        if path == target: pytest.fail('selected nested body was opened')
+        return original_text(path, *args, **kwargs)
+    def deny_bytes(path, *args, **kwargs):
+        if path == target: pytest.fail('selected nested body was opened')
+        return original_bytes(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', deny_text)
+    monkeypatch.setattr(Path, 'read_bytes', deny_bytes)
+    assert audit.main() == 1
+    assert 'boundary' in capsys.readouterr().out
+
+
 def test_text_storage_does_not_follow_symlink_or_read_fifo(tmp_path, audit, monkeypatch):
     import os
     (tmp_path / "docs").mkdir()
@@ -1173,7 +1393,8 @@ def test_append_only_directory_links_are_ignored(tmp_path, audit, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_parse_frontmatter_is_memoized_per_path(tmp_path, audit):
+def test_parse_frontmatter_is_memoized_per_path(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
     audit.parse_frontmatter.cache_clear()
     path = tmp_path / "page.md"
     path.write_text(VALID_FRONTMATTER, encoding="utf-8")
