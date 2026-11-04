@@ -153,6 +153,13 @@ def test_explicit_requalification_preserves_other_source_and_git_history(project
     with pytest.raises(FolderCoordinationError): prepare_folder_preflight(project, binding, payload)
     outcome = prepare_folder_preflight(project, binding, {**payload, 'requalify_source':True})['preflight']
     assert outcome['state'] == 'independent_review_required'
+    assert outcome['prior_ingestion_provenance'] == {
+        'capture':'preserved_not_revalidated' if kind == 'repo' else 'absent',
+        'repository':'preserved_not_revalidated' if kind == 'raw' else 'absent'}
+    if kind == 'raw':
+        assert outcome['capture_handling']['local_bytes'] == 'matched'
+    else:
+        assert outcome['repository_handling']['selection'] == 'matched_request'
     assert git(project, 'show', f'{base}:{path}') == first['markdown'].strip()
     import yaml
     for mutation in ('projection', 'requirement'):

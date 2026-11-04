@@ -10,7 +10,7 @@ from tests.test_folder_policy_v2 import project, put, git
 from tests.test_folder_consolidate_v2 import fixture_inputs, metadata
 from wiki_core.consolidate import prepare_folder_consolidation
 from wiki_core.folder_coordination_v2 import prepare_folder_preflight
-from wiki_core.folder_source_provenance_v2 import add_projection, selected_projection, FIELD
+from wiki_core.folder_source_provenance_v2 import add_projection, selected_projection, preserved_projection_kinds, FIELD
 from wiki_core.frontmatter import parse_frontmatter
 
 
@@ -53,6 +53,8 @@ def test_projection_is_additive_and_source_specific(prior_kind, new_kind):
     assert ('source_authorization' in new_selected) == (new_kind == 'raw')
     assert ('independent_repo_read' in new_selected) == (new_kind == 'repo')
     assert selected_projection(final, 'a/unrelated.md') == {}
+    assert preserved_projection_kinds(final, exclude_source='a/new-source.md') == (prior_kind == 'raw', prior_kind == 'repo')
+    assert preserved_projection_kinds(final, exclude_source='a/old-source.md') == (new_kind == 'raw', new_kind == 'repo')
     schema = json.loads((Path(__file__).resolve().parents[1] / 'docs/references/schemas/wiki-folder-source-provenance-v2.schema.json').read_text())
     validate(final[FIELD], schema)
     changed = deepcopy(final); changed[FIELD]['entries'].append(deepcopy(changed[FIELD]['entries'][0]))
@@ -125,8 +127,22 @@ def test_existing_claim_accepts_new_source_but_preserves_prior(project, monkeypa
         'changes':[{'path':packet['output'], 'action':'modified'}]}
     payload = {'folder':'a', 'approved_revision':base, 'base':base, 'head':head,
                'branch':'wiki/multi-provenance', 'packet':packet, 'result':result, 'source_request':request}
+    from wiki_core.repository_reader import RepositoryReader
+    read = RepositoryReader.read
+    def guarded_read(reader, path, *args, **kwargs):
+        if path == 'a/old-source.md':
+            pytest.fail('prior source must not be read for preserved projection reporting')
+        return read(reader, path, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded_read)
     outcome = prepare_folder_preflight(project, binding, payload)
     assert outcome['preflight']['state'] == 'independent_review_required'
+    assert outcome['preflight']['prior_ingestion_provenance'] == {
+        'capture':'preserved_not_revalidated' if prior_kind == 'raw' else 'absent',
+        'repository':'preserved_not_revalidated' if prior_kind == 'repo' else 'absent'}
+    if new_kind == 'raw':
+        assert outcome['preflight']['capture_handling']['local_bytes'] == 'matched'
+    else:
+        assert outcome['preflight']['repository_handling']['selection'] == 'matched_request'
     if prior_kind == 'raw' and new_kind == 'raw':
         import yaml
         from wiki_core.folder_coordination_v2 import FolderCoordinationError

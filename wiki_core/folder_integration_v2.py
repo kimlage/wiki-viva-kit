@@ -451,6 +451,11 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                     from wiki_core.folder_query_requirements_v2 import same_json
                     if not same_json(actual_projection, expected_projection):
                         raise ValueError('existing provenance changed or current source differs')
+                    from wiki_core.folder_source_provenance_v2 import preserved_projection_kinds
+                    prior_capture, prior_repo = preserved_projection_kinds(
+                        old_meta, exclude_source=ingestion_source if requalify_source else None)
+                    capture_preserved |= prior_capture
+                    repo_preserved |= prior_repo
                     old_refs = old_meta.get('source_refs', [])
                     if not isinstance(old_refs, list) or any(not isinstance(ref, str) for ref in old_refs):
                         raise ValueError('source references unavailable')
