@@ -81,7 +81,9 @@ def preparation_blocker(exc: Exception, source_id: str, owner: str) -> dict:
         exc = ContextRequestBlocked("context_budget_exceeded", "Required context cannot fit its explicit byte budget; choose an authorized narrower stage or revise the budget.")
     if isinstance(exc, ContextRequestBlocked):
         code, reason, status = exc.code, str(exc), "denied" if exc.code.endswith("_denied") else "pending"
-        required = ("Check the selected folder and index; for an auxiliary folder explicitly select its indexed ancestor."
+        required = ("Inspect possible partial local artifacts and resolve them before retrying."
+                    if code == "local_persistence_partial" else
+                    "Check the selected folder and index; for an auxiliary folder explicitly select its indexed ancestor."
                     if code == "local_folder_unavailable" else
                     "Install and configure the approved v4 deep-read prompt, then re-emit and read the bound request."
                     if code == "approved_prompt_migration_required"
@@ -96,7 +98,9 @@ def preparation_blocker(exc: Exception, source_id: str, owner: str) -> dict:
         required = "Ask the context owner/integrator to verify the current approved context, exact read scope and available inputs."
     return {"error_code": code, "blocker": blocker("prepare_context_request", "source:" + source_id,
         reason, owner, required,
-        ("The selected folder instructions and index are available without crossing a Git boundary."
+        ("Possible partial local artifacts have been inspected and resolved."
+         if code == "local_persistence_partial" else
+         "The selected folder instructions and index are available without crossing a Git boundary."
          if code == "local_folder_unavailable" else
          "The v4 deep-read prompt is installed and configured for approved requests."
          if code == "approved_prompt_migration_required" else

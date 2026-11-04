@@ -92,9 +92,13 @@ class IngestResult:
     index_diagnostics: dict[str, int] = field(default_factory=dict)
     blockers: list[dict[str, object]] = field(default_factory=list)
     context_error_code: str | None = None
+    partial_effects: str | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {"schema_version": SCHEMA_VERSION, **asdict(self)}
+        data = {"schema_version": SCHEMA_VERSION, **asdict(self)}
+        if self.partial_effects is None:
+            data.pop('partial_effects')
+        return data
 
 
 def _rel(path: Path, root: Path) -> str:
@@ -104,14 +108,14 @@ def _rel(path: Path, root: Path) -> str:
         return str(path)
 
 
-def _blocked_preparation(context, config, exc):
+def _blocked_preparation(context, config, exc, *, write_uncertain: bool = False):
     report = preparation_blocker(exc, "requested-input", config.owner_label)
     return IngestResult(source_id="", context=context, source_type="unverified",
         written=False, blocked=True, manifest_path=None, text_path=None, chunks_path=None,
         chunk_count=0, chunks_indexed=0, request_path=None, pending_llm_calls=0,
         secret_findings=[], pii_findings=[], score_event_id=None, gate_state="blocked",
         llm_context_status="blocked", warnings=[], blockers=[report["blocker"]],
-        context_error_code=report["error_code"])
+        context_error_code=report["error_code"], partial_effects='unknown' if write_uncertain else None)
 
 
 def run(
@@ -187,10 +191,19 @@ def run(
                 context = ''
         return _blocked_preparation(context, config, exc)
 
-    source_path = Path(source).expanduser()
-    source_bytes = source_path.stat().st_size if source_path.is_file() else None
-    with _observed(observer, "manifest_hash", bytes_read=source_bytes):
-        manifest = build_manifest(source, context, root=root)
+    try:
+        if entry_folder is not None:
+            source = validate_local_entry_source(root, source)
+        source_path = Path(source).expanduser()
+        source_bytes = source_path.stat().st_size if source_path.is_file() else None
+        if entry_folder is not None:
+            source = validate_local_entry_source(root, source)
+        with _observed(observer, "manifest_hash", bytes_read=source_bytes):
+            manifest = build_manifest(source, context, root=root)
+    except (ValueError, OSError) as exc:
+        if entry_folder is None:
+            raise
+        return _blocked_preparation(context, config, exc)
     if source_guard is not None:
         try:
             revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
@@ -227,9 +240,16 @@ def run(
     extracted = None
     chunk_count = 0
     if is_local_file:
-        with _observed(observer, "extraction", bytes_read=source_bytes) as metrics:
-            extracted = extract_source(source, source_type)
-            metrics["text_characters"] = len(extracted.text)
+        try:
+            if entry_folder is not None:
+                source = validate_local_entry_source(root, source)
+            with _observed(observer, "extraction", bytes_read=source_bytes) as metrics:
+                extracted = extract_source(source, source_type)
+                metrics["text_characters"] = len(extracted.text)
+        except (ValueError, OSError) as exc:
+            if entry_folder is None:
+                raise
+            return _blocked_preparation(context, config, exc)
         warnings = list(extracted.warnings)
         target = int(config.llm.get("chunk_target_tokens", 1200))
         overlap = int(config.llm.get("chunk_overlap_tokens", 150))
@@ -258,9 +278,16 @@ def run(
     secret_findings: list[dict[str, object]] = []
     pii_findings: list[dict[str, object]] = []
     if is_local_file:
-        with _observed(observer, "raw_scan", bytes_read=source_bytes) as metrics:
-            findings = list(scan_file(src_path))
-            metrics["finding_count"] = len(findings)
+        try:
+            if entry_folder is not None:
+                source = validate_local_entry_source(root, source)
+            with _observed(observer, "raw_scan", bytes_read=source_bytes) as metrics:
+                findings = list(scan_file(src_path))
+                metrics["finding_count"] = len(findings)
+        except (ValueError, OSError) as exc:
+            if entry_folder is None:
+                raise
+            return _blocked_preparation(context, config, exc)
         if extracted is not None and extracted.text:
             with _observed(
                 observer,
@@ -390,7 +417,9 @@ def run(
             current = _folder_documents(root, entry_folder, entry_index, context_max_bytes)
             if selected_context['documents'] != current:
                 raise ValueError('selected folder context changed before persistence')
-            current_manifest = build_manifest(source, context, root=root)
+            from wiki_core.llm.context_pass import validate_local_entry_source
+            current_source = validate_local_entry_source(root, source)
+            current_manifest = build_manifest(current_source, context, root=root)
             if current_manifest.get('hash_sha256') != manifest.get('hash_sha256'):
                 raise ValueError('selected source changed before persistence')
             from wiki_core.traversal import require_wiki_path
@@ -408,76 +437,84 @@ def run(
             pending = chunk_count; request = None; blocked = True
     persist = write and not blocked
 
-    if persist:
-        if entry_folder is not None:
-            for path in (paths.source_manifests, paths.source_text, paths.chunks, paths.extraction_events):
-                require_wiki_path(root, path.relative_to(root).as_posix()).mkdir(parents=True, exist_ok=True)
-        else:
-            paths.ensure()
+    try:
+        if persist:
+            if entry_folder is not None:
+                for path in (paths.source_manifests, paths.source_text, paths.chunks, paths.extraction_events):
+                    require_wiki_path(root, path.relative_to(root).as_posix()).mkdir(parents=True, exist_ok=True)
+            else:
+                paths.ensure()
 
-    text_path: str | None = None
-    chunks_path: str | None = None
-    manifest_path: str | None = None
-    if persist:
-        with _observed(observer, "persistence") as metrics:
-            manifest_file = write_manifest(manifest, paths.source_manifests)
-            manifest_path = _rel(manifest_file, root)
-            written_files = [manifest_file]
-            if is_local_file and extracted is not None:
-                text_file = paths.source_text / f"{source_id}.json"
-                text_file.write_text(
-                    json.dumps(
-                        {
-                            "schema_version": "wiki_extracted_text.v1",
-                            "source_id": source_id,
-                            "source_uri": source,
-                            "source_type": source_type,
-                            "context": context,
-                            "warnings": warnings,
-                            "text_characters": len(extracted.text),
-                            "units": extracted.units,
-                        },
-                        ensure_ascii=False,
-                        indent=2,
-                        sort_keys=True,
+        text_path: str | None = None
+        chunks_path: str | None = None
+        manifest_path: str | None = None
+        if persist:
+            with _observed(observer, "persistence") as metrics:
+                manifest_file = write_manifest(manifest, paths.source_manifests)
+                manifest_path = _rel(manifest_file, root)
+                written_files = [manifest_file]
+                if is_local_file and extracted is not None:
+                    text_file = paths.source_text / f"{source_id}.json"
+                    text_file.write_text(
+                        json.dumps(
+                            {
+                                "schema_version": "wiki_extracted_text.v1",
+                                "source_id": source_id,
+                                "source_uri": source,
+                                "source_type": source_type,
+                                "context": context,
+                                "warnings": warnings,
+                                "text_characters": len(extracted.text),
+                                "units": extracted.units,
+                            },
+                            ensure_ascii=False,
+                            indent=2,
+                            sort_keys=True,
+                        )
+                        + "\n",
+                        encoding="utf-8",
                     )
-                    + "\n",
-                    encoding="utf-8",
+                    text_path = _rel(text_file, root)
+                    chunks_file = paths.chunks / f"{source_id}.json"
+                    write_source_artifact(chunks_file, chunk_document(manifest, chunk_dicts, warnings=warnings))
+                    chunks_path = _rel(chunks_file, root)
+                    written_files.extend([text_file, chunks_file])
+                metrics["files_written"] = len(written_files)
+                metrics["bytes_written"] = sum(path.stat().st_size for path in written_files)
+
+        chunks_indexed = 0
+        index_diagnostics = {}
+        if persist and entry_folder is None and (chunk_dicts or extracted is not None and not warnings):
+            # INCREMENTAL indexing: only the just-written source is (re)indexed,
+            # instead of a full rebuild of the whole directory on every ingestion
+            # (finding 13).
+            with _observed(observer, "fts") as metrics:
+                index_result = index_source(
+                    paths.indexes / "wiki.sqlite", paths.chunks / f"{source_id}.json"
                 )
-                text_path = _rel(text_file, root)
-                chunks_file = paths.chunks / f"{source_id}.json"
-                write_source_artifact(chunks_file, chunk_document(manifest, chunk_dicts, warnings=warnings))
-                chunks_path = _rel(chunks_file, root)
-                written_files.extend([text_file, chunks_file])
-            metrics["files_written"] = len(written_files)
-            metrics["bytes_written"] = sum(path.stat().st_size for path in written_files)
+                chunks_indexed = int(index_result.get("chunks_indexed", 0))
+                index_diagnostics = {key: index_result[key] for key in
+                    ("ambiguous_origins", "unresolved_indexed_sources", "preserved_incomplete_sources")
+                    if index_result.get(key)}
+                metrics["chunks_indexed"] = chunks_indexed
+                index_path = paths.indexes / "wiki.sqlite"
+                metrics["sqlite_bytes"] = index_path.stat().st_size if index_path.exists() else None
 
-    chunks_indexed = 0
-    index_diagnostics = {}
-    if persist and entry_folder is None and (chunk_dicts or extracted is not None and not warnings):
-        # INCREMENTAL indexing: only the just-written source is (re)indexed,
-        # instead of a full rebuild of the whole directory on every ingestion
-        # (finding 13).
-        with _observed(observer, "fts") as metrics:
-            index_result = index_source(
-                paths.indexes / "wiki.sqlite", paths.chunks / f"{source_id}.json"
+        if persist and request is not None:
+            request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
+            request_file.write_text(
+                canonical_request_text(request),
+                encoding="utf-8",
             )
-            chunks_indexed = int(index_result.get("chunks_indexed", 0))
-            index_diagnostics = {key: index_result[key] for key in
-                ("ambiguous_origins", "unresolved_indexed_sources", "preserved_incomplete_sources")
-                if index_result.get(key)}
-            metrics["chunks_indexed"] = chunks_indexed
-            index_path = paths.indexes / "wiki.sqlite"
-            metrics["sqlite_bytes"] = index_path.stat().st_size if index_path.exists() else None
+            request_path = _rel(request_file, root)
 
-    if persist and request is not None:
-        request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"
-        request_file.write_text(
-            canonical_request_text(request),
-            encoding="utf-8",
-        )
-        request_path = _rel(request_file, root)
 
+    except (ValueError, OSError):
+        if entry_folder is None:
+            raise
+        error = ContextRequestBlocked('local_persistence_partial',
+            'Local persistence stopped; partial effects may exist and must be inspected before retrying.')
+        return _blocked_preparation(context, config, error, write_uncertain=True)
 
     score_event_id: str | None = None
     if persist and entry_folder is None and record_score and chunk_count > 0:
