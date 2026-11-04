@@ -552,9 +552,6 @@ def main() -> int:
         if source_config:
             request["source_config_ref"] = source_config["path"]
             request["source_config_perspectives_applied"] = True
-        if folder_selection is not None:
-            from wiki_core.folder_request_identity_v2 import folder_request_identity
-            request['folder_request_id'] = folder_request_identity(request)
         enforce_request_budget(request, context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes)
         if source_guard is not None:
             revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
