@@ -542,6 +542,7 @@ def main() -> int:
             independent_repo_additional_content=source_guard.get("independent_repo_additional_content") if source_guard else None,
             folder_query_packet=query_packet,
             context_root=root,
+            source_config_ref=source_config['path'] if folder_selection is not None and source_config else None,
         )
         if source_config:
             request["source_config_ref"] = source_config["path"]
@@ -594,8 +595,15 @@ def main() -> int:
                 _check_local_boundaries(root, out.relative_to(root).as_posix())
             except (ValueError, OSError) as exc:
                 return _blocked(exc, str(manifest.get("source_id") or "source-context-pass"), config.owner_label)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(canonical_request_text(request), encoding="utf-8")
+        if folder_selection is not None:
+            try:
+                from wiki_core.folder_request_identity_v2 import retain_folder_request
+                out = retain_folder_request(root, paths, request)
+            except (ValueError, OSError) as exc:
+                return _blocked(exc, str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)
+        else:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(canonical_request_text(request), encoding="utf-8")
         print(out.relative_to(root))
         return 0
 
