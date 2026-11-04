@@ -14,9 +14,11 @@ agent that runs this repo, perform the deep reading, write the result, and then
 consolidate and INTEGRATE what you read into the target wiki pages — the work
 does not end at the cache. There is no embedded Python LLM client — by design.
 
-The honesty gate: as long as there is a chunk without a valid recorded result and
-`required_context_pass: true` in `wiki.config.yaml`, the auditor fails. A complex
-source is not consolidated without the deep reading. And the consolidation gate
+The legacy global honesty gate fails when a globally stored request has a chunk
+without a valid recorded result and `required_context_pass: true`. It does not
+inspect the separate folder-v2 artifact namespaces; folder preflight validates
+the explicitly selected request and results. A complex source is not
+consolidated without the deep reading. And the consolidation gate
 ([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) `--mode v1 --check`, in
 CI) covers v1 and fails while there is a source with a complete deep read but no closed event:
 ingesting = integrating.

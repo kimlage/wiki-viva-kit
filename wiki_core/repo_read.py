@@ -123,8 +123,11 @@ def contains_access_secrets(value: object) -> bool:
 
 
 def read_independent_repo(root: Path, expected_identity: str, revision: str, path: str,
-                          *, section: str | None = None, field: str | None = None) -> dict:
+                          *, section: str | None = None, field: str | None = None,
+                          max_bytes: int = _MAX_BLOB_BYTES) -> dict:
     """Read one exact Git path from the selected root and immutable revision."""
+    if type(max_bytes) is not int or not 1 <= max_bytes <= _MAX_BLOB_BYTES:
+        raise RepoReadError('invalid_repository_byte_limit')
     root = Path(root).expanduser()
     if not root.is_dir():
         raise RepoReadError('repository_missing')
@@ -149,7 +152,7 @@ def read_independent_repo(root: Path, expected_identity: str, revision: str, pat
         reader = _LocalRepositoryReader(root, revision)
         if normalized not in reader.paths:
             raise RepoReadError('repository_path_missing_or_unsupported')
-        if reader.blob_size(normalized) > _MAX_BLOB_BYTES:
+        if reader.blob_size(normalized) > max_bytes:
             raise RepoReadError('repository_file_too_large')
         item = reader.read(normalized, section=section, field=field)
     except RepositoryReadError as exc:

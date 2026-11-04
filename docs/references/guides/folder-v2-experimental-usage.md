@@ -235,6 +235,38 @@ not prove who produced the output, that an agent read anything, or that review
 or a merge occurred. It does not enumerate consumers or migrate v1 receipts.
 Other cases remain blocked.
 
+## Bounded literal search
+
+Use the selected folder and its index with the trusted host binding described
+above. For example, search tracked Markdown owned and readable by that folder:
+
+```sh
+python3 "$WIKI_REPO_ROOT/scripts/wiki_context.py" --repo "$WIKI_REPO_ROOT" --approved-revision APPROVED_SHA \
+  search areas/example --index areas/example/index.md --scope areas/example --literal "selected phrase"
+```
+
+This performs case-folded literal matching within individual lines and returns
+authorized path, Git revision, content digest and matching line numbers. It
+does not return excerpts or consult the global FTS index. It excludes other
+owners, denied paths, instructions, untracked material and independent repos;
+therefore no match is not proof of global absence. File, byte and hit limits
+are explicit; exceeded input budgets block instead of silently truncating the
+search, while `truncated` reports an output hit limit. Mandatory instructions,
+declared references and the selected index are loaded first. The trusted host
+must have authority for their complete blobs and Git tree metadata; this tool
+is not a process sandbox or proof of execution.
+
+For a staged UTF-8 RAW, replace `--scope` with `--raw-capture CAPTURE.json`,
+an explicit capture declaration that may be copied from a prior request.
+The declaration is not proof that an earlier capture or read occurred. Current
+and historical authority and local bytes are rechecked before searching; the
+source-page association and external freshness remain unverified. For one
+independent Git blob, use `--source-repository ROOT IDENTITY REVISION PATH
+--source-ref SOURCE_PAGE`; the host must bind that exact folder, repository,
+identity and path. The source node, local origin, immutable revision and byte
+limit are checked; configured origin is not remote authentication. Neither
+route searches unselected sources or obtains anything from an external service.
+
 ## Selectively inspect consumer declarations
 
 This separate candidate checks paths in one authorized owner before opening

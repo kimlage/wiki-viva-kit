@@ -46,8 +46,33 @@ def _folder_main(argv):
     attach = sub.add_parser('attach-queries', help='attach queries to an existing ingestion packet')
     attach.add_argument('folder'); attach.add_argument('--index', required=True)
     attach.add_argument('--source-request', required=True); attach.add_argument('--queries', required=True)
+    search = sub.add_parser('search', help='bounded literal search in an authorized folder or explicit source')
+    search.add_argument('folder'); search.add_argument('--index', required=True); search.add_argument('--literal', required=True)
+    selected = search.add_mutually_exclusive_group(required=True)
+    selected.add_argument('--scope'); selected.add_argument('--raw-capture')
+    selected.add_argument('--source-repository', nargs=4, metavar=('ROOT', 'IDENTITY', 'REVISION', 'PATH'))
+    search.add_argument('--source-ref', help='approved source page naming the selected independent repository')
+    search.add_argument('--max-files', type=int, default=256); search.add_argument('--max-bytes', type=int, default=1000000)
+    search.add_argument('--max-hits', type=int, default=100)
     args = parser.parse_args(argv)
     try:
+        if args.command == 'search':
+            from wiki_core.folder_ingestion_v2 import host_binding_from_environment
+            from wiki_core.folder_coordination_v2 import _bound_policy
+            from wiki_core.folder_search_v2 import search_folder
+            host = host_binding_from_environment()
+            _bound_policy(args.repo, host, args.folder, args.approved_revision)
+            if bool(args.source_repository) != bool(args.source_ref):
+                raise ValueError('repository source reference required only with a repository selection')
+            repository = ({'source_ref':args.source_ref, 'root':args.source_repository[0],
+                           'identity':args.source_repository[1], 'revision':args.source_repository[2],
+                           'path':args.source_repository[3]} if args.source_repository else None)
+            capture = _read_json(args.raw_capture) if args.raw_capture else None
+            output = search_folder(args.repo, host, approved_revision=args.approved_revision, folder=args.folder,
+                index_path=args.index, query=args.literal, scope=args.scope, raw_capture=capture,
+                repository=repository, max_files=args.max_files, max_bytes=args.max_bytes, max_hits=args.max_hits)
+            print(json.dumps(output, ensure_ascii=False, sort_keys=True))
+            return 0
         policy = load_folder_policy_v2(args.repo, args.approved_revision)
         if args.command == 'resolve':
             preauthorize_index(policy, args.folder, args.index)
@@ -96,6 +121,11 @@ def _folder_main(argv):
                 output = build_folder_query_packet_v2(args.repo, policy, base_packet=output, queries=queries)
         policy.fresh()
     except (ValueError, KeyError, TypeError, OSError) as exc:
+        if args.command == 'search':
+            from wiki_core.folder_search_v2 import FolderSearchError
+            if isinstance(exc, FolderSearchError):
+                print(json.dumps({'status':'blocked', 'reason':exc.code}), file=sys.stderr)
+                return 1
         report_failure(exc)
         return 1
     print(json.dumps(output, ensure_ascii=False, sort_keys=True))
