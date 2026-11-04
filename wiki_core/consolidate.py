@@ -40,6 +40,204 @@ REQUEST_SUFFIX = "-llm-context-request.json"
 PACKET_SUFFIX = "-integration-packet.json"
 PACKET_SCHEMA_VERSION = "wiki_integration_packet.v2"
 
+
+def _compare_selected_inputs(root, *, source_page, candidates, repo_root, identity,
+                             revision, repo_path, entry_folder, source_file, entry_index):
+    """Validate the complete explicit selection before opening any body."""
+    from wiki_core.context_policy import safe_path, within
+    from wiki_core.llm.context_pass import validate_local_entry_source
+    from wiki_core.repo_read import contains_access_secrets, remote_identity, _prepare_repo_read
+    from wiki_core.repository_reader import canonical_path
+    from wiki_core.traversal import require_wiki_path
+
+    if (not isinstance(candidates, list) or not 1 <= len(candidates) <= 128
+            or any(not isinstance(ref, str) for ref in candidates)
+            or len(candidates) != len(set(candidates))
+            or contains_access_secrets([source_page, candidates, repo_root, identity, revision,
+                                        repo_path, entry_folder, entry_index, source_file])):
+        raise ValueError('comparison unavailable')
+    if (not isinstance(repo_root, str) or not Path(repo_root).is_absolute()
+            or not isinstance(identity, str) or not isinstance(revision, str)
+            or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision)
+            or canonical_path(repo_path) != repo_path
+            or remote_identity('https://' + identity)[0] != identity):
+        raise ValueError('comparison unavailable')
+    selected_root = Path(repo_root).resolve(strict=True)
+    if not selected_root.is_dir() or selected_root == root.resolve():
+        raise ValueError('comparison unavailable')
+    folder = safe_path(entry_folder, allow_root=True)
+    if not require_wiki_path(root, folder).is_dir():
+        raise ValueError('comparison unavailable')
+    if entry_index is None:
+        if folder == '.':
+            raise ValueError('comparison unavailable')
+        selected_index = folder + '/index.md'
+    else:
+        selected_index = safe_path(entry_index)
+    if not within(selected_index, folder) or not require_wiki_path(root, selected_index).is_file():
+        raise ValueError('comparison unavailable')
+    selected_source = validate_local_entry_source(root, source_file)
+    if not Path(selected_source).is_absolute() or Path(selected_source).stat().st_size > 16_000_000:
+        raise ValueError('selected source exceeds comparison limit')
+    refs = [safe_path(source_page), *(safe_path(ref) for ref in candidates)]
+    if len(set(refs)) != len(refs):
+        raise ValueError('comparison unavailable')
+    selected = [require_wiki_path(root, ref) for ref in refs]
+    if any(not item.is_file() or item.suffix.lower() != '.md' for item in selected):
+        raise ValueError('comparison unavailable')
+    if sum(item.stat().st_size for item in selected) > 1_000_000:
+        raise ValueError('comparison unavailable')
+    _prepare_repo_read(selected_root, identity, revision, repo_path, max_bytes=2_000_000)
+    return refs, selected, selected_source, str(selected_root)
+
+
+def compare_selected_repo(root: Path, paths: WikiPaths, request: dict, *, source_page: str,
+                          candidates: list[str], repo_root: str, identity: str,
+                          revision: str, repo_path: str, entry_folder: str,
+                          source_file: str, entry_index: str | None = None) -> dict:
+    """Compare one explicitly selected Git file for operator-selected candidates.
+
+    This diagnostic records no decision, changes no pages, and does not prove
+    that an interpretation consumed the selected file or grant host access.
+    """
+    from wiki_core.context_selection import _metadata, strict_json_loads
+    from wiki_core.information_relations import information_requirements
+    from wiki_core.llm.context_pass import is_local_folder_request, _folder_documents, validate_local_entry_source
+    from wiki_core.repo_read import (contains_access_secrets, remote_identity,
+                                    _prepare_repo_read, _read_prepared_repo)
+    from wiki_core.traversal import require_wiki_path
+
+    if not is_local_folder_request(request):
+        raise ValueError('comparison unavailable')
+    refs, selected, selected_source, selected_root = _compare_selected_inputs(root,
+        source_page=source_page, candidates=candidates, repo_root=repo_root, identity=identity,
+        revision=revision, repo_path=repo_path, entry_folder=entry_folder,
+        entry_index=entry_index, source_file=source_file)
+    package = request.get('block_context_package')
+    if not isinstance(package, dict):
+        raise ValueError('comparison unavailable')
+    documents = package.get('documents')
+    if not isinstance(documents, list) or any(not isinstance(doc, dict) for doc in documents):
+        raise ValueError('comparison unavailable')
+    limits = request.get('request_limits')
+    if (not isinstance(limits, dict) or type(limits.get('context_max_bytes')) is not int
+            or not 1 <= limits['context_max_bytes'] <= 2_000_000):
+        raise ValueError('comparison unavailable')
+    local = _folder_documents(root, entry_folder, entry_index, limits['context_max_bytes'])
+    if local != [doc for doc in documents if doc.get('origin') == 'working_tree']:
+        raise ValueError('selected folder context changed')
+    if package.get('entry_folder', entry_folder) != entry_folder or package.get('entry_index', local[-1]['path']) != local[-1]['path']:
+        raise ValueError('selected folder context changed')
+    matching = [doc for doc in documents if isinstance(doc, dict) and doc.get('origin') == 'independent_git'
+                and doc.get('repository_root') == selected_root
+                and isinstance(doc.get('repository_read'), dict)
+                and isinstance(doc['repository_read'].get('repository'), dict)
+                and doc['repository_read'].get('repository', {}).get('identity') == identity
+                and doc['repository_read'].get('path') == repo_path]
+    if len(matching) != 1:
+        raise ValueError('comparison unavailable')
+    receipt = matching[0]['repository_read']
+    old_revision = receipt.get('revision')
+    if not isinstance(old_revision, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', old_revision):
+        raise ValueError('comparison unavailable')
+    rows = request.get('chunks')
+    if not isinstance(rows, list) or not rows or any(not isinstance(row, dict) for row in rows) or any(
+            read_matching_result(paths.llm_cache, request, row, root=root) is None for row in rows):
+        raise ValueError('recorded local result unavailable')
+
+    # The retained source locator must identify the same capture before the
+    # source body is reopened. URLs without observed content remain unknown.
+    from wiki_core.source_manifest import source_id_for
+    source_id, source_hash = request.get('source_id'), request.get('source_hash_sha256')
+    if (not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id)
+            or not isinstance(source_hash, str) or not re.fullmatch(r'[0-9a-f]{64}', source_hash)):
+        raise ValueError('source capture unavailable')
+    manifest_ref = (paths.source_manifests / f'{source_id}.json').relative_to(root).as_posix()
+    manifest_path = require_wiki_path(root, manifest_ref)
+    with manifest_path.open('rb') as stream:
+        manifest_bytes = stream.read(2_000_001)
+    if len(manifest_bytes) > 2_000_000:
+        raise ValueError('source capture unavailable')
+    manifest = strict_json_loads(manifest_bytes.decode('utf-8'))
+    if not isinstance(manifest, dict) or not isinstance(manifest.get('source_uri'), str):
+        raise ValueError('source capture unavailable')
+    locator = manifest['source_uri']
+    retained_source = Path(locator).expanduser()
+    if not retained_source.is_absolute():
+        retained_source = root.resolve() / retained_source
+    if retained_source != Path(selected_source):
+        raise ValueError('selected source differs')
+    if (manifest.get('source_id') != source_id or manifest.get('hash_sha256') != source_hash
+            or source_id_for(locator, source_hash, root=root) != source_id):
+        raise ValueError('source capture unavailable')
+    # Refuse large/growing inputs without silently hashing a prefix.
+    source_limit = 16_000_000
+    selected_path = Path(selected_source)
+    if selected_path.stat().st_size > source_limit:
+        raise ValueError('selected source exceeds comparison limit')
+    validate_local_entry_source(root, source_file)
+    with selected_path.open('rb') as stream:
+        data = stream.read(source_limit + 1)
+    if len(data) > source_limit:
+        raise ValueError('selected source exceeds comparison limit')
+    import hashlib
+    if hashlib.sha256(data).hexdigest() != source_hash:
+        raise ValueError('selected source changed')
+
+    # Read only explicitly selected wiki pages and bound their aggregate size.
+    metadata = []
+    remaining = 1_000_000
+    for ref, item in zip(refs, selected):
+        require_wiki_path(root, ref)
+        with item.open('rb') as stream:
+            raw = stream.read(remaining + 1)
+        if len(raw) > remaining:
+            raise ValueError('comparison unavailable')
+        remaining -= len(raw)
+        text = raw.decode('utf-8')
+        if contains_access_secrets(text):
+            raise ValueError('comparison unavailable')
+        metadata.append(_metadata({'text': text}))
+    source = metadata[0]
+    locator = source.get('source_locator')
+    if (source.get('page_type') != 'source' or source.get('platform') != 'repo'
+            or not isinstance(locator, str)
+            or remote_identity(locator if '://' in locator or '@' in locator else 'https://' + locator)[0] != identity):
+        raise ValueError('source repository identity unavailable')
+    page_id = source.get('page_id')
+    if not isinstance(page_id, str) or not page_id:
+        raise ValueError('source identity unavailable')
+
+    # Validate both revisions and object sizes before opening either blob.
+    prepared = [_prepare_repo_read(Path(selected_root), identity, rev, repo_path, max_bytes=2_000_000)
+                for rev in (old_revision, revision)]
+    before, after = [_read_prepared_repo(item) for item in prepared]
+    before_text = before.pop('text')
+    after.pop('text')
+    if before != receipt or matching[0].get('text') != before_text:
+        raise ValueError('retained repository receipt differs')
+    changed = before['content_sha256'] != after['content_sha256']
+    result = []
+    for ref, values in zip(candidates, metadata[1:]):
+        # An unscoped page ID may be duplicated elsewhere. Only an exact path
+        # proves this declaration names the selected source without a scan.
+        def resolve(target):
+            return [target]
+        requirements = information_requirements(values, resolve)
+        declared = any(item['target'] == source_page and item['temporal'] == 'current' for item in requirements)
+        result.append({'path': ref, 'state': 'review_pending' if changed and declared else 'unknown',
+                       'source_page_requirement': 'declared' if declared else 'unknown',
+                       'reason': ('operator_selected_page_requirement_file_consumption_unknown'
+                                  if changed and declared else 'insufficient_file_consumption_evidence'),
+                       'blocking': False, 'file_consumption': 'unknown', 'verification_performed': False})
+    return {'repository_comparison': {'identity': identity, 'path': repo_path,
+                'before_revision': old_revision, 'after_revision': revision,
+                'before_digest': before['content_sha256'], 'after_digest': after['content_sha256'],
+                'changed': changed}, 'source_page': source_page, 'candidates': result,
+            'coverage': 'explicit_candidates_only; selected_repository_only; file_consumption_unknown',
+            'effect': 'manual_suggestion_only; no_gate_effect',
+            'review': 'not_performed', 'write': 'not_performed'}
+
 # Output strings per language (generated event; drives config.language).
 CONSOLIDATE_STRINGS: dict[str, dict[str, str]] = {
     "es": {

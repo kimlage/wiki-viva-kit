@@ -180,6 +180,11 @@ def main() -> int:
     parser.add_argument("--candidate", action="append", default=[], help="explicit local candidate page; repeat as needed")
     parser.add_argument("--repo", nargs=4, action="append", metavar=("ROOT", "IDENTITY", "REVISION", "PATH"),
                         help="repeat each explicitly authorized independent Git selection")
+    parser.add_argument("--folder", help="explicit local context folder for a repository comparison")
+    parser.add_argument("--index", help="explicit local context index for a repository comparison")
+    parser.add_argument("--source-file", help="explicit captured local file for a repository comparison")
+    parser.add_argument("--repo-compare", nargs=4, metavar=("ROOT", "IDENTITY", "REVISION", "PATH"),
+                        help="compare the retained Git file with this explicit local revision")
     parser.add_argument("--all-pending", action="store_true", help="list every pending consolidation (JSON)")
     parser.add_argument("--emit-event", action="store_true", help="generate the normalized event from llm-cache")
     parser.add_argument("--packet", action="store_true", help="emit the integration packet (gitignored)")
@@ -190,6 +195,40 @@ def main() -> int:
     parser.add_argument("--force", action="store_true", help="overwrite an existing event for the source")
     parser.add_argument("--check", action="store_true", help="rc 1 while any consolidation is pending (CI)")
     args = parser.parse_args()
+
+    if args.repo_compare is not None:
+        if (not args.source or not args.source_page or not args.request or not args.candidate or not args.folder or not args.source_file
+                or args.check or args.all_pending or args.packet or args.emit_event or args.force or args.repo):
+            parser.error('repository comparison requires source, source-page, request and candidates only')
+        try:
+            from wiki_core.consolidate import compare_selected_repo, _compare_selected_inputs
+            from wiki_core.llm.context_pass import load_local_request
+            from wiki_core.traversal import require_wiki_path
+            paths = WikiPaths(ROOT, config)
+            ref = Path(args.request)
+            if ref.is_absolute():
+                ref = ref.relative_to(ROOT)
+            request_path = require_wiki_path(ROOT, ref.as_posix())
+            if request_path.parent != paths.extraction_events:
+                raise ValueError('request unavailable')
+            repo_root, identity, revision, repo_path = args.repo_compare
+            _compare_selected_inputs(ROOT, source_page=args.source_page, candidates=args.candidate,
+                repo_root=repo_root, identity=identity, revision=revision, repo_path=repo_path,
+                entry_folder=args.folder, entry_index=args.index, source_file=args.source_file)
+            request = load_local_request(paths, request_path)
+            if not isinstance(request, dict) or request.get('source_id') != args.source:
+                raise ValueError('request unavailable')
+            report = compare_selected_repo(ROOT, paths, request, source_page=args.source_page,
+                candidates=args.candidate, repo_root=repo_root, identity=identity,
+                revision=revision, repo_path=repo_path, entry_folder=args.folder, entry_index=args.index,
+                source_file=args.source_file)
+        except (ValueError, OSError, UnicodeError, RecursionError):
+            print('wiki_consolidate: selected repository comparison unavailable', file=sys.stderr)
+            return 2
+        print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+    if args.folder is not None or args.index is not None or args.source_file is not None:
+        parser.error('folder, index and source-file require --repo-compare')
 
     if args.check or args.all_pending:
         try:

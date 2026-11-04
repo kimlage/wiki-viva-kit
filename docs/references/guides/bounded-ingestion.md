@@ -161,6 +161,29 @@ not authorization or proof of remote identity. Reads use the chosen Git commit,
 without fetching or including working-tree edits; reading an old commit does
 not establish that it is current.
 
+An integrator can compare a previously recorded independent Git selection with
+an explicitly chosen newer revision without editing the wiki:
+
+```sh
+python3 scripts/wiki_consolidate.py --source SOURCE_ID --request REQUEST_PATH \
+  --source-file SOURCE_FILE --folder CONTEXT_FOLDER --source-page SOURCE_PAGE --candidate CANDIDATE_PAGE \
+  --repo-compare REPOSITORY_ROOT IDENTITY NEW_REVISION FILE_PATH
+```
+
+Repeat `--candidate` for the pages the integrator explicitly selects; use
+`--index` when the folder used a non-default index. The retained request,
+recorded result, local instructions, selected source file, source locator and the
+selected file's Git receipt are revalidated. Other repository selections in the
+request are not revalidated by this comparison. A changed file and a candidate's current requirement on the
+selected source page can produce `review_pending`. Whether that interpretation
+actually consumed the Git file remains `unknown`; unselected pages are not
+inspected, coverage is partial, and no review or fact verification is claimed.
+These are nonblocking suggestions for manual triage; they do not change a gate
+or assert that a factual update is necessary.
+The caller supplies the repository selection under the host's actual permissions;
+the configured origin is not an access grant. Source files exceeding 16 MB
+cannot be revalidated by this diagnostic.
+
 Local-folder results use the existing cache under a `local-folder` subdirectory;
 recording them requires the current source and folder to be revalidated. Results
 written through the legacy unrequested bypass stay in the legacy cache and do
