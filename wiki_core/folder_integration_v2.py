@@ -79,6 +79,7 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
     if query_requalifications is not None and status != 'M':
         raise FolderIntegrationError('query requalification requires an existing output')
     validate = new
+    preserve_unchanged = False
     if status == 'M':
         # Preserve existing declarations, except an explicitly requalified
         # source; reported queries may be appended.
@@ -89,6 +90,10 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
         if not isinstance(old, list):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
         from wiki_core.folder_query_requirements_v2 import same_json
+        if ingestion_source is None and not query_rows and query_requalifications is None:
+            if not same_json(old, new):
+                raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+            preserve_unchanged = True
         replacements = {}
         if query_requalifications is not None:
             if ingestion_source is not None or requalify_source or not query_rows or policy is None:
@@ -147,7 +152,7 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
     try:
         tracked = set(approved.paths)
         requirements = information_requirements({'information_requirements': validate},
-                    lambda ref: [ref] if isinstance(ref, str) and ref in tracked else [])
+                    lambda ref: [ref] if isinstance(ref, str) and ref and (preserve_unchanged or ref in tracked) else [])
     except (ValueError, TypeError):
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
     evidence = [row for row in packet['inputs'] if row['kind'] == 'evidence']
@@ -155,6 +160,8 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
     seen_queries = set()
     for req in requirements:
         if req.get('query_contract') == 'wiki.folder-query-receipt/v2':
+            if preserve_unchanged:
+                return 0
             from wiki_core.folder_query_requirements_v2 import query_requirements, same_json
             candidates = query_requirements(query_rows, req['max_age_days'])
             if not any(same_json(req, item) for item in candidates) or req['query_id'] in seen_queries:
@@ -166,6 +173,8 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
                                                 'query_policy_revision', 'authority_digest', 'source_kind'))
                 or ((status == 'A' or ingestion_source is not None) and 'consumed_revision' not in req)
                 or ('consumed_revision' in req and req['consumed_revision'] != approved.revision)):
+            if preserve_unchanged:
+                return 0
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
         for selector in req['fields']:
             if selector == '*':
@@ -175,6 +184,8 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
             elif selector.startswith('section:'):
                 section, field = selector.removeprefix('section:'), None
             else:
+                if preserve_unchanged:
+                    return 0
                 raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
             key = (req['target'], section, field)
             if key in seen:
@@ -186,6 +197,8 @@ def _check_current_requirements(prior, document, path, status, packet, approved,
                        and row['use'] == req.get('use', 'interpret')
                        and row['classification'] == req.get('classification', 'internal')]
             if len(matches) != 1:
+                if preserve_unchanged:
+                    return 0
                 raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     if (require_queries or seen_queries) and seen_queries != {row['receipt']['query_id'] for row in query_rows}:
         raise FolderIntegrationError('folder query requirements unavailable')
@@ -349,6 +362,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
     repo_inspected = False
     capture_preserved = False
     repo_preserved = False
+    requirements_preserved = False
     for path, status in statuses.items():
         if status in ('M', 'D'):
             prior_reads = [row for row in packet['inputs'] if row['kind'] == 'evidence' and row['path'] == path
@@ -397,7 +411,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                 new_projection = {key:document['frontmatter'][key] for key in projection if key in document['frontmatter']}
                 if not same_json(old_projection, new_projection):
                     raise FolderIntegrationError('prior ingestion projections changed')
-            preserve_prior_projections = status == 'M' and path == packet['output'] and bool(query_rows) and ingestion is None
+            preserve_prior_projections = status == 'M' and path == packet['output'] and ingestion is None
             if preserve_prior_projections:
                 from wiki_core.folder_query_requirements_v2 import same_json
                 projection = ('source_authorization', 'independent_repo_read',
@@ -457,11 +471,15 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                         raise ValueError('existing metadata changed')
                 except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
                     raise FolderIntegrationError('existing ingestion provenance unavailable') from None
-            covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved,
+            path_covered = _check_current_requirements(prior, document, path, status, packet, approved,
                  ingestion_source=ingestion_source, query_rows=query_rows if path == packet['output'] else (),
                  require_queries=bool(query_rows and path == packet['output']), policy=policy,
                  query_requalifications=query_requalifications if path == packet['output'] else None,
                  requalify_source=requalify_source and path == packet['output'])
+            covered_requirements += path_covered
+            if (status == 'M' and ingestion_source is None and not (query_rows and path == packet['output'])
+                    and prior['frontmatter'].get('information_requirements') and path_covered == 0):
+                requirements_preserved = True
             selected_meta = document['frontmatter']
             if path == packet['output'] and ingestion is not None:
                 if status == 'A' and 'folder_source_provenance' in document['frontmatter']:
@@ -562,4 +580,6 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
         out['prior_ingestion_provenance'] = {
             'capture': 'preserved_not_revalidated' if capture_preserved else 'absent',
             'repository': 'preserved_not_revalidated' if repo_preserved else 'absent'}
+    if requirements_preserved:
+        out['prior_requirements_handling'] = 'preserved_not_revalidated'
     return out

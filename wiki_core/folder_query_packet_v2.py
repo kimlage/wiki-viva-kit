@@ -158,7 +158,7 @@ def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, resul
         return {'schema_version':'wiki.folder-query-preflight/v2','state':'independent_review_required',
                 'base':base_sha,'head':head_sha,'branch':branch,'context_id':base_packet['context_id'],
                 'packet_digest':packet['packet_digest'],'changes':outcome['changes'],
-                **{key:outcome[key] for key in ('requirements_handling', 'capture_handling', 'modified_ingestion_bodies', 'prior_ingestion_provenance', 'query_requalification',
+                **{key:outcome[key] for key in ('requirements_handling', 'capture_handling', 'modified_ingestion_bodies', 'prior_ingestion_provenance', 'prior_requirements_handling', 'query_requalification',
                                                   'repository_handling') if key in outcome},
                 'query_coverage':'reported_not_independently_verified','review':'not_performed',
                 'merge':'not_performed','enforcement_claim':'none'}

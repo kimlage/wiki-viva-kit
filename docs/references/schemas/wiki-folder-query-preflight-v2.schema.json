@@ -104,6 +104,7 @@
         "repository": {"enum": ["absent", "preserved_not_revalidated"]}
       }
     },
+    "prior_requirements_handling": {"const": "preserved_not_revalidated"},
     "query_requalification": {
       "type": "object", "additionalProperties": false,
       "required": ["count", "state", "review", "freshness"],
