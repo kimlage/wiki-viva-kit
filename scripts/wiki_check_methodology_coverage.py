@@ -291,8 +291,12 @@ def discover_source_ids(paths: WikiPaths) -> list[str]:
     ids: list[str] = []
     for path in sorted(directory.glob("*.json")):
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+            if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', path.name):
+                from wiki_core.llm.context_pass import load_local_request
+                data = load_local_request(paths, path)
+            else:
+                data = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
             continue
         source_id = data.get("source_id") if isinstance(data, dict) else None
         if isinstance(source_id, str) and source_id:

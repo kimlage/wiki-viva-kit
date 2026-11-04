@@ -44,6 +44,82 @@ def canonical_request_text(request: dict) -> str:
                       separators=(",", ":"), allow_nan=False) + "\n"
 
 
+def local_request_identity(request: dict) -> str:
+    """Identify the semantic local request, excluding changing cache counters."""
+    import hashlib
+    if (not is_local_folder_request(request) or not isinstance(request.get('source_id'), str)
+            or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', request['source_id'])):
+        raise ValueError('local request identity unavailable')
+    rows = request.get('chunks')
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise ValueError('local request identity unavailable')
+    for row in rows:
+        if (any(not isinstance(row.get(key), str) or not row[key] for key in ('chunk_id', 'source_id'))
+                or any(not isinstance(row.get(key), str) or not CACHE_KEY_RE.fullmatch(row[key])
+                       for key in ('chunk_hash_sha256', 'context_sha256', 'cache_key'))):
+            raise ValueError('local request identity unavailable')
+    envelope = {k: v for k, v in request.items() if k not in
+                ('folder_request_id', 'byte_accounting', 'pending_llm_calls', 'cached_calls', 'chunks')}
+    envelope['chunks'] = [{k: v for k, v in row.items() if k not in
+                           ('result_exists', 'result_source_id', 'result_chunk_id')} for row in rows]
+    return hashlib.sha256(canonical_request_text(envelope).encode('utf-8')).hexdigest()
+
+
+def local_request_path(paths, request: dict) -> Path:
+    import hashlib
+    identity = local_request_identity(request)
+    if request.get('folder_request_id') != identity:
+        raise ValueError('local request identity differs')
+    source = hashlib.sha256(request['source_id'].encode('utf-8')).hexdigest()
+    return paths.extraction_events / f'folder-{source}-{identity}-llm-context-request.json'
+
+
+def load_local_request(paths, path: Path) -> dict:
+    """Read one explicitly selected request; its identity does not grant access."""
+    from wiki_core.context_selection import strict_json_loads
+    from wiki_core.traversal import require_wiki_path
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = paths.root / candidate
+    if candidate.parent != paths.extraction_events:
+        raise ValueError('local request unavailable')
+    require_wiki_path(paths.root, candidate.relative_to(paths.root).as_posix())
+    if not candidate.is_file() or candidate.stat().st_size > 2_000_000:
+        raise ValueError('local request unavailable')
+    with candidate.open('rb') as stream:
+        content = stream.read(2_000_001)
+    if len(content) > 2_000_000:
+        raise ValueError('local request unavailable')
+    request = strict_json_loads(content.decode('utf-8'))
+    if local_request_path(paths, request) != candidate:
+        raise ValueError('local request differs')
+    return request
+
+
+def retain_local_request(paths, request: dict) -> Path:
+    """Retain the first semantic request without replacing existing work."""
+    import os
+    import tempfile
+    from wiki_core.traversal import require_wiki_path
+    path = local_request_path(paths, request)
+    require_wiki_path(paths.root, path.relative_to(paths.root).as_posix())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    require_wiki_path(paths.root, path.relative_to(paths.root).as_posix())
+    fd, temporary = tempfile.mkstemp(prefix='.wiki-retain-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            stream.write(canonical_request_text(request))
+            stream.flush()
+            os.fsync(stream.fileno())
+        try:
+            os.link(temporary, path, follow_symlinks=False)
+        except FileExistsError:
+            load_local_request(paths, path)
+    finally:
+        os.unlink(temporary)
+    return path
+
+
 def request_limits(context_max_bytes=DEFAULT_CONTEXT_MAX_BYTES,
                    request_max_bytes=DEFAULT_REQUEST_MAX_BYTES) -> dict:
     if any(not isinstance(value, int) or isinstance(value, bool) or value <= 0
@@ -644,10 +720,12 @@ def ingestion_block_context(root: Path, config, input_context: dict,
     if policy_context is not None and approved_revision is None:
         raise ValueError("policy_context requires an explicit approved_revision")
     if entry_folder is not None:
+        from wiki_core.context_policy import safe_path
         selected = _folder_documents(root, entry_folder, entry_index, context_max_bytes)
         return {'schema_version': 'wiki_block_stack.v1', 'center': None, 'stack': [], 'lenses': [],
                 'write_policy': 'proposal_branch_only', 'target_obligations': [],
                 'policy_mode': 'legacy_working_tree_compatibility', 'policy_enforced': False,
+                'entry_folder': safe_path(entry_folder, allow_root=True), 'entry_index': selected[-1]['path'],
                 'documents': selected,
                 'unresolved_context_refs': ['source configuration not selected', 'linked sources not inspected',
                                             'other context not inspected']}
@@ -864,6 +942,9 @@ def build_context_request(
         request["chunks"].append(row)
         request["cached_calls" if existing is not None else "pending_llm_calls"] += 1
     request["instructions"] += " Copy context_sha256 and chunk_hash_sha256 from the chunk; retain its exact source_id and chunk_id."
+    enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
+    if is_local_folder_request(request):
+        request['folder_request_id'] = local_request_identity(request)
     return enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
 
 

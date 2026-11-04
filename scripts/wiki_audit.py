@@ -2186,14 +2186,21 @@ def audit_context_pass_gate(
     for path in sorted(req_dir.glob(f"*{suffix}")):
         rel = path.relative_to(ROOT).as_posix()
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
+            if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', path.name):
+                from wiki_core.llm.context_pass import load_local_request
+                data = load_local_request(paths, path)
+            else:
+                data = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
             # Corrupt JSON must NOT disarm the gate silently (finding 12):
             # deleting/corrupting the request closed the gate with no error.
             errors.append(f"{rel}: unreadable LLM pass request (invalid JSON)")
             continue
         source_id = str(data.get("source_id") or path.name[: -len(suffix)])
         if source_id.startswith("query-") or not (chunks_dir / f"{source_id}.json").exists():
+            if data.get('folder_request_id'):
+                errors.append(f'{rel}: retained local request has no source capture')
+                continue
             orphans.append(rel)
             continue
         try:
