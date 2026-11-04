@@ -1,6 +1,7 @@
 """Narrow v2 preflight; produces a review candidate and performs no merge."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path, PurePosixPath
@@ -30,7 +31,7 @@ def _declares_capture_source(document, ref, revision):
         for req in requirements)
 
 
-def _check_current_requirements(prior, document, path, status, packet, approved):
+def _check_current_requirements(prior, document, path, status, packet, approved, *, ingestion_source=None):
     """Bound a narrow declaration subset to current, explicitly reported inputs.
 
     This does not establish that a report was executed or that a source is
@@ -55,28 +56,41 @@ def _check_current_requirements(prior, document, path, status, packet, approved)
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
         if not isinstance(strict, dict):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
-    if status == 'M':
-        # Python equality conflates e.g. 30 and 30.0 (or True and 1). The
-        # existing declaration must retain its value *and JSON type*, not
-        # merely compare equal after YAML parsing.
-        if old is absent or new is absent:
-            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
-        try:
-            old_json = json.dumps(old, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
-            new_json = json.dumps(new, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
-        except (TypeError, ValueError, OverflowError, RecursionError):
-            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
-        if old_json != new_json:
-            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     if status not in ('A', 'M') or (status == 'M' and not prior):
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
     if not isinstance(new, list):
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
-    if not new:
+    validate = new
+    if status == 'M':
+        # Existing declarations retain exact JSON values and types. Only the
+        # selected ingestion source may be appended as a new requirement.
+        if old is absent:
+            if ingestion_source is None:
+                raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+            old = []
+        if not isinstance(old, list):
+            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+        try:
+            def canonical(value):
+                return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
+            if canonical(old) != canonical(new[:len(old)]):
+                raise ValueError('old requirements changed')
+        except (TypeError, ValueError, OverflowError, RecursionError):
+            raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
+        validate = new[len(old):]
+        if ingestion_source is None:
+            if validate:
+                raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
+            validate = new  # preserve existing behavior for non-ingestion tasks
+        elif (len(validate) != 1 or not isinstance(validate[0], dict)
+              or validate[0].get('target') != ingestion_source
+              or any(not isinstance(item, dict) or item.get('target') == ingestion_source for item in old)):
+            raise FolderIntegrationError('ingestion source addition unavailable')
+    if not validate:
         return 0
     try:
         tracked = set(approved.paths)
-        requirements = information_requirements(document['frontmatter'],
+        requirements = information_requirements({'information_requirements': validate},
                     lambda ref: [ref] if isinstance(ref, str) and ref in tracked else [])
     except (ValueError, TypeError):
         raise FolderIntegrationError('v2 requirement migration and revalidation unavailable') from None
@@ -86,7 +100,7 @@ def _check_current_requirements(prior, document, path, status, packet, approved)
         if (req['temporal'] != 'current' or req['target'] == path
                 or any(name in req for name in ('query', 'members_digest', 'selected_digest',
                                                 'query_policy_revision', 'authority_digest', 'source_kind'))
-                or (status == 'A' and 'consumed_revision' not in req)
+                or ((status == 'A' or ingestion_source is not None) and 'consumed_revision' not in req)
                 or ('consumed_revision' in req and req['consumed_revision'] != approved.revision)):
             raise FolderIntegrationError('v2 requirement migration and revalidation unavailable')
         for selector in req['fields']:
@@ -230,6 +244,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
     # Establish authority and boundary changes from Git metadata before any
     # proposal body is read. Existing output needs an exact prior full read.
     covered_requirements = 0
+    modified_ingestion_bodies = []
     capture_inspected = False
     repo_inspected = False
     for path, status in statuses.items():
@@ -260,7 +275,56 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             document = proposed.read(path)
             if contains_access_secrets(document['text']):
                 raise FolderIntegrationError('secret detected in proposed content')
-            covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved)
+            ingestion_source = None
+            if status == 'M' and path == packet['output'] and ingestion is not None:
+                try:
+                    auth = source_request['source_authorization']
+                    ingestion_source = safe_path(auth['canonical_ref'])
+                    previous_hash = auth['existing_output_sha256']
+                    if previous_hash != prior['content_sha256']:
+                        raise ValueError('selected prior output differs')
+                    source_doc = approved.read(ingestion_source)
+                    source_id = source_doc['frontmatter']['page_id']
+                    if (source_doc['frontmatter'].get('page_type') != 'source'
+                            or not isinstance(source_id, str) or not source_id.startswith('source-')):
+                        raise ValueError('source identity unavailable')
+                    prior_frontmatter = FRONTMATTER_RE.match(prior['text'])
+                    proposed_frontmatter = FRONTMATTER_RE.match(document['text'])
+                    if prior_frontmatter is None or proposed_frontmatter is None:
+                        raise ValueError('existing body unavailable')
+                    before_body = prior['text'][prior_frontmatter.end():]
+                    after_body = document['text'][proposed_frontmatter.end():]
+                    modified_ingestion_bodies.append({'path':path,
+                        'before_sha256':hashlib.sha256(before_body.encode('utf-8')).hexdigest(),
+                        'after_sha256':hashlib.sha256(after_body.encode('utf-8')).hexdigest(),
+                        'semantic_review':'independent_review_required'})
+                    old_meta, new_meta = prior['frontmatter'], document['frontmatter']
+                    projection = {'source_authorization', 'independent_repo_read', 'independent_repo_additional_reads', 'independent_repo_source_ref'}
+                    if any(old_meta.get(key) is not None for key in projection):
+                        raise ValueError('prior capture provenance requires separate migration')
+                    if (new_meta.get('independent_repo_read') is not None
+                            and new_meta.get('independent_repo_source_ref') != ingestion_source):
+                        raise ValueError('repository provenance source unavailable')
+                    old_refs = old_meta.get('source_refs', [])
+                    if not isinstance(old_refs, list) or any(not isinstance(ref, str) for ref in old_refs):
+                        raise ValueError('source references unavailable')
+                    old_requirements = old_meta.get('information_requirements', [])
+                    if (not isinstance(old_requirements, list) or any(not isinstance(row, dict)
+                            or row.get('target') in (ingestion_source, source_id) for row in old_requirements)):
+                        raise ValueError('prior source requirement needs separate revalidation')
+                    wanted_refs = old_refs if source_id in old_refs else [*old_refs, source_id]
+                    if new_meta.get('source_refs') != wanted_refs:
+                        raise ValueError('source references changed')
+                    excluded = projection | {'source_refs', 'information_requirements'}
+                    def canonical_meta(meta):
+                        return json.dumps({k:v for k,v in meta.items() if k not in excluded},
+                                          ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
+                    if canonical_meta(old_meta) != canonical_meta(new_meta):
+                        raise ValueError('existing metadata changed')
+                except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
+                    raise FolderIntegrationError('existing ingestion provenance unavailable') from None
+            covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved,
+                                                                 ingestion_source=ingestion_source)
             capture = document['frontmatter'].get('source_authorization')
             if path == packet['output'] and ingestion is not None:
                 try:
@@ -317,6 +381,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             'branch': branch, 'context_id': packet['context_id'], 'packet_digest': packet['packet_digest'],
             'changes': changes, 'review': 'not_performed', 'gates': 'not_performed', 'merge': 'not_performed',
             'read_coverage': 'reported_not_independently_verified', 'enforcement_claim': 'none'}
+    if modified_ingestion_bodies:
+        out['modified_ingestion_bodies'] = modified_ingestion_bodies
     if covered_requirements:
         out['requirements_handling'] = {'coverage': 'explicit_current_reported_selections_only',
               'count': covered_requirements, 'freshness': 'not_assessed',

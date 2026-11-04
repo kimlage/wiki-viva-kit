@@ -56,6 +56,7 @@ def main() -> int:
     parser.add_argument("--folder-context", help="Opt-in exact folder for a trusted local coordinator; never a grant.")
     parser.add_argument("--folder-index", help="Explicit authorized folder index.")
     parser.add_argument("--folder-output", help="Concrete authorized proposal output path.")
+    parser.add_argument("--folder-existing-sha256", help="Exact SHA-256 of the explicitly selected existing output blob.")
     parser.add_argument("--folder-source-ref", help="Approved source page explicitly associated with staged RAW.")
     parser.add_argument("--folder-repo", nargs=4, action="append", metavar=("ROOT", "IDENTITY", "REVISION", "PATH"), help="Explicit host-authorized local Git selection; repeat for each path; no network access.")
     parser.add_argument("--context-max-bytes", type=int, default=DEFAULT_CONTEXT_MAX_BYTES)
@@ -69,14 +70,15 @@ def main() -> int:
     root = args.root.resolve()
     folder_values = (args.folder_context, args.folder_index, args.folder_output)
     selection = None
-    if any(value is not None for value in folder_values) or args.folder_source_ref is not None or args.folder_repo is not None:
+    if any(value is not None for value in folder_values) or args.folder_source_ref is not None or args.folder_repo is not None or args.folder_existing_sha256 is not None:
         if not all(folder_values) or not args.approved_revision or args.policy_context is not None:
             parser.error("folder mode requires approved-revision, folder-context, folder-index and folder-output; policy-context is v1 only")
         from wiki_core.folder_ingestion_v2 import selection_from_host_environment
         try:
             selection = selection_from_host_environment(args.folder_context, args.folder_index, args.folder_output, args.folder_source_ref,
                 independent_repo=tuple(args.folder_repo[0]) if args.folder_repo else None,
-                additional_repos=tuple(tuple(row) for row in args.folder_repo[1:]) if args.folder_repo else ())
+                additional_repos=tuple(tuple(row) for row in args.folder_repo[1:]) if args.folder_repo else (),
+                existing_output_sha256=args.folder_existing_sha256)
         except ValueError:
             parser.error("invalid folder selection")
     config = load_config(root)

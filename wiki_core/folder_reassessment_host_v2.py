@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from wiki_core.context_policy import _git, safe_path, within
@@ -12,6 +13,76 @@ from wiki_core.folder_policy_v2 import _at_revision
 from wiki_core.folder_reassessment_v2 import reassess_folder_source_v2
 from wiki_core.repo_read import contains_access_secrets
 from wiki_core.repository_reader import RepositoryReader
+
+
+
+
+def _capture_relevant(metadata, source):
+    """Select a well-formed singular RAW projection by its canonical source."""
+    from wiki_core.folder_capture_v2 import CAPTURE_KEYS
+    capture = metadata.get('source_authorization')
+    if capture is None:
+        return False
+    if (not isinstance(capture, dict) or set(capture) != CAPTURE_KEYS
+            or capture.get('source_kind') != 'staged_raw' or capture.get('source_revision') is not None
+            or capture.get('association') != 'caller_selected_unverified'
+            or capture.get('external_origin_verification') != 'not_verified'
+            or capture.get('external_freshness') != 'not_verified'
+            or not isinstance(capture.get('source_origin'), dict)
+            or not isinstance(capture.get('canonical_revision'), str)
+            or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', capture['canonical_revision'])
+            or any(not isinstance(capture.get(key), str) or not re.fullmatch(r'[0-9a-f]{64}', capture[key])
+                   for key in ('source_sha256', 'canonical_sha256'))):
+        raise FolderCoordinationError('raw capture source unavailable')
+    try:
+        safe_path(capture['ref']); ref = safe_path(capture['canonical_ref'])
+    except (ValueError, TypeError, KeyError):
+        raise FolderCoordinationError('raw capture source unavailable') from None
+    return ref == source
+
+
+def _well_formed_repository_projection(receipt):
+    if (not isinstance(receipt, dict) or set(receipt) != {'identity', 'revision', 'path', 'blob',
+            'document_sha256', 'content_sha256', 'section', 'field'}
+            or not isinstance(receipt.get('identity'), str) or not receipt['identity']
+            or any(not isinstance(receipt.get(key), str)
+                   or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', receipt[key])
+                   for key in ('revision', 'blob'))
+            or any(not isinstance(receipt.get(key), str) or not re.fullmatch(r'[0-9a-f]{64}', receipt[key])
+                   for key in ('document_sha256', 'content_sha256'))
+            or receipt.get('section') is not None or receipt.get('field') is not None):
+        return False
+    try:
+        safe_path(receipt['path'])
+    except (ValueError, TypeError, KeyError):
+        return False
+    return True
+
+
+def _repository_relevant(metadata, source):
+    receipt = metadata.get('independent_repo_read')
+    ref = metadata.get('independent_repo_source_ref')
+    additional = metadata.get('independent_repo_additional_reads')
+    if receipt is None:
+        if ref is not None or additional is not None:
+            raise FolderCoordinationError('repository source unavailable')
+        return False
+    if not _well_formed_repository_projection(receipt):
+        raise FolderCoordinationError('repository source unavailable')
+    if additional is not None:
+        if (not isinstance(additional, list) or not 1 <= len(additional) <= 15
+                or any(not _well_formed_repository_projection(row) or row['identity'] != receipt['identity']
+                       or row['revision'] != receipt['revision'] for row in additional)
+                or len({row['path'] for row in [receipt, *additional]}) != len(additional) + 1):
+            raise FolderCoordinationError('repository source unavailable')
+    # Historical records lacked a source reference; keep their conservative
+    # behavior and require the matching request rather than guessing.
+    if ref is None:
+        return True
+    try:
+        return safe_path(ref) == source
+    except (ValueError, TypeError):
+        raise FolderCoordinationError('repository source unavailable') from None
 
 
 def prepare_folder_reassessment(root, binding, payload):
@@ -173,8 +244,9 @@ def prepare_folder_reassessment(root, binding, payload):
                 raise FolderCoordinationError('source request unavailable') from None
             if not isinstance(selected_meta, dict):
                 raise FolderCoordinationError('source request unavailable')
-            has_capture = (selected_meta.get('source_authorization') is not None
-                           or selected_meta.get('independent_repo_read') is not None)
+            raw_relevant = _capture_relevant(selected_meta, source)
+            repo_relevant = _repository_relevant(selected_meta, source)
+            has_capture = raw_relevant or repo_relevant
             ingestion = selected_report['packet'].get('ingestion_binding')
             if (has_capture or ingestion is not None) and (not isinstance(source_auth, dict)
                     or source_request.get('block_context_package') != selected_report['packet']):
@@ -182,10 +254,16 @@ def prepare_folder_reassessment(root, binding, payload):
             if ingestion is not None:
                 from wiki_core.folder_capture_v2 import validate_recorded_request, validate_ingestion_projections
                 validate_recorded_request(binding.root, selected_report['packet'], source_request)
-                validate_ingestion_projections(source_request, selected_meta)
+                relevant_meta = dict(selected_meta)
+                if not raw_relevant:
+                    relevant_meta.pop('source_authorization', None)
+                if not repo_relevant:
+                    for key in ('independent_repo_read', 'independent_repo_additional_reads', 'independent_repo_source_ref'):
+                        relevant_meta.pop(key, None)
+                validate_ingestion_projections(source_request, relevant_meta)
             elif has_capture:
                 raise FolderCoordinationError('ingestion task binding required')
-            if selected_meta.get('independent_repo_read') is not None:
+            if repo_relevant:
                 from wiki_core.folder_capture_v2 import inspect_reported_repository, repository_receipt_projection
                 receipt = source_auth.get('independent_repo_read')
                 projection = selected_meta['independent_repo_read']
@@ -254,7 +332,8 @@ def prepare_folder_reassessment(root, binding, payload):
                 raise FolderCoordinationError('repository request unavailable')
             doc = reader.read(target)
             projection = doc['frontmatter'].get('independent_repo_read')
-            if (projection != repository_receipt_projection(source_auth['independent_repo_read'])
+            if (not _repository_relevant(doc['frontmatter'], source)
+                    or projection != repository_receipt_projection(source_auth['independent_repo_read'])
                     or matched[0].get('repo_read') != {**source_auth['independent_repo_read'],
                                                        'text':source_request.get('independent_repo_content')}):
                 raise FolderCoordinationError('repository request unavailable')
@@ -290,9 +369,9 @@ def prepare_folder_reassessment(root, binding, payload):
         for entry in outcome['consumers']:
             target = entry['target']
             document = reader.read(target)
-            if document['frontmatter'].get('source_authorization') is not None and target not in validated_raw:
+            if _capture_relevant(document['frontmatter'], source) and target not in validated_raw:
                 entry['state'] = 'blocked_raw_capture_unavailable'
-            if document['frontmatter'].get('independent_repo_read') is not None and target not in validated_repo:
+            if _repository_relevant(document['frontmatter'], source) and target not in validated_repo:
                 entry['state'] = 'blocked_repository_request_unavailable'
         policy.fresh()
         return {'schema_version':'wiki.folder-host-reassessment/v2','mode':'host_bound',

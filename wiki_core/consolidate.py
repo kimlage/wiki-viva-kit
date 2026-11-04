@@ -300,9 +300,13 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
             raise ValueError('duplicate candidate')
         reader = RepositoryReader(root, policy.policy_revision)
         _check_local_boundaries(Path(root), output)
-        if (output in reader.paths or any(output == path or output.startswith(path + '/') for path in reader.unsupported_paths)
+        auth = request.get('source_authorization')
+        if not isinstance(auth, dict) or auth.get('source_kind') not in ('git', 'staged_raw'):
+            raise ValueError('source kind unavailable')
+        existing_hash = auth.get('existing_output_sha256')
+        if existing_hash is None and (output in reader.paths or any(output == path or output.startswith(path + '/') for path in reader.unsupported_paths)
                 or (Path(root) / output).exists() or (Path(root) / output).is_symlink()):
-            raise ValueError('existing output requires a separate proposal')
+            raise ValueError('existing output requires explicit selection')
         for path in chosen:
             if (path not in reader.paths or not path.endswith('.md')
                     or policy.owner_of(path) != context or not policy.permits(context, 'read', path)):
@@ -319,10 +323,6 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         if any(not result_matches_request(result, request, row, recording=True)
                for row, result in zip(chunks, results)):
             raise ValueError('unmatched result')
-        auth = request.get('source_authorization')
-        if not isinstance(auth, dict) or auth.get('source_kind') not in ('git', 'staged_raw'):
-            raise ValueError('source kind unavailable')
-
         by_id = {identifier: path for path, identifier in policy.folder_ids.items()}
         evidence = []
         for row in packet['inputs']:
@@ -369,7 +369,7 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         independent = independent_repo_selection_for_request(binding, folder, auth)
         additional = additional_repo_selections_for_request(binding, folder, auth)
         selection = FolderIngestionSelection(binding, folder, packet['index_path'], output,
-                      auth['canonical_ref'] if auth['source_kind'] == 'staged_raw' else None, independent, additional)
+                      auth['canonical_ref'] if auth['source_kind'] == 'staged_raw' else None, independent, additional, existing_hash)
         guard = authorize_folder_ingestion_source(root, auth['ref'], policy.policy_revision,
                                                    selection, context_max_bytes=packet['max_bytes'])
         if (guard['authorization'] != auth or guard['hash_sha256'] != request.get('source_hash_sha256')
@@ -413,10 +413,37 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
             raise ValueError('relation identity unavailable')
         if page_metadata['moc_parent'] not in set(chosen) | {packet['index_path']}:
             raise ValueError('parent was not explicitly selected')
-        frontmatter = {**{key: [] for key in sorted(relation_fields)}, **page_metadata,
-                       'page_type': 'claim', 'source_refs': [source_id], 'information_requirements': [{
-            'target': source, 'fields': ['*'], 'temporal': 'current', 'max_age_days': max_age_days,
-            'consumed_revision': policy.policy_revision, 'use': 'interpretation', 'classification': 'source'}]}
+        requirement = {'target': source, 'fields': ['*'], 'temporal': 'current', 'max_age_days': max_age_days,
+            'consumed_revision': policy.policy_revision, 'use': 'interpretation', 'classification': 'source'}
+        previous = None
+        if existing_hash is not None:
+            prior_rows = [row for row in packet['inputs'] if row.get('kind') == 'evidence'
+                          and row.get('path') == output and row.get('section') is None
+                          and row.get('field') is None and row.get('revision') == policy.policy_revision]
+            previous = reader.read(output)
+            match = FRONTMATTER_RE.match(previous['text'])
+            if (len(prior_rows) != 1 or prior_rows[0]['sha256'] != existing_hash
+                    or previous['content_sha256'] != existing_hash or match is None):
+                raise ValueError('whole previous output unavailable')
+            frontmatter = yaml.load(match.group(1), Loader=UniqueLoader)
+            if (not isinstance(frontmatter, dict) or frontmatter.get('page_type') != 'claim'
+                    or any(frontmatter.get(k) != v for k,v in page_metadata.items())):
+                raise ValueError('existing metadata differs from explicit selection')
+            # Singular capture/repository projections cannot represent multiple
+            # source requests without changing the reassessment contract.
+            if any(frontmatter.get(key) is not None for key in ('source_authorization',
+                       'independent_repo_read', 'independent_repo_additional_reads', 'independent_repo_source_ref')):
+                raise ValueError('existing capture provenance needs separate migration')
+            prior_refs = frontmatter.get('source_refs', [])
+            prior_requirements = frontmatter.get('information_requirements', [])
+            if (not isinstance(prior_refs, list) or not isinstance(prior_requirements, list)
+                    or any(not isinstance(item, dict) or item.get('target') in (source, source_id) for item in prior_requirements)):
+                raise ValueError('existing requirements require separate revalidation')
+            frontmatter['source_refs'] = prior_refs if source_id in prior_refs else [*prior_refs, source_id]
+            frontmatter['information_requirements'] = [*prior_requirements, requirement]
+        else:
+            frontmatter = {**{key: [] for key in sorted(relation_fields)}, **page_metadata,
+                           'page_type': 'claim', 'source_refs': [source_id], 'information_requirements': [requirement]}
         if auth['source_kind'] == 'staged_raw':
             # Persist only existing capture metadata, never source text or an
             # access-bearing URL; raw's external association stays unverified.
@@ -431,6 +458,8 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                 **{key: receipt[key] for key in ('revision', 'path', 'blob', 'document_sha256',
                                                    'content_sha256', 'section', 'field')},
             }
+        if previous is not None and auth.get('independent_repo_read') is not None:
+            frontmatter['independent_repo_source_ref'] = source
         if auth.get('independent_repo_additional_reads'):
             frontmatter['independent_repo_additional_reads'] = [
                 {'identity': receipt['repository']['identity'],
@@ -440,11 +469,18 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
         provenance = {key: auth.get(key) for key in ('source_kind', 'ref', 'source_revision', 'source_sha256',
                       'canonical_ref', 'canonical_revision', 'association',
                       'external_origin_verification', 'external_freshness')}
-        lines = ['---', yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=False).rstrip(), '---',
-                 '', '# Interpretação proposta', '', '## Statement', '',
-                 'Conteúdo relatado para revisão independente.', '', '## Related', '',
-                 '> ' + json.dumps(provenance, ensure_ascii=False, sort_keys=True),
-                 '', '## Conflicts and ambiguities', '', 'Revisão independente pendente.']
+        if previous is not None:
+            body = FRONTMATTER_RE.match(previous['text']).group(0)
+            existing_body = previous['text'][len(body):]
+            lines = ['## Proposed source integration', '',
+                     '> ' + json.dumps(provenance, ensure_ascii=False, sort_keys=True),
+                     '', 'Revisão independente pendente.']
+        else:
+            lines = ['---', yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=False).rstrip(), '---',
+                     '', '# Interpretação proposta', '', '## Statement', '',
+                     'Conteúdo relatado para revisão independente.', '', '## Related', '',
+                     '> ' + json.dumps(provenance, ensure_ascii=False, sort_keys=True),
+                     '', '## Conflicts and ambiguities', '', 'Revisão independente pendente.']
         for label, key in (('Quadrantes', 'quadrants'), ('Afirmações', 'claims'), ('Decisões', 'decisions'),
                            ('Ações', 'actions'), ('Riscos', 'risks'), ('Incertezas', 'uncertainties'),
                            ('Relações', 'relationships'), ('Entidades', 'entities')):
@@ -452,6 +488,9 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
             if value:
                 lines.extend(['', '## ' + label, '', '> ' + json.dumps(value, ensure_ascii=False, sort_keys=True)])
         markdown = '\n'.join(lines) + '\n'
+        if previous is not None:
+            prefix = '---\n' + yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=False).rstrip() + '\n---\n'
+            markdown = prefix + existing_body + ('' if existing_body.endswith('\n') else '\n') + '\n' + markdown
         repo_texts = [request.get('independent_repo_content'), *(request.get('independent_repo_additional_content') or [])]
         if any(isinstance(text, str) and text and (text in markdown
                 or json.dumps(text, ensure_ascii=False)[1:-1] in markdown) for text in repo_texts):
@@ -463,6 +502,7 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                   'policy_revision': policy.policy_revision, 'output': packet['output'],
                   'packet_digest': packet['packet_digest'], 'selected_pages': pages,
                   'markdown': markdown, 'coverage': 'explicit_selected_pages_only',
+                  'prior_output_sha256': existing_hash,
                   'reads': 'reported_not_independently_verified', 'execution': 'not_proven',
                   'preflight': 'not_performed', 'write': 'not_performed', 'merge': 'not_performed'}
         if contains_access_secrets(result):

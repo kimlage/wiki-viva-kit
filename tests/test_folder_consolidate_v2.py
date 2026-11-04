@@ -14,7 +14,7 @@ from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.ingest import run
 
 
-def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_repo=False):
+def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_repo=False, existing=False):
     registry = yaml.safe_load((Path(__file__).resolve().parents[1] / 'wiki.page-types.yaml').read_text())
     registry['page_types']['claim']['allowed_dirs'] = ['a/claims']
     registry['page_types'] = {'claim':registry['page_types']['claim']}
@@ -33,6 +33,21 @@ def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_re
     commit(project); sha = git(project, 'rev-parse', 'HEAD')
     source = 'a/source.md'
     source_ref = None
+    existing_hash = None
+    if existing:
+        import hashlib
+        from scripts.wiki_audit import RELATION_KEYS
+        put(project, 'a/old-source.md', '---\npage_id: source-earlier\npage_type: source\n---\nEarlier observation\n')
+        prior = {**{k: [] for k in sorted(RELATION_KEYS - {'owner', 'source_refs'})}, **metadata(),
+                 'page_type':'claim', 'source_refs':['source-earlier'], 'information_requirements':[
+                     {'target':'a/old-source.md', 'fields':['*'], 'temporal':'current', 'max_age_days':90,
+                      'consumed_revision':'0' * 40, 'use':'interpretation', 'classification':'source'}]}
+        put(project, 'a/claims/result.md', '---\n' + yaml.safe_dump(prior, sort_keys=False) + '---\n'
+            '# Prior claim\n\nExisting claim content preserved.\n')
+        commit(project); sha = git(project, 'rev-parse', 'HEAD')
+        existing_hash = hashlib.sha256((project / 'a/claims/result.md').read_bytes()).hexdigest()
+        selection = FolderIngestionSelection(selection.host, 'a', 'a/index.md', 'a/claims/result.md',
+                                              existing_output_sha256=existing_hash)
     if with_repo:
         put(project, '.gitignore', 'data/derived/\na/clone/\n')
         put(project, 'a/repo-source.md', '---\npage_id: source-repository\npage_type: source\n'
@@ -46,6 +61,14 @@ def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_re
         put(clone, 'AGENTS.md', 'Independent repository instructions\n')
         put(clone, 'guide.md', '---\nalpha: 1\n---\nIndependent synthetic repository\n')
         git(clone, 'add', '-A'); git(clone, 'commit', '-qm', 'synthetic repository source')
+        if existing:
+            from wiki_core.folder_coordination_v2 import FolderHostBinding
+            identity = 'example.test/group/nested'
+            revision = git(clone, 'rev-parse', 'HEAD')
+            host = FolderHostBinding(project, ('a',), (('a', clone, identity, 'guide.md'),))
+            selection = FolderIngestionSelection(host, 'a', 'a/index.md', 'a/claims/result.md',
+                independent_repo=(str(clone), identity, revision, 'guide.md'), existing_output_sha256=existing_hash)
+            source = 'a/repo-source.md'
     if raw:
         put(project, '.gitignore', 'data/derived/\na/raw/\n')
         put(project, 'a/source-page.md', '---\npage_id: source-synthetic-raw\npage_type: source\n'
@@ -53,7 +76,8 @@ def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_re
         commit(project); sha = git(project, 'rev-parse', 'HEAD')
         source = 'a/raw/source.md'; source_ref = 'a/source-page.md'
         put(project, source, '# Synthetic RAW\n\n' + ('Unverified local observation.\n' * 80))
-        selection = FolderIngestionSelection(selection.host, 'a', 'a/index.md', 'a/claims/result.md', source_ref)
+        selection = FolderIngestionSelection(selection.host, 'a', 'a/index.md', 'a/claims/result.md', source_ref,
+                                              existing_output_sha256=existing_hash)
     initial = run(str(project / source), 'system', project, load_config(project),
                   approved_revision=sha, folder_selection=selection)
     assert not initial.blocked and initial.written
@@ -64,6 +88,13 @@ def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_re
                             source=source, source_ref=source_ref)
     import sys
     argv = list(sys.argv); argv[argv.index('--folder-output') + 1] = 'a/claims/result.md'
+    if existing_hash is not None:
+        argv.extend(['--folder-existing-sha256', existing_hash])
+    if with_repo and existing:
+        chosen = selection.independent_repo
+        argv.extend(['--folder-repo', *chosen])
+        monkeypatch.setenv('WIKI_FOLDER_INGEST_HOST_REPOSITORIES', json.dumps([
+            ['a', chosen[0], chosen[1], chosen[3]]]))
     monkeypatch.setattr(sys, 'argv', argv)
     assert module.main() == 0
     assert json.loads(capsys.readouterr().out)['count'] == 1
@@ -554,3 +585,137 @@ def test_legacy_pending_gate_never_consumes_folder_requests(project, monkeypatch
     result = module.pending_consolidations(project, load_config(project))
     assert seen == ['source-legacy']
     assert result == [{'source_id':'source-legacy', 'state':'missing_event'}]
+
+
+def test_existing_destination_preserves_prior_content_and_provenance(project, monkeypatch, tmp_path, capsys):
+    from copy import deepcopy
+    from wiki_core.folder_coordination_v2 import FolderCoordinationError, prepare_folder_preflight
+    binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys, existing=True)
+    packet = request['block_context_package']; base = packet['policy_revision']
+    target = project / packet['output']
+    original = target.read_text()
+    original_fm, original_body = parse_frontmatter(original)
+    rows = [row for row in packet['inputs'] if row.get('path') == packet['output'] and row.get('kind') == 'evidence']
+    assert len(rows) == 1 and rows[0]['sha256'] == request['source_authorization']['existing_output_sha256']
+    preview = prepare_folder_consolidation(project, binding, request, results, candidates=[],
+                                          max_age_days=30, page_metadata=metadata())
+    assert target.read_text() == original and preview['write'] == 'not_performed'
+    new_fm, new_body = parse_frontmatter(preview['markdown'])
+    assert original_body in new_body
+    assert new_fm['source_refs'] == ['source-earlier', 'source-synthetic']
+    assert new_fm['information_requirements'][0] == original_fm['information_requirements'][0]
+    assert new_fm['information_requirements'][1]['target'] == 'a/source.md'
+    old_branch = git(project, 'branch', '--show-current')
+    git(project, 'checkout', '-qb', 'wiki/existing-claim')
+    put(project, packet['output'], preview['markdown'])
+    git(project, 'add', packet['output']); git(project, 'commit', '-qm', 'synthetic modification')
+    head = git(project, 'rev-parse', 'HEAD')
+    task_result = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed',
+        'task_id':packet['task_id'], 'context_id':packet['context_id'], 'packet_digest':packet['packet_digest'],
+        'observed':[{'path':r['path'], 'kind':r['kind'], 'revision':r['revision'], 'sha256':r['sha256'],
+                     'section':r.get('section'), 'field':r.get('field')} for r in packet['inputs']],
+        'changes':[{'path':packet['output'], 'action':'modified'}]}
+    payload = {'folder':'a', 'approved_revision':base, 'base':base, 'head':head,
+               'branch':'wiki/existing-claim', 'packet':packet, 'result':task_result, 'source_request':request}
+    checked = prepare_folder_preflight(project, binding, payload)['preflight']
+    assert checked['state'] == 'independent_review_required' and checked['merge'] == 'not_performed'
+    assert checked['requirements_handling']['count'] == 1
+    bad = deepcopy(new_fm)
+    bad['information_requirements'][0]['consumed_revision'] = base
+    put(project, packet['output'], '---\n' + yaml.safe_dump(bad, sort_keys=False) + '---\n' + new_body)
+    git(project, 'add', packet['output']); git(project, 'commit', '--amend', '-qm', 'changed prior provenance')
+    payload['head'] = git(project, 'rev-parse', 'HEAD')
+    with pytest.raises(FolderCoordinationError):
+        prepare_folder_preflight(project, binding, payload)
+    put(project, packet['output'], preview['markdown'].replace('Existing claim content preserved.', 'Removed by mutation.'))
+    git(project, 'add', packet['output']); git(project, 'commit', '--amend', '-qm', 'changed prior body')
+    payload['head'] = git(project, 'rev-parse', 'HEAD')
+    body_review = prepare_folder_preflight(project, binding, payload)['preflight']
+    assert body_review['state'] == 'independent_review_required'
+    change = body_review['modified_ingestion_bodies'][0]
+    assert change['before_sha256'] != change['after_sha256']
+    assert change['semantic_review'] == 'independent_review_required'
+    assert git(project, 'branch', '--show-current') != old_branch
+
+
+def test_existing_destination_hash_or_worktree_change_rejected(project, monkeypatch, tmp_path, capsys):
+    from dataclasses import replace
+    from wiki_core.folder_ingestion_v2 import authorize_folder_ingestion_source
+    from wiki_core.llm.context_pass import ContextRequestBlocked
+    binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys, existing=True)
+    packet = request['block_context_package']; auth = request['source_authorization']
+    selection = FolderIngestionSelection(binding, 'a', 'a/index.md', packet['output'],
+                                          existing_output_sha256='0' * 64)
+    with pytest.raises(ContextRequestBlocked):
+        authorize_folder_ingestion_source(project, auth['ref'], packet['policy_revision'], selection,
+                                          context_max_bytes=packet['max_bytes'])
+    put(project, packet['output'], 'Uncommitted user work\n')
+    with pytest.raises(ValueError):
+        prepare_folder_consolidation(project, binding, request, results, candidates=[],
+                                     max_age_days=30, page_metadata=metadata())
+    assert (project / packet['output']).read_text() == 'Uncommitted user work\n'
+
+
+def test_existing_destination_accepts_first_raw_capture_as_reviewable_proposal(project, monkeypatch, tmp_path, capsys):
+    binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys, raw=True, existing=True)
+    preview = prepare_folder_consolidation(project, binding, request, results, candidates=[],
+                                           max_age_days=30, page_metadata=metadata())
+    fm, body = parse_frontmatter(preview['markdown'])
+    assert fm['source_authorization']['association'] == 'caller_selected_unverified'
+    assert fm['information_requirements'][0]['target'] == 'a/old-source.md'
+    assert fm['information_requirements'][1]['target'] == 'a/source-page.md'
+    assert 'Existing claim content preserved.' in body
+    assert preview['write'] == 'not_performed'
+    from wiki_core.folder_coordination_v2 import prepare_folder_preflight
+    from wiki_core.folder_reassessment_host_v2 import prepare_folder_reassessment
+    packet = request['block_context_package']; base = packet['policy_revision']
+    original_branch = git(project, 'branch', '--show-current')
+    git(project, 'checkout', '-qb', 'wiki/modified-raw')
+    put(project, packet['output'], preview['markdown'])
+    git(project, 'add', packet['output']); git(project, 'commit', '-qm', 'synthetic modification')
+    head = git(project, 'rev-parse', 'HEAD')
+    report = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed',
+        'task_id':packet['task_id'], 'context_id':packet['context_id'], 'packet_digest':packet['packet_digest'],
+        'observed':[{'path':r['path'], 'kind':r['kind'], 'revision':r['revision'], 'sha256':r['sha256'],
+                     'section':r.get('section'), 'field':r.get('field')} for r in packet['inputs']],
+        'changes':[{'path':packet['output'], 'action':'modified'}]}
+    payload = {'folder':'a', 'approved_revision':base, 'base':base, 'head':head,
+               'branch':'wiki/modified-raw', 'packet':packet, 'result':report, 'source_request':request}
+    checked = prepare_folder_preflight(project, binding, payload)['preflight']
+    assert checked['state'] == 'independent_review_required' and checked['merge'] == 'not_performed'
+    git(project, 'checkout', '-q', original_branch); git(project, 'merge', '--ff-only', 'wiki/modified-raw')
+    git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    put(project, 'a/raw/source.md', 'Changed synthetic RAW after simulated merge\n')
+    outcome = prepare_folder_reassessment(project, binding, {'folder':'a',
+        'approved_revision':git(project, 'rev-parse', 'HEAD'), 'source':'a/source-page.md',
+        'candidates':[packet['output']], 'reports':[{'target':packet['output'], 'section':None,
+        'field':None, 'packet':packet, 'result':report}], 'source_request':request})['reassessment']
+    assert outcome['consumers'][0]['raw_capture_impact']['local_state'] == 'changed'
+    assert outcome['consumers'][0]['state'] == 'review_pending'
+    assert (project / packet['output']).read_text() == preview['markdown']
+
+
+def test_existing_destination_first_repository_projection_is_bound_to_source(project, monkeypatch, tmp_path, capsys):
+    from wiki_core.folder_coordination_v2 import prepare_folder_preflight
+    binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys, with_repo=True, existing=True)
+    preview = prepare_folder_consolidation(project, binding, request, results, candidates=[],
+                                           max_age_days=30, page_metadata=metadata())
+    fm, body = parse_frontmatter(preview['markdown'])
+    assert fm['independent_repo_source_ref'] == 'a/repo-source.md'
+    assert fm['independent_repo_read']['identity'] == 'example.test/group/nested'
+    assert fm['information_requirements'][0]['target'] == 'a/old-source.md'
+    assert 'Independent synthetic repository' not in body
+    packet = request['block_context_package']; base = packet['policy_revision']
+    git(project, 'checkout', '-qb', 'wiki/modified-repo')
+    put(project, packet['output'], preview['markdown'])
+    git(project, 'add', packet['output']); git(project, 'commit', '-qm', 'synthetic modification')
+    head = git(project, 'rev-parse', 'HEAD')
+    report = {'schema_version':'wiki.folder-task-result/v2', 'status':'completed',
+        'task_id':packet['task_id'], 'context_id':packet['context_id'], 'packet_digest':packet['packet_digest'],
+        'observed':[{'path':r['path'], 'kind':r['kind'], 'revision':r['revision'], 'sha256':r['sha256'],
+                     'section':r.get('section'), 'field':r.get('field')} for r in packet['inputs']],
+        'changes':[{'path':packet['output'], 'action':'modified'}]}
+    checked = prepare_folder_preflight(project, binding, {'folder':'a', 'approved_revision':base, 'base':base,
+        'head':head, 'branch':'wiki/modified-repo', 'packet':packet, 'result':report, 'source_request':request})['preflight']
+    assert checked['state'] == 'independent_review_required'
+    assert checked['repository_handling']['selection'] == 'matched_request'
