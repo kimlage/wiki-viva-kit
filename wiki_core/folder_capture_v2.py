@@ -13,7 +13,7 @@ from wiki_core.folder_coordination_v2 import _bound_policy
 from wiki_core.folder_ingestion_v2 import _check_local_boundaries
 from wiki_core.folder_policy_v2 import _at_revision
 from wiki_core.repo_read import contains_access_secrets
-from wiki_core.repository_reader import RepositoryReader
+from wiki_core.repository_reader import RepositoryReader, canonical_path
 from wiki_core.source_manifest import source_origin
 
 
@@ -152,7 +152,8 @@ def inspect_raw_capture(root, binding, folder, approved_revision, capture):
                 or capture['external_origin_verification'] != 'not_verified'
                 or capture['external_freshness'] != 'not_verified'):
             raise ValueError('invalid capture')
-        ref = safe_path(capture['ref']); canonical = safe_path(capture['canonical_ref'])
+        ref = canonical_path(safe_path(capture['ref']))
+        canonical = canonical_path(safe_path(capture['canonical_ref']))
         if ref == canonical:
             raise ValueError('invalid association')
         old = capture['canonical_revision']
