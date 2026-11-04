@@ -84,7 +84,7 @@ def _query_observations(envelope):
 
 
 def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, result,
-                              binding=None, source_request=None, requalify_source=False):
+                              binding=None, source_request=None, requalify_source=False, query_requalifications=None):
     """Preflight only if the proposal leaves every selected query scope intact."""
     if getattr(policy,'format_version',None) != FORMAT or not policy._binding or Path(policy._binding[0]) != Path(root).resolve():
         raise FolderQueryPacketError('bound v2 policy required')
@@ -146,16 +146,17 @@ def preflight_folder_query_v2(root, policy, *, base, head, branch, packet, resul
                 'base': base_sha, 'head': head_sha, 'branch': branch,
                 'packet': base_packet, 'result': base_result,
                 'source_request': source_request, 'query_packet':packet, 'query_result':result,
-                'requalify_source':requalify_source})['preflight']
+                'requalify_source':requalify_source, 'query_requalifications':query_requalifications})['preflight']
         else:
             outcome=preflight_folder_v2(root,policy,base=base_sha,head=head_sha,branch=branch,
                                         packet=base_packet,result=base_result,
-                                        query_packet=packet, query_result=result, requalify_source=requalify_source)
+                                        query_packet=packet, query_result=result,
+                                        requalify_source=requalify_source, query_requalifications=query_requalifications)
         policy.fresh()
         return {'schema_version':'wiki.folder-query-preflight/v2','state':'independent_review_required',
                 'base':base_sha,'head':head_sha,'branch':branch,'context_id':base_packet['context_id'],
                 'packet_digest':packet['packet_digest'],'changes':outcome['changes'],
-                **{key:outcome[key] for key in ('requirements_handling', 'capture_handling', 'modified_ingestion_bodies', 'prior_ingestion_provenance',
+                **{key:outcome[key] for key in ('requirements_handling', 'capture_handling', 'modified_ingestion_bodies', 'prior_ingestion_provenance', 'query_requalification',
                                                   'repository_handling') if key in outcome},
                 'query_coverage':'reported_not_independently_verified','review':'not_performed',
                 'merge':'not_performed','enforcement_claim':'none'}

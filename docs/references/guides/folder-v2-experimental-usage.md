@@ -373,6 +373,14 @@ envelope and task result. A modified claim must have included its complete
 prior content as evidence. Keep these inputs in a location authorized for the
 context: they may contain source text. The command never publishes them.
 
+To propose an updated declaration for the same query, use a current query
+packet with the whole prior output as evidence and pass the prior reports as
+`--query-requalifications REPORTS.json` to the folder query preflight. The
+preflight reproduces each historical report and current selection, replaces
+only the corresponding declaration and requires all other requirements to
+remain unchanged. This produces an independent-review candidate; it does not
+approve the change, establish a semantic read or certify factual freshness.
+
 ## Compare one reported source and consumer
 
 ```sh
