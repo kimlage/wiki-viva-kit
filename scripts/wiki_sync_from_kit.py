@@ -292,11 +292,23 @@ def _parent_fd(root_fd: int, rel: str, *, create: bool = False) -> int | None:
                     return None
                 os.mkdir(part, mode=0o755, dir_fd=current)
                 child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=current)
+            try:
+                os.stat('.git', dir_fd=child, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                os.close(child)
+                raise
+            else:
+                os.close(child)
+                raise SyncError('consumer path crosses a nested repository')
             os.close(current)
             current = child
         return current
-    except OSError as exc:
+    except (OSError, SyncError) as exc:
         os.close(current)
+        if isinstance(exc, SyncError):
+            raise
         raise SyncError('unsafe or unavailable consumer ancestor') from exc
 
 
@@ -490,6 +502,8 @@ def _replace_bytes(root_fd: int, rel: str, payload: bytes, mode: str, before: di
         with os.fdopen(fd, 'wb') as stream:
             stream.write(payload)
             os.fchmod(stream.fileno(), 0o755 if mode == '100755' else 0o644)
+        if _file_state(root_fd, rel) != before:
+            raise SyncError('consumer target changed before write')
         if before['kind'] == 'missing':
             # Hard-link creation fails if another actor created the leaf.
             os.link(temp, name, src_dir_fd=parent, dst_dir_fd=parent, follow_symlinks=False)

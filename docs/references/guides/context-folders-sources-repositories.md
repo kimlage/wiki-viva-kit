@@ -152,7 +152,9 @@ Revision-bound authority readers use Git's `--no-lazy-fetch` option and fail
 closed if the installed Git cannot run it. Git 2.50.1 was tested locally;
 other versions and platforms require their own validation. The kit sync uses
 descriptor-relative no-follow operations and refuses platforms without those
-primitives. Native Windows sync and bounded pre-allocation for large Git tree
+primitives. B0 and C1 refuse managed paths inside a nested `.git` directory or
+worktree marker; cooperative custody remains required during the operation.
+Native Windows sync and bounded pre-allocation for large Git tree
 listings on Windows have not been qualified.
 
 A nested `.git` can change where a harness starts discovering instructions.

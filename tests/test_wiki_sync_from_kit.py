@@ -170,6 +170,72 @@ def test_b0_and_apply_reject_symlink_ancestor_before_any_read_or_delete(tmp_path
         assert (consumer / 'old.txt').read_text() == 'preserve'
 
 
+@pytest.mark.parametrize('marker', ['file', 'directory'])
+@pytest.mark.parametrize('operation', ['add', 'change', 'remove'])
+def test_sync_rejects_nested_repository_before_add_change_or_remove(tmp_path: Path, marker: str, operation: str) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    if operation != 'add':
+        applied = _run(kit, consumer, manifest)
+        assert applied.returncode == 0, applied.stderr
+        if operation == 'change':
+            (kit / 'portable/tool.txt').write_text('v2\n')
+        else:
+            (kit / 'portable/tool.txt').unlink()
+        _git(kit, 'add', '-A')
+        _git(kit, 'commit', '-qm', 'change selected portable files')
+    else:
+        (consumer / 'portable').mkdir()
+    marker_path = consumer / 'portable/.git'
+    if marker == 'file':
+        marker_path.write_text('gitdir: elsewhere\n')
+    else:
+        marker_path.mkdir()
+    sentinel = consumer / 'portable/sentinel.txt'
+    sentinel.write_text('nested work preserved\n')
+    target = consumer / 'portable/tool.txt'
+    before = target.read_bytes() if target.exists() else None
+    lock = consumer / 'kit.lock'
+    prior_lock = lock.read_bytes() if lock.exists() else None
+    for args in (('--dry-run', '--json'), ('--allow-dirty',)):
+        result = _run(kit, consumer, manifest, *args)
+        assert result.returncode != 0
+        assert 'consumer path crosses a nested repository' in result.stderr
+        assert (target.read_bytes() if target.exists() else None) == before
+        assert (lock.read_bytes() if lock.exists() else None) == prior_lock
+        assert sentinel.read_text() == 'nested work preserved\n'
+
+
+def test_sync_rechecks_nested_boundary_between_b0_and_write(tmp_path: Path) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    (consumer / 'portable').mkdir()
+    plan = sync.build_plan(kit, consumer, manifest, [])
+    (consumer / 'portable/.git').mkdir()
+    with pytest.raises(sync.SyncError, match='nested repository'):
+        sync._copy_c1(kit, consumer, plan)
+    assert not (consumer / 'portable/tool.txt').exists()
+    assert not (consumer / 'kit.lock').exists()
+
+
+def test_sync_rechecks_boundary_after_temporary_file_before_replace(tmp_path: Path, monkeypatch) -> None:
+    kit, consumer, manifest = _fixture(tmp_path)
+    sync = _sync_module()
+    (consumer / 'portable').mkdir()
+    original = sync.os.fchmod
+    def introduce_repository(fd, mode):
+        original(fd, mode)
+        (consumer / 'portable/.git').mkdir(exist_ok=True)
+    monkeypatch.setattr(sync.os, 'fchmod', introduce_repository)
+    root_fd = sync._open_root(consumer)
+    try:
+        with pytest.raises(sync.SyncError, match='nested repository'):
+            sync._replace_bytes(root_fd, 'portable/tool.txt', b'new\n', '100644', {'kind':'missing'})
+    finally:
+        sync.os.close(root_fd)
+    assert not (consumer / 'portable/tool.txt').exists()
+    assert not list((consumer / 'portable').glob('.wiki-sync-*'))
+
+
 @pytest.mark.parametrize('unsafe', ['../outside', '/tmp/outside', 'a/../../outside', 'a\\outside', '.git/config'])
 def test_untrusted_lock_paths_cannot_escape_or_delete(tmp_path: Path, unsafe: str) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
