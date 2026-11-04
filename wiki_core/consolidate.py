@@ -391,7 +391,8 @@ def prepare_folder_consolidation(root: Path, binding, request: dict, results: li
                 or guard.get('independent_repo_content') != request.get('independent_repo_content')
                 or guard.get('independent_repo_additional_content') != request.get('independent_repo_additional_content')):
             raise ValueError('source authorization changed')
-        paths = WikiPaths(root, load_config(root))
+        from wiki_core.paths import FolderWikiPaths
+        paths = FolderWikiPaths(root, load_config(root), folder)
         validate_folder_artifact_paths(root, paths, request['source_id'])
         for row, result in zip(chunks, results):
             if read_matching_result(paths.llm_cache, request, row, root=root) != result:

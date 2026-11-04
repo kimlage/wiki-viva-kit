@@ -153,3 +153,15 @@ class WikiPaths:
             self.input_stage,
         ):
             path.mkdir(parents=True, exist_ok=True)
+
+
+@dataclass(frozen=True)
+class FolderWikiPaths(WikiPaths):
+    """Derived capture namespace for one selected folder, not an ACL."""
+
+    folder: str
+
+    @property
+    def derived_root(self) -> Path:
+        from wiki_core.folder_policy_v2 import folder_id
+        return super().derived_root / 'folder-contexts-v2' / folder_id(self.folder)

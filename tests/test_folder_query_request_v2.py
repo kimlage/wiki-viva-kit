@@ -14,7 +14,7 @@ from tests.test_folder_ingestion_v2 import setup, _recording_cli, _synthetic_res
 from wiki_core.config import load_config
 from wiki_core.ingest import run
 from wiki_core.llm.context_pass import context_input_size, result_matches_request
-from wiki_core.paths import WikiPaths
+from wiki_core.paths import FolderWikiPaths
 
 
 def setup_query(project):
@@ -56,7 +56,7 @@ def test_query_selection_is_delivered_before_recording_and_binds_cache(project, 
     original_argv = list(sys.argv)
     assert module.main() == 2  # Omitting the selection cannot record a query-bound result.
     capsys.readouterr()
-    cache = WikiPaths(project, load_config(project)).llm_cache / 'folder-v2' / (result['cache_key'] + '.json')
+    cache = FolderWikiPaths(project, load_config(project), 'a').llm_cache / 'folder-v2' / (result['cache_key'] + '.json')
     assert not cache.exists()
     changed = deepcopy(query); changed['query']['filters']['status'] = 'other'
     query_file.write_text(json.dumps([changed]))

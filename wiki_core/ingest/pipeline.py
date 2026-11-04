@@ -162,6 +162,8 @@ def run(
                 from wiki_core.folder_ingestion_v2 import authorize_folder_ingestion_source
                 source_guard = authorize_folder_ingestion_source(root, source, approved_revision, folder_selection,
                                                                  context_max_bytes=context_max_bytes)
+                from wiki_core.paths import FolderWikiPaths
+                paths = FolderWikiPaths(root, config, folder_selection.folder)
             else:
                 source_guard = authorize_ingestion_source(root, source, approved_revision, policy_context)
             source = str(source_guard["path"])
