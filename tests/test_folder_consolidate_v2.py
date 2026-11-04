@@ -14,7 +14,7 @@ from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.ingest import run
 
 
-def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_repo=False):
+def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_repo=False, with_query=False):
     registry = yaml.safe_load((Path(__file__).resolve().parents[1] / 'wiki.page-types.yaml').read_text())
     registry['page_types']['claim']['allowed_dirs'] = ['a/claims']
     registry['page_types'] = {'claim':registry['page_types']['claim']}
@@ -26,6 +26,9 @@ def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_re
     put(project, 'a/candidate.md', 'An explicitly selected context page\n')
     put(project, 'a/owner.md', '---\npage_id: person-synthetic\npage_type: person\n---\nSynthetic owner\n')
     put(project, 'a/aux/b/other.md', 'Synthetic other owner\n')
+    if with_query:
+        put(project, 'a/index.md', '---\npage_id: synthetic-catalog\npage_type: source_catalog\n---\nCollection contract\n')
+        put(project, 'a/items/one.md', '---\npage_id: one\nstatus: active\namount: 11\n---\nSynthetic source\n')
     sha, selection = setup(project)
     selection = FolderIngestionSelection(selection.host, 'a', 'a/index.md', 'a/claims/result.md')
     put(project, 'a/source.md', '---\npage_id: source-synthetic\npage_type: source\n---\n'

@@ -43,6 +43,9 @@ def _folder_main(argv):
     pack = sub.add_parser('pack'); pack.add_argument('folder'); pack.add_argument('--index', required=True)
     pack.add_argument('--index-section'); pack.add_argument('--start-folder')
     pack.add_argument('--content-revision', required=True); pack.add_argument('--request', required=True)
+    attach = sub.add_parser('attach-queries', help='attach queries to an existing ingestion packet')
+    attach.add_argument('folder'); attach.add_argument('--index', required=True)
+    attach.add_argument('--source-request', required=True); attach.add_argument('--queries', required=True)
     args = parser.parse_args(argv)
     try:
         policy = load_folder_policy_v2(args.repo, args.approved_revision)
@@ -55,6 +58,17 @@ def _folder_main(argv):
                                     index_path=args.index, max_instruction_bytes=args.max_instruction_bytes)
             output['policy_revision'] = policy.policy_revision
             output['enforcement_claim'] = 'none'
+        elif args.command == 'attach-queries':
+            source_request = _read_json(args.source_request)
+            queries = _read_json(args.queries)
+            base_packet = source_request.get('block_context_package') if isinstance(source_request, dict) else None
+            if (not isinstance(base_packet, dict) or base_packet.get('context_folder') != args.folder
+                    or base_packet.get('index_path') != args.index
+                    or base_packet.get('ingestion_binding') is None):
+                raise ValueError('matching ingestion packet required')
+            _output_authorized(policy, args.folder, base_packet['output'])
+            from wiki_core.folder_query_packet_v2 import build_folder_query_packet_v2
+            output = build_folder_query_packet_v2(args.repo, policy, base_packet=base_packet, queries=queries)
         else:
             request = _read_json(args.request)
             required = {'max_bytes', 'task_id', 'goal', 'output', 'integrator'}
