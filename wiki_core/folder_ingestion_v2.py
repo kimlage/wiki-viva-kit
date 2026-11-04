@@ -188,23 +188,22 @@ def authorize_folder_ingestion_source(root, source, approved_revision, selection
                 'The staged source differs from its approved Git version; requalify the source before preparing a request.')
         repo_read = None
         if selection.independent_repo is not None:
-            from wiki_core.repo_read import read_independent_repo, remote_identity
+            from wiki_core.repo_read import read_independent_repo
+            from wiki_core.folder_reassessment_v2 import _repository_node_matches
             chosen = selection.independent_repo
             if (not tracked or not isinstance(chosen, tuple) or len(chosen) != 4
                     or any(not isinstance(item, str) for item in chosen)):
                 raise ValueError('invalid repository selection')
             repo_root, identity, revision, repo_path = chosen
-            if (not Path(repo_root).is_absolute() or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision)
-                    or (selection.folder, Path(repo_root).resolve(), identity, safe_path(repo_path))
+            resolved_repo_root = Path(repo_root).resolve()
+            if (not Path(repo_root).is_absolute() or resolved_repo_root == root
+                    or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision)
+                    or (selection.folder, resolved_repo_root, identity, safe_path(repo_path))
                     not in selection.host.independent_repos):
                 raise ValueError('repository not bound to this folder')
-            fm = canonical_document.get('frontmatter') or {}
-            locator = fm.get('source_locator')
-            if (fm.get('page_type') != 'source' or fm.get('platform') != 'repo'
-                    or not isinstance(locator, str)
-                    or (locator if locator == identity else remote_identity(locator)[0]) != identity):
+            if not _repository_node_matches(canonical_document['text'], identity):
                 raise ValueError('repository source page mismatch')
-            repo_read = read_independent_repo(Path(repo_root), identity, revision, repo_path)
+            repo_read = read_independent_repo(resolved_repo_root, identity, revision, repo_path)
         from wiki_core.source_manifest import source_origin
         origin = source_origin(str(candidate), root)
         policy.fresh()

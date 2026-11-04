@@ -94,3 +94,52 @@ def test_repository_request_helper_requires_unambiguous_binding(project):
     other = FolderHostBinding(project, ('a',))
     with pytest.raises(ValueError):
         independent_repo_selection_for_request(other, 'a', request['source_authorization'])
+
+
+def test_repository_root_alias_is_not_reopened_after_binding(project, monkeypatch, tmp_path):
+    import pytest
+    import wiki_core.repo_read as reader
+    from wiki_core.folder_ingestion_v2 import authorize_folder_ingestion_source
+    from wiki_core.llm.context_pass import revalidate_ingestion_source
+    sha, selection, chosen = repository_fixture(project)
+    alias = tmp_path / 'repo-alias'; alias.symlink_to(chosen[0], target_is_directory=True)
+    other = tmp_path / 'other'; other.mkdir()
+    selected = FolderIngestionSelection(selection.host, 'a', 'a/index.md', 'a/result.md', None,
+                                        (str(alias), *chosen[1:]))
+    original = reader.read_independent_repo
+    def retarget(root, *args, **kwargs):
+        alias.unlink(); alias.symlink_to(other, target_is_directory=True)
+        assert root == (project / 'a/clone').resolve()
+        return original(root, *args, **kwargs)
+    monkeypatch.setattr(reader, 'read_independent_repo', retarget)
+    guard = authorize_folder_ingestion_source(project, str(project / 'a/repo-source.md'), sha, selected,
+                                                context_max_bytes=1000000)
+    assert guard['authorization']['independent_repo_read']['revision'] == chosen[2]
+    with pytest.raises(ValueError):
+        revalidate_ingestion_source(guard)
+
+
+def test_duplicate_repo_locator_is_refused_before_repo_read(project, monkeypatch):
+    import pytest
+    import wiki_core.repo_read as reader
+    _, selection, _ = repository_fixture(project)
+    put(project, 'a/repo-source.md', '---\npage_id: repo-source\npage_type: source\nplatform: repo\n'
+        'source_locator: example.test/other/repo\nsource_locator: example.test/group/nested\n---\nSynthetic node\n')
+    commit(project); sha = git(project, 'rev-parse', 'HEAD')
+    monkeypatch.setattr(reader, 'read_independent_repo', lambda *a, **k: pytest.fail('ambiguous node opened repository'))
+    result = run(str(project / 'a/repo-source.md'), 'system', project, load_config(project),
+                 approved_revision=sha, folder_selection=selection)
+    assert result.blocked and not result.written
+
+
+def test_host_root_cannot_masquerade_as_independent_repo(project, monkeypatch):
+    import pytest
+    import wiki_core.repo_read as reader
+    sha, _, chosen = repository_fixture(project)
+    binding = FolderHostBinding(project, ('a',), (('a', project, chosen[1], chosen[3]),))
+    selected = FolderIngestionSelection(binding, 'a', 'a/index.md', 'a/result.md', None,
+                                        (str(project), *chosen[1:]))
+    monkeypatch.setattr(reader, 'read_independent_repo', lambda *a, **k: pytest.fail('host read as independent repo'))
+    result = run(str(project / 'a/repo-source.md'), 'system', project, load_config(project),
+                 approved_revision=sha, folder_selection=selected)
+    assert result.blocked and not result.written
