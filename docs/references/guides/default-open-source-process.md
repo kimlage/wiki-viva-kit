@@ -402,8 +402,8 @@ or a documented non-ingestion outcome.
 
 ## Ingestion lifecycle
 
-The ingestion lifecycle has deterministic steps, one delegated semantic step,
-and one PR review gate.
+The following diagram describes the legacy v1 ingestion lifecycle, with
+deterministic steps, one delegated semantic step, and one PR review gate.
 
 ```mermaid
 sequenceDiagram
@@ -413,11 +413,11 @@ sequenceDiagram
     participant Repo
     participant Reviewer
     Operator->>Toolkit: wiki_input_stage.py --check
-    Operator->>Toolkit: wiki_ingest.py --source ... --context ...
+    Operator->>Toolkit: wiki_ingest.py --mode v1 --source ... --context ...
     Toolkit->>Toolkit: manifest, extract, chunk, index, pre-scan, input context
     Toolkit-->>Agent: LLM context request with root/channel/targets
     Agent->>Toolkit: record valid result in cache
-    Agent->>Toolkit: wiki_consolidate.py --emit-event --packet
+    Agent->>Toolkit: wiki_consolidate.py --mode v1 --emit-event --packet
     Agent->>Repo: integrate target pages on wiki branch
     Repo->>Repo: audit, consolidate, quality, cockpit, tests
     Agent->>Reviewer: open PR with summary
@@ -680,7 +680,7 @@ contract.
 | [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py) | Source/action/context operational pass freshness. |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Canonical source registry freshness. |
 | [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) | Root entity, input channel and source-config staging freshness. |
-| [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | Deep-read-complete sources are integrated. |
+| [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | `--mode v1 --check` covers pending legacy v1 consolidations; folder integration needs its own review and readback. |
 | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Density, repetition, hierarchy, open integration and quality telemetry. |
 | [pytest](https://github.com/kimlage/wiki-viva-kit/blob/c46568234f8d16d81f1e38140246a31d4faff9c8/tests/test_wiki_pipeline.py) | Reusable toolkit behavior. |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Reviewer-ready diff summary. |

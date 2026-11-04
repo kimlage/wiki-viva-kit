@@ -158,7 +158,7 @@ python3 scripts/wiki_operational_pass.py --check     # CI: fails if stale
 
 ```sh
 python3 scripts/wiki_audit.py --check
-python3 scripts/wiki_consolidate.py --mode v1 --check                  # every deep-read source integrated
+python3 scripts/wiki_consolidate.py --mode v1 --check                  # legacy v1 consolidation only
 python3 scripts/wiki_quality_report.py --check               # quality/hierarchy thresholds
 python3 scripts/wiki_check_methodology_coverage.py --check   # when methodology files changed
 python3 scripts/wiki_operation_compile.py --check
