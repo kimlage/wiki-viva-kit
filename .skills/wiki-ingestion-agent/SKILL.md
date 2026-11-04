@@ -17,8 +17,12 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    The standalone manifest/text/index tools below remain compatibility entry
    points for an authorized coordinator; they do not replace approved source
    admission or extend the executor's scope.
-3. Extract text and chunks with [scripts/wiki_extract_text.py](../../scripts/wiki_extract_text.py).
-4. Build or check the index with [scripts/wiki_build_index.py](../../scripts/wiki_build_index.py).
+3. Use the extracted text and chunks prepared by the selected ingestion flow.
+   The standalone [extractor](../../scripts/wiki_extract_text.py) is a separate
+   coordinator operation, not an automatic expansion of the executor's scope.
+4. Consult only the selected authorized evidence. A global index rebuild with
+   [scripts/wiki_build_index.py](../../scripts/wiki_build_index.py) is a separate
+   operation for a coordinator with authority over its full readset.
 5. Plan the contextual LLM pass with [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py)
    (`--emit-request`, deep read by the agent, `--record-result`).
 6. For folder mode, prepare the [folder consolidation proposal](../../docs/references/guides/folder-v2-experimental-usage.md), review it and run preflight before authorized integration. The proposal itself is not integration. For the historical v1 flow, [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py)
