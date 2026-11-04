@@ -1,5 +1,16 @@
 # Experimental folder context v2: explicit packet, preflight and impact
 
+Field and section selectors limit delivered content; `RepositoryReader` first
+loads the entire Git blob. The host must be authorized to read the whole blob.
+Selectors do not grant cross-owner access or enforce an ACL.
+
+Historical source reassessment requires the same Git blobs for the current and
+historical instruction chain, mandatory references and selected index before
+replay. This conservative check rejects even a change outside a selected index
+section; it does not assert historical approval or review. Auxiliary historical
+content additionally requires matching instruction paths, blobs and ownership
+boundaries before old markers are opened.
+
 This is an isolated candidate for review, not an activated replacement for the
 existing context contract. A v2 packet and result cannot be used as v1 receipts;
 legacy IDs, queries and `information_requirements` require an explicit migration.
