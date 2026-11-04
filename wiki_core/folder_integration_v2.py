@@ -380,12 +380,12 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             document = proposed.read(path)
             if contains_access_secrets(document['text']):
                 raise FolderIntegrationError('secret detected in proposed content')
+            # The general reader permits duplicate YAML keys. Every proposed
+            # claim must have an unambiguous mapping, including creations with
+            # no requirements; modifications also check the prior claim.
+            _require_unique_frontmatter(document)
             if status == 'M':
-                # The reader's general YAML parser permits duplicate keys.  A
-                # projection comparison must not silently select one of them,
-                # including when neither document declares requirements.
-                for item in (prior, document):
-                    _require_unique_frontmatter(item)
+                _require_unique_frontmatter(prior)
             ingestion_source = None
             if status == 'M' and (path != packet['output'] or ingestion is None):
                 from wiki_core.folder_query_requirements_v2 import same_json
