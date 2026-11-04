@@ -15,7 +15,7 @@ memory index first; retain any stronger consumer context requirement.
 
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |
-| Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index. Read each result's origin and coverage gaps before treating it as evidence. No index or model is started. |
+| Find | [wiki_context.py](wiki_context.py) `search` | Search literal text in an explicitly authorized folder or selected source. Read each result's origin and coverage gaps before treating it as evidence. No index or model is started. |
 | Context | Use [wiki_context.py](wiki_context.py) to resolve a folder with an explicit index or build its packet; [wiki_context_flow.py](wiki_context_flow.py) checks a folder proposal. | Folder entry does not prove native loading or authorize access. The manifest-based route remains available only with explicit `--mode v1`. See [folder entry](../docs/references/guides/folder-v2-experimental-usage.md) and [legacy context operation](../docs/references/guides/context-operation.md). |
 | Experimental folder v2 | [wiki_folder_packet_v2.py](wiki_folder_packet_v2.py) and [wiki_folder_preflight_v2.py](wiki_folder_preflight_v2.py) support explicit folder packets and bounded current-revision queries. | `--start-folder` selects a qualified auxiliary entry under its existing context; it grants no access and proves no native session. [Explicit historical query comparison](wiki_folder_query_history_v2.py), [selective consumer inventory](wiki_folder_consumers_v2.py), and [source reassessment](wiki_folder_reassessment_v2.py) are narrow candidates under review; general requalification and v1 receipt migration remain blocked. See the [experimental guide](../docs/references/guides/folder-v2-experimental-usage.md) and [auxiliary instructions](../docs/references/guides/context-folders-sources-repositories.md#auxiliary-instruction-folders). |
 | Source | Use the existing source workspace, `GET /api/sources` for identity/location and `GET /api/sources/{source_id}/operations` for receipts, described in [source access](../docs/references/guides/source-access-and-ingestion.md). | Inspect retained identity, location and receipts first. [Refresh preview/run](../docs/references/guides/source-refresh-cadence.md) may contact external systems and requires the existing account and authorized scope; an unavailable original is an explicit gap. |
@@ -31,7 +31,11 @@ for handoff and recovery; inspecting a result does not require redispatch.
 
 ## Primary lifecycle
 
-For direct local lookup, use [wiki_find.py](wiki_find.py):
+For folder-bound lookup, use [wiki_context.py](wiki_context.py) `search` with
+the approved revision, selected index and trusted host binding, as described
+in [folder search](../docs/references/guides/folder-v2-experimental-usage.md#bounded-literal-search).
+For an explicitly authorized global local lookup, the legacy [wiki_find.py](wiki_find.py)
+reads the existing global index:
 
 ```sh
 python3 scripts/wiki_find.py "release review" --context system --limit 10
@@ -42,7 +46,8 @@ distinguishes no matches from a missing or invalid index. Context is filtered
 before the result limit, using current local metadata; unresolved identities
 remain explicit gaps. Legacy index coverage/revision and factual freshness
 remain unknown. This command creates no index, request, cache or model call.
-Context selects retrieval results; account and session controls govern access.
+Its context filter uses observed metadata and is not a folder authorization gate;
+account and session controls govern access.
 An index configured for WAL is reported as unsupported instead of creating
 SQLite sidecars or silently ignoring uncheckpointed data. Its journal mode is
 never changed by lookup.

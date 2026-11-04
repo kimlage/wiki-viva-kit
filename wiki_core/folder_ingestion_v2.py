@@ -45,8 +45,8 @@ def ingestion_binding_for_authorization(authorization):
             'source_authorization_sha256': hashlib.sha256(encoded).hexdigest()}
 
 
-def selection_from_host_environment(folder, index_path, output_path, source_ref=None, env=None, *, independent_repo=None, additional_repos=(), existing_output_sha256=None):
-    """Use host startup configuration; the request cannot widen its allowlist."""
+def host_binding_from_environment(env=None):
+    """Load the trusted local host binding independently of an output selection."""
     env = os.environ if env is None else env
     host_root = env.get('WIKI_FOLDER_INGEST_HOST_ROOT', '').strip()
     allowlist = env.get('WIKI_FOLDER_INGEST_HOST_FOLDERS', '').strip()
@@ -60,6 +60,12 @@ def selection_from_host_environment(folder, index_path, output_path, source_ref=
         host = FolderHostBinding(Path(host_root), tuple(part.strip() for part in allowlist.split(',')), repos)
     except (ValueError, TypeError):
         raise ValueError('invalid repository bindings') from None
+    return host
+
+
+def selection_from_host_environment(folder, index_path, output_path, source_ref=None, env=None, *, independent_repo=None, additional_repos=(), existing_output_sha256=None):
+    """Use host startup configuration; the request cannot widen its allowlist."""
+    host = host_binding_from_environment(env)
     return FolderIngestionSelection(host, folder, index_path, output_path, source_ref, independent_repo, additional_repos, existing_output_sha256)
 
 
