@@ -78,12 +78,12 @@ def prepare_folder_reassessment(root, binding, payload):
                 repo_root = Path(independent['root'])
                 if not repo_root.is_absolute():
                     raise ValueError('relative root')
-                repo_key = (repo_root.resolve(), independent['identity'])
+                repo_key = (folder, repo_root.resolve(), independent['identity'], safe_path(independent['path']))
                 if repo_key not in binding.independent_repos:
                     raise ValueError('repository not in host binding')
                 # Subsequent Git operations use the host-authorized canonical
                 # root, not an alias from the request that can be retargeted.
-                independent = {**independent, 'root': str(repo_key[0])}
+                independent = {**independent, 'root': str(repo_key[1]), 'path': repo_key[3]}
             except (OSError, RuntimeError, ValueError, TypeError):
                 raise FolderCoordinationError('independent repository unavailable or unauthorized') from None
         context = policy.folder_ids[folder]
