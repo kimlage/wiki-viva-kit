@@ -540,7 +540,7 @@ is recorded with:
 
 ```sh
 python3 scripts/wiki_llm_context_pass.py --record-result result.json --context example
-python3 scripts/wiki_llm_context_pass.py --source path/to/source.md --context example --check
+python3 scripts/wiki_llm_context_pass.py --mode v1 --source path/to/source.md --context example --check
 ```
 
 The gate checks recorded results, not intentions. A plan to read the source is
@@ -552,8 +552,8 @@ not a deep read.
 results into a normalized event and an integration packet:
 
 ```sh
-python3 scripts/wiki_consolidate.py --source <source_id> --emit-event --packet
-python3 scripts/wiki_consolidate.py --all-pending
+python3 scripts/wiki_consolidate.py --mode v1 --source <source_id> --emit-event --packet
+python3 scripts/wiki_consolidate.py --mode v1 --all-pending
 ```
 
 The event captures what the source says. The packet helps the agent find related
@@ -660,7 +660,7 @@ python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_operational_pass.py --check
 python3 scripts/wiki_source_registry.py --check
 python3 scripts/wiki_input_stage.py --check
-python3 scripts/wiki_consolidate.py --check
+python3 scripts/wiki_consolidate.py --mode v1 --check
 python3 scripts/wiki_quality_report.py --check
 python3 -m pytest tests/ -q
 python3 scripts/wiki_pr_summary.py

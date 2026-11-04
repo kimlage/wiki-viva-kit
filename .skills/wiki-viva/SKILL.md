@@ -42,7 +42,7 @@ Shared code must not hardcode a consumer path or context.
 
 ### Ingest and read
 
-Use [wiki_ingest.py](../../scripts/wiki_ingest.py): `python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID`. Use the current trusted approval and authorized context; see the [bounded ingestion guide](../../docs/references/guides/bounded-ingestion.md) for limits and the explicitly labelled working-tree compatibility mode.
+Start in the authorized context folder, read its index and relevant bodies, then use [wiki_ingest.py](../../scripts/wiki_ingest.py) with the approved revision and explicit folder, index, output and trusted host binding. See the [bounded ingestion guide](../../docs/references/guides/bounded-ingestion.md) for the command, provenance and limits. Legacy v1 and working-tree compatibility require explicit mode selection.
 Inspect the generated context request, perform the deep read, persist the
 cache result through the repo's LLM-context skill, then consolidate. Never
 invent provenance or store access credentials.
