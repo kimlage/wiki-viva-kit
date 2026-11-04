@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "state",
+    "base",
+    "head",
+    "branch",
+    "context_id",
+    "packet_digest",
+    "changes",
+    "query_coverage",
+    "review",
+    "merge",
+    "enforcement_claim"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki.folder-query-preflight/v2"
+    },
+    "state": {
+      "const": "independent_review_required"
+    },
+    "base": {
+      "type": "string",
+      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "head": {
+      "type": "string",
+      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "packet_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "action"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "enum": [
+              "created",
+              "modified",
+              "deleted"
+            ]
+          }
+        }
+      }
+    },
+    "query_coverage": {
+      "const": "reported_not_independently_verified"
+    },
+    "review": {
+      "const": "not_performed"
+    },
+    "merge": {
+      "const": "not_performed"
+    },
+    "enforcement_claim": {
+      "const": "none"
+    }
+  }
+}

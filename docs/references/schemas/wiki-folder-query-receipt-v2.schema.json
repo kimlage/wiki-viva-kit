@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "query_id",
+    "request",
+    "context_id",
+    "folder",
+    "index_path",
+    "content_revision",
+    "policy_revision",
+    "packet_digest",
+    "authority_digest",
+    "members",
+    "members_digest",
+    "selected_digest",
+    "coverage",
+    "enumerated",
+    "receipt_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki.folder-query-receipt/v2"
+    },
+    "query_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "query",
+        "reason",
+        "use",
+        "classification"
+      ],
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scope",
+            "filters",
+            "max_enumerated",
+            "max_matches",
+            "max_scan_bytes"
+          ],
+          "properties": {
+            "scope": {
+              "type": "string",
+              "minLength": 1
+            },
+            "filters": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 8
+            },
+            "max_enumerated": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "max_matches": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128
+            },
+            "max_scan_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000000
+            },
+            "section": {
+              "type": "string",
+              "minLength": 1
+            },
+            "field": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "not": {
+            "required": [
+              "section",
+              "field"
+            ]
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "use": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "context_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "folder": {
+      "type": "string",
+      "minLength": 1
+    },
+    "index_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content_revision": {
+      "type": "string",
+      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "policy_revision": {
+      "type": "string",
+      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "packet_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "authority_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "page_id"
+        ],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "page_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "members_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "selected_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "coverage": {
+      "const": "complete_only_within_authorized_single_owner_scope"
+    },
+    "enumerated": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "receipt_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
