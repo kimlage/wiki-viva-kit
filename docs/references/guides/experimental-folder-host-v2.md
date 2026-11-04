@@ -15,6 +15,8 @@ needed, historical mechanical controls. Only then does it call the v2 packet
 builder. `prepare_folder_preflight` accepts a matching v2 result and packet,
 rechecks those selections, and invokes the limited v2 preflight. Both return
 `enforcement_claim: none`; preflight does not approve or merge anything.
+The separate [host-bound source reassessment](experimental-host-source-reassessment.md)
+adapter applies this binding to selected source/consumer reports.
 
 The API has no network endpoint, CLI, default activation, v1 fallback, query
 receipt migration or implicit host authentication. Filesystem and actor
