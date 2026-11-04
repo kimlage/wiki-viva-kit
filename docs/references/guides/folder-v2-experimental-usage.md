@@ -240,9 +240,9 @@ File and byte limits apply before opening candidates. Declarations are neither
 v2 query receipts nor proof of a read, and this command creates no registry or
 automatic requalification. Actual host access remains the caller's responsibility.
 
-## Preview consolidation from explicit recorded results
+## Prepare a consolidation proposal from explicit recorded results
 
-`wiki_consolidate.py --folder-preview --max-age-days N` accepts one JSON object
+The default `wiki_consolidate.py --max-age-days N` accepts one JSON object
 on standard input containing `request`, ordered `results` and explicit
 `page_metadata` (page ID, context, visibility, page date, stale threshold,
 source/gate/privacy policies, owner and selected parent). The current authorized
@@ -440,8 +440,8 @@ integration and operational session acceptance remain pending.
   coordinator requires actual host authority to inspect historical manifests;
   results remain review pending and do not establish historical approval.
 
-These experiments do not replace the active v1 coordination, ingestion or
-requirements consumers. An explicit folder-bound ingestion preview is described
-in [bounded ingestion](bounded-ingestion.md#experimental-folder-bound-ingestion);
-its recorded interpretations do not migrate v1 state or integrate memory. All experiments require an
-aggregate review and gates before any separate adoption decision.
+These experiments do not migrate active v1 coordination or requirements
+consumers. The candidate defaults to [folder-bound ingestion](bounded-ingestion.md#folder-bound-ingestion)
+and a folder consolidation proposal; recorded interpretations do not migrate
+v1 state or integrate memory. The candidate requires aggregate review and gates
+before any separate adoption decision.
