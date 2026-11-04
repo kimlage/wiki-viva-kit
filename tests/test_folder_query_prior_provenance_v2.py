@@ -14,10 +14,12 @@ from wiki_core.folder_query_requirements_v2 import query_requirements
 from wiki_core.frontmatter import parse_frontmatter
 
 
-@pytest.mark.parametrize('kind', ['raw', 'repository'])
+@pytest.mark.parametrize('kind', ['raw', 'repository', 'multi'])
 def test_later_query_keeps_prior_provenance_without_claiming_revalidation(project, monkeypatch, tmp_path, capsys, kind):
+    from tests.test_folder_multi_provenance_v2 import prior_raw
     binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys,
-        existing=True, with_query=True, raw=kind == 'raw', with_repo=kind == 'repository')
+        existing=True, with_query=True, raw=kind in ('raw', 'multi'), with_repo=kind == 'repository',
+        prior_projection=prior_raw() if kind == 'multi' else None)
     first_packet = request['folder_query_packet']; base = request['block_context_package']
     first_result = result_for(first_packet, [{'path':base['output'], 'action':'modified'}])
     preview = prepare_folder_consolidation(project, binding, request, results, candidates=[],
@@ -34,7 +36,7 @@ def test_later_query_keeps_prior_provenance_without_claiming_revalidation(projec
     git(project, 'checkout', '-q', old_branch)
     git(project, 'merge', '--ff-only', 'wiki/first-ingestion')
     git(project, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
-    if kind == 'raw':
+    if kind in ('raw', 'multi'):
         put(project, 'a/raw/source.md', 'Changed after the earlier capture\n')
     current = git(project, 'rev-parse', 'HEAD'); policy = load_folder_policy_v2(project, current)
     evidence = [{'path':base['output'], 'producer_folder':'a', 'reason':'prior output',
@@ -56,7 +58,7 @@ def test_later_query_keeps_prior_provenance_without_claiming_revalidation(projec
               'packet':later_packet, 'result':later_result}
     outcome = preflight_folder_query_v2(project, policy, **kwargs)
     assert outcome['prior_ingestion_provenance'] == {
-        'capture':'preserved_not_revalidated' if kind == 'raw' else 'absent',
+        'capture':'preserved_not_revalidated' if kind in ('raw', 'multi') else 'absent',
         'repository':'preserved_not_revalidated' if kind == 'repository' else 'absent'}
     from jsonschema import validate
     import json
@@ -65,6 +67,7 @@ def test_later_query_keeps_prior_provenance_without_claiming_revalidation(projec
     validate(outcome, json.loads(schema.read_text()))
     changed = deepcopy(frontmatter)
     if kind == 'raw': changed['source_authorization']['source_sha256'] = '0' * 64
+    elif kind == 'multi': changed['folder_source_provenance']['entries'][0]['source_authorization']['source_sha256'] = '0' * 64
     else: changed['independent_repo_read']['content_sha256'] = '0' * 64
     put(project, base['output'], '---\n' + yaml.safe_dump(changed, sort_keys=False) + '---\n' + body)
     git(project, 'add', base['output']); git(project, 'commit', '--amend', '-qm', 'changed prior provenance')
