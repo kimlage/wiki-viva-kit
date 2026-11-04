@@ -297,6 +297,21 @@ request. Missing or mismatched bindings, requests and results fail closed.
 Query scope edits still require separate requalification; neither the query
 receipt nor the recorded result proves a semantic read or independent review.
 
+An existing claim can retain a prior RAW or independent-repository singleton
+and add a different source through `folder_source_provenance`, a bounded
+[v2 provenance list](../schemas/wiki-folder-source-provenance-v2.schema.json)
+in that claim. Each new entry names its canonical source and the exact wiki
+revision consumed, matching its separate current `information_requirements`
+entry. Existing singleton values, requirements and body are preserved in the
+proposal; the preflight checks the newly supplied request and projection, not
+the factual freshness of earlier sources. Duplicate sources, ambiguous prior
+repository projections without a source reference, and reassignment of prior
+projections are blocked. A source already present needs separate requalification.
+The host-bound reassessment selects only the chosen source's projection and
+requires its matching recorded request; changing another source is not proof
+that this source changed. V1 integration refuses the new field; existing v1
+pages and singleton records are not automatically migrated.
+
 When the query envelope and its reported result are provided to folder
 consolidation, the proposed claim records versioned query projections in its
 existing `information_requirements`. The query preflight rebuilds the envelope

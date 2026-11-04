@@ -74,6 +74,8 @@ def validate_ingestion_projections(request, metadata):
     """Require the canonical minimal projections dictated by the recorded authorization."""
     try:
         auth = request['source_authorization']
+        from wiki_core.folder_source_provenance_v2 import selected_projection
+        metadata = selected_projection(metadata, auth['canonical_ref'])
         capture = ({key: auth[key] for key in CAPTURE_KEYS}
                    if auth['source_kind'] == 'staged_raw' else None)
         receipt = auth.get('independent_repo_read')

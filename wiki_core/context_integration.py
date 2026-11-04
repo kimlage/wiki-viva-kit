@@ -115,12 +115,17 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
         if path in normative: raise IntegrationError('normative input requires separate policy review')
         if policy.owner_of(path)!=context_id or not policy.permits(context_id,'write',path): raise IntegrationError('write outside context')
         if not policy.permits(context_id,'read',path): raise IntegrationError('proposal read denied')
+        if status=='D' and path.endswith('.md') and path in base_reader.paths:
+            if 'folder_source_provenance' in base_reader.read(path)['frontmatter']:
+                raise IntegrationError('folder source provenance requires the v2 integration path')
         if status!='D':
             try: proposed_file=proposal.read(path); text=proposed_file['text']
             except ValueError as exc: raise IntegrationError('unsupported or unsafe proposed file') from exc
             if any(x.category=='secret' for x in scan_text(text)): raise IntegrationError('secret detected in proposal')
             if path.endswith('.md'):
                 prior=base_reader.read(path)['frontmatter'] if path in base_reader.paths else {}
+                if 'folder_source_provenance' in prior or 'folder_source_provenance' in proposed_file['frontmatter']:
+                    raise IntegrationError('folder source provenance requires the v2 integration path')
                 raw_before=prior.get('information_requirements',[])
                 raw_after=proposed_file['frontmatter'].get('information_requirements',[])
                 has_query=isinstance(raw_after,list) and any(isinstance(r,dict) and 'query' in r for r in raw_after)

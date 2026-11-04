@@ -36,6 +36,13 @@ evidence_refs: []
 ---
 ```
 
+When an additional folder-bound RAW or repository source contributes to an
+existing claim, its optional `folder_source_provenance` uses the
+[v2 source-provenance schema](../../schemas/wiki-folder-source-provenance-v2.schema.json).
+Existing singleton projections and requirements remain unchanged; each added
+entry is linked to its exact source requirement and needs normal review. This
+metadata does not prove a read or grant access.
+
 # Claim - example
 
 Status: `fato` | `percepcao` | `hipotese` | `insight` | `proposta` | `decisao`.

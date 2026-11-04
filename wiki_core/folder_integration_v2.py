@@ -335,12 +335,13 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                         'after_sha256':hashlib.sha256(after_body.encode('utf-8')).hexdigest(),
                         'semantic_review':'independent_review_required'})
                     old_meta, new_meta = prior['frontmatter'], document['frontmatter']
-                    projection = {'source_authorization', 'independent_repo_read', 'independent_repo_additional_reads', 'independent_repo_source_ref'}
-                    if any(old_meta.get(key) is not None for key in projection):
-                        raise ValueError('prior capture provenance requires separate migration')
-                    if (new_meta.get('independent_repo_read') is not None
-                            and new_meta.get('independent_repo_source_ref') != ingestion_source):
-                        raise ValueError('repository provenance source unavailable')
+                    from wiki_core.folder_source_provenance_v2 import add_projection, SINGLETON, FIELD
+                    projection = set(SINGLETON) | {FIELD}
+                    expected_projection = add_projection(old_meta, auth)
+                    actual_projection = {key:new_meta[key] for key in projection if key in new_meta}
+                    from wiki_core.folder_query_requirements_v2 import same_json
+                    if not same_json(actual_projection, expected_projection):
+                        raise ValueError('existing provenance changed or current source differs')
                     old_refs = old_meta.get('source_refs', [])
                     if not isinstance(old_refs, list) or any(not isinstance(ref, str) for ref in old_refs):
                         raise ValueError('source references unavailable')
@@ -362,13 +363,20 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             covered_requirements += _check_current_requirements(prior, document, path, status, packet, approved,
                  ingestion_source=ingestion_source, query_rows=query_rows if path == packet['output'] else (),
                  require_queries=bool(query_rows and ingestion is not None and path == packet['output']))
-            capture = document['frontmatter'].get('source_authorization')
+            selected_meta = document['frontmatter']
             if path == packet['output'] and ingestion is not None:
+                if status == 'A' and 'folder_source_provenance' in document['frontmatter']:
+                    raise FolderIntegrationError('new claim cannot introduce additional source projections')
                 try:
                     from wiki_core.folder_capture_v2 import validate_ingestion_projections
                     validate_ingestion_projections(source_request, document['frontmatter'])
+                    from wiki_core.folder_source_provenance_v2 import selected_projection
+                    selected_meta = selected_projection(document['frontmatter'], source_request['source_authorization']['canonical_ref'])
                 except (ValueError, TypeError, KeyError, AttributeError):
                     raise FolderIntegrationError('ingestion projections unavailable') from None
+            elif 'folder_source_provenance' in document['frontmatter']:
+                raise FolderIntegrationError('folder source provenance requires an ingestion-bound task')
+            capture = selected_meta.get('source_authorization')
             if capture is not None:
                 # A RAW association needs the original explicit request and
                 # recorded results under a trusted folder binding. A direct
@@ -386,8 +394,8 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                     capture_inspected = True
                 except (ValueError, OSError, TypeError, KeyError, AttributeError, RecursionError):
                     raise FolderIntegrationError('raw capture unavailable or changed') from None
-            repo_receipt = document['frontmatter'].get('independent_repo_read')
-            additional_repos = document['frontmatter'].get('independent_repo_additional_reads')
+            repo_receipt = selected_meta.get('independent_repo_read')
+            additional_repos = selected_meta.get('independent_repo_additional_reads')
             if additional_repos is not None and repo_receipt is None:
                 raise FolderIntegrationError('repository selection requires host-bound revalidation')
             if repo_receipt is not None:

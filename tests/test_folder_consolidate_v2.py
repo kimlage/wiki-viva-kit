@@ -14,7 +14,7 @@ from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.ingest import run
 
 
-def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_repo=False, with_query=False, existing=False):
+def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_repo=False, with_query=False, existing=False, prior_projection=None):
     registry = yaml.safe_load((Path(__file__).resolve().parents[1] / 'wiki.page-types.yaml').read_text())
     registry['page_types']['claim']['allowed_dirs'] = ['a/claims']
     registry['page_types'] = {'claim':registry['page_types']['claim']}
@@ -45,6 +45,8 @@ def fixture_inputs(project, monkeypatch, tmp_path, capsys, *, raw=False, with_re
                  'page_type':'claim', 'source_refs':['source-earlier'], 'information_requirements':[
                      {'target':'a/old-source.md', 'fields':['*'], 'temporal':'current', 'max_age_days':90,
                       'consumed_revision':'0' * 40, 'use':'interpretation', 'classification':'source'}]}
+        if prior_projection is not None:
+            prior.update(prior_projection)
         put(project, 'a/claims/result.md', '---\n' + yaml.safe_dump(prior, sort_keys=False) + '---\n'
             '# Prior claim\n\nExisting claim content preserved.\n')
         commit(project); sha = git(project, 'rev-parse', 'HEAD')
