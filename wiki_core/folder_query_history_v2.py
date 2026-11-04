@@ -23,10 +23,10 @@ class FolderQueryHistoryError(ValueError):
     pass
 
 
-def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_revision):
-    """Reproduce one prior v2 query and compare it at the approved tip.
+def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_revision, query_id=None):
+    """Reproduce a full v2 envelope and compare one selected query at the approved tip.
 
-    Limited to a whole index, one query and no auxiliary folders. Modifications
+    Limited to a whole index, up to eight queries and no auxiliary folders. Modifications
     and deletions require the complete prior output as authorized evidence.
     This is not proof of a read, review or merge.
     """
@@ -39,7 +39,7 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
         raise FolderQueryHistoryError('secret detected in historical query input')
     try:
         base = packet['base_packet']; queries = packet['queries']
-        if (not isinstance(queries, list) or len(queries) != 1 or base.get('index_section') is not None
+        if (not isinstance(queries, list) or not 1 <= len(queries) <= 8 or base.get('index_section') is not None
                 or base.get('start_folder') is not None or not isinstance(base.get('inputs'), list)
                 or any(row.get('kind') not in ('instruction', 'mandatory', 'index', 'evidence') for row in base['inputs'])):
             raise FolderQueryHistoryError('historical query packet outside supported scope')
@@ -52,15 +52,23 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
         _git(root, 'merge-base', '--is-ancestor', integrated_revision, policy.policy_revision)
         folder = base['context_folder']; context = policy.folder_ids[folder]
         target = safe_path(base['output']); index = base['index_path']
-        entry = normalize_query(queries[0]['receipt']['request'])
-        if entry['target'] != index or base['context_id'] != context:
+        entries = [normalize_query(row['receipt']['request']) for row in queries]
+        ids = [row['receipt']['query_id'] for row in queries]
+        if query_id is None and len(ids) == 1:
+            query_id = ids[0]
+        if (not isinstance(query_id, str) or not re.fullmatch(r'[0-9a-f]{64}', query_id)
+                or ids.count(query_id) != 1):
+            raise FolderQueryHistoryError('one explicit query id required')
+        selected = ids.index(query_id)
+        entry = entries[selected]
+        if any(item['target'] != index for item in entries) or base['context_id'] != context:
             raise FolderQueryHistoryError('query anchor or owner changed')
-        scope = entry['query']['scope']
-        if target == index or within(target, scope):
+        if target == index or any(within(target, item['query']['scope']) for item in entries):
             raise FolderQueryHistoryError('output intersects query scope')
         # Establish current authority for the complete universe and output before
         # opening any historical instruction, index, source or output body.
-        _scope_authorized(policy, folder, scope, index)
+        for item in entries:
+            _scope_authorized(policy, folder, item['query']['scope'], index)
         if (policy.owner_of(target) != context or not policy.permits(context, 'read', target)
                 or not policy.permits(context, 'write', target)):
             raise FolderQueryHistoryError('current output authority unavailable')
@@ -73,11 +81,13 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
                 or not historical.permits(context, 'read', target) or not integrated.permits(context, 'read', target)
                 or not historical.permits(context, 'write', target) or not integrated.permits(context, 'write', target)):
             raise FolderQueryHistoryError('historical output authority unavailable')
-        _scope_authorized(historical, folder, scope, index)
+        for item in entries:
+            _scope_authorized(historical, folder, item['query']['scope'], index)
         # Only the internally bound ancestor is replayed. Its objects are never
         # returned, and the trusted current ref is checked again before return.
-        rebuilt = build_folder_query_packet_v2(root, historical, base_packet=base, queries=[entry])
-        if rebuilt != packet:
+        rebuilt = build_folder_query_packet_v2(root, historical, base_packet=base, queries=entries)
+        from wiki_core.folder_query_requirements_v2 import same_json
+        if not same_json(rebuilt, packet):
             raise FolderQueryHistoryError('historical v2 query packet cannot be reproduced')
         required = {'schema_version', 'status', 'task_id', 'context_id', 'packet_digest', 'observed', 'observed_queries', 'changes'}
         if (not isinstance(result, dict) or set(result) != required
@@ -89,7 +99,7 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
                      'section': row.get('section'), 'field': row.get('field')} for row in base['inputs']]
         changes = result['changes']
         if (result['observed'] != observed + _query_observations(packet)
-                or result['observed_queries'] != [queries[0]['receipt']['query_id']]
+                or result['observed_queries'] != ids
                 or not isinstance(changes, list) or len(changes) != 1
                 or not isinstance(changes[0], dict) or set(changes[0]) != {'path', 'action'}
                 or changes[0]['path'] != target or changes[0]['action'] not in ('created', 'modified', 'deleted')):
@@ -125,7 +135,7 @@ def assess_folder_query_history_v2(root, policy, *, packet, result, integrated_r
                         content_revision=policy.policy_revision, index_path=index, task_id=base['task_id'],
                         goal=base['goal'], output=target, integrator=base['integrator'])
         current_packet = build_folder_query_packet_v2(root, policy, base_packet=current_base, queries=[entry])
-        before = queries[0]['receipt']; after = current_packet['queries'][0]['receipt']
+        before = queries[selected]['receipt']; after = current_packet['queries'][0]['receipt']
         if before['query_id'] != after['query_id']:
             raise FolderQueryHistoryError('query identity changed')
         state = 'unchanged' if (before['members_digest'] == after['members_digest']

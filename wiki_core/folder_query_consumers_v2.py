@@ -52,11 +52,14 @@ def reassess_query_consumers(root, binding, *, folder, approved_revision, change
                 if (not isinstance(packet, dict) or packet.get('schema_version') != 'wiki.folder-query-task-context/v2'
                         or packet.get('base_packet', {}).get('context_folder') != folder
                         or packet.get('base_packet', {}).get('output') != consumer['path']
-                        or not isinstance(packet.get('queries'), list) or len(packet['queries']) != 1
-                        or not same_json(query_requirements(packet['queries'], req['max_age_days']), [req])):
+                        or not isinstance(packet.get('queries'), list) or not 1 <= len(packet['queries']) <= 8):
+                    raise ValueError('query report differs from declaration')
+                selected = [row for row in packet['queries'] if isinstance(row, dict)
+                            and isinstance(row.get('receipt'), dict) and row['receipt'].get('query_id') == req['query_id']]
+                if len(selected) != 1 or not same_json(query_requirements(selected, req['max_age_days']), [req]):
                     raise ValueError('query report differs from declaration')
                 impact = assess_folder_query_history_v2(root, policy, packet=packet, result=report['result'],
-                                                       integrated_revision=report['integrated_revision'])
+                                                       integrated_revision=report['integrated_revision'], query_id=req['query_id'])
                 entry['state'] = impact['state']
                 entry['query_state'] = impact['query_state']
                 entry['read_verification'] = impact['read_verification']

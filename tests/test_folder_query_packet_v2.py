@@ -9,6 +9,13 @@ from wiki_core.folder_query_packet_v2 import (FolderQueryPacketError, build_fold
 from wiki_core.repository_reader import RepositoryReader
 
 
+def query_claim(packet, body='Interpretation'):
+    import yaml
+    from wiki_core.folder_query_requirements_v2 import query_requirements
+    return '---\n' + yaml.safe_dump({'page_type':'claim',
+        'information_requirements':query_requirements(packet['queries'], 30)}, sort_keys=False) + '---\n' + body + '\n'
+
+
 def setup_query(project):
     policy,base,entry=fixture_query(project)
     packet=build_folder_query_packet_v2(project,policy,base_packet=base,queries=[entry])
@@ -39,7 +46,7 @@ def test_query_packet_and_preflight_exact_readset(project):
     assert packet['queries'][0]['receipt']['packet_digest']==base['packet_digest']
     assert packet['queries'][0]['selected'][0]['text']=='11'
     before=git(project,'rev-parse','HEAD'); git(project,'checkout','-qb','wiki/query-v2')
-    put(project,'a/result.md','---\npage_type: claim\n---\nInterpretation\n')
+    put(project,'a/result.md',query_claim(packet))
     git(project,'add','-A'); git(project,'commit','-qm','interpretation'); head=git(project,'rev-parse','HEAD')
     result=result_for(packet,[{'path':'a/result.md','action':'created'}])
     out=preflight_folder_query_v2(project,p,base=before,head=head,branch='wiki/query-v2',packet=packet,result=result)
@@ -114,7 +121,7 @@ def test_query_packet_and_preflight_clis_use_versioned_contract(project,tmp_path
     packet=json.loads(built.stdout)
     assert packet['schema_version']=='wiki.folder-query-task-context/v2'
     git(project,'checkout','-qb','wiki/query-cli')
-    put(project,'a/result.md','---\npage_type: claim\n---\nInterpretation\n')
+    put(project,'a/result.md',query_claim(packet))
     git(project,'add','-A'); git(project,'commit','-qm','result'); head=git(project,'rev-parse','HEAD')
     result=result_for(packet,[{'path':'a/result.md','action':'created'}])
     pp=tmp_path.parent/(tmp_path.name+'-packet.json'); rp=tmp_path.parent/(tmp_path.name+'-result.json')
@@ -143,7 +150,7 @@ def test_primary_folder_cli_handles_query_packet_without_v1_fallback(project,tmp
     packet=json.loads(built.stdout)
     assert packet['schema_version']=='wiki.folder-query-task-context/v2'
     git(project,'checkout','-qb','wiki/primary-query')
-    put(project,'a/result.md','---\npage_type: claim\n---\nInterpretation\n')
+    put(project,'a/result.md',query_claim(packet))
     git(project,'add','-A'); git(project,'commit','-qm','result'); head=git(project,'rev-parse','HEAD')
     result=result_for(packet,[{'path':'a/result.md','action':'created'}])
     pp=tmp_path.parent/(tmp_path.name+'-primary-packet.json'); rp=tmp_path.parent/(tmp_path.name+'-primary-result.json')
@@ -173,7 +180,7 @@ def test_query_preflight_accepts_existing_output_only_with_whole_prior_read(proj
     packet=build_folder_query_packet_v2(project,p,base_packet=base,queries=[entry])
     git(project,'checkout','-qb','wiki/query-existing')
     if operation=='deleted': (project/'a/result.md').unlink()
-    else: put(project,'a/result.md','---\npage_type: claim\n---\nRevised interpretation\n')
+    else: put(project,'a/result.md',query_claim(packet, 'Revised interpretation'))
     git(project,'add','-A'); git(project,'commit','-qm','output'); head=git(project,'rev-parse','HEAD')
     result=result_for(packet,[{'path':'a/result.md','action':operation}])
     schema=Path(__file__).resolve().parents[1]/'docs/references/schemas/wiki-folder-query-task-result-v2.schema.json'
