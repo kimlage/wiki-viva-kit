@@ -464,6 +464,10 @@ def main() -> int:
             "input_stage_status": "query",
         }
 
+    if folder_queries is not None and not chunks:
+        return _blocked(ContextRequestBlocked('folder_query_source_empty',
+            'Folder queries require a source with at least one readable chunk; no query request was emitted.'),
+            str(manifest.get('source_id') or 'source-context-pass'), config.owner_label)
     manifest["context"] = args.context
     perspectives_required, perspectives_optional = merge_perspectives(
         source_config,
