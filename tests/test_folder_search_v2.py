@@ -39,6 +39,8 @@ def test_scope_excludes_other_owners_denials_and_instructions_before_read(projec
     empty = search_folder(project, FolderHostBinding(project, ('a',)), approved_revision=approved,
         folder='a', index_path='a/index.md', scope='a', query='synthetic-phrase-not-present')
     assert empty['status'] == 'no_matches_in_selection' and not empty['hits']
+    assert empty['index_path'] == 'a/index.md' and empty['selection'] == {'kind':'scope', 'scope':'a'}
+    assert empty['policy_revision'] == approved
     with pytest.raises(FolderSearchError):
         search_folder(project, FolderHostBinding(project, ('a',)), approved_revision=approved,
             folder='a', index_path='a/index.md', scope='a/aux/b', query='needle')
@@ -69,6 +71,11 @@ def test_raw_search_rechecks_current_bytes_and_authority(project, monkeypatch):
     assert out['hits'][0]['path'] == ref and out['hits'][0]['line'] == 2
     assert out['coverage'] == 'explicit_selected_raw_utf8_file_only'
     assert out['freshness'] == 'not_assessed'
+    empty = search_folder(project, FolderHostBinding(project, ('a',)), **{**args, 'query':'not-present'})
+    assert not empty['hits'] and empty['selection'] == {
+        'kind':'raw', 'path':ref, 'source_ref':'a/source.md', 'source_revision':approved,
+        'source_sha256':capture['canonical_sha256'], 'sha256':capture['source_sha256']}
+    assert empty['index_path'] == 'a/index.md' and empty['policy_revision'] == approved
     capture_file = project/'synthetic-capture.json'; capture_file.write_text(json.dumps(capture))
     script = Path(__file__).resolve().parents[1]/'scripts/wiki_context.py'
     cmd = [sys.executable, str(script), '--repo', str(project), '--approved-revision', approved,
@@ -118,6 +125,12 @@ def test_repository_search_requires_exact_host_binding_and_blob_limit(project, m
     out = search_folder(project, binding, **args)
     assert out['hits'][0]['line'] == 2 and out['hits'][0]['revision'] == rev
     assert out['coverage'] == 'explicit_selected_repository_git_blob_only'
+    empty = search_folder(project, binding, **{**args, 'query':'not-present'})
+    assert not empty['hits'] and empty['selection']['kind'] == 'repository'
+    assert empty['selection']['source_ref'] == 'a/repo.md'
+    assert empty['selection']['repository'] == identity and empty['selection']['revision'] == rev
+    assert empty['selection']['path'] == 'guide.md' and empty['selection']['source_revision'] == approved
+    assert empty['index_path'] == 'a/index.md' and empty['policy_revision'] == approved
     script = Path(__file__).resolve().parents[1]/'scripts/wiki_context.py'
     cmd = [sys.executable, str(script), '--repo', str(project), '--approved-revision', approved,
            'search', 'a', '--index', 'a/index.md', '--source-ref', 'a/repo.md',
@@ -157,3 +170,50 @@ def test_normal_cli_requires_host_binding_and_returns_bounded_hits(project):
     assert json.loads(result.stdout)['hits'][0]['path'] == 'a/document.md'
     env['WIKI_FOLDER_INGEST_HOST_FOLDERS'] = 'a/aux/b'
     assert subprocess.run(cmd, capture_output=True, text=True, env=env).returncode != 0
+
+
+def test_root_scope_respects_owners_denials_and_unsupported_objects(project, monkeypatch):
+    put(project, 'AGENTS.md', '# Project\n\n## Wiki v2: indexes\n\n- [Root index](README.md)\n')
+    controls = yaml.safe_load((project/'wiki-context-controls.yaml').read_text())
+    controls['controls']['.']['policy']['deny'] = {'read':['private']}
+    put(project, 'wiki-context-controls.yaml', yaml.safe_dump(controls))
+    put(project, 'docs/visible.md', '# Synthetic\nneedle\n')
+    put(project, 'private/hidden.md', 'needle denied\n')
+    put(project, 'a/other-owner.md', 'needle other owner\n')
+    (project/'private/ignored-link.md').symlink_to('hidden.md')
+    (project/'a/other-owner-link.md').symlink_to('other-owner.md')
+    commit(project); approved = git(project, 'rev-parse', 'HEAD')
+    original = RepositoryReader.read
+    def guarded(reader, path, *args, **kwargs):
+        if path.startswith(('private/', 'a/')):
+            pytest.fail('denied or other-owner content opened')
+        return original(reader, path, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    args = {'approved_revision':approved, 'folder':'.', 'index_path':'README.md',
+            'scope':'.', 'query':'needle'}
+    binding = FolderHostBinding(project, ('.',))
+    out = search_folder(project, binding, **args)
+    assert [hit['path'] for hit in out['hits']] == ['docs/visible.md']
+    assert out['selection'] == {'kind':'scope', 'scope':'.'} and out['index_path'] == 'README.md'
+    assert 'private/' not in json.dumps(out) and 'a/other-owner' not in json.dumps(out)
+    empty = search_folder(project, binding, **{**args, 'query':'not-present'})
+    assert empty['status'] == 'no_matches_in_selection' and not empty['hits']
+    assert empty['selection'] == {'kind':'scope', 'scope':'.'}
+    (project/'docs/unsupported.md').symlink_to('visible.md')
+    commit(project); current = git(project, 'rev-parse', 'HEAD')
+    with pytest.raises(FolderSearchError, match='folder_search_unsupported_content') as exc:
+        search_folder(project, binding, **{**args, 'approved_revision':current})
+    assert 'docs/unsupported.md' not in str(exc.value)
+
+
+def test_root_scope_requires_rootwide_read_grant(project):
+    put(project, 'AGENTS.md', '# Project\n\n## Wiki v2: indexes\n\n- [Root](README.md)\n')
+    controls = yaml.safe_load((project/'wiki-context-controls.yaml').read_text())
+    controls['controls']['.']['policy']['read'] = ['README.md']
+    controls['controls']['a']['policy']['read'] = []
+    controls['controls']['a/aux/b']['policy']['read'] = []
+    put(project, 'wiki-context-controls.yaml', yaml.safe_dump(controls))
+    commit(project); approved = git(project, 'rev-parse', 'HEAD')
+    with pytest.raises(FolderSearchError):
+        search_folder(project, FolderHostBinding(project, ('.',)), approved_revision=approved,
+                      folder='.', index_path='README.md', scope='.', query='needle')

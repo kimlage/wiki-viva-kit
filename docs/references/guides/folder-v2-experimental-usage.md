@@ -255,6 +255,12 @@ search, while `truncated` reports an output hit limit. Mandatory instructions,
 declared references and the selected index are loaded first. The trusted host
 must have authority for their complete blobs and Git tree metadata; this tool
 is not a process sandbox or proof of execution.
+The returned `index_path` and `selection` describe the authorized input even
+when there are no hits, with the relevant revision and digest for an explicit
+RAW or repository blob. This is not a receipt or proof of reading. In a scope
+search, an unsupported tracked object within the selected owner's readable
+scope blocks the search without opening it; denied paths and other owners do
+not appear in the result.
 
 For a staged UTF-8 RAW, replace `--scope` with `--raw-capture CAPTURE.json`,
 an explicit capture declaration that may be copied from a prior request.
