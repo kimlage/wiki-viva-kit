@@ -203,6 +203,9 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
                         str(current_request.get("source_id") or "source-context-pass"), owner)
     if current_schema == "wiki.folder-task-context/v2":
         try:
+            from wiki_core.paths import FolderWikiPaths
+            if not isinstance(paths, FolderWikiPaths) or paths.folder != current_package.get('context_folder'):
+                raise ValueError('folder-scoped artifact namespace required')
             from wiki_core.folder_ingestion_v2 import _check_local_boundaries
             source_id = current_request.get("source_id")
             if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,511}", source_id):
