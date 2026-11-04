@@ -85,7 +85,7 @@ def _gather_events(paths: WikiPaths, context: str) -> tuple[list[dict[str, objec
 
 def _gather_chunks(paths: WikiPaths, theme: str, limit: int) -> list[dict[str, object]]:
     hits = search(paths.indexes / "wiki.sqlite", theme, limit=limit,
-                  page_signature=current_page_signature(paths))
+                  page_signature=current_page_signature(paths), wiki_root=paths.root)
     rows: list[dict[str, object]] = []
     for hit in hits:
         text = str(hit.get("text", ""))
@@ -255,8 +255,8 @@ def run(
     job_id = sha256_text(f"{theme}|{context}")[:12]
     the_date = date or dt.date.today()
 
-    events, karma_total = _gather_events(paths, context)
     chunks = _gather_chunks(paths, theme, limit)
+    events, karma_total = _gather_events(paths, context)
     pages = _gather_pages(paths, theme)
 
     packet = {

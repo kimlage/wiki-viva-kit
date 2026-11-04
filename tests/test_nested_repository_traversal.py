@@ -2,6 +2,7 @@ from pathlib import Path
 import subprocess
 import sqlite3
 import json
+import sys
 import pytest
 
 from scripts.wiki_build_index import collect_page_chunks
@@ -190,6 +191,50 @@ def test_stream_cursor_boundary_blocks_before_ingestion(tmp_path, monkeypatch):
     assert not paths.source_manifests.exists()
 
 
+@pytest.mark.parametrize('boundary', ['git-file', 'git-directory', 'symlink'])
+def test_legacy_wiki_query_consumers_refuse_index_across_boundary(tmp_path, monkeypatch, capsys, boundary):
+    from wiki_core.index.page_collection import current_page_signature
+    from wiki_core.index.sqlite import search
+
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    node = paths.memory_root / 'node' / 'index.md'
+    page(node, 'node', 'nodeword')
+    db = paths.indexes / 'wiki.sqlite'
+    index_pages(db, collect_page_chunks(tmp_path, paths, cfg))
+    signature = current_page_signature(paths)
+    if boundary == 'symlink':
+        outside = tmp_path / 'separate-indexes'
+        paths.indexes.rename(outside)
+        paths.indexes.symlink_to(outside, target_is_directory=True)
+    elif boundary == 'git-file':
+        (paths.derived_root / '.git').write_text('gitdir: ../separate')
+    else:
+        (paths.derived_root / '.git').mkdir()
+    assert wiki_markdown_files(paths.memory_root, wiki_root=tmp_path) == [node]
+    with monkeypatch.context() as m:
+        m.setattr(sqlite3, 'connect', lambda *args, **kwargs: pytest.fail('nested SQLite connected'))
+        with pytest.raises(ValueError, match='index_path_crosses_repository_boundary'):
+            _chunks_for_query(paths, 'nodeword')
+        with pytest.raises(ValueError, match='index_path_crosses_repository_boundary'):
+            _gather_chunks(paths, 'nodeword', 10)
+        from scripts import wiki_llm_context_pass
+        m.setattr(wiki_llm_context_pass, 'load_config', lambda _: cfg)
+        m.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(tmp_path),
+                                '--query', 'nodeword', '--context', 'system'])
+        assert wiki_llm_context_pass.main() == 2
+        assert json.loads(capsys.readouterr().out)['error_code'] == 'query_index_unavailable'
+        from wiki_core.insight import job
+        m.setattr(job, '_gather_events', lambda *args: pytest.fail('nested derived events opened'))
+        with pytest.raises(ValueError, match='index_path_crosses_repository_boundary'):
+            job.run('nodeword', 'system', tmp_path, cfg, write=False)
+        packet = consolidate.build_packet({'claims': ['nodeword']}, tmp_path, cfg, paths)
+        assert packet['claims'][0]['related'] == []
+        assert any('index_path_crosses_repository_boundary' in warning for warning in packet['warnings'])
+    # Generic callers with no wiki root retain their prior contract.
+    assert search(db, 'nodeword', page_signature=signature)
+
+
 def test_rebuild_removes_previously_indexed_clone_but_explicit_git_read_works(tmp_path):
     cfg = WikiConfig()
     paths = WikiPaths(tmp_path, cfg)
@@ -337,6 +382,20 @@ def test_consolidation_reuses_one_signature_and_discards_results_if_wiki_changes
     assert len(calls) == 2
     assert not any(row['related'] for row in packet['claims'])
     assert any('changed during packet' in warning for warning in packet['warnings'])
+
+
+def test_consolidation_missing_index_does_not_compute_signature(tmp_path, monkeypatch):
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    page(paths.memory_root / 'index.md', 'node', 'nodeword')
+    monkeypatch.setattr(consolidate, 'current_page_signature',
+                        lambda *_: pytest.fail('missing index must not scan wiki pages for signature'))
+    packet = consolidate.build_packet({'claims':['nodeword']}, tmp_path, cfg, paths)
+    assert packet['claims'][0]['related'] == []
+    paths.derived_root.mkdir(parents=True)
+    (paths.derived_root / '.git').mkdir()
+    packet = consolidate.build_packet({'claims':['nodeword']}, tmp_path, cfg, paths)
+    assert any('index_path_crosses_repository_boundary' in warning for warning in packet['warnings'])
 
 
 def test_selected_source_collection_reports_nested_repo_and_explicit_root_works(tmp_path):
