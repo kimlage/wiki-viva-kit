@@ -444,8 +444,11 @@ def result_matches_request(result: object, request: dict, row: dict, *, recordin
     return True
 
 
-def read_matching_result(cache_dir: Path, request: dict, row: dict) -> dict | None:
+def read_matching_result(cache_dir: Path, request: dict, row: dict, *, root: Path | None = None) -> dict | None:
     key = row.get("cache_key") if isinstance(row, dict) else None
+    if root is not None and isinstance(key, str) and CACHE_KEY_RE.fullmatch(key):
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(root, files=(result_path(cache_dir, key),))
     result = read_result(cache_dir, key) if isinstance(key, str) else None
     return result if result_matches_request(result, request, row) else None
 
@@ -564,6 +567,7 @@ def build_context_request(
     schema_version: str,
     model_profile: str,
     *,
+    context_root: Path | None = None,
     prompt_name: str = "context_deep_read",
     quadrants: list[str] | None = None,
     perspectives_required: list[str] | None = None,
@@ -669,7 +673,7 @@ def build_context_request(
                                    model_profile, context_sha256=bound),
             "token_estimate": chunk.get("token_estimate"), "text": chunk.get("text", ""),
         }
-        existing = read_matching_result(cache_dir, request, row)
+        existing = read_matching_result(cache_dir, request, row, root=context_root)
         row["result_exists"] = existing is not None
         if existing is not None:
             row["result_source_id"] = existing.get("source_id")

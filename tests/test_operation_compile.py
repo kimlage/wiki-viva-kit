@@ -813,3 +813,13 @@ def test_vitality_nested_root_and_projection_match(compile_mod, config, minimal_
     rule = next(r for r in fm['projection_inputs'] if r.get('page_types') == ['context_hub'])
     assert rule['path_prefix'] == paths.rel(paths.memory_root)
     assert rule['file_names'] == ['index.md'] and 'path_depth' not in rule
+
+
+def test_unavailable_consolidation_is_not_reported_as_zero(compile_mod, config, minimal_repo, monkeypatch):
+    def unavailable(*_args):
+        raise ValueError('synthetic private detail')
+    monkeypatch.setattr(compile_mod, 'pending_consolidations', unavailable)
+    page = compile_mod.build_page(minimal_repo, config)
+    assert 'Fontes aguardando consolidacao: indisponivel' in page
+    assert 'Fontes aguardando consolidacao: 0' not in page
+    assert 'synthetic private detail' not in page

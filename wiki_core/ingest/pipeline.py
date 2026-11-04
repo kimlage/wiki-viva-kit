@@ -142,6 +142,13 @@ def run(
     source_guard = None
     try:
         request_limits(context_max_bytes, request_max_bytes)
+        from wiki_core.traversal import require_wiki_boundaries
+        db_path = paths.indexes / 'wiki.sqlite'
+        require_wiki_boundaries(root, directories=(paths.source_manifests, paths.source_text, paths.chunks,
+            paths.indexes, paths.extraction_events, paths.llm_cache, paths.coverage, paths.input_stage,
+            *((paths.source_state, paths.source_state / '.locks') if stream_id else ())),
+            files=(paths.derived_root / 'score-events.jsonl', db_path,
+                   *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
         if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
             raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
         if approved_revision is not None or policy_context is not None:
@@ -166,6 +173,16 @@ def run(
             return _blocked_preparation(context, config, exc)
     source_id = str(manifest["source_id"])
     source_type = str(manifest["source_type"])
+    try:
+        state_files = ()
+        if stream_id:
+            from wiki_core.source_state import _state_file
+            state_files = (_state_file(paths.source_state, source_id),)
+        require_wiki_boundaries(root, files=(paths.source_manifests / f'{source_id}.json',
+            paths.source_text / f'{source_id}.json', paths.chunks / f'{source_id}.json',
+            paths.extraction_events / f'{source_id}-llm-context-request.json', *state_files))
+    except (ValueError, OSError) as exc:
+        return _blocked_preparation(context, config, exc)
     warnings: list[str] = []
 
     src_path = source_path
@@ -277,6 +294,7 @@ def run(
                     prompt_version,
                     CONTEXT_PASS_SCHEMA_VERSION,
                     model_profile,
+                    context_root=root,
                     perspectives_required=perspectives_required,
                     perspectives_optional=perspectives_optional,
                     root_entity=input_context.get("root_entity") if isinstance(input_context.get("root_entity"), dict) else None,

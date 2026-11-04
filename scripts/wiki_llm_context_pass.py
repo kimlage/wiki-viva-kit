@@ -72,6 +72,10 @@ def _source_artifact(path: Path, schema: str, source_id: str) -> dict[str, objec
 
 def _chunks_for_source(paths: WikiPaths, manifest: dict[str, object]) -> list[dict[str, object]]:
     source_id = str(manifest["source_id"])
+    if getattr(paths, 'root', None) is not None:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(paths.root, files=(paths.chunks / f'{source_id}.json',
+                                                  paths.source_text / f'{source_id}.json'))
     if manifest.get("exists") is False:
         raise ValueError("source_not_found: extract the requested source before checking it")
     data = _source_artifact(paths.chunks / f"{source_id}.json", "wiki_chunks.v1", source_id)
@@ -145,6 +149,9 @@ def _chunks_for_query(paths: WikiPaths, query: str) -> tuple[dict[str, object], 
 def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id: str | None = None) -> list[dict]:
     """Read emitted semantic packets for exact result provenance validation."""
     requests: list[dict] = []
+    if getattr(paths, 'root', None) is not None:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(paths.root, directories=(paths.extraction_events,))
     if not paths.extraction_events.exists():
         return requests
     if source_id is not None:
@@ -154,6 +161,9 @@ def _emitted_requests(paths: WikiPaths, *, sizes: dict | None = None, source_id:
         candidates = [exact] if not exact.is_symlink() and exact.is_file() else []
     else:  # Explicit trusted compatibility inspection retains its old scan.
         candidates = paths.extraction_events.glob("*-llm-context-request.json")
+    candidates = list(candidates)
+    if getattr(paths, 'root', None) is not None:
+        require_wiki_boundaries(paths.root, files=candidates)
     for path in candidates:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -186,7 +196,17 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
     retained_sizes = {}
     approved_current = current_request is not None and current_request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1"
     source_id = str(current_request.get("source_id") or "") if approved_current else None
-    requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes, source_id=source_id)
+    try:
+        if getattr(paths, 'root', None) is not None:
+            from wiki_core.traversal import require_wiki_boundaries
+            keys = [row.get('cache_key') for row in results if isinstance(row, dict)]
+            require_wiki_boundaries(paths.root, directories=(paths.llm_cache,), files=(
+                paths.llm_cache / f'{key}.json' for key in keys
+                if isinstance(key, str) and re.fullmatch(r'[0-9a-f]{64}', key)))
+        requests = [] if allow_unrequested else _emitted_requests(paths, sizes=retained_sizes, source_id=source_id)
+    except (ValueError, OSError):
+        print('ERROR: derived path crosses a repository boundary; result not recorded.', file=sys.stderr)
+        return 2
     limits = limits or request_limits()
     known = {str(row.get("cache_key")) for request in requests for row in request["chunks"] if isinstance(row, dict)}
     written = []
@@ -301,6 +321,16 @@ def main() -> int:
         limits = request_limits(args.context_max_bytes, args.request_max_bytes)
     except ValueError as exc:
         return _blocked(exc, "source-context-pass", config.owner_label)
+    try:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(root, directories=(paths.source_manifests, paths.source_text, paths.chunks,
+            paths.extraction_events, paths.llm_cache))
+    except (ValueError, OSError) as exc:
+        if args.query and not args.source:
+            return _blocked(ContextRequestBlocked("query_index_unavailable",
+                "The query input or index crosses a repository boundary; inspect its location."),
+                "query-context-pass", config.owner_label)
+        return _blocked(exc, "source-context-pass", config.owner_label)
     if (args.root_entity_ref is not None or args.omit_root_entity) and not args.approved_revision:
         return _blocked(ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used."), "source-context-pass", config.owner_label)
     if args.policy_context and not args.approved_revision:
@@ -410,6 +440,7 @@ def main() -> int:
             prompt_version,
             schema_version,
             model_profile,
+            context_root=root,
             perspectives_required=perspectives_required,
             perspectives_optional=perspectives_optional,
             root_entity=input_context.get("root_entity") if isinstance(input_context.get("root_entity"), dict) else None,
@@ -453,6 +484,10 @@ def main() -> int:
 
     if args.emit_request:
         out = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"
+        try:
+            require_wiki_boundaries(root, files=(out,))
+        except (ValueError, OSError) as exc:
+            return _blocked(exc, str(request['source_id']), config.owner_label)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(canonical_request_text(request), encoding="utf-8")
         print(out.relative_to(root))
