@@ -448,6 +448,14 @@ def compile_input_stage(
     }
 
 
+def local_folder_input_context() -> dict[str, Any]:
+    """Report missing global input metadata without discovering other pages."""
+    return {'root_entity': None, 'input_channel': None, 'quadrant_map': {},
+            'quadrant_semantics': {}, 'quadrant_boundary_rule': '', 'target_pages': [],
+            'perspectives_required': [], 'perspectives_optional': [],
+            'input_stage_status': 'local_folder_only_source_configuration_unresolved'}
+
+
 def input_context_for_source(
     root: Path,
     config: WikiConfig,

@@ -1,5 +1,6 @@
 """Physical folder entry is context selection, not an access grant."""
 import json
+import importlib.util
 from pathlib import Path
 import subprocess
 import sys
@@ -194,3 +195,182 @@ def test_selected_context_preserves_existing_cached_result(tmp_path):
     with pytest.raises(ValueError, match='preserved'):
         context_pass.write_result(tmp_path, {**result, 'produced_by': 'different'}, preserve_existing=True)
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize('body', ['', 'regular source'])
+def test_missing_index_is_blocked_before_source_or_extractor(approved, monkeypatch, body):
+    from wiki_core.ingest import pipeline
+    root, source, _, _ = approved
+    source.write_text(body)
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    monkeypatch.setattr(pipeline, 'build_manifest', lambda *_args, **_kwargs: pytest.fail('source opened'))
+    monkeypatch.setattr(pipeline, 'extract_source', lambda *_args, **_kwargs: pytest.fail('source extracted'))
+    result = run(str(source), 'system', root, load_config(root), entry_folder='area')
+    assert result.blocked and not result.written
+
+
+@pytest.mark.parametrize('body', ['', 'regular source'])
+def test_folder_input_does_not_inspect_global_context_or_index(approved, monkeypatch, body):
+    from wiki_core.ingest import pipeline
+    import wiki_core.template_blocks as blocks
+    root, source, _, _ = approved
+    source.write_text(body)
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    (root / 'area' / 'index.md').write_text('Local index')
+    def forbidden(*_args, **_kwargs):
+        pytest.fail('unselected global content opened')
+    monkeypatch.setattr(pipeline, 'find_source_config', forbidden)
+    monkeypatch.setattr(pipeline, 'input_context_for_source', forbidden)
+    monkeypatch.setattr(blocks, 'load_block_world', forbidden)
+    monkeypatch.setattr(pipeline, 'index_source', forbidden)
+    monkeypatch.setattr(pipeline, 'record_event', forbidden)
+    result = run(str(source), 'system', root, load_config(root), entry_folder='area')
+    assert not result.blocked and result.chunks_indexed == 0 and result.score_event_id is None
+    if body:
+        request = json.loads((root / result.request_path).read_text())
+        assert request['input_stage_status'] == 'local_folder_only_source_configuration_unresolved'
+        assert 'linked sources not inspected' in request['block_context_package']['unresolved_context_refs']
+
+
+@pytest.mark.parametrize('location', ['index', 'instruction', 'source', 'source_body'])
+def test_signed_url_is_rejected_without_persistence(approved, location):
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    instruction = root / 'area' / 'AGENTS.md'
+    index = root / 'area' / 'index.md'
+    instruction.write_text('Local guidance')
+    index.write_text('Local index')
+    signed = 'https://example.invalid/file?X-Amz-Signature=synthetic-only'
+    if location == 'index':
+        index.write_text(signed)
+    elif location == 'instruction':
+        instruction.write_text(signed)
+    elif location == 'source':
+        source = signed
+    else:
+        source.write_text(signed)
+    result = run(str(source), 'system', root, load_config(root), entry_folder='area')
+    assert result.blocked and not result.written and signed not in json.dumps(result.to_dict())
+
+
+def test_signed_result_is_not_cached(tmp_path):
+    fixture = Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json'
+    result = json.loads(fixture.read_text())
+    result['cache_key'] = 'a' * 64
+    result['claims'] = ['https://example.invalid/file?X-Amz-Signature=synthetic-only']
+    with pytest.raises(ValueError, match='access secret'):
+        context_pass.write_result(tmp_path, result, preserve_existing=True)
+    assert not list(tmp_path.glob('*.json'))
+
+
+def test_signed_index_selector_is_never_echoed_or_opened(approved, monkeypatch):
+    from wiki_core.ingest import pipeline
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    selector = 'area/index.md?token=synthetic-only'
+    monkeypatch.setattr(pipeline, 'build_manifest', lambda *_args, **_kwargs: pytest.fail('source opened'))
+    result = run(str(source), 'system', root, load_config(root), entry_folder='area', entry_index=selector)
+    assert result.blocked and not result.written and selector not in json.dumps(result.to_dict())
+
+
+@pytest.mark.parametrize('kind', ['git_file', 'git_directory', 'symlink'])
+def test_selected_source_never_opens_nested_repo_or_symlink(approved, monkeypatch, kind):
+    from wiki_core.ingest import pipeline
+    root, _, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    (root / 'area' / 'index.md').write_text('Local index')
+    nested = root / 'nested'
+    nested.mkdir()
+    (nested / 'source.md').write_text('must not be opened')
+    if kind == 'git_file':
+        (nested / '.git').write_text('gitdir: elsewhere')
+    elif kind == 'git_directory':
+        (nested / '.git').mkdir()
+    else:
+        (root / 'linked').symlink_to(nested, target_is_directory=True)
+        nested = root / 'linked'
+    monkeypatch.setattr(pipeline, 'build_manifest', lambda *_args, **_kwargs: pytest.fail('source opened'))
+    result = run(str(nested / 'source.md'), 'system', root, load_config(root), entry_folder='area')
+    assert result.blocked and not result.written
+
+
+def test_auxiliary_without_index_blocks_and_explains_explicit_ancestor(approved):
+    root, source, _, _ = approved
+    (root / 'area' / 'aux').mkdir(parents=True)
+    (root / 'area' / 'AGENTS.md').write_text('Parent guidance')
+    (root / 'area' / 'index.md').write_text('Parent index')
+    (root / 'area' / 'aux' / 'AGENTS.md').write_text('Auxiliary guidance')
+    result = run(str(source), 'system', root, load_config(root), entry_folder='area/aux')
+    assert result.blocked and result.context_error_code == 'local_folder_unavailable'
+    assert 'indexed ancestor' in json.dumps(result.blockers)
+
+
+def test_external_local_source_stays_blocked(approved, tmp_path_factory):
+    root, _, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    (root / 'area' / 'index.md').write_text('Local index')
+    external = tmp_path_factory.mktemp('external-source') / 'source.md'
+    external.write_text('external')
+    result = run(str(external), 'system', root, load_config(root), entry_folder='area')
+    assert result.blocked and not result.written
+
+
+def test_pass_cli_checks_index_before_source(approved, monkeypatch):
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
+    spec = importlib.util.spec_from_file_location('local_folder_pass_test', script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(module, 'build_manifest', lambda *_args, **_kwargs: pytest.fail('source opened'))
+    monkeypatch.setattr(sys, 'argv', [str(script), '--root', str(root), '--source', str(source),
+                                    '--context', 'system', '--folder', 'area', '--check'])
+    assert module.main() == 2
+
+
+def test_pass_cli_never_loads_global_source_or_context(approved, monkeypatch):
+    import wiki_core.template_blocks as blocks
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area' / 'AGENTS.md').write_text('Local guidance')
+    (root / 'area' / 'index.md').write_text('Local index')
+    first = run(str(source), 'system', root, load_config(root), entry_folder='area', record_score=False)
+    assert not first.blocked
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
+    spec = importlib.util.spec_from_file_location('local_folder_pass_scope_test', script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail('unselected global content opened')
+    monkeypatch.setattr(module, 'find_source_config', forbidden)
+    monkeypatch.setattr(module, 'input_context_for_source', forbidden)
+    monkeypatch.setattr(blocks, 'load_block_world', forbidden)
+    monkeypatch.setattr(sys, 'argv', [str(script), '--root', str(root), '--source', str(source),
+                                    '--context', 'system', '--folder', 'area', '--check'])
+    assert module.main() == 1
+
+
+def test_local_result_recording_selects_only_current_request(approved, monkeypatch, tmp_path):
+    from wiki_core.paths import WikiPaths
+    root, _, _, _ = approved
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_llm_context_pass.py'
+    spec = importlib.util.spec_from_file_location('local_folder_record_test', script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    payload = tmp_path / 'result.json'
+    payload.write_text(json.dumps({'cache_key': 'a' * 64}))
+    calls = []
+    def selected_only(_paths, *, sizes, source_id):
+        calls.append(source_id)
+        return []
+    monkeypatch.setattr(module, '_emitted_requests', selected_only)
+    request = {'source_id': 'source-selected', 'chunks': [], 'block_context_package': {}}
+    assert module._record_results(WikiPaths(root, load_config(root)), str(payload),
+        current_request=request, preserve_existing=True) == 2
+    assert calls == ['source-selected']

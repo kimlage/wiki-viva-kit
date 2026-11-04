@@ -196,7 +196,13 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
     results = data if isinstance(data, list) else [data]
     retained_sizes = {}
     approved_current = current_request is not None and current_request.get("block_context_package", {}).get("schema_version") == "wiki.task-context/v1"
-    source_id = str(current_request.get("source_id") or "") if approved_current else None
+    source_id = str(current_request.get("source_id") or "") if (approved_current or preserve_existing) else None
+    if preserve_existing and source_id:
+        try:
+            from wiki_core.traversal import require_wiki_path
+            require_wiki_path(paths.root, (paths.extraction_events / f'{source_id}-llm-context-request.json').relative_to(paths.root).as_posix())
+        except (ValueError, OSError) as exc:
+            return _blocked(exc, 'requested-input', owner)
     try:
         if getattr(paths, 'root', None) is not None:
             from wiki_core.traversal import require_wiki_boundaries
@@ -328,7 +334,8 @@ def main() -> int:
             approved_revision=args.approved_revision, policy_context=args.policy_context)
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
-    if entry_folder is not None and (args.allow_unrequested or args.query or (args.record_result and not args.source)):
+    if entry_folder is not None and (args.allow_unrequested or args.query or args.required_perspective
+                                     or args.optional_perspective or (args.record_result and not args.source)):
         parser.error('folder entry requires an explicit source and its requested result')
     config = load_config(root)
     paths = WikiPaths(root, config)
@@ -346,6 +353,24 @@ def main() -> int:
                 "The query input or index crosses a repository boundary; inspect its location."),
                 "query-context-pass", config.owner_label)
         return _blocked(exc, "source-context-pass", config.owner_label)
+    selected_context = None
+    selected_source = None
+    if entry_folder is not None:
+        try:
+            from wiki_core.repo_read import contains_access_secrets
+            from wiki_core.llm.context_pass import validate_local_entry_source
+            if contains_access_secrets([args.context, args.source, args.record_result]):
+                raise ValueError('source selection unavailable')
+            try:
+                selected_context = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
+                    entry_index=entry_index, context_max_bytes=args.context_max_bytes)
+            except (ValueError, OSError) as exc:
+                raise ContextRequestBlocked('local_folder_unavailable',
+                    'Selected folder instructions or index are unavailable; no fallback was used.') from exc
+            if args.source:
+                selected_source = validate_local_entry_source(root, args.source)
+        except (ValueError, OSError) as exc:
+            return _blocked(exc, 'requested-input', config.owner_label)
     if (args.root_entity_ref is not None or args.omit_root_entity) and not args.approved_revision:
         return _blocked(ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used."), "source-context-pass", config.owner_label)
     if args.policy_context and not args.approved_revision:
@@ -383,12 +408,18 @@ def main() -> int:
                 source_guard = authorize_ingestion_source(root, args.source, args.approved_revision, args.policy_context)
             except (ValueError, OSError) as exc:
                 return _blocked(exc, "requested-input", config.owner_label)
-        source = str(source_guard["path"]) if source_guard else args.source
+        source = selected_source if entry_folder is not None else str(source_guard["path"]) if source_guard else args.source
         if not Path(source).is_absolute() and not urlsplit(source).scheme:
             source = str(root / source)
         manifest = build_manifest(source, args.context, root=root)
         try:
-            if source_guard is None:  # Approved callers use the exact origin-qualified artifact ID.
+            if entry_folder is not None:
+                from wiki_core.traversal import require_wiki_path
+                source_id = str(manifest['source_id'])
+                for path in (paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
+                             paths.chunks / f'{source_id}.json', paths.llm_cache):
+                    require_wiki_path(root, path.relative_to(root).as_posix())
+            elif source_guard is None:  # Approved callers use the exact origin-qualified artifact ID.
                 manifest = resolve_source_manifest(manifest, paths.source_manifests, paths.chunks, root=root)
             chunks = _chunks_for_source(paths, manifest)
         except ValueError as exc:
@@ -410,7 +441,10 @@ def main() -> int:
                 print(f"ERROR: {exc}. Re-extract the source and review its artifacts.", file=sys.stderr)
             return 2
         try:
-            if source_guard is not None:
+            if entry_folder is not None:
+                from wiki_core.input_stage import local_folder_input_context
+                source_config, input_context = None, local_folder_input_context()
+            elif source_guard is not None:
                 revalidate_ingestion_source(source_guard, captured_hash=str(manifest.get("hash_sha256") or ""))
                 source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=args.root_entity_ref, omit_root_entity=args.omit_root_entity)
             else:
@@ -448,7 +482,7 @@ def main() -> int:
         root_optional=list(input_context.get("perspectives_optional") or []),
     )
     try:
-        context_package = ingestion_block_context(root, config, input_context,
+        context_package = selected_context if entry_folder is not None else ingestion_block_context(root, config, input_context,
             perspectives_required, approved_revision=args.approved_revision, policy_context=args.policy_context,
             task_id=str(manifest.get("source_id") or "source-context-pass"), context_max_bytes=args.context_max_bytes,
             content_revision=source_guard["reader"].revision if source_guard else "HEAD",
@@ -475,6 +509,7 @@ def main() -> int:
             block_context_package=context_package,
             context_max_bytes=args.context_max_bytes, request_max_bytes=args.request_max_bytes,
             source_authorization=source_guard["authorization"] if source_guard else None,
+            cache_root=root if entry_folder is not None else None,
         )
         if source_config:
             request["source_config_ref"] = source_config["path"]

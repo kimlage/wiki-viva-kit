@@ -142,6 +142,7 @@ def run(
     """
     paths = WikiPaths(root, config)
     source_guard = None
+    selected_context = None
     try:
         request_limits(context_max_bytes, request_max_bytes)
         from wiki_core.traversal import require_wiki_boundaries
@@ -155,6 +156,20 @@ def run(
             raise ValueError('folder selection cannot replace an approved policy')
         if entry_index is not None and entry_folder is None:
             raise ValueError('index requires a context folder')
+        if entry_folder is not None:
+            if stream_id is not None:
+                raise ValueError('stream ingestion is unavailable for local folder entry')
+            from wiki_core.repo_read import contains_access_secrets
+            from wiki_core.llm.context_pass import validate_local_entry_source
+            if contains_access_secrets(context):
+                raise ValueError('source selection unavailable')
+            try:
+                selected_context = ingestion_block_context(root, config, {}, [], entry_folder=entry_folder,
+                    entry_index=entry_index, context_max_bytes=context_max_bytes)
+            except (ValueError, OSError) as exc:
+                raise ContextRequestBlocked('local_folder_unavailable',
+                    'Selected folder instructions or index are unavailable; no fallback was used.') from exc
+            source = validate_local_entry_source(root, source)
         if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
             raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
         if approved_revision is not None or policy_context is not None:
@@ -166,6 +181,10 @@ def run(
             source_guard = authorize_ingestion_source(root, source, approved_revision, policy_context)
             source = str(source_guard["path"])
     except (ValueError, OSError) as exc:
+        if entry_folder is not None:
+            from wiki_core.repo_read import contains_access_secrets
+            if contains_access_secrets(context):
+                context = ''
         return _blocked_preparation(context, config, exc)
 
     source_path = Path(source).expanduser()
@@ -189,6 +208,15 @@ def run(
             paths.extraction_events / f'{source_id}-llm-context-request.json', *state_files))
     except (ValueError, OSError) as exc:
         return _blocked_preparation(context, config, exc)
+    if entry_folder is not None:
+        try:
+            from wiki_core.traversal import require_wiki_path
+            for path in (paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
+                         paths.chunks / f'{source_id}.json', paths.extraction_events / f'{source_id}-llm-context-request.json',
+                         paths.llm_cache):
+                require_wiki_path(root, path.relative_to(root).as_posix())
+        except (ValueError, OSError) as exc:
+            return _blocked_preparation(context, config, exc)
     warnings: list[str] = []
 
     src_path = source_path
@@ -254,6 +282,10 @@ def run(
             elif finding.category == "pii":
                 pii_findings.append(row)
 
+    if entry_folder is not None and extracted is not None:
+        from wiki_core.repo_read import contains_access_secrets
+        if contains_access_secrets([extracted.text, extracted.units]):
+            secret_findings.append({'kind': 'access_secret', 'line': None, 'excerpt': '[redacted]'})
     # A secret in the source BLOCKS: nothing is persisted (scan-first).
     blocked = bool(secret_findings)
     if write and not blocked and extracted is not None:
@@ -277,7 +309,10 @@ def run(
             )
             model_profile = str(config.llm.get("default_model_profile", "deep_context"))
             with _observed(observer, "input_stage_context") as metrics:
-                if source_guard is not None:
+                if entry_folder is not None:
+                    from wiki_core.input_stage import local_folder_input_context
+                    source_config, input_context = None, local_folder_input_context()
+                elif source_guard is not None:
                     source_config, input_context = approved_ingestion_inputs(root, config, source_guard, root_entity_ref=root_entity_ref, omit_root_entity=omit_root_entity)
                 else:
                     source_config = find_source_config(root, config, source)
@@ -293,7 +328,7 @@ def run(
                 metrics["target_page_count"] = len(input_context.get("target_pages") or [])
                 metrics["perspective_count"] = len(perspectives_required) + len(perspectives_optional)
             with _observed(observer, "llm_request", chunk_count=len(chunk_dicts)) as metrics:
-                context_package = ingestion_block_context(root, config, input_context,
+                context_package = selected_context if entry_folder is not None else ingestion_block_context(root, config, input_context,
                     perspectives_required, approved_revision=approved_revision, policy_context=policy_context,
                     task_id=source_id, context_max_bytes=context_max_bytes,
                     content_revision=source_guard["reader"].revision if source_guard else "HEAD",
@@ -320,6 +355,7 @@ def run(
                     block_context_package=context_package,
                     context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
                     source_authorization=source_guard["authorization"] if source_guard else None,
+                    cache_root=root if entry_folder is not None else None,
                 )
                 metrics["pending_llm_calls"] = int(request.get("pending_llm_calls", 0))
             if source_config:
@@ -351,13 +387,12 @@ def run(
         # replace an existing source's artifacts when entering another folder.
         try:
             from wiki_core.llm.context_pass import _folder_documents
-            if request is not None:
-                current = _folder_documents(root, entry_folder, entry_index, context_max_bytes)
-                if context_package['documents'][:len(current)] != current:
-                    raise ValueError('selected folder context changed before persistence')
-                current_manifest = build_manifest(source, context, root=root)
-                if current_manifest.get('hash_sha256') != manifest.get('hash_sha256'):
-                    raise ValueError('selected source changed before persistence')
+            current = _folder_documents(root, entry_folder, entry_index, context_max_bytes)
+            if selected_context['documents'] != current:
+                raise ValueError('selected folder context changed before persistence')
+            current_manifest = build_manifest(source, context, root=root)
+            if current_manifest.get('hash_sha256') != manifest.get('hash_sha256'):
+                raise ValueError('selected source changed before persistence')
             from wiki_core.traversal import require_wiki_path
             existing = (paths.source_manifests / f'{source_id}.json',
                         paths.source_text / f'{source_id}.json',
@@ -374,7 +409,11 @@ def run(
     persist = write and not blocked
 
     if persist:
-        paths.ensure()
+        if entry_folder is not None:
+            for path in (paths.source_manifests, paths.source_text, paths.chunks, paths.extraction_events):
+                require_wiki_path(root, path.relative_to(root).as_posix()).mkdir(parents=True, exist_ok=True)
+        else:
+            paths.ensure()
 
     text_path: str | None = None
     chunks_path: str | None = None
@@ -415,7 +454,7 @@ def run(
 
     chunks_indexed = 0
     index_diagnostics = {}
-    if persist and (chunk_dicts or extracted is not None and not warnings):
+    if persist and entry_folder is None and (chunk_dicts or extracted is not None and not warnings):
         # INCREMENTAL indexing: only the just-written source is (re)indexed,
         # instead of a full rebuild of the whole directory on every ingestion
         # (finding 13).
@@ -441,7 +480,7 @@ def run(
 
 
     score_event_id: str | None = None
-    if persist and record_score and chunk_count > 0:
+    if persist and entry_folder is None and record_score and chunk_count > 0:
         with _observed(observer, "score_event"):
             event = record_event(
                 paths.derived_root / "score-events.jsonl",
