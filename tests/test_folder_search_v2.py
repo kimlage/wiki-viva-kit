@@ -107,7 +107,7 @@ def test_raw_search_rechecks_current_bytes_and_authority(project, monkeypatch):
         search_folder(project, FolderHostBinding(project, ('a',)), **{**args, 'approved_revision':latest})
 
 
-def test_repository_search_requires_exact_host_binding_and_blob_limit(project, monkeypatch):
+def test_repository_search_requires_exact_host_binding_and_blob_limit(project, monkeypatch, tmp_path):
     put(project, '.gitignore', 'a/clone/\n')
     put(project, 'a/repo.md', '---\npage_id: source-repo\npage_type: source\nplatform: repo\n'
         'source_locator: example.test/group/project\n---\nRepository\n')
@@ -139,6 +139,18 @@ def test_repository_search_requires_exact_host_binding_and_blob_limit(project, m
            'WIKI_FOLDER_INGEST_HOST_REPOSITORIES':json.dumps([['a',str(clone),identity,'guide.md']])}
     called = subprocess.run(cmd, capture_output=True, text=True, env=env)
     assert called.returncode == 0 and json.loads(called.stdout)['hits'][0]['revision'] == rev
+    import wiki_core.repo_read
+    alias = tmp_path / 'repo-alias'; alias.symlink_to(clone, target_is_directory=True)
+    other = tmp_path / 'unbound'; other.mkdir()
+    original_read = wiki_core.repo_read.read_independent_repo
+    def retarget(root, *read_args, **read_kwargs):
+        alias.unlink(); alias.symlink_to(other, target_is_directory=True)
+        assert root == clone.resolve()
+        return original_read(root, *read_args, **read_kwargs)
+    with monkeypatch.context() as m:
+        m.setattr(wiki_core.repo_read, 'read_independent_repo', retarget)
+        via_alias = search_folder(project, binding, **{**args, 'repository':{**choice, 'root':str(alias)}})
+        assert via_alias['hits'][0]['revision'] == rev
     original = RepositoryReader.read
     def budget_guard(reader, path, *read_args, **read_kwargs):
         if path == 'big.md': pytest.fail('over-budget repository blob opened')
@@ -147,7 +159,6 @@ def test_repository_search_requires_exact_host_binding_and_blob_limit(project, m
         m.setattr(RepositoryReader, 'read', budget_guard)
         with pytest.raises(FolderSearchError, match='folder_search_budget_exceeded'):
             search_folder(project, binding, **{**args, 'repository':{**choice, 'path':'big.md'}}, max_bytes=300)
-    import wiki_core.repo_read
     def forbidden(*args, **kwargs): pytest.fail('unbound repository opened')
     monkeypatch.setattr(wiki_core.repo_read, 'read_independent_repo', forbidden)
     with pytest.raises(FolderSearchError):

@@ -197,9 +197,12 @@ def search_folder(root, binding, *, approved_revision, folder, index_path, query
             source = safe_path(repository['source_ref']); repo_path = safe_path(repository['path'])
             repo_root = Path(repository['root'])
             repo_revision = repository['revision']; identity = repository['identity']
-            if (not repo_root.is_absolute() or not isinstance(repo_revision, str)
+            if not repo_root.is_absolute():
+                raise ValueError('repository not bound')
+            repo_root = repo_root.resolve()
+            if (not isinstance(repo_revision, str)
                     or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', repo_revision)
-                    or (folder, repo_root.resolve(), identity, repo_path) not in binding.independent_repos):
+                    or (folder, repo_root, identity, repo_path) not in binding.independent_repos):
                 raise ValueError('repository not bound')
             producer = policy.owner_of(source)
             if (source not in reader.paths or policy.connection(producer, context, source,
