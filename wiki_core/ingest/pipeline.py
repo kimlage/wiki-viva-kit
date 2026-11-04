@@ -146,6 +146,8 @@ def run(
         request_limits(context_max_bytes, request_max_bytes)
         if folder_queries is not None and folder_selection is None:
             raise ContextRequestBlocked("folder_selection_required", "Folder queries require an explicit trusted folder selection.")
+        if folder_selection is not None and stream_id:
+            raise ContextRequestBlocked("folder_stream_cursor_unavailable", "Folder-bound stream cursors are not scoped; use a separately authorized coordinator operation.")
         if (root_entity_ref is not None or omit_root_entity) and not approved_revision:
             raise ContextRequestBlocked("root_selection_requires_approval", "Business-root selection requires explicit approved context; no compatibility fallback was used.")
         if folder_selection is not None and policy_context is not None:
@@ -180,7 +182,7 @@ def run(
     if folder_selection is not None:
         try:
             from wiki_core.folder_ingestion_v2 import validate_folder_artifact_paths
-            validate_folder_artifact_paths(root, paths, source_id, stream=bool(stream_id), score=record_score)
+            validate_folder_artifact_paths(root, paths, source_id)
         except (ValueError, OSError) as exc:
             return _blocked_preparation(context, config, exc)
     warnings: list[str] = []
@@ -354,7 +356,7 @@ def run(
                 revalidate_folder_ingestion_queries(root, source_guard, context_package, folder_queries, query_packet)
             if folder_selection is not None:
                 from wiki_core.folder_ingestion_v2 import validate_folder_artifact_paths
-                validate_folder_artifact_paths(root, paths, source_id, stream=bool(stream_id), score=record_score)
+                validate_folder_artifact_paths(root, paths, source_id)
         except (ValueError, OSError) as exc:
             report = preparation_blocker(exc, source_id, config.owner_label)
             blockers.append(report["blocker"])
@@ -365,7 +367,12 @@ def run(
     persist = write and not blocked
 
     if persist:
-        paths.ensure()
+        if folder_selection is None:
+            paths.ensure()
+        else:
+            for directory in (paths.source_manifests, paths.source_text, paths.chunks,
+                              paths.extraction_events, paths.llm_cache):
+                directory.mkdir(parents=True, exist_ok=True)
 
     text_path: str | None = None
     chunks_path: str | None = None
@@ -406,7 +413,7 @@ def run(
 
     chunks_indexed = 0
     index_diagnostics = {}
-    if persist and (chunk_dicts or extracted is not None and not warnings):
+    if persist and folder_selection is None and (chunk_dicts or extracted is not None and not warnings):
         # INCREMENTAL indexing: only the just-written source is (re)indexed,
         # instead of a full rebuild of the whole directory on every ingestion
         # (finding 13).
@@ -432,7 +439,7 @@ def run(
 
 
     score_event_id: str | None = None
-    if persist and record_score and chunk_count > 0:
+    if persist and record_score and chunk_count > 0 and folder_selection is None:
         with _observed(observer, "score_event"):
             event = record_event(
                 paths.derived_root / "score-events.jsonl",
@@ -443,6 +450,8 @@ def run(
                 dedup_key=f"ingest:{source_id}",
             )
             score_event_id = event.event_id
+    if persist and folder_selection is not None:
+        warnings.append("Folder capture did not update the global index or score ledger; those require separate authorized coordination.")
 
     if blocked:
         llm_context_status = "blocked"
