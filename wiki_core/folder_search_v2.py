@@ -79,13 +79,30 @@ def search_folder(root, binding, *, approved_revision, folder, index_path, query
 
         if scope is not None:
             scope = safe_path(scope, allow_root=True)
-            if not within(scope, folder) or policy.owner_of(scope) != context or not policy.permits(context, 'read', scope):
+            if scope == '.':
+                # ContextPolicy.permits accepts file paths, not the root token.
+                # Require the equivalent root-wide grant; descendants are still
+                # checked individually below, including inherited denials.
+                limits = policy.effective[context]
+                if folder != '.' or '.' not in limits['read'] or '.' in limits['deny']['read']:
+                    raise ValueError('scope unavailable')
+            elif not within(scope, folder) or policy.owner_of(scope) != context or not policy.permits(context, 'read', scope):
                 raise ValueError('scope unavailable')
             if scope != '.':
                 from wiki_core.context_policy import _git
                 if _git(root, 'cat-file', '-t', f'{policy.policy_revision}:{scope}').strip() != b'tree':
                     raise ValueError('scope unavailable')
             selected = []
+            for path in reader.unsupported_paths:
+                if not within(path, scope):
+                    continue
+                try:
+                    if policy.owner_of(path) == context and policy.permits(context, 'read', path):
+                        raise FolderSearchError('folder_search_unsupported_content')
+                except FolderSearchError:
+                    raise
+                except ValueError:
+                    continue
             for path in reader.paths:
                 if not within(path, scope) or not path.endswith('.md'):
                     continue
@@ -106,6 +123,7 @@ def search_folder(root, binding, *, approved_revision, folder, index_path, query
                 inspected += 1
                 scanned_bytes += reader.blob_size(path)
             coverage = 'authorized_tracked_markdown_in_selected_owner_only'
+            selection = {'kind':'scope', 'scope':scope}
             limitations = ['Nested owners, denied paths, instructions, untracked files and independent repositories are excluded.',
                            'No global absence, actual read or external freshness is established.']
         elif raw_capture is not None:
@@ -166,6 +184,9 @@ def search_folder(root, binding, *, approved_revision, folder, index_path, query
                         'source_sha256':raw_capture['canonical_sha256'], 'sha256':raw_capture['source_sha256']})
             inspected = 1; scanned_bytes = len(data)
             coverage = 'explicit_selected_raw_utf8_file_only'
+            selection = {'kind':'raw', 'path':ref, 'source_ref':canonical,
+                         'source_revision':old, 'source_sha256':raw_capture['canonical_sha256'],
+                         'sha256':raw_capture['source_sha256']}
             limitations = ['Source-page association is caller selected and unverified.',
                            'External origin and freshness are not verified.']
         else:
@@ -204,11 +225,15 @@ def search_folder(root, binding, *, approved_revision, folder, index_path, query
                                 'path':repo_path, 'revision':item['revision'], 'sha256':item['content_sha256']})
             inspected = 1; scanned_bytes = len(item['text'].encode('utf-8'))
             coverage = 'explicit_selected_repository_git_blob_only'
+            selection = {'kind':'repository', 'source_ref':source, 'source_revision':reader.revision,
+                         'source_sha256':source_doc['content_sha256'], 'repository':identity,
+                         'path':repo_path, 'revision':item['revision'], 'sha256':item['content_sha256']}
             limitations = ['Configured origin identifies the local repository but does not authenticate a remote.',
                            'External freshness and unselected paths are not assessed.']
         policy.fresh()
         return {'schema_version':'wiki.folder-literal-search/v2', 'folder':folder,
                 'policy_revision':policy.policy_revision, 'query':query,
+                'index_path':index_path, 'selection':selection,
                 'status':'matches' if hits else 'no_matches_in_selection', 'coverage':coverage,
                 'inspected_count':inspected, 'scanned_bytes':scanned_bytes, 'context_bytes':context_bytes,
                 'source_page_bytes':source_page_bytes, 'hits':hits,
