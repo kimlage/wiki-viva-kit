@@ -156,3 +156,42 @@ def test_existing_claim_rejects_type_changes_even_when_python_values_compare_equ
 def test_existing_claim_rejects_incomplete_report(project):
     with pytest.raises(FolderIntegrationError, match='exact reported read'):
         existing_preflight(project, remove_source_report=True)
+
+
+@pytest.mark.parametrize(('path', 'version'), [
+    ('a/report.md', 'prior'), ('a/report.md', 'proposed'),
+    ('a/secondary.md', 'prior'), ('a/secondary.md', 'proposed'),
+    (None, None),
+])
+def test_projection_comparison_requires_unique_yaml_without_requirements(project, path, version):
+    def content(body, duplicate=False):
+        extra = 'source_refs: [source-other]\n' if duplicate else ''
+        return '---\npage_type: claim\n' + extra + 'source_refs: [source-original]\n---\n' + body + '\n'
+
+    paths = ('a/report.md', 'a/secondary.md')
+    for selected in paths:
+        put(project, selected, content('Prior', selected == path and version == 'prior'))
+    commit(project)
+    base = git(project, 'rev-parse', 'HEAD')
+    policy = load_folder_policy_v2(project, base)
+    evidence = [{'path': selected, 'producer_folder': 'a', 'reason': 'whole prior claim',
+                 'use': 'interpret', 'classification': 'synthetic'} for selected in paths]
+    packet = build_folder_packet_v2(project, policy, 'a', 30000, content_revision=base,
+             index_path='a/index.md', task_id='projection-unique', goal='review', output=paths[0],
+             integrator='independent', evidence=evidence)
+    git(project, 'checkout', '-qb', 'wiki/unique-projections')
+    for selected in paths:
+        put(project, selected, content('Revised', selected == path and version == 'proposed'))
+    git(project, 'add', '-A'); git(project, 'commit', '-qm', 'revise selected claims')
+    result = {'schema_version': 'wiki.folder-task-result/v2', 'status': 'completed',
+              'task_id': packet['task_id'], 'context_id': packet['context_id'], 'packet_digest': packet['packet_digest'],
+              'observed': [{'path': r['path'], 'kind': r['kind'], 'revision': r['revision'], 'sha256': r['sha256'],
+                            'section': r.get('section'), 'field': r.get('field')} for r in packet['inputs']],
+              'changes': [{'path': selected, 'action': 'modified'} for selected in paths]}
+    kwargs = dict(base=base, head=git(project, 'rev-parse', 'HEAD'), branch='wiki/unique-projections',
+                  packet=packet, result=result)
+    if path is None:
+        assert preflight_folder_v2(project, policy, **kwargs)['state'] == 'independent_review_required'
+    else:
+        with pytest.raises(FolderIntegrationError, match='projection comparison unavailable'):
+            preflight_folder_v2(project, policy, **kwargs)

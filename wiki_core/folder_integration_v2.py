@@ -340,6 +340,20 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
             document = proposed.read(path)
             if contains_access_secrets(document['text']):
                 raise FolderIntegrationError('secret detected in proposed content')
+            if status == 'M':
+                # The reader's general YAML parser permits duplicate keys.  A
+                # projection comparison must not silently select one of them,
+                # including when neither document declares requirements.
+                for item in (prior, document):
+                    match = FRONTMATTER_RE.match(item['text'])
+                    if match is None:
+                        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable')
+                    try:
+                        strict = yaml.load(match.group(1), Loader=UniqueLoader)
+                    except (ValueError, TypeError, yaml.YAMLError, RecursionError):
+                        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable') from None
+                    if not isinstance(strict, dict):
+                        raise FolderIntegrationError('v2 requirement migration and projection comparison unavailable')
             ingestion_source = None
             if status == 'M' and (path != packet['output'] or ingestion is None):
                 from wiki_core.folder_query_requirements_v2 import same_json
