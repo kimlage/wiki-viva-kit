@@ -56,7 +56,7 @@ def test_consolidation_requires_exact_retained_request(project, monkeypatch, tmp
 @pytest.mark.parametrize('field', ['instructions', 'result_required_keys'])
 def test_new_semantic_contract_cannot_reuse_old_folder_result(project, monkeypatch, tmp_path, capsys, field):
     from tests.test_folder_consolidate_v2 import fixture_inputs
-    from wiki_core.folder_request_identity_v2 import folder_request_identity, retain_folder_request
+    from wiki_core.folder_request_identity_v2 import folder_request_identity, retain_folder_request, write_folder_result
     from wiki_core.llm.context_pass import context_fingerprint, read_matching_result
     from wiki_core.llm.cache import cache_key
     _binding, request, results = fixture_inputs(project, monkeypatch, tmp_path, capsys, raw=True)
@@ -79,6 +79,8 @@ def test_new_semantic_contract_cannot_reuse_old_folder_result(project, monkeypat
         assert not result_matches_request(updated, changed, row, recording=True)
         updated['new_required_field'] = 'synthetic'
     assert result_matches_request(updated, changed, row, recording=True)
+    write_folder_result(paths.llm_cache/'folder-v2', updated)
+    assert read_matching_result(paths.llm_cache, changed, row, root=project) == updated
 
 
 def test_folder_retention_limits_reject_before_writing(project, tmp_path):
