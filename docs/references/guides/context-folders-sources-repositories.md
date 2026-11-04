@@ -55,8 +55,10 @@ file beside each relevant context instruction can import its canonical text:
 ```
 
 An ordinary Markdown link or an instruction to read a file does not perform
-that import. Settings, other ancestor files and overrides still affect a real
-session; inspect the installed configuration and verify actual loading. Do
+that import. An import outside the session working directory can require a
+first-time trust decision; a nested session must not assume that imports from
+ancestor folders were accepted. Settings, other ancestor files and overrides
+still affect a real session; inspect the installed configuration and verify actual loading. Do
 not change a user's global settings by assumption or treat this documented
 bridge as proof of an operational Claude run.
 
