@@ -411,7 +411,7 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                 new_projection = {key:document['frontmatter'][key] for key in projection if key in document['frontmatter']}
                 if not same_json(old_projection, new_projection):
                     raise FolderIntegrationError('prior ingestion projections changed')
-            preserve_prior_projections = status == 'M' and path == packet['output'] and ingestion is None
+            preserve_prior_projections = status == 'M' and (path != packet['output'] or ingestion is None)
             if preserve_prior_projections:
                 from wiki_core.folder_query_requirements_v2 import same_json
                 projection = ('source_authorization', 'independent_repo_read',
@@ -477,9 +477,15 @@ def preflight_folder_v2(root, policy, *, base, head, branch, packet, result,
                  query_requalifications=query_requalifications if path == packet['output'] else None,
                  requalify_source=requalify_source and path == packet['output'])
             covered_requirements += path_covered
-            if (status == 'M' and ingestion_source is None and not (query_rows and path == packet['output'])
-                    and prior['frontmatter'].get('information_requirements') and path_covered == 0):
-                requirements_preserved = True
+            if status == 'M':
+                from wiki_core.folder_query_requirements_v2 import same_json
+                old_req = prior['frontmatter'].get('information_requirements', [])
+                new_req = document['frontmatter'].get('information_requirements', [])
+                if (isinstance(old_req, list) and isinstance(new_req, list)
+                        and any(same_json(a, b) for a, b in zip(old_req, new_req))
+                        and (ingestion_source is not None or (query_rows and path == packet['output'])
+                             or path_covered == 0)):
+                    requirements_preserved = True
             selected_meta = document['frontmatter']
             if path == packet['output'] and ingestion is not None:
                 if status == 'A' and 'folder_source_provenance' in document['frontmatter']:

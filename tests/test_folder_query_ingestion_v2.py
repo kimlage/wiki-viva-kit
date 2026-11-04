@@ -131,6 +131,7 @@ def test_query_and_existing_destination_are_both_bound_before_result(project, mo
     checked = preflight_folder_query_v2(project, policy, **kwargs)
     assert checked['state'] == 'independent_review_required'
     assert checked['requirements_handling']['count'] == 2
+    assert checked['prior_requirements_handling'] == 'preserved_not_revalidated'
     assert checked['modified_ingestion_bodies'][0]['semantic_review'] == 'independent_review_required'
     if with_repo:
         assert checked['repository_handling'] == {'selection':'matched_request',
