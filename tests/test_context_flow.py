@@ -97,6 +97,26 @@ def test_preflight_real_branch_exact_base_and_read_set(repo):
     git(repo,'update-ref','refs/remotes/origin/main',head)
     with pytest.raises(ValueError): preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/costs-task-1',packet=packet,result=result)
 
+
+@pytest.mark.parametrize('field', ['source_authorization', 'independent_repo_read',
+                                  'independent_repo_additional_reads', 'independent_repo_source_ref',
+                                  'folder_source_provenance'])
+@pytest.mark.parametrize('location', ['prior', 'proposed', 'deleted'])
+def test_v1_preflight_refuses_folder_provenance(repo, field, location):
+    destination = repo/'finance/costs/result.md'
+    if location in ('prior', 'deleted'):
+        destination.write_text('---\n' + field + ': synthetic\n---\nPrior claim\n')
+        git(repo,'add','.'); git(repo,'commit','-qm','prior projection'); approve(repo)
+    p,base,head,packet,result=make_proposal(repo)
+    if location == 'proposed':
+        destination.write_text('---\n' + field + ': synthetic\n---\nProposed claim\n')
+    elif location == 'deleted':
+        destination.unlink()
+        result['changes'][0]['action'] = 'deleted'
+    git(repo,'add','-A'); git(repo,'commit','--amend','-qm','synthetic proposal'); head=git(repo,'rev-parse','HEAD')
+    with pytest.raises(IntegrationError, match='folder source provenance requires the v2 integration path'):
+        preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/costs-task-1',packet=packet,result=result)
+
 def test_preflight_rejects_out_of_scope_and_policy_changes(repo):
     p,base,head,packet,result=make_proposal(repo)
     (repo/'finance/tax/source.md').write_text('Unauthorized edit\n'); git(repo,'add','.'); git(repo,'commit','-qm','outside scope'); head=git(repo,'rev-parse','HEAD')
