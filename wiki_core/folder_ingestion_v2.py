@@ -33,6 +33,17 @@ class FolderIngestionSelection:
     additional_repos: tuple[tuple[str, str, str, str], ...] = ()
 
 
+def ingestion_binding_for_authorization(authorization):
+    """Bind a source authorization into the packet before any result exists."""
+    if (not isinstance(authorization, dict) or authorization.get('version') != 'folder/v2'
+            or authorization.get('source_kind') not in ('git', 'staged_raw')):
+        raise ValueError('invalid ingestion authorization')
+    encoded = json.dumps(authorization, ensure_ascii=False, sort_keys=True,
+                         separators=(',', ':'), allow_nan=False).encode('utf-8')
+    return {'version': 'folder-ingestion/v2', 'source_kind': authorization['source_kind'],
+            'source_authorization_sha256': hashlib.sha256(encoded).hexdigest()}
+
+
 def selection_from_host_environment(folder, index_path, output_path, source_ref=None, env=None, *, independent_repo=None, additional_repos=()):
     """Use host startup configuration; the request cannot widen its allowlist."""
     env = os.environ if env is None else env
@@ -299,7 +310,8 @@ def folder_ingestion_context(root, guard, input_context, perspectives_required, 
                         'goal': 'Deep contextual reading of the extracted source',
                         'output': selection.output_path,
                         'integrator': 'Operating agent under the repository PR review gate',
-                        'max_bytes': max_bytes, 'evidence': evidence}}
+                        'max_bytes': max_bytes, 'evidence': evidence,
+                        'ingestion_binding': ingestion_binding_for_authorization(guard['authorization'])}}
     return prepare_folder_packet(root, selection.host, payload)['packet']
 
 

@@ -436,6 +436,12 @@ def result_matches_request(result: object, request: dict, row: dict, *, recordin
                 or authorization.get("canonical_revision") != package.get("content_revision")
                 or authorization.get("source_sha256") != request.get("source_hash_sha256")):
             return False
+        try:
+            from wiki_core.folder_ingestion_v2 import ingestion_binding_for_authorization
+            if package.get("ingestion_binding") != ingestion_binding_for_authorization(authorization):
+                return False
+        except (ValueError, TypeError, OverflowError, RecursionError):
+            return False
         kind = authorization.get("source_kind")
         if kind == "git":
             if (authorization.get("source_revision") != package.get("content_revision")
@@ -707,6 +713,10 @@ def build_context_request(
     target_pages = target_pages or []
     source_hash = _source_hash(manifest)  # packet metadata (not part of the cache_key)
     folder_v2 = (block_context_package or {}).get("schema_version") == "wiki.folder-task-context/v2"
+    if folder_v2:
+        from wiki_core.folder_ingestion_v2 import ingestion_binding_for_authorization
+        if (block_context_package or {}).get("ingestion_binding") != ingestion_binding_for_authorization(source_authorization):
+            raise ValueError("folder ingestion packet must bind the source authorization")
     approved = ((block_context_package or {}).get("schema_version") == "wiki.task-context/v1" or folder_v2
                 or source_authorization is not None)
     if approved:

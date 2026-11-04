@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from wiki_core.context_policy import ContextPolicy, PolicyError, _git, revision, safe_path, within
@@ -13,7 +14,7 @@ from wiki_core.repository_reader import RepositoryReader
 from wiki_core.folder_auxiliary_v2 import qualify_auxiliary, historical_auxiliary_view
 
 
-def build_folder_packet_v2(root, policy, folder, max_bytes, *, content_revision, index_path, task_id, goal, output, integrator, evidence=(), index_section=None, start_folder=None):
+def build_folder_packet_v2(root, policy, folder, max_bytes, *, content_revision, index_path, task_id, goal, output, integrator, evidence=(), index_section=None, start_folder=None, ingestion_binding=None):
     """Compose approved instruction chain and selected index, under v2 ceilings.
 
     The v2 format has no v1 query or result receipts. Its contents do not prove
@@ -30,6 +31,13 @@ def build_folder_packet_v2(root, policy, folder, max_bytes, *, content_revision,
         raise PolicyError('task identity, goal, output and integrator required')
     if type(max_bytes) is not int or max_bytes < 1:
         raise PolicyError('invalid byte budget')
+    if ingestion_binding is not None and (not isinstance(ingestion_binding, dict)
+            or set(ingestion_binding) != {'version', 'source_kind', 'source_authorization_sha256'}
+            or ingestion_binding.get('version') != 'folder-ingestion/v2'
+            or ingestion_binding.get('source_kind') not in ('git', 'staged_raw')
+            or not isinstance(ingestion_binding.get('source_authorization_sha256'), str)
+            or not re.fullmatch(r'[0-9a-f]{64}', ingestion_binding['source_authorization_sha256'])):
+        raise PolicyError('invalid ingestion binding')
     if not isinstance(evidence, (list, tuple)) or contains_access_secrets(evidence):
         raise PolicyError('invalid or secret evidence request')
     preauthorize_index(policy, folder, index_path)
@@ -138,6 +146,8 @@ def build_folder_packet_v2(root, policy, folder, max_bytes, *, content_revision,
                               'Limited preflight only; no dynamic queries, v1 receipt migration, approval or merge']}
     if start_folder is not None:
         packet['start_folder'] = safe_path(start_folder)
+    if ingestion_binding is not None:
+        packet['ingestion_binding'] = dict(ingestion_binding)
     if contains_access_secrets(packet):
         raise PolicyError('secret detected in packet')
     packet['packet_digest'] = '0' * 64
