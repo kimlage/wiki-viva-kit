@@ -27,7 +27,7 @@ def validate_recorded_request(root, packet, request):
     from wiki_core.config import load_config
     from wiki_core.folder_ingestion_v2 import validate_folder_artifact_paths
     from wiki_core.llm.context_pass import read_matching_result
-    from wiki_core.paths import WikiPaths
+    from wiki_core.paths import FolderWikiPaths
 
     try:
         if (not isinstance(request, dict) or contains_access_secrets(request)
@@ -45,7 +45,7 @@ def validate_recorded_request(root, packet, request):
         keys = [row.get('cache_key') for row in chunks if isinstance(row, dict)]
         if len(keys) != len(chunks) or len(keys) != len(set(keys)):
             raise ValueError('invalid capture results')
-        paths = WikiPaths(Path(root), load_config(Path(root)))
+        paths = FolderWikiPaths(Path(root), load_config(Path(root)), packet['context_folder'])
         validate_folder_artifact_paths(root, paths, request['source_id'])
         if any(read_matching_result(paths.llm_cache, request, row, root=root) is None for row in chunks):
             raise ValueError('capture results unavailable')

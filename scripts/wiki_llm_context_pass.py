@@ -359,7 +359,11 @@ def main() -> int:
         except (ValueError, OSError):
             parser.error("invalid folder selection")
     config = load_config(root)
-    paths = WikiPaths(root, config)
+    if folder_selection is not None:
+        from wiki_core.paths import FolderWikiPaths
+        paths = FolderWikiPaths(root, config, folder_selection.folder)
+    else:
+        paths = WikiPaths(root, config)
     try:
         limits = request_limits(args.context_max_bytes, args.request_max_bytes)
     except ValueError as exc:
