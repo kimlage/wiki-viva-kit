@@ -86,6 +86,40 @@ def make_proposal(repo):
     result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'task-1','context_id':'costs','packet_digest':packet['packet_digest'],'changes':[{'path':'finance/costs/result.md','action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
     return p,base,head,packet,result
 
+
+def folder_requirements_setup(repo):
+    """Bind both synthetic actors and their exact bilateral sources."""
+    from tests.test_coordination_protected import folderize
+    from wiki_core.coordination_context import CoordinationBinding
+    folderize(repo)
+    path=repo/'wiki.config.yaml'; config=yaml.safe_load(path.read_text())
+    rule={'from_context':'.','to_context':'finance/tax','selector':'AGENTS.md',
+          'use':'interpretation','classification':'context','expires':'2099-01-01'}
+    config['context_access']['.']['exports'].append(rule)
+    config['context_access']['finance/tax']['imports']=[rule]
+    config['context_access']['finance/tax']['policy']['read']=['self','AGENTS.md']
+    path.write_text(yaml.safe_dump(config)); git(repo,'add','.'); git(repo,'commit','-qm','authorize both synthetic owners'); approve(repo)
+    return CoordinationBinding(('finance/costs','finance/tax'),'refs/remotes/origin/main','wiki.config.yaml')
+
+
+def folder_requirements_policy(repo):
+    return load_policy(repo,'refs/remotes/origin/main','wiki.config.yaml')
+
+
+def folder_requirements_proposal(repo, binding):
+    base=git(repo,'rev-parse','HEAD'); p=folder_requirements_policy(repo)
+    evidence=[{'ref':'finance/tax/source.md','producer':'finance/tax','reason':'selected evidence',
+               'use':'interpret','classification':'synthetic','section':'amount'}]
+    packet=build_packet(repo,p,'finance/costs',base,evidence,100000,task_id='task-1',goal='assess costs',
+                        output='proposal',integrator='independent reviewer',entry_folder='finance/costs',trusted_binding=binding)
+    git(repo,'checkout','-qb','wiki/costs-task-1')
+    (repo/'finance/costs/result.md').write_text('Updated independent cost assessment\n')
+    git(repo,'add','.'); git(repo,'commit','-qm','cost proposal'); head=git(repo,'rev-parse','HEAD')
+    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'task-1','context_id':'finance/costs',
+            'packet_digest':packet['packet_digest'],'changes':[{'path':'finance/costs/result.md','action':'modified'}],
+            'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':packet['coverage']['missing']},'blockers':[]}
+    return p,base,head,packet,result
+
 def test_preflight_real_branch_exact_base_and_read_set(repo):
     p,base,head,packet,result=make_proposal(repo)
     out=preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/costs-task-1',packet=packet,result=result)
@@ -236,19 +270,22 @@ def test_markdown_requirement_flows_through_real_inventory_and_authorized_reader
 
 def test_requirements_derived_only_from_reported_verified_approved_output(repo):
     from wiki_core.context_requirements import requirements_from_result, RequirementError
-    approved_branch=git(repo,'branch','--show-current'); p,base,head,packet,result=make_proposal(repo)
-    args={'packet':packet,'result':result,'output_path':'finance/costs/result.md','proposal_head':head,'temporal':'current','max_age_days':30}
+    binding=folder_requirements_setup(repo)
+    approved_branch=git(repo,'branch','--show-current'); p,base,head,packet,result=folder_requirements_proposal(repo,binding)
+    args={'packet':packet,'result':result,'output_path':'finance/costs/result.md','proposal_head':head,'temporal':'current','max_age_days':30,'trusted_binding':binding}
     with pytest.raises(RequirementError,match='not incorporated'): requirements_from_result(repo,p,**args)
     git(repo,'checkout','-q',approved_branch); git(repo,'merge','--no-ff','--no-edit','wiki/costs-task-1'); approve(repo)
-    current=policy(repo); out=requirements_from_result(repo,current,**args)
+    current=folder_requirements_policy(repo); out=requirements_from_result(repo,current,**args)
     assert out['write']=='not_performed' and out['read_claim']=='reported_not_verified'
     validate(out,json.loads((BASE/'docs/references/schemas/wiki-context-requirements-v1.schema.json').read_text()))
-    assert out['information_requirements']==[{'target':'finance/tax/source.md','fields':['section:amount'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'interpret','classification':'synthetic'}]
+    source_requirements=[row for row in out['information_requirements'] if row['target']=='finance/tax/source.md']
+    assert source_requirements==[{'target':'finance/tax/source.md','fields':['section:amount'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'interpret','classification':'synthetic'}]
+    assert any(row.get('source_kind')=='mandatory' for row in out['information_requirements'])
     packet_path=repo/'packet.json'; result_path=repo/'result.json'; packet_path.write_text(json.dumps(packet)); result_path.write_text(json.dumps(result))
     cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',current.policy_revision,'requirements','--packet',str(packet_path),'--result',str(result_path),'--output','finance/costs/result.md','--proposal-head',head,'--temporal','current','--max-age-days','30']
     assert subprocess.run(cmd, capture_output=True).returncode != 0
     missing={**result,'read_coverage':{'observed_refs':[],'missing':[]}}
-    with pytest.raises(RequirementError,match='not reported read'): requirements_from_result(repo,current,**{**args,'result':missing})
+    with pytest.raises(RequirementError,match='invalid packet or result'): requirements_from_result(repo,current,**{**args,'result':missing})
     forged=copy.deepcopy(packet); forged['content_revision']='HEAD'; forged['inputs'][-1]['revision']='HEAD'; forged['declared_read_set'][-1]['revision']='HEAD'
     forged['packet_digest']='0'*64
     while True:
@@ -256,10 +293,10 @@ def test_requirements_derived_only_from_reported_verified_approved_output(repo):
         if forged['bytes_used']==length: break
         forged['bytes_used']=length
     forged['packet_digest']=hashlib.sha256(json.dumps({k:v for k,v in forged.items() if k!='packet_digest'},ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-    forged_result={**result,'packet_digest':forged['packet_digest'],'read_coverage':{'observed_refs':forged['declared_read_set'],'missing':[]}}
+    forged_result={**result,'packet_digest':forged['packet_digest'],'read_coverage':{'observed_refs':forged['declared_read_set'],'missing':packet['coverage']['missing']}}
     with pytest.raises(RequirementError,match='invalid packet contract'): requirements_from_result(repo,current,**{**args,'packet':forged,'result':forged_result})
     (repo/'finance/tax/source.md').write_text('<!-- wiki:section id=amount version=1 -->\n## Amount\nChanged\n'); git(repo,'add','.'); git(repo,'commit','-qm','subsequent source change'); approve(repo)
-    with pytest.raises(RequirementError,match='reported input changed'): requirements_from_result(repo,policy(repo),**args)
+    with pytest.raises(RequirementError,match='reported input changed'): requirements_from_result(repo,folder_requirements_policy(repo),**args)
 
 def test_packet_delivers_distinct_context_purpose_rules_and_sanitized_limits(repo):
     tax_file=repo/'finance/tax/context.yaml'; costs_file=repo/'finance/costs/context.yaml'
@@ -306,19 +343,22 @@ def test_preflight_binds_new_canonical_requirement_to_packet_bytes(repo):
 
 def test_requirements_allow_historical_self_output_read_without_self_dependency(repo):
     from wiki_core.context_requirements import requirements_from_result
-    approved_branch=git(repo,'branch','--show-current'); base=git(repo,'rev-parse','HEAD'); p=policy(repo)
-    evidence=[{'ref':'finance/tax/source.md','producer':'tax','reason':'source','use':'interpret','classification':'synthetic','section':'amount'}, {'ref':'finance/costs/result.md','producer':'costs','reason':'existing approved output','use':'interpret','classification':'synthetic'}]
-    packet=build_packet(repo,p,'costs',base,evidence,20000,task_id='self-read',goal='edit output',output='finance/costs/result.md',integrator='reviewer')
+    binding=folder_requirements_setup(repo)
+    approved_branch=git(repo,'branch','--show-current'); base=git(repo,'rev-parse','HEAD'); p=folder_requirements_policy(repo)
+    evidence=[{'ref':'finance/tax/source.md','producer':'finance/tax','reason':'source','use':'interpret','classification':'synthetic','section':'amount'}, {'ref':'finance/costs/result.md','producer':'finance/costs','reason':'existing approved output','use':'interpret','classification':'synthetic'}]
+    packet=build_packet(repo,p,'finance/costs',base,evidence,100000,task_id='self-read',goal='edit output',output='finance/costs/result.md',integrator='reviewer',entry_folder='finance/costs',trusted_binding=binding)
     git(repo,'checkout','-qb','wiki/self-read'); (repo/'finance/costs/result.md').write_text('Changed output\n'); git(repo,'add','.'); git(repo,'commit','-qm','update output'); head=git(repo,'rev-parse','HEAD')
-    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':packet['task_id'],'context_id':'costs','packet_digest':packet['packet_digest'],'changes':[{'path':'finance/costs/result.md','action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
-    preflight(repo,p,context_id='costs',base=base,head=head,branch='wiki/self-read',packet=packet,result=result)
+    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':packet['task_id'],'context_id':'finance/costs','packet_digest':packet['packet_digest'],'changes':[{'path':'finance/costs/result.md','action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':packet['coverage']['missing']},'blockers':[]}
+    preflight(repo,p,context_id='finance/costs',base=base,head=head,branch='wiki/self-read',packet=packet,result=result,trusted_binding=binding)
     git(repo,'checkout','-q',approved_branch); git(repo,'merge','--no-ff','--no-edit','wiki/self-read'); approve(repo)
-    out=requirements_from_result(repo,policy(repo),packet=packet,result=result,output_path='finance/costs/result.md',proposal_head=head,temporal='current',max_age_days=30)
-    assert out['self_input_read'] is True and [x['target'] for x in out['information_requirements']]==['finance/tax/source.md']
+    out=requirements_from_result(repo,folder_requirements_policy(repo),packet=packet,result=result,output_path='finance/costs/result.md',proposal_head=head,temporal='current',max_age_days=30,trusted_binding=binding)
+    assert out['self_input_read'] is True and [x['target'] for x in out['information_requirements'] if x.get('source_kind')!='mandatory' and x['target']!='finance/costs/index.md']==['finance/tax/source.md']
+    assert all(x['target']!='finance/costs/result.md' for x in out['information_requirements'])
 
 def _reforge_packet(packet, result, *, sync_selected=True):
     if sync_selected: packet['selected_text_bytes']=sum(x['byte_length'] for x in packet['inputs'])
-    packet['declared_read_set']=[{k:x[k] for k in ('ref','section','field','revision')} for x in packet['inputs']]
+    from wiki_core.context_packet import declared_reads_from_inputs
+    packet['declared_read_set']=declared_reads_from_inputs(packet['inputs'],folder_mode=packet.get('authority_format')=='folder')
     packet['packet_digest']='0'*64
     while True:
         n=len(json.dumps(packet,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf-8'))
@@ -332,11 +372,12 @@ def _reforge_packet(packet, result, *, sync_selected=True):
 def test_requirements_rejects_forged_text_and_sliced_mandatory_with_recomputed_digest(repo):
     from wiki_core.context_requirements import requirements_from_result, RequirementError
     from wiki_core.repository_reader import RepositoryReader
-    (repo/'rules.md').write_text('<!-- wiki:section id=policy version=1 -->\n## Rule\nApproved rule\n')
+    binding=folder_requirements_setup(repo)
+    (repo/'AGENTS.md').write_text('<!-- wiki:section id=policy version=1 -->\n## Rule\nApproved rule\n')
     git(repo,'add','.'); git(repo,'commit','-qm','approved selectable rule'); approve(repo)
-    approved_branch=git(repo,'branch','--show-current'); p,base,head,packet,result=make_proposal(repo)
+    approved_branch=git(repo,'branch','--show-current'); p,base,head,packet,result=folder_requirements_proposal(repo,binding)
     git(repo,'checkout','-q',approved_branch); git(repo,'merge','--no-ff','--no-edit','wiki/costs-task-1'); approve(repo)
-    current=policy(repo); kwargs={'output_path':'finance/costs/result.md','proposal_head':head,'temporal':'current','max_age_days':30}
+    current=folder_requirements_policy(repo); kwargs={'output_path':'finance/costs/result.md','proposal_head':head,'temporal':'current','max_age_days':30,'trusted_binding':binding}
     fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result)
     fake['inputs'][-1]['text']='forged selected evidence'; fake['inputs'][-1]['byte_length']=len(fake['inputs'][-1]['text'].encode())
     _reforge_packet(fake,result_fake)
@@ -349,77 +390,41 @@ def test_requirements_rejects_forged_text_and_sliced_mandatory_with_recomputed_d
     with pytest.raises(RequirementError,match='invalid selected text accounting'):
         requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
     fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['inputs'].reverse(); _reforge_packet(fake,result_fake)
-    with pytest.raises(RequirementError,match='mandatory policy inputs changed'):
+    with pytest.raises(RequirementError,match='folder context input requires requalification'):
         requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
-    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['inputs'][0]['producer']='costs'; _reforge_packet(fake,result_fake)
-    with pytest.raises(RequirementError,match='mandatory policy inputs changed'):
+    fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['inputs'][0]['producer']='finance/costs'; _reforge_packet(fake,result_fake)
+    with pytest.raises(RequirementError,match='folder context input requires requalification'):
         requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
     fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result)
-    section=RepositoryReader(repo,base).read('rules.md',section='policy'); item=fake['inputs'][0]
+    section=RepositoryReader(repo,base).read('AGENTS.md',section='policy'); item=fake['inputs'][0]
     item.update(section='policy',text=section['text'],byte_length=len(section['text'].encode()),sha256=section['content_digest'])
     _reforge_packet(fake,result_fake)
-    with pytest.raises(RequirementError,match='mandatory policy input must be complete'):
+    with pytest.raises(RequirementError,match='folder context input requires requalification'):
         requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
     fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['inputs'][0]['reason']='forged reason'; _reforge_packet(fake,result_fake)
-    with pytest.raises(RequirementError,match='mandatory policy inputs changed'):
+    with pytest.raises(RequirementError,match='folder context input requires requalification'):
         requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
 
 
 def test_requirements_block_secret_in_packet_or_result_metadata(repo):
     from wiki_core.context_requirements import requirements_from_result, RequirementError
-    approved_branch=git(repo,'branch','--show-current'); p,base,head,packet,result=make_proposal(repo)
+    binding=folder_requirements_setup(repo)
+    approved_branch=git(repo,'branch','--show-current'); p,base,head,packet,result=folder_requirements_proposal(repo,binding)
     git(repo,'checkout','-q',approved_branch); git(repo,'merge','--no-ff','--no-edit','wiki/costs-task-1'); approve(repo)
-    current=policy(repo); kwargs={'output_path':'finance/costs/result.md','proposal_head':head,'temporal':'current','max_age_days':30}; secret='AKIA'+'IOSFODNN7EXAMPLE'
+    current=folder_requirements_policy(repo); kwargs={'output_path':'finance/costs/result.md','proposal_head':head,'temporal':'current','max_age_days':30,'trusted_binding':binding}; secret='AKIA'+'IOSFODNN7EXAMPLE'
     fake=copy.deepcopy(packet); result_fake=copy.deepcopy(result); fake['task_id']=secret; _reforge_packet(fake,result_fake)
     with pytest.raises(RequirementError,match='secret detected') as exc:
         requirements_from_result(repo,current,packet=fake,result=result_fake,**kwargs)
     assert secret not in str(exc.value)
-    result_fake=copy.deepcopy(result); result_fake['read_coverage']['missing']=[secret]
+    result_fake=copy.deepcopy(result); result_fake['read_coverage']['missing'].append(secret)
     with pytest.raises(RequirementError,match='secret detected') as exc:
         requirements_from_result(repo,current,packet=packet,result=result_fake,**kwargs)
     assert secret not in str(exc.value)
 
 @pytest.mark.parametrize(('context','output'), [('tax','finance/tax/interpretation.md'), ('costs','finance/costs/result.md')])
 def test_inherited_normative_requirement_flow(repo, context, output):
-    from wiki_core.context_requirements import assess_approved_impact, requirements_from_result
-    (repo/'rules.md').write_text('---\ntitle: Original\n---\nApproved rule\n')
-    git(repo,'add','.'); git(repo,'commit','-qm','normative metadata'); approve(repo)
-    base=git(repo,'rev-parse','HEAD'); p=policy(repo)
-    base_branch=git(repo,'branch','--show-current')
-    packet=build_packet(repo,p,context,base,[],20000,task_id='norm',goal='interpret rule',output=output,integrator='reviewer')
-    req={'target':'rules.md','fields':['*'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'normative','source_kind':'mandatory','classification':'internal'}
-    branch='wiki/norm-'+context; git(repo,'checkout','-qb',branch)
-    (repo/output).write_text('---\n'+yaml.safe_dump({'information_requirements':[req]})+'---\nIndependent interpretation\n')
-    git(repo,'add','.'); git(repo,'commit','-qm','interpret approved rule'); head=git(repo,'rev-parse','HEAD')
-    result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'norm','context_id':context,'packet_digest':packet['packet_digest'],'changes':[{'path':output,'action':'modified'}],'read_coverage':{'observed_refs':packet['declared_read_set'],'missing':[]},'blockers':[]}
-    assert preflight(repo,p,context_id=context,base=base,head=head,branch=branch,packet=packet,result=result)['state']=='independent_review_required'
-    git(repo,'checkout','-q',base_branch); git(repo,'merge','--no-ff','--no-edit',branch); approve(repo)
-    derived=requirements_from_result(repo,policy(repo),packet=packet,result=result,output_path=output,proposal_head=head,temporal='current',max_age_days=30)
-    assert derived['information_requirements']==[]  # explicit declaration only
-    # An unrelated approved commit changes the policy SHA but not the rule:
-    # retaining the historical consumption is valid, without inventing a reread.
-    (repo/'unrelated.md').write_text('Unrelated\n'); git(repo,'add','.'); git(repo,'commit','-qm','unrelated'); approve(repo)
-    same=git(repo,'rev-parse','HEAD'); same_packet=build_packet(repo,policy(repo),context,same,[],20000,task_id='same-rule',goal='edit',output=output,integrator='reviewer')
-    git(repo,'checkout','-qb','wiki/same-'+context); (repo/output).write_text((repo/output).read_text()+'Unrelated edit\n')
-    git(repo,'add','.'); git(repo,'commit','-qm','edit consumer'); same_head=git(repo,'rev-parse','HEAD')
-    same_result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'same-rule','context_id':context,'packet_digest':same_packet['packet_digest'],'changes':[{'path':output,'action':'modified'}],'read_coverage':{'observed_refs':same_packet['declared_read_set'],'missing':[]},'blockers':[]}
-    assert preflight(repo,policy(repo),context_id=context,base=same,head=same_head,branch='wiki/same-'+context,packet=same_packet,result=same_result)['state']=='independent_review_required'
-    git(repo,'checkout','-q',base_branch)
-    (repo/'rules.md').write_text('---\ntitle: Updated\n---\nApproved rule\n'); git(repo,'add','.'); git(repo,'commit','-qm','rule metadata revision'); approve(repo); current=git(repo,'rev-parse','HEAD')
-    out=assess_approved_impact(repo,policy(repo),consumers=[output],before=base,after=current,destination_context=context)
-    candidate=out['candidates'][0]
-    validate(out,json.loads((BASE/'docs/references/schemas/wiki-context-impact-v1.schema.json').read_text()))
-    assert candidate['use']=='normative' and candidate['before_revision']==base and candidate['state']=='review_pending'
-    forged={**candidate}; forged.pop('source_kind')
-    with pytest.raises(ImpactError,match='invalid candidate'):
-        report_review(repo,policy(repo),forged,disposition='still_valid',reason='forged origin',evidence_revision=current)
-    assert report_review(repo,policy(repo),candidate,disposition='still_valid',reason='Reviewed rule',evidence_revision=current)['verification']=='reported_not_verified'
-    fresh=build_packet(repo,policy(repo),context,current,[],20000,task_id='stale-norm',goal='edit',output=output,integrator='reviewer')
-    git(repo,'checkout','-qb','wiki/stale-'+context); (repo/output).write_text((repo/output).read_text()+'Unrelated edit\n')
-    git(repo,'add','.'); git(repo,'commit','-qm','edit consumer'); newer=git(repo,'rev-parse','HEAD')
-    new_result={'schema_version':'wiki.task-result/v1','status':'completed','task_id':'stale-norm','context_id':context,'packet_digest':fresh['packet_digest'],'changes':[{'path':output,'action':'modified'}],'read_coverage':{'observed_refs':fresh['declared_read_set'],'missing':[]},'blockers':[]}
-    with pytest.raises(IntegrationError,match='normative requirement changed'):
-        preflight(repo,policy(repo),context_id=context,base=current,head=newer,branch='wiki/stale-'+context,packet=fresh,result=new_result)
+    from tests.test_folder_normative_legacy_migration import run_inherited_normative_requirement_flow_folder
+    run_inherited_normative_requirement_flow_folder(repo, 'finance/' + context, output)
 
 
 def test_normative_history_and_revocation_fail_before_source_read(repo, monkeypatch):

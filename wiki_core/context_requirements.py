@@ -55,7 +55,7 @@ def assess_approved_impact(root,policy,*,consumers,before,after,destination_cont
     policy.fresh()
     return result
 
-def requirements_from_result(root,policy,*,packet,result,output_path,proposal_head,temporal,max_age_days,trusted_additional_readers=()):
+def requirements_from_result(root,policy,*,packet,result,output_path,proposal_head,temporal,max_age_days,trusted_additional_readers=(),trusted_binding=None):
     """Propose page requirements from reported reads; never write a page.
 
     Git bytes are verified at input, current base and proposal output. The task
@@ -63,6 +63,10 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     """
     if getattr(policy, 'format_version', None) != 'folder':
         raise RequirementError('new requirements require folder authority; v1 is historical only')
+    from wiki_core.context_packet import _check_trusted_binding
+    try: _check_trusted_binding(root, policy, packet.get('context_id') if isinstance(packet, dict) else None,
+                                trusted_binding, trusted_additional_readers)
+    except PolicyError as exc: raise RequirementError('host binding unavailable') from exc
     policy=_fresh(root,policy)
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
     if not isinstance(packet, dict) or folder_mode != (packet.get('authority_format') == 'folder'):
@@ -88,7 +92,7 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
     if subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(root),'merge-base','--is-ancestor',packet['policy_revision'],policy.policy_revision],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=local_git_environment()).returncode: raise RequirementError('packet policy revision is not an approved ancestor')
     automatic_count = 0
     if folder_mode:
-        from wiki_core.context_packet import build_packet, qualify_folder_context
+        from wiki_core.context_packet import build_packet, qualify_folder_context, _qualify_trusted_producers
         try:
             qualify_folder_context(root, policy, packet['context_id'], packet['entry_folder'], packet['entry_index'], packet['max_bytes'],additional_readers=trusted_additional_readers)
             automatic = build_packet(root, policy, packet['context_id'], packet['content_revision'], [], packet['max_bytes'],
@@ -99,6 +103,15 @@ def requirements_from_result(root,policy,*,packet,result,output_path,proposal_he
             if ([{key: row[key] for key in keys} for row in packet['inputs'][:automatic_count]] !=
                     [{key: row[key] for key in keys} for row in automatic['inputs']]):
                 raise ValueError('folder context input selection changed')
+            evidence = []
+            for item in packet['inputs'][automatic_count:]:
+                if item['kind'] != 'evidence' or 'query_id' in item: continue
+                row = {key: item[key] for key in ('ref', 'producer', 'reason', 'use', 'classification')}
+                for key in ('section', 'field'):
+                    if item[key] is not None: row[key] = item[key]
+                evidence.append(row)
+            _qualify_trusted_producers(root, policy, packet['context_id'], evidence, packet['max_bytes'],
+                                       trusted_binding=trusted_binding, additional_readers=trusted_additional_readers)
         except (ValueError, KeyError, TypeError, OSError) as exc:
             raise RequirementError('folder context input requires requalification') from exc
     if packet['context']!=_context_view(policy,packet['context_id']): raise RequirementError('packet context policy changed')

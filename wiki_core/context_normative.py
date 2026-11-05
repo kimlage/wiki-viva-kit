@@ -55,6 +55,7 @@ def folder_normative_changed(policy, context, ref, revision, *, entry_folder, en
     from pathlib import Path, PurePosixPath
     from wiki_core.context_packet import guarded_context_read
     from wiki_core.context_policy import is_context_instruction
+    from wiki_core.context_selection import _equivalent_folder_chain
     from wiki_core.detectors import scan_text
     from wiki_core.repository_reader import RepositoryReader
     try:
@@ -63,7 +64,9 @@ def folder_normative_changed(policy, context, ref, revision, *, entry_folder, en
             return False
         selected = policy._folder_qualifications.get((context, entry_folder, entry_index))
         if not selected or ref not in selected['refs'] or not selected['nonempty'].get(ref): return False
-        prior = historical_policy(policy, revision, authority_format='folder')
+        # Prove the complete selected chain, allowing only this instruction's
+        # bytes to differ, before opening any historical body.
+        prior = _equivalent_folder_chain(policy, context, revision, entry_folder, entry_index, changed_ref=ref)
         if (context not in prior.contexts or
                 [c['id'] for c in prior.lineage(context)] != [c['id'] for c in policy.lineage(context)] or
                 (entry_folder != '.' and prior.owner_of(entry_folder) != context) or

@@ -84,7 +84,7 @@ def test_folder_approved_markdown_requirement_is_selected(repo):
     assert result['candidates'][0]['state'] == 'review_pending'
 
 
-def test_normative_requirement_ignores_unrelated_change_but_blocks_changed_rule(repo):
+def test_normative_requirement_ignores_unrelated_change_and_queues_changed_rule(repo):
     write(repo, 'alpha/aux/AGENTS.md', '# Local rule\n')
     git(repo, 'add', 'alpha/aux/AGENTS.md'); git(repo, 'commit', '-qm', 'local rule'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     old = git(repo, 'rev-parse', 'HEAD')
@@ -101,9 +101,11 @@ def test_normative_requirement_ignores_unrelated_change_but_blocks_changed_rule(
     assert output['candidates'] == []
     write(repo, req['target'], '# Changed local rule\n'); git(repo, 'add', req['target']); git(repo, 'commit', '-qm', 'rule changed'); git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     current = git(repo, 'rev-parse', 'HEAD')
-    with pytest.raises(ImpactError, match='review pending'):
-        assess_impact(repo, load_policy(repo, current, 'wiki.config.yaml'), graph,
-                      before=old, after=current, destination_context='alpha')
+    changed = assess_impact(repo, load_policy(repo, current, 'wiki.config.yaml'), graph,
+                            before=old, after=current, destination_context='alpha')
+    assert len(changed['candidates']) == 1
+    assert changed['candidates'][0]['state'] == 'review_pending'
+    assert changed['candidates'][0]['fact_freshness'] == 'not_assessed'
 
 
 def test_folder_impact_cli_from_context_directory(repo, tmp_path):

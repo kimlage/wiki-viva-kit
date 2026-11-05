@@ -59,7 +59,7 @@ class _QueryReuse:
         return receipt
 
 
-def preflight(root, policy, *, context_id, base, head, branch, packet, result, trusted_additional_readers=()):
+def preflight(root, policy, *, context_id, base, head, branch, packet, result, trusted_additional_readers=(), trusted_binding=None):
     """Return a review candidate, never an approval or merge authorization.
 
     External independent reviewer and final-head gates remain mandatory. The
@@ -67,6 +67,10 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
     """
     if getattr(policy, 'format_version', None) not in (None, 'folder'): raise IntegrationError('unsupported policy format')
     if not getattr(policy,'_binding',None) or Path(policy._binding[0])!=Path(root).resolve(): raise IntegrationError('unbound policy')
+    if getattr(policy, 'format_version', None) == 'folder':
+        from wiki_core.context_packet import _check_trusted_binding
+        try: _check_trusted_binding(root, policy, context_id, trusted_binding, trusted_additional_readers)
+        except PolicyError as exc: raise IntegrationError('host binding unavailable') from exc
     policy=policy.fresh()
     folder_mode = getattr(policy, 'format_version', None) == 'folder'
     if not isinstance(packet, dict): raise IntegrationError('invalid task packet')
@@ -108,7 +112,11 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result, t
             if item[k] is not None: entry[k]=item[k]
         evidence.append(entry)
     try:
-        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'),additional_readers=trusted_additional_readers)
+        if folder_mode:
+            from wiki_core.context_packet import _qualify_trusted_producers
+            _qualify_trusted_producers(root, policy, context_id, evidence, packet['max_bytes'],
+                                       trusted_binding=trusted_binding, additional_readers=trusted_additional_readers)
+        rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'),additional_readers=trusted_additional_readers,trusted_binding=trusted_binding)
     except (PolicyError, ValueError, KeyError, TypeError) as exc: raise IntegrationError('packet authorization cannot be reproduced') from exc
     if rebuilt!=packet: raise IntegrationError('packet contents cannot be reproduced')
     canonical_query_budget=[32_000_000]

@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 from pathlib import Path
 from markdown_it import MarkdownIt
 from wiki_core.context_policy import PolicyError, safe_path
@@ -15,10 +16,24 @@ from wiki_core.repository_reader import RepositoryReader, RepositoryReadError
 from wiki_core.content_sections import SectionError
 from wiki_core.detectors import scan_text
 from wiki_core.context_selection import select_query, requirement_query, reproduce_query
-from wiki_core.context_normative import normative_history
+from wiki_core.context_normative import normative_history, folder_normative_changed
+from wiki_core.git_env import local_git_environment, local_git_executable
 
 
 class ImpactError(ValueError): pass
+
+
+def _normative_review_authorized(policy, context, ref, revision, selection):
+    """Authorize unchanged history or a proved single-instruction change."""
+    folder = selection.get('authority_format')
+    entry_folder, entry_index = selection.get('entry_folder'), selection.get('entry_index')
+    if normative_history(policy, context, ref, revision, authority_format=folder,
+                         entry_folder=entry_folder, entry_index=entry_index):
+        return True
+    return (getattr(policy, 'format_version', None) == 'folder' and folder == 'folder'
+            and isinstance(entry_folder, str) and isinstance(entry_index, str)
+            and folder_normative_changed(policy, context, ref, revision,
+                                         entry_folder=entry_folder, entry_index=entry_index))
 
 
 def _selector(value):
@@ -130,8 +145,9 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
                     or not isinstance(requirement,dict) or requirement.get('use') != 'normative'
                     or requirement.get('target') != source or fields != ['*'] or requirement.get('fields') != ['*']
                     or requirement.get('temporal') != 'current' or consumed_revision is None
-                    or new.revision != policy.policy_revision
-                    or not normative_history(policy,destination_context,source,consumed_revision,authority_format=requirement.get('authority_format'),entry_folder=requirement.get('entry_folder'),entry_index=requirement.get('entry_index'))):
+                    or new.revision != policy.policy_revision):
+                raise ImpactError('normative dependency authorization unavailable; review pending')
+            if not _normative_review_authorized(policy, destination_context, source, consumed_revision, requirement):
                 raise ImpactError('normative dependency authorization unavailable; review pending')
         query = e.get('requirement', {}).get('query')
         query_before = query_after = None
@@ -202,6 +218,15 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
     policy=policy.fresh()
     if disposition not in ('updated','still_valid','superseded','blocked') or not isinstance(reason,str) or not reason.strip(): raise ImpactError('invalid disposition')
     if not isinstance(candidate,dict) or candidate.get('state')!='review_pending': raise ImpactError('candidate is not reviewable')
+    folder_normative = getattr(policy, 'format_version', None) == 'folder' and candidate.get('source_kind') == 'mandatory'
+    if folder_normative:
+        revisions = (candidate.get('before_revision'), candidate.get('after_revision'))
+        if any(not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', value) for value in revisions):
+            raise ImpactError('candidate revisions unavailable')
+        for older, newer in ((revisions[0], revisions[1]), (revisions[1], policy.policy_revision)):
+            if subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root), 'merge-base', '--is-ancestor', older, newer],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=local_git_environment()).returncode:
+                raise ImpactError('candidate revisions not approved ancestors')
     try:
         target=safe_path(candidate['target']); source=safe_path(candidate['source']); context=candidate['destination_context']
         _folder_context(root, policy, context)
@@ -214,7 +239,7 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         expected=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
         if expected!=candidate['event_id'] or policy.owner_of(target)!=context or policy.owner_of(source)!=candidate['producer_context'] or not policy.permits(context,'read',target): raise ImpactError('invalid candidate')
         if candidate.get('source_kind')=='mandatory':
-            grant='approved' if candidate['use']=='normative' and selector=='*' and normative_history(policy,context,source,candidate['before_revision'],authority_format=candidate.get('authority_format'),entry_folder=candidate.get('entry_folder'),entry_index=candidate.get('entry_index')) else 'denied'
+            grant='approved' if candidate['use']=='normative' and selector=='*' and _normative_review_authorized(policy,context,source,candidate['before_revision'],candidate) else 'denied'
         else:
             grant=policy.connection(candidate['producer_context'],context,source,candidate['use'],candidate['classification'],section=name if kind=='section' else None,field=name if kind=='field' else None)
             if (getattr(policy, 'format_version', None) == 'folder' and candidate['producer_context'] not in policy._qualified_contexts
@@ -222,6 +247,17 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
                         section=name if kind=='section' else None,field=name if kind=='field' else None,qualified=False) == 'approved'):
                 raise ImpactError('cross-context folder authority requires requalification')
         if grant!='approved': raise ImpactError('candidate authorization no longer current')
+        if folder_normative:
+            from wiki_core.context_selection import _equivalent_folder_chain
+            try:
+                _equivalent_folder_chain(policy, context, candidate['after_revision'],
+                                         candidate['entry_folder'], candidate['entry_index'])
+            except PolicyError:
+                # If only the selected instruction differs, this candidate is
+                # stale; any other ambiguity still requires requalification.
+                _equivalent_folder_chain(policy, context, candidate['after_revision'],
+                                         candidate['entry_folder'], candidate['entry_index'], changed_ref=source)
+                raise ImpactError('source changed since candidate')
         _folder_ref(root, policy, source)
         _folder_ref(root, policy, target)
         reader=RepositoryReader(root,evidence_revision)
@@ -235,6 +271,12 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         else: digest=_selected_digest(reader,source,selector,policy=policy)
         if digest!=candidate['after_digest']: raise ImpactError('source changed since candidate')
         prior=RepositoryReader(root,candidate['after_revision'])
+        if folder_normative:
+            prior_source_digest = _selected_digest(prior,source,selector,policy=policy)
+            consumed_source_digest = _selected_digest(RepositoryReader(root,candidate['before_revision']),source,selector,policy=policy)
+            if (prior_source_digest != candidate['after_digest'] or consumed_source_digest != candidate['before_digest']
+                    or prior_source_digest is None or consumed_source_digest is None or prior_source_digest == consumed_source_digest):
+                raise ImpactError('candidate source digest mismatch')
         before=_selected_digest(prior,target,'*',policy=policy); after=_selected_digest(reader,target,'*',policy=policy)
         if before!=candidate['target_digest']: raise ImpactError('candidate target digest mismatch')
     except (KeyError,TypeError,PolicyError) as exc:
