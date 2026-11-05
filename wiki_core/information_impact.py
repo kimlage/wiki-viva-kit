@@ -40,6 +40,7 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 entry_folder = req['entry_folder']
                 def affects_folder_policy(path):
                     if path == 'wiki.config.yaml': return True
+                    if path == req['entry_index']: return True
                     directory = path.rsplit('/', 1)[0] if '/' in path else '.'
                     return ((is_context_instruction(path) or path.rsplit('/', 1)[-1] in ('index.md', 'README.md'))
                             and within(entry_folder, directory))
