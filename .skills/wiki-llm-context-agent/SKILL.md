@@ -51,12 +51,23 @@ check does not prove the protected source was read or incorporated.
    selection changes, re-prepare and read the new request. A failed write may
    leave partial effects; inspect the reported state before retrying.
 6. Use `--source-stage consolidate` with the same selectors, an authorized
-   source page, canonical event target and explicitly selected candidates.
+   source page, canonical event target and any additional candidates. Declared
+   source/config/channel paths and targets are resolved with current authority;
+   connected hubs contribute subject candidates without requiring a duplicate
+   manual mapping. Inspect unresolved references before claiming full coverage.
    Git-derived events need the host's separate publication grant. The event and
    packet are proposal material; neither proves review or incorporation.
    The optional `compare` stage gives a manual review suggestion for selected
    repository evidence, with file consumption remaining unknown.
-7. The authorized integrator reviews the proposal, updates the appropriate
+7. Return the affected subjects to the coordinator through the existing task
+   response. The coordinator updates the existing task sequence using declared
+   `information_requirements`: prerequisite changes first, then each consuming
+   subject's own interpretation. Reuse pending work for the same subject and
+   input revision. Hub navigation alone creates no factual dependency. Record
+   each subject as updated, still valid or blocked; propagate again only when
+   its resulting output or consumed prerequisite changes. Newly discovered
+   subjects remain proposals within the authorized scope.
+8. The authorized integrator reviews the proposal, updates the appropriate
    targets in the authorized proposal, records `consolidated_into`, runs the
    applicable gates on the exact proposed SHA and follows the repository's PR policy. Read back the result
    after an authorized integration. An event, cache result or green low-level

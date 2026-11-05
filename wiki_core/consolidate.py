@@ -841,7 +841,7 @@ def build_packet(
     catalog = _page_catalog(root, config, candidates, candidate_documents=candidate_documents)
     db_path = paths.indexes / "wiki.sqlite"
     packet_warnings: list[str] = ([] if candidates is None else
-        ['Only explicit candidates were inspected; global catalog and FTS were not searched.'])
+        ['Only selected candidates were inspected; global catalog and FTS were not searched.'])
     initial_signature: str | None = None
     signature_error: Exception | None = None
 

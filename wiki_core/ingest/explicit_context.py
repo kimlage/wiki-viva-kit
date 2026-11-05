@@ -81,6 +81,71 @@ def explicit_ingestion_evidence(policy, selection):
     return rows
 
 
+def connected_ingestion_selection(packet, selection):
+    """Extend a selection from declared links in already authorized bodies.
+
+    Return selectors only. The caller must authorize and read them through the
+    same packet builder before interpreting them. Hub links select candidates,
+    never establish consumption or permission to update a subject.
+    """
+    selected = _selection(selection)
+    pages = {}
+    for row in packet['inputs']:
+        if row.get('kind') == 'evidence' or row.get('ref') == packet.get('entry_index'):
+            values, body = parse_frontmatter(row['text'])
+            pages[row['ref']] = (values, body)
+    by_id = {}
+    for ref, (values, _) in pages.items():
+        if values.get('page_id'):
+            by_id.setdefault(values['page_id'], []).append(ref)
+
+    def path(value):
+        if not isinstance(value, str) or not value:
+            return None
+        if len(by_id.get(value, [])) == 1:
+            return by_id[value][0]
+        if value.endswith('.md'):
+            return canonical_path(value)
+        return None  # An unresolved page ID is not permission to scan the wiki.
+
+    def values(role):
+        return pages.get(selected.get(role), ({}, ''))[0]
+
+    for role, refs in (
+        ('source_config', [values('source_page').get('config_ref')]),
+        ('input_channel', [values('source_page').get('input_channel_ref'),
+                           values('source_config').get('input_channel_ref')]),
+    ):
+        if role not in selected:
+            choices = {ref for value in refs if (ref := path(value))}
+            if len(choices) > 1:
+                raise ExplicitContextError('conflicting declared ingestion references')
+            if choices:
+                selected[role] = choices.pop()
+
+    targets = list(selected['target_pages'])
+    for role in ('source_page', 'source_config', 'input_channel'):
+        targets.extend(ref for value in list_values(values(role).get('target_pages')) if (ref := path(value)))
+    roles = {selected[name] for name in ('source_page', 'source_config', 'input_channel', 'root_entity') if name in selected}
+    selected['target_pages'] = list(dict.fromkeys(ref for ref in targets if ref not in roles and ref not in selected['templates']))
+    return _selection(selected)
+
+
+def connected_ingestion_candidates(packet, targets):
+    """Select subjects linked by connected hubs; reads still require authority."""
+    from wiki_core.graph.page_graph import MARKDOWN_LINK_RE
+    from wiki_core.information_relations import _path_from_link
+    refs = list(targets)
+    for row in packet['inputs']:
+        if row.get('ref') not in targets:
+            continue
+        metadata, body = parse_frontmatter(row['text'])
+        if metadata.get('page_type') in ('context_hub', 'moc', 'root_entity'):
+            refs.extend(target for match in MARKDOWN_LINK_RE.finditer(body)
+                if (target := _path_from_link(None, row['ref'], match.group(1))) and target.endswith('.md'))
+    return list(dict.fromkeys(refs))
+
+
 def resolve_explicit_ingestion_context(packet, selection, config):
     """Project selected packet bodies into the established request metadata.
 

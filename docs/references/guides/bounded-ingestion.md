@@ -72,6 +72,10 @@ Each stage must receive the same `context_selection`, with either an explicit
 `source_page`, `source_config`, `input_channel`, `templates` and `target_pages`
 paths. The packet authorizes each selected body for both actors before source
 capture, checks declared config and channel links, and retains omission coverage.
+Declared path links from the source to its configuration/channel and their
+`target_pages` are resolved through that same authorized packet builder; they
+do not have to be copied into the stage payload. Unresolved page IDs still need
+an exact selected path; they never trigger an unrestricted catalog scan.
 The source-page association is operator-selected and is not proved by the link.
 A nested executor does not automatically receive a global business root or
 its bundle. Required perspectives from the selected context require an exact
@@ -80,11 +84,15 @@ the matching ID and type and pass current policy; the paths grant no access.
 Skipped perspectives, unselected optional perspectives, linked sources and
 other gaps remain visible in packet coverage. Source frontmatter declaring a
 configuration or channel must match the selected context.
-Explicit candidates for protected consolidation are read from the approved
+Protected consolidation includes the declared targets and the subjects linked
+by connected hubs, alongside any explicit candidates. All are read from the approved
 commit, with each path, commit, Git blob and SHA-256 recorded in the integration
 packet. Unapproved working-tree edits do not influence candidate matching.
 Selected candidate boundaries and current authority are rechecked before
 effects and after readback; a late failure can leave partial artifacts.
+Hub navigation discovers candidates, not factual dependencies. A sibling
+subject without a matching source reference or semantic relevance is not made
+an update obligation merely because it appears in the same hub.
 Among those candidates, a declared `source_refs` ID in the `source-v2` format
 with the same origin and a different content-hash prefix is suggested in
 `should_review`. If the source page was selected in the request, a candidate's

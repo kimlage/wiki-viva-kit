@@ -363,7 +363,7 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
                      budget, task_id, selection, perspective_refs, source_ref, repository_selection,
                      csv_delimiter=None, *, binding):
     from wiki_core.ingest.explicit_context import (explicit_ingestion_evidence,
-        resolve_explicit_ingestion_context, _selection)
+        resolve_explicit_ingestion_context, connected_ingestion_selection, _selection)
     selection = _selection(selection)
     repo_ids = [] if repository_selection is None else _selection_ids(repository_selection)
     if set(selection['repository_source_pages']) - set(repo_ids):
@@ -387,6 +387,13 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
             additional_readers=() if actor == context_id else (actor,), omissions=omissions,
             trusted_binding=binding)
     preliminary = build(evidence, [])
+    while True:
+        connected = connected_ingestion_selection(preliminary, selection)
+        if connected == selection:
+            break
+        selection = connected
+        evidence = explicit_ingestion_evidence(policy, selection)
+        preliminary = build(evidence, [])
     projected = resolve_explicit_ingestion_context(preliminary, selection, config)
     required, optional, paths, lenses = _perspectives(policy, perspective_refs,
         projected['perspectives_required'], projected['perspectives_optional'])
@@ -1150,6 +1157,11 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     refs = [safe_path(x) for x in candidates]
     if len(refs) != len(set(refs)) or len(refs) > 128:
         raise ValueError('candidate unavailable')
+    from wiki_core.ingest.explicit_context import connected_ingestion_candidates
+    refs = list(dict.fromkeys([*refs, *connected_ingestion_candidates(
+        request['block_context_package'], request.get('target_pages', []))]))
+    if len(refs) > 128:
+        raise ValueError('candidate limit exceeded')
     source_page = safe_path(source_page)
     selected_source = context_selection.get('source_page')
     if selected_source is not None and selected_source != source_page:
@@ -1279,7 +1291,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'event': event_target, 'request_id': request_id,
-            'coverage': 'explicit candidates only; linked sources not inspected',
+            'coverage': 'selected candidates and subjects linked by connected hubs; other sources not inspected',
             'integration': 'pending review and incorporation',
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
@@ -1317,6 +1329,12 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     repository_context = request.get('repository_context')
+    if view == 'integration':
+        from wiki_core.ingest.explicit_context import connected_ingestion_candidates
+        refs = list(dict.fromkeys([*refs, *connected_ingestion_candidates(
+            request['block_context_package'], request.get('target_pages', []))]))
+        if len(refs) > 128:
+            raise ValueError('candidate limit exceeded')
     def stamp(path):
         value = path.stat()
         return (value.st_dev, value.st_ino, value.st_mode, value.st_size,
