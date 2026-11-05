@@ -68,8 +68,8 @@ def test_protected_source_selection_rebinds_foreign_owner_before_read(prepared_r
     shared_stage_cache()
 
 
-@pytest.mark.parametrize('source_granted', [False, True])
-def test_nested_executor_reads_selected_root_page_only_with_exact_grant(prepared_repo, monkeypatch, source_granted):
+@pytest.mark.parametrize('grant_case', ['none', 'missing_raw', 'both'])
+def test_nested_executor_reads_selected_root_page_only_with_exact_grant(prepared_repo, monkeypatch, grant_case):
     root, _ = prepared_repo
     _nested_integrator_repo(root)
     page = 'memories/sources/synthetic.md'
@@ -78,9 +78,10 @@ def test_nested_executor_reads_selected_root_page_only_with_exact_grant(prepared
                    'use': 'interpretation', 'classification': 'source', 'expires': '2099-01-01'}
     source_file_rule = {**source_rule, 'selector': 'source.txt'}
     config['context_access']['alpha']['policy']['read'].append('source.txt')
-    if source_granted:
-        config['context_access']['.']['exports'].extend([source_rule, source_file_rule])
-        config['context_access']['alpha']['imports'].extend(copy.deepcopy([source_rule, source_file_rule]))
+    grants = [] if grant_case == 'none' else [source_rule]
+    if grant_case == 'both': grants.append(source_file_rule)
+    config['context_access']['.']['exports'].extend(grants)
+    config['context_access']['alpha']['imports'].extend(copy.deepcopy(grants))
     write(root, 'wiki.config.yaml', yaml.safe_dump(config))
     # Always create a new approved fixture revision, including the denied case.
     write(root, 'synthetic-fixture.md', '# Synthetic fixture\n')
@@ -97,9 +98,14 @@ def test_nested_executor_reads_selected_root_page_only_with_exact_grant(prepared
         opened.append(ref)
         return original(reader, ref, **kwargs)
     monkeypatch.setattr(RepositoryReader, 'read', spy)
-    if not source_granted:
+    if grant_case != 'both':
+        original_open = Path.open
+        def path_spy(path, *values, **kwargs):
+            assert path != root / 'source.txt', 'unauthorized raw source opened'
+            return original_open(path, *values, **kwargs)
+        monkeypatch.setattr(Path, 'open', path_spy)
         with pytest.raises(ValueError): prepare(root, binding, **args)
-        assert page not in opened
+        if grant_case == 'none': assert page not in opened
         return
     prepared = prepare(root, binding, **args)
     request = prepared['request']
