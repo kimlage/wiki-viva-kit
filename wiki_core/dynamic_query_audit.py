@@ -12,6 +12,29 @@ from wiki_core.repository_reader import RepositoryReader
 from wiki_core.git_env import local_git_environment, local_git_executable
 
 
+def _proposed_folder_authority_equivalent(root, policy, head, context_id, req):
+    """Compare proposal metadata only; the proposed policy grants no reads."""
+    from wiki_core.context_packet import qualify_folder_context
+    from wiki_core.context_policy import _folder_policy_at
+    entry = requirement_query(req)
+    qualify_folder_context(root, policy, context_id, req['entry_folder'], req['entry_index'], 2_000_000)
+    selection = policy._folder_qualifications[(context_id, req['entry_folder'], req['entry_index'])]
+    proposed = _folder_policy_at(Path(root), head)
+    if (context_id not in proposed.contexts or
+            [c['id'] for c in proposed.lineage(context_id)] != [c['id'] for c in policy.lineage(context_id)]):
+        return False
+    for ref in selection['refs']:
+        producer = policy.owner_of(ref)
+        if (proposed.owner_of(ref) != producer or
+                proposed.contexts[producer]['owner'] != policy.contexts[producer]['owner'] or
+                proposed._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved'):
+            return False
+    proposed._qualified_contexts.add(context_id)  # Only metadata is compared; never used for reads.
+    equivalent = authority_digest(proposed, context_id, entry) == authority_digest(policy, context_id, entry)
+    policy.fresh()
+    return equivalent
+
+
 def revalidate_affected(root, *, base, head, context_id, affected, changed, current, pending_sources=None, read_budget=None, _selection_cache=None, policy=None):
     if not all(isinstance(x, str) and re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', x) for x in (base, head)):
         raise ValueError('fixed query base and head required')
@@ -76,7 +99,6 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
             entry_folder = req.get('entry_folder', '')
             scope = req.get('query', {}).get('scope', '')
             def affects_selected_policy(ref):
-                if ref == 'wiki.config.yaml': return True
                 if ref == req.get('entry_index'): return True
                 directory = ref.rsplit('/', 1)[0] if '/' in ref else '.'
                 structural = is_context_instruction(ref) or ref.rsplit('/', 1)[-1] in ('index.md', 'README.md')
@@ -97,8 +119,14 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
             if req.get('authority_format') != 'folder':
                 outcomes.append({'path': path, 'state': 'review_pending', 'reason': 'dynamic_query_requalification_required',
                     'seed': path, 'requirement_id': requirement_id, 'fields': ['*'], 'causes': [], 'chain': [],
-                    'priority': 'on_demand', 'verification_performed': False})
+                    'priority': ('immediate' if current['nodes'].get(path, {}).get('action_state') in {'open', 'in_progress'} else 'on_demand'),
+                    'verification_performed': False})
                 continue
+            if 'wiki.config.yaml' in changed and not changed_policy:
+                try:
+                    changed_policy = not _proposed_folder_authority_equivalent(root, policy, head, context_id, req)
+                except (PolicyError, ValueError, KeyError, TypeError, OSError):
+                    changed_policy = True
         try:
             if changed_policy and path in changed: raise PolicyError('consumer and policy or normative input changed together')
             if policy.owner_of(path) != context_id or not policy.permits(context_id, 'read', path):
