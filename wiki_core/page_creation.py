@@ -15,7 +15,7 @@ from wiki_core.page_types import load_page_type_registry, validate_shape
 from wiki_core.templates import default_output_path, instantiate_template, resolve_template
 
 
-def _safe_output_path(root: Path, memory_root: str, output: str) -> tuple[str, Path]:
+def _safe_output_path(root: Path, memory_root: str, output: str, *, instructions: bool = False) -> tuple[str, Path]:
     text = str(output or "")
     pure = PurePosixPath(text)
     if (
@@ -27,8 +27,11 @@ def _safe_output_path(root: Path, memory_root: str, output: str) -> tuple[str, P
         or pure.suffix != ".md"
         or any(part in {"", ".", ".."} for part in pure.parts)
         or pure.as_posix() != text
+        or '.git' in pure.parts
     ):
         raise ValueError("output must be one canonical repo-relative Markdown path")
+    if instructions and pure.name not in {'AGENTS.md', 'AGENTS.override.md'}:
+        raise ValueError('context instructions must be named AGENTS.md or AGENTS.override.md')
     memory = PurePosixPath(str(memory_root or ""))
     if (
         not memory.parts
@@ -44,10 +47,14 @@ def _safe_output_path(root: Path, memory_root: str, output: str) -> tuple[str, P
         current = current / part
         if current.is_symlink():
             raise ValueError("output path contains a symlink")
-    try:
-        candidate.resolve(strict=False).relative_to(memory_path.resolve(strict=False))
-    except ValueError as exc:
-        raise ValueError("output must stay inside the configured memory_root") from exc
+    if not instructions:
+        try:
+            candidate.resolve(strict=False).relative_to(memory_path.resolve(strict=False))
+        except ValueError as exc:
+            raise ValueError("output must stay inside the configured memory_root") from exc
+    else:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(root_resolved, files=(candidate,))
     return pure.as_posix(), candidate
 
 
@@ -143,8 +150,12 @@ def prepare_page(root: Path, page_type: str, title: str, context: str | None = N
         if fm.get("owner_kind") == "unassigned" and not fm.get("owner_ref"):
             fm.pop("owner_ref", None)
         text = _render_document(fm, body)
+    instructions = page_type == 'context_instructions'
+    if instructions and not output:
+        raise ValueError('context instructions require an explicit output path')
     output, _ = _safe_output_path(root, str(config.paths["memory_root"]),
-                                output or default_output_path(registry, page_type, title))
+                                output or default_output_path(registry, page_type, title),
+                                instructions=instructions)
     errors = _render_errors(root, output, text, registry.page_types[page_type],
                            page_type=page_type, title=title, context=context)
     if errors:
@@ -154,9 +165,11 @@ def prepare_page(root: Path, page_type: str, title: str, context: str | None = N
 
 def create_page(root: Path, output: str, text: str) -> None:
     config = load_config(root)
-    _, path = _safe_output_path(root, str(config.paths["memory_root"]), output)
+    frontmatter, _ = parse_frontmatter(text)
+    instructions = frontmatter.get('page_type') == 'context_instructions'
+    _, path = _safe_output_path(root, str(config.paths["memory_root"]), output, instructions=instructions)
     path.parent.mkdir(parents=True, exist_ok=True)
-    _, path = _safe_output_path(root, str(config.paths["memory_root"]), output)
+    _, path = _safe_output_path(root, str(config.paths["memory_root"]), output, instructions=instructions)
     _atomic_create(path, text)
 
 

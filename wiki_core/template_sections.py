@@ -44,7 +44,7 @@ _UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _m
 def _path(root: Path, ref: str) -> Path:
     if (not isinstance(ref, str) or not ref or '\\' in ref
             or PurePosixPath(ref).is_absolute()
-            or any(part in {'', '.', '..'} for part in ref.split('/'))):
+            or any(part in {'', '.', '..', '.git'} for part in ref.split('/'))):
         raise TemplateSectionError('contract path must be repository relative without traversal')
     current = root.resolve()
     for part in ref.split('/'):
@@ -55,6 +55,11 @@ def _path(root: Path, ref: str) -> Path:
         current.resolve().relative_to(root.resolve())
     except ValueError as exc:
         raise TemplateSectionError('contract escaped repository') from exc
+    from wiki_core.traversal import require_wiki_boundaries
+    try:
+        require_wiki_boundaries(root.resolve(), files=(current,))
+    except ValueError as exc:
+        raise TemplateSectionError('template input crosses a repository boundary') from exc
     if not stat.S_ISREG(current.stat(follow_symlinks=False).st_mode):
         raise TemplateSectionError('template input must be a regular file')
     return current
