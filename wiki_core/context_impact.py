@@ -122,9 +122,22 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
     if type(max_generation) is not int or not 1 <= max_generation <= 64: raise ImpactError('invalid generation limit')
     if not isinstance(graph,dict) or not isinstance(graph.get('edges'),list) or len(graph['edges'])>10000: raise ImpactError('invalid relation inventory')
     old=RepositoryReader(root,before); new=RepositoryReader(root,after); readers={old.revision:old}
+    approved_pairs = set()
+    def require_ancestor(older, newer):
+        if older == newer or (older, newer) in approved_pairs:
+            return
+        if subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root),
+                'merge-base', '--is-ancestor', older, newer], stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, env=local_git_environment()).returncode:
+            raise ImpactError('impact revisions are not approved ancestors')
+        approved_pairs.add((older, newer))
+    if getattr(policy, 'format_version', None) == 'folder':
+        require_ancestor(new.revision, policy.policy_revision)
+        require_ancestor(old.revision, new.revision)
     try: edges,_=dependency_edges(graph)
     except (KeyError,TypeError,AttributeError) as exc: raise ImpactError('malformed relation inventory') from exc
     candidates={}; query_read_budget=[32_000_000]; blocked_connection = False
+    historical_policies = {}
     for e in edges:
         source=safe_path(e['prerequisite']); target=safe_path(e['dependent'])
         if policy.owner_of(target)!=destination_context: continue
@@ -140,6 +153,8 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             if consumed_revision not in readers: readers[consumed_revision]=RepositoryReader(root,consumed_revision)
             edge_old=readers[consumed_revision]
             if edge_old.revision!=consumed_revision: raise ImpactError('consumed revision not fixed')
+        if getattr(policy, 'format_version', None) == 'folder':
+            require_ancestor(edge_old.revision, new.revision)
         fields=e.get('consumed_fields')
         if not isinstance(fields,list) or not fields: raise ImpactError('missing consumed selectors')
         normative = e.get('requirement', {}).get('source_kind') == 'mandatory'
@@ -170,7 +185,10 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             kind,name=('query',None) if query is not None else _selector(selector)
             classification=e.get('classification','internal'); use=e.get('use','interpret')
             if not isinstance(classification,str) or not classification or not isinstance(use,str) or not use: raise ImpactError('invalid use or classification')
-            if getattr(policy, 'format_version', None) == 'folder' and source_owner != destination_context:
+            # Mandatory inherited instructions were authorized above as
+            # normative inputs, not as a bilateral factual connection.
+            if (not normative and getattr(policy, 'format_version', None) == 'folder'
+                    and source_owner != destination_context):
                 declared = policy._connection(source_owner, destination_context, source, use, classification,
                     section=name if kind=='section' else None, field=name if kind=='field' else None,
                     qualified=False)
@@ -187,6 +205,27 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
                         'use': use, 'classification': classification, **selector_options}], 2_000_000,
                         trusted_binding=trusted_binding)
                 except (ValueError, OSError):
+                    blocked_connection = True
+                    continue
+            # Current access does not authorize historical bytes, including
+            # within the same owner. Check prior ownership, grants and denies.
+            if (not normative and getattr(policy, 'format_version', None) == 'folder'
+                    and edge_old.revision != policy.policy_revision):
+                try:
+                    from wiki_core.context_policy import historical_policy
+                    if edge_old.revision not in historical_policies:
+                        historical_policies[edge_old.revision] = historical_policy(
+                            policy, edge_old.revision, authority_format='folder')
+                    prior_policy = historical_policies[edge_old.revision]
+                    if (prior_policy.owner_of(source) != source_owner or
+                            prior_policy.owner_of(target) != destination_context or
+                            any(prior_policy.contexts[c]['owner'] != policy.contexts[c]['owner']
+                                for c in (source_owner, destination_context)) or
+                            prior_policy._connection(source_owner, destination_context, source, use,
+                                classification, section=name if kind == 'section' else None,
+                                field=name if kind == 'field' else None, qualified=False) != 'approved'):
+                        raise PolicyError('historical connection unavailable')
+                except (ValueError, KeyError, OSError):
                     blocked_connection = True
                     continue
             grant='approved' if normative else policy.connection(source_owner,destination_context,source,use,classification,section=name if kind=='section' else None,field=name if kind=='field' else None)

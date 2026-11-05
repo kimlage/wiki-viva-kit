@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import yaml
+import pytest
 
 from tests.test_folder_context_impact import repo, git, write
 from wiki_core.context_impact import report_review
@@ -258,3 +259,51 @@ def test_discovery_stops_if_trusted_policy_moves_during_read(repo, monkeypatch):
             destination_context='alpha',
             trusted_binding=CoordinationBinding(('.', 'alpha'), 'refs/remotes/origin/main', 'wiki.config.yaml'))
     assert moved and not opened_after_move
+
+
+@pytest.mark.parametrize('invalid_history', ['denied', 'unapproved'])
+def test_impact_never_reads_unqualified_same_owner_history(repo, monkeypatch, invalid_history):
+    from wiki_core.context_requirements import assess_approved_impact
+    from wiki_core.coordination_context import CoordinationBinding
+    from wiki_core.repository_reader import RepositoryReader
+
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    if invalid_history == 'denied':
+        config['context_access']['alpha']['policy']['deny'] = {'read': ['alpha/source.md']}
+        write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    write(repo, 'alpha/source.md', '# Before\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'historical source')
+    before = git(repo, 'rev-parse', 'HEAD')
+    original_branch = git(repo, 'branch', '--show-current')
+    consumed = before
+    if invalid_history == 'unapproved':
+        git(repo, 'checkout', '-qb', 'wiki/unapproved')
+        write(repo, 'alpha/source.md', '# Unapproved source\n')
+        git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'unapproved change')
+        consumed = git(repo, 'rev-parse', 'HEAD')
+        git(repo, 'checkout', '-q', original_branch)
+    config['context_access']['alpha']['policy'].pop('deny', None)
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    write(repo, 'alpha/source.md', '# Approved source\n')
+    requirement = {'target': 'alpha/source.md', 'fields': ['*'], 'temporal': 'current',
+        'max_age_days': 30, 'consumed_revision': consumed, 'use': 'interpret', 'classification': 'internal'}
+    write(repo, 'alpha/result.md', '---\n' + yaml.safe_dump({'page_id': 'result',
+        'information_requirements': [requirement]}) + '---\nInterpretation\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'current source')
+    after = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', after)
+    original = RepositoryReader.read
+    def guarded(reader, ref, *args, **kwargs):
+        assert not (ref == 'alpha/source.md' and reader.revision == consumed), 'unqualified historical body opened'
+        return original(reader, ref, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    binding = CoordinationBinding(('.', 'alpha'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(consumers=['alpha/result.md'], before=before, after=after,
+                destination_context='alpha', trusted_binding=binding)
+    if invalid_history == 'unapproved':
+        with pytest.raises(ValueError, match='approved ancestors'):
+            assess_approved_impact(repo, load_policy(repo, after, 'wiki.config.yaml'), **args)
+    else:
+        result = assess_approved_impact(repo, load_policy(repo, after, 'wiki.config.yaml'), **args)
+        assert not result['candidates']
+        assert 'some connections unavailable' in result['coverage']
