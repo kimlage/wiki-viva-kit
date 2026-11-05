@@ -13,8 +13,13 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    and exact slices; it does not read the global index/input-stage catalog or
    other fronts automatically. Missing required context is a structured blocker.
 2. For an approved folder-policy source, use [wiki_coordination.py](../../scripts/wiki_coordination.py)
-   `--source-stage prepare` with the explicit folder, index, source, context
-   selection, approved revision and any authorized integrator. Read the
+   `--source-stage prepare` with the source, context selection, approved revision
+   and any authorized integrator. Folder and index may be selected explicitly or
+   resolved from cwd within the wiki; the approved `index.md` takes precedence
+   over `README.md`. Without an explicit context ID, an existing host binding
+   must authorize the discovered context. Cwd grants no access and must not cross
+   an independent Git repository. Use the same folder and index for each stage.
+   Read the
    [bounded ingestion guide](../../docs/references/guides/bounded-ingestion.md)
    for stage payloads, byte limits, formats and coverage. Host-pinned independent
    Git selections require their own grants and remain supporting evidence.
