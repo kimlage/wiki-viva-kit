@@ -4,7 +4,7 @@ import os
 import re
 import subprocess
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping
 from wiki_core.context_policy import load_policy, safe_path, PolicyError, revision
@@ -19,11 +19,32 @@ class ProtectedCoordinationError(ValueError):
         super().__init__(code)
 
 @dataclass(frozen=True)
+class PreviousRequestGrant:
+    """Exact prior request permitted by the trusted host, not by its payload."""
+    executor: str = field(repr=False)
+    integrator: str = field(repr=False)
+    source_ref: str = field(repr=False)
+    source_id: str = field(repr=False)
+    request_id: str = field(repr=False)
+    policy_revision: str = field(repr=False)
+
+    def __post_init__(self):
+        safe_path(self.executor, allow_root=True)
+        safe_path(self.integrator, allow_root=True)
+        safe_path(self.source_ref)
+        if (not isinstance(self.source_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', self.source_id)
+                or not isinstance(self.request_id, str) or not re.fullmatch(r'[0-9a-f]{64}', self.request_id)
+                or not isinstance(self.policy_revision, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', self.policy_revision)):
+            raise ValueError('invalid previous request grant')
+
+
+@dataclass(frozen=True)
 class CoordinationBinding:
     contexts: tuple[str,...]
     trusted_ref: str
     manifest: str='wiki.config.yaml'
     repository_grants: tuple[RepositoryGrant,...]=()
+    previous_request_grants: tuple[PreviousRequestGrant,...]=()
 
     def __post_init__(self):
         if self.manifest not in ('context.yaml', 'wiki.config.yaml'): raise ValueError('invalid coordination manifest')
@@ -40,6 +61,12 @@ class CoordinationBinding:
                 or any(item.executor not in self.contexts or item.integrator not in self.contexts for item in self.repository_grants)
                 or (self.repository_grants and self.manifest != 'wiki.config.yaml')):
             raise ValueError('invalid coordination host binding')
+        if (not isinstance(self.previous_request_grants, tuple) or len(self.previous_request_grants) > 32
+                or any(not isinstance(item, PreviousRequestGrant) for item in self.previous_request_grants)
+                or len(set(self.previous_request_grants)) != len(self.previous_request_grants)
+                or any(item.executor not in self.contexts or item.integrator not in self.contexts for item in self.previous_request_grants)
+                or (self.previous_request_grants and self.manifest != 'wiki.config.yaml')):
+            raise ValueError('invalid coordination host binding')
 
     @classmethod
     def from_environment(cls, env: Mapping[str,str] | None=None):
@@ -49,8 +76,9 @@ class CoordinationBinding:
         trusted=env.get('WIKI_COORDINATION_TRUSTED_REF','').strip()
         mode=env.get('WIKI_COORDINATION_CONTEXT_MODE','').strip()
         raw_grants = env.get('WIKI_COORDINATION_REPOSITORY_GRANTS', '').strip()
+        raw_previous = env.get('WIKI_COORDINATION_PREVIOUS_REQUEST_GRANTS', '').strip()
         if mode not in ('', 'v1', 'folder'): raise ValueError('invalid coordination context mode')
-        if not contexts and not trusted and not mode and not raw_grants: return None
+        if not contexts and not trusted and not mode and not raw_grants and not raw_previous: return None
         if not contexts: raise ValueError('incomplete coordination host binding')
         grants = []
         if raw_grants:
@@ -71,8 +99,28 @@ class CoordinationBinding:
                     grants.append(RepositoryGrant(**row))
             except (TypeError, ValueError, OSError) as exc:
                 raise ValueError('invalid host repository grants') from exc
+        previous_grants = []
+        if raw_previous:
+            if len(raw_previous.encode('utf-8')) > 100_000:
+                raise ValueError('invalid previous request grants')
+            def unique_previous(pairs):
+                result = {}
+                for key, value in pairs:
+                    if key in result: raise ValueError('duplicate previous request field')
+                    result[key] = value
+                return result
+            try:
+                rows = json.loads(raw_previous, object_pairs_hook=unique_previous)
+                required = {'executor', 'integrator', 'source_ref', 'source_id', 'request_id', 'policy_revision'}
+                if not isinstance(rows, list) or len(rows) > 32: raise ValueError('invalid previous request grants')
+                for row in rows:
+                    if not isinstance(row, dict) or set(row) != required:
+                        raise ValueError('invalid previous request grants')
+                    previous_grants.append(PreviousRequestGrant(**row))
+            except (TypeError, ValueError, OSError) as exc:
+                raise ValueError('invalid previous request grants') from exc
         return cls(tuple(c.strip() for c in contexts.split(',')),trusted or 'refs/remotes/origin/main',
-                   'context.yaml' if mode == 'v1' else 'wiki.config.yaml', tuple(grants))
+                   'context.yaml' if mode == 'v1' else 'wiki.config.yaml', tuple(grants), tuple(previous_grants))
 
 
 def capability(root: Path, binding: CoordinationBinding | None) -> dict:
@@ -187,7 +235,7 @@ def protected_source_stage(root, binding, stage, payload):
     common = {'context_id', 'approved_revision', 'entry_folder', 'entry_index', 'source_ref'}
     optional = {'context_max_bytes', 'request_max_bytes', 'artifact_context', 'perspective_refs', 'context_selection', 'repository_selection'}
     if stage == 'prepare':
-        required, permitted = common | {'source_context'}, common | {'source_context'} | optional
+        required, permitted = common | {'source_context'}, common | {'source_context', 'previous_request_id', 'candidate_chunk_ids'} | optional
     elif stage == 'record':
         required = common | {'source_id', 'request_id', 'results'}
         permitted = required | optional
