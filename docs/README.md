@@ -7,7 +7,7 @@ retired release-certification machinery.
 
 - [Context operation](references/guides/context-operation.md): selection, packet, result, independent integration and optional wake.
 - [Protected coordination](references/guides/context-coordination-protected.md): explicit host binding, current approved policy and local operator API.
-- [Bounded ingestion](references/guides/bounded-ingestion.md): authorized source admission and separate byte budgets.
+- [Bounded ingestion](references/guides/bounded-ingestion.md): approved source admission, local folder entry, independent Git selections and byte budgets.
 - [Authorized dynamic collections](references/guides/context-dynamic-selection.md): bounded owner queries, canonical predicates and set invalidation.
 - [Context impact and integration](references/guides/context-impact-integration.md): canonical requirements, selective review and read-only preflight.
 - [Optional modular sections](references/guides/modular-template-sections.md) and [schedule advice](references/context-schedules.md).

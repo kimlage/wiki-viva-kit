@@ -23,12 +23,15 @@ or a decision not to ingest.
 
 The [orchestrator](../../scripts/wiki_ingest.py) extracts text and chunks in
 memory, performs **pre-scan before persistence** (secret blocks; PII informs),
-then writes the manifest/text/chunks and updates the index. The
+then writes the manifest/text/chunks and, when enabled, updates the index. The
 [pipeline](../../wiki_core/ingest/pipeline.py) prepares the LLM request when
 chunks exist without secrets, persisting it only in write mode. The
 `ingestar_fonte_valida` score event requires persistence, chunks and enabled
 scoring. `--dry-run` writes no artifacts, index or score; `--no-score` disables
 scoring. The standalone CLIs still exist, with their own boundaries below.
+Local folder ingestion does not update the global index or score; its selected
+instructions, index, sources and coverage are described in
+[bounded ingestion](../../docs/references/guides/bounded-ingestion.md).
 
 The LLM pass remains delegated to the operating agent, which reads the package
 and records its result. Required deep reading (`required_context_pass`) remains
@@ -76,8 +79,10 @@ The deterministic stages, the command that runs each, and what gates it:
 1. Identify the source without copying access secrets into the conversation.
 2. Classify the source as `memory`, `reference`, `artifact`, `raw`, or
    `no_ingest`.
-3. Define the target context among those declared in [wiki.config.yaml](../../wiki.config.yaml)
-   (`contexts`); `system` is always valid.
+3. Define the source context among those declared in [wiki.config.yaml](../../wiki.config.yaml)
+   (`contexts`); `system` is always valid. For a local folder request also select
+   the folder/index under the separate [local route](../../docs/references/guides/bounded-ingestion.md).
+   This does not replace or grant approved policy authority.
 4. Use the [orchestrator](../../scripts/wiki_ingest.py) for extraction and
    screening before persistence. In a manual flow, the
    [text extractor](../../scripts/wiki_extract_text.py) screens before writing

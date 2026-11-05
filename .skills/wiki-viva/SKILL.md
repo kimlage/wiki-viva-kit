@@ -18,6 +18,11 @@ LLM client is required.
 4. Preserve user changes and avoid competing with an active worktree.
 5. Keep public-kit fixtures synthetic and private consumer data private.
 
+For a local folder entry, read the applicable physical instruction chain and the
+context index, within the task's authorized scope. A folder or link is not an
+access grant. See [bounded ingestion](../../docs/references/guides/bounded-ingestion.md)
+for selection, independent repositories and the local route's limits.
+
 ## Lifecycle
 
 ```mermaid
@@ -34,7 +39,15 @@ in `wiki.config.yaml`. Shared code must not hardcode a consumer path or context.
 
 ### Ingest and read
 
-Use [wiki_ingest.py](../../scripts/wiki_ingest.py): `python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID`. Use the current trusted approval and authorized context; see the [bounded ingestion guide](../../docs/references/guides/bounded-ingestion.md) for limits and the explicitly labelled working-tree compatibility mode.
+Use [wiki_ingest.py](../../scripts/wiki_ingest.py) with the route appropriate to
+the task. With `--source SOURCE --context SOURCE_CONTEXT`, the approved v1 route
+also uses `--approved-revision APPROVED_SHA --policy-context CONTEXT_ID` and the
+current trusted approval. Local folder
+preparation uses `--folder FOLDER` or a nested working directory; it is not an
+approved-policy packet and cannot be combined with those approval flags. A
+failure in the approved route never falls back to local preparation. See
+[bounded ingestion](../../docs/references/guides/bounded-ingestion.md) for the
+source, recording and consolidation selectors and coverage limits.
 Inspect the generated context request, perform the deep read, persist the
 cache result through the repo's LLM-context skill, then consolidate. Never
 invent provenance or store access credentials.
