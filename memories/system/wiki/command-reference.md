@@ -67,6 +67,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_quadrant_projection_report.py](../../../scripts/wiki_quadrant_projection_report.py) | Review quadrant projections |
 | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Report quality/cost telemetry |
 | [wiki_read.py](../../../scripts/wiki_read.py) | Read explicitly scoped Git content by revision, stable section or frontmatter field |
+| [wiki_repo_read.py](../../../scripts/wiki_repo_read.py) | Read an explicitly selected file in an independent local Git repository with origin identity and revision |
 | [wiki_score.py](../../../scripts/wiki_score.py) | Record/view karma events |
 | [wiki_semantic_inventory.py](../../../scripts/wiki_semantic_inventory.py) | Verify authored semantics/read models |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Compile the source registry |
