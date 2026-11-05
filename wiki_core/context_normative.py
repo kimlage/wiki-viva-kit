@@ -14,9 +14,9 @@ def normative_allowed(policy, context, ref):
 
 def normative_history(policy, context, ref, revision):
     """Check current authority and approved ancestry before historical bodies."""
-    if not normative_allowed(policy, context, ref):
-        return False
     try:
+        if not normative_allowed(policy, context, ref):
+            return False
         prior = historical_policy(policy, revision)
         return normative_allowed(prior, context, ref) and prior.owner_of(ref) == policy.owner_of(ref)
     except (PolicyError, KeyError, ValueError):

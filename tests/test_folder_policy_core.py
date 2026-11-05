@@ -364,6 +364,12 @@ def test_folder_cli_uses_physical_cwd_and_rejects_legacy_new_packet(repo, tmp_pa
     output = json.loads(completed.stdout)
     assert output['entry_folder'] == 'alpha/aux'
     assert len(completed.stdout.encode('utf-8')) == output['bytes_used']
+    implicit = args[:2] + args[4:]
+    implicit_output = subprocess.run(implicit, cwd=repo / 'alpha/aux', capture_output=True, text=True, check=True)
+    assert json.loads(implicit_output.stdout)['entry_folder'] == 'alpha/aux'
+    git(repo / 'alpha/aux', 'init', '-q')
+    nested = subprocess.run(implicit, cwd=repo / 'alpha/aux', capture_output=True, text=True)
+    assert nested.returncode != 0  # No fallback to the enclosing wiki.
     denied = subprocess.run(args[:2] + ['--manifest', 'context.yaml'] + args[2:],
                             cwd=repo / 'alpha/aux', capture_output=True, text=True)
     assert denied.returncode != 0
@@ -396,3 +402,13 @@ def test_legacy_history_is_read_without_mapping_old_identity(tmp_path):
     with pytest.raises(PolicyError, match='unbound'):
         build_packet(tmp_path, history, 'old-root', old, [], 100000,
                      task_id='task', goal='goal', output='output', integrator='operator')
+
+
+def test_legacy_receipts_require_requalification_without_read(repo):
+    from wiki_core.context_normative import normative_history
+    from wiki_core.context_selection import reproduce_query
+    policy = folder_policy(repo)
+    assert not normative_history(policy, 'alpha', 'alpha/AGENTS.md', policy.policy_revision)
+    with pytest.raises(PolicyError, match='requires requalification'):
+        reproduce_query(policy, 'alpha', None, {}, policy_revision=policy.policy_revision,
+                        expected_authority='0' * 64)

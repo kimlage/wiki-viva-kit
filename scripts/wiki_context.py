@@ -2,17 +2,19 @@
 """Resolve a context or build a bounded packet; approval is external to this CLI."""
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from wiki_core.context_selection import strict_json_loads
 from wiki_core.context_policy import load_policy, PolicyError
 from wiki_core.context_packet import build_packet
+from wiki_core.git_env import local_git_environment, local_git_executable
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--repo', default='.')
+    p.add_argument('--repo', help='wiki Git root; defaults to the current Git root')
     p.add_argument('--approved-revision', required=True, help='externally approved policy revision (not verified by this tool)')
     p.add_argument('--manifest', choices=['wiki.config.yaml'], default='wiki.config.yaml')
     sub = p.add_subparsers(dest='command', required=True)
@@ -22,6 +24,13 @@ def main():
     pack.add_argument('--index', help='context index relative to the wiki root')
     args = p.parse_args()
     try:
+        if args.repo is None:
+            result = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(Path.cwd()),
+                                     'rev-parse', '--show-toplevel'], stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, env=local_git_environment())
+            if result.returncode: raise PolicyError('current Git root unavailable')
+            args.repo = result.stdout.decode('utf-8').strip()
+            if not args.repo: raise PolicyError('current Git root unavailable')
         policy = load_policy(args.repo, args.approved_revision, args.manifest)
         if args.command == 'resolve':
             output = {'policy_revision': policy.policy_revision, 'context': args.context, 'effective': policy.effective[args.context], 'lineage': [c['id'] for c in policy.lineage(args.context)], 'authorized': False, 'enforcement_claim': 'none; selected context has not been qualified'}
