@@ -576,6 +576,86 @@ def _check_reuse_dependencies(root, policy, actor, dependencies, *, current=None
     policy.fresh()
 
 
+def _review_selection(value):
+    required = {'chunk_id', 'previous_request_id', 'previous_source_id', 'previous_result_sha256',
+                'decision', 'reviewer_label', 'note'}
+    if (not isinstance(value, dict) or set(value) != required or value['decision'] != 'reviewed'
+            or any(not isinstance(value[key], str) or not value[key].strip() for key in required)
+            or len(value['chunk_id']) > 1024 or len(value['previous_source_id']) > 512
+            or len(value['reviewer_label'].encode('utf-8')) > 256 or len(value['note'].encode('utf-8')) > 2048
+            or not re.fullmatch(r'[0-9a-f]{64}', value['previous_request_id'])
+            or not re.fullmatch(r'[0-9a-f]{64}', value['previous_result_sha256'])
+            or contains_access_secrets(value)):
+        raise ValueError('historical review unavailable')
+    return value
+
+
+def _ensure_review_guard(root, binding, policy, actor, paths, request, options):
+    cache = _STAGE_CACHE.get()
+    if cache is None:
+        raise ValueError('review context unavailable')
+    guard = cache.get('candidate_guard')
+    if guard is not None and guard.get('request_id') == request.get('protected_request_id'):
+        _requalification_guard(root, policy, request)
+        return
+    auth = request['source_authorization']
+    source = _source(root, policy, auth['context_id'], auth['ref'], actor)
+    target = _request_path(paths, request['source_id'], request['protected_request_id'], request.get('repository_context'))
+    _allowed(root, policy, actor, target, 'read')
+    policy.fresh()
+    source_stamp, request_stamp = _artifact_stamp(source), _artifact_stamp(target)
+    policy.fresh()
+    _, checked_policy, _, _, current, digest = _open_bound(root, binding, **options)
+    if (current != request or digest != request.get('source_hash_sha256')
+            or _artifact_stamp(source) != source_stamp or _artifact_stamp(target) != request_stamp):
+        raise ValueError('review context changed')
+    cache['candidate_guard'] = {'request_id': request['protected_request_id'], 'binding': binding,
+        'source_stamp': source_stamp, 'request_path': target, 'request_stamp': request_stamp,
+        'repository_selection': options['repository_selection']}
+    _requalification_guard(root, checked_policy, request)
+
+
+def _review_annotation(root, binding, policy, actor, paths, request, row, selection, options, result):
+    selection = _review_selection(selection)
+    if selection['chunk_id'] != row['chunk_id'] or selection['previous_source_id'] != request['source_id']:
+        raise ValueError('historical review unavailable')
+    _ensure_review_guard(root, binding, policy, actor, paths, request, options)
+    previous = _previous_request(root, binding, policy, actor, paths, request, selection['previous_request_id'])
+    if previous is None:
+        raise ValueError('historical review unavailable')
+    candidate, dependencies = _historical_candidate(root, policy, actor, paths, request, row, *previous)
+    if (candidate is None or candidate['origin']['result_sha256'] != selection['previous_result_sha256']):
+        raise ValueError('historical review unavailable')
+    raw = {key: value for key, value in result.items() if key != 'protected_historical_review'}
+    origin = {**candidate['origin'], 'request_source_id': previous[0]['source_id'],
+              'request_source_hash_sha256': previous[0]['source_hash_sha256'],
+              'result_source_id': candidate['result']['source_id'], 'result_chunk_id': candidate['result']['chunk_id']}
+    annotation = {'status': 'reviewed_by_caller', 'reviewer_label': selection['reviewer_label'],
+        'note': selection['note'], 'identity_verification': 'not_performed', 'factual_verification': 'not_asserted',
+        'review_context': actor, 'review_request_id': request['protected_request_id'],
+        'review_policy_revision': request['source_authorization']['policy_revision'],
+        'result_sha256': hashlib.sha256(canonical_request_text(raw).encode('utf-8')).hexdigest(), 'origin': origin}
+    if contains_access_secrets(annotation):
+        raise ValueError('historical review unavailable')
+    return annotation, dependencies
+
+
+def _check_review_annotation(root, binding, policy, actor, paths, request, row, result, options):
+    annotation = result.get('protected_historical_review') if isinstance(result, dict) else None
+    if annotation is None:
+        return ()
+    if not isinstance(annotation, dict) or not isinstance(annotation.get('origin'), dict):
+        raise ValueError('historical review unavailable')
+    origin = annotation['origin']
+    selection = {'chunk_id': row['chunk_id'], 'previous_request_id': origin.get('request_id'),
+        'previous_source_id': origin.get('request_source_id'), 'previous_result_sha256': origin.get('result_sha256'),
+        'decision': 'reviewed', 'reviewer_label': annotation.get('reviewer_label'), 'note': annotation.get('note')}
+    expected, dependencies = _review_annotation(root, binding, policy, actor, paths, request, row, selection, options, result)
+    if annotation != expected:
+        raise ValueError('historical review unavailable')
+    return dependencies
+
+
 def _source_page(root, policy, context_id, config, ref, *, selected_digest=None):
     """Read only an explicitly selected, authorized canonical source page."""
     from wiki_core.context_selection import _metadata
@@ -890,6 +970,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             _allowed(root, policy, actor, path, 'read')
             policy.fresh()
         snapshots = []
+        review_dependencies = []
         cached_result_bytes = 0
         def checked_result(row):
             target = paths.llm_cache / (row['cache_key'] + '.json')
@@ -916,6 +997,8 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
                 if (contains_access_secrets(result) or validate_result(result)
                         or not result_matches_request(result, request, row)):
                     raise ValueError('recorded result unavailable')
+                review_dependencies.extend(_check_review_annotation(root, binding, policy, actor, paths,
+                                                                    request, row, result, options))
                 row['result_exists'] = True
                 row['result_source_id'] = result.get('source_id')
                 row['result_chunk_id'] = result.get('chunk_id')
@@ -936,6 +1019,9 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             raise ValueError('request authority changed')
         for row, identity, fingerprint in snapshots:
             current_result, current_identity = checked_result(row)
+            if current_result is not missing:
+                review_dependencies.extend(_check_review_annotation(root, binding, policy, actor, paths,
+                                                                    request, row, current_result, options))
             current_fingerprint = (None if current_result is missing else
                 hashlib.sha256(_json_text(current_result).encode('utf-8')).hexdigest())
             if current_identity != identity or current_fingerprint != fingerprint:
@@ -954,6 +1040,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         if (stamp(_source(root, policy, context_id, source_ref, actor)) != source_stamp
                 or stamp(request_path) != request_stamp):
             raise ValueError('source or request changed')
+        _check_reuse_dependencies(root, policy, actor, review_dependencies, current=request)
         try:
             _check_reuse_dependencies(root, policy, actor, prior_dependencies, current=request)
         except (ValueError, OSError):
@@ -1052,7 +1139,7 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
 def record(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
            source_ref, source_id, request_id, results,
            context_max_bytes=100_000, request_max_bytes=1_000_000, artifact_context=None, perspective_refs=None,
-           context_selection=None, repository_selection=None):
+           context_selection=None, repository_selection=None, historical_reviews=None):
     """Record host-supplied result objects against the exact retained request."""
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
@@ -1087,8 +1174,9 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
     for row in rows:
         rows_by_key.setdefault(row['cache_key'], []).append(row)
     batch_result_bytes = 0
+    result_rows = {}
     for result in results:
-        if not isinstance(result, dict):
+        if not isinstance(result, dict) or 'protected_historical_review' in result:
             raise ValueError('result unavailable')
         result_bytes = len(_json_text(result).encode('utf-8'))
         batch_result_bytes += result_bytes
@@ -1102,12 +1190,34 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
         if len(matches) != 1 or key in keys:
             raise ValueError('result unavailable')
         keys.add(key)
+        result_rows[key] = matches[0]
         target = paths.llm_cache / (key + '.json')
         _allowed(root, policy, actor, target, 'read')
         _allowed(root, policy, actor, target, 'write')
     from wiki_core.llm.context_pass import validate_result
     if any(validate_result(result) for result in results):
         raise ValueError('result unavailable')
+    if historical_reviews is None:
+        historical_reviews = []
+    if not isinstance(historical_reviews, list) or len(historical_reviews) > 32:
+        raise ValueError('historical review unavailable')
+    reviews_by_key = {}
+    for value in historical_reviews:
+        selection = _review_selection(value)
+        matches = [key for key, row in result_rows.items() if row['chunk_id'] == selection['chunk_id']]
+        if len(matches) != 1 or matches[0] in reviews_by_key:
+            raise ValueError('historical review unavailable')
+        key = matches[0]
+        result = next(item for item in results if item['cache_key'] == key)
+        reviews_by_key[key] = _review_annotation(root, binding, policy, actor, paths, request,
+                                                result_rows[key], selection, options, result)
+    results = [{**result, 'protected_historical_review': reviews_by_key[result['cache_key']][0]}
+               if result['cache_key'] in reviews_by_key else result for result in results]
+    batch_result_bytes = sum(len(_json_text(result).encode('utf-8')) for result in results)
+    if (len(_json_text(results).encode('utf-8')) > 2_000_000
+            or any(len(_json_text(result).encode('utf-8')) > 2_000_000 for result in results)
+            or contains_access_secrets(results)):
+        raise ValueError('result exceeds protected retention limit')
     def guard(target):
         nonlocal root, policy, config, paths
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
@@ -1127,6 +1237,8 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
         for result in results:
             target = paths.llm_cache / (result['cache_key'] + '.json')
             guard(target)
+            dependencies = reviews_by_key.get(result['cache_key'], (None, ()))[1]
+            _check_reuse_dependencies(root, policy, actor, dependencies, current=request)
             _write_once(root, policy, actor, target, result)
             guard(target)
             written_stamp = stamp(target)
@@ -1135,6 +1247,7 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
             guard(target)
             if stamp(target) != written_stamp:
                 raise ValueError('result changed after write')
+            _check_reuse_dependencies(root, policy, actor, dependencies, current=request)
             written.append((target, written_stamp))
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != digest:
@@ -1143,6 +1256,8 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
             guard(target)
             if stamp(target) != written_stamp:
                 raise ValueError('result changed after write')
+        for _, dependencies in reviews_by_key.values():
+            _check_reuse_dependencies(root, policy, actor, dependencies, current=request)
         if (stamp(_source(root, policy, context_id, source_ref, actor)) != source_stamp
                 or stamp(request_path) != request_stamp):
             raise ValueError('source or request changed')
@@ -1222,10 +1337,13 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
             or previous_grant._physical_root != current_grant._physical_root
             or previous_grant._physical_storage != current_grant._physical_storage):
         raise ValueError('repository comparison unavailable')
+    review_dependencies = []
     for row in request['chunks']:
         result = _read_json(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'))
         if contains_access_secrets(result) or validate_result(result) or not result_matches_request(result, request, row):
             raise ValueError('recorded result unavailable')
+        review_dependencies.extend(_check_review_annotation(root, binding, policy, actor, paths,
+                                                            request, row, result, options))
     metadata = []
     page_hashes = []
     remaining = 1_000_000
@@ -1265,6 +1383,7 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
     for ref in [source_page, *refs]:
         _allowed(root, policy, context_id, root / ref, 'read')
         _allowed(root, policy, actor, root / ref, 'read')
+    _check_reuse_dependencies(root, policy, actor, review_dependencies, current=request)
     policy.fresh()
     return {'repository_comparison': {'identity': old['repository_identity'], 'path': old['path'],
         'before_revision': old['revision'], 'after_revision': current['revision'],
@@ -1371,6 +1490,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         cache_path = paths.llm_cache / (row['cache_key'] + '.json')
         _allowed(root, policy, actor, cache_path, 'read')
     result_bytes = 0
+    review_dependencies = []
     def read_bound_result(row):
         nonlocal result_bytes
         from wiki_core.llm.context_pass import validate_result
@@ -1379,6 +1499,8 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         if (contains_access_secrets(result) or validate_result(result)
                 or not result_matches_request(result, request, row)):
             raise ValueError('result unavailable')
+        review_dependencies.extend(_check_review_annotation(root, binding, policy, actor, paths,
+                                                            request, row, result, options))
         result_bytes += len(_json_text(result).encode('utf-8'))
         if result_bytes > 2_000_000:
             raise ProtectedResultBudgetError('combined results exceed 2 MB review limit')
@@ -1422,6 +1544,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     _allowed(root, policy, actor, target, 'read')
     if target.exists():
         raise ValueError('event already exists; preserved')
+    _check_reuse_dependencies(root, policy, actor, review_dependencies, current=request)
     try:
         _write_once(root, policy, actor, packet_path, packet)
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
@@ -1432,6 +1555,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         _allowed(root, policy, context_id, root / source_page, 'read')
         if _source_page(root, policy, actor, config, source_page, selected_digest=selected_digest) != source_page_digest:
             raise ValueError('source page changed')
+        _check_reuse_dependencies(root, policy, actor, review_dependencies, current=request)
         _allowed(root, policy, actor, target, 'write')
         _allowed(root, policy, actor, target, 'read')
         policy.fresh()
@@ -1458,6 +1582,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         if _read_json(root, policy, actor, packet_path) != packet:
             raise ValueError('packet differs after write')
         _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
+        _check_reuse_dependencies(root, policy, actor, review_dependencies, current=request)
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
     return {'event': event_target, 'request_id': request_id,
@@ -1545,9 +1670,13 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
     for row in selected:
         _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
+    selected_by_key = {}
+    for row in selected:
+        selected_by_key.setdefault(row['cache_key'], row)
 
     total = 0
     result_fingerprints = {}
+    review_dependencies = []
     def read_result(row):
         nonlocal total
         target = paths.llm_cache / (row['cache_key'] + '.json')
@@ -1560,6 +1689,8 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         if (contains_access_secrets(result) or validate_result(result)
                 or not result_matches_request(result, request, row)):
             raise ValueError('result unavailable')
+        review_dependencies.extend(_check_review_annotation(root, binding, policy, actor, paths,
+                                                            request, row, result, options))
         total += len(_json_text(result).encode('utf-8'))
         if total > 2_000_000:
             raise ProtectedResultBudgetError('combined results exceed 2 MB review limit')
@@ -1612,6 +1743,11 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         readback = _read_json(root, policy, actor, target)
         if hashlib.sha256(canonical_request_text(readback).encode('utf-8')).digest() != fingerprint:
             raise ValueError('result changed')
+        row = selected_by_key.get(key)
+        if row is None:
+            raise ValueError('result selection unavailable')
+        review_dependencies.extend(_check_review_annotation(root, binding, policy, actor, paths,
+                                                            request, row, readback, options))
         guard(target)
         if stamp(target) != initial_stamp:
             raise ValueError('result changed')
@@ -1636,6 +1772,7 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
     _check_physical_context(root, entry_folder, cache['context_paths'].get(str(root), (set(), set())))
     if stamp(_source(root, policy, context_id, source_ref, actor)) != source_stamp or stamp(request_path) != request_stamp:
         raise ValueError('source or request changed')
+    _check_reuse_dependencies(root, policy, actor, review_dependencies, current=request)
     policy.fresh()
     return output
 

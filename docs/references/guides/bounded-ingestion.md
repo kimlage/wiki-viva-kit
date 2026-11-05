@@ -279,6 +279,21 @@ unrelated requests or decide whether a candidate may be reused. The surrounding
 may report partial effects. The checks do not make the filesystem atomic or
 authenticate content against an operator who can alter protected files.
 
+To record an explicit review, submit a new result bound to the current request
+using `record`, and add `historical_reviews` as a list with one object per
+reviewed current chunk. Each object supplies `chunk_id`, `previous_request_id`,
+`previous_source_id`, `previous_result_sha256` from the selected candidate,
+`decision: "reviewed"`, `reviewer_label` and a nonempty `note`. The submitted
+current result is required: the route never copies a candidate or its claims.
+The host checks the exact historical grant and recomputes the candidate before
+writing, then retains a review annotation inside the current result and carries
+it to the event and integration packet. `reviewed_by_caller` records the
+caller's assertion; the reviewer label is not identity verification and the
+route does not assert factual verification. The old request and result must
+remain available and authorized under the host binding when an annotated result
+is later read; otherwise that annotated result is unavailable. These checks do
+not apply to unrelated sources or unannotated results.
+
 To review retained data, use `--source-stage inspect` with the same selectors,
 limits, context selection, repository selection and integrator as the original
 request. Supply `view: "results"` and an explicit `chunk_ids` array of one to
