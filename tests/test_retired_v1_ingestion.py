@@ -60,3 +60,11 @@ def test_host_v1_packet_composition_stops_before_policy_or_input_reads(tmp_path,
         coordination.prepare_packet(tmp_path, binding, {})
     assert error.value.code == 'coordination_v1_retired'
     assert not list(tmp_path.iterdir())
+
+
+def test_missing_binding_is_reported_before_folder_payload_is_opened(tmp_path, monkeypatch):
+    from wiki_core import coordination_context as coordination
+    monkeypatch.setattr(coordination, 'load_policy', lambda *a, **k: pytest.fail('policy opened'))
+    with pytest.raises(coordination.ProtectedCoordinationError) as error:
+        coordination.prepare_packet(tmp_path, None, {'entry_folder': 'sentinel'})
+    assert error.value.code == 'coordination_not_available'

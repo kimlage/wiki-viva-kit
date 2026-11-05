@@ -144,6 +144,9 @@ def check_repository_storage(binding, policy, context_id, actor, selection_id):
                 raise ValueError('repository selection unavailable')
             physical_root = (info.st_dev, info.st_ino)
             physical_storage = _storage_identity(grant.root, before_read=policy.fresh)
+            # The bounded storage walk may take time; ref must still be current
+            # immediately before returning authority to the Git caller.
+            policy.fresh()
             if grant._physical_root is None and grant._physical_storage is None:
                 object.__setattr__(grant, '_physical_root', physical_root)
                 object.__setattr__(grant, '_physical_storage', physical_storage)
