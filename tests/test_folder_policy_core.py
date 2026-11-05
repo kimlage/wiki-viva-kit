@@ -383,12 +383,14 @@ def test_legacy_history_is_read_without_mapping_old_identity(tmp_path):
     write(tmp_path, 'wiki.config.yaml', yaml.safe_dump({'context_access': {'.': {'owner': 'operator'}}}))
     git(tmp_path, 'add', '.'); git(tmp_path, 'commit', '-qm', 'folder policy'); git(tmp_path, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     current = load_policy(tmp_path, 'HEAD', 'wiki.config.yaml')
-    history = historical_policy(current, old)
+    with pytest.raises(PolicyError, match='manifest must be selected'):
+        historical_policy(current, old)
+    history = historical_policy(current, old, historical_manifest='context.yaml')
     assert set(history.contexts) == {'old-root'}
     assert set(current.contexts) == {'.'}
     # Both files coexist at the new revision. The receipt format, never file
     # presence, chooses which historical policy is reconstructed.
-    assert set(historical_policy(current, git(tmp_path, 'rev-parse', 'HEAD')).contexts) == {'old-root'}
+    assert set(historical_policy(current, git(tmp_path, 'rev-parse', 'HEAD'), historical_manifest='context.yaml').contexts) == {'old-root'}
     assert set(historical_policy(current, git(tmp_path, 'rev-parse', 'HEAD'), authority_format='folder').contexts) == {'.'}
     assert history._binding is None
     with pytest.raises(PolicyError, match='unbound'):
