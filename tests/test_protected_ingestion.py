@@ -372,18 +372,26 @@ def test_event_cannot_be_instruction_file(prepared_repo):
     assert not (root / 'memories/AGENTS.md').exists()
 
 
-def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
+@pytest.mark.parametrize('implicit_cwd', [False, True])
+def test_cli_local_operator_prepare_record_consolidate(prepared_repo, implicit_cwd):
+    import os
     from pathlib import Path
     root, _ = prepared_repo
     sha = _nested_integrator_repo(root)
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
+    env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
+    if implicit_cwd:
+        env['WIKI_COORDINATION_ALLOWED_CONTEXTS'] = 'alpha,.'
     def call(stage, payload):
+        context_args = [] if implicit_cwd else ['--context-id', 'alpha']
         completed = subprocess.run([sys.executable, str(script), '--root', str(root),
-            '--context-id', 'alpha', '--integrator-context', '.', '--approved-revision', sha, '--source-stage', stage],
-            input=json.dumps(payload), text=True, capture_output=True, check=True)
+            *context_args, '--integrator-context', '.', '--approved-revision', sha, '--source-stage', stage],
+            input=json.dumps(payload), text=True, capture_output=True, check=True,
+            cwd=root / 'alpha' if implicit_cwd else root, env=env)
         return json.loads(completed.stdout)['result']
-    base = {'entry_folder': 'alpha', 'entry_index': 'alpha/index.md', 'source_ref': 'alpha/source.txt',
-            'context_selection': {'omit_root_entity': True}}
+    base = {'source_ref': 'alpha/source.txt', 'context_selection': {'omit_root_entity': True}}
+    if not implicit_cwd:
+        base.update(entry_folder='alpha', entry_index='alpha/index.md')
     prepared = call('prepare', {**base, 'source_context': 'alpha'})
     request = prepared['request']; row = request['chunks'][0]
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
@@ -407,6 +415,125 @@ def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
     assert inspected['packet']['source_hash_sha256'] == request['source_hash_sha256']
     assert inspected['event_status'] == 'not checked'
     assert inspected['integration'] == 'not assessed'
+
+
+def test_source_stage_cwd_uses_selected_source_configuration(prepared_repo):
+    import os
+    root, _ = prepared_repo
+    _nested_integrator_repo(root)
+    write(root, 'memories/sources/synthetic.md', '---\npage_id: source-synthetic\npage_type: source\nconfig_ref: memories/source-config.md\n---\n# Source\n')
+    write(root, 'memories/source-config.md', '---\npage_id: source-config\npage_type: source_config\ninput_channel_ref: channel-a\n---\n# Source configuration\n')
+    write(root, 'memories/channel.md', '---\npage_id: channel-a\npage_type: input_channel\n---\n# Channel\n')
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    for ref, classification in [('memories/sources/synthetic.md', 'source'),
+                                ('memories/source-config.md', 'context'), ('memories/channel.md', 'context')]:
+        rule = {'from_context': '.', 'to_context': 'alpha', 'selector': ref,
+                'use': 'interpretation', 'classification': classification, 'expires': '2099-01-01'}
+        config['context_access']['.']['exports'].append(rule)
+        config['context_access']['alpha']['imports'].append(rule)
+    config['context_access']['alpha']['policy']['read'].extend(['memories/source-config.md', 'memories/channel.md'])
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'selected source configuration')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
+    env['WIKI_COORDINATION_ALLOWED_CONTEXTS'] = 'alpha,.'
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
+    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha',
+               'context_selection': {'omit_root_entity': True, 'source_page': 'memories/sources/synthetic.md',
+                   'source_config': 'memories/source-config.md', 'input_channel': 'memories/channel.md'}}
+    completed = subprocess.run([sys.executable, str(script), '--root', str(root), '--integrator-context', '.',
+                                '--approved-revision', sha, '--source-stage', 'prepare'], cwd=root / 'alpha',
+                               env=env, input=json.dumps(payload), text=True, capture_output=True, check=True)
+    request = json.loads(completed.stdout)['result']['request']
+    associations = request['source_authorization']['context_associations']
+    assert associations['source_config_association'] == 'declared_reference_matched'
+    assert associations['input_channel_association'] == 'declared_reference_matched'
+    refs = {item['ref'] for item in request['block_context_package']['inputs']}
+    assert {'memories/sources/synthetic.md', 'memories/source-config.md', 'memories/channel.md'} <= refs
+    prepared = json.loads(completed.stdout)['result']
+    base = {key: payload[key] for key in ('source_ref', 'context_selection')}
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    command = [sys.executable, str(script), '--root', str(root), '--integrator-context', '.',
+               '--approved-revision', sha, '--source-stage']
+    def stage(name, data):
+        output = subprocess.run(command + [name], cwd=root / 'alpha', env=env, input=json.dumps(data),
+                                text=True, capture_output=True, check=True)
+        return json.loads(output.stdout)['result']
+    assert stage('record', {**base, **ids, 'results': [_result_for(request)]})['recorded'] == 1
+    event = ('memories/system/ingestion/events/2026-11-04-' + hashlib.sha256(ids['source_id'].encode()).hexdigest()
+             + '-' + ids['request_id'] + '.md')
+    proposal = stage('consolidate', {**base, **ids, 'source_page': 'memories/sources/synthetic.md',
+                                     'event_target': event, 'date': '2026-11-04'})
+    assert proposal['integration'] == 'pending review and incorporation'
+    assert (root / event).is_file()
+
+
+def test_source_stage_cwd_never_creates_authorization(prepared_repo):
+    import os
+    root, _ = prepared_repo
+    sha = _nested_integrator_repo(root)
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
+    env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
+    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha',
+               'context_selection': {'omit_root_entity': True}}
+    command = [sys.executable, str(script), '--root', str(root), '--approved-revision', sha,
+               '--source-stage', 'prepare']
+    def call(cwd, selected_env=env):
+        return subprocess.run(command, cwd=cwd, env=selected_env, input=json.dumps(payload),
+                              text=True, capture_output=True)
+    missing_binding = call(root / 'alpha')
+    assert missing_binding.returncode != 0
+    assert json.loads(missing_binding.stdout)['error_code'] == 'coordination_not_available'
+    bound = {**env, 'WIKI_COORDINATION_ALLOWED_CONTEXTS': 'alpha,.'}
+    outside = call(root.parent, bound)
+    assert outside.returncode != 0
+    assert json.loads(outside.stdout)['error_code'] == 'coordination_invalid_request'
+    not_bound = call(root / 'beta', bound)
+    assert not_bound.returncode != 0
+    assert json.loads(not_bound.stdout)['error_code'] == 'coordination_not_authorized'
+    git(root / 'alpha/aux', 'init', '-q')
+    nested = call(root / 'alpha/aux', bound)
+    assert nested.returncode != 0
+    assert json.loads(nested.stdout)['error_code'] == 'coordination_invalid_request'
+
+
+def test_source_stage_cwd_prefers_index_to_readme(prepared_repo):
+    import os
+    root, _ = prepared_repo
+    _nested_integrator_repo(root)
+    write(root, 'alpha/README.md', '# Another index\n')
+    git(root, 'add', 'alpha/README.md')
+    git(root, 'commit', '-qm', 'ambiguous synthetic index')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
+    env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
+    env['WIKI_COORDINATION_ALLOWED_CONTEXTS'] = 'alpha,.'
+    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha',
+               'context_selection': {'omit_root_entity': True}}
+    completed = subprocess.run([sys.executable, str(script), '--root', str(root), '--approved-revision', sha,
+                                '--integrator-context', '.', '--source-stage', 'prepare'], cwd=root / 'alpha', env=env,
+                               input=json.dumps(payload), text=True, capture_output=True, check=True)
+    assert json.loads(completed.stdout)['result']['request']['block_context_package']['entry_index'] == 'alpha/index.md'
+    explicit_index = subprocess.run([sys.executable, str(script), '--root', str(root), '--approved-revision', sha,
+        '--integrator-context', '.', '--index', 'alpha/index.md', '--source-stage', 'prepare'],
+        cwd=root / 'alpha', env=env, input=json.dumps(payload), text=True, capture_output=True, check=True)
+    assert json.loads(explicit_index.stdout)['result']['request']['block_context_package']['entry_index'] == 'alpha/index.md'
+
+
+def test_source_stage_explicit_context_uses_cwd_without_environment_binding(prepared_repo):
+    import os
+    root, _ = prepared_repo
+    sha = _nested_integrator_repo(root)
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
+    env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
+    payload = {'source_ref': 'alpha/source.txt', 'source_context': 'alpha',
+               'context_selection': {'omit_root_entity': True}}
+    completed = subprocess.run([sys.executable, str(script), '--root', str(root), '--context-id', 'alpha',
+        '--integrator-context', '.', '--approved-revision', sha, '--source-stage', 'prepare'],
+        cwd=root / 'alpha', env=env, input=json.dumps(payload), text=True, capture_output=True, check=True)
+    assert json.loads(completed.stdout)['result']['request']['block_context_package']['entry_folder'] == 'alpha'
 
 
 def test_cli_packet_uses_folder_authority(prepared_repo, tmp_path):

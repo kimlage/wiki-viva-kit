@@ -17,7 +17,7 @@ from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordi
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
-    parser.add_argument("--context-id", help="Explicit context ID for a policy-approved task packet.")
+    parser.add_argument("--context-id", help="Explicit context ID; source stages can select a host-bound context from cwd.")
     parser.add_argument("--approved-revision", help="Current approved commit SHA for protected packet mode.")
     parser.add_argument("--packet-request", type=Path, help="Explicit task selection JSON for protected packet mode.")
     parser.add_argument("--folder", help="Physical entry folder for a folder-authority task packet.")
@@ -49,28 +49,53 @@ def main() -> None:
             raise SystemExit(1)
         return
     if args.source_stage:
-        if (not args.context_id or not args.approved_revision or args.packet_request or args.profile or args.folder or args.index
+        if (not args.approved_revision or args.packet_request or args.profile
                 or args.action_id or args.event_file or args.expected_sha256 or args.as_operator or args.action_path):
-            parser.error('source stage requires context-id and approved-revision; provide stage JSON on stdin')
+            parser.error('source stage requires approved-revision; provide stage JSON on stdin')
         try:
-            # This adapter trusts the local operator. The arguments it receives
-            # are not a security boundary against that operator or filesystem.
-            contexts = tuple(dict.fromkeys([args.context_id, args.integrator_context or args.context_id, *args.trusted_context]))
+            # The local CLI trusts its operator; discovering a folder is not a
+            # host grant. Implicit contexts require an existing host binding.
             binding = CoordinationBinding.from_environment()
             if binding is None:
+                if not args.context_id:
+                    raise ProtectedCoordinationError('coordination_not_available')
+                contexts = tuple(dict.fromkeys([args.context_id, args.integrator_context or args.context_id, *args.trusted_context]))
                 binding = CoordinationBinding(contexts, 'refs/remotes/origin/main', 'wiki.config.yaml')
             root = args.root.resolve()
-            _policy(root, binding, args.context_id, args.approved_revision)
             raw = sys.stdin.read(2_000_001)
             if len(raw.encode('utf-8')) > 2_000_000:
                 raise ValueError('request too large')
             payload = strict_json_loads(raw)
             if not isinstance(payload, dict) or {'context_id', 'approved_revision', 'artifact_context'} & set(payload):
                 raise ValueError('invalid source stage payload')
+            for name, explicit in (('entry_folder', args.folder), ('entry_index', args.index)):
+                if explicit is not None:
+                    if name in payload and payload[name] != explicit:
+                        raise ValueError('conflicting source stage selection')
+                    payload[name] = explicit
+            if 'entry_folder' not in payload:
+                from wiki_core.traversal import require_wiki_path
+                relative = Path.cwd().resolve(strict=True).relative_to(root)
+                folder = relative.as_posix() if relative.parts else '.'
+                if not require_wiki_path(root, folder).is_dir():
+                    raise ValueError('context folder unavailable')
+                payload['entry_folder'] = folder
+            from wiki_core.context_policy import load_policy
+            policy = load_policy(root, args.approved_revision, binding.manifest, trusted_ref=binding.trusted_ref)
+            if getattr(policy, 'format_version', None) != 'folder':
+                raise ProtectedCoordinationError('coordination_policy_unavailable')
+            folder = payload['entry_folder']
+            context_id = args.context_id or ('.' if folder == '.' else policy.owner_of(folder))
+            _policy(root, binding, context_id, args.approved_revision)
+            if 'entry_index' not in payload:
+                entry_index = policy._context_indexes.get(context_id)
+                if entry_index is None:
+                    raise ValueError('context index unavailable')
+                payload['entry_index'] = entry_index
             if args.integrator_context:
                 payload['artifact_context'] = args.integrator_context
             result = protected_source_stage(root, binding, args.source_stage,
-                {**payload, 'context_id': args.context_id, 'approved_revision': args.approved_revision})
+                {**payload, 'context_id': context_id, 'approved_revision': args.approved_revision})
         except (ProtectedCoordinationError, ValueError, OSError) as error:
             safe_error = error if isinstance(error, ProtectedCoordinationError) else ProtectedCoordinationError('coordination_invalid_request')
             print(json.dumps(blocker_response(safe_error), ensure_ascii=False))

@@ -187,10 +187,17 @@ It does not automatically inspect linked sources, expose an HTTP transport,
 or incorporate the event in memory. Explicitly selected independent Git
 evidence has the separate [host binding](protected-independent-git.md). The existing
 `wiki_coordination.py` offers `--source-stage` operations to a trusted
-local operator, with stage JSON on stdin and an explicit context and approved
-revision. Its flags are selected by that operator and are not a security boundary
-against the operator; a separately configured host binding is the protected
-interface. Regular compatibility
+local operator, with stage JSON on stdin and an approved revision. When the
+folder is omitted, each stage selects it from the current working directory
+inside the wiki; it does not cross a nested Git repository. When invoking the
+script from an external kit, pass `--root WIKI_ROOT` unless the installed operator
+already binds the content root. When the index is
+omitted, the approved context uses `index.md` or falls back to `README.md`;
+select another context index explicitly when necessary. If `--context-id` is omitted, an existing
+host binding must already include the discovered context. The working directory
+never grants access. Explicit context, folder and index selections still work.
+The CLI's flags are not a security boundary against its trusted local operator;
+a separately configured host binding is the protected interface. Regular compatibility
 search, audit, GC and result recording do not open the reserved new artifacts;
 their coverage does not include them. The older shared caches are not migrated
 or classified by this route. Their compatibility readers still require separate
@@ -220,10 +227,11 @@ inaccessible result stops readback instead of being reported as a cache miss.
 If that happens, previously written artifacts may remain. Cache availability
 is not a review or an incorporation, and can change after the response.
 Read the complete request and supply the results explicitly. For `record`,
-the JSON repeats `entry_folder`, `entry_index`, `source_ref`, `source_id` and
-`request_id`, and adds a `results` array bound to the request. For `consolidate`,
-repeat those selectors and add `source_page`, `event_target`, ISO `date` and
-optional `candidates`. The event path must use the configured ingestion-events
+the JSON supplies `source_ref`, `source_id` and `request_id`, and adds a `results`
+array bound to the request. For `consolidate`, repeat those selectors and add
+`source_page`, `event_target`, ISO `date` and optional `candidates`. Each stage
+must resolve the same folder and index as the retained request, either from cwd
+or explicitly. The event path must use the configured ingestion-events
 directory and the canonical name `<date>-<sha256(source_id)>-<request_id>.md`.
 The source page must exist, be authorized and have `page_type: source`. Its
 association with the selected file is operator-supplied, not verified by the
