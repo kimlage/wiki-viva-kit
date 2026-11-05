@@ -67,7 +67,14 @@ def test_captured_reader_matches_existing_reader(tmp_path, suffix, kind, monkeyp
     expected = extract_source(str(path), kind)
     path.unlink()
     actual = extract_captured(str(path), kind, data)
-    assert (actual.text, actual.units, actual.warnings) == (expected.text, expected.units, expected.warnings)
+    if kind == 'table':
+        assert json.loads(actual.text.splitlines()[0]) == {'row': 1, 'cells': ['name', 'value']}
+        assert actual.warnings == expected.warnings == []
+    elif kind == 'spreadsheet':
+        assert json.loads(actual.text) == {'sheet': 'Sheet', 'row': 1, 'cells': ['Synthetic', '漢字']}
+        assert actual.warnings == expected.warnings == []
+    else:
+        assert (actual.text, actual.units, actual.warnings) == (expected.text, expected.units, expected.warnings)
     assert actual.text.strip()
 
 
@@ -85,6 +92,11 @@ def test_protected_stage_with_captured_formats(prepared_repo, suffix, kind):
     output = prepare(root, binding, source_context='system', **options)
     request = output['request']
     assert request['chunks']
+    if kind in {'table', 'spreadsheet'}:
+        captured_rows = [json.loads(line) for chunk in request['chunks'] for line in chunk['text'].split('\n')]
+        assert all(row.get('row') and isinstance(row.get('cells'), list) for row in captured_rows)
+        if kind == 'spreadsheet':
+            assert all(row.get('sheet') for row in captured_rows)
     sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     row = request['chunks'][0]
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
@@ -152,6 +164,28 @@ def test_captured_docx_does_not_silently_flatten_merged_or_nested_tables():
         extract_captured('source.docx', 'document', output.getvalue())
 
 
+@pytest.mark.parametrize('wrapper', ['ins', 'del', 'moveFrom', 'moveTo', 'sdt', 'customXml', 'smartTag', 'fldSimple'])
+@pytest.mark.parametrize('inside_table', [False, True])
+def test_captured_docx_rejects_unreadable_inline_wrappers(wrapper, inside_table):
+    from docx import Document
+    from docx.oxml import OxmlElement
+
+    document = Document()
+    paragraph = (document.add_table(rows=1, cols=1).cell(0, 0).paragraphs[0]
+                 if inside_table else document.add_paragraph())
+    run = OxmlElement('w:r')
+    text = OxmlElement('w:t')
+    text.text = 'Do not drop this text'
+    run.append(text)
+    container = OxmlElement('w:' + wrapper)
+    container.append(run)
+    paragraph._p.append(container)
+    output = io.BytesIO()
+    document.save(output)
+    with pytest.raises(ValueError, match='revision or unsupported inline'):
+        extract_captured('source.docx', 'document', output.getvalue())
+
+
 @pytest.mark.parametrize('cached_value', [None, '6'])
 def test_captured_xlsx_keeps_formula_and_cached_value_state(cached_value):
     from openpyxl import Workbook
@@ -175,8 +209,8 @@ def test_captured_xlsx_keeps_formula_and_cached_value_state(cached_value):
         data = rewritten.getvalue()
 
     extracted = extract_captured('source.xlsx', 'spreadsheet', data)
-    expected = 'unavailable' if cached_value is None else cached_value
-    assert extracted.text == f'3 | [formula =A1*2; cached value: {expected}]'
+    assert json.loads(extracted.text) == {'sheet': 'Sheet', 'row': 1, 'cells': [
+        '3', {'formula': '=A1*2', 'cached_value': cached_value}]}
     assert extracted.units[0]['text'] == extracted.text
 
 
@@ -190,6 +224,61 @@ def test_captured_xlsx_limits_total_sheet_cells():
     workbook.close()
     with pytest.raises(ValueError, match='spreadsheet dimensions'):
         extract_captured('source.xlsx', 'spreadsheet', output.getvalue())
+
+
+@pytest.mark.parametrize('suffix,delimiter', [('.csv', ','), ('.tsv', '\t')])
+def test_captured_table_rows_keep_cell_boundaries_and_locator_in_chunks(suffix, delimiter):
+    import csv
+    from wiki_core.chunking import chunk_text
+
+    target = io.StringIO(newline='')
+    writer = csv.writer(target, delimiter=delimiter, lineterminator='\n')
+    writer.writerow(['pipe | text', 'line 1\nline 2', 'unicode\u2028separator'])
+    writer.writerow(['next', 'row'])
+    extracted = extract_captured('source' + suffix, 'table', target.getvalue().encode())
+    chunks = chunk_text('source', extracted.text, target_tokens=100, preserve_lines=True)
+    rows = [json.loads(line) for chunk in chunks for line in chunk.text.split('\n')]
+    assert rows == [{'row': 1, 'cells': ['pipe | text', 'line 1\nline 2', 'unicode\u2028separator']},
+                    {'row': 2, 'cells': ['next', 'row']}]
+    assert all(chunk.token_estimate >= (len(chunk.text.encode('utf-8')) + 3) // 4 for chunk in chunks)
+
+
+def test_captured_spreadsheet_rows_keep_sheet_and_row_in_chunks():
+    from openpyxl import Workbook
+    from wiki_core.chunking import chunk_text
+
+    workbook = Workbook()
+    workbook.active.title = 'First'
+    workbook.active.append(['same | value', 'line 1\nline 2'])
+    workbook.create_sheet('Second').append(['same | value', 'line 1\nline 2'])
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    extracted = extract_captured('source.xlsx', 'spreadsheet', output.getvalue())
+    chunks = chunk_text('source', extracted.text, target_tokens=100, preserve_lines=True)
+    rows = [json.loads(line) for chunk in chunks for line in chunk.text.split('\n')]
+    assert rows == [{'sheet': 'First', 'row': 1, 'cells': ['same | value', 'line 1\nline 2']},
+                    {'sheet': 'Second', 'row': 1, 'cells': ['same | value', 'line 1\nline 2']}]
+
+
+@pytest.mark.parametrize('text', ['word ' * 121, 'x' * 32_001])
+def test_tabular_chunker_rejects_oversize_row_instead_of_splitting(text):
+    from wiki_core.chunking import chunk_text
+
+    line = json.dumps({'row': 1, 'cells': [text]}, ensure_ascii=False)
+    with pytest.raises(ValueError, match='tabular row exceeds chunk budget'):
+        chunk_text('source', line, target_tokens=1, preserve_lines=True)
+
+
+def test_oversize_tabular_source_is_rejected_before_artifact_creation(prepared_repo):
+    root, sha = prepared_repo
+    source = root / 'large.csv'
+    source.write_text('x' * 32_001, encoding='utf-8')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(ValueError, match='tabular row exceeds chunk budget'):
+        prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.',
+                entry_index='index.md', source_ref=source.name, source_context='system')
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
 
 
 def test_captured_email_preserves_plain_and_html_alternatives():

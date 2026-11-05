@@ -161,8 +161,13 @@ content from non-text formats is capped at 2 MB. PDF extraction requires the
 local `pdftotext` executable, runs with a 30-second timeout, and does not perform
 OCR. DOCX extraction includes body paragraphs and simple table rows in their
 document order; merged or nested tables and unsupported body elements require
-separate review. Headers, footers, images and embedded objects are not
-interpreted. XLSX formulas are retained with their cached values where present;
+separate review. Inline revisions and wrappers that the reader cannot preserve
+also require review. Headers, footers, images and embedded objects are not
+interpreted. CSV, TSV and XLSX are represented as JSON lines with row numbers,
+cell boundaries, and sheet names for XLSX; line breaks and separators inside a
+cell stay escaped. Each tabular row remains whole in its chunk: a row exceeding
+the configured chunk budget or 32,000 UTF-8 bytes is blocked and needs a smaller
+source scope. XLSX formulas are retained with their cached values where present;
 the extractor does not recalculate them and explicitly marks missing caches.
 Workbook dimensions are limited to 100,000 rows, 1,024 columns and 2,000,000
 cells per sheet. EML text and HTML bodies are included; attachments or other

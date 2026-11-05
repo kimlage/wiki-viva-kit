@@ -41,7 +41,8 @@ def _split_units(text: str) -> tuple[list[str], str]:
     return ([stripped] if stripped else []), "\n\n"
 
 
-def chunk_text(source_id: str, text: str, target_tokens: int = 1200, overlap_tokens: int = 150) -> list[TextChunk]:
+def chunk_text(source_id: str, text: str, target_tokens: int = 1200, overlap_tokens: int = 150,
+               *, preserve_lines: bool = False) -> list[TextChunk]:
     """CONTENT-based chunking (finding 4): boundaries at paragraphs/lines instead
     of a fixed word window. This way a local edit (e.g. fixing a typo in a
     paragraph) only changes that paragraph's chunk — the others keep the same text
@@ -49,10 +50,18 @@ def chunk_text(source_id: str, text: str, target_tokens: int = 1200, overlap_tok
     units are rejoined with the separator that matches their granularity (blank
     line for paragraphs, single newline for table/CSV lines). Units much larger
     than the target are subdivided by a word window with `overlap_tokens`.
+    With `preserve_lines`, serialized table rows stay intact; rows exceeding the
+    configured chunk budget or 32,000 UTF-8 bytes are rejected instead.
     """
     target_words = max(80, int(target_tokens / 1.35))
     overlap_words = max(0, int(overlap_tokens / 1.35))
-    units, separator = _split_units(text)
+    if preserve_lines:
+        # Serialized tabular rows are independent physical lines. Never split
+        # a row and lose the locator/cell boundaries in a downstream chunk.
+        units = [line for line in text.split('\n') if line.strip()]
+        separator = '\n'
+    else:
+        units, separator = _split_units(text)
     if not units:
         return []
 
@@ -60,6 +69,13 @@ def chunk_text(source_id: str, text: str, target_tokens: int = 1200, overlap_tok
     expanded: list[str] = []
     for unit in units:
         unit_words = unit.split()
+        if preserve_lines:
+            byte_count = len(unit.encode('utf-8'))
+            estimated_words = max(len(unit_words), (byte_count + 4) // 5)
+            if byte_count > 32_000 or estimated_words > int(target_words * 1.5):
+                raise ValueError('tabular row exceeds chunk budget; select a smaller source scope')
+            expanded.append(unit)
+            continue
         if len(unit_words) > int(target_words * 1.5):
             start = 0
             while start < len(unit_words):
@@ -77,6 +93,8 @@ def chunk_text(source_id: str, text: str, target_tokens: int = 1200, overlap_tok
     current_words = 0
     for unit in expanded:
         unit_words = len(unit.split())
+        if preserve_lines:
+            unit_words = max(unit_words, (len(unit.encode('utf-8')) + 4) // 5)
         if current and current_words + unit_words > target_words:
             grouped.append(separator.join(current))
             current = []
@@ -94,7 +112,8 @@ def chunk_text(source_id: str, text: str, target_tokens: int = 1200, overlap_tok
                 chunk_id=f"{source_id}-chunk-{ordinal:04d}-{digest[:10]}",
                 ordinal=ordinal,
                 text=chunk,
-                token_estimate=_estimate_tokens(chunk),
+                token_estimate=(max(_estimate_tokens(chunk), (len(chunk.encode('utf-8')) + 3) // 4)
+                                if preserve_lines else _estimate_tokens(chunk)),
                 hash_sha256=digest,
             )
         )
