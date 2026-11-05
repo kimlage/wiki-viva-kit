@@ -39,6 +39,7 @@ from wiki_core.paths import WikiPaths
 REQUEST_SUFFIX = "-llm-context-request.json"
 PACKET_SUFFIX = "-integration-packet.json"
 PACKET_SCHEMA_VERSION = "wiki_integration_packet.v2"
+_SOURCE_V2 = re.compile(r"source-v2-([0-9a-f]{64})-([a-z0-9][a-z0-9-]{0,47})-([0-9a-f]{16})")
 
 
 def _compare_selected_inputs(root, *, source_page, candidates, repo_root, identity,
@@ -942,6 +943,23 @@ def build_packet(
             if isinstance(page, dict) and page.get("rel")
         }
     )
+    # These are declared references; matching IDs do not prove capture,
+    # consumption, authorization, or factual change.
+    current = _SOURCE_V2.fullmatch(str(aggregated.get("source_id") or ""))
+    source_page_id = aggregated.get('_selected_source_page_id')
+    if candidates is not None:
+        for page_id, meta in catalog.items():
+            for ref in meta.get("source_refs") or []:
+                previous = _SOURCE_V2.fullmatch(ref)
+                same_origin = (current and previous and previous.group(1, 2) == current.group(1, 2)
+                               and previous.group(3) != current.group(3))
+                same_page = isinstance(source_page_id, str) and ref == source_page_id and page_id != source_page_id
+                if same_origin or same_page:
+                    should_review.append(str(meta["rel"]))
+                    note = 'Source-page association is operator-selected and unverified; references are declared.'
+                    if same_page and note not in packet_warnings:
+                        packet_warnings.append(note)
+        should_review = sorted(set(should_review))
     target_pages = {
         str(page)
         for page in (aggregated.get("target_pages") or [])

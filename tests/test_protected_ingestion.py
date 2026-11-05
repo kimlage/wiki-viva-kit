@@ -835,6 +835,65 @@ def test_consolidation_candidates_use_approved_git_content_not_working_tree(prep
             'candidates': ['memories/candidates/approved.md']})
 
 
+@pytest.mark.parametrize('source_selected_in_request', [True, False])
+def test_changed_source_review_is_scoped_and_old_packet_is_preserved(prepared_repo, source_selected_in_request):
+    from wiki_core.source_manifest import source_id_for
+
+    root, _ = prepared_repo
+    source = root / 'source.txt'
+    old = source_id_for(str(source), hashlib.sha256(source.read_bytes()).hexdigest(), root=root)
+    other = source_id_for(str(root / 'other.txt'), 'a' * 64, root=root)
+    source.write_text('The updated synthetic source.\n')
+    refs = ['memories/alpha/consumer.md', 'memories/beta/consumer.md',
+            'memories/canonical/consumer.md', 'memories/other/consumer.md']
+    for ref, name, value in zip(refs, ('alpha', 'beta', 'canonical', 'other'),
+                                (old, old, 'source-synthetic', other)):
+        write(root, ref, f'---\npage_id: {name}-consumer\npage_type: context_note\n'
+                         f'context: {name}\nsource_refs:\n  - {value}\n---\n# {name}\n')
+    write(root, 'memories/unselected/consumer.md',
+          f'---\npage_id: unselected-consumer\npage_type: context_note\nsource_refs:\n  - {old}\n---\n')
+    write(root, 'memories/unselected/canonical.md',
+          '---\npage_id: unselected-canonical\npage_type: context_note\nsource_refs:\n  - source-synthetic\n---\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'updated source and selected consumers')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    if source_selected_in_request:
+        args['context_selection'] = {'omit_root_entity': True, 'source_page': 'memories/sources/synthetic.md'}
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    assert ids['source_id'] != old
+    result = {**_result_for(prepared['request']), 'entities': [], 'claims': []}
+    record(root, binding, **args, **ids, results=[result])
+    event = ('memories/system/ingestion/events/2026-11-04-' +
+             hashlib.sha256(ids['source_id'].encode()).hexdigest() + '-' + ids['request_id'] + '.md')
+    consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+                event_target=event, date=dt.date(2026, 11, 4), candidates=refs)
+    directory = root / 'data/derived/wiki/.wiki-viva-protected/extraction-events'
+    stored = next(directory.glob('*integration-packet.json'))
+    packet = json.loads(stored.read_text())
+    assert packet['impact']['should_review'] == refs[:3 if source_selected_in_request else 2]
+    assert packet['impact']['must_update'] == []
+    assert any('operator-selected and unverified' in warning for warning in packet['warnings']) == source_selected_in_request
+    from wiki_core.frontmatter import parse_frontmatter
+    event_meta, _ = parse_frontmatter(root / event)
+    assert event_meta['protected_provenance']['source_page_association'] == 'operator_selected_unverified'
+    payload = {**args, **ids, 'view': 'integration', 'candidates': refs}
+    assert protected_source_stage(root, binding, 'inspect', payload)['result']['packet'] == packet
+
+    # The former calculation omitted both old consumers. It must not be
+    # accepted as a fallback: the same bytes can also be an altered new packet.
+    packet['impact']['should_review'] = []
+    stored.write_text(json.dumps(packet))
+    prior_bytes = stored.read_bytes()
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, binding, 'inspect', payload)
+    assert stored.read_bytes() == prior_bytes
+    assert (root / event).exists()
+
+
 def test_inspection_revalidates_authority_after_result_read(prepared_repo, monkeypatch):
     import wiki_core.ingest.protected as protected
     root, sha = prepared_repo

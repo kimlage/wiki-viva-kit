@@ -217,6 +217,47 @@ def test_packet_finds_entity_pages_and_claim_overlaps(repo):
     assert "memories/people/ana.md" in packet["impact"]["should_review"]
 
 
+def test_changed_source_suggests_review_only_for_selected_previous_consumers(repo):
+    from wiki_core.source_manifest import source_id_for
+
+    root, cfg, paths, _ = repo
+    source = str(root / 'source.txt')
+    old = source_id_for(source, 'a' * 64, root=root)
+    current = source_id_for(source, 'b' * 64, root=root)
+    other = source_id_for(str(root / 'other.txt'), 'a' * 64, root=root)
+    unobserved = source_id_for(source, None, root=root)
+    pages = {
+        'memories/alpha.md': ('alpha', old),
+        'memories/beta.md': ('beta', old),
+        'memories/other.md': ('other', other),
+        'memories/current.md': ('current', current),
+        'memories/legacy.md': ('legacy', 'source-legacy-123'),
+        'memories/unobserved.md': ('unobserved', unobserved),
+        'memories/canonical.md': ('canonical', 'source-synthetic'),
+        'memories/source-self.md': ('source-synthetic', 'source-synthetic'),
+        'memories/unselected.md': ('unselected', old),
+    }
+    for ref, (name, source_ref) in pages.items():
+        target = root / ref
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f'---\npage_id: {name}\npage_type: context_hub\nsource_refs:\n  - {source_ref}\n---\n')
+
+    selected = [ref for ref in pages if ref != 'memories/unselected.md']
+    packet = build_packet({'source_id': current}, root, cfg, paths, candidates=selected)
+
+    assert packet['impact']['should_review'] == ['memories/alpha.md', 'memories/beta.md']
+    assert packet['impact']['must_update'] == ['memories/current.md']
+    assert packet['impact']['coverage'] == 'explicit_candidates_only'
+    with_source = build_packet({'source_id': current, '_selected_source_page_id': 'source-synthetic'},
+                               root, cfg, paths, candidates=selected)
+    assert with_source['impact']['should_review'] == [
+        'memories/alpha.md', 'memories/beta.md', 'memories/canonical.md']
+    assert any('operator-selected and unverified' in warning for warning in with_source['warnings'])
+    legacy = build_packet({'source_id': 'source-legacy-123'}, root, cfg, paths, candidates=selected)
+    assert legacy['impact']['should_review'] == []
+    assert legacy['impact']['must_update'] == ['memories/legacy.md']
+
+
 # --------------------------------------------------------------------------- #
 # audit_consolidation gate
 # --------------------------------------------------------------------------- #

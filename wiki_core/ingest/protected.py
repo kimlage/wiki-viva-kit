@@ -454,6 +454,26 @@ def _read_json(root, policy, context_id, path, *, max_bytes=2_000_000):
         raise _InvalidArtifact('artifact unavailable') from exc
 
 
+def _selected_source_page_id(request):
+    """Use only a source page already selected in the revalidated request."""
+    selection = request.get('source_authorization', {}).get('context_selection', {})
+    ref = selection.get('source_page')
+    if ref is None:
+        return None
+    package = request.get('block_context_package', {})
+    rows = [row for row in package.get('inputs', []) if row.get('ref') == ref
+            and row.get('kind') == 'evidence' and row.get('reason') == 'Explicit ingestion source_page'
+            and row.get('classification') == 'source' and row.get('use') == 'interpretation']
+    if len(rows) != 1 or not isinstance(rows[0].get('text'), str):
+        raise ValueError('selected source page unavailable')
+    from wiki_core.frontmatter import parse_frontmatter
+    values, _ = parse_frontmatter(rows[0]['text'])
+    page_id = values.get('page_id')
+    if values.get('page_type') != 'source' or not isinstance(page_id, str) or not page_id.strip():
+        raise ValueError('selected source page unavailable')
+    return page_id
+
+
 def _source_page(root, policy, context_id, config, ref, *, selected_digest=None):
     """Read only an explicitly selected, authorized canonical source page."""
     from wiki_core.context_selection import _metadata
@@ -1182,6 +1202,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     aggregated = aggregate_results(request, paths.llm_cache, root=root, result_reader=read_bound_result)
     aggregated['folder_request_id'] = request_id
     aggregated['source_hash_sha256'] = digest
+    aggregated['_selected_source_page_id'] = _selected_source_page_id(request)
     if request.get('repository_context') is not None:
         selected = request['repository_context']
         rows = selected if isinstance(selected, list) else [selected]
@@ -1382,6 +1403,7 @@ def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry
         aggregated = aggregate_results(request, paths.llm_cache, root=root, result_reader=read_result)
         aggregated['folder_request_id'] = request_id
         aggregated['source_hash_sha256'] = digest
+        aggregated['_selected_source_page_id'] = _selected_source_page_id(request)
         if request.get('repository_context') is not None:
             selected_repos = request['repository_context']
             repo_rows = selected_repos if isinstance(selected_repos, list) else [selected_repos]

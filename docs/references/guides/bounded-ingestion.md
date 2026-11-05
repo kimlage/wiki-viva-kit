@@ -85,6 +85,17 @@ commit, with each path, commit, Git blob and SHA-256 recorded in the integration
 packet. Unapproved working-tree edits do not influence candidate matching.
 Selected candidate boundaries and current authority are rechecked before
 effects and after readback; a late failure can leave partial artifacts.
+Among those candidates, a declared `source_refs` ID in the `source-v2` format
+with the same origin and a different content-hash prefix is suggested in
+`should_review`. If the source page was selected in the request, a candidate's
+reference to its `page_id` is also suggested. This reference does not identify the
+consumed revision and can suggest review even when the source has not changed.
+The operator-selected association between that page and the source remains unverified. These are review suggestions,
+not proof of capture, consumption, a factual change or a mandatory update. They
+do not search unselected pages or grant access. A source page selected only
+later during consolidation cannot supply this matching input. Legacy IDs and IDs
+ending in `unobserved` are not inferred from names or content; their coverage
+remains unknown.
 For independent Git evidence, `repository_source_pages` may explicitly map
 each host selection ID to its own authorized source page; the page locator
 must match the sanitized configured identity. This association does not grant
@@ -279,7 +290,10 @@ revalidates the binding, current policy, source and selected data, reconstructs
 the packet from authorized results and approved candidate revisions, and refuses
 a mismatch. It does not check whether an event was written or a proposal was
 reviewed or incorporated. The combined results are limited to 2 MB during both
-consolidation and inspection. Consolidation checks this and the size of the
+consolidation and inspection. An older retained packet remains preserved but is
+refused by inspection if any reconstructed field differs, including warnings or
+impact classification; this route does not automatically replace or migrate it.
+Consolidation checks this and the size of the
 inspection result before writing an event or packet. Older packets above either
 limit remain preserved and cannot be
 reconstructed by this inspection route. The canonical serialized `result`
