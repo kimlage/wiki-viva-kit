@@ -158,6 +158,20 @@ def test_target_selection_mode_is_explicit_and_validated(selected_repo):
             _selection({**base, 'target_selection': invalid})
 
 
+def test_unselected_declared_path_is_not_hidden_by_another_page_id(selected_repo):
+    repo, config = selected_repo
+    write(repo, 'target.md', '---\npage_id: beta/index.md\npage_type: note\n---\n# Target\n')
+    write(repo, 'channel.md', '---\npage_id: channel-a\npage_type: input_channel\n'
+          'target_pages: [beta/index.md]\n---\n# Channel\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'ambiguous target ID')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    selection = {'omit_root_entity': True, 'source_page': 'source-page.md',
+                 'source_config': 'source-config.md', 'input_channel': 'channel.md',
+                 'target_selection': 'explicit', 'target_pages': ['target.md']}
+    resolved = resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
+    assert any('beta/index.md not selected' in gap for gap in resolved['context_omissions'])
+
+
 def test_global_root_only_when_explicit_and_omission_is_recorded(selected_repo):
     repo, config = selected_repo
     selected = {'root_entity': 'global-root.md'}

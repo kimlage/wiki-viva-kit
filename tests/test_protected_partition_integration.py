@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from tests.test_folder_policy_core import git, repo, write
-from tests.test_protected_ingestion import prepared_repo
+from tests.test_protected_ingestion import prepared_repo, _nested_integrator_repo, _result_for
 from wiki_core.coordination_context import CoordinationBinding
 from wiki_core.ingest.cache_partition import partition_component
 from wiki_core.ingest.protected import prepare, record, inspect, consolidate
@@ -58,3 +58,51 @@ def test_source_partition_lifecycle_and_another_source_stays_denied(prepared_rep
                 view='results', chunk_ids=[row['chunk_id']])
     assert not (root / other).exists()
 
+
+def test_nested_integrator_partition_rechecks_both_actors(prepared_repo, monkeypatch):
+    from wiki_core.traversal import is_protected_artifact
+
+    root, _ = prepared_repo
+    _nested_integrator_repo(root)
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    part = 'data/derived/wiki/.wiki-viva-protected/' + partition_component('alpha', '.', 'alpha/source.txt')
+    config['llm'] = {'protected_cache_mode': 'by_source_v1'}
+    config['context_access']['.']['policy']['read'] = [
+        'AGENTS.md', 'index.md', 'alpha', 'memories/sources/synthetic.md',
+        'memories/system/ingestion/events', part]
+    config['context_access']['.']['policy']['write'] = ['alpha', 'memories/system/ingestion/events', part]
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'authorize nested partition')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='alpha', approved_revision=sha, entry_folder='alpha',
+                entry_index='alpha/index.md', source_ref='alpha/source.txt', artifact_context='.',
+                context_selection={'omit_root_entity': True})
+    prepared = prepare(root, binding, **args, source_context='alpha')
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    assert record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])['recorded'] == 1
+    row = prepared['request']['chunks'][0]
+    assert inspect(root, binding, **args, **ids, view='results', chunk_ids=[row['chunk_id']])['results']
+    event = ('memories/system/ingestion/events/2026-11-05-'
+             + hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    assert consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+                       event_target=event, date=dt.date(2026, 11, 5))['integration'] == 'pending review and incorporation'
+
+    original_open = Path.open
+    def no_protected_read(path, *values, **kwargs):
+        if is_protected_artifact(path):
+            pytest.fail('protected artifact opened after authority changed')
+        return original_open(path, *values, **kwargs)
+    monkeypatch.setattr(Path, 'open', no_protected_read)
+    with pytest.raises(ValueError):
+        record(root, binding, **{k: v for k, v in args.items() if k != 'artifact_context'}, **ids, results=[])
+
+    for context, key in [('.', 'imports'), ('alpha', 'exports')]:
+        config['context_access'][context][key] = [rule for rule in config['context_access'][context][key]
+                                                   if rule['selector'] != 'alpha/source.txt']
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'revoke source connection')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    with pytest.raises(ValueError):
+        record(root, binding, **{**args, 'approved_revision': git(root, 'rev-parse', 'HEAD')}, **ids, results=[])

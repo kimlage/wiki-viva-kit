@@ -272,7 +272,10 @@ def resolve_explicit_ingestion_context(packet, selection, config):
                            ('Source configuration', (config_page or {}).get('values', {})),
                            ('Input channel', (channel_page or {}).get('values', {}))):
         for ref in list_values(fields.get('target_pages')):
-            if ref not in selected['target_pages'] and ref not in target_ids:
+            # A path-like declaration denotes that path, even if a different
+            # selected page happens to use the same string as its page_id.
+            covered = ref in selected['target_pages'] if isinstance(ref, str) and ref.endswith('.md') else ref in target_ids
+            if not covered:
                 gaps.append(origin + ' target ' + str(ref) + ' not selected.')
     if selected['target_pages']:
         gaps.append('Selected target pages are candidates; selection does not grant write access.')

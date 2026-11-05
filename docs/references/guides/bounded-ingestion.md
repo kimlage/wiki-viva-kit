@@ -82,8 +82,10 @@ write scopes there, and independently authorize the source and any selected
 context. The hash is a stable routing name, not a secret, a grant or an OS ACL;
 each operation still checks current policy and the physical boundaries. The
 default `shared` mode retains the previous layout. Changing modes does not
-migrate or erase existing artifacts; they require their original configuration
-or a separately reviewed migration.
+migrate or erase existing artifacts. Requests remain pinned to their approved
+policy revision: restoring the old layout in a later revision does not make an
+old request current. Reprepare and review against the current policy, or use a
+separately reviewed migration if the installation provides one.
 
 For a source in an external provider, an authorized operator or existing
 provider adapter first captures the original bytes in an explicitly authorized,
