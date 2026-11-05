@@ -329,13 +329,22 @@ def _policy_at(root, sha, manifest_path):
 
 def historical_policy(current, fixed_revision):
     """Approved-ancestor policy for coverage proof only, never permission to read."""
-    if getattr(current, 'format_version', None):
+    if getattr(current, 'format_version', None) not in (None, 'folder'):
         raise PolicyError('v2 historical replay is not supported; v1 receipts require explicit migration')
     current = current.fresh()
     if not isinstance(fixed_revision,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',fixed_revision):
         raise PolicyError('query authority revision unavailable')
     root, _, manifest = current._binding
     _git(root, 'merge-base', '--is-ancestor', fixed_revision, current.policy_revision)
+    if getattr(current, 'format_version', None) == 'folder':
+        paths = _git(root, 'ls-tree', '-r', '-z', '--name-only', fixed_revision).split(b'\0')
+        if b'wiki.config.yaml' in paths:
+            try: config = yaml.load(git_file(root, fixed_revision, 'wiki.config.yaml'), Loader=UniqueLoader)
+            except (yaml.YAMLError, UnicodeError) as exc: raise PolicyError('invalid historical configuration') from exc
+            if not isinstance(config, dict): raise PolicyError('invalid historical configuration')
+            if 'context_access' in config: return _folder_policy_at(root, fixed_revision)
+        # Historical identity remains v1; no alias or equivalence is inferred.
+        return _policy_at(root, fixed_revision, 'context.yaml')
     return _policy_at(root, fixed_revision, manifest)
 
 def valid_adapter_report(report):
