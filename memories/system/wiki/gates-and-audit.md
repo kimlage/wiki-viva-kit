@@ -24,9 +24,9 @@ related_pages:
 Original guide: 2026-06-25. Normative review against the current implementation: 2026-10-26.
 
 The gates are the honesty layer of the living wiki: deterministic scripts that
-fail (non-zero exit code) when the repository violates the contract, omits the
-deep read, leaves a read source without integration, lets relation pages drift
-outside the hierarchy or leaves generated pages out of date. They run in CI on
+fail (non-zero exit code) for violations within their coverage, including an
+omitted deep read or unintegrated source in the scanned shared-cache flow,
+relation pages outside the hierarchy and out-of-date generated pages. They run in CI on
 the [gate by PR](../git-approvals.md) and locally before opening the proposal.
 The families cover distinct dimensions: contract auditing
 ([wiki_audit.py](../../../scripts/wiki_audit.py)), methodology coverage
@@ -86,7 +86,7 @@ The honesty gates at a glance — what each verifies and where it runs in CI:
 - `audit_consolidation`: gate of the integration (detailed below). Every new event (with a `source_id`) needs existing `consolidated_into` destinations and at least one target whose `page_type` is not `source`. Source identity pages are exempt from the backlink check. When the event supplies origin references, each other target must reference at least one of those origins in `source_refs`. Candidate claims require linked `claims:` or an explicit `sem_claim: <reason>`. This consolidation check skips events without `source_id`; those also lacking `consolidated_into` contribute to an aggregate warning. Other applicable gates still apply.
 - `audit_ingestion_proposals_gate_state`: every flat proposal in [memories/system/ingestion](../../../memories/system/ingestion/README.md) must carry a valid `gate_state` (see [state machine](#gate-state-machine)). Without it, the living gate has nowhere for the proposal to enter.
 
-Other invariants of the same script: `audit_operation_page` (the cockpit must be `page_type: dashboard` with `stale_after_days: 1`); `audit_ingestion_events` (every normalized event has the integral quadrants section, with no empty cell or placeholder); `audit_ingestion_absolute_paths` (an absolute source path becomes a link, and disguised traversal up to the home is not portable); `audit_public_candidates` (every `public_candidate` page requires a redaction checklist and zero secret/PII); `audit_promotion_gate` (promoting visibility requires the consent/anonymization/reversion fields); `audit_llm_cache_metadata` (each cache result carries `prompt_version`, `schema_version`, `cache_key`); and `audit_log_changed` (changing [memories/](../../index.md) without updating the change log fails). The flow of these last ones is detailed in [ingestion process](../ingestion-process.md).
+Other invariants of the same script: `audit_operation_page` (the cockpit must be `page_type: dashboard` with `stale_after_days: 1`); `audit_ingestion_events` (every normalized event has the integral quadrants section, with no empty cell or placeholder); `audit_ingestion_absolute_paths` (an absolute source path becomes a link, and disguised traversal up to the home is not portable); `audit_public_candidates` (every `public_candidate` page requires a redaction checklist and zero secret/PII); `audit_promotion_gate` (promoting visibility requires the consent/anonymization/reversion fields); `audit_llm_cache_metadata` (checks for `prompt_version`, `schema_version` and `cache_key` text in scanned shared and local-folder cache results; protected cache is outside this scan); and `audit_log_changed` (changing [memories/](../../index.md) without updating the change log fails). The flow of these last ones is detailed in [ingestion process](../ingestion-process.md).
 
 ### LLM pass gate (required_context_pass)
 
@@ -105,7 +105,7 @@ are refused for new recording and checks. See [bounded ingestion](../../../docs/
 
 ### Consolidation gate (ingesting = integrating)
 
-The deep read written to the cache does not end the ingestion: the source is only ingested when the wiki concepts reflect the new information. The gate closes that circuit from two sides — `audit_consolidation` (in [wiki_audit.py](../../../scripts/wiki_audit.py)) validates the events already emitted, and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (in CI) fails while any source with a complete deep read has no event, or has an event with an empty `consolidated_into`. The gate's row in the honesty-gates table above is "Consolidation closed".
+The deep read written to the cache does not end the ingestion: the source is only ingested when the wiki concepts reflect the new information. `audit_consolidation` (in [wiki_audit.py](../../../scripts/wiki_audit.py)) validates emitted events within its coverage, and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (in CI) reports sources in its shared-cache coverage with a complete deep read and no event, or an event with an empty `consolidated_into`. The gate's row in the honesty-gates table above is "Consolidation closed".
 
 `--all-pending` lists pending consolidations in its shared-cache coverage, and the cockpit ([memories/operations.md](../../operations.md)) shows the corresponding alert. Neither includes the protected cache as a global inventory; use the authorized `inspect` stage for selected protected artifacts. The audit consolidation check skips events without `source_id`; those also lacking `consolidated_into` contribute to an aggregate warning. Other applicable gates still apply.
 

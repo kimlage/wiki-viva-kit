@@ -57,8 +57,8 @@ check does not prove the protected source was read or incorporated.
    The optional `compare` stage gives a manual review suggestion for selected
    repository evidence, with file consumption remaining unknown.
 7. The authorized integrator reviews the proposal, updates the appropriate
-   targets, records `consolidated_into`, runs the applicable gates on the exact
-   proposed SHA and follows the repository's PR policy. Read back the result
+   targets in the authorized proposal, records `consolidated_into`, runs the
+   applicable gates on the exact proposed SHA and follows the repository's PR policy. Read back the result
    after an authorized integration. An event, cache result or green low-level
    test is not a completed ingestion.
 
@@ -73,8 +73,9 @@ are not deleted or automatically requalified.
 
 ## Rules
 
-- Never write canonical memory directly; the result is event/proposal material for
-  PR review under the repository's [AGENTS.md](../../AGENTS.md).
+- The authorized integrator may update target memory pages in the proposal;
+  applying them to the approved version follows the repository's PR policy and
+  [AGENTS.md](../../AGENTS.md).
 - Fill in the four quadrants or declare explicit absence (the validator
   fails an empty quadrant).
 - Every claim declares `status_epistemologico` and references the `chunk_id`.

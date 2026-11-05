@@ -127,14 +127,16 @@ filenames, refuses existing files, symlinks and nested Git repositories, and doe
 not create or modify an index. For example:
 
 ```sh
-python3 scripts/wiki_new.py --type context_instructions --title "Context name" \
+python3 scripts/wiki_new.py --type context_instructions --title "Context name" --context example \
   --output path/to/context/AGENTS.md
 python3 scripts/wiki_template_sections.py --root . --page-type context_instructions \
   --page path/to/context/AGENTS.md --mode filled
 ```
 
-Fill and review the draft before relying on it. Structure and lexical presence
-do not prove meaningful content, authorization, native loading or task coverage.
+Replace `example` with a context value compatible with the project and page;
+this metadata does not define the folder hierarchy. Fill and review the draft
+before relying on it. Structure and lexical presence do not prove meaningful
+content, authorization, native loading or task coverage.
 When native discovery selects an `AGENTS.override.md` in a folder, it replaces
 that folder's `AGENTS.md`; it does not combine the two. Keep any necessary local
 instructions in the file that will actually be selected.

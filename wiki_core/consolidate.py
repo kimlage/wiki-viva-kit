@@ -382,7 +382,8 @@ def deep_read_complete(request: dict[str, object], cache_dir: Path, *, root: Pat
         return False
     for row in chunks:
         key = str(row.get("cache_key") or "")
-        if not key or read_matching_result(cache_dir, request, row, root=root) is None:
+        result = read_matching_result(cache_dir, request, row, root=root) if key else None
+        if result is None or 'protected_historical_review' in result:
             return False
     return True
 

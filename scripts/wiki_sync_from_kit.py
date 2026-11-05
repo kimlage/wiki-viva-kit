@@ -56,6 +56,13 @@ def _check_consumer_root(consumer: Path) -> None:
         raise SyncError("consumer path must be its Git root")
 
 
+def _check_distinct_roots(kit: Path, consumer: Path) -> None:
+    kit_root = _run(["git", "rev-parse", "--show-toplevel"], cwd=kit).stdout.strip()
+    consumer_root = _run(["git", "rev-parse", "--show-toplevel"], cwd=consumer).stdout.strip()
+    if Path(kit_root).resolve() == Path(consumer_root).resolve():
+        raise SyncError("kit and consumer must be different Git worktree roots")
+
+
 def _check_consumer_path(consumer: Path, rel: str) -> None:
     """Refuse paths outside the consumer or through another Git worktree."""
     if (not isinstance(rel, str) or not rel or "\\" in rel or Path(rel).is_absolute()
@@ -201,6 +208,7 @@ def _git_dirty(root: Path) -> list[str]:
 
 def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list[list[str]]) -> dict[str, Any]:
     _check_consumer_root(consumer)
+    _check_distinct_roots(kit, consumer)
     try:
         manifest_rel = manifest_path.relative_to(kit).as_posix()
     except ValueError as exc:
@@ -301,6 +309,7 @@ def _print_plan(plan: dict[str, Any], *, as_json: bool) -> None:
 
 def _copy_c1(kit: Path, consumer: Path, plan: dict[str, Any]) -> None:
     _check_consumer_root(consumer)
+    _check_distinct_roots(kit, consumer)
     _check_source(kit, plan["source_sha"])
     files = plan["_files"]
     affected = plan["c1"]["remove_previously_managed"] + plan["c1"]["add"] + plan["c1"]["change"]

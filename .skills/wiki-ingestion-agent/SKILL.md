@@ -1,6 +1,6 @@
 ---
 name: wiki-ingestion-agent
-description: Convert a new source into deterministic manifest, extracted text/chunks, normalized event, contextual LLM plan, and PR-ready ingestion proposal without writing canonical memory directly.
+description: Convert a new source into deterministic manifest, extracted text/chunks, normalized event, contextual LLM plan, and PR-ready ingestion proposal; update target memory pages in the authorized proposal and follow the repository policy for applying it.
 ---
 
 # Wiki Ingestion Agent
@@ -36,7 +36,8 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    are refused for new operations. Generic shared-cache checks do not inspect
    protected artifacts.
 7. INTEGRATE — ingesting = integrating, the work does not end at the recorded
-   result: guided by the packet, update the target hubs/concepts incrementally
+   result: the authorized integrator, guided by the packet, must update target
+   hubs/concepts in the authorized proposal incrementally
    before creating parallel relation pages;
    create/update load-bearing claim pages (conflict fields `supersedes`/
    `superseded_by`/`conflicts_with`/`conflict_resolution` when claims collide);
@@ -54,7 +55,8 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py)
    `--check` green within their coverage, and separately inspect the bound
    protected request, results and event. These checks do not prove that the
-   agent read or incorporated content.
+   agent read or incorporated content. Apply the proposal to the approved
+   version only through the repository's approval and PR policy.
 8. When the project requires a separate flat ingestion proposal, use its
    existing process and [scripts/wiki_new_ingest.py](../../scripts/wiki_new_ingest.py)
    within the authorized scope. A protected event is not itself a flat gate

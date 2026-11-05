@@ -118,6 +118,22 @@ def test_apply_refuses_dirty_consumer_without_explicit_override(tmp_path: Path) 
     assert not (consumer / "portable/tool.txt").exists()
 
 
+@pytest.mark.parametrize('kit_subdirectory', [False, True])
+def test_sync_rejects_same_git_root_without_effects(tmp_path: Path, kit_subdirectory: bool) -> None:
+    kit, _, manifest = _fixture(tmp_path)
+    source = kit / 'portable' if kit_subdirectory else kit
+    original = (kit / 'portable/tool.txt').read_bytes()
+    before = _git(kit, 'status', '--porcelain')
+    for args in (('--dry-run',), ('--allow-dirty',)):
+        result = _run(source, kit, manifest, *args)
+        assert result.returncode != 0
+        assert 'kit and consumer must be different Git worktree roots' in result.stderr
+        assert not (kit / 'derived.txt').exists()
+        assert not (kit / 'kit.lock').exists()
+        assert (kit / 'portable/tool.txt').read_bytes() == original
+        assert _git(kit, 'status', '--porcelain') == before
+
+
 def test_only_previously_managed_stale_paths_are_removed(tmp_path: Path) -> None:
     kit, consumer, manifest = _fixture(tmp_path)
     assert _run(kit, consumer, manifest).returncode == 0

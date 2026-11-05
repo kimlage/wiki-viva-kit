@@ -19,9 +19,12 @@ def test_annotated_result_is_preserved_and_unavailable(prepared_repo):
     result = _result_for(prepared['request'])
     record(root, binding, **args, **ids, results=[result])
     cache_file = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache' / (result['cache_key'] + '.json')
+    from wiki_core.consolidate import deep_read_complete
+    assert deep_read_complete(prepared['request'], cache_file.parent)
     result['protected_historical_review'] = {'status': 'reviewed_by_caller'}
     cache_file.write_text(json.dumps(result))
     original = cache_file.read_bytes()
+    assert not deep_read_complete(prepared['request'], cache_file.parent)
 
     row = prepare(root, binding, **args, source_context='system')['request']['chunks'][0]
     assert row['result_exists'] is False
