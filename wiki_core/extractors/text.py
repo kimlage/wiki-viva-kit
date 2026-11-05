@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import email
 import io
+import itertools
 import os
 import selectors
 import subprocess
@@ -82,6 +83,60 @@ def _extract_xlsx(path: Path) -> tuple[str, list[dict[str, object]], list[str]]:
     return _extract_xlsx_input(path)
 
 
+def _extract_xlsx_captured(data: bytes):
+    """Retain formulas alongside cached values without recalculating them."""
+    from openpyxl import load_workbook
+
+    formulas = load_workbook(io.BytesIO(data), read_only=True, data_only=False)
+    try:
+        cached = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception:
+        formulas.close()
+        raise
+    lines, units = [], []
+    size = 0
+    try:
+        if formulas.sheetnames != cached.sheetnames:
+            raise ValueError('spreadsheet sheets unavailable')
+        for sheet, values in zip(formulas.worksheets, cached.worksheets):
+            max_row, max_column = sheet.max_row or 0, sheet.max_column or 0
+            if (max_row > 100_000 or max_column > 1024 or max_row * max_column > 2_000_000):
+                raise ValueError('spreadsheet dimensions exceed protected limit')
+            pairs = itertools.zip_longest(sheet.iter_rows(), values.iter_rows())
+            visited_cells = 0
+            for row_index, (formula_row, value_row) in enumerate(pairs, start=1):
+                if (formula_row is None or value_row is None or len(formula_row) != len(value_row)
+                        or row_index > 100_000 or len(formula_row) > 1024):
+                    raise ValueError('spreadsheet dimensions exceed protected limit')
+                visited_cells += len(formula_row)
+                if visited_cells > 2_000_000:
+                    raise ValueError('spreadsheet dimensions exceed protected limit')
+                cells = []
+                for formula_cell, value_cell in zip(formula_row, value_row):
+                    value = value_cell.value
+                    if formula_cell.data_type == 'f':
+                        expression = formula_cell.value
+                        if not isinstance(expression, str):
+                            raise ValueError('spreadsheet formula requires explicit review')
+                        cached_label = 'unavailable' if value is None else str(value)
+                        cells.append(f'[formula {expression}; cached value: {cached_label}]')
+                    else:
+                        cells.append('' if value is None else str(value))
+                if not any(cells):
+                    continue
+                line = ' | '.join(cells)
+                size += len(line.encode('utf-8')) + 1
+                if len(units) >= 100_000 or size > 2_000_000:
+                    raise ValueError('extracted content exceeds protected limit')
+                lines.append(line)
+                units.append({'unit_id': f'{sheet.title}-row-{row_index}', 'kind': 'sheet_row',
+                    'sheet': sheet.title, 'row': row_index, 'text': line})
+    finally:
+        formulas.close()
+        cached.close()
+    return '\n'.join(lines), units, []
+
+
 def _extract_xlsx_input(source, *, bounded: bool = False):
     try:
         from openpyxl import load_workbook
@@ -121,6 +176,52 @@ def _extract_docx(path: Path) -> tuple[str, list[dict[str, object]], list[str]]:
     return _extract_docx_input(str(path))
 
 
+def _extract_docx_captured(data: bytes):
+    """Extract body paragraphs and simple table rows in document order."""
+    from docx import Document
+    from docx.oxml.ns import qn
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    doc = Document(io.BytesIO(data))
+    texts, units = [], []
+    size = 0
+    paragraph_index = table_index = 0
+
+    def append(text, unit):
+        nonlocal size
+        size += len(text.encode('utf-8')) + 1
+        if len(units) >= 100_000 or size > 2_000_000:
+            raise ValueError('extracted content exceeds protected limit')
+        texts.append(text)
+        units.append({**unit, 'text': text})
+
+    for element in doc.element.body.iterchildren():
+        if element.tag == qn('w:p'):
+            text = Paragraph(element, doc).text
+            if text.strip():
+                paragraph_index += 1
+                append(text, {'unit_id': f'para-{paragraph_index}', 'kind': 'doc_paragraph',
+                    'ordinal': paragraph_index})
+        elif element.tag == qn('w:tbl'):
+            table_index += 1
+            seen_cells = set()
+            for row_index, row in enumerate(Table(element, doc).rows, start=1):
+                cells = []
+                for cell in row.cells:
+                    if cell._tc in seen_cells or cell.tables:
+                        raise ValueError('merged or nested document table requires explicit review')
+                    seen_cells.add(cell._tc)
+                    cells.append(cell.text)
+                text = ' | '.join(cells)
+                if any(cell.strip() for cell in cells):
+                    append(text, {'unit_id': f'table-{table_index}-row-{row_index}',
+                        'kind': 'doc_table_row', 'table': table_index, 'row': row_index})
+        elif element.tag != qn('w:sectPr'):
+            raise ValueError('unsupported document body content requires explicit review')
+    return '\n'.join(texts), units, []
+
+
 def _extract_docx_input(source, *, bounded: bool = False):
     try:
         from docx import Document
@@ -157,19 +258,34 @@ def _extract_email_data(raw: bytes, *, strict: bool = False):
     header_lines = [
         f"{key}: {msg.get(key)}" for key in ("From", "To", "Cc", "Date", "Subject") if msg.get(key)
     ]
+    if strict and not msg.is_multipart() and (msg.get_filename() or
+            msg.get_content_disposition() == 'attachment' or
+            msg.get_content_type() not in ('text/plain', 'text/html')):
+        raise ValueError('email attachment requires separate explicit review')
     body_parts: list[str] = []
     if msg.is_multipart():
         for part in msg.walk():
+            if strict and not part.is_multipart() and (part.get_filename() or
+                    part.get_content_disposition() == 'attachment' or
+                    part.get_content_type() not in ('text/plain', 'text/html')):
+                raise ValueError('email attachment requires separate explicit review')
             if part.get_content_type() == "text/plain" and not part.get_filename():
                 payload = part.get_payload(decode=True)
                 if payload:
                     body_parts.append(payload.decode(part.get_content_charset() or "utf-8", errors="strict" if strict else "replace"))
+            elif strict and part.get_content_type() == 'text/html' and not part.get_filename():
+                payload = part.get_payload(decode=True)
+                if payload:
+                    body_parts.append('Content-Type: text/html\n' +
+                        payload.decode(part.get_content_charset() or 'utf-8', errors='strict'))
     else:
         payload = msg.get_payload(decode=True)
         if payload:
             body_parts.append(payload.decode(msg.get_content_charset() or "utf-8", errors="strict" if strict else "replace"))
     if strict and any(part.defects for part in msg.walk()):
         raise ValueError('email encoding or structure unavailable')
+    if strict and not any(part.strip() for part in body_parts):
+        raise ValueError('email body unavailable; explicit review required')
     text = "\n".join(header_lines + ["", *body_parts])
     units = [{"unit_id": "email-headers", "kind": "email_headers", "text": "\n".join(header_lines)}]
     if body_parts:
@@ -269,10 +385,10 @@ def extract_captured(source: str, source_type: str, data: bytes) -> ExtractedDoc
             text, units, warnings = _extract_csv_stream(stream, suffix, bounded=True)
         elif source_type == 'spreadsheet' and suffix == '.xlsx':
             _check_office_archive(data)
-            text, units, warnings = _extract_xlsx_input(io.BytesIO(data), bounded=True)
+            text, units, warnings = _extract_xlsx_captured(data)
         elif source_type == 'document' and suffix == '.docx':
             _check_office_archive(data)
-            text, units, warnings = _extract_docx_input(io.BytesIO(data), bounded=True)
+            text, units, warnings = _extract_docx_captured(data)
         elif source_type == 'email' and suffix == '.eml':
             text, units, warnings = _extract_email_data(data, strict=True)
         elif source_type == 'pdf' and suffix == '.pdf':

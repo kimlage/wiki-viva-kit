@@ -159,8 +159,17 @@ and email bodies require their declared encoding; invalid encoding is rejected.
 Office archives have bounded expanded size and spreadsheet dimensions. Extracted
 content from non-text formats is capped at 2 MB. PDF extraction requires the
 local `pdftotext` executable, runs with a 30-second timeout, and does not perform
-OCR. The extraction reflects the existing format-specific reader, not a guarantee
-that every attachment, image, sheet feature or embedded object was interpreted.
+OCR. DOCX extraction includes body paragraphs and simple table rows in their
+document order; merged or nested tables and unsupported body elements require
+separate review. Headers, footers, images and embedded objects are not
+interpreted. XLSX formulas are retained with their cached values where present;
+the extractor does not recalculate them and explicitly marks missing caches.
+Workbook dimensions are limited to 100,000 rows, 1,024 columns and 2,000,000
+cells per sheet. EML text and HTML bodies are included; attachments or other
+non-text MIME parts require separate explicit review, and an absent body blocks
+the capture. This is not a guarantee that every sheet feature or embedded object
+was interpreted. An older capture of the same source whose extracted content
+differs is retained; it requires explicit review or migration before reuse.
 Other formats still require an authorized adapter. The complete serialized
 request is also capped at 2 MB, which may require a smaller source, particularly
 when text needs JSON escaping. Candidates must be explicitly selected.

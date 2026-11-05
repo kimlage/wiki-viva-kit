@@ -114,6 +114,116 @@ def test_strict_encoding_and_archive_limit():
         extract_captured('x.mbox', 'email', b'unsupported')
 
 
+def test_captured_docx_preserves_simple_table_in_body_order():
+    from docx import Document
+
+    document = Document()
+    document.add_paragraph('Before table')
+    table = document.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = 'Item'
+    table.cell(0, 1).text = 'Amount'
+    document.add_paragraph('After table')
+    output = io.BytesIO()
+    document.save(output)
+
+    extracted = extract_captured('source.docx', 'document', output.getvalue())
+    assert extracted.text == 'Before table\nItem | Amount\nAfter table'
+    assert [unit['kind'] for unit in extracted.units] == [
+        'doc_paragraph', 'doc_table_row', 'doc_paragraph']
+
+
+def test_captured_docx_does_not_silently_flatten_merged_or_nested_tables():
+    from docx import Document
+
+    document = Document()
+    table = document.add_table(rows=1, cols=2)
+    table.cell(0, 0).merge(table.cell(0, 1)).text = 'Merged'
+    output = io.BytesIO()
+    document.save(output)
+    with pytest.raises(ValueError, match='merged or nested'):
+        extract_captured('source.docx', 'document', output.getvalue())
+
+    document = Document()
+    table = document.add_table(rows=1, cols=1)
+    table.cell(0, 0).add_table(rows=1, cols=1).cell(0, 0).text = 'Nested'
+    output = io.BytesIO()
+    document.save(output)
+    with pytest.raises(ValueError, match='merged or nested'):
+        extract_captured('source.docx', 'document', output.getvalue())
+
+
+@pytest.mark.parametrize('cached_value', [None, '6'])
+def test_captured_xlsx_keeps_formula_and_cached_value_state(cached_value):
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    workbook.active.append([3, '=A1*2'])
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    data = output.getvalue()
+    if cached_value is not None:
+        rewritten = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(data)) as original, zipfile.ZipFile(rewritten, 'w') as result:
+            for item in original.infolist():
+                payload = original.read(item.filename)
+                if item.filename == 'xl/worksheets/sheet1.xml':
+                    assert b'<f>A1*2</f><v></v>' in payload
+                    payload = payload.replace(b'<f>A1*2</f><v></v>',
+                        b'<f>A1*2</f><v>' + cached_value.encode() + b'</v>')
+                result.writestr(item, payload)
+        data = rewritten.getvalue()
+
+    extracted = extract_captured('source.xlsx', 'spreadsheet', data)
+    expected = 'unavailable' if cached_value is None else cached_value
+    assert extracted.text == f'3 | [formula =A1*2; cached value: {expected}]'
+    assert extracted.units[0]['text'] == extracted.text
+
+
+def test_captured_xlsx_limits_total_sheet_cells():
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    workbook.active.cell(row=100_000, column=50, value='Sparse')
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    with pytest.raises(ValueError, match='spreadsheet dimensions'):
+        extract_captured('source.xlsx', 'spreadsheet', output.getvalue())
+
+
+def test_captured_email_preserves_plain_and_html_alternatives():
+    from email.message import EmailMessage
+
+    message = EmailMessage()
+    message['Subject'] = 'Alternatives'
+    message.set_content('Plain version')
+    message.add_alternative('<p>HTML version</p>', subtype='html')
+    extracted = extract_captured('source.eml', 'email', message.as_bytes())
+    assert 'Plain version' in extracted.text
+    assert 'Content-Type: text/html\n<p>HTML version</p>' in extracted.text
+
+    html_only = EmailMessage()
+    html_only['Subject'] = 'HTML only'
+    html_only.make_alternative()
+    html_only.add_alternative('<p>Only HTML</p>', subtype='html')
+    extracted = extract_captured('source.eml', 'email', html_only.as_bytes())
+    assert 'Content-Type: text/html\n<p>Only HTML</p>' in extracted.text
+
+
+def test_captured_email_rejects_attachment_and_missing_body():
+    from email.message import EmailMessage
+
+    message = EmailMessage()
+    message['Subject'] = 'Attachment'
+    message.set_content('Useful plain text')
+    message.add_attachment(b'separate data', maintype='application', subtype='octet-stream', filename='data.bin')
+    with pytest.raises(ValueError, match='attachment requires separate explicit review'):
+        extract_captured('source.eml', 'email', message.as_bytes())
+    with pytest.raises(ValueError, match='body unavailable'):
+        extract_captured('source.eml', 'email', b'Subject: Empty\n\n')
+
+
 def test_capture_revoked_during_extraction_does_not_reopen(tmp_path, monkeypatch):
     from pathlib import Path
     from types import SimpleNamespace
