@@ -249,7 +249,7 @@ def _request_identity(request):
     envelope = {k: v for k, v in request.items() if k not in
         ('protected_request_id', 'byte_accounting', 'pending_llm_calls', 'cached_calls', 'chunks')}
     envelope['chunks'] = [{k: v for k, v in row.items() if k not in
-        ('result_exists', 'result_source_id', 'result_chunk_id')} for row in rows]
+        ('result_exists', 'result_source_id', 'result_chunk_id', 'result_blocked_reason')} for row in rows]
     return hashlib.sha256(canonical_request_text(envelope).encode()).hexdigest()
 
 
@@ -607,6 +607,11 @@ def _historical_candidate(root, policy, actor, paths, current, row, previous, hi
         return None, ()
     prior_request = _request_path(paths, previous['source_id'], previous['protected_request_id'],
                                   current.get('repository_context'))
+    proof_key = (str(root), policy.policy_revision, actor, current['protected_request_id'],
+                 previous['source_id'], previous['protected_request_id'])
+    proof = cache.get('reuse_proofs', {}).get(proof_key) if cache is not None else None
+    if proof is None:
+        raise ValueError('historical request proof unavailable')
     old_target = paths.llm_cache / (old_key + '.json')
     ref = old_target.relative_to(root).as_posix()
     owner = historical.owner_of(ref)
@@ -617,6 +622,9 @@ def _historical_candidate(root, policy, actor, paths, current, row, previous, hi
         _allowed(root, policy, actor, path, 'read')
     try:
         before = capture_dependencies + tuple((path, _artifact_stamp(path)) for path in (prior_request, old_target))
+        if _artifact_stamp(prior_request) != proof[0]:
+            raise ValueError('historical request changed')
+        _check_reuse_dependencies(root, policy, actor, capture_dependencies, current=current)
         old_result = _read_json(root, policy, actor, old_target)
     except FileNotFoundError:
         return None, ()
@@ -670,6 +678,7 @@ def _review_selection(value):
 
 
 def _ensure_review_guard(root, binding, policy, actor, paths, request, options):
+    from wiki_core.ingest.historical_candidates import selected_grants
     cache = _STAGE_CACHE.get()
     if cache is None:
         raise ValueError('review context unavailable')
@@ -688,18 +697,23 @@ def _ensure_review_guard(root, binding, policy, actor, paths, request, options):
     if (current != request or digest != request.get('source_hash_sha256')
             or _artifact_stamp(source) != source_stamp or _artifact_stamp(target) != request_stamp):
         raise ValueError('review context changed')
+    checked_on = _candidate_authorization_day()
+    selected_grants(checked_policy, request, today=checked_on)
+    if _candidate_authorization_day() != checked_on:
+        raise ValueError('review authorization date changed')
     cache['candidate_guard'] = {'request_id': request['protected_request_id'], 'binding': binding,
         'source_stamp': source_stamp, 'request_path': target, 'request_stamp': request_stamp,
-        'repository_selection': options['repository_selection']}
+        'repository_selection': options['repository_selection'], 'grant_check_date': checked_on}
     _requalification_guard(root, checked_policy, request)
 
 
 def _review_annotation(root, binding, policy, actor, paths, request, row, selection, options, result):
     selection = _review_selection(selection)
-    if selection['chunk_id'] != row['chunk_id'] or selection['previous_source_id'] != request['source_id']:
+    if selection['chunk_id'] != row['chunk_id']:
         raise ValueError('historical review unavailable')
     _ensure_review_guard(root, binding, policy, actor, paths, request, options)
-    previous = _previous_request(root, binding, policy, actor, paths, request, selection['previous_request_id'])
+    previous = _previous_request(root, binding, policy, actor, paths, request,
+                                 selection['previous_request_id'], selection['previous_source_id'])
     if previous is None:
         raise ValueError('historical review unavailable')
     candidate, dependencies = _historical_candidate(root, policy, actor, paths, request, row, *previous)
@@ -1057,7 +1071,8 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             _allowed(root, policy, actor, path, 'read')
             policy.fresh()
         snapshots = []
-        review_dependencies = []
+        review_dependencies = {}
+        reviewed_sizes = {}
         cached_result_bytes = 0
         def checked_result(row):
             target = paths.llm_cache / (row['cache_key'] + '.json')
@@ -1078,37 +1093,61 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             if before != after or ((value is missing) != (after is None)):
                 raise ValueError('cache changed during readback')
             return value, after
+        def block_historical_result(row):
+            nonlocal cached_result_bytes
+            if row.get('result_exists') is True:
+                response_request['cached_calls'] -= 1
+                response_request['pending_llm_calls'] += 1
+                cached_result_bytes -= reviewed_sizes.pop(row['chunk_id'])
+            row['result_exists'] = False
+            row.pop('result_source_id', None)
+            row.pop('result_chunk_id', None)
+            row['result_blocked_reason'] = 'historical_review_unavailable_preserved'
+            review_dependencies.pop(row['chunk_id'], None)
+        def check_review_or_block(row, result):
+            nonlocal root, policy, config, paths
+            try:
+                dependencies = _check_review_annotation(root, binding, policy, actor, paths,
+                                                         request, row, result, options)
+                review_dependencies[row['chunk_id']] = dependencies
+                return True
+            except (ValueError, OSError):
+                if not isinstance(result, dict) or 'protected_historical_review' not in result:
+                    raise
+                root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+                if current != request or current_digest != source_digest:
+                    raise ValueError('request authority changed')
+                from wiki_core.ingest.historical_candidates import selected_grants
+                selected_grants(policy, request, today=_candidate_authorization_day())
+                guard_cache(paths.llm_cache / (row['cache_key'] + '.json'))
+                block_historical_result(row)
+                return False
         for row in response_request['chunks']:
             result, identity = checked_result(row)
             if result is not missing:
                 if (contains_access_secrets(result) or validate_result(result)
                         or not result_matches_request(result, request, row)):
                     raise ValueError('recorded result unavailable')
-                review_dependencies.extend(_check_review_annotation(root, binding, policy, actor, paths,
-                                                                    request, row, result, options))
-                row['result_exists'] = True
-                row['result_source_id'] = result.get('source_id')
-                row['result_chunk_id'] = result.get('chunk_id')
-                response_request['cached_calls'] += 1
-                response_request['pending_llm_calls'] -= 1
                 result_bytes = _json_text(result).encode('utf-8')
-                cached_result_bytes += len(result_bytes)
                 fingerprint = hashlib.sha256(result_bytes).hexdigest()
+                if check_review_or_block(row, result):
+                    row['result_exists'] = True
+                    row['result_source_id'] = result.get('source_id')
+                    row['result_chunk_id'] = result.get('chunk_id')
+                    response_request['cached_calls'] += 1
+                    response_request['pending_llm_calls'] -= 1
+                    reviewed_sizes[row['chunk_id']] = len(result_bytes)
+                    cached_result_bytes += len(result_bytes)
             else:
                 fingerprint = None
             snapshots.append((row, identity, fingerprint))
-        enforce_request_budget(response_request, context_max_bytes=context_max_bytes,
-                               request_max_bytes=request_max_bytes)
-        if len(canonical_request_text(response_request).encode('utf-8')) > 2_000_000:
-            raise ValueError('request exceeds protected response limit')
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != source_digest:
             raise ValueError('request authority changed')
         for row, identity, fingerprint in snapshots:
             current_result, current_identity = checked_result(row)
-            if current_result is not missing:
-                review_dependencies.extend(_check_review_annotation(root, binding, policy, actor, paths,
-                                                                    request, row, current_result, options))
+            if current_result is not missing and 'result_blocked_reason' not in row:
+                check_review_or_block(row, current_result)
             current_fingerprint = (None if current_result is missing else
                 hashlib.sha256(_json_text(current_result).encode('utf-8')).hexdigest())
             if current_identity != identity or current_fingerprint != fingerprint:
@@ -1127,7 +1166,36 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         if (stamp(_source(root, policy, context_id, source_ref, actor)) != source_stamp
                 or stamp(request_path) != request_stamp):
             raise ValueError('source or request changed')
-        _check_reuse_dependencies(root, policy, actor, review_dependencies, current=request)
+        def check_review_dependencies():
+            nonlocal root, policy, config, paths
+            for row, _, _ in snapshots:
+                dependencies = review_dependencies.get(row['chunk_id'], ())
+                try:
+                    _check_reuse_dependencies(root, policy, actor, dependencies, current=request)
+                except (ValueError, OSError):
+                    root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
+                    if current != request or current_digest != source_digest:
+                        raise ValueError('request authority changed')
+                    from wiki_core.ingest.historical_candidates import selected_grants
+                    selected_grants(policy, request, today=_candidate_authorization_day())
+                    guard_cache(paths.llm_cache / (row['cache_key'] + '.json'))
+                    block_historical_result(row)
+        check_review_dependencies()
+        # Dependency checks can take time; do not deliver stale cache snapshots.
+        for row, identity, _ in snapshots:
+            target = paths.llm_cache / (row['cache_key'] + '.json')
+            guard_cache(target)
+            try:
+                actual = stamp(target)
+            except FileNotFoundError:
+                actual = None
+            if actual != identity:
+                raise ValueError('cache changed before delivery')
+        check_review_dependencies()
+        enforce_request_budget(response_request, context_max_bytes=context_max_bytes,
+                               request_max_bytes=request_max_bytes)
+        if len(canonical_request_text(response_request).encode('utf-8')) > 2_000_000:
+            raise ValueError('request exceeds protected response limit')
         try:
             _check_reuse_dependencies(root, policy, actor, prior_dependencies, current=request)
         except (ValueError, OSError):
@@ -1156,7 +1224,9 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             'cache_readback': 'exact authorized keys rechecked before response; retained request is unchanged',
             'result_budget': {'max_combined_result_bytes': 2_000_000, 'cached_result_bytes': cached_result_bytes,
                 'status': 'exceeded' if cached_result_bytes > 2_000_000 else 'within_limit',
-                'coverage': 'selected cached results only; future results not counted'},
+                'coverage': ('available selected cached results only; blocked historical annotations and future results not counted'
+                    if any('result_blocked_reason' in row for row in response_request['chunks'])
+                    else 'selected cached results only; future results not counted')},
             'coverage': projected['context_omissions'],
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
