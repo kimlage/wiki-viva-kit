@@ -121,7 +121,7 @@ def _has_hierarchy_parent(values: dict[str, Any]) -> bool:
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except json.JSONDecodeError:
         return None
 
 
@@ -384,7 +384,7 @@ def build_quality_report(
                 request = load_local_request(paths, request_path)
             else:
                 request = json.loads(request_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except ValueError:
             if request_path.name.startswith('folder-'):
                 raise
             continue

@@ -898,6 +898,7 @@ def _graph_overlay_metrics(
         str(page.get("id") or "") for page in pages if str(page.get("id") or "")
     }
     quality_by_path = _quality_reasons_by_path(quality_payload, pages)
+    quality_unavailable = not isinstance(quality_payload.get("quality_flags"), dict)
     source_freshness = {
         str(source.get("source_id") or ""): str(
             source.get("freshness_state") or "unknown"
@@ -1151,6 +1152,8 @@ def _graph_overlay_metrics(
             if len(quality_reasons) > 1
             else "warning"
             if quality_reasons
+            else "unknown"
+            if quality_unavailable
             else "clear"
         )
 
@@ -1210,10 +1213,12 @@ def _graph_overlay_metrics(
             },
             "quality": {
                 "state": quality_state,
-                "value": len(quality_reasons),
+                "value": None if quality_state == "unknown" else len(quality_reasons),
                 "count": len(quality_reasons),
                 "reasons": (
-                    quality_reasons if quality_reasons else ["deterministic_flags:none"]
+                    [*quality_reasons, "metric_unavailable"]
+                    if quality_unavailable
+                    else quality_reasons if quality_reasons else ["deterministic_flags:none"]
                 ),
                 "refs": [],
             },

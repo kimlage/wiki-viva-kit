@@ -962,6 +962,23 @@ def test_graph_overlay_metrics_are_data_backed_and_keep_cancelled_distinct() -> 
     assert metrics["person-one"]["attention"]["refs"] == ["gate:wiki_audit"]
 
 
+def test_quality_overlay_exposes_unavailable_measurement_and_known_risks() -> None:
+    from wiki_core.web.snapshot_projection import _graph_overlay_metrics
+
+    pages = {"pages": [
+        {"id": "safe", "path": "memories/safe.md", "page_type": "claim", "risk_flags": []},
+        {"id": "risk", "path": "memories/risk.md", "page_type": "claim", "risk_flags": ["observed"]},
+    ]}
+    metrics = _graph_overlay_metrics(
+        pages, {"memories/safe.md": "safe", "memories/risk.md": "risk"},
+        {"error": "quality unavailable"},
+    )
+    assert metrics["safe"]["quality"]["state"] == "unknown"
+    assert metrics["safe"]["quality"]["reasons"] == ["metric_unavailable"]
+    assert metrics["risk"]["quality"]["state"] == "warning"
+    assert metrics["risk"]["quality"]["reasons"] == ["risk:observed", "metric_unavailable"]
+
+
 def test_snapshot_contract_detects_duplicate_ids_dangling_relations_and_corruption(
     tmp_path: Path,
 ) -> None:

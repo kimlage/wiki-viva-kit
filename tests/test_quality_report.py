@@ -187,6 +187,24 @@ def test_quality_validates_folder_request_identity(tmp_path: Path) -> None:
         build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
 
 
+@pytest.mark.parametrize('relative', [
+    'chunks/source.json',
+    'extraction-events/source-llm-context-request.json',
+])
+def test_quality_reports_unreadable_telemetry(tmp_path: Path, monkeypatch, relative: str) -> None:
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    unavailable = tmp_path / 'data/derived/wiki' / relative
+    _write(unavailable, '{}')
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        if path == unavailable:
+            raise PermissionError('telemetry unavailable')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    with pytest.raises(PermissionError, match='telemetry unavailable'):
+        build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
+
+
 def test_quality_report_surfaces_unclosed_synthetic_event(tmp_path: Path) -> None:
     _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", "- Ready.\n"))
     _write(
