@@ -1721,10 +1721,14 @@ def test_consolidation_counts_inspection_envelope_before_effects(prepared_repo, 
     prepared = prepare(root, binding, **args, source_context='system')
     ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
     record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
-    wrapper = {'view': 'integration', **ids, 'packet': {'padding': ''},
+    discovery_warning = ('Discovery is limited to authorized selected hub directories and explicit '
+                         'candidates; other consumers were not assessed.')
+    complete_packet = {'padding': '', 'impact': {'coverage': 'selected_candidates_only'},
+                       'warnings': [discovery_warning]}
+    wrapper = {'view': 'integration', **ids, 'packet': complete_packet,
                'event_status': 'not checked', 'integration': 'not assessed'}
     padding_size = 2_000_001 - len(canonical_request_text(wrapper).encode('utf-8'))
-    packet = {'padding': '.' * padding_size}
+    packet = {'padding': '.' * padding_size, 'impact': {}, 'warnings': []}
     assert len(canonical_request_text(packet).encode('utf-8')) < 2_000_000
     monkeypatch.setattr(consolidation, 'build_packet', lambda *a, **kw: packet)
     target = ('memories/system/ingestion/events/2026-11-04-' +
@@ -1733,6 +1737,7 @@ def test_consolidation_counts_inspection_envelope_before_effects(prepared_repo, 
         protected_source_stage(root, binding, 'consolidate', {**args, **ids,
             'source_page': 'memories/sources/synthetic.md', 'event_target': target, 'date': '2026-11-04'})
     assert error.value.code == 'coordination_result_budget_exceeded'
+    assert len(canonical_request_text(packet).encode('utf-8')) < 2_000_000
     assert not (root / target).exists()
     assert not list((root / 'data/derived/wiki/.wiki-viva-protected').rglob('*integration-packet.json'))
 

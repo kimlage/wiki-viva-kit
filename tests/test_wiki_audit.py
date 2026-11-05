@@ -2349,7 +2349,10 @@ def test_primary_pages_resolves_nested_context_hubs_by_identity(tmp_path, audit,
 
 
 def test_nested_context_hubs_missing_and_duplicate_fail_explicitly(tmp_path, audit, monkeypatch):
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
     monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    audit._audit_git_inventory.cache_clear()
+    audit.tracked_files.cache_clear()
     config = WikiConfig(contexts=('tax',), audit={'core_pages': []})
     errors, warnings = [], []
     audit.audit_frontmatter(errors, warnings, config)
@@ -2358,9 +2361,13 @@ def test_nested_context_hubs_missing_and_duplicate_fail_explicitly(tmp_path, aud
         path = tmp_path / f'memories/finance/{name}/index.md'
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f'---\npage_id: {name}-hub\npage_type: context_hub\ncontext: tax\n---\n# Synthetic hub\n')
+    audit._audit_git_inventory.cache_clear()
+    audit.tracked_files.cache_clear()
     errors, warnings = [], []
     audit.audit_frontmatter(errors, warnings, config)
     assert any('context tax: multiple context hubs:' in error for error in errors)
+    audit._audit_git_inventory.cache_clear()
+    audit.tracked_files.cache_clear()
 
 
 def test_context_hub_discovery_refuses_symlink_root_without_reading_it(tmp_path, audit, monkeypatch):
