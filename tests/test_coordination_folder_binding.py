@@ -32,6 +32,21 @@ def stub_folder_policy(monkeypatch):
     return calls
 
 
+def test_implicit_host_mode_uses_folder_without_enabling_an_unconfigured_host():
+    assert coord.CoordinationBinding.from_environment({}) is None
+    for env in ({'WIKI_COORDINATION_ALLOWED_CONTEXTS': '.,finance/costs'},
+                {'WIKI_COORDINATION_ALLOWED_CONTEXTS': '.,finance/costs',
+                 'WIKI_COORDINATION_CONTEXT_MODE': ''}):
+        binding = coord.CoordinationBinding.from_environment(env)
+        assert binding.manifest == 'wiki.config.yaml'
+        assert binding.contexts == ('.', 'finance/costs')
+        assert binding.trusted_ref == 'refs/remotes/origin/main'
+    assert coord.CoordinationBinding(('.',), 'refs/remotes/origin/main').manifest == 'wiki.config.yaml'
+    assert coord.CoordinationBinding.from_environment({
+        'WIKI_COORDINATION_ALLOWED_CONTEXTS': 'costs',
+        'WIKI_COORDINATION_CONTEXT_MODE': 'v1'}).manifest == 'context.yaml'
+
+
 def test_folder_binding_is_fixed_at_host_start_and_paths_are_literal():
     env = {'WIKI_COORDINATION_ALLOWED_CONTEXTS': '.,finance/costs',
            'WIKI_COORDINATION_TRUSTED_REF': 'refs/remotes/origin/main',
@@ -117,7 +132,7 @@ def test_binding_rejects_wrong_policy_format_and_preflight_packet(repo, monkeypa
 
 
 def test_v1_binding_does_not_accept_folder_payload(repo, monkeypatch):
-    binding = coord.CoordinationBinding(('costs',), 'refs/remotes/origin/main')
+    binding = coord.CoordinationBinding(('costs',), 'refs/remotes/origin/main', 'context.yaml')
     monkeypatch.setattr(coord, 'load_policy', lambda *a, **kw: pytest.fail('invalid payload was loaded'))
     data = payload(repo)
     data['context_id'] = 'costs'

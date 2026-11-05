@@ -10,13 +10,18 @@ from wiki_core.coordination_context import (CoordinationBinding, ProtectedCoordi
 from wiki_core.repository_reader import RepositoryReader
 
 
-def test_bound_folder_packet_revalidates_policy_and_exact_evidence(repo, monkeypatch):
+@pytest.mark.parametrize('mode', [None, '', 'folder'])
+def test_bound_folder_packet_revalidates_policy_and_exact_evidence(repo, monkeypatch, mode):
     enable_alpha(repo)
     write(repo, 'alpha/source.md', 'Synthetic source\n')
     git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'selected source')
     git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     sha = git(repo, 'rev-parse', 'HEAD')
-    binding = CoordinationBinding(('alpha',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    env = {'WIKI_COORDINATION_ALLOWED_CONTEXTS': 'alpha'}
+    if mode is not None:
+        env['WIKI_COORDINATION_CONTEXT_MODE'] = mode
+    binding = CoordinationBinding.from_environment(env)
+    assert binding.manifest == 'wiki.config.yaml'
     request = {'context_id': 'alpha', 'approved_revision': sha, 'content_revision': sha,
                'entry_folder': 'alpha/aux',
                'task': {'task_id': 'task', 'goal': 'Review synthetic source', 'output': 'result',
