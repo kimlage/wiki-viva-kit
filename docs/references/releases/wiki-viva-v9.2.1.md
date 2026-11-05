@@ -5,6 +5,10 @@ merge. The manifest reports the actual checked-out commit, so downstream operato
 checks can bind the served content to the approved merge. Nested source scopes
 retain their existing scoped identity, and dirty sources remain explicit.
 
+Cancellation is also synchronized with subprocess startup: a job cancelled
+before launch does not start the agent, and cancellation during startup can
+terminate the registered process. The job remains running until cleanup ends.
+
 ## Upgrading
 
 Use the reviewed `v9.2.1` tag after publication. Review the B0 dry-run, copy

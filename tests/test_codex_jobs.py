@@ -300,21 +300,72 @@ def test_return_continues_the_same_branch(tmp_path) -> None:
 def test_cancel_interrupts_a_running_job(tmp_path, monkeypatch) -> None:
     config = _repo(tmp_path)
     brief = _saved_brief(tmp_path, config)
-    monkeypatch.setenv("CODEX_SHIM_SLEEP", "3")
+    monkeypatch.setenv("CODEX_SHIM_SLEEP", "30")
     runner = _runner(tmp_path, config, autostart=True)  # real worker drains the queue
     result = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
     job_id = result["job_id"]
-    # Wait until it is actually running the shim, then cancel.
-    for _ in range(50):
-        if runner.get(job_id)["status"] == "running":
+    # The record is marked running before branch preparation. Wait for the
+    # actual process registration so this test exercises process termination.
+    deadline = time.monotonic() + 20
+    proc = None
+    while time.monotonic() < deadline:
+        with runner._lock:
+            proc = runner._procs.get(job_id)
+        if proc is not None:
             break
-        time.sleep(0.1)
-    runner.cancel(job_id)
-    for _ in range(50):
+        time.sleep(0.05)
+    assert proc is not None
+    assert runner.cancel(job_id)["ok"]
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
         if runner.get(job_id)["status"] == "cancelled":
             break
-        time.sleep(0.1)
+        time.sleep(0.05)
     assert runner.get(job_id)["status"] == "cancelled"
+    assert proc.poll() is not None
+
+
+def test_cancel_during_branch_preparation_does_not_spawn_agent(tmp_path, monkeypatch) -> None:
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    from wiki_core.web import codex_jobs
+
+    original_workflow = codex_jobs.run_git_workflow
+    original_popen = subprocess.Popen
+    preparing = threading.Event()
+    resume = threading.Event()
+    spawned = []
+
+    def blocked_workflow(root, config, operation, *args, **kwargs):
+        if operation == "start_proposal":
+            preparing.set()
+            assert resume.wait(20)
+        return original_workflow(root, config, operation, *args, **kwargs)
+
+    def tracking_popen(*args, **kwargs):
+        argv = args[0] if args else kwargs.get("args")
+        proc = original_popen(*args, **kwargs)
+        if isinstance(argv, list) and len(argv) > 1 and argv[1] == SHIM:
+            spawned.append(proc)
+        return proc
+
+    monkeypatch.setattr(codex_jobs, "run_git_workflow", blocked_workflow)
+    monkeypatch.setattr(codex_jobs.subprocess, "Popen", tracking_popen)
+    runner = _runner(tmp_path, config, autostart=True)
+    job_id = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)["job_id"]
+    try:
+        assert preparing.wait(20)
+        result = runner.cancel(job_id)
+        assert result["ok"] and result["status"] == "running"
+    finally:
+        resume.set()
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        if runner.get(job_id)["status"] == "cancelled":
+            break
+        time.sleep(0.05)
+    assert runner.get(job_id)["status"] == "cancelled"
+    assert spawned == []
 
 
 def test_job_record_write_replaces_complete_json_atomically(tmp_path, monkeypatch) -> None:
