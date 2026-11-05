@@ -192,10 +192,14 @@ when adopting the new binding.
 
 Local events and packets retain each selected Git file's configured identity,
 commit, path, blob and content hashes. The configured identity is not remote
-authentication. Local events link to the source capture manifest for authorized
-consultation, but omit capture and verification dates when those dates are not
-bound to the selected request; the event update date is not evidence that the
-source was captured or verified on that date.
+authentication. They also retain the complete source SHA-256 from the request;
+the source capture manifest link is a local, potentially gitignored reference for
+authorized consultation. Local events omit capture and verification dates when
+those dates are not bound to the selected request; the event update date is not
+evidence that the source was captured or verified on that date. The local gate
+checks canonical event names for a request and rejects duplicates among those
+names; it does not scan other owners for renamed copies. The separately
+authorized global audit checks for duplicate page IDs.
 
 The shared source manifest retains the context recorded for its first capture.
 A global catalog filtered by that field can therefore omit another interpretation

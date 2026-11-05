@@ -236,6 +236,9 @@ def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path
                 lists[name].extend(value)
     git_sources = []
     if request.get('folder_request_id'):
+        source_hash = request.get('source_hash_sha256')
+        if not isinstance(source_hash, str) or not re.fullmatch(r'[0-9a-f]{64}', source_hash):
+            raise ValueError('local source hash unavailable')
         from wiki_core.repo_read import contains_access_secrets, remote_identity
         from wiki_core.repository_reader import canonical_path
         package = request.get('block_context_package') or {}
@@ -267,6 +270,7 @@ def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path
     return {
         "source_id": request.get("source_id"),
         **({'folder_request_id': request['folder_request_id']} if request.get('folder_request_id') else {}),
+        **({'source_hash_sha256': source_hash} if request.get('folder_request_id') else {}),
         **({'independent_git_sources': git_sources} if git_sources else {}),
         "prompt_version": request.get("prompt_version"),
         "chunk_count": len(request.get("chunks") or []),
@@ -421,7 +425,11 @@ def build_event_markdown(
     if source_ref:
         fm.append(f"source_ref: {source_ref}")
     if request_id:
+        source_hash = aggregated.get('source_hash_sha256')
+        if not isinstance(source_hash, str) or not re.fullmatch(r'[0-9a-f]{64}', source_hash):
+            raise ValueError('local source hash unavailable')
         fm.append(f"folder_request_id: {request_id}")
+        fm.append(f"source_hash_sha256: {source_hash}")
         if manifest_ref:
             fm.append('manifest_ref: ' + json.dumps(manifest_ref, ensure_ascii=False))
         if aggregated.get('independent_git_sources'):
@@ -702,6 +710,8 @@ def build_packet(
         "kind": "wiki_integration_packet",
         "schema_version": PACKET_SCHEMA_VERSION,
         "source_id": aggregated.get("source_id"),
+        **({'source_hash_sha256': aggregated['source_hash_sha256']}
+           if aggregated.get('source_hash_sha256') else {}),
         **({'independent_git_sources': aggregated['independent_git_sources']}
            if aggregated.get('independent_git_sources') else {}),
         "root_impact": {

@@ -451,3 +451,12 @@ def test_find_reads_indexed_page_body_with_local_identity(tmp_path):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+@pytest.mark.parametrize('bad_hash', [None, '', 'a' * 63, 'G' * 64, '../' + 'a' * 64])
+def test_contextual_aggregation_rejects_missing_or_invalid_source_hash(repo, bad_hash):
+    _, _, paths, request = repo
+    contextual = {**request, 'folder_request_id': 'b' * 64, 'source_hash_sha256': bad_hash,
+                  'block_context_package': {'documents': []}}
+    with pytest.raises(ValueError, match='local source hash unavailable'):
+        aggregate_results(contextual, paths.llm_cache)
