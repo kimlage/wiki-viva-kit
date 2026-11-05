@@ -96,10 +96,10 @@ def _format_omissions(source_ref, csv_delimiter=None):
 
 
 def _authority(root, binding, context_id, approved_revision, entry_folder, entry_index, budget,
-               artifact_context=None):
+               artifact_context=None, source_ref=None):
     root = Path(root).resolve(strict=True)
     cache = _STAGE_CACHE.get()
-    key = (str(root), binding, context_id, approved_revision, entry_folder, entry_index, budget, artifact_context)
+    key = (str(root), binding, context_id, approved_revision, entry_folder, entry_index, budget, artifact_context, source_ref)
     if cache is not None and key in cache['authorities']:
         cached = cache['authorities'][key]
         cached[1].fresh()
@@ -127,8 +127,14 @@ def _authority(root, binding, context_id, approved_revision, entry_folder, entry
     from wiki_core.traversal import is_protected_artifact
     if is_protected_artifact(Path(configured)):
         raise ValueError('invalid protected cache configuration')
-    config = replace(config, paths={**config.paths,
-        'derived_root': configured + '/' + PROTECTED_ARTIFACT_COMPONENT})
+    cache_root = configured + '/' + PROTECTED_ARTIFACT_COMPONENT
+    cache_mode = config.llm.get('protected_cache_mode', 'shared')
+    if cache_mode == 'by_source_v1':
+        from wiki_core.ingest.cache_partition import partition_component
+        cache_root += '/' + partition_component(context_id, actor, source_ref)
+    elif cache_mode != 'shared':
+        raise ValueError('invalid protected cache mode')
+    config = replace(config, paths={**config.paths, 'derived_root': cache_root})
     ignored = subprocess.run([local_git_executable(), '-C', str(root), 'check-ignore',
         '--no-index', '-q', '--', config.paths['derived_root'] + '/_probe_'],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=local_git_environment())
@@ -410,6 +416,12 @@ def _selected_packet(root, policy, config, context_id, actor, revision, folder, 
     projected = resolve_explicit_ingestion_context(packet, selection, config)
     projected['context_omissions'] += optional_gaps + format_gaps
     _check_perspective_packet(packet, paths)
+    # The packet builder requalifies a fresh policy instance. Later artifact
+    # and candidate checks use this stage's policy instance, so requalify the
+    # selected producers on it as well; a packet is not an access grant.
+    from wiki_core.context_packet import _qualify_trusted_producers
+    _qualify_trusted_producers(root, policy, context_id, evidence + lenses, budget,
+        trusted_binding=binding, additional_readers=() if actor == context_id else (actor,))
     refs = {row['ref'] for row in packet['inputs']}
     required_paths = {row['ref'] for row in packet['inputs'] if row['kind'] == 'mandatory'}
     required_paths.add(packet['entry_index'])
@@ -572,7 +584,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     csv_delimiter = _csv_delimiter(source_ref, csv_delimiter)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes, actor)
+        entry_folder, entry_index, context_max_bytes, actor, source_ref)
     prompt = str(config.llm.get('prompt_versions', {}).get('context_deep_read', FOLDER_PROMPT_VERSION))
     require_approved_prompt_version(prompt, folder=True)
     _, projected, selection, required, optional, selected_perspectives = _selected_packet(
@@ -635,7 +647,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         _allowed(root, policy, actor, path, 'write')
     # Revalidate the current authority and source before the first side effect.
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes, actor)
+        entry_folder, entry_index, context_max_bytes, actor, source_ref)
     if _hash(_source(root, policy, context_id, source_ref, actor), policy) != source_digest:
         raise ValueError('source changed')
     if _repository(binding, policy, context_id, actor, repository_selection) != repository_context:
@@ -643,7 +655,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     capture = _capture_matches(root, policy, actor, paths, manifest, extracted, chunks)
     def revalidate(path):
         current_root, current_policy, _config, _paths = _authority(root, binding, context_id,
-            approved_revision, entry_folder, entry_index, context_max_bytes, actor)
+            approved_revision, entry_folder, entry_index, context_max_bytes, actor, source_ref)
         if _hash(_source(current_root, current_policy, context_id, source_ref, actor), current_policy) != source_digest:
             raise ValueError('source changed')
         if _repository(binding, current_policy, context_id, actor, repository_selection) != repository_context:
@@ -662,7 +674,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         _write_once(root, policy, actor, _request_path(paths, source_id, request_id, repository_context), request, compact=True)
         revalidate(artifact_paths[3])
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes, actor)
+            entry_folder, entry_index, context_max_bytes, actor, source_ref)
         if not _capture_matches(root, policy, actor, paths, manifest, extracted, chunks):
             raise ValueError('capture unavailable after write')
         if _read_json(root, policy, actor, _request_path(paths, source_id, request_id, repository_context)) != request:
@@ -688,7 +700,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             return (value.st_dev, value.st_ino, value.st_mode, value.st_size,
                     value.st_mtime_ns, value.st_ctime_ns)
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes, actor)
+            entry_folder, entry_index, context_max_bytes, actor, source_ref)
         source_path = _source(root, policy, context_id, source_ref, actor)
         request_path = _request_path(paths, source_id, request_id, repository_context)
         _allowed(root, policy, actor, request_path, 'read')
@@ -702,7 +714,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         def guard_cache(path):
             nonlocal root, policy, config, paths
             root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-                entry_folder, entry_index, context_max_bytes, actor)
+                entry_folder, entry_index, context_max_bytes, actor, source_ref)
             current_source = _source(root, policy, context_id, source_ref, actor)
             current_request = _request_path(paths, source_id, request_id, repository_context)
             _allowed(root, policy, actor, current_request, 'read')
@@ -802,7 +814,7 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
     csv_delimiter = _csv_delimiter(source_ref, csv_delimiter)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes, actor)
+        entry_folder, entry_index, context_max_bytes, actor, source_ref)
     current, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
         context_max_bytes, source_id, context_selection, perspective_refs, source_ref, repository_selection,
@@ -928,7 +940,7 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
     def guard(target):
         nonlocal root, policy, config, paths
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes, actor)
+            entry_folder, entry_index, context_max_bytes, actor, source_ref)
         current_source = _source(root, policy, context_id, source_ref, actor)
         current_request = _request_path(paths, source_id, request_id, repository_context)
         _allowed(root, policy, actor, current_request, 'read')
@@ -988,7 +1000,7 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
     from wiki_core.repository_reader import RepositoryReader
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
-        entry_folder, entry_index, context_max_bytes, actor)
+        entry_folder, entry_index, context_max_bytes, actor, source_ref)
     ids = _selection_ids(repository_selection)
     if previous_repository_selection not in ids or not isinstance(current_repository_selection, str):
         raise ValueError('repository comparison unavailable')
@@ -1224,7 +1236,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     actor = context_id if artifact_context is None else artifact_context
     if repository_selection is not None:
         _, authority, _, _ = _authority(root, binding, context_id, approved_revision,
-            entry_folder, entry_index, context_max_bytes, actor)
+            entry_folder, entry_index, context_max_bytes, actor, source_ref)
         authorize_repository_event(binding, authority, context_id, actor, repository_selection, safe_path(event_target))
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     if (not isinstance(candidates, (list, tuple)) or len(candidates) > 128

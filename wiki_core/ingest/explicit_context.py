@@ -24,7 +24,8 @@ class ExplicitContextError(ValueError):
 
 def _selection(selection):
     keys = {'source_page', 'source_config', 'input_channel', 'root_entity',
-            'omit_root_entity', 'templates', 'target_pages', 'repository_source_pages'}
+            'omit_root_entity', 'templates', 'target_pages', 'target_selection',
+            'repository_source_pages'}
     if not isinstance(selection, dict) or set(selection) - keys:
         raise ExplicitContextError('invalid explicit context selection')
     omitted = selection.get('omit_root_entity', False)
@@ -34,6 +35,11 @@ def _selection(selection):
     if bool(root) == omitted:
         raise ExplicitContextError('select or explicitly omit the business root')
     clean = {'omit_root_entity': omitted}
+    if 'target_selection' in selection:
+        mode = selection['target_selection']
+        if mode not in ('declared', 'explicit'):
+            raise ExplicitContextError('invalid target selection')
+        clean['target_selection'] = mode
     for name in ('source_page', 'source_config', 'input_channel', 'root_entity'):
         value = selection.get(name)
         if value is not None:
@@ -124,8 +130,9 @@ def connected_ingestion_selection(packet, selection):
                 selected[role] = choices.pop()
 
     targets = list(selected['target_pages'])
-    for role in ('source_page', 'source_config', 'input_channel'):
-        targets.extend(ref for value in list_values(values(role).get('target_pages')) if (ref := path(value)))
+    if selected.get('target_selection') != 'explicit':
+        for role in ('source_page', 'source_config', 'input_channel'):
+            targets.extend(ref for value in list_values(values(role).get('target_pages')) if (ref := path(value)))
     roles = {selected[name] for name in ('source_page', 'source_config', 'input_channel', 'root_entity') if name in selected}
     selected['target_pages'] = list(dict.fromkeys(ref for ref in targets if ref not in roles and ref not in selected['templates']))
     return _selection(selected)

@@ -61,6 +61,103 @@ def test_explicit_source_channel_local_root_and_template(selected_repo):
     assert any('does not grant write' in gap for gap in resolved['context_omissions'])
 
 
+def test_explicit_target_mode_preserves_declared_context_and_records_omissions(prepared_repo, monkeypatch):
+    """One target can be selected without reading another owner's declared target."""
+    import datetime as dt
+    import hashlib
+    from wiki_core.coordination_context import CoordinationBinding
+    from wiki_core.ingest.protected import prepare, record, consolidate, inspect
+    from wiki_core.repository_reader import RepositoryReader
+    from tests.test_protected_ingestion import _result_for
+
+    root, _ = prepared_repo
+    write(root, 'memories/sources/synthetic.md',
+          '---\npage_id: source-synthetic\npage_type: source\nconfig_ref: memories/source-config.md\n---\n# Source\n')
+    write(root, 'memories/source-config.md',
+          '---\npage_id: config-a\npage_type: source_config\ninput_channel_ref: memories/channel.md\n---\n# Config\n')
+    write(root, 'memories/channel.md',
+          '---\npage_id: channel-a\npage_type: input_channel\n'
+          'target_pages: [alpha/index.md, beta/index.md]\n---\n# Channel\n')
+    write(root, 'alpha/index.md',
+          '---\npage_id: alpha\npage_type: context_hub\n---\n# Alpha\n')
+    write(root, 'beta/index.md',
+          '---\npage_id: beta\npage_type: context_hub\n---\n# UNAUTHORIZED SENTINEL\n')
+    cfg = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    cfg['context_access']['alpha']['policy']['read'] = ['.']
+    root_rule = {'from_context': '.', 'to_context': 'alpha', 'selector': 'AGENTS.md',
+                 'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+    cfg['context_access']['.']['exports'] = [root_rule]
+    cfg['context_access']['alpha']['imports'] = [copy.deepcopy(root_rule)]
+    rules = [{'from_context': 'alpha', 'to_context': '.', 'selector': ref,
+              'use': 'interpretation', 'classification': classification, 'expires': '2099-01-01'}
+             for ref, classification in [('alpha/AGENTS.override.md', 'context'),
+                                         ('alpha/index.md', 'context'), ('alpha/index.md', 'artifact')]]
+    cfg['context_access']['alpha']['exports'] = rules
+    cfg['context_access']['.']['imports'] = copy.deepcopy(rules)
+    write(root, 'wiki.config.yaml', yaml.safe_dump(cfg))
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'scoped synthetic targets')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('.', 'alpha'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    original_read = RepositoryReader.read
+    def no_beta(reader, ref, **kwargs):
+        if ref.startswith('beta/'):
+            pytest.fail('unauthorized target body was read')
+        return original_read(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', no_beta)
+    selection = {'omit_root_entity': True, 'source_page': 'memories/sources/synthetic.md',
+                 'target_selection': 'explicit', 'target_pages': ['alpha/index.md']}
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                source_ref='source.txt', context_selection=selection)
+    prepared = prepare(root, binding, **args, source_context='synthetic')
+    request = prepared['request']
+    assert request['target_pages'] == ['alpha/index.md']
+    assert request['source_authorization']['context_selection']['target_selection'] == 'explicit'
+    assert any('beta/index.md not selected' in gap for gap in request['block_context_package']['coverage']['missing'])
+    assert 'UNAUTHORIZED SENTINEL' not in json.dumps(request)
+    assert {'memories/source-config.md', 'memories/channel.md'} <= {
+        item['ref'] for item in request['block_context_package']['inputs']}
+    ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
+    result = _result_for(request)
+    assert record(root, binding, **args, **ids, results=[result])['recorded'] == 1
+    row = request['chunks'][0]
+    assert inspect(root, binding, **args, **ids, view='results', chunk_ids=[row['chunk_id']])['results']
+    event = ('memories/system/ingestion/events/2026-11-05-' +
+             hashlib.sha256(ids['source_id'].encode()).hexdigest() + '-' + ids['request_id'] + '.md')
+    out = consolidate(root, binding, **args, **ids, source_page='memories/sources/synthetic.md',
+                      event_target=event, date=dt.date(2026, 11, 5))
+    assert out['integration'] == 'pending review and incorporation'
+    packet = inspect(root, binding, **args, **ids, view='integration', candidates=[])['packet']
+    assert 'UNAUTHORIZED SENTINEL' not in json.dumps(packet)
+    assert any('incomplete' in warning for warning in packet['warnings']) or request['block_context_package']['coverage']['missing']
+    changed = {**selection, 'target_selection': 'declared'}
+    with pytest.raises(ValueError):
+        inspect(root, binding, **{**args, 'context_selection': changed}, **ids,
+                view='results', chunk_ids=[row['chunk_id']])
+    denied = {**selection, 'target_pages': ['beta/index.md']}
+    with pytest.raises(ValueError):
+        prepare(root, binding, **{**args, 'context_selection': denied}, source_context='synthetic')
+    with pytest.raises(ValueError):
+        prepare(root, binding, **{**args, 'context_selection': {k: v for k, v in selection.items()
+                                                                 if k != 'target_selection'}},
+                source_context='synthetic')
+
+
+def test_target_selection_mode_is_explicit_and_validated(selected_repo):
+    from wiki_core.ingest.explicit_context import _selection, connected_ingestion_selection
+    repo, _ = selected_repo
+    base = {'omit_root_entity': True, 'source_page': 'source-page.md',
+            'source_config': 'source-config.md', 'input_channel': 'channel.md'}
+    initial = packet_for(repo, base)
+    assert connected_ingestion_selection(initial, base)['target_pages'] == ['target.md']
+    explicit = {**base, 'target_selection': 'explicit', 'target_pages': []}
+    assert connected_ingestion_selection(initial, explicit)['target_pages'] == []
+    assert 'target_selection' not in _selection(base)
+    for invalid in ('other', None, False, ['explicit']):
+        with pytest.raises(ExplicitContextError, match='invalid target selection'):
+            _selection({**base, 'target_selection': invalid})
+
+
 def test_global_root_only_when_explicit_and_omission_is_recorded(selected_repo):
     repo, config = selected_repo
     selected = {'root_entity': 'global-root.md'}
