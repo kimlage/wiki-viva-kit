@@ -146,6 +146,37 @@ def test_folder_read_set_keeps_distinct_revisions_of_query_anchor(audit_collecti
     assert {item['revision'] for item in refs} == {old, current}
     assert validate_result(folder_result(selected), selected)
 
+
+def test_historical_query_rechecks_policy_recorded_by_consumer(audit_collection):
+    from wiki_core.context_impact import report_review
+    root = audit_collection
+    content_revision = git(root, 'rev-parse', 'HEAD')
+    (root/'AGENTS.md').write_text('# Updated root instructions\n')
+    policy_revision = commit(root)
+    selected = folder_packet(root, revision=content_revision)
+    assert selected['query_selections'][0]['policy_revision'] == policy_revision
+    declare(root, folder_requirement(selected)); before = commit(root)
+    page(root, 'new.md'); after = commit(root)
+    result = assess_approved_impact(root, folder_policy(root), consumers=['finance/costs/result.md'],
+        before=before, after=after, destination_context=AUDIT_CONTEXT)
+    assert len(result['candidates']) == 1
+    report = report_review(root, folder_policy(root), result['candidates'][0], disposition='still_valid',
+        reason='Synthetic review', evidence_revision=after)
+    assert report['verification'] == 'reported_not_verified'
+
+
+def test_historical_query_does_not_open_previously_denied_member(audit_collection, monkeypatch):
+    root = audit_collection
+    set_folder_deny(root, SCOPE+'/first.md'); denied = commit(root)
+    set_folder_deny(root, None); commit(root)
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == denied and ref == SCOPE+'/first.md'), 'denied historical member opened'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    with pytest.raises(PolicyError, match='historical query read requires authorized requalification'):
+        folder_packet(root, revision=denied)
+
 def declare(root, req):
     (root/'finance/costs/result.md').write_text('---\n'+yaml.safe_dump({'page_id':'cost-result','page_type':'claim','information_requirements':[req]})+'---\nInterpretation.\n')
 

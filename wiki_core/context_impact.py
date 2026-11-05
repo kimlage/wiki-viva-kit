@@ -345,32 +345,6 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
             digest=receipt['selected_digest']
         else: digest=_selected_digest(reader,source,selector,policy=policy)
         if digest!=candidate['after_digest']: raise ImpactError('source changed since candidate')
-        if getattr(policy, 'format_version', None) == 'folder' and not folder_normative:
-            from wiki_core.context_policy import historical_policy
-            historical = historical_policy(policy, candidate['before_revision'], authority_format='folder')
-            if not _historical_edge_allowed(historical, policy, candidate['producer_context'], context,
-                    source, target, candidate['use'], candidate['classification'], kind, name):
-                raise ImpactError('historical source requires authorized requalification')
-            consumed = RepositoryReader(root, candidate['before_revision'])
-            if kind == 'query':
-                from wiki_core.context_packet import qualify_folder_context
-                from wiki_core.context_selection import _equivalent_folder_authority
-                qualify_folder_context(root, policy, context, candidate['entry_folder'], candidate['entry_index'], 2_000_000)
-                _equivalent_folder_authority(policy, context, consumed.revision, entry,
-                                             candidate['entry_folder'], candidate['entry_index'])
-                old_receipt,_,_ = reproduce_query(policy, context, consumed, entry,
-                    policy_revision=consumed.revision, expected_authority=candidate['authority_digest'],
-                    authority_format=candidate['authority_format'], entry_folder=candidate['entry_folder'],
-                    entry_index=candidate['entry_index'])
-                old_digest = old_receipt['selected_digest']
-                if old_receipt['members_digest'] != candidate['members_digest_before']:
-                    raise ImpactError('historical query candidate selection differs')
-            else:
-                old_digest = _selected_digest(consumed, source, selector, policy=policy)
-            if old_digest != candidate['before_digest']:
-                raise ImpactError('candidate source digest mismatch')
-            if old_digest == digest and (kind != 'query' or candidate['members_digest_before'] == candidate['members_digest_after']):
-                raise ImpactError('candidate source has no approved change')
         prior=RepositoryReader(root,candidate['after_revision'])
         if getattr(policy, 'format_version', None) == 'folder' and prior.revision != policy.policy_revision:
             from wiki_core.context_policy import historical_policy
@@ -379,6 +353,44 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
                     old_policy.contexts[context]['owner'] != policy.contexts[context]['owner'] or
                     not old_policy._permits_unqualified(context, 'read', target)):
                 raise ImpactError('historical target requires authorized requalification')
+        if getattr(policy, 'format_version', None) == 'folder' and not folder_normative:
+            consumed = RepositoryReader(root, candidate['before_revision'])
+            if kind == 'query':
+                from wiki_core.context_packet import guarded_context_read
+                from wiki_core.information_relations import information_requirements
+                target_doc = guarded_context_read(prior, policy, target)
+                if target_doc['content_digest'] != candidate['target_digest']:
+                    raise ImpactError('candidate target digest mismatch')
+                requirements = information_requirements(target_doc['frontmatter'], lambda ref: [safe_path(ref)])
+                matches = [req for req in requirements if req.get('temporal') == 'current'
+                    and req.get('target') == source and req.get('query') == candidate['query']
+                    and req.get('consumed_revision') == candidate['before_revision']
+                    and req.get('selected_digest') == candidate['before_digest']
+                    and req.get('members_digest') == candidate['members_digest_before']
+                    and req.get('authority_digest') == candidate['authority_digest']
+                    and all(req.get(key) == candidate.get(key) for key in
+                            ('use', 'classification', 'authority_format', 'entry_folder', 'entry_index'))]
+                if len(matches) != 1:
+                    raise ImpactError('canonical query requirement unavailable')
+                requirement = matches[0]
+                old_receipt,_,_ = reproduce_query(policy, context, consumed, entry,
+                    policy_revision=requirement['query_policy_revision'], expected_authority=requirement['authority_digest'],
+                    authority_format=candidate['authority_format'], entry_folder=candidate['entry_folder'],
+                    entry_index=candidate['entry_index'])
+                old_digest = old_receipt['selected_digest']
+                if old_receipt['members_digest'] != candidate['members_digest_before']:
+                    raise ImpactError('historical query candidate selection differs')
+            else:
+                from wiki_core.context_policy import historical_policy
+                historical = historical_policy(policy, candidate['before_revision'], authority_format='folder')
+                if not _historical_edge_allowed(historical, policy, candidate['producer_context'], context,
+                        source, target, candidate['use'], candidate['classification'], kind, name):
+                    raise ImpactError('historical source requires authorized requalification')
+                old_digest = _selected_digest(consumed, source, selector, policy=policy)
+            if old_digest != candidate['before_digest']:
+                raise ImpactError('candidate source digest mismatch')
+            if old_digest == digest and (kind != 'query' or candidate['members_digest_before'] == candidate['members_digest_after']):
+                raise ImpactError('candidate source has no approved change')
         if folder_normative:
             prior_source_digest = _selected_digest(prior,source,selector,policy=policy)
             consumed_source_digest = _selected_digest(RepositoryReader(root,candidate['before_revision']),source,selector,policy=policy)

@@ -42,6 +42,49 @@ def selection(repo, evidence, binding):
                         entry_folder='alpha', trusted_binding=binding)
 
 
+def test_packet_does_not_open_historically_denied_evidence(repo, monkeypatch):
+    evidence = setup_shared(repo)
+    config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
+    config['context_access']['alpha']['policy']['deny'] = {'read': ['beta/source.md']}
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'deny historical source')
+    denied = git(repo, 'rev-parse', 'HEAD')
+    config['context_access']['alpha']['policy'].pop('deny')
+    write(repo, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'restore source access')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert not (reader.revision == denied and ref == 'beta/source.md'), 'denied historical evidence opened'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    binding = CoordinationBinding(('alpha', 'beta'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(PolicyError, match='historical evidence read not authorized'):
+        build_packet(repo, folder_policy(repo), 'alpha', denied, evidence, 100000,
+            task_id='cross', goal='review', output='alpha/output.md', integrator='operator',
+            entry_folder='alpha', trusted_binding=binding)
+
+
+def test_packet_rejects_unapproved_content_before_opening_evidence(repo, monkeypatch):
+    evidence = setup_shared(repo)
+    branch = git(repo, 'branch', '--show-current')
+    git(repo, 'checkout', '-qb', 'wiki/unapproved-content')
+    write(repo, 'beta/source.md', '# Unapproved source\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'unapproved content')
+    unapproved = git(repo, 'rev-parse', 'HEAD')
+    git(repo, 'checkout', '-q', branch)
+    original = RepositoryReader.read
+    def guarded(reader, ref, **kwargs):
+        assert reader.revision != unapproved, 'unapproved body opened'
+        return original(reader, ref, **kwargs)
+    monkeypatch.setattr(RepositoryReader, 'read', guarded)
+    binding = CoordinationBinding(('alpha', 'beta'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    with pytest.raises(PolicyError, match='content revision is not approved'):
+        build_packet(repo, folder_policy(repo), 'alpha', unapproved, evidence, 100000,
+            task_id='cross', goal='review', output='alpha/output.md', integrator='operator',
+            entry_folder='alpha', trusted_binding=binding)
+
+
 @pytest.mark.parametrize('denied_before', [True, False])
 def test_impact_rechecks_historical_cross_owner_authority(repo, monkeypatch, denied_before):
     from wiki_core.context_requirements import assess_approved_impact

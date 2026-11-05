@@ -359,8 +359,13 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
         if capability_status(policy, context_id, effect['capability'], adapter_report, target=effect['target']) != 'available':
             raise PolicyError('required capability lacks verified adapter evidence')
     reader = RepositoryReader(Path(root), content_revision)
+    if folder_mode and reader.revision != policy.policy_revision:
+        from wiki_core.context_policy import _git
+        try: _git(Path(root), 'merge-base', '--is-ancestor', reader.revision, policy.policy_revision)
+        except PolicyError as exc: raise PolicyError('content revision is not approved') from exc
     selected = []
     seen = set()
+    historical_policies = {}
     # Rules are read from the approved policy revision, never historical content.
     if folder_mode and entry_folder != '.' and not any(ref.startswith(entry_folder + '/') for ref in policy_reader.paths):
         raise PolicyError('entry folder unavailable in approved tree')
@@ -373,6 +378,20 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
                 if policy._connection(producer, reader_context, ref, use or 'interpretation', classification or 'context',
                                       section=section, field=field, qualified=False) != 'approved':
                     raise PolicyError('additional reader not authorized for selected body')
+            if kind != 'mandatory' and reader_.revision != policy.policy_revision:
+                from wiki_core.context_policy import historical_policy
+                if reader_.revision not in historical_policies:
+                    historical_policies[reader_.revision] = historical_policy(policy, reader_.revision, authority_format='folder')
+                prior = historical_policies[reader_.revision]
+                try:
+                    if (prior.owner_of(ref) != producer or any(
+                            prior.contexts[ctx]['owner'] != policy.contexts[ctx]['owner'] or
+                            prior._connection(producer, ctx, ref, use or 'interpretation', classification or 'context',
+                                section=section, field=field, qualified=False) != 'approved'
+                            for ctx in (context_id, *additional_readers))):
+                        raise PolicyError('historical evidence read not authorized')
+                except (KeyError, ValueError) as exc:
+                    raise PolicyError('historical evidence read not authorized') from exc
             from wiki_core.traversal import require_wiki_boundaries
             try: require_wiki_boundaries(Path(root), files=(Path(root) / ref,))
             except (ValueError, OSError) as exc: raise PolicyError('context body unavailable') from exc

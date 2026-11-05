@@ -276,13 +276,6 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None, _candid
         if read_budget is not None:
             if size > read_budget[0]: raise PolicyError('query operation byte limit exceeded')
             read_budget[0] -= size
-    admit(target)
-    verify_read(target)
-    anchor = reader.read(target, before_blob=verify_read) if folder_mode else reader.read(target)
-    metadata = _metadata(anchor)
-    if metadata.get('page_type') not in ('context_hub', 'ontology_index', 'source_catalog', 'root_entity') or not isinstance(metadata.get('page_id'), str) or not metadata['page_id'].strip() or any(ord(c)<32 for c in metadata['page_id']):
-        raise PolicyError('query anchor must identify an existing collection contract')
-    reject_secrets(anchor['text'])
     # Ownership and denies precede every content/metadata read and count.
     def authorized(path):
         if path == target or not within(path, scope) or policy.owner_of(path) != context_id or not policy.permits(context_id, 'read', path):
@@ -299,6 +292,32 @@ def select_query(policy, context_id, reader, entry, *, read_budget=None, _candid
         raise PolicyError('unsupported query path')
     allowed = [p for p in reader.paths if p.endswith('.md') and authorized(p)]
     if len(allowed) > q['max_enumerated']: raise PolicyError('query enumeration limit exceeded')
+    is_proposal = False
+    if folder_mode and reader.revision != policy.policy_revision:
+        is_proposal = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(reader.root),
+            'merge-base', '--is-ancestor', policy.policy_revision, reader.revision],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=local_git_environment()).returncode == 0
+    if folder_mode and reader.revision != policy.policy_revision and not is_proposal:
+        # The policy used for selection can be newer than the data. Preserve
+        # historical denies without assuming instruction bytes are identical.
+        prior = historical_policy(policy, reader.revision, authority_format='folder')
+        try:
+            if (context_id not in prior.contexts or
+                    prior.contexts[context_id]['owner'] != policy.contexts[context_id]['owner'] or
+                    any(prior.owner_of(path) != context_id or
+                        not prior._permits_unqualified(context_id, 'read', path)
+                        for path in [target, *allowed])):
+                raise PolicyError('historical query read requires authorized requalification')
+        except (KeyError, ValueError) as exc:
+            raise PolicyError('historical query read requires authorized requalification') from exc
+        still_current()
+    admit(target)
+    verify_read(target)
+    anchor = reader.read(target, before_blob=verify_read) if folder_mode else reader.read(target)
+    metadata = _metadata(anchor)
+    if metadata.get('page_type') not in ('context_hub', 'ontology_index', 'source_catalog', 'root_entity') or not isinstance(metadata.get('page_id'), str) or not metadata['page_id'].strip() or any(ord(c)<32 for c in metadata['page_id']):
+        raise PolicyError('query anchor must identify an existing collection contract')
+    reject_secrets(anchor['text'])
     members = []; inputs = []; identities = {metadata['page_id']}
     for path in allowed:
         reject_secrets(path)
