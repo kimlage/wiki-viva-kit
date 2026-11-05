@@ -11,6 +11,8 @@ import pytest
 import yaml
 from jsonschema import validate
 
+from tests.test_folder_policy_core import repo
+from tests.test_protected_ingestion import prepared_repo, _nested_integrator_repo
 from wiki_core.config import load_config
 from wiki_core.ingest import run
 from wiki_core.llm.context_pass import canonical_request_text, result_matches_request
@@ -62,6 +64,35 @@ def load_script(name):
     return module
 
 
+@pytest.fixture
+def folder_approved(tmp_path):
+    """A host-bound physical folder fixture, independent of legacy v1 manifests."""
+    from wiki_core.coordination_context import CoordinationBinding
+    (tmp_path / '.gitignore').write_text('data/derived/\n')
+    (tmp_path / 'AGENTS.md').write_text('Preserve synthetic independent review.\n')
+    (tmp_path / 'index.md').write_text('# Selected root index\n')
+    (tmp_path / 'source.md').write_text('# Fonte sintética\n\n' + ('Observação útil e íntegra.\n' * 240))
+    config = {'repo_id': 'synthetic-folder-bounded', 'owner_label': 'Synthetic coordinator',
+        'context_access': {'.': {'owner': 'Synthetic coordinator', 'policy': {
+            'read': ['self'], 'write': ['self'], 'capabilities': [], 'deny': {}, 'publication': []}}}}
+    (tmp_path / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
+    git(tmp_path, 'init', '-q'); git(tmp_path, 'config', 'user.name', 'Synthetic')
+    git(tmp_path, 'config', 'user.email', 'synthetic@example.test')
+    git(tmp_path, 'add', '.'); git(tmp_path, 'commit', '-qm', 'Approved synthetic folder context')
+    sha = git(tmp_path, 'rev-parse', 'HEAD')
+    git(tmp_path, 'update-ref', 'refs/remotes/origin/main', sha)
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    return tmp_path, tmp_path / 'source.md', sha, binding
+
+
+def folder_prepare(folder_approved, **limits):
+    from wiki_core.ingest.protected import prepare
+    root, _, sha, binding = folder_approved
+    return prepare(root, binding, context_id='.', approved_revision=sha,
+        entry_folder='.', entry_index='index.md', source_ref='source.md',
+        source_context='system', **limits)
+
+
 def test_exact_utf8_request_keeps_all_chunks_and_one_required_context(approved):
     root, _, _, _ = approved
     result = execute(approved)
@@ -82,108 +113,98 @@ def test_exact_utf8_request_keeps_all_chunks_and_one_required_context(approved):
     assert request['source_authorization']['classification'] == 'source'
 
 
-def test_large_source_overflow_writes_nothing_and_cannot_advance_cursor(approved):
-    root, source, _, _ = approved
-    source.write_text('# Explicit large source\n' + ('Mais conteúdo útil e íntegro.\n' * 12_000))
-    result = execute(approved, request_max_bytes=16_000, stream_id='synthetic-stream')
-    assert result.blocked and not result.written and result.request_path is None
-    assert result.context_error_code == 'request_budget_exceeded'
-    assert result.chunk_count > 1 and result.pending_llm_calls == result.chunk_count
-    assert result.score_event_id is None and not result.stream_cursor_written
-    assert not WikiPaths(root, load_config(root)).derived_root.exists()
-    schema = json.loads((BASE / 'docs/references/schemas/wiki-task-result-v1.schema.json').read_text())
-    validate(result.blockers[0], schema['properties']['blockers']['items'])
-    assert result.blockers[0]['interface'] and result.blockers[0]['required_action']
-    assert 'Mais conteúdo' not in json.dumps(result.blockers)
+def test_large_source_overflow_writes_nothing_and_cannot_advance_cursor(folder_approved):
+    root, source, _, _ = folder_approved
+    source.write_text('# Explicit large source\n' + ('Mais conteúdo útil e íntegro.\n' * 2000))
+    # Protected source stages have no stream cursor: an overflow must leave no capture.
+    with pytest.raises(ValueError):
+        folder_prepare(folder_approved, request_max_bytes=16_000)
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
 
 
-def test_mandatory_overflow_and_missing_context_are_recoverable_without_fallback(approved):
-    root, _, _, _ = approved
-    result = execute(approved, context_max_bytes=32)
-    assert result.blocked and result.context_error_code == 'context_budget_exceeded'
-    assert not result.written and result.blockers
-    missing = run(str(approved[1]), 'system', root, load_config(root), approved_revision=approved[2])
-    assert missing.blocked and missing.context_error_code == 'approved_source_context_required'
-    assert not missing.written and not WikiPaths(root, load_config(root)).derived_root.exists()
+def test_mandatory_overflow_and_missing_context_are_recoverable_without_fallback(folder_approved):
+    from wiki_core.coordination_context import ProtectedCoordinationError
+    from wiki_core.ingest.protected import prepare
+    root, _, sha, _ = folder_approved
+    with pytest.raises(ValueError):
+        folder_prepare(folder_approved, context_max_bytes=32)
+    with pytest.raises(ProtectedCoordinationError):
+        prepare(root, None, context_id='.', approved_revision=sha, entry_folder='.',
+            entry_index='index.md', source_ref='source.md', source_context='system')
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
 
 
-def test_request_limits_change_cache_identity_and_canonical_cli_records_current_binding(approved, monkeypatch, capsys):
-    root, source, sha, _ = approved
-    ingest = load_script('wiki_ingest')
-    limits = ['--context-max-bytes', '20_000', '--request-max-bytes', '40_000']
-    flags = ['--approved-revision', sha, '--policy-context', 'root', *limits]
-    monkeypatch.setattr(sys, 'argv', ['wiki_ingest.py', '--root', str(root), '--source', str(source), '--context', 'system', *flags])
-    assert ingest.main() == 0
-    result = json.loads(capsys.readouterr().out)
-    request_path = root / result['request_path']
-    request = json.loads(request_path.read_bytes())
+def test_request_limits_change_cache_identity_and_canonical_cli_records_current_binding(folder_approved):
+    root, _, sha, _ = folder_approved
+    script = BASE / 'scripts/wiki_coordination.py'
+    base = {'entry_folder': '.', 'entry_index': 'index.md', 'source_ref': 'source.md',
+            'context_max_bytes': 20_000, 'request_max_bytes': 40_000}
+    def call(stage, payload):
+        return subprocess.run([sys.executable, str(script), '--root', str(root), '--context-id', '.',
+            '--approved-revision', sha, '--source-stage', stage], input=json.dumps(payload),
+            capture_output=True, text=True)
+    first = call('prepare', {**base, 'source_context': 'system'})
+    assert first.returncode == 0
+    prepared = json.loads(first.stdout)['result']; request = prepared['request']
     assert request['request_limits'] == {'context_max_bytes': 20_000, 'request_max_bytes': 40_000}
-    changed = execute(approved, context_max_bytes=20_000, request_max_bytes=40_001)
-    assert json.loads((root / changed.request_path).read_text())['chunks'][0]['cache_key'] != request['chunks'][0]['cache_key']
-    # Re-emit the original explicit budgets through the canonical caller.
-    assert ingest.main() == 0
-    capsys.readouterr()
-    request = json.loads(request_path.read_text())
-    template = json.loads((BASE / 'tests/fixtures/e2e/context_pass_result.sample.json').read_text())
+    changed = call('prepare', {**base, 'source_context': 'system', 'request_max_bytes': 40_001})
+    assert changed.returncode == 0
+    assert json.loads(changed.stdout)['result']['request']['chunks'][0]['cache_key'] != request['chunks'][0]['cache_key']
     row = request['chunks'][0]
+    template = json.loads((BASE / 'tests/fixtures/e2e/context_pass_result.sample.json').read_text())
     recorded = {**template, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
         **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
         'perspectives_required': request['perspectives_required'],
         'perspectives': {key: {'status': 'extracted'} for key in request['perspectives_required']}}
     assert result_matches_request(recorded, request, row, recording=True)
-    payload = root / 'result.json'; payload.write_text(json.dumps(recorded))
-    llm = load_script('wiki_llm_context_pass'); monkeypatch.setattr(llm, 'ROOT', root)
-    argv = ['wiki_llm_context_pass.py', '--source', str(source), '--context', 'system', '--record-result', str(payload)]
-    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--context', 'system',
-        '--record-result', str(payload), *limits])
-    assert llm.main() == 2
-    assert json.loads(capsys.readouterr().out)['error_code'] == 'approved_context_revalidation_required'
-    assert not (WikiPaths(root, load_config(root)).llm_cache / (row['cache_key'] + '.json')).exists()
-    monkeypatch.setattr(sys, 'argv', [*argv, *flags])
-    assert llm.main() == 0
-    capsys.readouterr()
-    assert (WikiPaths(root, load_config(root)).llm_cache / (row['cache_key'] + '.json')).exists()
-    monkeypatch.setattr(sys, 'argv', [*argv, '--approved-revision', sha, '--policy-context', 'root', '--request-max-bytes', '1_000'])
-    assert llm.main() == 2
-    block = json.loads(capsys.readouterr().out)
-    assert block['blocked'] and block['error_code'] == 'request_budget_exceeded'
+    record = {**base, 'source_id': prepared['source_id'], 'request_id': prepared['request_id'], 'results': [recorded]}
+    wrong = call('record', {**record, 'request_max_bytes': 40_001})
+    assert wrong.returncode != 0 and not json.loads(wrong.stdout)['ok']
+    cache = root / 'data/derived/wiki/.wiki-viva-protected/llm-cache'
+    assert not (cache / (row['cache_key'] + '.json')).exists()
+    accepted = call('record', record)
+    assert accepted.returncode == 0 and json.loads(accepted.stdout)['result']['recorded'] == 1
+    assert (cache / (row['cache_key'] + '.json')).exists()
 
 
-def test_exact_request_boundary_accepts_all_bytes_and_one_byte_less_preserves_prior_request(approved):
-    root = approved[0]
-    first = execute(approved, context_max_bytes=20_000, request_max_bytes=50_000)
-    old = (root / first.request_path).read_bytes()
-    limit = len(old)
+def test_exact_request_boundary_accepts_all_bytes_and_one_byte_less_preserves_prior_request(folder_approved):
+    root, _, _, _ = folder_approved
+    first = folder_prepare(folder_approved, context_max_bytes=20_000, request_max_bytes=50_000)
+    original = first['request']
+    limit = len(canonical_request_text(original).encode('utf-8'))
     assert len(str(limit)) == len(str(50_000))
-    fitted = execute(approved, context_max_bytes=20_000, request_max_bytes=limit)
-    fitted_path = root / fitted.request_path
-    exact = fitted_path.read_bytes()
-    assert len(exact) == limit
-    blocked = execute(approved, context_max_bytes=20_000, request_max_bytes=limit - 1)
-    assert blocked.blocked and blocked.context_error_code == 'request_budget_exceeded'
-    assert not blocked.written and fitted_path.read_bytes() == exact
+    exact = folder_prepare(folder_approved, context_max_bytes=20_000, request_max_bytes=limit)
+    assert len(canonical_request_text(exact['request']).encode('utf-8')) == limit
+    protected = root / 'data/derived/wiki/.wiki-viva-protected'
+    before = {p.relative_to(protected): p.read_bytes() for p in protected.rglob('*') if p.is_file()}
+    with pytest.raises(ValueError):
+        folder_prepare(folder_approved, context_max_bytes=20_000, request_max_bytes=limit - 1)
+    assert before == {p.relative_to(protected): p.read_bytes() for p in protected.rglob('*') if p.is_file()}
 
 
-def test_canonical_cli_reports_revoked_context_without_overwriting_previous_request(approved, monkeypatch, capsys):
-    root, source, sha, policy = approved
-    module = load_script('wiki_ingest')
-    argv = ['wiki_ingest.py', '--root', str(root), '--source', str(source), '--context', 'system', '--policy-context', 'root']
-    monkeypatch.setattr(sys, 'argv', [*argv, '--approved-revision', sha])
-    assert module.main() == 0
-    first = json.loads(capsys.readouterr().out)
-    path = root / first['request_path']; retained = path.read_bytes()
-    policy['policy']['deny'] = {'read': ['memories/lens.md']}
-    (root / 'context.yaml').write_text(yaml.safe_dump(policy))
-    git(root, 'add', 'context.yaml'); git(root, 'commit', '-qm', 'Approve narrower context')
-    current = git(root, 'rev-parse', 'HEAD'); git(root, 'update-ref', 'refs/remotes/origin/main', current)
-    monkeypatch.setattr(sys, 'argv', [*argv, '--approved-revision', current])
-    assert module.main() == 2
-    report = json.loads(capsys.readouterr().out)
-    assert report['blocked'] and not report['written'] and report['request_path'] is None
-    assert report['score_event_id'] is None and not report['stream_cursor_written']
-    assert report['blockers'][0]['owner'] == 'Synthetic coordinator'
-    assert 'memories/lens.md' not in json.dumps(report['blockers'])
-    assert path.read_bytes() == retained
+def test_canonical_cli_reports_revoked_context_without_overwriting_previous_request(folder_approved):
+    root, _, sha, _ = folder_approved
+    script = BASE / 'scripts/wiki_coordination.py'
+    payload = {'entry_folder': '.', 'entry_index': 'index.md', 'source_ref': 'source.md', 'source_context': 'system'}
+    def call(revision):
+        return subprocess.run([sys.executable, str(script), '--root', str(root), '--context-id', '.',
+            '--approved-revision', revision, '--source-stage', 'prepare'], input=json.dumps(payload),
+            capture_output=True, text=True)
+    first = call(sha)
+    assert first.returncode == 0
+    assert json.loads(first.stdout)['caller_boundary'] == 'trusted_local_operator'
+    protected = root / 'data/derived/wiki/.wiki-viva-protected'
+    before = {p.relative_to(protected): p.read_bytes() for p in protected.rglob('*') if p.is_file()}
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    config['context_access']['.']['policy']['deny'] = {'read': ['source.md']}
+    (root / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
+    current = approve_files(root)
+    denied = call(current)
+    report = json.loads(denied.stdout)
+    assert denied.returncode != 0 and report['ok'] is False
+    assert report['blocker']['owner'] and report['blocker']['interface']
+    assert 'source.md' not in json.dumps(report['blocker'])
+    assert before == {p.relative_to(protected): p.read_bytes() for p in protected.rglob('*') if p.is_file()}
 
 
 def approve_files(root):
@@ -193,17 +214,16 @@ def approve_files(root):
     return current
 
 
-def test_denied_or_external_source_never_reaches_extractor_or_catalog(approved, monkeypatch):
-    import wiki_core.ingest.pipeline as pipeline
+def test_denied_or_external_source_never_reaches_extractor_or_catalog(folder_approved, monkeypatch):
+    import wiki_core.ingest.protected as protected
     from wiki_core.repository_reader import RepositoryReader
-    root, source, _, policy = approved
-    policy['policy']['deny'] = {'read': ['source.md']}
-    (root / 'context.yaml').write_text(yaml.safe_dump(policy))
-    current = approve_files(root)
+    root, source, _, binding = folder_approved
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    config['context_access']['.']['policy']['deny'] = {'read': ['source.md']}
+    (root / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
+    sha = approve_files(root)
     def forbidden(*args, **kwargs):
         pytest.fail('denied source reached extraction or catalog')
-    monkeypatch.setattr(pipeline, 'extract_source', forbidden)
-    monkeypatch.setattr(pipeline, 'build_manifest', forbidden)
     monkeypatch.setattr(RepositoryReader, 'catalogue', forbidden)
     original_stat = Path.stat
     def guarded_stat(path, *args, **kwargs):
@@ -211,76 +231,78 @@ def test_denied_or_external_source_never_reaches_extractor_or_catalog(approved, 
             pytest.fail('denied source was statted')
         return original_stat(path, *args, **kwargs)
     monkeypatch.setattr(Path, 'stat', guarded_stat)
-    for target, code in [(str(source), 'source_read_denied'),
-                         ('https://synthetic.invalid/source', 'source_staging_required'),
-                         (str(root.parent / 'outside.md'), 'source_staging_required')]:
-        result = run(target, 'system', root, load_config(root), approved_revision=current,
-                     policy_context='root', stream_id='same-task')
-        assert result.blocked and result.context_error_code == code
-        assert result.chunk_count == 0 and not result.written and result.score_event_id is None
-        assert not result.stream_cursor_written and result.request_path is None
-        assert not WikiPaths(root, load_config(root)).derived_root.exists()
-        assert target not in json.dumps(result.blockers)
+    for target in ('source.md', 'https://synthetic.invalid/source', '../outside.md'):
+        with pytest.raises(ValueError):
+            protected.prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.',
+                entry_index='index.md', source_ref=target, source_context='system')
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
 
 
-def test_revocation_during_extraction_blocks_before_any_persistence(approved, monkeypatch):
-    import wiki_core.ingest.pipeline as pipeline
-    root, source, sha, policy = approved
-    original = pipeline.extract_source
-    def extract_then_revoke(*args, **kwargs):
-        extracted = original(*args, **kwargs)
-        policy['policy']['deny'] = {'read': ['source.md']}
-        (root / 'context.yaml').write_text(yaml.safe_dump(policy))
+def test_revocation_during_extraction_blocks_before_any_persistence(folder_approved, monkeypatch):
+    import wiki_core.ingest.protected as protected
+    root, _, _, _ = folder_approved
+    original = protected._capture
+    def capture_then_revoke(*args, **kwargs):
+        capture = original(*args, **kwargs)
+        config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+        config['context_access']['.']['policy']['deny'] = {'read': ['source.md']}
+        (root / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
         approve_files(root)
-        return extracted
-    monkeypatch.setattr(pipeline, 'extract_source', extract_then_revoke)
-    result = run(str(source), 'system', root, load_config(root), approved_revision=sha,
-                 policy_context='root', stream_id='same-task')
-    assert result.blocked and not result.written and result.score_event_id is None
-    assert not result.stream_cursor_written and result.request_path is None
-    assert not WikiPaths(root, load_config(root)).derived_root.exists()
+        return capture
+    monkeypatch.setattr(protected, '_capture', capture_then_revoke)
+    with pytest.raises(ValueError):
+        folder_prepare(folder_approved)
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
 
 
-def test_source_hash_change_and_global_routing_are_not_silently_accepted(approved, monkeypatch):
-    import wiki_core.ingest.pipeline as pipeline
-    root, source, sha, _ = approved
-    original = pipeline.extract_source
+def test_source_hash_change_and_global_routing_are_not_silently_accepted(folder_approved, monkeypatch):
+    import wiki_core.ingest.protected as protected
+    from wiki_core.repository_reader import RepositoryReader
+    root, source, _, _ = folder_approved
+    original = protected._capture
     def extract_then_change(*args, **kwargs):
-        extracted = original(*args, **kwargs)
+        capture = original(*args, **kwargs)
         source.write_text(source.read_text() + '\nA concurrent source mutation.\n')
-        return extracted
+        return capture
     def global_routing(*args, **kwargs):
         pytest.fail('approved task used the global input-stage/source catalog')
-    monkeypatch.setattr(pipeline, 'extract_source', extract_then_change)
-    monkeypatch.setattr(pipeline, 'input_context_for_source', global_routing)
-    monkeypatch.setattr(pipeline, 'find_source_config', global_routing)
-    result = run(str(source), 'system', root, load_config(root), approved_revision=sha, policy_context='root')
-    assert result.blocked and result.context_error_code == 'source_changed'
-    assert not result.written and not WikiPaths(root, load_config(root)).derived_root.exists()
+    monkeypatch.setattr(protected, '_capture', extract_then_change)
+    monkeypatch.setattr(RepositoryReader, 'catalogue', global_routing)
+    with pytest.raises(ValueError, match='source changed'):
+        folder_prepare(folder_approved)
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
 
 
-def test_imported_source_requires_exact_bilateral_source_classification(approved):
-    root, _, _, policy = approved
-    area = root / 'shared'; area.mkdir()
-    source = area / 'source.md'; source.write_text('# Imported synthetic source\nIndependent evidence.\n')
-    child = {'schema_version': 'wiki.context/v1', 'id': 'producer', 'parent': 'root', 'root': 'shared',
-        'purpose': 'Synthetic producer', 'owner': 'Producer', 'instructions': [], 'skills': [], 'templates': [],
-        'imports': [], 'exports': [], 'policy': {'read': ['self']}}
-    rule = {'from_context': 'producer', 'to_context': 'root', 'selector': 'shared/source.md',
-        'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
-    policy['imports'] = [dict(rule)]; child['exports'] = [dict(rule)]
-    (root / 'context.yaml').write_text(yaml.safe_dump(policy)); (area / 'context.yaml').write_text(yaml.safe_dump(child))
+def test_imported_source_requires_exact_bilateral_source_classification(prepared_repo, monkeypatch):
+    from wiki_core.coordination_context import CoordinationBinding
+    from wiki_core.ingest.protected import prepare
+    root, _ = prepared_repo
+    _nested_integrator_repo(root)
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    for context, key in [('.', 'imports'), ('alpha', 'exports')]:
+        for rule in config['context_access'][context][key]:
+            if rule['selector'] == 'alpha/source.txt': rule['classification'] = 'context'
+    (root / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
     sha = approve_files(root)
-    denied = run(str(source), 'system', root, load_config(root), approved_revision=sha, policy_context='root')
-    assert denied.blocked and denied.context_error_code == 'source_read_denied'
-    policy['imports'][0]['classification'] = child['exports'][0]['classification'] = 'source'
-    (root / 'context.yaml').write_text(yaml.safe_dump(policy)); (area / 'context.yaml').write_text(yaml.safe_dump(child))
-    sha = approve_files(root)
-    admitted = run(str(source), 'system', root, load_config(root), approved_revision=sha, policy_context='root')
-    assert not admitted.blocked and admitted.request_path
-    request = json.loads((root / admitted.request_path).read_text())
-    assert request['source_authorization']['producer'] == 'producer'
+    binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='alpha', approved_revision=sha, entry_folder='alpha', entry_index='alpha/index.md',
+        source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
+    original_open = Path.open
+    def forbidden_open(path, *args, **kwargs):
+        if path == root / 'alpha/source.txt': pytest.fail('source read without exact classification')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', forbidden_open)
+    with pytest.raises(ValueError): prepare(root, binding, **args)
+    monkeypatch.setattr(Path, 'open', original_open)
+    for context, key in [('.', 'imports'), ('alpha', 'exports')]:
+        for rule in config['context_access'][context][key]:
+            if rule['selector'] == 'alpha/source.txt': rule['classification'] = 'source'
+    (root / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
+    args['approved_revision'] = approve_files(root)
+    request = prepare(root, binding, **args)['request']
+    assert request['source_authorization']['producer'] == 'alpha'
     assert request['source_authorization']['classification'] == 'source'
+    assert request['block_context_package']['additional_readers'] == ['.']
 
 
 def test_approved_routing_delivers_only_applicable_channel_config_and_template_bodies(approved, monkeypatch):
@@ -360,88 +382,89 @@ def test_child_can_explicitly_omit_business_root_without_waiving_lineage_rules(a
 
 
 @pytest.mark.parametrize('change', ['hash', 'revocation'])
-def test_empty_extraction_revalidates_before_replacing_artifacts_or_pruning_index(approved, monkeypatch, change):
-    import wiki_core.ingest.pipeline as pipeline
-    from wiki_core.extractors import ExtractedDocument
-    root, source, sha, policy = approved
-    first = execute(approved, stream_id='same-stream')
-    assert not first.blocked and first.chunks_indexed > 0
-    derived = WikiPaths(root, load_config(root)).derived_root
-    before = {path.relative_to(derived).as_posix(): path.read_bytes() for path in derived.rglob('*') if path.is_file()}
-    def empty_then_change(*args, **kwargs):
-        if change == 'hash':
-            source.write_text('A changed source after an empty extraction.\n')
-        else:
-            policy['policy']['deny'] = {'read': ['source.md']}
-            (root / 'context.yaml').write_text(yaml.safe_dump(policy)); approve_files(root)
-        return ExtractedDocument(str(source), 'markdown', '', [], [])
-    def forbidden(*args, **kwargs):
-        pytest.fail('blocked empty extraction persisted or modified the index')
-    monkeypatch.setattr(pipeline, 'extract_source', empty_then_change)
-    for name in ('write_manifest', 'write_source_artifact', 'index_source', 'record_event'):
-        monkeypatch.setattr(pipeline, name, forbidden)
-    result = run(str(source), 'system', root, load_config(root), approved_revision=sha,
-                 policy_context='root', stream_id='same-stream')
-    assert result.blocked and not result.written and result.chunk_count == 0
-    assert result.request_path is None and result.score_event_id is None and not result.stream_cursor_written
-    assert result.context_error_code == ('source_changed' if change == 'hash' else 'context_preparation_unavailable')
-    assert before == {path.relative_to(derived).as_posix(): path.read_bytes() for path in derived.rglob('*') if path.is_file()}
+def test_empty_extraction_revalidates_before_replacing_artifacts_or_pruning_index(folder_approved, monkeypatch, change):
+    root, source, _, _ = folder_approved
+    folder_prepare(folder_approved)
+    protected = root / 'data/derived/wiki/.wiki-viva-protected'
+    before = {p.relative_to(protected): p.read_bytes() for p in protected.rglob('*') if p.is_file()}
+    source.write_text('')
+    original_open = Path.open
+    class AfterRead:
+        def __init__(self, stream): self.stream = stream
+        def __enter__(self): return self
+        def __exit__(self, *args): return self.stream.__exit__(*args)
+        def read(self, *args):
+            data = self.stream.read(*args)
+            if change == 'hash':
+                source.write_text('A changed source after an empty capture.\n')
+            else:
+                config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+                config['context_access']['.']['policy']['deny'] = {'read': ['source.md']}
+                (root / 'wiki.config.yaml').write_text(yaml.safe_dump(config))
+                approve_files(root)
+            return data
+    def guarded_open(path, *args, **kwargs):
+        stream = original_open(path, *args, **kwargs)
+        if path == source and args and args[0] == 'rb':
+            return AfterRead(stream)
+        return stream
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    with pytest.raises(ValueError):
+        folder_prepare(folder_approved)
+    assert before == {p.relative_to(protected): p.read_bytes() for p in protected.rglob('*') if p.is_file()}
 
 
-def test_nonempty_source_keeps_one_post_extraction_revalidation_fence(approved, monkeypatch):
-    import wiki_core.ingest.pipeline as pipeline
-    original = pipeline.revalidate_ingestion_source
+def test_nonempty_source_keeps_one_post_extraction_revalidation_fence(folder_approved, monkeypatch):
+    import wiki_core.ingest.protected as protected
+    original = protected._hash
     calls = []
     def observe(*args, **kwargs):
         calls.append(True)
         return original(*args, **kwargs)
-    monkeypatch.setattr(pipeline, 'revalidate_ingestion_source', observe)
-    result = execute(approved)
-    assert not result.blocked and len(calls) == 2  # Before extraction and before persistence.
+    monkeypatch.setattr(protected, '_hash', observe)
+    result = folder_prepare(folder_approved)
+    assert result['request_id'] and len(calls) >= 2
+    # Protected retention has more fences than the retired pipeline: never fewer.
 
 
-def test_approved_recording_reads_only_its_exact_request_and_capture(approved, monkeypatch, capsys):
-    root, source, sha, _ = approved
-    first = execute(approved)
-    request = json.loads((root / first.request_path).read_text())
-    row = request['chunks'][0]
+def test_approved_recording_reads_only_its_exact_request_and_capture(folder_approved, monkeypatch):
+    from wiki_core.ingest.protected import record
+    root, _, sha, binding = folder_approved
+    first = folder_prepare(folder_approved)
+    request = first['request']; row = request['chunks'][0]
     template = json.loads((BASE / 'tests/fixtures/e2e/context_pass_result.sample.json').read_text())
-    recorded = {**template, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
+    result = {**template, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
         **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
         'perspectives_required': request['perspectives_required'],
         'perspectives': {key: {'status': 'extracted'} for key in request['perspectives_required']}}
-    payload = root / 'result.json'; payload.write_text(json.dumps(recorded))
-    paths = WikiPaths(root, load_config(root))
-    foreign = paths.extraction_events / 'unrelated-source-llm-context-request.json'
+    events = root / 'data/derived/wiki/.wiki-viva-protected/extraction-events'
+    foreign = events / 'unrelated-source-llm-context-request.json'
     foreign.write_text('Unrelated malformed request; never inspect it for this task.')
-    original_read = Path.read_text
-    original_glob = Path.glob
-    def read(path, *args, **kwargs):
+    original_open, original_glob = Path.open, Path.glob
+    def guarded_open(path, *args, **kwargs):
         if path == foreign:
             pytest.fail('approved record opened another source request')
-        return original_read(path, *args, **kwargs)
-    def glob(path, *args, **kwargs):
-        if path == paths.extraction_events:
+        return original_open(path, *args, **kwargs)
+    def guarded_glob(path, *args, **kwargs):
+        if path == events:
             pytest.fail('approved record enumerated global requests')
         return original_glob(path, *args, **kwargs)
-    monkeypatch.setattr(Path, 'read_text', read)
-    monkeypatch.setattr(Path, 'glob', glob)
-    module = load_script('wiki_llm_context_pass')
-    monkeypatch.setattr(module, 'resolve_source_manifest', lambda *a, **k: pytest.fail('approved record used compatibility capture discovery'))
-    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
-        '--context', 'system', '--approved-revision', sha, '--policy-context', 'root', '--record-result', str(payload)])
-    assert module.main() == 0
-    assert json.loads(capsys.readouterr().out)['count'] == 1
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    monkeypatch.setattr(Path, 'glob', guarded_glob)
+    legacy = load_script('wiki_llm_context_pass')
+    monkeypatch.setattr(legacy, 'resolve_source_manifest', lambda *a, **k: pytest.fail('legacy discovery'))
+    recorded = record(root, binding, context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+        source_ref='source.md', source_id=first['source_id'], request_id=first['request_id'], results=[result])
+    assert recorded['recorded'] == 1
 
 
-def test_approved_missing_exact_capture_blocks_instead_of_legacy_discovery(approved, monkeypatch, capsys):
-    root, source, sha, _ = approved
-    module = load_script('wiki_llm_context_pass')
-    monkeypatch.setattr(module, 'resolve_source_manifest', lambda *a, **k: pytest.fail('approved source attempted legacy discovery'))
-    monkeypatch.setattr(sys, 'argv', ['wiki_llm_context_pass.py', '--root', str(root), '--source', str(source),
-        '--context', 'system', '--approved-revision', sha, '--policy-context', 'root', '--check'])
-    assert module.main() == 2
-    report = json.loads(capsys.readouterr().out)
-    assert report['blocked'] and report['error_code'] == 'source_capture_required'
-    assert report['blockers'][0]['interface'] and report['blockers'][0]['owner']
-    assert not WikiPaths(root, load_config(root)).derived_root.exists()
+def test_approved_missing_exact_capture_blocks_instead_of_legacy_discovery(folder_approved, monkeypatch):
+    from wiki_core.ingest.protected import record
+    root, _, sha, binding = folder_approved
+    legacy = load_script('wiki_llm_context_pass')
+    monkeypatch.setattr(legacy, 'resolve_source_manifest', lambda *a, **k: pytest.fail('legacy discovery'))
+    with pytest.raises((ValueError, OSError)):
+        record(root, binding, context_id='.', approved_revision=sha, entry_folder='.',
+            entry_index='index.md', source_ref='source.md', source_id='missing',
+            request_id='0' * 64, results=[{}])
+    assert not (root / 'data/derived/wiki/.wiki-viva-protected').exists()
