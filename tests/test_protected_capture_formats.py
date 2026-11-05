@@ -283,10 +283,13 @@ def test_tabular_chunker_rejects_oversize_row_instead_of_splitting(text):
         chunk_text('source', line, target_tokens=1, preserve_lines=True)
 
 
-def test_oversize_tabular_source_is_rejected_before_artifact_creation(prepared_repo):
+def test_oversize_tabular_source_is_rejected_before_artifact_creation(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+
     root, sha = prepared_repo
     source = root / 'large.csv'
     source.write_text('x' * 32_001, encoding='utf-8')
+    monkeypatch.setattr(protected, 'scan_text', lambda *_args: pytest.fail('oversize row scanned'))
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     with pytest.raises(ValueError, match='tabular row exceeds estimated limit'):
         prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.',
