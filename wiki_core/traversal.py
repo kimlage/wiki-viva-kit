@@ -36,11 +36,13 @@ def is_in_nested_git(path: Path, *, wiki_root: Path) -> bool:
     return bool(relative.parts and (root / relative).is_symlink())
 
 
-def require_wiki_boundaries(wiki_root: Path, *, directories=(), files=()) -> None:
+def require_wiki_boundaries(wiki_root: Path, *, directories=(), files=(), allow_protected: bool = False) -> None:
     """Reject selected paths across a nested repository or symlink before use."""
     root = Path(wiki_root)
     absolute_root, resolved_root = root.absolute(), root.resolve()
     def selected(path):
+        if is_protected_artifact(path) and not allow_protected:
+            raise ValueError('protected_artifact_requires_bound_dispatch')
         try:
             relative = Path(path).absolute().relative_to(absolute_root)
         except ValueError:

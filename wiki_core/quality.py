@@ -125,6 +125,9 @@ def _read_json(path: Path) -> dict[str, Any] | None:
 
 def _chunk_payloads(paths: WikiPaths) -> list[dict[str, Any]]:
     payloads: list[dict[str, Any]] = []
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(paths.chunks):
+        raise ValueError('protected artifacts require bound dispatch')
     if not paths.chunks.exists():
         return payloads
     for path in sorted(paths.chunks.rglob("*.json")):

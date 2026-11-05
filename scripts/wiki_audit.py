@@ -64,6 +64,9 @@ class AuditPathBoundaryError(ValueError):
 def _guard_audit_path(path: Path) -> Path:
     path = Path(path)
     try:
+        from wiki_core.traversal import is_protected_artifact
+        if is_protected_artifact(path):
+            raise AuditPathBoundaryError('protected artifact requires bound dispatch')
         if is_in_nested_git(path, wiki_root=ROOT):
             raise AuditPathBoundaryError('audit selection crosses a repository or symlink boundary')
     except ValueError as exc:

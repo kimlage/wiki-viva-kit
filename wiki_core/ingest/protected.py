@@ -80,7 +80,7 @@ def _allowed(root, policy, context_id, path, action):
             allowed = policy.connection(owner, context_id, ref, 'interpretation', 'artifact') == 'approved'
         if not allowed:
             raise ValueError('artifact unavailable')
-        require_wiki_boundaries(root, files=(path,))
+        require_wiki_boundaries(root, files=(path,), allow_protected=True)
     except (ValueError, OSError, KeyError):
         raise ValueError('artifact unavailable') from None
     return path

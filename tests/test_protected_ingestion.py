@@ -206,6 +206,9 @@ def test_compatibility_readers_do_not_open_protected_artifacts(prepared_repo, mo
     request = next((base / 'extraction-events').glob('*-llm-context-request.json'))
     test_text = base / 'not-for-search.txt'
     test_text.write_text('synthetic hidden marker')
+    cache = base / 'llm-cache'
+    cache.mkdir()
+    (cache / ('a' * 64 + '.json')).write_text('{}')
     original = Path.open
     def sentinel(path, *args, **kwargs):
         if is_protected_artifact(path):
@@ -229,6 +232,20 @@ def test_compatibility_readers_do_not_open_protected_artifacts(prepared_repo, mo
     with pytest.raises(normal_proposal.ProposalError):
         normal_proposal.load_material(root, paths.config, {
             'material_path': request.relative_to(root).as_posix(), 'material_sha256': '0' * 64})
+    from dataclasses import replace
+    bad_config = replace(paths.config, paths={**paths.config.paths,
+        'derived_root': 'data/derived/wiki/.wiki-viva-protected'})
+    bad_paths = WikiPaths(root, bad_config)
+    with pytest.raises(ValueError):
+        wiki_gc.find_orphans(bad_paths, set(), wiki_root=root)
+    with pytest.raises(ValueError):
+        _chunk_payloads(bad_paths)
+    with pytest.raises(wiki_audit.AuditPathBoundaryError):
+        wiki_audit.audit_llm_cache_metadata([], bad_config)
+    from wiki_core.index.sqlite import index_source, search_detailed
+    with pytest.raises(ValueError):
+        index_source(root / 'index.sqlite', next((base / 'chunks').glob('*.json')))
+    assert search_detailed(base / 'index.sqlite', 'synthetic')['status'] == 'index_error'
 
 
 def test_protected_component_is_casefolded():
