@@ -345,3 +345,66 @@ def test_gc_reports_unconfirmed_prune_after_removals(tmp_path, monkeypatch, caps
     report = capsys.readouterr()
     assert 'after 1 removals' in report.err and 'index state not confirmed' in report.err
     assert not orphan.exists()
+
+
+def test_gc_preserves_index_for_valid_retained_local_request(tmp_path, monkeypatch, capsys):
+    from wiki_core.input_stage import LOCAL_FOLDER_INPUT_STATUS
+    from wiki_core.llm.context_pass import local_request_identity, retain_local_request
+    gc = _load_gc(); cfg = WikiConfig(); paths = WikiPaths(tmp_path, cfg)
+    _proposal(paths.ingest_dir / 'active.md', 'approved', 'src-live')
+    for source_id, text in [('src-live', 'syntheticlive'), ('src-retained', 'syntheticretained'),
+                            ('src-retained-two', 'syntheticsecond'), ('src-orphan', 'syntheticorphan')]:
+        _write_chunks(paths.chunks, source_id, [text])
+    db = paths.indexes / 'wiki.sqlite'
+    build_index(paths.chunks, db)
+    retained = []
+    for source_id, tag in [('src-retained', 'one'), ('src-retained', 'two'), ('src-retained-two', 'three')]:
+        request = {'input_stage_status': LOCAL_FOLDER_INPUT_STATUS, 'source_id': source_id, 'tag': tag,
+                   'chunks': [{'chunk_id': 'chunk-a', 'source_id': source_id,
+                               'chunk_hash_sha256': 'a' * 64, 'context_sha256': 'b' * 64,
+                               'cache_key': 'c' * 64}]}
+        request['folder_request_id'] = local_request_identity(request)
+        retained.append(retain_local_request(paths, request))
+    monkeypatch.setattr(gc, 'ROOT', tmp_path)
+    monkeypatch.setattr(gc, 'load_config', lambda _: cfg)
+    assert gc.main(['--apply']) == 0
+    capsys.readouterr()
+    assert all(path.exists() for path in retained) and (paths.chunks / 'src-retained.json').exists()
+    assert {row['source_id'] for row in search(db, 'syntheticretained')} == {'src-retained'}
+    assert {row['source_id'] for row in search(db, 'syntheticlive')} == {'src-live'}
+    assert {row['source_id'] for row in search(db, 'syntheticsecond')} == {'src-retained-two'}
+    assert not search(db, 'syntheticorphan')
+    assert not (paths.chunks / 'src-orphan.json').exists()
+
+
+def test_gc_refuses_unreadable_retained_request_before_any_deletion(tmp_path, monkeypatch, capsys):
+    gc = _load_gc(); cfg = WikiConfig(); paths = WikiPaths(tmp_path, cfg)
+    _proposal(paths.ingest_dir / 'active.md', 'approved', 'src-live')
+    _write_chunks(paths.chunks, 'src-live', ['syntheticlive'])
+    orphan = _write_chunks(paths.chunks, 'src-orphan', ['syntheticorphan'])
+    db = paths.indexes / 'wiki.sqlite'
+    build_index(paths.chunks, db)
+    before = db.read_bytes()
+    paths.extraction_events.mkdir(parents=True)
+    invalid = paths.extraction_events / ('folder-' + 'a' * 64 + '-' + 'b' * 64 + '-llm-context-request.json')
+    invalid.write_text('{invalid json')
+    monkeypatch.setattr(gc, 'ROOT', tmp_path)
+    monkeypatch.setattr(gc, 'load_config', lambda _: cfg)
+    monkeypatch.setattr(gc, 'prune_index', lambda *_: pytest.fail('index pruned despite invalid retained request'))
+    assert gc.main(['--apply']) == 2
+    output = capsys.readouterr()
+    assert 'retained request unavailable' in output.err
+    assert invalid.exists() and orphan.exists() and db.read_bytes() == before
+
+
+def test_gc_keeps_legacy_folder_prefix_behavior(tmp_path, monkeypatch, capsys):
+    gc = _load_gc(); cfg = WikiConfig(); paths = WikiPaths(tmp_path, cfg)
+    _proposal(paths.ingest_dir / 'active.md', 'approved', 'src-live')
+    paths.extraction_events.mkdir(parents=True)
+    legacy = paths.extraction_events / 'folder-legacy-llm-context-request.json'
+    legacy.write_text('{}')
+    monkeypatch.setattr(gc, 'ROOT', tmp_path)
+    monkeypatch.setattr(gc, 'load_config', lambda _: cfg)
+    assert gc.main(['--apply']) == 0
+    capsys.readouterr()
+    assert not legacy.exists()

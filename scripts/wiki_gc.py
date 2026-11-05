@@ -14,6 +14,8 @@ Safe by default:
     it cannot tell a live one from an orphan; it only reports.
   - An interrupted apply reports prior removals; inspect them before retrying.
     Boundary checks require cooperative custody during the operation.
+  - Valid retained local requests keep their source in the index; an unreadable
+    retained request stops apply before any deletion or index pruning.
 
 Examples:
   python3 scripts/wiki_gc.py            # list orphans
@@ -127,6 +129,24 @@ def find_orphans(paths: WikiPaths, live: set[str], *, wiki_root: Path | None = N
     return orphans
 
 
+def retained_request_source_ids(paths: WikiPaths, *, wiki_root: Path) -> set[str]:
+    """Resolve retained local requests before allowing destructive GC."""
+    from wiki_core.llm.context_pass import load_local_request
+    require_wiki_boundaries(wiki_root, directories=(paths.extraction_events,))
+    if not paths.extraction_events.is_dir():
+        return set()
+    retained = set()
+    for path in sorted(paths.extraction_events.glob('folder-*-llm-context-request.json')):
+        # A legacy source_id may itself start with "folder-". Only the
+        # reserved two-digest filename identifies the new request format.
+        if not re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', path.name):
+            continue
+        require_wiki_boundaries(wiki_root, files=(path,))
+        request = load_local_request(paths, path)
+        retained.add(request['source_id'])
+    return retained
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -169,6 +189,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
+        retained = retained_request_source_ids(paths, wiki_root=ROOT)
+    except (ValueError, OSError, RecursionError):
+        print('wiki_gc: retained request unavailable; no files removed', file=sys.stderr)
+        return 2
+    try:
         require_wiki_boundaries(ROOT, directories=(paths.source_manifests, paths.source_text,
             paths.chunks, paths.extraction_events, paths.indexes),
             files=(db_path, *(path for files in orphans.values() for path in files),
@@ -198,7 +223,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f'wiki_gc: derived_path_crosses_repository_boundary after {removed} removals; index not pruned', file=sys.stderr)
         return 2
     try:
-        pruned = prune_index(db_path, live)
+        # A valid retained request is unfinished work even without a proposal.
+        # Preserve its indexed source as well as its capture artifacts.
+        pruned = prune_index(db_path, live | retained)
     except (OSError, sqlite3.Error):
         print(f'wiki_gc: index prune failed after {removed} removals; index state not confirmed; inspect partial changes', file=sys.stderr)
         return 2
