@@ -345,6 +345,16 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                                                 initial_reached,
                                                 legacy_authority_unavailable=True)
             affected = filter_equivalent_config(affected, initial_reached)
+            # An unbound historical receipt cannot certify a changed consumer
+            # or its current dependents. The legacy scoped path can only queue
+            # requalification, so retain a blocking obligation for these uses.
+            legacy_history_blockers = set()
+            def remember_unqualified_history(rows):
+                legacy_history_blockers.update(row['path'] for row in rows
+                    if row['requirement'].get('temporal') == 'historical'
+                    and row['requirement'].get('authority_format') != 'folder'
+                    and (row.get('current_consumers_present') or row['path'] in impact_changed))
+            remember_unqualified_history(affected)
             authorized_affected = set()
             def record_authorized_affected(rows):
                 for row in rows:
@@ -413,6 +423,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                     affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources),
                                                         legacy_authority_unavailable=True)
                     affected = filter_equivalent_config(affected, set(query_sources))
+                    remember_unqualified_history(affected)
                     record_authorized_affected(affected)
                     more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
                         affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache, policy=closure_policy)
@@ -440,7 +451,12 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 return ('immediate' if path in urgent_derived or
                         current['nodes'].get(path, {}).get('action_state') in {'open', 'in_progress'} else 'on_demand')
             closure_policy.fresh()
-            result['integrity_blockers'] = [r for r in result['integrity_blockers'] if r['reason'] != 'dynamic_query_requires_authorized_revalidation']
+            result['integrity_blockers'] = [r for r in result['integrity_blockers']
+                if r['reason'] != 'dynamic_query_requires_authorized_revalidation' or r['path'] in legacy_history_blockers]
+            existing_blocked = {row['path'] for row in result['integrity_blockers']
+                                if row['reason'] == 'dynamic_query_requires_authorized_revalidation'}
+            result['integrity_blockers'].extend({'path': path, 'reason': 'dynamic_query_requires_authorized_revalidation'}
+                                                for path in sorted(legacy_history_blockers - existing_blocked))
             result['integrity_blockers'].extend(r for r in all_outcomes.values() if r['state'] == 'unknown')
             result['integrity_blockers'].extend({'path': p, 'reason': 'dynamic_impact_authority_boundary'} for p in sorted(denied))
             result['pending_reviews'].extend(r for r in all_outcomes.values() if r['state'] == 'review_pending')

@@ -53,6 +53,19 @@ def test_unchanged_historical_query_is_preserved_without_granting_current_use(mo
     folder = deepcopy(original)
     folder['edges'][0]['requirement'].update(authority_format='folder', entry_folder='archive', entry_index='archive/index.md')
     assert affected_dynamic_queries(folder, folder, {'archive/AGENTS.md'}, set())
+    dependent = deepcopy(original)
+    reader = {'target': 'consumer.md', 'fields': ['*'], 'temporal': 'current', 'max_age_days': 30}
+    dependent['edges'] += operational_consumption_edges(Path('.'), 'reader.md', {'information_requirements': [reader]},
+                                                       '', lambda ref: [ref])
+    assert affected_dynamic_queries(dependent, dependent, {'AGENTS.md'}, set())
+    assert affected_dynamic_queries(dependent, dependent, {'wiki.config.yaml'}, set())
+    assert affected_dynamic_queries(dependent, dependent, {'reader.md'}, set())
+    query_dependent = deepcopy(original)
+    next_query = {**requirement, 'target': 'index.md', 'temporal': 'current',
+                  'query': {**requirement['query'], 'scope': '.'}}
+    query_dependent['edges'] += operational_consumption_edges(Path('.'), 'reader.md',
+        {'information_requirements': [next_query]}, '', lambda ref: [ref])
+    assert affected_dynamic_queries(query_dependent, query_dependent, {'AGENTS.md'}, set())
     outcome = assess_information_use(current, 'consumer.md', now=dt.datetime(2026, 11, 5, tzinfo=dt.timezone.utc))
     assert not outcome['ready']
     assert 'information_query_requires_authorized_revalidation' in outcome['requirements'][0]['blockers']

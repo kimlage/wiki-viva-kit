@@ -114,21 +114,24 @@ def _git_paths(args: list[str], *, root: Path | None = None) -> set[str]:
 def collect_git_changes(base_sha: str, *, root: Path | None = None) -> GitChanges:
     """Collect committed, staged, unstaged, untracked and deleted paths."""
 
-    committed_args = ["diff", "--name-only", "-z", f"{base_sha}..HEAD", "--"]
-    unstaged_args = ["diff", "--name-only", "-z", "--"]
-    staged_args = ["diff", "--cached", "--name-only", "-z", "--"]
+    # A rename changes both the source and destination scopes. Reporting only
+    # Git's destination can hide a removed member of a dynamic query.
+    committed_args = ["diff", "--no-renames", "--name-only", "-z", f"{base_sha}..HEAD", "--"]
+    unstaged_args = ["diff", "--no-renames", "--name-only", "-z", "--"]
+    staged_args = ["diff", "--no-renames", "--cached", "--name-only", "-z", "--"]
     untracked_args = ["ls-files", "--others", "--exclude-standard", "-z", "--"]
     deleted_commands = (
         [
             "diff",
+            "--no-renames",
             "--name-only",
             "--diff-filter=D",
             "-z",
             f"{base_sha}..HEAD",
             "--",
         ],
-        ["diff", "--name-only", "--diff-filter=D", "-z", "--"],
-        ["diff", "--cached", "--name-only", "--diff-filter=D", "-z", "--"],
+        ["diff", "--no-renames", "--name-only", "--diff-filter=D", "-z", "--"],
+        ["diff", "--no-renames", "--cached", "--name-only", "--diff-filter=D", "-z", "--"],
     )
     kwargs = {"root": root} if root else {}
     untracked = _git_paths(untracked_args, **kwargs)

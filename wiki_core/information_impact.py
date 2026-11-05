@@ -37,6 +37,19 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 for edge in edges
                 if 'query' in edge.get('requirement', {})}
     unchanged = query_keys(graphs[0][1]) & query_keys(graphs[1][1])
+    current_by_source = defaultdict(set)
+    current_queries = []
+    for _origin, edges in graphs:
+        for edge in edges:
+            if edge.get('temporal_use') in ('historical', 'as_observed'):
+                continue
+            current_by_source[edge['prerequisite']].add(edge['dependent'])
+            if 'query' in edge.get('requirement', {}):
+                current_queries.append((edge['dependent'], edge['requirement']['query']['scope']))
+    def possible_current_consumers(path):
+        # No inference of independence from a projection's selected fields:
+        # its output may still incorporate this historical interpretation.
+        return current_by_source[path] | {dependent for dependent, scope in current_queries if within(path, scope)}
     legacy_policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     for origin, edges in graphs:
         for edge in edges:
@@ -45,8 +58,6 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 continue
             consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
             key = (consumer, json.dumps(req, sort_keys=True, ensure_ascii=False))
-            direct_change = (consumer in reached or consumer in changed or anchor in changed or anchor in reached
-                             or any(within(p, scope) for p in changed | reached))
             pinned_history = (req.get('authority_format') != 'folder'
                               and req.get('temporal') == 'historical'
                               and all(isinstance(req.get(field), str) and re.fullmatch(pattern, req[field])
@@ -56,6 +67,10 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                                           ('authority_digest', r'[0-9a-f]{64}'),
                                           ('members_digest', r'[0-9a-f]{64}'),
                                           ('selected_digest', r'[0-9a-f]{64}'))))
+            current_consumers = possible_current_consumers(consumer) if pinned_history else set()
+            direct_change = (consumer in reached or consumer in changed or anchor in changed or anchor in reached
+                             or bool(current_consumers & (changed | reached))
+                             or any(within(p, scope) for p in changed | reached))
             if req.get('authority_format') == 'folder':
                 entry_folder = req['entry_folder']
                 def affects_folder_policy(path):
@@ -68,8 +83,9 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
             else:
                 # A folder audit cannot inspect an unbound legacy manifest to
                 # exclude a changed path from its old normative inputs.
-                policy_changed = legacy_policy_changed or (legacy_authority_unavailable and bool(changed))
-            if pinned_history and key in unchanged and not direct_change:
+                policy_changed = (legacy_policy_changed or (pinned_history and 'wiki.config.yaml' in changed)
+                                  or (legacy_authority_unavailable and bool(changed)))
+            if pinned_history and key in unchanged and not direct_change and not current_consumers:
                 # This preserves an unchanged historical receipt only.
                 # Using it still requires current authorized revalidation.
                 if include_preserved and policy_changed:
@@ -78,7 +94,8 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 continue
             if not (policy_changed or direct_change):
                 continue
-            found[key] = {'path': consumer, 'requirement': req, 'origin': origin}
+            found[key] = {'path': consumer, 'requirement': req, 'origin': origin,
+                          **({'current_consumers_present': True} if current_consumers else {})}
     return [found[key] for key in sorted(found)]
 
 
