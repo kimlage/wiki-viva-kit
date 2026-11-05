@@ -81,10 +81,13 @@ def resolve_template(
     contract_ref = _override_for(config, page_type).get("section_contract", shape.get("section_contract"))
     section_contract = None
     if contract_ref:
-        from wiki_core.template_sections import load_section_contract, _path
+        from wiki_core.template_sections import load_section_contract
         if isinstance(shape.get("experience_pack"), dict):
             raise ValueError("section contracts are not supported for immutable installed pack templates")
         section_contract = load_section_contract(root, contract_ref)
+    bounded_files = section_contract is not None or page_type == "context_instructions"
+    if bounded_files:
+        from wiki_core.template_sections import _path
         base_file = _path(root, template_path)
     else:
         base_file = root / template_path
@@ -121,20 +124,20 @@ def resolve_template(
         overlay_path = _overlay_path(config, page_type)
         template_id = f"{page_type}-default"
         template_version = TEMPLATE_VERSION
-        if section_contract is not None:
+        if bounded_files:
             from wiki_core.template_sections import read_template_file
             text = _template_body(read_template_file(root, template_path))
         else:
             text = _template_body(base_file.read_text(encoding="utf-8"))
     if overlay_path:
-        if section_contract is not None:
+        if bounded_files:
             from wiki_core.template_sections import _path
             overlay_file = _path(root, overlay_path)
         else:
             overlay_file = root / overlay_path
         if not overlay_file.exists():
             raise FileNotFoundError(overlay_path)
-        if section_contract is not None:
+        if bounded_files:
             from wiki_core.template_sections import read_template_file
             overlay_text = read_template_file(root, overlay_path)
         else:

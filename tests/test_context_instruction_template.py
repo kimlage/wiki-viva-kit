@@ -111,3 +111,35 @@ def test_project_extends_the_same_instruction_contract_without_a_context_tree(wi
     assert validate_section_page(text, resolved.section_contract) == []
     assert select_section(text, 'project-notes') is not None
     assert 'moc_parent:' not in text
+
+
+@pytest.mark.parametrize('kind', ['template', 'overlay'])
+@pytest.mark.parametrize('path_kind', ['nested_git', 'symlink'])
+def test_instruction_override_rejects_untrusted_paths_before_open(wiki, monkeypatch, kind, path_kind):
+    repo = wiki / 'projects/repo'
+    (repo / '.git').mkdir(parents=True)
+    target = repo / 'input.md'
+    target.write_text('This file must not be opened.')
+    if path_kind == 'symlink':
+        selected = wiki / 'alias.md'
+        selected.symlink_to(target)
+    else:
+        selected = target
+    config = load_config(wiki)
+    config.templates['page_type_overrides'] = {'context_instructions': {
+        'section_contract': None, kind: selected.relative_to(wiki).as_posix()}}
+    registry = load_page_type_registry(wiki)
+    original_open = Path.open
+    original_read_text = Path.read_text
+    def guarded_open(path, *args, **kwargs):
+        if path in (selected, target):
+            raise AssertionError('untrusted file opened')
+        return original_open(path, *args, **kwargs)
+    def guarded_read_text(path, *args, **kwargs):
+        if path in (selected, target):
+            raise AssertionError('untrusted file opened')
+        return original_read_text(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded_open)
+    monkeypatch.setattr(Path, 'read_text', guarded_read_text)
+    with pytest.raises(TemplateSectionError):
+        resolve_template(wiki, config, registry, 'context_instructions')

@@ -119,6 +119,9 @@ page templates in this change.
 
 The kit's `context_instructions` page type uses the same resolver, overlay,
 section composition and versioned validator to draft native folder instructions.
+If a project explicitly opts out of the section contract, section validation is
+unavailable; its selected template and overlay remain subject to the same
+repository and symlink boundaries.
 Choose the folder explicitly; the generator accepts the two native instruction
 filenames, refuses existing files, symlinks and nested Git repositories, and does
 not create or modify an index. For example:
@@ -132,6 +135,9 @@ python3 scripts/wiki_template_sections.py --root . --page-type context_instructi
 
 Fill and review the draft before relying on it. Structure and lexical presence
 do not prove meaningful content, authorization, native loading or task coverage.
+When native discovery selects an `AGENTS.override.md` in a folder, it replaces
+that folder's `AGENTS.md`; it does not combine the two. Keep any necessary local
+instructions in the file that will actually be selected.
 Folder location defines instruction ancestry; editorial metadata and a hub's
 `moc_parent` do not define it. The kit's own development instructions are not
 automatically consumer policy. No pages are generated during synchronization.
