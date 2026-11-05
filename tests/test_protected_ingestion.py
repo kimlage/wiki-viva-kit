@@ -727,7 +727,7 @@ def test_record_detects_prior_result_changed_during_later_write(prepared_repo, m
     assert len(writes) == 2 and all(path.exists() for path in writes)
 
 
-def test_record_reports_cumulative_selected_budget(prepared_repo):
+def test_record_reports_batch_and_prepare_checks_cumulative_budget(prepared_repo):
     from wiki_core.ingest.protected import _json_text
     root, sha = prepared_repo
     (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(500)))
@@ -743,37 +743,35 @@ def test_record_reports_cumulative_selected_budget(prepared_repo):
     first = record(root, binding, **args, **ids, results=results[:1])['result_budget']
     second = record(root, binding, **args, **ids, results=results[1:])['result_budget']
     sizes = [len(_json_text(item).encode('utf-8')) for item in results]
-    assert first['cached_result_bytes'] == sizes[0] and first['cached_results'] == 1
-    assert second['cached_result_bytes'] == sum(sizes) and second['cached_results'] == 2
-    assert second['missing_results'] == len(rows) - 2 and second['status'] == 'within_limit'
+    assert first['batch_result_bytes'] == sizes[0] and first['status'] == 'aggregate_not_checked'
+    assert second['batch_result_bytes'] == sizes[1] and second['status'] == 'aggregate_not_checked'
+    snapshot = prepare(root, binding, **args, source_context='system')['result_budget']
+    assert snapshot['cached_result_bytes'] == sum(sizes) and snapshot['status'] == 'within_limit'
 
 
-def test_record_budget_readback_detects_earlier_result_mutation(prepared_repo, monkeypatch):
-    from wiki_core.ingest import protected
+def test_record_does_not_read_earlier_batch_for_budget(prepared_repo, monkeypatch):
     root, sha = prepared_repo
-    (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(500)))
+    (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(1200)))
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
     args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
     prepared = prepare(root, binding, **args, source_context='system')
-    request = prepared['request']; rows = request['chunks'][:2]
-    assert len(rows) == 2
+    request = prepared['request']; rows = request['chunks'][:4]
+    assert len(rows) == 4
     sample = _result_for(request)
     results = [{**sample, **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')}} for row in rows]
     ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
     record(root, binding, **args, **ids, results=results[:1])
-    original = protected._read_json; counts = []
-    def mutate(*a, **kw):
-        value = original(*a, **kw)
-        if a[3].name == rows[1]['cache_key'] + '.json':
-            counts.append(True)
-            if len(counts) == 2:
-                earlier = a[3].parent / (rows[0]['cache_key'] + '.json')
-                earlier.write_text(json.dumps({**results[0], 'synthetic_note': 'changed'}))
-        return value
-    monkeypatch.setattr(protected, '_read_json', mutate)
-    with pytest.raises(protected.ProtectedPartialError):
-        record(root, binding, **args, **ids, results=results[1:])
-    assert len(counts) >= 2
+    original = Path.open
+    prior_names = {rows[0]['cache_key'] + '.json'}
+    def no_earlier_read(path, *a, **kw):
+        if path.name in prior_names:
+            pytest.fail('record opened an earlier result to calculate its batch budget')
+        return original(path, *a, **kw)
+    monkeypatch.setattr(Path, 'open', no_earlier_read)
+    for row, result in zip(rows[1:], results[1:]):
+        output = record(root, binding, **args, **ids, results=[result])
+        assert output['recorded'] == 1 and output['result_budget']['status'] == 'aggregate_not_checked'
+        prior_names.add(row['cache_key'] + '.json')
 
 
 def test_record_batch_preserves_existing_result(prepared_repo):
@@ -1494,9 +1492,10 @@ def test_consolidation_rejects_combined_result_budget_before_effects(prepared_re
         result = {**sample, **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
                   'synthetic_padding': ['.'] * 130_000}
         budgets.append(record(root, binding, **args, **ids, results=[result])['result_budget'])
-    assert budgets[0]['status'] == 'within_limit' and budgets[0]['cached_results'] == 1
-    assert budgets[1]['status'] == 'exceeded' and budgets[1]['cached_results'] == 2
-    assert budgets[1]['cached_result_bytes'] > 2_000_000
+    assert all(budget['status'] == 'aggregate_not_checked' for budget in budgets)
+    assert sum(budget['batch_result_bytes'] for budget in budgets) > 2_000_000
+    snapshot = prepare(root, binding, **args, source_context='system')['result_budget']
+    assert snapshot['status'] == 'exceeded' and snapshot['cached_result_bytes'] > 2_000_000
     target = ('memories/system/ingestion/events/2026-11-04-' +
               hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
     with pytest.raises(ProtectedCoordinationError) as error:
