@@ -121,7 +121,8 @@ def test_retirement_marks_excluded_query_candidate_for_review(repo, monkeypatch,
     monkeypatch.setattr(RepositoryReader, '_document', owner_only)
     report = repository_report(root, load_config(root), base, query_context=scoped.CONTEXT,
                                query_policy_revision=base, query_head=head)
-    assert any(row['path']=='finance/costs/derived/query.md' and row['reason'] in {'dynamic_query_upstream_pending', 'dynamic_query_changed'}
+    expected = 'dynamic_query_upstream_pending' if old_flag == 'no' else 'dynamic_query_changed'
+    assert any(row['path']=='finance/costs/derived/query.md' and row['reason']==expected
                and not row['verification_performed'] for row in report['pending_reviews'])
     assert any(row['path']=='finance/costs/consumer.md' and row['reason']=='dynamic_query_upstream_pending'
                for row in report['pending_reviews'])

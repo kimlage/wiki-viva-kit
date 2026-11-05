@@ -198,24 +198,6 @@ def test_nonempty_empty_digest_provenance_and_exact_budget(collection):
     with pytest.raises(PolicyError,match='complete packet exceeds'):
         build_packet(collection,policy(collection),'costs',before,[],tight['bytes_used']-1,queries=[query()],**TASK)
 
-@pytest.mark.parametrize('change',['addition','removal','entry','exit','selected','identity','irrelevant_metadata'])
-def test_semantic_members_and_values_across_commits(collection,change):
-    prior=packet(collection)['query_selections'][0]
-    if change=='addition': page(collection,'new.md')
-    elif change=='removal': (collection/SCOPE/'first.md').unlink()
-    elif change=='entry': page(collection,'inactive.md',status='active')
-    elif change=='exit': page(collection,'first.md',status='inactive')
-    elif change=='selected': page(collection,'first.md',amount=11)
-    elif change=='identity': page(collection,'first.md',page_id='renamed-stable-identity')
-    else: (collection/SCOPE/'first.md').write_text((collection/SCOPE/'first.md').read_text().replace('Body not selected.','Irrelevant body and title.'))
-    commit(collection); now=packet(collection)['query_selections'][0]
-    if change=='irrelevant_metadata': assert same_selection(prior,now)
-    else:
-        assert not same_selection(prior,now)
-        assert (prior['members_digest']==now['members_digest']) == (change=='selected')
-    if change == 'addition':
-        assert prior['query_id']!=packet(collection,[query(filters={'status':'inactive'})])['query_selections'][0]['query_id']
-
 @pytest.mark.parametrize('limit, value', [('max_enumerated',1),('max_matches',1),('max_scan_bytes',1)])
 def test_no_silent_limits(collection,limit,value):
     page(collection,'second.md');commit(collection)
@@ -320,7 +302,7 @@ def test_canonical_cycle_preflight_merge_derive_inventory_revalidation_and_impac
 
 @pytest.mark.parametrize('change',['addition','removal','entry','exit','selected','identity','outside','irrelevant_body'])
 def test_canonical_query_impact_does_not_depend_on_hub_edits(collection,change):
-    p=packet(collection);declare(collection,requirement(p));before=commit(collection)
+    p=packet(collection);prior=p['query_selections'][0];declare(collection,requirement(p));before=commit(collection)
     anchor_bytes=(collection/ANCHOR).read_bytes()
     if change=='addition': page(collection,'second.md')
     elif change=='removal': (collection/SCOPE/'first.md').unlink()
@@ -331,6 +313,13 @@ def test_canonical_query_impact_does_not_depend_on_hub_edits(collection,change):
     elif change=='outside': (collection/'finance/tax/outside.md').write_bytes(b'\xff')
     else: (collection/SCOPE/'first.md').write_text((collection/SCOPE/'first.md').read_text().replace('Body not selected.','Unselected content changed.'))
     after=commit(collection)
+    now=packet(collection)['query_selections'][0]
+    if change in ('outside','irrelevant_body'): assert same_selection(prior,now)
+    else:
+        assert not same_selection(prior,now)
+        assert (prior['members_digest']==now['members_digest']) == (change=='selected')
+    if change == 'addition':
+        assert prior['query_id']!=packet(collection,[query(filters={'status':'inactive'})])['query_selections'][0]['query_id']
     out=assess_approved_impact(collection,policy(collection),consumers=['finance/costs/result.md'],before=before,after=after,destination_context='costs')
     assert (collection/ANCHOR).read_bytes()==anchor_bytes
     if change in ('outside','irrelevant_body'): assert out['candidates']==[]
@@ -431,9 +420,17 @@ def test_protected_limits_secrets_and_denied_scope_are_opaque(collection,bound_s
 @pytest.mark.parametrize('anchor_type',['ontology_index','context_hub','source_catalog','root_entity'])
 def test_registered_anchor_roles_and_physical_owner_override_historical_context_tag(collection,anchor_type):
     path=collection/ANCHOR
-    path.write_text('---\n'+yaml.safe_dump({'page_id':'stable-cost-hub','page_type':anchor_type,'context':'historical-label'})+'---\nCollection contract.\n')
+    path.write_text('---\n'+yaml.safe_dump({'page_id':'stable-cost-hub','page_type':anchor_type,'context':'historical-label',
+                                           'status':'active','amount':999})+'---\nHub body.\n')
     commit(collection)
     assert packet(collection)['query_selections'][0]['members'][0]['ref']==SCOPE+'/first.md'
+    if anchor_type in {'context_hub','source_catalog'}:
+        q=query(scope='finance/costs');p=packet(collection,[q]);row=p['query_selections'][0]
+        assert row['excluded_anchor']==ANCHOR and ANCHOR not in {m['ref'] for m in row['members']}
+        assert sum(x['ref']==ANCHOR for x in p['inputs'])==1 and 'Hub body.' in next(x['text'] for x in p['inputs'] if x['ref']==ANCHOR)
+        assert row['enumerated']==4
+        from wiki_core.context_selection import query_identity,normalize_query
+        assert row['query_id']==query_identity(normalize_query(q))
 
 
 def test_scan_size_admitted_before_candidate_blob_and_no_selector_fallback(collection,monkeypatch):
@@ -539,18 +536,6 @@ def test_proposal_head_cannot_change_its_consumed_collection(collection,change):
     done=result(p,[{'path':'finance/costs/result.md','action':'modified'},{'path':changed,'action':action}])
     with pytest.raises(IntegrationError,match='query selection changed in proposal'):
         preflight(collection,policy(collection),context_id='costs',base=base,head=git(collection,'rev-parse','HEAD'),branch='wiki/query-mutates-itself',packet=p,result=done)
-
-
-@pytest.mark.parametrize('anchor_type',['context_hub','source_catalog'])
-def test_sibling_pages_exclude_anchor_structurally_and_bind_one_anchor_input(collection,anchor_type):
-    hub=collection/ANCHOR;hub.write_text('---\n'+yaml.safe_dump({'page_id':'cost-hub','page_type':anchor_type,'status':'active','amount':999})+'---\nHub body.\n')
-    commit(collection)
-    q=query(scope='finance/costs');p=packet(collection,[q]);row=p['query_selections'][0]
-    assert row['excluded_anchor']==ANCHOR and ANCHOR not in {m['ref'] for m in row['members']}
-    assert sum(x['ref']==ANCHOR for x in p['inputs'])==1 and 'Hub body.' in next(x['text'] for x in p['inputs'] if x['ref']==ANCHOR)
-    assert row['enumerated']==4  # Two item pages + two non-page sibling Markdown files; anchor excluded.
-    from wiki_core.context_selection import query_identity,normalize_query
-    assert row['query_id']==query_identity(normalize_query(q))
 
 
 def test_preflight_rejects_consumer_that_is_its_own_selected_member(collection):
