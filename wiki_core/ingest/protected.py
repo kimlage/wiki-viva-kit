@@ -282,7 +282,7 @@ def _request_path(paths, source_id, request_id, repository_context=None):
     return paths.extraction_events / f'protected-{source}-{selection}{request_id}-llm-context-request.json'
 
 
-def _repository(binding, policy, context_id, actor, selection):
+def _repository(binding, policy, context_id, actor, selection, *, fast_single_cached=False):
     if selection is None:
         return None
     ids = _selection_ids(selection)
@@ -293,11 +293,17 @@ def _repository(binding, policy, context_id, actor, selection):
     for item in ids:
         check_repository_storage(binding, policy, context_id, actor, item)
     cache = _STAGE_CACHE.get()
+    single_cached = (fast_single_cached and len(ids) == 1 and cache is not None and all(
+        (binding, policy.policy_revision, context_id, actor, item) in cache['repositories'] for item in ids))
     rows = []
     for item in ids:
         key = (binding, policy.policy_revision, context_id, actor, item)
         if cache is not None and key in cache['repositories']:
-            check_repository_storage(binding, policy, context_id, actor, item)
+            # For one cached selection, the preceding pass checked its storage
+            # immediately before this in-memory copy. Multiple selections may
+            # involve intervening storage walks or Git I/O.
+            if not single_cached:
+                check_repository_storage(binding, policy, context_id, actor, item)
             row = copy.deepcopy(cache['repositories'][key])
         else:
             row = selected_repository(binding, policy, context_id, actor, item)
@@ -644,18 +650,33 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             _allowed(root, policy, actor, current_request, 'read')
             if stamp(current_source) != source_stamp or stamp(current_request) != request_stamp:
                 raise ValueError('source or request changed')
-            if _repository(binding, policy, context_id, actor, repository_selection) != repository_context:
+            if _repository(binding, policy, context_id, actor, repository_selection, fast_single_cached=True) != repository_context:
                 raise ValueError('repository selection changed')
             _allowed(root, policy, actor, path, 'read')
             policy.fresh()
-        for row in response_request['chunks']:
+        snapshots = []
+        cached_result_bytes = 0
+        def checked_result(row):
             target = paths.llm_cache / (row['cache_key'] + '.json')
             guard_cache(target)
             try:
-                result = _read_json(root, policy, actor, target)
+                before = stamp(target)
             except FileNotFoundError:
-                result = missing
+                before = None
+            try:
+                value = _read_json(root, policy, actor, target)
+            except FileNotFoundError:
+                value = missing
             guard_cache(target)
+            try:
+                after = stamp(target)
+            except FileNotFoundError:
+                after = None
+            if before != after or ((value is missing) != (after is None)):
+                raise ValueError('cache changed during readback')
+            return value, after
+        for row in response_request['chunks']:
+            result, identity = checked_result(row)
             if result is not missing:
                 if (contains_access_secrets(result) or validate_result(result)
                         or not result_matches_request(result, request, row)):
@@ -665,6 +686,12 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
                 row['result_chunk_id'] = result.get('chunk_id')
                 response_request['cached_calls'] += 1
                 response_request['pending_llm_calls'] -= 1
+                result_bytes = _json_text(result).encode('utf-8')
+                cached_result_bytes += len(result_bytes)
+                fingerprint = hashlib.sha256(result_bytes).hexdigest()
+            else:
+                fingerprint = None
+            snapshots.append((row, identity, fingerprint))
         enforce_request_budget(response_request, context_max_bytes=context_max_bytes,
                                request_max_bytes=request_max_bytes)
         if len(canonical_request_text(response_request).encode('utf-8')) > 2_000_000:
@@ -672,8 +699,23 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != source_digest:
             raise ValueError('request authority changed')
-        for row in response_request['chunks']:
-            _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
+        for row, identity, fingerprint in snapshots:
+            current_result, current_identity = checked_result(row)
+            current_fingerprint = (None if current_result is missing else
+                hashlib.sha256(_json_text(current_result).encode('utf-8')).hexdigest())
+            if current_identity != identity or current_fingerprint != fingerprint:
+                raise ValueError('cache changed before delivery')
+        # Recheck all identities once more: a result read early in the final
+        # pass may have changed while later selected results were inspected.
+        for row, identity, _ in snapshots:
+            target = paths.llm_cache / (row['cache_key'] + '.json')
+            _allowed(root, policy, actor, target, 'read')
+            try:
+                current_identity = stamp(target)
+            except FileNotFoundError:
+                current_identity = None
+            if current_identity != identity:
+                raise ValueError('cache changed before delivery')
         if (stamp(_source(root, policy, context_id, source_ref, actor)) != source_stamp
                 or stamp(request_path) != request_stamp):
             raise ValueError('source or request changed')
@@ -681,7 +723,10 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     except (ValueError, OSError, UnicodeError) as exc:
         raise ProtectedPartialError('cache readback unavailable; partial effects may exist; inspect before retry') from exc
     return {'source_id': source_id, 'request_id': request_id, 'request': response_request,
-            'cache_readback': 'exact authorized keys at response time; retained request is unchanged',
+            'cache_readback': 'exact authorized keys rechecked before response; retained request is unchanged',
+            'result_budget': {'max_combined_result_bytes': 2_000_000, 'cached_result_bytes': cached_result_bytes,
+                'status': 'exceeded' if cached_result_bytes > 2_000_000 else 'within_limit',
+                'coverage': 'selected cached results only; future results not counted'},
             'coverage': projected['context_omissions'],
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
