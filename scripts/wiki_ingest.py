@@ -46,8 +46,8 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="compute without writing artifacts")
     parser.add_argument("--no-score", action="store_true", help="do not record a score-event")
     parser.add_argument("--actor")
-    parser.add_argument("--approved-revision", help="Current approved policy SHA supplied by the trusted local caller.")
-    parser.add_argument("--policy-context", help="Explicit approved context ID; no fallback on refusal.")
+    parser.add_argument("--approved-revision", help="Retired v1 option; use the folder source-stage.")
+    parser.add_argument("--policy-context", help="Retired v1 option; use the folder source-stage.")
     parser.add_argument("--folder", help="Local context folder relative to the wiki root; defaults to nested cwd.")
     parser.add_argument("--index", help="Selected context index relative to the wiki root; required for the root.")
     parser.add_argument("--repo", nargs=4, action="append", metavar=("ROOT", "IDENTITY", "REVISION", "PATH"),
@@ -59,6 +59,9 @@ def main() -> int:
     business_root.add_argument("--omit-root-entity", action="store_true", help="Explicitly omit the business root with missing coverage; mandatory lineage rules still apply.")
     parser.add_argument("--stream", help="source recipe stream id (advances its cursor post-commit)")
     args = parser.parse_args()
+
+    if args.approved_revision is not None or args.policy_context is not None:
+        parser.error('new approved v1 ingestion is retired; use wiki_coordination.py --source-stage with a trusted host binding')
 
     root = args.root.resolve()
     from wiki_core.llm.context_pass import local_entry_selection

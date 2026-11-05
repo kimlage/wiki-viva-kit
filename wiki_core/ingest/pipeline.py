@@ -150,6 +150,11 @@ def run(
     selected_context = None
     report_context = '' if entry_folder is not None else context
     try:
+        if approved_revision is not None or policy_context is not None:
+            raise ContextRequestBlocked(
+                'v1_ingestion_retired',
+                'New approved ingestion through the v1 entry is retired. Use the folder source-stage with a trusted host binding; historical artifacts remain unchanged.',
+            )
         request_limits(context_max_bytes, request_max_bytes)
         from wiki_core.traversal import require_wiki_boundaries
         db_path = paths.indexes / 'wiki.sqlite'
