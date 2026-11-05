@@ -165,8 +165,12 @@ leave partial effects and explicitly reports that inspection is needed before
 retry.
 
 This route supports local Markdown and text files up to 16 MB and explicitly
-selected candidates. The complete serialized request is also capped at 2 MB,
-which may require a smaller source, particularly when text needs JSON escaping.
+selected candidates. Its default `context_max_bytes` is 100,000 and default
+`request_max_bytes` is 1,000,000. Both are configurable per stage and must be
+repeated consistently for the same request. Separately, the complete serialized
+request has a hard retention ceiling of 2,000,000 bytes even if a higher request
+budget is chosen. Those limits may require a smaller source, particularly when
+text needs JSON escaping.
 Text must be valid UTF-8; invalid encoding is rejected
 without replacement. PDF, spreadsheets and other formats require an authorized
 adapter that can extract from the captured bytes without reopening the source.

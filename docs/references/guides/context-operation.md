@@ -53,7 +53,13 @@ A changed authorized slice may produce an immediate review candidate for each el
 
 ## 6. Optional wake
 
-If the installation later adopts an external scheduler, it may call the bounded [context schedule advice](../context-schedules.md) using a declaration and context-scoped observation. A no-op needs no LLM. `eligible` is advice only: it never grants execution, installs a schedule, sends a message or proves a binding. The external adapter remains responsible for pause, real due times, atomic reservations, attempts, deduplication, capacity, interaction, effect receipts and reconciliation of uncertain outcomes. Previously paused schedules remain paused unless separately changed by the authorized operator.
+The current [context schedule advice](../context-schedules.md) CLI blocks the
+folder-policy route before opening its request: it requires a trusted host
+binding and requalification that are not yet connected. Do not treat this
+advice as available for a folder context or as an installed schedule. Any
+future external scheduler and adapter must separately qualify its binding,
+pause state, due times, reservations, attempts, effects and reconciliation;
+no schedule is started by this runbook.
 
 ## Stop and preserve
 
