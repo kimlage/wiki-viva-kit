@@ -126,7 +126,7 @@ the physical ancestor `AGENTS.override.md`/`AGENTS.md` chain and the selected
 nearest context's `index.md`. An implicit context has both its own nonempty
 instructions and an index; an auxiliary folder still contributes any physical
 instructions along the way. A child with only an index does not become a new
-context. Use `--index PATH` to choose another index inside the folder;
+context. Use `--index PATH` to select an index in a qualified context folder;
 the root requires an explicit index. Missing instructions or index, symlinks and
 nested Git roots block preparation. A selected folder cannot be mixed with
 approved-policy arguments. Automatic discovery does not select the root index;

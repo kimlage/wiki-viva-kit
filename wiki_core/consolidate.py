@@ -44,7 +44,7 @@ PACKET_SCHEMA_VERSION = "wiki_integration_packet.v2"
 def _compare_selected_inputs(root, *, source_page, candidates, repo_root, identity,
                              revision, repo_path, entry_folder, source_file, entry_index):
     """Validate the complete explicit selection before opening any body."""
-    from wiki_core.context_policy import safe_path, within
+    from wiki_core.context_policy import safe_path
     from wiki_core.llm.context_pass import validate_local_entry_source
     from wiki_core.repo_read import contains_access_secrets, remote_identity
     from wiki_core.repository_reader import canonical_path
@@ -71,11 +71,10 @@ def _compare_selected_inputs(root, *, source_page, candidates, repo_root, identi
     if entry_index is None:
         if folder == '.':
             raise ValueError('comparison unavailable')
-        selected_index = folder + '/index.md'
     else:
         selected_index = safe_path(entry_index)
-    if not within(selected_index, folder) or not require_wiki_path(root, selected_index).is_file():
-        raise ValueError('comparison unavailable')
+        if not require_wiki_path(root, selected_index).is_file():
+            raise ValueError('comparison unavailable')
     selected_source = validate_local_entry_source(root, source_file)
     if not Path(selected_source).is_absolute() or Path(selected_source).stat().st_size > 16_000_000:
         raise ValueError('selected source exceeds comparison limit')
@@ -115,6 +114,13 @@ def compare_selected_repo(root: Path, paths: WikiPaths, request: dict, *, source
     package = request.get('block_context_package')
     if not isinstance(package, dict):
         raise ValueError('comparison unavailable')
+    if (package.get('entry_folder') != entry_folder
+            or (entry_index is not None and package.get('entry_index') != entry_index)):
+        raise ValueError('selected folder context changed')
+    from wiki_core.context_policy import safe_path
+    retained_index = safe_path(package.get('entry_index'))
+    if not require_wiki_path(root, retained_index).is_file():
+        raise ValueError('selected folder context changed')
     documents = package.get('documents')
     if not isinstance(documents, list) or any(not isinstance(doc, dict) for doc in documents):
         raise ValueError('comparison unavailable')

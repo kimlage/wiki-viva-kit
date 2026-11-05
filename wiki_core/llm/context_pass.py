@@ -712,7 +712,11 @@ def _folder_documents(root: Path, folder: str, index_path: str | None, max_bytes
 
     if index_path is None:
         index_path = nearest_index()
-    elif not within(index_path, folder):
+    else:
+        index_directory = Path(index_path).parent.as_posix()
+        if index_directory not in instruction_dirs or not within(folder, index_directory):
+            raise ValueError('selected index is not in a qualified context')
+    if not within(index_path, folder):
         # An ancestor index is valid only as the current nearest context, or
         # as an explicitly selected root index. Recheck on every reconstruction.
         is_root_index = '/' not in index_path and '.' in instruction_dirs

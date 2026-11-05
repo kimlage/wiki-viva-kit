@@ -690,9 +690,28 @@ def test_invalid_explicit_index_does_not_fall_back_to_ancestor(approved):
     auxiliary.mkdir(parents=True)
     (root / 'area/AGENTS.md').write_text('Area guidance')
     (root / 'area/index.md').write_text('Area index')
-    with pytest.raises(ValueError, match='index unavailable'):
+    with pytest.raises(ValueError, match='qualified context'):
         context_pass.ingestion_block_context(root, load_config(root), {}, [], entry_folder='area/aux',
                                              entry_index='area/aux/missing.md')
+
+
+def test_explicit_child_index_without_local_instructions_is_not_a_context(approved, monkeypatch):
+    root, _, _, _ = approved
+    auxiliary = root / 'area/aux'
+    auxiliary.mkdir(parents=True)
+    (root / 'area/AGENTS.md').write_text('Area guidance')
+    (root / 'area/index.md').write_text('Area index')
+    child = auxiliary / 'index.md'
+    child.write_text('Not a context')
+    original = Path.open
+    def guard(path, *args, **kwargs):
+        if path == child:
+            pytest.fail('opened index without qualified context')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guard)
+    with pytest.raises(ValueError, match='qualified context'):
+        context_pass.ingestion_block_context(root, load_config(root), {}, [], entry_folder='area/aux',
+                                             entry_index='area/aux/index.md')
 
 
 def test_cli_from_auxiliary_preserves_physical_folder_and_ancestor_index(approved):
