@@ -29,7 +29,7 @@ CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT))
 from scripts._common import ROOT
 
-from wiki_core.traversal import wiki_markdown_files
+from wiki_core.traversal import is_in_nested_git, reject_nested_git, wiki_markdown_files
 from wiki_core.llm.context_pass import read_matching_result, is_local_folder_request, result_cache_for_request
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.action_adoption import (
@@ -55,6 +55,35 @@ from wiki_core.source_lifecycle import (
     source_lifecycle_diagnostics,
     source_lifecycle_transition_diagnostics,
 )
+
+
+class AuditPathBoundaryError(ValueError):
+    """An audit selection crosses a repository or symlink boundary."""
+
+
+def _guard_audit_path(path: Path) -> Path:
+    path = Path(path)
+    try:
+        if is_in_nested_git(path, wiki_root=ROOT):
+            raise AuditPathBoundaryError('audit selection crosses a repository or symlink boundary')
+    except ValueError as exc:
+        raise AuditPathBoundaryError('audit selection unavailable or outside the wiki') from exc
+    return path
+
+
+def _audit_read_text(path: Path, *args, **kwargs) -> str:
+    return _guard_audit_path(path).read_text(*args, **kwargs)
+
+
+def _audit_read_bytes(path: Path) -> bytes:
+    return _guard_audit_path(path).read_bytes()
+
+
+def _audit_glob(path: Path, pattern: str):
+    path = Path(path)
+    _guard_audit_path(path / '_audit_selection_')
+    return path.glob(pattern)
+
 
 REQUIRED_KEYS = {
     "page_id",
@@ -93,7 +122,8 @@ def wiki_paths(config: WikiConfig) -> WikiPaths:
 def context_hub_pages(config: WikiConfig) -> tuple[list[str], list[str]]:
     """Shared editorial discovery, preserving the auditor's primary-page gate."""
     from wiki_core.context_hubs import discover_context_hubs
-    by_context, errors = discover_context_hubs(ROOT, config, read_page=canonical_parse_frontmatter)
+    by_context, errors = discover_context_hubs(
+        ROOT, config, read_page=lambda path: canonical_parse_frontmatter(_guard_audit_path(path)))
     return [path for paths in by_context.values() for path in paths], errors
 
 
@@ -302,9 +332,9 @@ def run_git(args: list[str]) -> str:
             text=True,
             stderr=subprocess.DEVNULL,
         )
-        # Blob contents participate in exact receipt replay. Only command
-        # metadata may be trimmed; git show must retain terminal newlines.
-        return output if args and args[0] == "show" else output.strip()
+        # Blob contents and NUL-separated paths must retain exact bytes;
+        # only ordinary textual command metadata may be trimmed.
+        return output if args and (args[0] == "show" or "-z" in args) else output.strip()
     except subprocess.CalledProcessError:
         return ""
 
@@ -528,7 +558,7 @@ def _link_or_metadata_only_change(rel: str) -> bool:
     previous = _text_at_audit_base(rel)
     if previous is None:
         return False
-    current_text = current.read_text(encoding="utf-8", errors="replace")
+    current_text = _audit_read_text(current, encoding="utf-8", errors="replace")
     # Reuse the writer's exact state/body/policy-preserving comment contract.
     # Physical changes remain visible to integrity, authorization and CAS.
     from wiki_core.action_transition import operational_comment_receipt
@@ -565,7 +595,7 @@ def _action_adoption_baseline(
                 "[action_adoption_receipt_deleted]"
             )
             return None, True
-        current_text = path.read_text(encoding="utf-8", errors="replace")
+        current_text = _audit_read_text(path, encoding="utf-8", errors="replace")
         if current_text != previous_text:
             errors.append(
                 f"{rel}: action adoption receipt is immutable "
@@ -577,7 +607,7 @@ def _action_adoption_baseline(
         return None, False
 
     try:
-        receipt = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        receipt = yaml.safe_load(_audit_read_text(path, encoding="utf-8")) or {}
     except yaml.YAMLError:
         receipt = {}
     if not isinstance(receipt, dict):
@@ -653,7 +683,7 @@ def audit_action_state_transitions(errors: list[str]) -> None:
         if not rel.endswith(".md") or not (ROOT / rel).is_file():
             continue
         values, _body = canonical_parse_frontmatter(
-            (ROOT / rel).read_text(encoding="utf-8", errors="replace")
+            _audit_read_text(ROOT / rel, encoding="utf-8", errors="replace")
         )
         if str(values.get("page_type") or "") != "action":
             continue
@@ -681,7 +711,7 @@ def audit_action_state_transitions(errors: list[str]) -> None:
                     "[action_page_deleted]"
                 )
             continue
-        current_text = current_path.read_text(encoding="utf-8", errors="replace")
+        current_text = _audit_read_text(current_path, encoding="utf-8", errors="replace")
         current_values, _body = canonical_parse_frontmatter(current_text)
         current_is_action = str(current_values.get("page_type") or "") == "action"
         previous_text = base_by_path.get(rel)
@@ -735,7 +765,7 @@ def audit_source_lifecycle_transitions(errors: list[str]) -> None:
         current_path = ROOT / rel
         if not current_path.is_file():
             continue
-        current_text = current_path.read_text(encoding="utf-8", errors="replace")
+        current_text = _audit_read_text(current_path, encoding="utf-8", errors="replace")
         current_values, _body = canonical_parse_frontmatter(current_text)
         if str(current_values.get("page_type") or "") != "source":
             continue
@@ -761,18 +791,117 @@ def audit_source_lifecycle_transitions(errors: list[str]) -> None:
 
 
 @functools.lru_cache(maxsize=1)
+def _audit_git_inventory() -> list[str]:
+    """Read exact tracked and non-ignored working-tree names, never file bodies."""
+    names = set()
+    for args in (['git', 'ls-files', '-z'],
+                 ['git', 'ls-files', '--others', '--exclude-standard', '-z']):
+        try:
+            data = subprocess.check_output(args, cwd=ROOT, stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise AuditPathBoundaryError('Git path inventory unavailable; audit coverage cannot be established') from exc
+        if data and not data.endswith(b'\0'):
+            raise AuditPathBoundaryError('Git path inventory unavailable; audit coverage cannot be established')
+        names.update(os.fsdecode(raw) for raw in data.split(b'\0') if raw)
+    return sorted(names)
+
+
+@functools.lru_cache(maxsize=1)
 def tracked_files() -> list[str]:
-    # Memoized: it was called ~8x per run (each audit_* via markdown_files),
-    # running 2 git subprocesses per call — ~16 git forks per audit.
-    # The file set does not change during a run; main() clears the cache.
-    tracked = run_git(["ls-files"])
-    untracked = run_git(["ls-files", "--others", "--exclude-standard"])
-    candidates = {line for output in (tracked, untracked) for line in output.splitlines() if line}
-    return sorted(rel for rel in candidates if (ROOT / rel).exists())
+    return [rel for rel in _audit_git_inventory() if (ROOT / rel).exists()]
+
+
+def audit_nested_repository_boundary(errors: list[str]) -> None:
+    """Reject selected working-tree paths crossing a boundary before body reads."""
+    try:
+        inventory = _audit_git_inventory()
+    except AuditPathBoundaryError as exc:
+        errors.append(str(exc))
+        return
+    for rel in inventory:
+        try:
+            nested = is_in_nested_git(ROOT / rel, wiki_root=ROOT)
+        except ValueError:
+            errors.append(f'{rel}: invalid path; audit coverage unavailable')
+            continue
+        if nested:
+            errors.append(f'{rel}: nested repository or symlink boundary limits audit coverage; inspect it separately')
+
+
+def audit_configured_path_boundaries(errors: list[str], config: WikiConfig) -> None:
+    """Check configured audit locations without opening their contents."""
+    refs = {str(value) for key, value in config.paths.items()
+            if isinstance(value, str) and value and (key.endswith('_root') or key.endswith('_page'))}
+    paths = wiki_paths(config)
+    for name in ('memory_root', 'references_root', 'raw_root', 'derived_root', 'skills_root',
+                 'system_dir', 'ingest_dir', 'ingest_events_dir', 'ingest_archive_dir',
+                 'decisions_dir', 'actions_dir', 'sources_dir', 'pending_actions_file',
+                 'log_page', 'operation_page', 'operational_pass_page', 'command_reference_page',
+                 'source_registry_page', 'input_stage_page', 'templates_root'):
+        try:
+            refs.add(str(getattr(paths, name).relative_to(ROOT)))
+        except (KeyError, TypeError, ValueError):
+            errors.append('configured audit location is invalid')
+    for section, keys in ((config.coverage, ('methodology_source_page', 'coverage_matrix_page')),
+                          (config.root_entity, ('page', 'input_stage_page')),
+                          (config.templates, ('overlays_root',))):
+        for key in keys:
+            value = section.get(key)
+            if isinstance(value, str) and value:
+                refs.add(value)
+    refs.update(str(value) for value in (config.audit.get('core_pages') or ()) if isinstance(value, str) and value)
+    custody = config.audit.get('wiki_text_storage')
+    if isinstance(custody, dict) and isinstance(custody.get('roots'), list):
+        refs.update(value for value in custody['roots'] if isinstance(value, str) and value)
+    concepts = config.audit.get('operational_concept_links')
+    if isinstance(concepts, dict):
+        for page, targets in concepts.items():
+            if isinstance(page, str) and page:
+                refs.add(page)
+            if isinstance(targets, dict):
+                refs.update(value for value in targets if isinstance(value, str) and value)
+    for rel in sorted(refs):
+        try:
+            # Include the configured location itself when it is a directory.
+            nested = is_in_nested_git(ROOT / rel / '_audit_selection_', wiki_root=ROOT)
+        except ValueError:
+            errors.append(f"{rel}: invalid configured path for audit")
+            continue
+        if nested:
+            errors.append(f"{rel}: configured path crosses a nested repository or symlink boundary")
+
+
+def audit_selected_path_boundaries(errors: list[str], config: WikiConfig, selected: tuple) -> None:
+    """Fence fixed and derived locations actually selected by the audit."""
+    names = {name for name, _run in selected}
+    paths = wiki_paths(config)
+    locations: list[Path] = []
+    if 'prompt_checksums' in names:
+        locations.append(ROOT / PROMPTS_DIR_REL / '_audit_selection_')
+    custody = config.audit.get('wiki_text_storage')
+    if 'drive_artifact_links' in names and isinstance(custody, dict) and custody.get('enabled') is True:
+        locations.append(ROOT / 'data/drive_artifacts_manifest.json')
+    if 'action_state_transitions' in names:
+        locations.append(ROOT / ACTION_ADOPTION_RECEIPT_PATH)
+    if 'page_type_registry' in names and config.audit.get('page_type_registry_check', False):
+        locations.extend(ROOT / name for name in ('wiki.page-types.yaml', 'wiki.packs.lock.yaml'))
+    if 'templates_registry' in names:
+        locations.extend(ROOT / name for name in ('wiki.templates.yaml', 'wiki.templates.local.yaml'))
+    if names & {'context_pass_gate', 'perspective_coverage'}:
+        locations.extend((paths.extraction_events / '_audit_selection_', paths.chunks / '_audit_selection_',
+                          paths.llm_cache / '_audit_selection_', paths.llm_cache / 'local-folder' / '_audit_selection_'))
+    if 'llm_cache_metadata' in names:
+        locations.extend((paths.llm_cache / '_audit_selection_', paths.llm_cache / 'local-folder' / '_audit_selection_'))
+    for location in locations:
+        try:
+            _guard_audit_path(location)
+        except AuditPathBoundaryError:
+            errors.append('selected audit path crosses a repository or symlink boundary')
 
 
 def markdown_files() -> list[str]:
-    return [rel for rel in tracked_files() if rel.endswith(".md")]
+    return [rel for rel in tracked_files() if rel.endswith(".md")
+            and not is_in_nested_git(ROOT / rel, wiki_root=ROOT)]
 
 
 def link_audit_files(config: WikiConfig) -> list[str]:
@@ -797,13 +926,13 @@ def parse_frontmatter(path: Path) -> tuple[dict[str, object], list[str]]:
     #
     # Delegates to the canonical flat parser (string-flattening is LOAD-BEARING
     # for the shape gate); REQUIRED_KEYS is enforced here as the audit contract.
-    return parse_frontmatter_flat_with_errors(path, required_keys=REQUIRED_KEYS)
+    return parse_frontmatter_flat_with_errors(_guard_audit_path(path), required_keys=REQUIRED_KEYS)
 
 
 def parse_yaml_frontmatter(path: Path) -> dict[str, object]:
     # Structured (yaml) read for nested maps the flat parser can't represent
     # (affected_pages.must_update, impact_closure).
-    values, _body = canonical_parse_frontmatter(path)
+    values, _body = canonical_parse_frontmatter(_guard_audit_path(path))
     return values
 
 
@@ -942,6 +1071,14 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
     pages.update(rel for rel in markdown_files() if ontology_dir_for(rel, config))
     for rel in sorted(pages):
         path = ROOT / rel
+        try:
+            nested = is_in_nested_git(path, wiki_root=ROOT)
+        except ValueError:
+            errors.append(f"{rel}: invalid primary page path")
+            continue
+        if nested:
+            errors.append(f"{rel}: nested repository must be inspected separately")
+            continue
         if not path.exists():
             errors.append(f"{rel}: missing primary page")
             continue
@@ -1029,9 +1166,17 @@ def audit_freshness_budget(
                                        query_context=query_context, query_policy_revision=query_policy_revision, query_head=query_head)
             if report_path:
                 # Never replace an existing canonical file with a diagnostic.
+                try:
+                    report_path.absolute().relative_to(ROOT.absolute())
+                except ValueError:
+                    pass  # An explicitly selected external report keeps its existing behavior.
+                else:
+                    _guard_audit_path(report_path)
                 with report_path.open("x", encoding="utf-8") as stream:
                     json.dump(report, stream, indent=2, sort_keys=True, ensure_ascii=False)
                     stream.write("\n")
+        except AuditPathBoundaryError:
+            raise
         except (GitCommandError, OSError, ValueError) as exc:
             errors.append(f"freshness impact evidence unavailable: {exc}")
             return
@@ -1099,7 +1244,7 @@ def audit_command_reference(errors: list[str], config: WikiConfig) -> None:
                 f"({len(tracked_clis)} tracked wiki CLI(s) to document)"
             )
         return
-    text = ref_path.read_text(encoding="utf-8")
+    text = _audit_read_text(ref_path, encoding="utf-8")
     mentioned = set(re.findall(r"\b(wiki_[a-z0-9_]+\.py)\b", text))
     for name in sorted(tracked_clis - mentioned):
         errors.append(f"{ref_rel}: undocumented CLI: {name}")
@@ -1127,7 +1272,7 @@ def audit_drive_artifact_links(warnings: list[str], config: WikiConfig) -> None:
         page_type = str(values.get("page_type", ""))
         if page_type in DRIVE_ARTIFACT_LINK_EXEMPT_PAGE_TYPES:
             continue
-        text = (ROOT / rel).read_text(encoding="utf-8")
+        text = _audit_read_text(ROOT / rel, encoding="utf-8")
         count = 0
         for match in LOCAL_ARTIFACT_LINK_RE.finditer(text):
             target = re.sub(r"^\]\(", "", match.group(0)).rstrip(")")
@@ -1187,7 +1332,8 @@ def audit_wiki_text_storage(errors: list[str], config: WikiConfig) -> None:
     root = ROOT.resolve()
     for rel in roots:
         path = ROOT / rel
-        if path.is_symlink() or not path.is_dir() or not path.resolve().is_relative_to(root):
+        if (path.is_symlink() or not path.is_dir() or not path.resolve().is_relative_to(root)
+                or is_in_nested_git(path / '_audit_selection_', wiki_root=ROOT)):
             errors.append(f"audit.wiki_text_storage invalid content root: {rel}")
             return
     external = set()
@@ -1196,7 +1342,7 @@ def audit_wiki_text_storage(errors: list[str], config: WikiConfig) -> None:
         try:
             if manifest.is_symlink() or not manifest.resolve().is_relative_to(root):
                 raise ValueError("manifest must be a contained regular file")
-            descriptor = os.open(manifest, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
+            descriptor = os.open(_guard_audit_path(manifest), os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
             with os.fdopen(descriptor, "r", encoding="utf-8") as stream:
                 if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                     raise ValueError("manifest must be regular")
@@ -1229,6 +1375,8 @@ def audit_wiki_text_storage(errors: list[str], config: WikiConfig) -> None:
                     external.add(source)
                 else:
                     raise ValueError("invalid relative source path")
+        except AuditPathBoundaryError:
+            raise
         except (OSError, UnicodeError, ValueError, KeyError, TypeError):
             errors.append("audit.wiki_text_storage cannot validate external artifact manifest")
             return
@@ -1248,13 +1396,16 @@ def audit_wiki_text_storage(errors: list[str], config: WikiConfig) -> None:
         path = ROOT / rel
         if not path.exists() and not path.is_symlink():
             continue  # removal in this candidate; ordinary link audit still applies
+        if not path.is_symlink() and is_in_nested_git(path, wiki_root=ROOT):
+            errors.append(f"{rel}: nested repository must be inspected separately")
+            continue
         if rel in external:
             errors.append(f"{rel}: externally catalogued source must remain outside wiki content")
             continue
         try:
             if path.is_symlink() or not path.resolve().is_relative_to(root):
                 raise ValueError("not a contained regular file")
-            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
+            descriptor = os.open(_guard_audit_path(path), os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
             with os.fdopen(descriptor, "rb") as stream:
                 if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                     raise ValueError("not a regular file")
@@ -1266,6 +1417,8 @@ def audit_wiki_text_storage(errors: list[str], config: WikiConfig) -> None:
                     decoder.decode(data)
                     first = False
                 decoder.decode(b"", final=True)
+        except AuditPathBoundaryError:
+            raise
         except (OSError, UnicodeError, ValueError):
             errors.append(f"{rel}: wiki content must be text; preserve original externally and cite its verified reference")
 
@@ -1380,7 +1533,9 @@ def audit_old_paths(errors: list[str], config: WikiConfig) -> None:
         if not rel.endswith(".md"):
             continue
         path = ROOT / rel
-        text = path.read_text(encoding="utf-8", errors="replace")
+        if is_in_nested_git(path, wiki_root=ROOT):
+            continue
+        text = _audit_read_text(path, encoding="utf-8", errors="replace")
         if any(marker in text for marker in LEGACY_DOCS_MARKERS) and rel not in allowed:
             errors.append(f"{rel}: old docs path reference outside migration history")
 
@@ -1389,6 +1544,8 @@ def _scannable_text_files() -> list[str]:
     files = []
     for rel in tracked_files():
         if rel.startswith(SECRET_SCAN_SKIP_PREFIXES):
+            continue
+        if is_in_nested_git(ROOT / rel, wiki_root=ROOT):
             continue
         if Path(rel).suffix.lower() in TEXT_SCAN_SUFFIXES:
             files.append(rel)
@@ -1400,7 +1557,7 @@ def audit_secrets(errors: list[str], config: WikiConfig) -> None:
     if not config.audit.get("forbid_access_secrets", True):
         return
     for rel in _scannable_text_files():
-        for finding in scan_file(ROOT / rel):
+        for finding in scan_file(_guard_audit_path(ROOT / rel)):
             if finding.category == "secret":
                 errors.append(f"{rel}:{finding.line}: possible {finding.kind} secret ({finding.excerpt})")
 
@@ -1417,7 +1574,7 @@ def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public
             continue
         values, _ = parse_frontmatter(ROOT / rel)
         visibility = str(values.get("visibility", config.default_visibility))
-        pii = [f for f in scan_file(ROOT / rel) if f.category == "pii"]
+        pii = [f for f in scan_file(_guard_audit_path(ROOT / rel)) if f.category == "pii"]
         if not pii:
             continue
         if public_export or visibility in PUBLIC_VISIBILITIES:
@@ -1434,7 +1591,7 @@ def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public
 def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
     for rel in link_audit_files(config):
         path = ROOT / rel
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = _audit_read_text(path, encoding="utf-8", errors="replace")
         for lineno, line in body_lines_without_frontmatter(text):
             for match in MARKDOWN_LINK_RE.finditer(line):
                 href = match.group(1)
@@ -1481,7 +1638,7 @@ def audit_obsidian_directory_links(warnings: list[str], config: WikiConfig) -> N
         if page_type in DIRECTORY_LINK_EXEMPT_PAGE_TYPES or rel.startswith(events_prefix):
             continue
         path = ROOT / rel
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = _audit_read_text(path, encoding="utf-8", errors="replace")
         count = 0
         for _lineno, line in body_lines_without_frontmatter(text):
             for match in MARKDOWN_LINK_RE.finditer(line):
@@ -1533,7 +1690,7 @@ def _entity_alias_map(
 
 
 def _first_markdown_heading(path: Path) -> str:
-    for _lineno, line in body_lines_without_frontmatter(path.read_text(encoding="utf-8", errors="replace")):
+    for _lineno, line in body_lines_without_frontmatter(_audit_read_text(path, encoding="utf-8", errors="replace")):
         stripped = line.strip()
         if stripped.startswith("# "):
             return stripped[2:].strip()
@@ -1610,7 +1767,7 @@ def audit_entity_mention_links(
     for rel in markdown_files():
         if not rel.startswith(prefix):
             continue
-        text = (ROOT / rel).read_text(encoding="utf-8", errors="replace")
+        text = _audit_read_text(ROOT / rel, encoding="utf-8", errors="replace")
         found: dict[str, str] = {}
         for _lineno, line in body_lines_without_frontmatter(text):
             stripped = INLINE_CODE_RE.sub("", MARKDOWN_LINK_RE.sub("", line))
@@ -1721,7 +1878,7 @@ def audit_operational_concept_links(errors: list[str], config: WikiConfig) -> No
             continue
 
         offenders: dict[str, set[str]] = {}
-        text = page_path.read_text(encoding="utf-8", errors="replace")
+        text = _audit_read_text(page_path, encoding="utf-8", errors="replace")
         for _lineno, line in body_lines_without_frontmatter(text):
             if line.lstrip().startswith("#"):
                 continue
@@ -1795,7 +1952,7 @@ def _impact_ack_added(config: WikiConfig, affected_rel: str) -> bool:
     if not ledger.exists() and not tracked:
         return False
     lines = (
-        ledger.read_text(encoding="utf-8", errors="replace").splitlines()
+        _audit_read_text(ledger, encoding="utf-8", errors="replace").splitlines()
         if ledger.exists() and not tracked
         else _added_lines_for_path(ledger_rel)
     )
@@ -1834,7 +1991,7 @@ def audit_impact(errors: list[str], config: WikiConfig) -> None:
             # Receiving a comment cannot discharge an incoming factual impact.
             if (previous is None or not current.is_file()
                     or operational_comment_receipt(
-                        previous, current.read_text(encoding="utf-8", errors="replace")
+                        previous, _audit_read_text(current, encoding="utf-8", errors="replace")
                     ) is None):
                 continue
         if _impact_ack_added(config, affected):
@@ -1850,6 +2007,26 @@ def audit_page_type_registry(errors: list[str], config: WikiConfig) -> None:
     if not config.audit.get("page_type_registry_check", False):
         return
     try:
+        from wiki_core.experience_packs import load_lock
+        from wiki_core._experience_pack_common import DEFAULT_LOCK, RECEIPT_ROOT
+        _guard_audit_path(ROOT / 'wiki.page-types.yaml')
+        if not (ROOT / 'wiki.page-types.yaml').exists():
+            errors.append('wiki.page-types.yaml: missing page type registry')
+            return
+        _guard_audit_path(ROOT / DEFAULT_LOCK)
+        lock = load_lock(ROOT)
+        # The delegated validator recursively reads selected active packs and
+        # their receipts. Check all of those trees before it opens any of them.
+        for pack_id, entry in sorted(lock['packs'].items()):
+            if entry.get('status') != 'active':
+                continue
+            for selected in (ROOT / str(entry['installed_path']), ROOT / RECEIPT_ROOT / pack_id):
+                _guard_audit_path(selected / '_audit_selection_')
+                try:
+                    if selected.exists():
+                        reject_nested_git(selected)
+                except (OSError, RuntimeError, ValueError) as exc:
+                    raise AuditPathBoundaryError('selected pack crosses a repository boundary') from exc
         registry = load_page_type_registry(ROOT)
     except PackError as exc:
         errors.append(
@@ -1866,6 +2043,9 @@ def audit_page_type_registry(errors: list[str], config: WikiConfig) -> None:
             f"{PAGE_TYPES_SCHEMA_VERSION}"
         )
     for page_type, shape in sorted(registry.page_types.items()):
+        template = shape.get('template')
+        if template and template != 'none':
+            _guard_audit_path(ROOT / str(template))
         error = template_coverage_error(ROOT, page_type, shape)
         if error:
             errors.append(f"{registry.path.relative_to(ROOT).as_posix()}: {error}")
@@ -1901,7 +2081,7 @@ def audit_page_type_registry(errors: list[str], config: WikiConfig) -> None:
             for field in structured_fields:
                 if field in structured_values:
                     shape_values[field] = structured_values[field]
-        errors.extend(validate_shape(ROOT, rel, shape_values, path.read_text(encoding="utf-8"), shape))
+        errors.extend(validate_shape(ROOT, rel, shape_values, _audit_read_text(path, encoding="utf-8"), shape))
 
     unused = sorted(set(registry.page_types) - used_types)
     for page_type in unused:
@@ -1939,7 +2119,7 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
     if not events_dir.is_dir():
         return
     legacy_unconsolidated = 0
-    for event in sorted(events_dir.glob("*.md")):
+    for event in sorted(_audit_glob(events_dir, "*.md")):
         if event.name == "README.md":
             continue
         rel = paths.rel(event)
@@ -1989,7 +2169,7 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
                 "integration requires at least one non-source target "
                 "[source_only_consolidation]"
             )
-        bullets = _claims_section_bullets(event.read_text(encoding="utf-8", errors="replace"))
+        bullets = _claims_section_bullets(_audit_read_text(event, encoding="utf-8", errors="replace"))
         claims_linked = list_values(values, "claims")
         no_claim_reason = str(values.get("sem_claim") or values.get("no_claim") or "").strip()
         if bullets and not claims_linked and not no_claim_reason:
@@ -2063,11 +2243,11 @@ def audit_ingestion_events(errors: list[str], config: WikiConfig) -> None:
         ("Interior colectivo", "Interior coletivo", "Interior collective"),
         ("Exterior colectivo", "Exterior coletivo", "Exterior collective"),
     ]
-    for path in sorted(event_dir.glob("*.md")):
+    for path in sorted(_audit_glob(event_dir, "*.md")):
         rel = path.relative_to(ROOT).as_posix()
         if path.name == "README.md":
             continue
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = _audit_read_text(path, encoding="utf-8", errors="replace")
         if not any(h in text for h in QUADRANTS_HEADERS):
             errors.append(f"{rel}: missing quadrants section")
         for variants in quadrant_concepts:
@@ -2093,7 +2273,7 @@ def audit_ingestion_absolute_paths(errors: list[str], config: WikiConfig) -> Non
         return
     for path in sorted(wiki_markdown_files(ingest_dir, wiki_root=ROOT)):
         rel = path.relative_to(ROOT).as_posix()
-        for lineno, line in body_lines_without_frontmatter(path.read_text(encoding="utf-8", errors="replace")):
+        for lineno, line in body_lines_without_frontmatter(_audit_read_text(path, encoding="utf-8", errors="replace")):
             without_links = MARKDOWN_LINK_RE.sub("", line)
             for match in ABSOLUTE_USER_PATH_RE.finditer(without_links):
                 absolute = match.group(0).rstrip(".,)")
@@ -2119,10 +2299,10 @@ def audit_public_candidates(errors: list[str], config: WikiConfig) -> None:
         values, _ = parse_frontmatter(path)
         if values.get("visibility") != "public_candidate":
             continue
-        low = path.read_text(encoding="utf-8", errors="replace").lower()
+        low = _audit_read_text(path, encoding="utf-8", errors="replace").lower()
         if not any(keyword in low for keyword in PUBLIC_CHECKLIST_KEYWORDS):
             errors.append(f"{rel}: public_candidate missing publication/redaction checklist")
-        for finding in scan_file(path):
+        for finding in scan_file(_guard_audit_path(path)):
             if finding.category in {"secret", "pii"}:
                 errors.append(f"{rel}:{finding.line}: public_candidate contains {finding.category} {finding.kind} ({finding.excerpt})")
 
@@ -2135,7 +2315,7 @@ def audit_ingestion_proposals_gate_state(errors: list[str], config: WikiConfig) 
     ingest_dir = wiki_paths(config).ingest_dir
     if not ingest_dir.is_dir():
         return
-    for path in sorted(ingest_dir.glob("*.md")):
+    for path in sorted(_audit_glob(ingest_dir, "*.md")):
         if path.name in {"README.md", "impact-acks.md"}:
             continue
         rel = path.relative_to(ROOT).as_posix()
@@ -2183,14 +2363,17 @@ def audit_context_pass_gate(
         return
     suffix = "-llm-context-request.json"
     orphans: list[str] = []
-    for path in sorted(req_dir.glob(f"*{suffix}")):
+    for path in sorted(_audit_glob(req_dir, f"*{suffix}")):
         rel = path.relative_to(ROOT).as_posix()
         try:
+            _guard_audit_path(path)
             if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', path.name):
                 from wiki_core.llm.context_pass import load_local_request
                 data = load_local_request(paths, path)
             else:
-                data = json.loads(path.read_text(encoding="utf-8"))
+                data = json.loads(_audit_read_text(path, encoding="utf-8"))
+        except AuditPathBoundaryError:
+            raise
         except (ValueError, OSError):
             # Corrupt JSON must NOT disarm the gate silently (finding 12):
             # deleting/corrupting the request closed the gate with no error.
@@ -2238,10 +2421,11 @@ def audit_prompt_checksums(errors: list[str]) -> None:
     prompt version (new file + new pinned line).
     """
     prompts_dir = ROOT / PROMPTS_DIR_REL
+    _guard_audit_path(prompts_dir / '_audit_selection_')
     if not prompts_dir.is_dir():
         return
     rel_checksums = f"{PROMPTS_DIR_REL}/{PROMPT_CHECKSUMS_NAME}"
-    prompts = sorted(p.name for p in prompts_dir.glob("*.md"))
+    prompts = sorted(p.name for p in _audit_glob(prompts_dir, "*.md"))
     checksums_path = prompts_dir / PROMPT_CHECKSUMS_NAME
     if not checksums_path.exists():
         if prompts:
@@ -2251,7 +2435,7 @@ def audit_prompt_checksums(errors: list[str]) -> None:
             )
         return
     pinned: dict[str, str] = {}
-    for lineno, raw in enumerate(checksums_path.read_text(encoding="utf-8").splitlines(), 1):
+    for lineno, raw in enumerate(_audit_read_text(checksums_path, encoding="utf-8").splitlines(), 1):
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
@@ -2263,7 +2447,7 @@ def audit_prompt_checksums(errors: list[str]) -> None:
             continue
         pinned[parts[1]] = parts[0]
     for name in prompts:
-        actual = hashlib.sha256((prompts_dir / name).read_bytes()).hexdigest()
+        actual = hashlib.sha256(_audit_read_bytes(prompts_dir / name)).hexdigest()
         expected = pinned.get(name)
         if expected is None:
             errors.append(
@@ -2286,19 +2470,21 @@ def audit_llm_cache_metadata(errors: list[str], config: WikiConfig | None = None
     cache_dir = wiki_paths(config or load_config(ROOT)).llm_cache
     if not cache_dir.exists():
         return
-    paths = list(cache_dir.glob('*.json'))
+    paths = list(_audit_glob(cache_dir, '*.json'))
     local_cache = cache_dir / 'local-folder'
     try:
         from wiki_core.traversal import require_wiki_boundaries
         require_wiki_boundaries(ROOT, directories=(local_cache,))
-        local_paths = list(local_cache.glob('*.json'))
+        local_paths = list(_audit_glob(local_cache, '*.json'))
         require_wiki_boundaries(ROOT, files=local_paths)
         paths.extend(local_paths)
+    except AuditPathBoundaryError:
+        raise
     except (ValueError, OSError):
         errors.append('local result cache unavailable or unsafe')
     for path in sorted(paths):
         rel = path.relative_to(ROOT).as_posix()
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = _audit_read_text(path, encoding="utf-8", errors="replace")
         for required in ("prompt_version", "schema_version", "cache_key"):
             if required not in text:
                 errors.append(f"{rel}: cache result missing `{required}`")
@@ -2318,10 +2504,10 @@ def audit_perspective_coverage(errors: list[str], config: WikiConfig) -> None:
         for page_id, (_rel, values) in catalog.items()
         if str(values.get("page_type") or "") == "perspective"
     }
-    for request_path in sorted(req_dir.glob("*-llm-context-request.json")):
+    for request_path in sorted(_audit_glob(req_dir, "*-llm-context-request.json")):
         rel = request_path.relative_to(ROOT).as_posix()
         try:
-            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request = json.loads(_audit_read_text(request_path, encoding="utf-8"))
         except json.JSONDecodeError:
             continue
         required = [str(item) for item in request.get("perspectives_required") or []]
@@ -2343,7 +2529,7 @@ def audit_perspective_coverage(errors: list[str], config: WikiConfig) -> None:
             if not result_path.exists():
                 continue
             try:
-                result = json.loads(result_path.read_text(encoding="utf-8"))
+                result = json.loads(_audit_read_text(result_path, encoding="utf-8"))
             except json.JSONDecodeError:
                 errors.append(f"{result_path.relative_to(ROOT).as_posix()}: invalid JSON")
                 continue
@@ -2424,7 +2610,7 @@ def audit_impact_closure(errors: list[str], config: WikiConfig) -> None:
     events_dir = wiki_paths(config).ingest_events_dir
     if not events_dir.is_dir():
         return
-    for path in sorted(events_dir.glob("*.md")):
+    for path in sorted(_audit_glob(events_dir, "*.md")):
         if path.name == "README.md":
             continue
         rel = path.relative_to(ROOT).as_posix()
@@ -2457,6 +2643,8 @@ def audit_templates_registry(warnings: list[str], config: WikiConfig) -> None:
     """WARN if wiki.templates.yaml composes a primitive outside the fixed
     vocabulary, an unknown facet, or a dangling `extends`. Template authoring
     is not data corruption — a typo here should nudge, never block the gate."""
+    _guard_audit_path(ROOT / 'wiki.templates.yaml')
+    _guard_audit_path(ROOT / 'wiki.templates.local.yaml')
     try:
         from wiki_core.templates_registry import (
             load_template_registry,
@@ -2502,7 +2690,7 @@ def audit_source_recipes(warnings: list[str], config: WikiConfig) -> None:
         values, _ = parse_frontmatter(ROOT / rel)
         if str(values.get("page_type", "")) != "source_config":
             continue
-        text = (ROOT / rel).read_text(encoding="utf-8")
+        text = _audit_read_text(ROOT / rel, encoding="utf-8")
         mapping = extract_recipe_mapping(text)
         if mapping is None:
             continue
@@ -2685,9 +2873,16 @@ def main() -> int:
     _base_action_texts_by_page_id.cache_clear()
     _malformed_base_actions.cache_clear()
     _base_source_texts_by_page_id.cache_clear()
+    _audit_git_inventory.cache_clear()
     tracked_files.cache_clear()  # fresh file set on each invocation
     parse_frontmatter.cache_clear()  # fresh frontmatter parses on each invocation
 
+    try:
+        _guard_audit_path(ROOT / 'wiki.config.yaml')
+    except AuditPathBoundaryError:
+        print('ERROR: audit configuration crosses a repository or symlink boundary')
+        print('wiki_audit: audit coverage unavailable; checks not completed')
+        return 1
     config = load_config(ROOT)
     build_local_path_regexes(config)
 
@@ -2707,8 +2902,34 @@ def main() -> int:
     ctx.query_context, ctx.query_policy_revision, ctx.query_head = args.query_context, args.query_policy_revision, args.query_head
     ctx.freshness_base = args.freshness_base
     ctx.freshness_report = args.freshness_report
+    # This coverage boundary applies even when optional checks are disabled or
+    # --only selects a single audit. Inventory paths are metadata, not bodies.
+    audit_nested_repository_boundary(ctx.errors)
+    audit_configured_path_boundaries(ctx.errors, config)
+    audit_selected_path_boundaries(ctx.errors, config, selected)
+    if ctx.freshness_report is not None:
+        try:
+            ctx.freshness_report.absolute().relative_to(ROOT.absolute())
+        except ValueError:
+            pass
+        else:
+            try:
+                _guard_audit_path(ctx.freshness_report)
+            except AuditPathBoundaryError:
+                ctx.errors.append('audit report path crosses a repository or symlink boundary')
+    if ctx.errors:
+        for error in ctx.errors:
+            print(f"ERROR: {error}")
+        print("wiki_audit: audit coverage unavailable; checks not completed")
+        return 1
+    boundary_failed = False
     for _name, run in selected:
-        run(ctx)
+        try:
+            run(ctx)
+        except AuditPathBoundaryError:
+            ctx.errors.append('audit selection crosses a repository or symlink boundary')
+            boundary_failed = True
+            break
     errors = ctx.errors
     warnings = ctx.warnings
 
@@ -2716,6 +2937,9 @@ def main() -> int:
         print(f"WARN: {warning}")
     for error in errors:
         print(f"ERROR: {error}")
+    if boundary_failed:
+        print("wiki_audit: audit coverage unavailable; checks not completed")
+        return 1
     print(f"wiki_audit: {len(errors)} error(s), {len(warnings)} warning(s)")
     return 1 if args.check and errors else 0
 

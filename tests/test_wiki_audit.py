@@ -70,6 +70,7 @@ def test_shape_audit_keeps_typed_action_dialogue(tmp_path, monkeypatch, audit, c
         page_id="action-example", page_type="action", action_state="open", next_action="Read approved evidence",
         blocked_by=[], blocker_reason="", action_state_history=[], action_dialogue=events,
     )) + "---\n\n# Example\n")
+    (tmp_path / 'wiki.page-types.yaml').write_text('{}\n')
     registry = SimpleNamespace(schema_version=audit.PAGE_TYPES_SCHEMA_VERSION,
                               page_types={"action": {"field_types": {"action_state_history": "list"}}})
     monkeypatch.setattr(audit, "ROOT", tmp_path)
@@ -259,7 +260,8 @@ Test content.
 """
 
 
-def test_parse_frontmatter_valid(tmp_path, audit):
+def test_parse_frontmatter_valid(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
     path = tmp_path / "valid.md"
     path.write_text(VALID_FRONTMATTER, encoding="utf-8")
     values, errors = audit.parse_frontmatter(path)
@@ -270,7 +272,8 @@ def test_parse_frontmatter_valid(tmp_path, audit):
     assert values["page_type"] == "dashboard"
 
 
-def test_parse_frontmatter_missing_block(tmp_path, audit):
+def test_parse_frontmatter_missing_block(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
     path = tmp_path / "no-frontmatter.md"
     path.write_text("# No frontmatter\n\nbody only here.\n", encoding="utf-8")
     values, errors = audit.parse_frontmatter(path)
@@ -278,7 +281,8 @@ def test_parse_frontmatter_missing_block(tmp_path, audit):
     assert "missing frontmatter block" in errors
 
 
-def test_parse_frontmatter_strips_quotes(tmp_path, audit):
+def test_parse_frontmatter_strips_quotes(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
     # Finding 15: quoted visibility escaped the public PII block.
     path = tmp_path / "quoted.md"
     path.write_text(
@@ -1173,7 +1177,8 @@ def test_append_only_directory_links_are_ignored(tmp_path, audit, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_parse_frontmatter_is_memoized_per_path(tmp_path, audit):
+def test_parse_frontmatter_is_memoized_per_path(tmp_path, audit, monkeypatch):
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
     audit.parse_frontmatter.cache_clear()
     path = tmp_path / "page.md"
     path.write_text(VALID_FRONTMATTER, encoding="utf-8")
@@ -2423,3 +2428,102 @@ def test_context_hub_audit_matches_typed_discovery_without_coercion(tmp_path, au
     pages, errors=audit.context_hub_pages(config)
     assert pages == typed['tax'] == ['memories/finance/tax/valid.md']
     assert errors == typed_errors == []
+
+
+@pytest.mark.parametrize('marker', ['directory', 'file', 'symlink-file', 'symlink-directory'])
+@pytest.mark.parametrize('name', [' leading space', 'line\nbreak'])
+def test_audit_fences_tracked_boundaries_before_read(tmp_path, audit, monkeypatch, capsys, marker, name):
+    root = tmp_path / 'wiki'
+    folder = root / 'docs' / name / 'nested'
+    folder.mkdir(parents=True)
+    target = folder / 'selected.md'
+    target.write_text('synthetic tracked content')
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    external = outside / 'selected.md'
+    external.write_text('synthetic outside content')
+    subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+    subprocess.run(['git', 'add', '--', 'docs'], cwd=root, check=True)
+    if marker == 'directory':
+        (folder / '.git').mkdir()
+    elif marker == 'file':
+        (folder / '.git').write_text('gitdir: synthetic')
+    elif marker == 'symlink-file':
+        target.unlink()
+        target.symlink_to(external)
+    else:
+        target.unlink()
+        folder.rmdir()
+        folder.symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(audit, 'ROOT', root)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: WikiConfig())
+    monkeypatch.setattr(audit, 'CHECKS', (('sentinel', lambda _ctx: pytest.fail('audit continued after boundary')),))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py'])
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        if path in (target, external):
+            pytest.fail('boundary content opened')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    assert audit.main() == 1
+    output = capsys.readouterr().out
+    assert 'audit coverage unavailable' in output and 'limits audit coverage' in output
+
+
+def test_audit_nul_inventory_keeps_exact_special_names(tmp_path, audit, monkeypatch):
+    root = tmp_path / 'wiki'
+    root.mkdir()
+    subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+    names = [' leading.md', 'line\nbreak.md']
+    for name in names:
+        (root / name).write_text('synthetic wiki content')
+    subprocess.run(['git', 'add', '--', names[0]], cwd=root, check=True)
+    monkeypatch.setattr(audit, 'ROOT', root)
+    audit._audit_git_inventory.cache_clear()
+    audit.tracked_files.cache_clear()
+    assert set(names) <= set(audit.tracked_files())
+    assert set(names) <= set(audit.markdown_files())
+    audit._audit_git_inventory.cache_clear()
+    audit.tracked_files.cache_clear()
+
+
+@pytest.mark.parametrize('failure', ['error', 'missing', 'truncated'])
+def test_audit_inventory_failure_never_reports_complete(tmp_path, audit, monkeypatch, capsys, failure):
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: WikiConfig())
+    monkeypatch.setattr(audit, 'CHECKS', (('sentinel', lambda _ctx: pytest.fail('audit continued without inventory')),))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py'])
+    def fail(args, **kwargs):
+        if failure == 'missing':
+            raise FileNotFoundError('synthetic unavailable Git')
+        if failure == 'truncated':
+            return b'truncated'
+        raise subprocess.CalledProcessError(1, args)
+    monkeypatch.setattr(audit.subprocess, 'check_output', fail)
+    assert audit.main() == 1
+    assert 'audit coverage unavailable' in capsys.readouterr().out
+
+
+def test_audit_selected_config_path_in_ignored_clone_is_not_opened(tmp_path, audit, monkeypatch, capsys):
+    nested = tmp_path / 'ignored' / 'nested'
+    nested.mkdir(parents=True)
+    (nested / '.git').mkdir()
+    target = nested / 'selected.md'
+    target.write_text('synthetic selected content')
+    (tmp_path / '.gitignore').write_text('ignored/\n')
+    subprocess.run(['git', 'init', '-q'], cwd=tmp_path, check=True)
+    config = WikiConfig()
+    config.paths['command_reference_page'] = 'ignored/nested/selected.md'
+    monkeypatch.setattr(audit, 'ROOT', tmp_path)
+    monkeypatch.setattr(audit, 'load_config', lambda _root: config)
+    monkeypatch.setattr(audit, 'CHECKS', (('sentinel', lambda _ctx: pytest.fail('audit continued after boundary')),))
+    monkeypatch.setattr(sys, 'argv', ['wiki_audit.py'])
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        if path == target:
+            pytest.fail('configured nested content opened')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    assert audit.main() == 1
+    assert 'audit coverage unavailable' in capsys.readouterr().out
