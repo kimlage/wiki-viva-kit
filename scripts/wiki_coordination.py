@@ -80,8 +80,11 @@ def main() -> None:
                 if not require_wiki_path(root, folder).is_dir():
                     raise ValueError('context folder unavailable')
                 payload['entry_folder'] = folder
-            from wiki_core.context_policy import load_policy
-            policy = load_policy(root, args.approved_revision, binding.manifest, trusted_ref=binding.trusted_ref)
+            from wiki_core.context_policy import load_policy, PolicyError
+            try:
+                policy = load_policy(root, args.approved_revision, binding.manifest, trusted_ref=binding.trusted_ref)
+            except (PolicyError, OSError) as exc:
+                raise ProtectedCoordinationError('coordination_policy_unavailable') from exc
             if getattr(policy, 'format_version', None) != 'folder':
                 raise ProtectedCoordinationError('coordination_policy_unavailable')
             folder = payload['entry_folder']

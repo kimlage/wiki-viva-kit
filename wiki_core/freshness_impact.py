@@ -20,6 +20,7 @@ from typing import Any
 from wiki_core.traversal import wiki_markdown_files
 from wiki_core.git_env import local_git_environment, local_git_executable
 from wiki_core.config import WikiConfig
+from wiki_core.context_policy import policy_stage_cache
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, MARKDOWN_LINK_RE
@@ -231,6 +232,7 @@ def _merge_pending_fields(included, pending_fields):
     return by_path
 
 
+@policy_stage_cache()
 def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                       today: dt.date | None = None,
                       documentary_only: dict[str, str] | None = None,

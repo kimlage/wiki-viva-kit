@@ -5,7 +5,7 @@ import json
 import copy
 import datetime as dt
 from pathlib import Path, PurePosixPath
-from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report
+from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report, policy_stage_cache
 from .repository_reader import RepositoryReader
 from .detectors import contains_secret_structure
 from .context_selection import select_query, digest
@@ -105,6 +105,7 @@ def guarded_context_read(reader, policy, ref, **selectors):
     return reader.read(ref, **selectors)
 
 
+@policy_stage_cache()
 def qualify_folder_context(root, policy, context_id, entry_folder, entry_index, max_bytes, *, additional_readers=()):
     """Qualify the lineage after exact authorization for every reader.
 
@@ -300,6 +301,7 @@ def _packet_with_omissions(packet, omissions, policy):
     return result
 
 
+@policy_stage_cache()
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
                  required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=(),
                  entry_folder=None, entry_index=None, additional_readers=(), trusted_binding=None):

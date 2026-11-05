@@ -5,7 +5,7 @@ from copy import deepcopy
 import json
 import subprocess
 from pathlib import Path
-from wiki_core.context_policy import PolicyError, safe_path, is_context_instruction
+from wiki_core.context_policy import PolicyError, safe_path, is_context_instruction, policy_stage_cache
 from wiki_core.context_packet import build_packet, validate_result, guarded_context_read
 from wiki_core.repository_reader import RepositoryReader
 from wiki_core.git_env import local_git_environment, local_git_executable
@@ -59,6 +59,7 @@ class _QueryReuse:
         return receipt
 
 
+@policy_stage_cache()
 def preflight(root, policy, *, context_id, base, head, branch, packet, result, trusted_additional_readers=(), trusted_binding=None):
     """Return a review candidate, never an approval or merge authorization.
 
