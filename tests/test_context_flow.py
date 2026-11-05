@@ -135,12 +135,11 @@ def test_reported_review_requires_current_evidence_and_changed_output(repo):
     with pytest.raises(ImpactError,match='source changed'): report_review(repo,policy(repo),candidate,disposition='still_valid',reason='stale review',evidence_revision='HEAD')
 
 
-def test_cli_impact_is_finite_and_revision_bound(repo,tmp_path):
+def test_cli_does_not_compose_impact_from_legacy_authority(repo,tmp_path):
     before=git(repo,'rev-parse','HEAD'); after=update(repo,'<!-- wiki:section id=amount version=1 -->\n## Amount\nTwo\n')
     file=tmp_path/'inventory.json'; file.write_text(json.dumps(graph(before)))
     cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',after,'impact','--graph',str(file),'--before',before,'--after',after,'--context','costs','--limit','1']
-    out=json.loads(subprocess.check_output(cmd))
-    assert out['policy_revision']==after and len(out['candidates'])==1
+    assert subprocess.run(cmd, capture_output=True).returncode != 0
 
 
 def test_independent_interpretations_and_no_blind_transitive_cascade(repo):
@@ -233,7 +232,7 @@ def test_markdown_requirement_flows_through_real_inventory_and_authorized_reader
     narrowed=assess_approved_impact(repo,policy(repo),consumers=['finance/costs/result.md'],before=before,after=after,destination_context='costs')
     assert [c['target'] for c in narrowed['candidates']]==['finance/costs/result.md']
     cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',after,'impact','--consumer','finance/costs/result.md','--before',before,'--after',after,'--context','costs']
-    assert json.loads(subprocess.check_output(cmd))['candidates']==narrowed['candidates']
+    assert subprocess.run(cmd, capture_output=True).returncode != 0
 
 def test_requirements_derived_only_from_reported_verified_approved_output(repo):
     from wiki_core.context_requirements import requirements_from_result, RequirementError
@@ -247,7 +246,7 @@ def test_requirements_derived_only_from_reported_verified_approved_output(repo):
     assert out['information_requirements']==[{'target':'finance/tax/source.md','fields':['section:amount'],'temporal':'current','max_age_days':30,'consumed_revision':base,'use':'interpret','classification':'synthetic'}]
     packet_path=repo/'packet.json'; result_path=repo/'result.json'; packet_path.write_text(json.dumps(packet)); result_path.write_text(json.dumps(result))
     cmd=[sys.executable,str(BASE/'scripts/wiki_context_flow.py'),'--repo',str(repo),'--approved-revision',current.policy_revision,'requirements','--packet',str(packet_path),'--result',str(result_path),'--output','finance/costs/result.md','--proposal-head',head,'--temporal','current','--max-age-days','30']
-    assert json.loads(subprocess.check_output(cmd))==out
+    assert subprocess.run(cmd, capture_output=True).returncode != 0
     missing={**result,'read_coverage':{'observed_refs':[],'missing':[]}}
     with pytest.raises(RequirementError,match='not reported read'): requirements_from_result(repo,current,**{**args,'result':missing})
     forged=copy.deepcopy(packet); forged['content_revision']='HEAD'; forged['inputs'][-1]['revision']='HEAD'; forged['declared_read_set'][-1]['revision']='HEAD'

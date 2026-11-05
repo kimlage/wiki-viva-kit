@@ -1,5 +1,8 @@
 import copy
+import json
 import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -79,6 +82,20 @@ def test_folder_approved_markdown_requirement_is_selected(repo):
                                     destination_context='alpha')
     assert [row['target'] for row in result['candidates']] == ['alpha/result.md']
     assert result['candidates'][0]['state'] == 'review_pending'
+
+
+def test_folder_impact_cli_from_context_directory(repo, tmp_path):
+    before, after = change(repo)
+    graph = tmp_path / 'graph.json'
+    graph.write_text(json.dumps(edge(consumed=before)))
+    script = Path(__file__).resolve().parents[1] / 'scripts/wiki_context_flow.py'
+    command = [sys.executable, str(script), '--approved-revision', after, 'impact',
+               '--graph', str(graph), '--before', before, '--after', after, '--context', 'alpha']
+    completed = subprocess.run(command, cwd=repo / 'alpha', capture_output=True, text=True, check=True)
+    assert json.loads(completed.stdout)['candidates'][0]['state'] == 'review_pending'
+    git(repo / 'alpha', 'init', '-q')
+    nested = subprocess.run(command, cwd=repo / 'alpha', capture_output=True, text=True)
+    assert nested.returncode != 0  # Never fall back to the outer wiki.
 
 
 def test_cross_context_grant_still_requires_requalification(repo, monkeypatch):
