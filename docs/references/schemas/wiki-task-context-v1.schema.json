@@ -3,6 +3,11 @@
   "title": "Task context",
   "type": "object",
   "additionalProperties": false,
+  "dependentRequired": {
+    "authority_format": ["entry_folder", "entry_index"],
+    "entry_folder": ["authority_format", "entry_index"],
+    "entry_index": ["authority_format", "entry_folder"]
+  },
   "required": [
     "schema_version",
     "context_id",
@@ -28,6 +33,17 @@
   "properties": {
     "schema_version": {
       "const": "wiki.task-context/v1"
+    },
+    "authority_format": {
+      "const": "folder"
+    },
+    "entry_folder": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entry_index": {
+      "type": "string",
+      "minLength": 1
     },
     "context_id": {
       "type": "string",

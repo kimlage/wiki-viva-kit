@@ -173,6 +173,11 @@ class ContextPolicy:
         return max(matches,key=lambda c:len(c['root']) if c['root']!='.' else 0)['id']
 
     def permits(self,cid,action,path):
+        if getattr(self, 'format_version', None) == 'folder' and cid not in self._qualified_contexts:
+            return False
+        return self._permits_unqualified(cid, action, path)
+
+    def _permits_unqualified(self,cid,action,path):
         path=safe_path(path)
         if action not in ('read','write'): raise PolicyError('invalid action')
         p=self.effective[cid]
@@ -181,15 +186,21 @@ class ContextPolicy:
     def permits_effect(self, cid, category, effect):
         if category not in ('capabilities','publication') or not isinstance(effect, str) or not effect:
             raise PolicyError('invalid effect')
+        if getattr(self, 'format_version', None) == 'folder' and cid not in self._qualified_contexts:
+            return False
         p = self.effective[cid]
         return effect in p[category] and effect not in p['deny'][category]
 
     def connection(self,producer,consumer,selector,use,classification,today=None,section=None,field=None):
+        return self._connection(producer,consumer,selector,use,classification,today,section,field,qualified=True)
+
+    def _connection(self,producer,consumer,selector,use,classification,today=None,section=None,field=None,*,qualified):
         safe_path(selector)
         if section is not None and field is not None: raise PolicyError('section and field mutually exclusive')
         if producer not in self.contexts or consumer not in self.contexts: raise PolicyError('unknown context')
         if self.owner_of(selector)!=producer: return 'denied'
-        if not self.permits(producer,'read',selector) or not self.permits(consumer,'read',selector): return 'denied'
+        check = self.permits if qualified else self._permits_unqualified
+        if not check(producer,'read',selector) or not check(consumer,'read',selector): return 'denied'
         if producer==consumer: return 'approved'
         today=today or dt.date.today()
         def matches(r): return r['from_context']==producer and r['to_context']==consumer and r['selector']==selector and r['use']==use and r['classification']==classification and r.get('section')==section and r.get('field')==field and dt.date.fromisoformat(r['expires'])>=today
@@ -283,6 +294,10 @@ def _folder_policy_at(root, sha):
     # Existing packet/integration paths must not silently reinterpret v1.
     # A caller must use the folder-aware versioned interfaces when available.
     result.format_version = 'folder'
+    result._folder_names = frozenset(names)
+    # Metadata alone is not a qualified context. Callers must authorize and
+    # inspect the selected instruction/index bodies before receiving grants.
+    result._qualified_contexts = set()
     return result
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import datetime as dt
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from .context_policy import PolicyError, capability_status, safe_path, within, valid_adapter_report
 from .repository_reader import RepositoryReader
 from .detectors import contains_secret_structure
@@ -74,12 +74,35 @@ def _context_view(policy, context_id):
 
 
 def build_packet(root, policy, context_id, content_revision, evidence, max_bytes, *, adapter_report=None,
-                 required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=()):
-    if getattr(policy, 'format_version', None):
+                 required_capabilities=(), query_fingerprint=None, omissions=(), task_id=None, goal=None, output=None, integrator=None, queries=(),
+                 entry_folder=None, entry_index=None):
+    if getattr(policy, 'format_version', None) not in (None, 'folder'):
         raise PolicyError('v2 policy requires a v2 packet; v1 receipts require explicit migration')
     if not all(isinstance(x, str) and x.strip() for x in (task_id, goal, output, integrator)): raise PolicyError('task identity, goal, output and integrator required')
     if not getattr(policy, '_binding', None) or Path(policy._binding[0]) != Path(root).resolve(): raise PolicyError('unbound or mismatched policy')
     policy = policy.fresh()
+    folder_mode = getattr(policy, 'format_version', None) == 'folder'
+    if not folder_mode and (entry_folder is not None or entry_index is not None):
+        raise PolicyError('folder selection requires folder authority')
+    if folder_mode:
+        if entry_folder is None: raise PolicyError('entry folder required')
+        entry_folder = safe_path(entry_folder, allow_root=True)
+        from wiki_core.traversal import require_wiki_path
+        try:
+            if not require_wiki_path(Path(root), entry_folder).is_dir():
+                raise ValueError('entry folder unavailable')
+        except (ValueError, OSError) as exc:
+            raise PolicyError('entry folder unavailable') from exc
+        if context_id not in policy.contexts or (entry_folder == '.' and context_id != '.'):
+            raise PolicyError('entry context unavailable')
+        if entry_folder != '.' and policy.owner_of(entry_folder) != context_id:
+            raise PolicyError('entry context unavailable')
+        if entry_index is None:
+            entry_index = 'index.md' if context_id == '.' else context_id + '/index.md'
+        entry_index = safe_path(entry_index)
+        if str(PurePosixPath(entry_index).parent) != policy.contexts[context_id]['root']:
+            raise PolicyError('entry index unavailable')
+        if queries: raise PolicyError('folder query receipts are not available')
     for value in (task_id, goal, output, integrator, context_id):
         if isinstance(value, str): _reject_secrets(value)
     if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
@@ -88,6 +111,38 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     if not isinstance(queries, (list, tuple)) or len(queries) > 8: raise PolicyError('invalid query list')
     if not isinstance(omissions, (list, tuple)) or any(not isinstance(x, str) or not x for x in omissions): raise PolicyError('invalid omissions')
     lineage = policy.lineage(context_id)
+    policy_reader = RepositoryReader(Path(root), policy.policy_revision)
+    if folder_mode:
+        # Names in the Git tree are only candidates. Qualify each selected
+        # context's bodies after the exact access rule has been checked.
+        qualification_bytes = 0
+        inspected = set()
+        def inspect_authorized(ref):
+            nonlocal qualification_bytes
+            producer = policy.owner_of(ref)
+            if policy._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved':
+                raise PolicyError('context body not authorized')
+            if ref not in inspected:
+                qualification_bytes += policy_reader.blob_size(ref)
+                if qualification_bytes > max_bytes: raise PolicyError('context qualification exceeds byte budget')
+                inspected.add(ref)
+            item = policy_reader.read(ref)
+            _reject_secrets(item['text'])
+            return item['text']
+        for context in lineage:
+            folder = context['root']
+            prefix = '' if folder == '.' else folder + '/'
+            instructions = [prefix + name for name in ('AGENTS.override.md', 'AGENTS.md')
+                            if prefix + name in policy._folder_names]
+            if not instructions or not any(inspect_authorized(ref).strip() for ref in instructions):
+                raise PolicyError('context instruction empty or unavailable')
+            # Root can have an explicitly chosen index when it is the selected
+            # context. Nested contexts must have their own non-empty index.
+            if folder != '.' or context_id == '.':
+                index = entry_index if folder == context_id else prefix + 'index.md'
+                if index not in policy_reader.paths or not inspect_authorized(index).strip():
+                    raise PolicyError('context index empty or unavailable')
+        policy._qualified_contexts.update(context['id'] for context in lineage)
     if adapter_report is not None and not valid_adapter_report(adapter_report): raise PolicyError('invalid adapter report')
     if adapter_report is not None: _reject_secrets(adapter_report)
     if not isinstance(required_capabilities, (list, tuple)):
@@ -101,7 +156,8 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
     selected = []
     seen = set()
     # Rules are read from the approved policy revision, never historical content.
-    policy_reader = RepositoryReader(Path(root), policy.policy_revision)
+    if folder_mode and entry_folder != '.' and not any(ref.startswith(entry_folder + '/') for ref in policy_reader.paths):
+        raise PolicyError('entry folder unavailable in approved tree')
     def add(reader_, ref, reason, kind, section=None, field=None, producer=None, use=None, classification=None):
         ref = safe_path(ref)
         denied = any(within(ref, scope) for scope in policy.effective[context_id]['deny']['read'])
@@ -117,12 +173,37 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
                          'text': text, 'byte_length': len(data), 'sha256': digest,
                          'revision': item['revision'], 'document_sha256': item['content_sha256'],
                          'origin': item['origin'], 'reason': reason, 'producer': producer, 'use': use, 'classification': classification})
-    for c in lineage:
-        for key in ('instructions', 'skills', 'templates'):
-            for ref in c[key]:
-                if ref not in seen:
-                    add(policy_reader, ref, f"mandatory {key} from {c['id']}", 'mandatory', producer=c['id'])
-                    seen.add(ref)
+    if folder_mode:
+        parts = [] if entry_folder == '.' else entry_folder.split('/')
+        folders = ['.'] + ['/'.join(parts[:i]) for i in range(1, len(parts) + 1)]
+        for folder in folders:
+            prefix = '' if folder == '.' else folder + '/'
+            for name in ('AGENTS.override.md', 'AGENTS.md'):
+                ref = prefix + name
+                if ref not in policy._folder_names: continue
+                producer = policy.owner_of(ref)
+                if policy.connection(producer, context_id, ref, 'interpretation', 'context') != 'approved':
+                    raise PolicyError('instruction read not authorized')
+                add(policy_reader, ref, f'mandatory instructions from {producer}', 'mandatory', producer=producer)
+                if not selected[-1]['text'].strip():
+                    selected.pop()
+                    continue
+                seen.add(ref)
+                break
+        if not seen: raise PolicyError('context instructions unavailable')
+        if entry_index not in policy_reader.paths or policy.connection(
+                context_id, context_id, entry_index, 'interpretation', 'context') != 'approved':
+            raise PolicyError('index read not authorized or unavailable')
+        add(policy_reader, entry_index, 'selected context index', 'evidence',
+            producer=context_id, use='interpretation', classification='context')
+        if not selected[-1]['text'].strip(): raise PolicyError('context index empty')
+    else:
+        for c in lineage:
+            for key in ('instructions', 'skills', 'templates'):
+                for ref in c[key]:
+                    if ref not in seen:
+                        add(policy_reader, ref, f"mandatory {key} from {c['id']}", 'mandatory', producer=c['id'])
+                        seen.add(ref)
     mandatory_bytes = sum(x['byte_length'] for x in selected)
     if mandatory_bytes > max_bytes: raise PolicyError('mandatory content exceeds byte budget')
     if not isinstance(evidence, list): raise PolicyError('evidence must be a list')
@@ -156,6 +237,9 @@ def build_packet(root, policy, context_id, content_revision, evidence, max_bytes
             'query_fingerprint': None, 'coverage': {'mode': 'explicit_read_set', 'complete': False, 'missing': list(omissions)},
             'max_bytes': max_bytes, 'bytes_used': 0, 'selected_text_bytes': total,
             'capability_evidence': adapter_report, 'required_capabilities': list(required_capabilities), 'enforcement_claim': 'none; adapter report is supplied by the caller'}
+    if folder_mode:
+        packet.update(authority_format='folder', entry_folder=entry_folder, entry_index=entry_index)
+        packet['coverage']['missing'].append('linked sources not inspected')
     if query_selections:
         packet['query_selections'] = query_selections
         packet['query_fingerprint'] = digest(query_selections)
