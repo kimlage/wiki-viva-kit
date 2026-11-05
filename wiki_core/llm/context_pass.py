@@ -144,6 +144,8 @@ def enforce_request_budget(request: dict, *, context_max_bytes=DEFAULT_CONTEXT_M
                            request_max_bytes=DEFAULT_REQUEST_MAX_BYTES) -> dict:
     limits = request_limits(context_max_bytes, request_max_bytes)
     context_bytes = len(canonical_request_text(request.get("block_context_package") or {}).encode("utf-8")) - 1
+    if 'repository_context' in request:
+        context_bytes += len(canonical_request_text(request['repository_context']).encode('utf-8')) - 1
     if context_bytes > context_max_bytes:
         raise ContextRequestBlocked("context_budget_exceeded", "Required context exceeds its byte budget; choose an authorized narrower stage or revise the explicit budget.")
     if request.get("request_limits", limits) != limits:
@@ -509,13 +511,13 @@ _CONTEXT_FIELDS = (
     "prompt_name", "prompt", "source_context", "quadrants_required",
     "quadrant_map", "quadrant_semantics", "quadrant_boundary_rule", "root_entity",
     "input_channel", "input_stage_status", "target_pages", "perspectives_required",
-    "perspectives_optional", "block_context_package", "request_limits", "source_authorization",
+    "perspectives_optional", "block_context_package", "request_limits", "source_authorization", "repository_context",
 )
 
 
 def context_fingerprint(request: dict, provenance: dict) -> str:
     envelope = {key: request.get(key) for key in _CONTEXT_FIELDS}
-    for optional in ("request_limits", "source_authorization"):
+    for optional in ("request_limits", "source_authorization", "repository_context"):
         if optional not in request:  # Historical envelopes remain inspectable.
             envelope.pop(optional, None)
     envelope["provenance"] = provenance
@@ -945,6 +947,7 @@ def build_context_request(
     context_max_bytes: int = DEFAULT_CONTEXT_MAX_BYTES,
     request_max_bytes: int = DEFAULT_REQUEST_MAX_BYTES,
     source_authorization: dict | None = None,
+    repository_context: dict | None = None,
     cache_root: Path | None = None,
 ) -> dict[str, object]:
     """Assemble the packet that the repo agent executes. Includes the chunk text,
@@ -1009,12 +1012,17 @@ def build_context_request(
                "policy context and byte limits using the approved command in the prompt. "
                if approved else
                "Record via the working-tree compatibility command in the prompt. ")
+            + ("Use the selected repository_context as explicit interpretation evidence; "
+               "do not infer that any unselected repository files were read. "
+               if repository_context is not None else "")
             + "Never write canonical memory directly."
         ),
     }
 
     if source_authorization is not None:
         request["source_authorization"] = source_authorization
+    if repository_context is not None:
+        request["repository_context"] = repository_context
 
     for chunk in chunks:
         source_id = chunk.get("source_id", manifest.get("source_id"))

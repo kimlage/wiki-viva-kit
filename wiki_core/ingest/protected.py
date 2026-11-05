@@ -29,6 +29,7 @@ from wiki_core.llm.context_pass import (CONTEXT_PASS_SCHEMA_VERSION, canonical_r
     enforce_request_budget, result_matches_request, request_limits, require_approved_prompt_version)
 from wiki_core.paths import WikiPaths
 from wiki_core.repo_read import contains_access_secrets
+from wiki_core.repo_host import selected_repository, authorize_repository_event
 from wiki_core.source_manifest import classify_source, source_id_for, source_origin, chunk_document
 from wiki_core.traversal import (PROTECTED_ARTIFACT_COMPONENT, require_wiki_boundaries,
     require_wiki_path)
@@ -201,13 +202,20 @@ def _validate_source_context(extracted, projected):
             raise ValueError('source perspectives require explicit qualification')
 
 
-def _request_path(paths, source_id, request_id):
+def _request_path(paths, source_id, request_id, repository_context=None):
     if not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id):
         raise ValueError('request unavailable')
     if not isinstance(request_id, str) or not re.fullmatch(r'[0-9a-f]{64}', request_id):
         raise ValueError('request unavailable')
     source = hashlib.sha256(source_id.encode()).hexdigest()
-    return paths.extraction_events / f'protected-{source}-{request_id}-llm-context-request.json'
+    selection = '' if repository_context is None else repository_context['host_binding_digest'] + '-'
+    return paths.extraction_events / f'protected-{source}-{selection}{request_id}-llm-context-request.json'
+
+
+def _repository(binding, policy, context_id, actor, selection):
+    if selection is None:
+        return None
+    return selected_repository(binding, policy, context_id, actor, selection)
 
 
 def _perspectives(policy, refs, required, optional):
@@ -362,7 +370,7 @@ def _write_once(root, policy, context_id, path, value, *, compact=False):
 
 def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
             source_ref, source_context, context_max_bytes=100_000, request_max_bytes=1_000_000,
-            artifact_context=None, perspective_refs=None, context_selection=None):
+            artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None):
     """Capture one authorized source and emit its bound contextual request."""
     request_limits(context_max_bytes, request_max_bytes)
     actor = context_id if artifact_context is None else artifact_context
@@ -373,6 +381,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     _, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
         context_max_bytes, 'source-selection-preflight', context_selection, perspective_refs, source_ref)
+    repository_context = _repository(binding, policy, context_id, actor, repository_selection)
     source, source_digest, manifest, extracted, chunks = _capture(root, policy, context_id,
         source_ref, source_context, config, actor)
     _validate_source_context(extracted, projected)
@@ -396,7 +405,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             **{key: projected[key] for key in ('root_entity', 'input_channel', 'quadrant_map',
                'quadrant_semantics', 'quadrant_boundary_rule', 'target_pages', 'input_stage_status')},
             context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
-            source_authorization=auth)
+            source_authorization=auth, repository_context=repository_context)
     request_id = _request_identity(request)
     request['protected_request_id'] = request_id
     enforce_request_budget(request, context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes)
@@ -413,7 +422,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
            for value in (manifest, text_document, chunks_document)):
         raise ValueError('capture exceeds protected retention limit')
     artifact_paths = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
-        paths.chunks / f'{source_id}.json', _request_path(paths, source_id, request_id)]
+        paths.chunks / f'{source_id}.json', _request_path(paths, source_id, request_id, repository_context)]
     for path in artifact_paths:
         _allowed(root, policy, actor, path, 'read')
         _allowed(root, policy, actor, path, 'write')
@@ -426,12 +435,16 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
         entry_folder, entry_index, context_max_bytes, actor)
     if _hash(_source(root, policy, context_id, source_ref, actor), policy) != source_digest:
         raise ValueError('source changed')
+    if _repository(binding, policy, context_id, actor, repository_selection) != repository_context:
+        raise ValueError('repository selection changed')
     capture = _capture_matches(root, policy, actor, paths, manifest, extracted, chunks)
     def revalidate(path):
         current_root, current_policy, _config, _paths = _authority(root, binding, context_id,
             approved_revision, entry_folder, entry_index, context_max_bytes, actor)
         if _hash(_source(current_root, current_policy, context_id, source_ref, actor), current_policy) != source_digest:
             raise ValueError('source changed')
+        if _repository(binding, current_policy, context_id, actor, repository_selection) != repository_context:
+            raise ValueError('repository selection changed')
         _allowed(current_root, current_policy, actor, path, 'read')
         _allowed(current_root, current_policy, actor, path, 'write')
     try:
@@ -443,13 +456,13 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             revalidate(artifact_paths[2])
             _write_once(root, policy, actor, artifact_paths[2], chunks_document)
         revalidate(artifact_paths[3])
-        _write_once(root, policy, actor, _request_path(paths, source_id, request_id), request, compact=True)
+        _write_once(root, policy, actor, _request_path(paths, source_id, request_id, repository_context), request, compact=True)
         revalidate(artifact_paths[3])
         root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
             entry_folder, entry_index, context_max_bytes, actor)
         if not _capture_matches(root, policy, actor, paths, manifest, extracted, chunks):
             raise ValueError('capture unavailable after write')
-        if _read_json(root, policy, actor, _request_path(paths, source_id, request_id)) != request:
+        if _read_json(root, policy, actor, _request_path(paths, source_id, request_id, repository_context)) != request:
             raise ValueError('request differs after write')
     except (ValueError, OSError) as exc:
         raise ProtectedPartialError('partial effects may exist; inspect before retry') from exc
@@ -460,20 +473,22 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
 
 def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
                 source_ref, source_id, request_id, context_max_bytes, request_max_bytes,
-                artifact_context=None, perspective_refs=None, context_selection=None):
+                artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None):
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
         entry_folder, entry_index, context_max_bytes, actor)
     current, projected, selection, required, optional, selected_perspectives = _selected_packet(
         root, policy, config, context_id, actor, approved_revision, entry_folder, entry_index,
         context_max_bytes, source_id, context_selection, perspective_refs, source_ref)
+    repository_context = _repository(binding, policy, context_id, actor, repository_selection)
     source = _source(root, policy, context_id, source_ref, actor)
     digest = _hash(source, policy)
-    path = _request_path(paths, source_id, request_id)
+    path = _request_path(paths, source_id, request_id, repository_context)
     request = _read_json(root, policy, actor, path)
     if (not isinstance(request, dict) or request.get('source_id') != source_id
             or request.get('protected_request_id') != request_id
             or _request_identity(request) != request_id
+            or request.get('repository_context') != repository_context
             or request.get('source_hash_sha256') != digest
             or request.get('request_limits') != request_limits(context_max_bytes, request_max_bytes)):
         raise ValueError('request unavailable')
@@ -513,7 +528,7 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
             **{key: projected[key] for key in ('root_entity', 'input_channel', 'quadrant_map',
                'quadrant_semantics', 'quadrant_boundary_rule', 'target_pages', 'input_stage_status')},
             context_max_bytes=context_max_bytes, request_max_bytes=request_max_bytes,
-            source_authorization=auth)
+            source_authorization=auth, repository_context=repository_context)
     if _request_identity(rebuilt) != request_id:
         raise ValueError('request source changed')
     return root, policy, config, paths, request, digest
@@ -522,13 +537,13 @@ def _open_bound(root, binding, *, context_id, approved_revision, entry_folder, e
 def record(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
            source_ref, source_id, request_id, results,
            context_max_bytes=100_000, request_max_bytes=1_000_000, artifact_context=None, perspective_refs=None,
-           context_selection=None):
+           context_selection=None, repository_selection=None):
     """Record host-supplied result objects against the exact retained request."""
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
         request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs,
-        context_selection=context_selection)
+        context_selection=context_selection, repository_selection=repository_selection)
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     if (not isinstance(results, list) or not results or len(results) > 1000
@@ -575,15 +590,19 @@ def record(root, binding, *, context_id, approved_revision, entry_folder, entry_
 def consolidate(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
                 source_ref, source_id, request_id, source_page, event_target, date,
                 candidates=(), context_max_bytes=100_000, request_max_bytes=1_000_000,
-                artifact_context=None, perspective_refs=None, context_selection=None):
+                artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None):
     """Prepare an event and packet; incorporation and review remain separate."""
     from wiki_core.consolidate import aggregate_results, build_event_markdown, build_packet
     options = dict(context_id=context_id, approved_revision=approved_revision,
         entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
         source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
         request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs,
-        context_selection=context_selection)
+        context_selection=context_selection, repository_selection=repository_selection)
     actor = context_id if artifact_context is None else artifact_context
+    if repository_selection is not None:
+        _, authority, _, _ = _authority(root, binding, context_id, approved_revision,
+            entry_folder, entry_index, context_max_bytes, actor)
+        authorize_repository_event(binding, authority, context_id, actor, repository_selection, safe_path(event_target))
     root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
     if (not isinstance(candidates, (list, tuple)) or len(candidates) > 128
             or any(not isinstance(x, str) for x in candidates)):
@@ -611,6 +630,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         f'{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}.md')
     if root / event_target != expected:
         raise ValueError('event target unavailable')
+    authorize_repository_event(binding, policy, context_id, actor, repository_selection, event_target)
     _allowed(root, policy, context_id, root / source_page, 'read')
     source_page_digest = _source_page(root, policy, actor, config, source_page, selected_digest=selected_digest)
     for ref in refs:
@@ -635,6 +655,10 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     aggregated = aggregate_results(request, paths.llm_cache, root=root, result_reader=read_bound_result)
     aggregated['folder_request_id'] = request_id
     aggregated['source_hash_sha256'] = digest
+    if request.get('repository_context') is not None:
+        selected = request['repository_context']
+        aggregated['independent_git_sources'] = [{key: selected[key] for key in
+            ('selection_id', 'host_binding_digest', 'revision', 'path', 'blob', 'document_sha256', 'content_sha256')}]
     packet = build_packet(aggregated, root, config, paths, candidates=refs)
     markdown = build_event_markdown(aggregated, config=config, context=request['source_context'],
         date=date, source_page=source_page, source_type=classify_source(source_ref),
@@ -651,6 +675,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
     root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
     if current != request or current_digest != digest:
         raise ValueError('request authority changed')
+    authorize_repository_event(binding, policy, context_id, actor, repository_selection, event_target)
     _allowed(root, policy, context_id, root / source_page, 'read')
     if _source_page(root, policy, actor, config, source_page, selected_digest=selected_digest) != source_page_digest:
         raise ValueError('source page changed')
@@ -663,6 +688,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != digest:
             raise ValueError('request authority changed')
+        authorize_repository_event(binding, policy, context_id, actor, repository_selection, event_target)
         _allowed(root, policy, context_id, root / source_page, 'read')
         if _source_page(root, policy, actor, config, source_page, selected_digest=selected_digest) != source_page_digest:
             raise ValueError('source page changed')
@@ -677,6 +703,7 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
         root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
         if current != request or current_digest != digest:
             raise ValueError('request authority changed')
+        authorize_repository_event(binding, policy, context_id, actor, repository_selection, event_target)
         _allowed(root, policy, context_id, root / source_page, 'read')
         if _source_page(root, policy, actor, config, source_page, selected_digest=selected_digest) != source_page_digest:
             raise ValueError('source page changed')
