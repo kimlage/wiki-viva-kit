@@ -23,6 +23,8 @@ def main() -> None:
     parser.add_argument("--folder", help="Physical entry folder for a folder-authority task packet.")
     parser.add_argument("--index", help="Explicit context index for a folder-authority task packet.")
     parser.add_argument("--integrator-context", help="Explicit authorized ancestor that owns protected artifacts.")
+    parser.add_argument('--trusted-context', action='append', default=[], metavar='CONTEXT',
+        help='additional producer context selected explicitly by the trusted local operator')
     parser.add_argument("--source-stage", choices=('prepare', 'record', 'consolidate', 'compare', 'inspect'),
         help="Trusted local operator source stage; stage payload is read from stdin.")
     parser.add_argument('--show-host-binding', action='store_true',
@@ -38,7 +40,7 @@ def main() -> None:
     if args.show_host_binding:
         if (args.source_stage or args.context_id or args.approved_revision or args.packet_request or args.profile
                 or args.folder or args.index or args.integrator_context or args.action_id or args.event_file
-                or args.expected_sha256 or args.as_operator or args.action_path):
+                or args.expected_sha256 or args.as_operator or args.action_path or args.trusted_context):
             parser.error('host binding readback does not accept stage or task options')
         try:
             print(json.dumps(capability(args.root.resolve(), CoordinationBinding.from_environment()), ensure_ascii=False))
@@ -53,7 +55,7 @@ def main() -> None:
         try:
             # This adapter trusts the local operator. The arguments it receives
             # are not a security boundary against that operator or filesystem.
-            contexts = tuple(dict.fromkeys([args.context_id, args.integrator_context or args.context_id]))
+            contexts = tuple(dict.fromkeys([args.context_id, args.integrator_context or args.context_id, *args.trusted_context]))
             binding = CoordinationBinding.from_environment()
             if binding is None:
                 binding = CoordinationBinding(contexts, 'refs/remotes/origin/main', 'wiki.config.yaml')
@@ -83,7 +85,10 @@ def main() -> None:
             from wiki_core.traversal import is_protected_artifact
             if is_protected_artifact(args.packet_request):
                 raise ValueError('protected request requires bound dispatch')
-            binding = CoordinationBinding((args.context_id,), 'refs/remotes/origin/main', 'wiki.config.yaml')
+            binding = CoordinationBinding.from_environment()
+            if binding is None:
+                binding = CoordinationBinding(tuple(dict.fromkeys([args.context_id, *args.trusted_context])),
+                                              'refs/remotes/origin/main', 'wiki.config.yaml')
             root = args.root.resolve()
             _policy(root, binding, args.context_id, args.approved_revision)
             if args.packet_request.stat().st_size > 1_048_576:
@@ -105,7 +110,7 @@ def main() -> None:
             raise SystemExit(1)
         print(json.dumps({**result, 'caller_boundary': 'trusted_local_operator'}, ensure_ascii=False))
         return
-    if args.folder or args.index or args.integrator_context:
+    if args.folder or args.index or args.integrator_context or args.trusted_context:
         parser.error('folder and index require protected packet mode')
     if args.event_file and (not args.profile or not args.action_id or not args.expected_sha256 or not args.action_path):
         parser.error("--event-file requires --profile, --action-id, --action-path and --expected-sha256")

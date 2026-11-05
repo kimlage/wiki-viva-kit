@@ -21,12 +21,15 @@ def main():
     sub=p.add_subparsers(dest='command',required=True)
     impact=sub.add_parser('impact'); source=impact.add_mutually_exclusive_group(required=True); source.add_argument('--graph'); source.add_argument('--consumer',action='append'); impact.add_argument('--before',required=True); impact.add_argument('--after',required=True); impact.add_argument('--context',required=True); impact.add_argument('--limit',type=int,default=100); impact.add_argument('--offset',type=int,default=0); impact.add_argument('--selection'); impact.add_argument('--trace',default='[]')
     requirements=sub.add_parser('requirements'); requirements.add_argument('--packet',required=True); requirements.add_argument('--result',required=True); requirements.add_argument('--output',required=True); requirements.add_argument('--proposal-head',required=True); requirements.add_argument('--temporal',required=True,choices=['current','historical']); requirements.add_argument('--max-age-days',type=int,required=True)
+    requirements.add_argument('--context', help='explicit executor context, required when selecting additional trusted contexts')
     revalidate=sub.add_parser('revalidate'); revalidate.add_argument('--consumer',required=True); revalidate.add_argument('--context',required=True)
     review=sub.add_parser('review'); review.add_argument('--candidate',required=True); review.add_argument('--disposition',required=True,choices=['updated','still_valid','superseded','blocked']); review.add_argument('--reason',required=True); review.add_argument('--evidence-revision',required=True)
     check=sub.add_parser('preflight'); check.add_argument('--context',required=True); check.add_argument('--base',required=True); check.add_argument('--head',required=True); check.add_argument('--branch',required=True); check.add_argument('--packet',required=True); check.add_argument('--result',required=True)
     for command in (requirements, check):
         command.add_argument('--additional-reader', action='append', default=[], metavar='CONTEXT',
             help='repeat the trusted local operator selection; packet contents do not grant access')
+        command.add_argument('--trusted-context', action='append', default=[], metavar='CONTEXT',
+            help='additional producer context selected explicitly by the trusted local operator')
     args=p.parse_args()
     try:
         if args.repo is None:
@@ -35,17 +38,25 @@ def main():
             args.repo=found.stdout.decode('utf-8').strip()
             if not args.repo: raise PolicyError('current Git root unavailable')
         policy=load_policy(args.repo,args.approved_revision,args.manifest)
+        binding=None
+        if args.command in ('requirements','preflight') and args.trusted_context:
+            if not args.context: raise PolicyError('explicit executor context required for trusted selection')
+            from wiki_core.coordination_context import CoordinationBinding
+            binding=CoordinationBinding(tuple(dict.fromkeys([args.context, *args.trusted_context, *args.additional_reader])),policy._binding[1],args.manifest)
         if args.command=='impact':
             options={'before':args.before,'after':args.after,'destination_context':args.context,'max_fanout':args.limit,'offset':args.offset,'expected_selection':args.selection,'trace':json.loads(args.trace)}
             out=(assess_impact(args.repo,policy,strict_json_loads(Path(args.graph).read_text(encoding='utf-8')),**options) if args.graph else assess_approved_impact(args.repo,policy,consumers=args.consumer,**options))
         elif args.command=='revalidate':
             out=revalidate_approved_queries(args.repo,policy,consumer=args.consumer,context_id=args.context)
         elif args.command=='requirements':
-            out=requirements_from_result(args.repo,policy,packet=strict_json_loads(Path(args.packet).read_text(encoding='utf-8')),result=strict_json_loads(Path(args.result).read_text(encoding='utf-8')),output_path=args.output,proposal_head=args.proposal_head,temporal=args.temporal,max_age_days=args.max_age_days,trusted_additional_readers=tuple(args.additional_reader))
+            packet=strict_json_loads(Path(args.packet).read_text(encoding='utf-8'))
+            if args.context and (not isinstance(packet,dict) or packet.get('context_id')!=args.context):
+                raise PolicyError('packet context differs from explicit executor')
+            out=requirements_from_result(args.repo,policy,packet=packet,result=strict_json_loads(Path(args.result).read_text(encoding='utf-8')),output_path=args.output,proposal_head=args.proposal_head,temporal=args.temporal,max_age_days=args.max_age_days,trusted_additional_readers=tuple(args.additional_reader),trusted_binding=binding)
         elif args.command=='review':
             out=report_review(args.repo,policy,strict_json_loads(Path(args.candidate).read_text(encoding='utf-8')),disposition=args.disposition,reason=args.reason,evidence_revision=args.evidence_revision)
         else:
-            out=preflight(args.repo,policy,context_id=args.context,base=args.base,head=args.head,branch=args.branch,packet=strict_json_loads(Path(args.packet).read_text(encoding='utf-8')),result=strict_json_loads(Path(args.result).read_text(encoding='utf-8')),trusted_additional_readers=tuple(args.additional_reader))
+            out=preflight(args.repo,policy,context_id=args.context,base=args.base,head=args.head,branch=args.branch,packet=strict_json_loads(Path(args.packet).read_text(encoding='utf-8')),result=strict_json_loads(Path(args.result).read_text(encoding='utf-8')),trusted_additional_readers=tuple(args.additional_reader),trusted_binding=binding)
         print(json.dumps(out,ensure_ascii=False,sort_keys=True,indent=2))
     except (PolicyError,ImpactError,IntegrationError,RequirementError,ValueError,KeyError,OSError) as exc:
         print(str(exc),file=sys.stderr); return 1
