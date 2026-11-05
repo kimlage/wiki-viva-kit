@@ -12,23 +12,29 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    template and perspective inputs. A packet-bound executor uses those bodies
    and exact slices; it does not read the global index/input-stage catalog or
    other fronts automatically. Missing required context is a structured blocker.
-2. Use the canonical [wiki_ingest.py](../../scripts/wiki_ingest.py) approved-context
-   path and explicit byte limits described in [bounded ingestion](../../docs/references/guides/bounded-ingestion.md).
-   The standalone manifest/text/index tools below remain compatibility entry
-   points for an authorized coordinator; they do not replace approved source
-   admission or extend the executor's scope.
-3. Extract text and chunks with [scripts/wiki_extract_text.py](../../scripts/wiki_extract_text.py).
-4. Build or check the index with [scripts/wiki_build_index.py](../../scripts/wiki_build_index.py).
-5. Plan the contextual LLM pass with [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py)
-   (`--emit-request`, deep read by the agent, `--record-result`).
-6. Consolidate with [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
-   `--source <source_id> --emit-event --packet` generates the normalized event
-   in the ingestion-events directory resolved from `wiki.config.yaml` by
-   `WikiPaths.ingest_events_dir`
-   from the recorded deep read (quadrants filled, claims/decisions/actions
-   candidates, `consolidated_into: []` to close) plus the gitignored integration
-   packet; the consumer's configured ingestion-event template stays as the
-   manual fallback.
+2. For an approved folder-policy source, use [wiki_coordination.py](../../scripts/wiki_coordination.py)
+   `--source-stage prepare` with the explicit folder, index, source, context
+   selection, approved revision and any authorized integrator. Read the
+   [bounded ingestion guide](../../docs/references/guides/bounded-ingestion.md)
+   for stage payloads, byte limits, formats and coverage. Host-pinned independent
+   Git selections require their own grants and remain supporting evidence.
+3. Read the complete returned request and selected context. The agent performs
+   the contextual deep read; `wiki_core` does not call a model. Retain omissions
+   and produce results bound to the request's chunk identities.
+4. Record results through `--source-stage record` with the same selections,
+   policy, limits and integrator. Use `--source-stage inspect` for authorized
+   readback of explicitly selected results or a retained integration proposal.
+   Recording and inspection do not prove comprehension or incorporation.
+5. Prepare the event and integration packet through `--source-stage consolidate`
+   with the same bound request, authorized source page, canonical event target
+   and explicitly selected candidates. Git-derived events need a separate
+   host publication grant. A failed write can leave partial effects to inspect.
+6. The standalone manifest/text/index tools and
+   [wiki_ingest.py](../../scripts/wiki_ingest.py) without approved flags remain
+   separate working-tree compatibility paths for authorized callers; they do
+   not apply folder policy. The old approved-v1 ingestion and recording flags
+   are refused for new operations. Generic shared-cache checks do not inspect
+   protected artifacts.
 7. INTEGRATE — ingesting = integrating, the work does not end at the recorded
    result: guided by the packet, update the target hubs/concepts incrementally
    before creating parallel relation pages;
@@ -46,8 +52,13 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) `--check`,
    [scripts/wiki_audit.py](../../scripts/wiki_audit.py) `--check` and
    [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py)
-   `--check` green.
-8. Generate or update the ingestion proposal with [scripts/wiki_new_ingest.py](../../scripts/wiki_new_ingest.py).
+   `--check` green within their coverage, and separately inspect the bound
+   protected request, results and event. These checks do not prove that the
+   agent read or incorporated content.
+8. When the project requires a separate flat ingestion proposal, use its
+   existing process and [scripts/wiki_new_ingest.py](../../scripts/wiki_new_ingest.py)
+   within the authorized scope. A protected event is not itself a flat gate
+   proposal, and neither a proposal nor an event proves integration.
 
 ## Output
 
