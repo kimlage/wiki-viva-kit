@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values as _fm_list_values
 from wiki_core.frontmatter import parse_frontmatter_flat
@@ -123,7 +124,7 @@ def _markdown_files(root: Path, memory_root: str) -> list[Path]:
     base = root / memory_root.rstrip("/")
     if not base.exists():
         return []
-    return sorted(p for p in base.rglob("*.md") if p.is_file())
+    return sorted(p for p in wiki_markdown_files(base, wiki_root=root) if p.is_file())
 
 
 def parse_frontmatter(path: Path) -> dict[str, Any]:

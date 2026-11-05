@@ -4,17 +4,42 @@ import re
 import hashlib
 import json
 import subprocess
-from wiki_core.context_policy import PolicyError, load_policy, historical_policy, within
+from pathlib import Path
+from wiki_core.context_policy import PolicyError, load_policy, historical_policy, within, is_context_instruction
 from wiki_core.context_selection import reproduce_query, select_query, requirement_query, same_selection, authority_digest
 from wiki_core.information_relations import information_requirements
 from wiki_core.repository_reader import RepositoryReader
+from wiki_core.git_env import local_git_environment, local_git_executable
 
 
-def revalidate_affected(root, *, base, head, context_id, affected, changed, current, pending_sources=None, read_budget=None, _selection_cache=None):
+def _proposed_folder_authority_equivalent(root, policy, head, context_id, req):
+    """Compare proposal metadata only; the proposed policy grants no reads."""
+    from wiki_core.context_packet import qualify_folder_context
+    from wiki_core.context_policy import _folder_policy_at
+    entry = requirement_query(req)
+    qualify_folder_context(root, policy, context_id, req['entry_folder'], req['entry_index'], 2_000_000)
+    selection = policy._folder_qualifications[(context_id, req['entry_folder'], req['entry_index'])]
+    proposed = _folder_policy_at(Path(root), head)
+    if (context_id not in proposed.contexts or
+            [c['id'] for c in proposed.lineage(context_id)] != [c['id'] for c in policy.lineage(context_id)]):
+        return False
+    for ref in selection['refs']:
+        producer = policy.owner_of(ref)
+        if (proposed.owner_of(ref) != producer or
+                proposed.contexts[producer]['owner'] != policy.contexts[producer]['owner'] or
+                proposed._connection(producer, context_id, ref, 'interpretation', 'context', qualified=False) != 'approved'):
+            return False
+    proposed._qualified_contexts.add(context_id)  # Only metadata is compared; never used for reads.
+    equivalent = authority_digest(proposed, context_id, entry) == authority_digest(policy, context_id, entry)
+    policy.fresh()
+    return equivalent
+
+
+def revalidate_affected(root, *, base, head, context_id, affected, changed, current, pending_sources=None, read_budget=None, _selection_cache=None, policy=None):
     if not all(isinstance(x, str) and re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', x) for x in (base, head)):
         raise ValueError('fixed query base and head required')
     def git(*args):
-        return subprocess.run(['git', '-C', str(root), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root), *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=local_git_environment())
     if git('rev-parse', '--verify', 'HEAD').stdout.decode().strip() != head:
         raise ValueError('query head differs from HEAD')
     if (git('diff', '--quiet', '--').returncode or git('diff', '--cached', '--quiet', '--').returncode
@@ -42,19 +67,66 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
         actual = digest(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
         if blobs.get(path) != actual or not semantic_equal(parse_frontmatter(document)[0], current['nodes'][path]):
             raise ValueError('query audit graph differs from exact HEAD')
-    policy = load_policy(root, base)
+    if policy is None:
+        policy = load_policy(root, base)
+    else:
+        binding = getattr(policy, '_binding', None)
+        if (getattr(policy, 'format_version', None) != 'folder' or not binding
+                or Path(binding[0]).resolve() != Path(root).resolve()
+                or policy.policy_revision != base or context_id not in getattr(policy, '_qualified_contexts', ())):
+            raise ValueError('qualified query policy unavailable')
+        policy.fresh()
+    folder_mode = getattr(policy, 'format_version', None) == 'folder'
+    if folder_mode:
+        from wiki_core.traversal import require_wiki_path
+        try:
+            if not require_wiki_path(Path(root), context_id).is_dir():
+                raise ValueError('qualified query context unavailable')
+        except (ValueError, OSError) as exc:
+            raise ValueError('qualified query context unavailable') from exc
     if context_id not in policy.contexts:
         raise ValueError('query context unavailable')
     base_reader, head_reader = RepositoryReader(root, base), RepositoryReader(root, head)
     normative = {p for c in policy.contexts.values() for k in ('instructions', 'skills', 'templates') for p in c[k]}
-    changed_policy = bool(normative & changed) or any(p == 'context.yaml' or p.endswith('/context.yaml') for p in changed)
+    legacy_changed_policy = bool(normative & changed) or any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     budget = read_budget if read_budget is not None else [32_000_000]
     outcomes = []
     pending_sources = pending_sources or {}
     selection_cache = _selection_cache if _selection_cache is not None else {}
     for row in affected:
         path, req = row['path'], row['requirement']
+        if folder_mode and req.get('authority_format') == 'folder':
+            entry_folder = req.get('entry_folder', '')
+            scope = req.get('query', {}).get('scope', '')
+            def affects_selected_policy(ref):
+                if ref == req.get('entry_index'): return True
+                directory = ref.rsplit('/', 1)[0] if '/' in ref else '.'
+                structural = is_context_instruction(ref) or ref.rsplit('/', 1)[-1] in ('index.md', 'README.md')
+                return structural and (within(entry_folder, directory) or within(ref, scope))
+            changed_policy = any(affects_selected_policy(ref) for ref in changed)
+        else:
+            changed_policy = legacy_changed_policy
         requirement_id = hashlib.sha256(json.dumps(req, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode('utf-8')).hexdigest()
+        if folder_mode:
+            try:
+                if policy.owner_of(path) != context_id or not policy.permits(context_id, 'read', path):
+                    continue
+                from wiki_core.traversal import require_wiki_boundaries
+                require_wiki_boundaries(Path(root), files=(Path(root) / path,))
+                if path not in base_reader.paths and path not in head_reader.paths: continue
+            except (ValueError, KeyError, TypeError, OSError):
+                continue
+            if req.get('authority_format') != 'folder':
+                outcomes.append({'path': path, 'state': 'review_pending', 'reason': 'dynamic_query_requalification_required',
+                    'seed': path, 'requirement_id': requirement_id, 'fields': ['*'], 'causes': [], 'chain': [],
+                    'priority': ('immediate' if current['nodes'].get(path, {}).get('action_state') in {'open', 'in_progress'} else 'on_demand'),
+                    'verification_performed': False})
+                continue
+            if 'wiki.config.yaml' in changed and not changed_policy:
+                try:
+                    changed_policy = not _proposed_folder_authority_equivalent(root, policy, head, context_id, req)
+                except (PolicyError, ValueError, KeyError, TypeError, OSError):
+                    changed_policy = True
         try:
             if changed_policy and path in changed: raise PolicyError('consumer and policy or normative input changed together')
             if policy.owner_of(path) != context_id or not policy.permits(context_id, 'read', path):
@@ -63,7 +135,12 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
             cached = selection_cache.get(cache_key)
             if cached is None:
                 if path not in head_reader.paths: raise PolicyError('consumer removed')
-                doc = head_reader.read(path)
+                if folder_mode:
+                    from wiki_core.traversal import require_wiki_boundaries
+                    policy.fresh()
+                    require_wiki_boundaries(Path(root), files=(Path(root) / path,))
+                from wiki_core.context_packet import guarded_context_read
+                doc = guarded_context_read(head_reader,policy,path)
                 declared = information_requirements(doc['frontmatter'], lambda p: [p] if isinstance(p, str) and p in head_reader.paths else [])
                 entry = requirement_query(req)
                 replaced = req not in declared
@@ -73,7 +150,33 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                     if not compatible: raise PolicyError('query declaration removed or changed')
                     if git('merge-base', '--is-ancestor', req['consumed_revision'], req['query_policy_revision']).returncode:
                         raise PolicyError('query content is not an ancestor of its policy')
-                    historical = historical_policy(policy, req['query_policy_revision'])
+                    if folder_mode:
+                        from wiki_core.context_packet import qualify_folder_context
+                        from wiki_core.context_policy import safe_path
+                        from pathlib import PurePosixPath
+                        qualify_folder_context(root, policy, context_id, req['entry_folder'], req['entry_index'], 2_000_000)
+                        historical = (policy if req['query_policy_revision'] == policy.policy_revision else
+                                      historical_policy(policy, req['query_policy_revision'], authority_format='folder'))
+                        # A replacement is evaluated separately with current
+                        # authority. Check the old receipt's recorded authority
+                        # and physical selection as metadata, without requiring
+                        # the historical chain to equal the current one or
+                        # opening bodies whose access may have been revoked.
+                        folder = safe_path(req['entry_folder'], allow_root=True)
+                        index = safe_path(req['entry_index'])
+                        if (context_id not in historical.contexts or
+                                (folder == '.' and context_id != '.') or
+                                (folder != '.' and historical.owner_of(folder) != context_id) or
+                                str(PurePosixPath(index).parent) != historical.contexts[context_id]['root']):
+                            raise PolicyError('historical folder selection unavailable')
+                        old_paths = RepositoryReader(root, req['query_policy_revision']).paths
+                        if index not in old_paths or (folder != '.' and not any(ref.startswith(folder + '/') for ref in old_paths)):
+                            raise PolicyError('historical folder selection unavailable')
+                        # Only authority_digest uses this unbound historical
+                        # view; it must never authorize a content read.
+                        historical._qualified_contexts.add(context_id)
+                    else:
+                        historical = historical_policy(policy, req['query_policy_revision'])
                     if authority_digest(historical, context_id, entry) != req['authority_digest']:
                         raise PolicyError('historical query authority differs')
                     # The replacement is checked independently; no revoked blobs are opened.
@@ -82,25 +185,27 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
                     proof_fields = ('target', 'query', 'use', 'classification', 'consumed_revision',
                         'query_policy_revision', 'authority_digest', 'members_digest', 'selected_digest')
                     proof_key = ('query', base, head, context_id, changed_policy,
-                        json.dumps({k: req[k] for k in proof_fields}, sort_keys=True, ensure_ascii=False))
+                        json.dumps({**{k: req[k] for k in proof_fields},
+                                    **({k: req.get(k) for k in ('authority_format','entry_folder','entry_index')} if folder_mode else {})},
+                                   sort_keys=True, ensure_ascii=False))
                     proof = selection_cache.get(proof_key)
                     if proof is None:
                         prior_candidates = []
                         prior, _, _ = reproduce_query(policy, context_id, RepositoryReader(root, req['consumed_revision']), entry,
-                            policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=budget, _candidate_refs=prior_candidates)
+                            policy_revision=req['query_policy_revision'], expected_authority=req['authority_digest'], read_budget=budget, _candidate_refs=prior_candidates, authority_format=req.get('authority_format'), entry_folder=req.get('entry_folder'), entry_index=req.get('entry_index'))
                         if any(prior[k] != req[k] for k in ('members_digest', 'selected_digest')):
                             raise PolicyError('query receipt cannot be reproduced')
                         if base_reader.revision == req['consumed_revision']:
                             at_base, base_candidates = prior, prior_candidates
                         else:
                             base_candidates = []
-                            at_base = select_query(policy, context_id, base_reader, entry, read_budget=budget, _candidate_refs=base_candidates)[0]
+                            at_base = select_query(policy, context_id, base_reader, entry, read_budget=budget, _candidate_refs=base_candidates, entry_folder=req.get('entry_folder'), entry_index=req.get('entry_index'))[0]
                         if changed_policy: at_head, head_candidates = None, []
                         elif head_reader.revision == base_reader.revision: at_head, head_candidates = at_base, base_candidates
                         elif head_reader.revision == req['consumed_revision']: at_head, head_candidates = prior, prior_candidates
                         else:
                             head_candidates = []
-                            at_head = select_query(policy, context_id, head_reader, entry, read_budget=budget, _candidate_refs=head_candidates)[0]
+                            at_head = select_query(policy, context_id, head_reader, entry, read_budget=budget, _candidate_refs=head_candidates, entry_folder=req.get('entry_folder'), entry_index=req.get('entry_index'))[0]
                         proof = (prior, at_base, at_head, head_candidates)
                     prior, at_base, at_head, head_candidates = proof
                     checks = (prior, at_base) if at_head is None else (prior, at_base, at_head)

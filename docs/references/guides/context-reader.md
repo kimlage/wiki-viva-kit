@@ -3,12 +3,13 @@
 The [repository reader](../../../wiki_core/repository_reader.py) reads regular
 UTF-8 Git blobs from one commit, independently of a cockpit snapshot. Use it
 for an explicitly scoped local lookup. Use the [context policy CLI](../../../scripts/wiki_context.py)
-when preparing a packet under an approved context manifest. Both are read-only;
+when preparing a packet for an approved folder context. Both are read-only;
 preparing content does not prove that an agent read it or authorize execution.
 
 | Route | Content selection | Authority and limits |
 | --- | --- | --- |
 | [wiki_read.py](../../../scripts/wiki_read.py) | Required revision, mode and exact allowed paths; section, field or explicit whole document | The local caller supplies scope. The raw reader does not enforce context policy. |
+| [wiki_repo_read.py](../../../scripts/wiki_repo_read.py) | Explicit local repository root, configured identity, commit and path | Reads the selected Git revision under the caller's actual permissions; identity and receipt do not grant access. |
 | [wiki_context.py](../../../scripts/wiki_context.py) | Approved context, explicit evidence paths and byte budget | Current trusted policy authorizes each selection; inherited mandatory bodies accompany evidence. |
 | [wiki_coordination.py](../../../scripts/wiki_coordination.py) with explicit context and approval | Explicit task and selected evidence at approved history | Approved policy and current connection checks apply; see [protected coordination](context-coordination-protected.md). |
 | [wiki_coordination.py](../../../scripts/wiki_coordination.py) with a profile | No task bodies | Constant migration response; profile identity supplies no context authority. |
@@ -52,26 +53,56 @@ not turn a raw reader into an operating-system sandbox.
 
 ## Approved packets and historical content
 
-See the [synthetic hierarchy](../../../examples/context-hierarchy/README.md) for
-the directory manifests and inheritance rules. The [manifest schema](../schemas/wiki-context-v1.schema.json),
-[packet schema](../schemas/wiki-task-context-v1.schema.json) and
-[result schema](../schemas/wiki-task-result-v1.schema.json) define the v1 contracts.
-The example manifests are inert `context.example.yaml` templates. To run the example, copy them into a separate synthetic Git repository at their documented paths, rename them to `context.yaml`, and commit them there. Never activate them as a second root within a production root; adopting any production policy requires normal review.
+For a new approved packet, the CLI selects the existing `wiki.config.yaml`
+access configuration and discovers context identity and parentage from the
+approved Git tree. A context folder has instructions and `index.md` or
+`README.md`; the latter is selected when `index.md` is absent. An auxiliary
+folder can add instructions without defining an owner. A different selected
+index works only within an already recognized context. An access entry can
+specify owner, scopes, denials and exact connections, but a folder, instruction
+or index does not grant access. Missing access configuration grants nothing.
 
-In that isolated synthetic repository, after setting its test-only trusted reference, replace the kit path, revision and request placeholders below with your values:
+For a repository and request you are authorized to use, replace the placeholders:
 
 ```sh
-python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
-  --manifest examples/context-hierarchy/context.yaml resolve finance/tax
-python3 /path/to/wiki-viva-kit/scripts/wiki_context.py --repo . --approved-revision APPROVED_SHA \
-  --manifest examples/context-hierarchy/context.yaml pack finance/tax \
+python3 scripts/wiki_context.py --repo REPO --approved-revision APPROVED_SHA \
+  resolve CONTEXT_FOLDER
+python3 scripts/wiki_context.py --repo REPO --approved-revision APPROVED_SHA \
+  pack CONTEXT_FOLDER --folder ENTRY_FOLDER --index INDEX_PATH \
   --content-revision CONTENT_SHA --request REQUEST.json
 ```
 
+For selected evidence owned by another context, a trusted local operator
+appends `--trusted-context PRODUCER_CONTEXT` to `pack`; repeat it for each
+explicitly selected producer. Current path scopes and exact bilateral
+connections are still required. The flag records the operator's selection; a
+folder, link or packet does not grant access. See the
+[preflight and requirements CLI](context-impact-integration.md) for repeating
+the selection during validation.
+
+`resolve` reports the discovered structure with `authorized: false`; it does
+not qualify the context or read its instruction bodies. `pack` checks the
+physical entry, policy and explicit selection and includes the qualified
+instructions and index. The [packet schema](../schemas/wiki-task-context-v1.schema.json)
+and [result schema](../schemas/wiki-task-result-v1.schema.json) retain their
+versioned contracts. The [synthetic v1 manifests](../../../examples/context-hierarchy/README.md)
+and [manifest schema](../schemas/wiki-context-v1.schema.json) describe the
+older contract, not a valid `--manifest` argument for new `wiki_context.py`
+packets. Historical v1 receipts keep their original identities and revision;
+where the original manifest cannot be established they require requalification,
+not an assumed mapping to a folder.
+
+The older approved ingestion flags and new packet composition under a v1 host
+binding are refused. Configured hosts default to folder mode; an explicitly
+selected v1 binding cannot create a new packet and historical checks are
+separate. The folder-policy and host-bound source routes have separate entry points; see
+[bounded ingestion](bounded-ingestion.md) and
+[protected coordination](context-coordination-protected.md).
+
 The loader requires the supplied policy SHA to match the current trusted
 `refs/remotes/origin/main`. An independent approval process must maintain that
-ref; choosing or naming a commit is not a grant. Policy and inherited mandatory
-instruction, skill and template bodies come from the current approved revision,
+ref; choosing or naming a commit is not a grant. Policy and selected physical
+instruction and index bodies come from the current approved revision,
 even when evidence comes from an older content revision. A stale policy object
 or changed trusted ref fails closed. A byte digest identifies selected bytes;
 it establishes neither source freshness nor current external facts.
@@ -86,6 +117,12 @@ Overflow is an error. Owner-only dynamic collections use the explicit
 [anchored query contract](context-dynamic-selection.md); caller-supplied query
 fingerprints remain refused. The builder computes and binds selection receipts,
 including empty sets, and preserves predicates in canonical requirements.
+Nested independent Git repositories are excluded from ordinary wiki traversal.
+The local reader uses an explicit selection under caller permissions. Protected
+folder source stages can also include exact Git evidence pinned by the trusted
+host, subject to separate grants; see [protected independent Git](protected-independent-git.md).
+The selection does not authorize access, establish remote identity or prove
+file consumption.
 
 ## Coordination and ingestion
 
@@ -94,8 +131,6 @@ For a task packet, select the canonical context and complete request:
 ```sh
 python3 scripts/wiki_coordination.py --context-id CONTEXT_ID \
   --approved-revision APPROVED_SHA --revision CONTENT_SHA --packet-request REQUEST.json
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
 ```
 
 Profile reads no longer prepare task content. The route index remains a broad
@@ -104,16 +139,14 @@ and the existing writer fence, without a snapshot or task packet. Read the
 complete protected packet; profiles, aliases, references and truncated samples
 cannot replace canonical authorization or mandatory bodies.
 
-LLM request construction includes actual mandatory policy and required perspective
-bodies, so changed content under the same ID changes interpretation identity.
-Without `--approved-revision`, it uses the explicitly labelled working-tree
-compatibility package. With that flag, `--policy-context` is required; missing,
-invalid or revoked policy fails without falling back to compatibility. Required
-perspective IDs are resolved only among permitted paths owned by the selected
-context; imported IDs require explicit connection handling. The canonical [wiki_ingest.py CLI](../../../scripts/wiki_ingest.py) exposes
-those flags with separate context and complete-request byte ceilings. The
-[bounded ingestion guide](bounded-ingestion.md) documents defaults, canonical
-UTF-8 serialization, current result binding and recoverable blockers.
+The host-bound folder source stages prepare, record and consolidate with the
+same approved physical context; they do not perform a model call, review or
+incorporation. The separately authorized working-tree folder route is not an
+approved-policy packet, and neither route silently falls back to the other.
+The existing [wiki_ingest.py](../../../scripts/wiki_ingest.py) approved-v1
+flags are refused for new operations; local working-tree compatibility remains
+separate. The [bounded ingestion guide](bounded-ingestion.md) documents the
+available routes, their byte limits, partial coverage and blockers.
 
 The synthetic CLI regression in the kit source checkout (`tests/test_coordination.py`) compared
 serialized output on the same fixture: 27 snapshot payloads totaling 45,766 bytes

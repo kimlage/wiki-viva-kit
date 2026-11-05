@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 try:  # importing _common bootstraps sys.path so wiki_core resolves
@@ -18,49 +19,11 @@ try:  # importing _common bootstraps sys.path so wiki_core resolves
 except ModuleNotFoundError:
     from _common import ROOT  # direct run: scripts/ on sys.path
 
-from wiki_core.chunking import chunk_text
 from wiki_core.config import load_config
-from wiki_core.consolidate import _read_frontmatter
 from wiki_core.index import build_index, check_index, index_pages
+from wiki_core.index.page_collection import collect_page_chunks
 from wiki_core.paths import WikiPaths
-
-
-def collect_page_chunks(root: Path, paths: WikiPaths, config) -> list[tuple[str, list[dict[str, object]]]]:
-    """Chunk every memory page with a page_id (body only, frontmatter excluded)."""
-    target = int(config.llm.get("chunk_target_tokens", 1200))
-    overlap = int(config.llm.get("chunk_overlap_tokens", 150))
-    pages: list[tuple[str, list[dict[str, object]]]] = []
-    memory_root = paths.memory_root
-    if not memory_root.is_dir():
-        return pages
-    for md in sorted(memory_root.rglob("*.md")):
-        fm = _read_frontmatter(md)
-        page_id = str(fm.get("page_id") or "")
-        if not page_id:
-            continue
-        text = md.read_text(encoding="utf-8", errors="replace")
-        if text.startswith("---\n"):
-            end = text.find("\n---", 4)
-            if end != -1:
-                text = text[end + 4 :]
-        chunks = chunk_text(f"page:{page_id}", text, target, overlap)
-        if chunks:
-            pages.append(
-                (
-                    page_id,
-                    [
-                        {
-                            "chunk_id": c.chunk_id,
-                            "ordinal": c.ordinal,
-                            "hash_sha256": c.hash_sha256,
-                            "token_estimate": c.token_estimate,
-                            "text": c.text,
-                        }
-                        for c in chunks
-                    ],
-                )
-            )
-    return pages
+from wiki_core.traversal import require_wiki_boundaries
 
 
 def main() -> int:
@@ -70,11 +33,27 @@ def main() -> int:
     args = parser.parse_args()
     config = load_config(ROOT)
     paths = WikiPaths(ROOT, config)
-    paths.ensure()
     db_path = paths.indexes / "wiki.sqlite"
+    try:
+        require_wiki_boundaries(ROOT, directories=(paths.source_manifests, paths.source_text, paths.chunks,
+            paths.indexes, paths.extraction_events, paths.llm_cache, paths.coverage, paths.input_stage),
+            files=(db_path, *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
+        if args.rebuild:
+            require_wiki_boundaries(ROOT, directories=(paths.memory_root,), files=paths.chunks.glob('*.json'))
+    except (ValueError, OSError):
+        print('wiki_build_index: derived_path_crosses_repository_boundary', file=sys.stderr)
+        return 2
+    pages = None
+    if args.rebuild:
+        try:
+            pages = collect_page_chunks(ROOT, paths, config)
+        except (ValueError, OSError):
+            print('wiki_build_index: page_input_unavailable', file=sys.stderr)
+            return 2
+    paths.ensure()
     if args.rebuild:
         result = build_index(paths.chunks, db_path)
-        result.update(index_pages(db_path, collect_page_chunks(ROOT, paths, config)))
+        result.update(index_pages(db_path, pages))
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
     result = check_index(db_path)

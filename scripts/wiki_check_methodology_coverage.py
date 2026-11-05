@@ -30,6 +30,7 @@ CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT))
 from scripts._common import ROOT
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.llm.context_pass import read_matching_result
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.frontmatter import parse_frontmatter as canonical_parse_frontmatter
@@ -291,7 +292,7 @@ def discover_source_ids(paths: WikiPaths) -> list[str]:
     for path in sorted(directory.glob("*.json")):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        except (ValueError, OSError):
             continue
         source_id = data.get("source_id") if isinstance(data, dict) else None
         if isinstance(source_id, str) and source_id:
@@ -313,7 +314,7 @@ def _real_perceptive_pages(paths: WikiPaths) -> list[dict[str, Any]]:
     pages: list[dict[str, Any]] = []
     if not memory_root.exists():
         return pages
-    for path in sorted(memory_root.rglob("*.md")):
+    for path in sorted(wiki_markdown_files(memory_root, wiki_root=paths.root)):
         text = path.read_text(encoding="utf-8", errors="replace")
         fm = parse_frontmatter(text)
         page_type = str(fm.get("page_type", ""))
@@ -375,8 +376,12 @@ def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[st
     for path in requests:
         rel = path.relative_to(ROOT).as_posix()
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+            if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', path.name):
+                from wiki_core.llm.context_pass import load_local_request
+                data = load_local_request(paths, path)
+            else:
+                data = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
             results.append(
                 {
                     "name": "llm_context_pending",
@@ -387,11 +392,17 @@ def check_llm_context_pass(paths: WikiPaths, config: WikiConfig) -> list[dict[st
             )
             continue
         chunks = data.get("chunks", []) if isinstance(data, dict) else []
-        pending = [
-            chunk
-            for chunk in chunks
-            if read_matching_result(cache_dir, data, chunk) is None
-        ]
+        from wiki_core.llm.context_pass import is_local_folder_request
+        try:
+            pending = [
+                chunk for chunk in chunks
+                if read_matching_result(cache_dir, data, chunk,
+                    root=ROOT if is_local_folder_request(data) else None) is None
+            ]
+        except (ValueError, OSError):
+            results.append({'name': 'llm_context_pending', 'path': rel, 'ok': False,
+                            'detail': 'local result cache unavailable or unsafe'})
+            continue
         if pending:
             results.append(
                 {

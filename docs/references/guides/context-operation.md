@@ -23,7 +23,7 @@ python3 scripts/wiki_coordination.py --root REPO --context-id CONTEXT \
 
 The older profile/snapshot coordinator remains a separate `caller_trust` compatibility mode. It may read a broad catalogue and is not an owner-scoped authorization boundary. It must not be presented as the protected route or used as its fallback.
 
-For source ingestion, follow the separate [bounded ingestion guide](bounded-ingestion.md): select an approved local source and context, choose the business root explicitly or omit it, and set context and request byte budgets. Unsupported source access remains blocked until a qualified adapter is available.
+For source ingestion, follow the separate [bounded ingestion guide](bounded-ingestion.md): select an authorized source, folder, approved revision and, where needed, explicitly authorized integrator. Host-bound stages have separate selectors and byte budgets. Selected independent Git files require exact host-pinned grants and remain evidence, not the primary source. Other linked sources are not automatically inspected; unsupported formats remain blocked. Older approved-v1 ingestion flags are refused for new operations.
 
 ## 3. Execute in a short worktree
 
@@ -43,6 +43,13 @@ python3 scripts/wiki_context_flow.py --repo REPO --approved-revision APPROVED_SH
 
 Preflight checks current policy, selected bytes and read claims, owner/write scope, active normative files, new requirement declarations and Git branch identity. It neither runs the proposal code nor approves, tests, publishes or merges it. Browser-supplied capability reports do not authorize this route. An independent reviewer must review the final HEAD, including any integration edit, and applicable gates must be tied to that HEAD and configuration. A failed or skipped gate is not a pass.
 
+If a packet retains additional readers, a trusted local CLI operator explicitly
+repeats each one with `--additional-reader CONTEXT` on both `preflight` and
+`requirements`. The selection must match the packet, and current policy still
+checks its exact connections; packet metadata is not a grant. This CLI trusts
+the local operator's selection and is not a host allowlist or an ACL. The
+protected host interface instead checks readers against its fixed binding.
+
 An authorized external Git integrator serializes the merge under the repository's existing PR policy. Keep one integrator per target until a provider-enforced current-base queue or equivalent is qualified. Recheck base and exact HEAD immediately before the effect. If either advances, rebuild the packet and result against the current approved base, reconcile the actual read set, rerun preflight and obtain renewed independent review when necessary. Branches and worktrees are not confidentiality boundaries or merge locks.
 
 ## 5. Read back and assess impact
@@ -53,7 +60,13 @@ A changed authorized slice may produce an immediate review candidate for each el
 
 ## 6. Optional wake
 
-If the installation later adopts an external scheduler, it may call the bounded [context schedule advice](../context-schedules.md) using a declaration and context-scoped observation. A no-op needs no LLM. `eligible` is advice only: it never grants execution, installs a schedule, sends a message or proves a binding. The external adapter remains responsible for pause, real due times, atomic reservations, attempts, deduplication, capacity, interaction, effect receipts and reconciliation of uncertain outcomes. Previously paused schedules remain paused unless separately changed by the authorized operator.
+The current [context schedule advice](../context-schedules.md) CLI blocks the
+folder-policy route before opening its request: it requires a trusted host
+binding and requalification that are not yet connected. Do not treat this
+advice as available for a folder context or as an installed schedule. Any
+future external scheduler and adapter must separately qualify its binding,
+pause state, due times, reservations, attempts, effects and reconciliation;
+no schedule is started by this runbook.
 
 ## Stop and preserve
 

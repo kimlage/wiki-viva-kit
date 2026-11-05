@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .ids import sha256_file, slugify
+from .traversal import reject_nested_git
 
 
 def classify_source(source: str) -> str:
@@ -63,6 +64,7 @@ def sha256_directory_listing(path: Path) -> tuple[str, int]:
     and symbolic links cannot silently become a complete capture of a folder.
     Dotfiles/directories remain excluded by the existing collection contract.
     """
+    reject_nested_git(path, include_hidden=False)
     entries: list[str] = []
     def propagate(error: OSError) -> None:
         raise error
@@ -137,10 +139,10 @@ def build_manifest(source: str, context: str, *, root: Path | None = None) -> di
     return manifest
 
 
-def write_manifest(manifest: dict[str, object], directory: Path) -> Path:
+def write_manifest(manifest: dict[str, object], directory: Path, *, preserve_existing: bool = False) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{manifest['source_id']}.json"
-    write_source_artifact(path, manifest)
+    write_source_artifact(path, manifest, preserve_existing=preserve_existing)
     return path
 
 
@@ -164,6 +166,44 @@ def require_capture_not_regressed(path: Path, payload: dict) -> None:
             and all(previous.get(key) == payload.get(key) for key in
                     ("source_id", "source_hash_sha256", "source_origin_id"))):
         raise ValueError("source_capture_incomplete: complete capture retained; retry extraction")
+
+
+def reusable_capture(paths, manifest: dict, extracted, chunks: list[dict], warnings: list[str], *, max_bytes: int) -> bool:
+    """Reuse only a complete matching capture, preserving divergent or partial work."""
+    from wiki_core.context_selection import strict_json_loads
+    from wiki_core.traversal import require_wiki_path
+    source_id = manifest['source_id']
+    files = [paths.source_manifests / f'{source_id}.json', paths.source_text / f'{source_id}.json',
+             paths.chunks / f'{source_id}.json']
+    for path in files:
+        require_wiki_path(paths.root, path.relative_to(paths.root).as_posix())
+    present = [path.exists() for path in files]
+    if not any(present):
+        return False
+    if not all(present) or extracted is None or warnings:
+        raise ValueError('existing source capture is incomplete')
+    values = []
+    for path in files:
+        if not path.is_file() or path.stat().st_size > max_bytes:
+            raise ValueError('existing source capture unavailable')
+        with path.open('rb') as stream:
+            content = stream.read(max_bytes + 1)
+        if len(content) > max_bytes:
+            raise ValueError('existing source capture unavailable')
+        values.append(strict_json_loads(content.decode('utf-8')))
+    old_manifest, old_text, old_chunks = values
+    expected_chunks = chunk_document(manifest, chunks, warnings=warnings)
+    if (not all(isinstance(item, dict) for item in values)
+            or any(old_manifest.get(key) != manifest.get(key) for key in
+                   ('schema_version', 'source_id', 'source_origin', 'source_type', 'hash_sha256'))
+            or any(old_chunks.get(key) != expected_chunks.get(key) for key in
+                   ('schema_version', 'source_id', 'source_hash_sha256', 'source_origin_id', 'extraction_complete', 'chunks'))
+            or old_text.get('schema_version') != 'wiki_extracted_text.v1'
+            or old_text.get('source_id') != source_id or old_text.get('source_type') != manifest.get('source_type')
+            or old_text.get('warnings') != warnings or old_text.get('units') != extracted.units
+            or old_text.get('text_characters') != len(extracted.text)):
+        raise ValueError('existing source capture differs')
+    return True
 
 
 def resolve_source_manifest(manifest: dict, manifests: Path, chunks: Path, *, root: Path) -> dict:
@@ -205,7 +245,7 @@ def resolve_source_manifest(manifest: dict, manifests: Path, chunks: Path, *, ro
     return {**manifest, "source_id": legacy_id, "identity_resolution": "verified_legacy_manifest"}
 
 
-def write_source_artifact(path: Path, payload: dict) -> None:
+def write_source_artifact(path: Path, payload: dict, *, preserve_existing: bool = False) -> None:
     """Publish one complete derived JSON; readers never see a truncated write."""
     require_capture_not_regressed(path, payload)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -217,7 +257,10 @@ def write_source_artifact(path: Path, payload: dict) -> None:
             out.write(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
             out.flush()
             os.fsync(out.fileno())
-        os.replace(temporary, path)
+        if preserve_existing:
+            os.link(temporary, path, follow_symlinks=False)
+        else:
+            os.replace(temporary, path)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)

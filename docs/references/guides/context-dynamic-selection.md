@@ -41,7 +41,9 @@ another context or a denied prefix is refused. A valid broader owner scope
 excludes subcontexts and denied paths before opening or counting their blobs.
 This initial query interface offers no cross-owner collection imports, even
 when an exact evidence connection exists. Use the existing exact selector for
-an approved import.
+an approved import. A folder packet with additional readers currently refuses
+queries and requires separate requalification; an allowlist is not itself a
+grant to expand the query.
 
 The universe is tracked, regular, safe UTF-8 Markdown inside that authorized
 scope, with page identity in frontmatter. Markdown without frontmatter/page ID
@@ -149,8 +151,13 @@ not filesystem or service isolation.
 The impact audit treats a query as affected when the consumer, anchor, scope,
 context policy or declared normative inputs change, or when dependency
 propagation reaches its consumer. An unrelated change does not require every
-query to be rescanned. Without explicit authority, an affected query remains a
-blocker.
+query to be rescanned. A change to `wiki.config.yaml` is compared against the
+relevant authority; an equivalent unrelated section does not by itself require
+replaying the query. When a current operation depends on a selection whose
+authority or content cannot be requalified, that dependency remains a blocker.
+An old v1 receipt with no verifiable authority is instead queued for
+requalification on demand when it is not a current dependency; it is not
+silently treated as fresh.
 
 This audit materializes a global graph before applying any query binding. It
 is a caller-trust tool for an explicitly authorized **global integration
@@ -168,8 +175,11 @@ python3 scripts/wiki_audit.py --check --freshness-base APPROVED_SHA \
 ```
 
 The policy revision must equal the current trusted approval ref and the audit
-base; the proposal HEAD must be exact, committed and clean. Queries in other
-contexts remain blocked. The audit recomputes historical, approved-base and
+base; the proposal HEAD must be exact, committed and clean. Query recomputation
+is limited to the selected context. The query-revalidation result reports that
+coverage outside it was not assessed, without identifying or counting
+unauthorized queries or edges. This does not scope the surrounding global graph.
+The audit recomputes historical, approved-base and
 proposal selections under current authority. A changed set for an unchanged
 consumer produces a pending interpretation review; a proposed policy or
 normative change instead produces pending requalification under the approved
@@ -195,8 +205,11 @@ Both the generic audit's query blockers and the bound audit's affected-query
 selection use this typed reach, together with direct changes to the consumer,
 anchor, scope or policy. They do not treat a legacy-only reach as an affected
 query in another context. When typed paths converge, every reached cause is
-checked under current authority before it can seed scoped closure; a denied
-upstream remains a blocker even if another typed path is authorized.
+checked under current authority before it can seed scoped closure; an urgent
+denied upstream remains a blocker even if another typed path is authorized.
+An inactive downstream reached only from an on-demand obligation retains
+on-demand priority; a currently active or directly affected dependency can
+require immediate review or block when its authority remains unknown.
 This does not authorize reading any source, remove global pending reviews or
 mark information verified. Ordinary age debt does not seed closure. The scoped audit follows existing
 typed nonhistorical consumption edges from that obligation and checks whether a
@@ -206,8 +219,9 @@ filter field (or page identity) that could admit it. A pending selected field
 alone does not admit an excluded candidate. These create separate upstream-pending review reasons; byte
 equivalence alone does not discharge them. Navigation and historical relations
 do not propagate. This closure remains within the bound owner and current read
-authority; an unauthorized boundary is an explicit blocker, not silent complete
-coverage. Cycles are deduplicated and finite limits (including the shared query
+authority. A boundary required by the current operation can block; other
+contexts are outside the selected coverage, not silently certified complete.
+Cycles are deduplicated and finite limits (including the shared query
 read budget) fail closed. Validated query selections are reused only within the
 same fenced audit operation; failed proofs are not cached. The surrounding audit remains global `caller_trust`;
 the query binding is not an ACL for the global graph or its output.

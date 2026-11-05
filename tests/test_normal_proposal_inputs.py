@@ -71,6 +71,26 @@ def test_tracked_obsidian_state_is_not_read_or_copied_into_preview(prepared, mon
     assert all(".obsidian" not in ref.split("/") for ref in reads)
 
 
+def test_proposal_pins_selected_local_cache_not_legacy_cache(prepared, monkeypatch):
+    from wiki_core.input_stage import LOCAL_FOLDER_INPUT_STATUS
+    from wiki_core.paths import WikiPaths
+    srv, root, params, _unlock, _clock = prepared
+    paths = WikiPaths(root, srv.server.config)
+    paths.extraction_events.mkdir(parents=True, exist_ok=True)
+    local = paths.llm_cache / 'local-folder'
+    local.mkdir(parents=True, exist_ok=True)
+    key = 'a' * 64
+    (paths.extraction_events / 'source-example-llm-context-request.json').write_text(json.dumps({
+        'source_id': 'source-example', 'input_stage_status': LOCAL_FOLDER_INPUT_STATUS,
+        'chunks': [{'cache_key': key}]}))
+    (local / f'{key}.json').write_text('{"local": true}')
+    (paths.llm_cache / f'{key}.json').write_text('{"legacy": true}')
+    monkeypatch.setattr(normal_proposal, '_render_c2', lambda *_args, **_kwargs: {})
+    preview = normal_proposal.preview_proposal(root, srv.server.config, params)
+    assert (local / f'{key}.json').relative_to(root).as_posix() in preview['readset']
+    assert (paths.llm_cache / f'{key}.json').relative_to(root).as_posix() not in preview['readset']
+
+
 @pytest.mark.parametrize("suffix", ["md", "json", "txt", "xml", "log"])
 def test_documentary_inputs_remain_pinned_at_native_effect(prepared, suffix):
     srv, root, params, unlock, _clock = prepared

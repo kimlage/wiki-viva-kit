@@ -18,7 +18,6 @@ import hashlib
 import json
 import os
 import shlex
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -42,6 +41,40 @@ def _run(argv: list[str], *, cwd: Path, check: bool = True) -> subprocess.Comple
         detail = result.stderr.strip() or result.stdout.strip()
         raise SyncError(f"command failed ({shlex.join(argv)}): {detail}")
     return result
+
+
+def _check_source(kit: Path, sha: str) -> None:
+    """Keep the selected Git revision stable during sync."""
+    current = _run(["git", "rev-parse", "HEAD"], cwd=kit).stdout.strip()
+    if current != sha:
+        raise SyncError("kit source revision changed; SHA-backed sync refused")
+
+
+def _check_consumer_root(consumer: Path) -> None:
+    top = _run(["git", "rev-parse", "--show-toplevel"], cwd=consumer).stdout.strip()
+    if Path(top).resolve() != consumer.resolve():
+        raise SyncError("consumer path must be its Git root")
+
+
+def _check_distinct_roots(kit: Path, consumer: Path) -> None:
+    kit_root = _run(["git", "rev-parse", "--show-toplevel"], cwd=kit).stdout.strip()
+    consumer_root = _run(["git", "rev-parse", "--show-toplevel"], cwd=consumer).stdout.strip()
+    if Path(kit_root).resolve() == Path(consumer_root).resolve():
+        raise SyncError("kit and consumer must be different Git worktree roots")
+
+
+def _check_consumer_path(consumer: Path, rel: str) -> None:
+    """Refuse paths outside the consumer or through another Git worktree."""
+    if (not isinstance(rel, str) or not rel or "\\" in rel or Path(rel).is_absolute()
+            or any(part in ("", ".", "..", ".git") for part in rel.split("/"))):
+        raise SyncError("unsafe consumer path")
+    current = consumer
+    for part in rel.split("/"):
+        current = current / part
+        if current.is_symlink():
+            raise SyncError("consumer path crosses a symlink")
+        if os.path.lexists(current / ".git"):
+            raise SyncError("consumer path crosses a nested repository")
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -91,8 +124,15 @@ def _validate_manifest(value: dict[str, Any]) -> None:
         raise SyncError("sync manifest c2_commands must be a list of argv lists")
 
 
-def _tracked_files(kit: Path, manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    raw = _run(["git", "ls-files", "-s", "-z"], cwd=kit).stdout
+def _git_bytes(kit: Path, *args: str, data: bytes | None = None) -> bytes:
+    result = subprocess.run(["git", *args], cwd=kit, input=data, capture_output=True)
+    if result.returncode:
+        raise SyncError("kit Git content unavailable")
+    return result.stdout
+
+
+def _tracked_files(kit: Path, manifest: dict[str, Any], sha: str) -> dict[str, dict[str, Any]]:
+    raw = _git_bytes(kit, "ls-tree", "-r", "-z", sha).decode("utf-8")
     allowed = manifest["portable"]["allow"]
     blocked = manifest["portable"].get("block", [])
     selected: dict[str, dict[str, Any]] = {}
@@ -100,27 +140,43 @@ def _tracked_files(kit: Path, manifest: dict[str, Any]) -> dict[str, dict[str, A
         if not record:
             continue
         meta, path = record.split("\t", 1)
-        mode, _blob, stage = meta.split()
-        if stage != "0":
-            raise SyncError(f"kit has an unresolved index entry: {path}")
+        mode, kind, blob = meta.split()
         if not any(_matches(path, pattern) for pattern in allowed):
             continue
         if any(_matches(path, pattern) for pattern in blocked):
             continue
-        if mode not in {"100644", "100755"}:
+        if kind != "blob" or mode not in {"100644", "100755"}:
             raise SyncError(f"portable selection refuses non-regular file {path} ({mode})")
-        source = kit / path
-        if source.is_symlink() or not source.is_file():
-            raise SyncError(f"portable selection refuses missing/symlink file: {path}")
-        payload = source.read_bytes()
-        selected[path] = {"sha256": _sha256_bytes(payload), "mode": mode, "size": len(payload)}
+        selected[path] = {"blob": blob, "mode": mode}
     if not selected:
         raise SyncError("portable selection is empty")
+    batch = _git_bytes(kit, "cat-file", "--batch", data="".join(
+        item["blob"] + "\n" for item in selected.values()).encode("ascii"))
+    offset = 0
+    for item in selected.values():
+        end = batch.find(b"\n", offset)
+        if end < 0:
+            raise SyncError("kit Git content incomplete")
+        fields = batch[offset:end].split()
+        if len(fields) != 3 or fields[0].decode("ascii") != item["blob"] or fields[1] != b"blob" or not fields[2].isdigit():
+            raise SyncError("kit Git content invalid")
+        size = int(fields[2])
+        payload = batch[end + 1:end + 1 + size]
+        offset = end + 1 + size
+        if len(payload) != size or batch[offset:offset + 1] != b"\n":
+            raise SyncError("kit Git content incomplete")
+        offset += 1
+        item.pop("blob")
+        item.update(sha256=_sha256_bytes(payload), size=size, payload=payload)
+    if offset != len(batch):
+        raise SyncError("kit Git content invalid")
     return dict(sorted(selected.items()))
 
 
 def _load_lock(consumer: Path) -> dict[str, Any]:
     path = consumer / LOCK_NAME
+    if path.is_symlink():
+        raise SyncError("kit.lock cannot be a symlink")
     if not path.exists():
         return {}
     value = _load_yaml(path)
@@ -151,14 +207,28 @@ def _git_dirty(root: Path) -> list[str]:
 
 
 def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list[list[str]]) -> dict[str, Any]:
-    manifest = _load_yaml(manifest_path)
-    _validate_manifest(manifest)
+    _check_consumer_root(consumer)
+    _check_distinct_roots(kit, consumer)
+    try:
+        manifest_rel = manifest_path.relative_to(kit).as_posix()
+    except ValueError as exc:
+        raise SyncError("sync manifest must belong to the kit") from exc
     source_sha = _run(["git", "rev-parse", "HEAD"], cwd=kit).stdout.strip()
-    files = _tracked_files(kit, manifest)
-    current = _consumer_state(consumer, files)
+    _check_source(kit, source_sha)
+    try:
+        manifest = yaml.safe_load(_git_bytes(kit, "show", f"{source_sha}:{manifest_rel}"))
+    except yaml.YAMLError as exc:
+        raise SyncError("sync manifest is invalid") from exc
+    if not isinstance(manifest, dict):
+        raise SyncError("sync manifest must contain a YAML mapping")
+    _validate_manifest(manifest)
+    files = _tracked_files(kit, manifest, source_sha)
     previous = _load_lock(consumer).get("managed_files", {})
     if not isinstance(previous, dict):
         raise SyncError("kit.lock managed_files must be a mapping")
+    for rel in set(files) | set(previous):
+        _check_consumer_path(consumer, rel)
+    current = _consumer_state(consumer, {**files, **previous})
 
     added: list[str] = []
     changed: list[str] = []
@@ -170,8 +240,19 @@ def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list
         elif actual.get("sha256") == expected["sha256"] and actual.get("mode") == expected["mode"]:
             unchanged.append(rel)
         else:
+            if rel not in previous:
+                raise SyncError(f"unmanaged consumer file conflicts: {rel}")
+            old = previous[rel]
+            if not isinstance(old, dict) or actual.get("sha256") != old.get("sha256") or actual.get("mode") != old.get("mode"):
+                raise SyncError(f"previously managed consumer file changed: {rel}")
             changed.append(rel)
     removed = sorted(set(previous) - set(files))
+    for rel in removed:
+        actual, old = current[rel], previous[rel]
+        if actual["kind"] != "missing" and (not isinstance(old, dict)
+                or actual.get("sha256") != old.get("sha256") or actual.get("mode") != old.get("mode")):
+            raise SyncError(f"previously managed consumer file changed: {rel}")
+    _check_source(kit, source_sha)
     tree = [{"path": rel, "sha256": item["sha256"], "mode": item["mode"]} for rel, item in files.items()]
     return {
         "schema_version": "wiki_viva_sync_plan.v1",
@@ -191,6 +272,7 @@ def build_plan(kit: Path, consumer: Path, manifest_path: Path, c3_commands: list
         "c3_commands": c3_commands,
         "_files": files,
         "_manifest": manifest,
+        "_consumer_state": current,
     }
 
 
@@ -226,20 +308,53 @@ def _print_plan(plan: dict[str, Any], *, as_json: bool) -> None:
 
 
 def _copy_c1(kit: Path, consumer: Path, plan: dict[str, Any]) -> None:
+    _check_consumer_root(consumer)
+    _check_distinct_roots(kit, consumer)
+    _check_source(kit, plan["source_sha"])
     files = plan["_files"]
+    affected = plan["c1"]["remove_previously_managed"] + plan["c1"]["add"] + plan["c1"]["change"]
+    for rel in affected:
+        _check_consumer_path(consumer, rel)
+    if _consumer_state(consumer, {rel: {} for rel in affected}) != {
+            rel: plan["_consumer_state"][rel] for rel in affected}:
+        raise SyncError("consumer changed after B0; review the plan again")
     for rel in plan["c1"]["remove_previously_managed"]:
+        _check_consumer_path(consumer, rel)
         target = consumer / rel
         if target.is_symlink() or target.is_file():
             target.unlink()
     for rel in plan["c1"]["add"] + plan["c1"]["change"]:
+        _check_consumer_path(consumer, rel)
         target = consumer / rel
         if target.exists() and not target.is_file():
             raise SyncError(f"C1 refuses to replace non-file path: {rel}")
         if target.is_symlink():
             raise SyncError(f"C1 refuses to replace symlink: {rel}")
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(kit / rel, target)
-        os.chmod(target, 0o755 if files[rel]["mode"] == "100755" else 0o644)
+        fd, temp_name = tempfile.mkstemp(prefix=".wiki-sync-", dir=target.parent)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(files[rel]["payload"])
+                stream.flush()
+            os.chmod(temp_name, 0o755 if files[rel]["mode"] == "100755" else 0o644)
+            _check_consumer_path(consumer, rel)
+            os.replace(temp_name, target)
+        finally:
+            if os.path.exists(temp_name):
+                os.unlink(temp_name)
+
+
+def _verify_c1(consumer: Path, plan: dict[str, Any]) -> None:
+    """Do not record a lock if C2 or C3 changed the managed C1 files."""
+    files = plan["_files"]
+    for rel in files:
+        _check_consumer_path(consumer, rel)
+    state = _consumer_state(consumer, files)
+    for rel, expected in files.items():
+        actual = state[rel]
+        if (actual.get("kind") != "file" or actual.get("sha256") != expected["sha256"]
+                or actual.get("mode") != expected["mode"]):
+            raise SyncError(f"managed C1 file changed during C2/C3: {rel}")
 
 
 def _write_lock(consumer: Path, plan: dict[str, Any]) -> None:
@@ -301,10 +416,13 @@ def main(argv: list[str] | None = None) -> int:
         if plan["consumer_dirty"] and not args.allow_dirty:
             raise SyncError("apply requires a clean consumer; review B0 or pass --allow-dirty deliberately")
         _copy_c1(kit, consumer, plan)
+        _check_source(kit, plan["source_sha"])
         for command in plan["c2_commands"]:
             _run([str(part) for part in command], cwd=consumer)
         for command in plan["c3_commands"]:
             _run(command, cwd=consumer)
+        _check_source(kit, plan["source_sha"])
+        _verify_c1(consumer, plan)
         _write_lock(consumer, plan)
         print(f"APPLIED source={plan['source_sha']} managed={len(plan['_files'])} lock={LOCK_NAME}")
         return 0

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import pytest
 
 from wiki_core.config import WikiConfig
 from wiki_core.llm.cache import cache_key
@@ -120,6 +121,88 @@ def test_quality_report_tracks_cost_telemetry_without_budget_gate(tmp_path: Path
     assert report["summary"]["cached_calls"] == 0
     assert report["summary"]["pending_calls"] == 1
     assert report["cost_telemetry"]["note"].endswith("does not enforce a hard budget.")
+
+
+def test_quality_ignores_nested_git_and_protected_symlinks(tmp_path: Path, monkeypatch) -> None:
+    cfg = WikiConfig(contexts=('example',))
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    derived = tmp_path / 'data/derived/wiki'
+    chunks = derived / 'chunks'
+    payload = lambda source: json.dumps({'source_id': source, 'chunks': [{'chunk_id': 'one', 'text': 'content'}]})
+    _write(chunks / 'safe.json', payload('safe'))
+    _write(chunks / 'nested/hidden.json', payload('nested'))
+    (chunks / 'nested/.git').mkdir()
+    protected = derived / '.wiki-viva-protected/hidden.json'
+    _write(protected, payload('protected'))
+    chunk_link = chunks / 'alias.json'; chunk_link.symlink_to(protected)
+    request_link = derived / 'extraction-events/alias-llm-context-request.json'
+    request_link.parent.mkdir(parents=True)
+    request_link.symlink_to(protected)
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        assert path not in (chunks / 'nested/hidden.json', chunk_link, request_link), 'foreign artifact opened'
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    report = build_quality_report(tmp_path, cfg)
+    assert [item['source_id'] for item in report['cost_telemetry']['source_costs']] == ['safe']
+
+
+def test_quality_rejects_legacy_cache_symlink_before_read(tmp_path: Path, monkeypatch) -> None:
+    cfg = WikiConfig(contexts=('example',))
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    derived = tmp_path / 'data/derived/wiki'
+    key, chunk_hash = 'a' * 64, 'b' * 64
+    _write(derived / 'chunks/safe.json', json.dumps({'source_id': 'safe', 'chunks': [
+        {'chunk_id': 'one', 'hash_sha256': chunk_hash, 'text': 'content'}]}))
+    request = {'source_id': 'safe', 'prompt_version': cfg.llm['prompt_versions']['context_deep_read'],
+        'schema_version': CONTEXT_PASS_SCHEMA_VERSION, 'model_profile': cfg.llm['default_model_profile'],
+        'chunks': [{'chunk_id': 'one', 'cache_key': key, 'chunk_hash_sha256': chunk_hash}]}
+    _write(derived / 'extraction-events/safe-llm-context-request.json', json.dumps(request))
+    protected = derived / '.wiki-viva-protected/hidden.json'
+    _write(protected, '{}')
+    link = derived / 'llm-cache' / (key + '.json')
+    link.parent.mkdir(parents=True); link.symlink_to(protected)
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        assert path != link, 'protected cache link opened'
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    with pytest.raises(ValueError):
+        build_quality_report(tmp_path, cfg)
+
+
+@pytest.mark.parametrize('directory', ['chunks', 'extraction-events'])
+def test_quality_rejects_a_selected_nested_repository(tmp_path: Path, directory: str) -> None:
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    (tmp_path / 'data/derived/wiki' / directory / '.git').mkdir(parents=True)
+    with pytest.raises(ValueError, match='derived_path_crosses_repository_boundary'):
+        build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
+
+
+def test_quality_validates_folder_request_identity(tmp_path: Path) -> None:
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    name = f"folder-{'a' * 64}-{'b' * 64}-llm-context-request.json"
+    _write(tmp_path / 'data/derived/wiki/extraction-events' / name, '{"chunks": []}')
+    with pytest.raises(ValueError, match='local request identity'):
+        build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
+
+
+@pytest.mark.parametrize('relative', [
+    'chunks/source.json',
+    'extraction-events/source-llm-context-request.json',
+])
+def test_quality_reports_unreadable_telemetry(tmp_path: Path, monkeypatch, relative: str) -> None:
+    _write(tmp_path / 'memories/index.md', _page('root', 'root_index', 'Root', '- Ready.\n'))
+    unavailable = tmp_path / 'data/derived/wiki' / relative
+    _write(unavailable, '{}')
+    original = Path.read_text
+    def guarded(path, *args, **kwargs):
+        if path == unavailable:
+            raise PermissionError('telemetry unavailable')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', guarded)
+    with pytest.raises(PermissionError, match='telemetry unavailable'):
+        build_quality_report(tmp_path, WikiConfig(contexts=('example',)))
 
 
 def test_quality_report_surfaces_unclosed_synthetic_event(tmp_path: Path) -> None:

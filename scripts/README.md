@@ -15,8 +15,8 @@ memory index first; retain any stronger consumer context requirement.
 
 | Task | Existing entry | Scope and next step |
 | --- | --- | --- |
-| Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index. Read each result's origin and coverage gaps before treating it as evidence. No index or model is started. |
-| Context | Use [wiki_read.py](wiki_read.py) for a scoped Git read, [wiki_context.py](wiki_context.py) or the approved mode of [wiki_coordination.py](wiki_coordination.py) for an explicit task packet. | Choose explicit paths and revisions; follow original evidence. The profile packet path is retired; the operator index remains `caller_trust`. See [context operation](../docs/references/guides/context-operation.md). |
+| Find | [wiki_find.py](wiki_find.py) | Search the existing lexical index, or use `--path` for explicit local selections. Read origin and coverage gaps before treating results as evidence. No index or model is started. |
+| Context | Use [wiki_read.py](wiki_read.py) for a scoped Git read, [wiki_context.py](wiki_context.py) or the approved mode of [wiki_coordination.py](wiki_coordination.py) for an explicit task packet. | Choose explicit paths and revisions; follow original evidence. Local folder preparation is a separate route described in [bounded ingestion](../docs/references/guides/bounded-ingestion.md), not an approved packet. The profile packet path is retired; the operator index remains `caller_trust`. See [context operation](../docs/references/guides/context-operation.md). |
 | Source | Use the existing source workspace, `GET /api/sources` for identity/location and `GET /api/sources/{source_id}/operations` for receipts, described in [source access](../docs/references/guides/source-access-and-ingestion.md). | Inspect retained identity, location and receipts first. [Refresh preview/run](../docs/references/guides/source-refresh-cadence.md) may contact external systems and requires the existing account and authorized scope; an unavailable original is an explicit gap. |
 | Action | Open the same [board card](../docs/references/guides/native-action-board.md). Use its existing transition/dialogue writer for allowed local changes; reconcile retained agent results through [contributions](../docs/references/guides/agent-contributions.md). | Keep the same action and origin run/effect references; revalidate its current revision before writing. A received-result comment has its own event identity, does not consume the contribution effect, and does not incorporate its factual proposal. Other documents, rules or required generators use the existing normal multipage proposal with review and gates. |
 
@@ -44,6 +44,20 @@ Context selects retrieval results; account and session controls govern access.
 An index configured for WAL is reported as unsupported instead of creating
 SQLite sidecars or silently ignoring uncheckpointed data. Its journal mode is
 never changed by lookup.
+
+For a task with explicit local selections, repeat `--path` for each folder or
+file, for example `python3 scripts/wiki_find.py "release review" --path memories/project`.
+This reads selected UTF-8 Markdown/text files directly, using case-insensitive
+substring AND matching; it does not open the global catalog or SQLite index.
+Nested Git repositories and symbolic links are excluded; an explicitly selected
+path across either boundary is refused. Results report partial coverage and do
+not establish freshness, authorization or that any agent read a source. A path
+selection is subject to the host process's actual permissions. Up to 16 paths,
+1,000 files, 1 MB per file and 8 MB in total are accepted; traversal is also
+bounded. The full selected set and sizes are checked before reading bodies;
+reading stops at the hit limit and reports the number of unread files. Errors
+in their contents cannot be detected without reading them. Select an independent
+repository through its own explicit read flow.
 Use [wiki_build_index.py](wiki_build_index.py) explicitly when a rebuild is
 needed. The `--context` option on [wiki_llm_context_pass.py](wiki_llm_context_pass.py)
 describes a delegated reading request; it does not filter that command's query.
@@ -58,9 +72,10 @@ wiki_ingest.py -> wiki_llm_context_pass.py -> wiki_consolidate.py
 
 [wiki_read.py](wiki_read.py) requires `--revision`, `--mode` and exact
 `--allow-path` values; reads require `--section`, `--field` or explicit
-`--whole-body`. [wiki_context.py](wiki_context.py) resolves the approved context
-or builds a bounded v1 packet with `--approved-revision` and a separate
-`--content-revision`. The caller supplies the trust boundary; selecting a
+`--whole-body`. [wiki_context.py](wiki_context.py) resolves a physical context
+or builds a bounded packet under the approved `wiki.config.yaml` access policy
+with `--approved-revision` and a separate `--content-revision`. A `resolve`
+result does not qualify the context. The caller supplies the trust boundary; selecting a
 revision does not grant access. [wiki_coordination.py](wiki_coordination.py)
 has separate approved packet flags (`--context-id`, `--approved-revision`,
 `--revision`, `--packet-request`) while profile reads return a migration response without content.
@@ -74,13 +89,21 @@ existing collection contract, with explicit read/enumeration/match limits; see
 
 ## Bounded canonical ingestion
 
-[wiki_ingest.py](wiki_ingest.py) accepts `--approved-revision`, `--policy-context`,
-`--context-max-bytes` (100000) and `--request-max-bytes` (256000). Context is
-included once with every extracted chunk; the complete canonical UTF-8 request
-must fit before persistence, indexing, scoring or cursor advancement. Approved
-failures return structured blockers and never choose compatibility. Record or
-check through [wiki_llm_context_pass.py](wiki_llm_context_pass.py) using the same
-explicit source, approval, context and limits. See [bounded ingestion](../docs/references/guides/bounded-ingestion.md).
+[wiki_ingest.py](wiki_ingest.py) and [wiki_llm_context_pass.py](wiki_llm_context_pass.py)
+retain the working-tree compatibility route. Their approved-v1 flags are refused
+for new operations, including recording and checks; existing artifacts are
+preserved. For an approved folder-policy source use the existing
+[wiki_coordination.py](wiki_coordination.py) `--source-stage` interface or the
+in-process host-bound stages. Those stages use v5, include context with the
+source chunks and check the full canonical request budget before persistence.
+Approved failures do not fall back to compatibility. See [bounded ingestion](../docs/references/guides/bounded-ingestion.md)
+for payloads, trusted caller boundary, formats and coverage.
+
+For a separately authorized local entry, `--folder` selects the physical
+instructions and index instead of an approved-policy packet. The guide documents
+the distinct recording and consolidation selectors, explicit independent Git
+reads and partial coverage. The two routes cannot be combined; an approved-route
+failure never silently falls back to local preparation.
 
 [wiki_context_flow.py](wiki_context_flow.py) reads canonical requirements for
 impact by selected content/revision and independently preflights proposals.
@@ -92,8 +115,9 @@ merge is performed automatically.
 
 [wiki_template_sections.py](wiki_template_sections.py) previews an opt-in modular
 section contract on a trusted working tree; it does not prove approval or access.
-[wiki_context_schedule.py](wiki_context_schedule.py) returns finite, disabled-by-default
-schedule advice; it installs nothing and never admits an effect. See
+[wiki_context_schedule.py](wiki_context_schedule.py) currently blocks folder-policy
+requests before opening them because trusted binding and requalification are not
+yet connected. It installs nothing and never admits an effect. See
 [modular sections](../docs/references/guides/modular-template-sections.md) and
 [context schedule advice](../docs/references/context-schedules.md).
 

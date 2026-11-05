@@ -281,6 +281,9 @@ def source_link(path: Path, base_dir: Path | None = None) -> str:
 
 
 def source_metadata(source: str, s: dict[str, str]) -> list[str]:
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(Path(source)):
+        raise ValueError('protected artifacts require bound dispatch')
     parsed = urlparse(source)
     if parsed.scheme in {"http", "https"}:
         return [
@@ -305,6 +308,9 @@ def source_metadata(source: str, s: dict[str, str]) -> list[str]:
 
 
 def build_proposal(source: str, context: str, date: dt.date, status: str, language: str = "en") -> str:
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(Path(source)):
+        raise ValueError('protected artifacts require bound dispatch')
     s = _ps(language)
     source_type, risks = classify_source(source, s)
     source_name = Path(urlparse(source).path).name or DEFAULT_SOURCE_NAME

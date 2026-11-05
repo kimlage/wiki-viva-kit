@@ -459,7 +459,13 @@ def load_config(root: Path) -> WikiConfig:
     path = root / "wiki.config.yaml"
     if not path.exists():
         return WikiConfig()
-    raw = _load_yaml_mapping(path)
+    return config_from_mapping(_load_yaml_mapping(path))
+
+
+def config_from_mapping(raw: dict[str, Any]) -> WikiConfig:
+    """Validate configuration already obtained from a selected authority."""
+    if not isinstance(raw, dict):
+        raise ValueError('config: expected a mapping')
     _reject_secret_keys(raw, path="wiki.config.yaml")
 
     language = str(raw.get("language", "en")).strip().strip("\"'")

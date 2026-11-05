@@ -76,16 +76,12 @@ def test_root_dot_mandatory_ancestor_and_narrow_metadata(repo):
     e[0]['field']='secret'
     with pytest.raises(PolicyError,match='selector'): build_packet(repo,policy,'child',ref,e,10000,**TASK)
 
-def test_cli_resolve_and_pack(repo, tmp_path):
+def test_cli_refuses_new_packets_from_legacy_manifest(repo, tmp_path):
     script=BASE/'scripts/wiki_context.py'; sha=git(repo,'rev-parse','HEAD')
     prefix=[sys.executable,str(script),'--repo',str(repo),'--approved-revision',sha,'--manifest','ctx/context.yaml']
-    resolved=json.loads(subprocess.check_output(prefix+['resolve','root']))
-    assert resolved['policy_revision']==sha and resolved['enforcement_claim']=='none'
     request=tmp_path/'request.json'; request.write_text(json.dumps({**TASK,'evidence':EVIDENCE,'max_bytes':10000}))
-    raw=subprocess.check_output(prefix+['pack','root','--content-revision',sha,'--request',str(request)])
-    packet=json.loads(raw)
-    assert packet['task_id']=='test-1' and len(packet['packet_digest'])==64
-    assert len(raw)==packet['bytes_used']
+    result=subprocess.run(prefix+['pack','root','--content-revision',sha,'--request',str(request)], capture_output=True)
+    assert result.returncode != 0
 
 
 def test_result_binding_and_report_validation(repo):

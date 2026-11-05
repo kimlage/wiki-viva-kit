@@ -17,6 +17,9 @@ from wiki_core.ingest import run
 from wiki_core.llm import write_result
 from wiki_core.paths import WikiPaths
 from wiki_core.source_manifest import build_manifest
+from tests.test_folder_ingestion_perspectives import configured
+from tests.test_protected_ingestion import prepared_repo
+from tests.test_folder_policy_core import git, repo, write
 
 
 @pytest.fixture
@@ -435,36 +438,51 @@ def test_cli_builds_actual_context_bodies_and_invalidates_same_id(source_check, 
     assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']
 
 
-def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bodies(source_check, capsys):
-    import subprocess
-    import yaml
-    from wiki_core.context_policy import PolicyError
+def test_cli_retired_v1_fails_closed_without_affecting_local_compatibility(source_check, capsys):
     source, config, paths, check = source_check
-    def git(*args):
-        return subprocess.run(['git', '-C', str(paths.root), *args], check=True, capture_output=True, text=True).stdout.strip()
     run(str(source), 'system', paths.root, config)
-    capsys.readouterr()
-    git('init', '-q'); git('config', 'user.name', 'Synthetic'); git('config', 'user.email', 'synthetic@example.test')
-    git('add', 'source.md'); git('commit', '-qm', 'Synthetic without policy')
-    sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
-    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 2
-    report = json.loads(capsys.readouterr().out)
-    assert report['blocked'] and report['error_code'] == 'context_preparation_unavailable'
-    assert report['blockers'][0]['interface'] and report['blockers'][0]['resume_condition']
-    assert check('--emit-request') == 0  # Explicitly unprotected legacy remains available.
-    capsys.readouterr()
-    (paths.root / 'AGENTS.md').write_text('Current approved CLI policy body.\n')
-    manifest = {'schema_version': 'wiki.context/v1', 'id': 'root', 'parent': None, 'root': '.', 'purpose': 'Synthetic', 'owner': 'operator',
-        'instructions': ['AGENTS.md'], 'skills': [], 'templates': [], 'imports': [], 'exports': [],
-        'policy': {'read': ['self'], 'write': [], 'capabilities': [], 'publication': [], 'deny': {}}}
-    (paths.root / 'context.yaml').write_text(yaml.safe_dump(manifest))
-    git('add', 'AGENTS.md', 'context.yaml'); git('commit', '-qm', 'Approved CLI policy')
-    sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
-    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 0
-    capsys.readouterr()
-    request_path = paths.extraction_events / (build_manifest(str(source), 'system', root=paths.root)['source_id'] + '-llm-context-request.json')
-    before = json.loads(request_path.read_text())
-    assert before['block_context_package']['inputs'][0]['text'] == 'Current approved CLI policy body.\n'
+    before = {p: p.read_bytes() for p in paths.derived_root.rglob('*') if p.is_file()}
+    with pytest.raises(SystemExit) as blocked:
+        check('--emit-request', '--approved-revision', '0' * 40, '--policy-context', 'root')
+    assert blocked.value.code == 2
+    assert 'new approved v1 ingestion is retired' in capsys.readouterr().err
+    assert {p: p.read_bytes() for p in paths.derived_root.rglob('*') if p.is_file()} == before
+    assert check('--emit-request') == 0  # Explicitly unprotected local compatibility remains available.
+
+
+def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bodies(prepared_repo):
+    import os
+    import subprocess
+    root, _binding, args = configured(prepared_repo)
+    write(root, 'AGENTS.md', 'Current approved CLI policy body.\n')
+    write(root, 'memories/template.md', '---\npage_id: template\npage_type: template\n---\n# Template\nSynthetic template body.\n')
+    args['context_selection']['templates'] = ['memories/template.md']
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'approved mandatory context')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    payload = {key: value for key, value in args.items() if key not in ('context_id', 'approved_revision')}
+    payload['source_context'] = 'system'
+    env = {key: value for key, value in os.environ.items() if not key.startswith('WIKI_COORDINATION_')}
+
+    def cli(approved_revision):
+        return subprocess.run([sys.executable, str(ROOT / 'scripts/wiki_coordination.py'), '--root', str(root),
+            '--context-id', '.', '--approved-revision', approved_revision, '--source-stage', 'prepare'],
+            input=json.dumps(payload), text=True, capture_output=True, env=env)
+
+    blocked = cli('0' * 40)
+    assert blocked.returncode == 1
+    report = json.loads(blocked.stdout)
+    assert report['ok'] is False and report['error_code'] == 'coordination_policy_unavailable'
+    assert report['blocker']['interface'] and report['blocker']['resume_condition']
+    assert not (root / 'data/derived').exists()
+    first = cli(sha)
+    assert first.returncode == 0, first.stderr + first.stdout
+    before = json.loads(first.stdout)['result']['request']
+    bodies = {item['ref']: item['text'] for item in before['block_context_package']['inputs']}
+    assert bodies['AGENTS.md'] == 'Current approved CLI policy body.\n'
+    assert '# Root' in bodies['memories/root.md']
+    assert 'Preserve exceptions.' in bodies['memories/lens.md']
+    assert 'Synthetic template body.' in bodies['memories/template.md']
     from jsonschema import validate
     from wiki_core.context_packet import validate_result as validate_task_result
     package = before['block_context_package']
@@ -472,13 +490,15 @@ def test_cli_approved_context_activation_fails_closed_and_delivers_mandatory_bod
     bound_result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed',
         'task_id': package['task_id'], 'context_id': package['context_id'],
         'packet_digest': package['packet_digest'], 'blockers': [], 'changes': [],
-        'read_coverage': {'observed_refs': package['declared_read_set'], 'missing': []}}
+        'read_coverage': {'observed_refs': package['declared_read_set'], 'missing': package['coverage']['missing']}}
     assert validate_task_result(bound_result, package) is True
-    (paths.root / 'AGENTS.md').write_text('Revised approved CLI policy under same path.\n')
-    git('add', 'AGENTS.md'); git('commit', '-qm', 'Approved instruction body update')
-    sha = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', sha)
-    assert check('--emit-request', '--approved-revision', sha, '--policy-context', 'root') == 0
-    capsys.readouterr()
-    after = json.loads(request_path.read_text())
+    write(root, 'AGENTS.md', 'Revised approved CLI policy under same path.\n')
+    git(root, 'add', 'AGENTS.md'); git(root, 'commit', '-qm', 'approved instruction body update')
+    sha = git(root, 'rev-parse', 'HEAD'); git(root, 'update-ref', 'refs/remotes/origin/main', sha)
+    revised = cli(sha)
+    assert revised.returncode == 0, revised.stderr + revised.stdout
+    after = json.loads(revised.stdout)['result']['request']
+    assert any(row['text'] == 'Revised approved CLI policy under same path.\n'
+               for row in after['block_context_package']['inputs'])
     assert before['source_id'] == after['source_id']
     assert before['chunks'][0]['cache_key'] != after['chunks'][0]['cache_key']

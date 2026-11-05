@@ -25,17 +25,30 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
     return fields
 
 
-def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str]) -> list[dict]:
+def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False) -> list[dict]:
     """Select query declarations touched by paths or dependency closure, without reading members."""
-    from wiki_core.context_policy import within
+    from wiki_core.context_policy import within, is_context_instruction
     found = {}
-    policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') for p in changed)
+    legacy_policy_changed = any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) for p in changed)
     for origin, graph in (('base', base), ('current', current)):
         for edge in dependency_edges(graph, origin=origin)[0]:
             req = edge.get('requirement', {})
             if 'query' not in req:
                 continue
             consumer, anchor, scope = edge['dependent'], req['target'], req['query']['scope']
+            if req.get('authority_format') == 'folder':
+                entry_folder = req['entry_folder']
+                def affects_folder_policy(path):
+                    if path == 'wiki.config.yaml': return True
+                    if path == req['entry_index']: return True
+                    directory = path.rsplit('/', 1)[0] if '/' in path else '.'
+                    return ((is_context_instruction(path) or path.rsplit('/', 1)[-1] in ('index.md', 'README.md'))
+                            and within(entry_folder, directory))
+                policy_changed = any(affects_folder_policy(path) for path in changed)
+            else:
+                # A folder audit cannot inspect an unbound legacy manifest to
+                # exclude a changed path from its old normative inputs.
+                policy_changed = legacy_policy_changed or (legacy_authority_unavailable and bool(changed))
             if not (policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
                     or any(within(p, scope) for p in changed | reached)):
                 continue
@@ -79,7 +92,8 @@ def authorized_pending_edge(edge, policy, context_id):
                 and requirement.get('target') == source
                 and requirement.get('use') == 'normative' and requirement.get('fields') == ['*'] and requirement.get('temporal') == 'current'
                 and policy.owner_of(target) == context_id and policy.permits(context_id, 'read', target)
-                and normative_history(policy, context_id, source, requirement.get('consumed_revision')))
+                and normative_history(policy, context_id, source, requirement.get('consumed_revision'),
+                    authority_format=requirement.get('authority_format'), entry_folder=requirement.get('entry_folder'), entry_index=requirement.get('entry_index')))
         if (policy.owner_of(source) != context_id or policy.owner_of(target) != context_id
                 or not policy.permits(context_id, 'read', source) or not policy.permits(context_id, 'read', target)):
             return False
@@ -231,7 +245,8 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     # A manifest change can revoke or remove an inherited normative input even
     # when neither its body nor its consumer changed. The global caller-trust
     # audit cannot prove the new authority; preserve a visible review obligation.
-    if any(path == 'context.yaml' or path.endswith('/context.yaml') for path in changed):
+    from wiki_core.context_policy import is_context_instruction
+    if any(path == 'context.yaml' or path.endswith('/context.yaml') or is_context_instruction(path) for path in changed):
         normative_consumers = {edge['source'] for edge in current['edges']
             if edge.get('type') == 'operational_prerequisite'
             and edge.get('field') == 'information_requirements'

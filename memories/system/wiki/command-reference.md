@@ -33,9 +33,9 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) | Inspect derived cache |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Check methodology coverage |
 | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | Compile a deep read into an integration packet |
-| [wiki_context.py](../../../scripts/wiki_context.py) | Resolve current approved context policy or build an explicit or anchored-query v1 task packet |
+| [wiki_context.py](../../../scripts/wiki_context.py) | Resolve the approved folder context or build an explicit or anchored-query task packet |
 | [wiki_context_flow.py](../../../scripts/wiki_context_flow.py) | Assess selective context impact, revalidate dynamic sets, derive canonical requirements and preflight proposals without approving or merging |
-| [wiki_context_schedule.py](../../../scripts/wiki_context_schedule.py) | Evaluate finite context schedule advice without installing or executing it |
+| [wiki_context_schedule.py](../../../scripts/wiki_context_schedule.py) | Read-only schedule advice; folder requests currently block before opening pending host binding and requalification |
 | [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) | Publish ignored artifacts to configured Drive |
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Export context requests in batch format |
 | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | Build a deterministic source manifest |
@@ -43,7 +43,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_find.py](../../../scripts/wiki_find.py) | Read-only lexical lookup with provenance and explicit index/context gaps |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Inspect/transition proposal gates |
 | [wiki_gc.py](../../../scripts/wiki_gc.py) | Remove orphan derived artifacts |
-| [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Run end-to-end ingestion |
+| [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Prepare working-tree compatibility ingestion; new approved-v1 flags are refused |
 | [wiki_ingestion_closure_report.py](../../../scripts/wiki_ingestion_closure_report.py) | Report ingestion closure |
 | [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) | Compile the input stage |
 | [wiki_insight_job.py](../../../scripts/wiki_insight_job.py) | Gather signals for an insight |
@@ -67,6 +67,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_quadrant_projection_report.py](../../../scripts/wiki_quadrant_projection_report.py) | Review quadrant projections |
 | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Report quality/cost telemetry |
 | [wiki_read.py](../../../scripts/wiki_read.py) | Read explicitly scoped Git content by revision, stable section or frontmatter field |
+| [wiki_repo_read.py](../../../scripts/wiki_repo_read.py) | Read an explicitly selected file in an independent local Git repository with origin identity and revision |
 | [wiki_score.py](../../../scripts/wiki_score.py) | Record/view karma events |
 | [wiki_semantic_inventory.py](../../../scripts/wiki_semantic_inventory.py) | Verify authored semantics/read models |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Compile the source registry |
@@ -75,7 +76,7 @@ exact options; only use preview/apply modes actually exposed by that command.
 | [wiki_vercel_preview.py](../../../scripts/wiki_vercel_preview.py) | Prepare a synthetic-only Vercel function preview without deploying |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepare deployment inputs |
 | [wiki_contribution.py](../../../scripts/wiki_contribution.py) | Prepare, review and reconcile provider-neutral action-body contributions under consumer Git policy |
-| [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Prepare an explicit approved task packet, read the caller-trust index or record exact-path dialogue; profile reads return migration; never dispatch |
+| [wiki_coordination.py](../../../scripts/wiki_coordination.py) | Prepare an approved folder task packet or protected source stage, read the caller-trust index or record exact-path dialogue; profile reads return migration; no model call |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Run the localhost operator API |
 | [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generate/check atomic cockpit snapshot |
 
@@ -105,13 +106,18 @@ delegated request and does not filter its retrieved hits.
 
 ```sh
 python3 scripts/wiki_find.py "pending decisions" --context system
-python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
+# Approved source stage payloads and limits: see bounded ingestion guide.
+python3 scripts/wiki_coordination.py --root REPO --context-id CONTEXT --approved-revision APPROVED_SHA --source-stage prepare < STAGE.json
 python3 scripts/wiki_sync_from_kit.py --kit . --consumer /path/to/consumer --dry-run
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_performance.py plan --profile cycle1 --out /tmp/wiki-performance-plan.json
 python3 scripts/wiki_semantic_inventory.py --check
 python3 scripts/wiki_audit.py --check
 ```
+
+For protected source stages, the [bounded ingestion guide](../../../docs/references/guides/bounded-ingestion.md)
+defines the payload, host binding, supported formats and coverage limits. A
+stage result is not independent review or incorporation.
 
 `wiki_sync_from_kit.py` apply performs byte/mode-equal C1, deterministic C2,
 explicit C3 and writes portable `kit.lock`. The consumer PR is the review and

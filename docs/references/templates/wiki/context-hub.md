@@ -6,6 +6,13 @@ create catalog and intake forms, and the area's vitality loop. Quadrant lenses
 are usually inherited from the root; an area re-anchors them only when it needs
 its own labels.
 
+When using a hub as a local folder context, place applicable AGENTS instructions
+and an `index.md` in that folder; another
+index can be selected explicitly. Link relevant source and repository pages from
+the map. Keep rules in their canonical instruction files rather than copying
+them into the index. The [local entry guide](../../guides/bounded-ingestion.md)
+describes selection and its limits; an index or instruction file grants no access.
+
 ```yaml
 ---
 page_id: {{page_id}}

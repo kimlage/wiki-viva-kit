@@ -24,9 +24,9 @@ related_pages:
 Original guide: 2026-06-25. Normative review against the current implementation: 2026-10-26.
 
 The gates are the honesty layer of the living wiki: deterministic scripts that
-fail (non-zero exit code) when the repository violates the contract, omits the
-deep read, leaves a read source without integration, lets relation pages drift
-outside the hierarchy or leaves generated pages out of date. They run in CI on
+fail (non-zero exit code) for violations within their coverage, including an
+omitted deep read or unintegrated source in the scanned shared-cache flow,
+relation pages outside the hierarchy and out-of-date generated pages. They run in CI on
 the [gate by PR](../git-approvals.md) and locally before opening the proposal.
 The families cover distinct dimensions: contract auditing
 ([wiki_audit.py](../../../scripts/wiki_audit.py)), methodology coverage
@@ -60,7 +60,7 @@ The honesty gates at a glance — what each verifies and where it runs in CI:
 | Contract audit | Frontmatter, ontology relations, clickable local links | `wiki_audit.py --check` |
 | Secret block | No access secret in any versioned text file | `wiki_audit.py --check` (`audit_secrets`) |
 | PII boundary | PII only crosses the public boundary when redacted | `wiki_audit.py --check` (`audit_pii`) |
-| LLM pass | Applicable source requests have a recorded result; explicit query/orphan cases are handled separately | `wiki_audit.py --check` (`audit_context_pass_gate`) |
+| LLM pass | Shared-cache source requests have a recorded result within the scan's coverage; explicit query/orphan cases are handled separately. Protected cache requires its bound inspection route. | `wiki_audit.py --check` (`audit_context_pass_gate`) |
 | Consolidation closed | New event needs existing destinations, at least one non-source target, backlinks from non-source targets when the event supplies origins, and claims or `sem_claim` | [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (CI) |
 | Quality and hierarchy | Low-density/repeated pages, open integration flags, operational-coverage gaps and relation pages without `moc_parent` when configured | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) `--check` |
 | Gate state | Every proposal carries a valid `gate_state` | `wiki_audit.py --check` (`audit_ingestion_proposals_gate_state`) |
@@ -86,27 +86,28 @@ The honesty gates at a glance — what each verifies and where it runs in CI:
 - `audit_consolidation`: gate of the integration (detailed below). Every new event (with a `source_id`) needs existing `consolidated_into` destinations and at least one target whose `page_type` is not `source`. Source identity pages are exempt from the backlink check. When the event supplies origin references, each other target must reference at least one of those origins in `source_refs`. Candidate claims require linked `claims:` or an explicit `sem_claim: <reason>`. This consolidation check skips events without `source_id`; those also lacking `consolidated_into` contribute to an aggregate warning. Other applicable gates still apply.
 - `audit_ingestion_proposals_gate_state`: every flat proposal in [memories/system/ingestion](../../../memories/system/ingestion/README.md) must carry a valid `gate_state` (see [state machine](#gate-state-machine)). Without it, the living gate has nowhere for the proposal to enter.
 
-Other invariants of the same script: `audit_operation_page` (the cockpit must be `page_type: dashboard` with `stale_after_days: 1`); `audit_ingestion_events` (every normalized event has the integral quadrants section, with no empty cell or placeholder); `audit_ingestion_absolute_paths` (an absolute source path becomes a link, and disguised traversal up to the home is not portable); `audit_public_candidates` (every `public_candidate` page requires a redaction checklist and zero secret/PII); `audit_promotion_gate` (promoting visibility requires the consent/anonymization/reversion fields); `audit_llm_cache_metadata` (each cache result carries `prompt_version`, `schema_version`, `cache_key`); and `audit_log_changed` (changing [memories/](../../index.md) without updating the change log fails). The flow of these last ones is detailed in [ingestion process](../ingestion-process.md).
+Other invariants of the same script: `audit_operation_page` (the cockpit must be `page_type: dashboard` with `stale_after_days: 1`); `audit_ingestion_events` (every normalized event has the integral quadrants section, with no empty cell or placeholder); `audit_ingestion_absolute_paths` (an absolute source path becomes a link, and disguised traversal up to the home is not portable); `audit_public_candidates` (every `public_candidate` page requires a redaction checklist and zero secret/PII); `audit_promotion_gate` (promoting visibility requires the consent/anonymization/reversion fields); `audit_llm_cache_metadata` (checks for `prompt_version`, `schema_version` and `cache_key` text in scanned shared and local-folder cache results; protected cache is outside this scan); and `audit_log_changed` (changing [memories/](../../index.md) without updating the change log fails). The flow of these last ones is detailed in [ingestion process](../ingestion-process.md).
 
 ### LLM pass gate (required_context_pass)
 
 The deep read is delegated to the agent that runs the repo, not to a Python client — the architecture is in [wiki_core/llm/context_pass.py](../../../wiki_core/llm/context_pass.py). The deterministic code assembles a context PACKAGE (request) with the text of the chunks, the versioned prompt and the per-chunk cache status; the agent executes the read and writes the RESULT. The honesty gate closes that circuit from two sides:
 
 - `validate_result` (in [context_pass.py](../../../wiki_core/llm/context_pass.py)) rejects a result that is missing any mandatory key, leaves any quadrant empty, or does not declare `sensitivity.has_pii`. Only a valid result is written to the cache.
-- `source_pending` counts the chunks with no written result. With `required_context_pass: true` in [wiki.config.yaml](../../../wiki.config.yaml), `audit_context_pass_gate` (in [wiki_audit.py](../../../scripts/wiki_audit.py)) scans each `*-llm-context-request.json` in [data/derived/wiki/extraction-events](../../../data/derived/wiki/) and fails if any listed chunk does not have its corresponding `<cache_key>.json` in the cache. The auditor warns and skips query requests and orphan requests under its explicit source-identity conditions; malformed JSON can fail. The existence of an LLM *plan* never counts as proof of an executed pass.
+- `source_pending` counts the chunks with no written result in the shared-cache route. With `required_context_pass: true` in [wiki.config.yaml](../../../wiki.config.yaml), `audit_context_pass_gate` (in [wiki_audit.py](../../../scripts/wiki_audit.py)) scans shared `*-llm-context-request.json` files in [data/derived/wiki/extraction-events](../../../data/derived/wiki/) and fails if any listed chunk lacks its corresponding `<cache_key>.json`. The auditor warns and skips query requests and orphan requests under its explicit source-identity conditions; malformed JSON can fail. The protected cache is outside this scan. The existence of an LLM *plan* never counts as proof of an executed pass.
 
-Triggering the pass manually (recording of the result by the agent via skill):
-
-```sh
-python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \
-  --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
-```
+For new approved folder requests, use the bound `record` and `inspect` source
+stages in [wiki_coordination.py](../../../scripts/wiki_coordination.py) with the
+same request selectors and the actual host authorization. The `inspect` stage
+reads only explicitly selected results or the retained integration proposal;
+it does not prove comprehension or incorporation. The former approved-v1
+flags on [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py)
+are refused for new recording and checks. See [bounded ingestion](../../../docs/references/guides/bounded-ingestion.md).
 
 ### Consolidation gate (ingesting = integrating)
 
-The deep read written to the cache does not end the ingestion: the source is only ingested when the wiki concepts reflect the new information. The gate closes that circuit from two sides — `audit_consolidation` (in [wiki_audit.py](../../../scripts/wiki_audit.py)) validates the events already emitted, and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (in CI) fails while any source with a complete deep read has no event, or has an event with an empty `consolidated_into`. The gate's row in the honesty-gates table above is "Consolidation closed".
+The deep read written to the cache does not end the ingestion: the source is only ingested when the wiki concepts reflect the new information. `audit_consolidation` (in [wiki_audit.py](../../../scripts/wiki_audit.py)) validates emitted events within its coverage, and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (in CI) reports sources in its shared-cache coverage with a complete deep read and no event, or an event with an empty `consolidated_into`. The gate's row in the honesty-gates table above is "Consolidation closed".
 
-`--all-pending` lists the pending consolidations in JSON, and the cockpit ([memories/operations.md](../../operations.md)) shows the alert "Sources awaiting consolidation: N" while anything is pending. The audit consolidation check skips events without `source_id`; those also lacking `consolidated_into` contribute to an aggregate warning. Other applicable gates still apply.
+`--all-pending` lists pending consolidations in its shared-cache coverage, and the cockpit ([memories/operations.md](../../operations.md)) shows the corresponding alert. Neither includes the protected cache as a global inventory; use the authorized `inspect` stage for selected protected artifacts. The audit consolidation check skips events without `source_id`; those also lacking `consolidated_into` contribute to an aggregate warning. Other applicable gates still apply.
 
 ## Methodology coverage (presence AND content)
 

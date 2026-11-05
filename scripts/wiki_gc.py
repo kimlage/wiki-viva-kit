@@ -12,6 +12,10 @@ Safe by default:
   - DRY-RUN: only lists the orphans. Use --apply to remove.
   - If no live source is found (e.g., repo without proposals), NEVER deletes —
     it cannot tell a live one from an orphan; it only reports.
+  - An interrupted apply reports prior removals; inspect them before retrying.
+    Boundary checks require cooperative custody during the operation.
+  - Valid retained local requests keep their source in the index; an unreadable
+    retained request stops apply before any deletion or index pruning.
 
 Examples:
   python3 scripts/wiki_gc.py            # list orphans
@@ -21,7 +25,10 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -33,6 +40,7 @@ except ModuleNotFoundError:
 from wiki_core.config import load_config
 from wiki_core.index.sqlite import prune_index
 from wiki_core.paths import WikiPaths
+from wiki_core.traversal import require_wiki_boundaries
 
 REQUEST_SUFFIX = "-llm-context-request.json"
 
@@ -55,7 +63,7 @@ def _frontmatter_value(text: str, key: str) -> str | None:
     return None
 
 
-def live_source_ids(paths: WikiPaths) -> set[str]:
+def live_source_ids(paths: WikiPaths, *, wiki_root: Path | None = None) -> set[str]:
     """source_ids referenced by LIVE ingestion proposals.
 
     Live = top-level proposal whose gate_state is not in NON_LIVE_STATES
@@ -65,9 +73,13 @@ def live_source_ids(paths: WikiPaths) -> set[str]:
     """
     ingest_dir = paths.ingest_dir
     live: set[str] = set()
+    if wiki_root is not None:
+        require_wiki_boundaries(wiki_root, directories=(ingest_dir,))
     if not ingest_dir.exists():
         return live
     for md in ingest_dir.glob("*.md"):
+        if wiki_root is not None:
+            require_wiki_boundaries(wiki_root, files=(md,))
         text = md.read_text(encoding="utf-8")
         if (_frontmatter_value(text, "gate_state") or "") in NON_LIVE_STATES:
             continue
@@ -84,7 +96,7 @@ def _source_id_of(path: Path) -> str:
     return path.stem
 
 
-def find_orphans(paths: WikiPaths, live: set[str]) -> dict[str, list[Path]]:
+def find_orphans(paths: WikiPaths, live: set[str], *, wiki_root: Path | None = None) -> dict[str, list[Path]]:
     dirs = {
         "source-manifests": paths.source_manifests,
         "source-text": paths.source_text,
@@ -92,15 +104,47 @@ def find_orphans(paths: WikiPaths, live: set[str]) -> dict[str, list[Path]]:
         "extraction-events": paths.extraction_events,
     }
     orphans: dict[str, list[Path]] = {}
+    if wiki_root is not None:
+        require_wiki_boundaries(wiki_root, directories=dirs.values())
+    retained = set()
+    if paths.extraction_events.is_dir():
+        for path in paths.extraction_events.glob('folder-*-llm-context-request.json'):
+            match = re.fullmatch(r'folder-([0-9a-f]{64})-[0-9a-f]{64}-llm-context-request\.json', path.name)
+            if match:
+                retained.add(match.group(1))
     for label, directory in dirs.items():
         if not directory.exists():
             continue
-        found = [
-            p for p in sorted(directory.glob("*.json")) if _source_id_of(p) not in live
-        ]
+        candidates = sorted(directory.glob("*.json"))
+        if wiki_root is not None:
+            require_wiki_boundaries(wiki_root, files=candidates)
+        # Contextual requests can be independent unfinished work even when no
+        # proposal exists. GC cannot infer their disposition from source_id.
+        found = [p for p in candidates if not (label == 'extraction-events' and
+                 re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-(?:llm-context-request|integration-packet)\.json', p.name))
+                 and _source_id_of(p) not in live and
+                 hashlib.sha256(_source_id_of(p).encode('utf-8')).hexdigest() not in retained]
         if found:
             orphans[label] = found
     return orphans
+
+
+def retained_request_source_ids(paths: WikiPaths, *, wiki_root: Path) -> set[str]:
+    """Resolve retained local requests before allowing destructive GC."""
+    from wiki_core.llm.context_pass import load_local_request
+    require_wiki_boundaries(wiki_root, directories=(paths.extraction_events,))
+    if not paths.extraction_events.is_dir():
+        return set()
+    retained = set()
+    for path in sorted(paths.extraction_events.glob('folder-*-llm-context-request.json')):
+        # A legacy source_id may itself start with "folder-". Only the
+        # reserved two-digest filename identifies the new request format.
+        if not re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', path.name):
+            continue
+        require_wiki_boundaries(wiki_root, files=(path,))
+        request = load_local_request(paths, path)
+        retained.add(request['source_id'])
+    return retained
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -112,8 +156,16 @@ def main(argv: list[str] | None = None) -> int:
 
     config = load_config(ROOT)
     paths = WikiPaths(ROOT, config)
-    live = live_source_ids(paths)
-    orphans = find_orphans(paths, live)
+    db_path = paths.indexes / 'wiki.sqlite'
+    try:
+        if args.apply:
+            require_wiki_boundaries(ROOT, directories=(paths.indexes,),
+                files=(db_path, *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
+        live = live_source_ids(paths, wiki_root=ROOT)
+        orphans = find_orphans(paths, live, wiki_root=ROOT)
+    except (ValueError, OSError):
+        print('wiki_gc: derived_path_crosses_repository_boundary', file=sys.stderr)
+        return 2
     total = sum(len(v) for v in orphans.values())
 
     report = {
@@ -136,12 +188,47 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    try:
+        retained = retained_request_source_ids(paths, wiki_root=ROOT)
+    except (ValueError, OSError, RecursionError):
+        print('wiki_gc: retained request unavailable; no files removed', file=sys.stderr)
+        return 2
+    try:
+        require_wiki_boundaries(ROOT, directories=(paths.source_manifests, paths.source_text,
+            paths.chunks, paths.extraction_events, paths.indexes),
+            files=(db_path, *(path for files in orphans.values() for path in files),
+                   *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
+    except (ValueError, OSError):
+        print('wiki_gc: derived_path_crosses_repository_boundary', file=sys.stderr)
+        return 2
+
     removed = 0
     for files in orphans.values():
         for path in files:
-            path.unlink()
+            try:
+                require_wiki_boundaries(ROOT, files=(path,))
+            except (ValueError, OSError):
+                print(f'wiki_gc: derived_path_crosses_repository_boundary after {removed} removals; inspect partial changes', file=sys.stderr)
+                return 2
+            try:
+                path.unlink()
+            except OSError:
+                print(f'wiki_gc: removal failed after {removed} removals; index not pruned; inspect partial changes', file=sys.stderr)
+                return 2
             removed += 1
-    pruned = prune_index(paths.indexes / "wiki.sqlite", live)
+    try:
+        require_wiki_boundaries(ROOT, files=(db_path,
+            *(Path(str(db_path) + suffix) for suffix in ('-journal', '-wal', '-shm'))))
+    except (ValueError, OSError):
+        print(f'wiki_gc: derived_path_crosses_repository_boundary after {removed} removals; index not pruned', file=sys.stderr)
+        return 2
+    try:
+        # A valid retained request is unfinished work even without a proposal.
+        # Preserve its indexed source as well as its capture artifacts.
+        pruned = prune_index(db_path, live | retained)
+    except (OSError, sqlite3.Error):
+        print(f'wiki_gc: index prune failed after {removed} removals; index state not confirmed; inspect partial changes', file=sys.stderr)
+        return 2
     print(
         json.dumps(
             {"removed_files": removed, "pruned_index_sources": pruned.get("pruned_sources", 0)},

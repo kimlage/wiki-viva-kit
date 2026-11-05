@@ -64,6 +64,7 @@ flowchart TD
 | Understand the system for the first time | [../wiki-viva-kit.md](../wiki-viva-kit.md), [architecture.md](architecture.md), then [daily-operation.md](daily-operation.md) |
 | Configure a repo's top entity and source channels | [../wiki-viva-kit.md](../wiki-viva-kit.md), [../input-stage.md](../input-stage.md), then [command-reference.md](command-reference.md) |
 | Ingest a source | [ingestion-flow.md](ingestion-flow.md) |
+| Enter a local folder, select sources or read an independent Git repository | [bounded ingestion](../../../docs/references/guides/bounded-ingestion.md) and [task entry points](../../../scripts/README.md#task-entry-points) |
 | Open or review a PR | [pr-governance.md](pr-governance.md) and [gates-and-audit.md](gates-and-audit.md) |
 
 ## Map of the meta-wiki

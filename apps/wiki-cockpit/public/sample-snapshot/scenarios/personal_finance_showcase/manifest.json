@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "92c16365e97567bfb105dc746479aa6da132b6443e27bfbfbf40b399e342e389",
+  "bundle_hash": "495d87111bd3f4e4c96709fe430df39b87b50d7ab695737a8aaea41a54b0eb2b",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -104,47 +104,47 @@
     },
     "content/finance-account-main.2a8dc59f.json": {
       "bytes": 2693,
-      "sha256": "3611b743d2182b8607ca25b0e0afa5a9b4cb95e7b7f657051bf97893e1fd5a07"
+      "sha256": "927f4a724058d1738f7c5b02c8e671f7e70db8394d87b72d5d166ab14d0e818f"
     },
     "content/finance-category-housing.03667aaa.json": {
       "bytes": 2276,
-      "sha256": "37c36fdd135611bcd58e12394869394e1922794a21c0f80d08b47ab26068fa38"
+      "sha256": "088c50e2d80fae8c892715bdd8514fa248ce7e8c34dfa1c391b89daef9f6cc25"
     },
     "content/finance-category-income.60654ab4.json": {
       "bytes": 1942,
-      "sha256": "41d1ff2a79ece777f2027a8099a14a2296ad8f0bac4e9d84dcb400a25fb1be6b"
+      "sha256": "9f93224661db535e52f9a35be73c02fa0ae422ff2f527f0c5a11a5f53734cff6"
     },
     "content/finance-closing-july.3648e0c4.json": {
       "bytes": 2196,
-      "sha256": "555157910ea2e1b13da4a3e67d35eab7c2a9f2a948c2d08196ad108f11884329"
+      "sha256": "bb77626c7217f6deadcf5d3907ef3bb424b178af12a5dad5a68b7a3bf79ccee1"
     },
     "content/finance-obligation-rent.36ef27dc.json": {
       "bytes": 2142,
-      "sha256": "9eb9acbf80fb5fce24bc5f0e53076e549d93034c5cfcd3ba8d75436ed0dffd5f"
+      "sha256": "c7da2f17580b5676ec73c30dae2252315098d1898aa38a853538b7d278868aef"
     },
     "content/finance-reconciliation-july.f405412a.json": {
       "bytes": 2469,
-      "sha256": "6cef2b8fdede7bfaac76c416d90baa2c08f6397fc8e6f8fcd0cfa564886e3652"
+      "sha256": "ed3eebdf2f97bb896bc44c56b00c1697dd0ecdf1e87b9ca809aeddcb23be6d67"
     },
     "content/finance-review-july.114a4d29.json": {
       "bytes": 2067,
-      "sha256": "beb9852a5e5eabea61c1c3080fd9de60b7141e7891b5d552d16ea74a30f09653"
+      "sha256": "2fe81717c01340746a0a9befee8089b79491d3a7a2bf1ee5ec79f77ae5df05a8"
     },
     "content/finance-source-july.01b4ab62.json": {
       "bytes": 3440,
-      "sha256": "fffb78ba98bd759cefafd94fbc9ed0dd9ab7d0d7639ec45edf73ef774ba16d62"
+      "sha256": "485bb76c5b6690acf19672ee6b7950de0685d7425bf27107e7adac6543728bf5"
     },
     "content/finance-transaction-housing.f96d7d0a.json": {
       "bytes": 2293,
-      "sha256": "a9caf6207b46aad40515a5e9eed3fd2e8d5ec0f24d9ad699d0a03d8de98b3d7b"
+      "sha256": "44233f3bf1b6959c353e3069f0396d59db546f0833d2df7a0a061b3bd39a275d"
     },
     "content/finance-transaction-income.00cded94.json": {
       "bytes": 2283,
-      "sha256": "48de08d4bdde4113cb7c3e72278c711c8d0b3ac84c25f3b031ff116ac8a6e51d"
+      "sha256": "c97f7d4b7b02c1b3ac10f644de4180fdb9c44b44ec0c98f7ba6e2fd8deb612eb"
     },
     "content/root-personal-finance-showcase.745a5dc3.json": {
       "bytes": 12278,
-      "sha256": "bd7790ae68c2b2f90e622d326f751b6603ad496229ae7ba5908c16258c1932d7"
+      "sha256": "166dd161a05b8fe13181ba374ad91cf7f58611dfa7379f02938d886085eadf06"
     },
     "decisions.json": {
       "bytes": 1080,
@@ -191,8 +191,8 @@
       "sha256": "cc37877b39a3ed3cd567b1945386bb75eaf98cfc9b34e0ca72c7c429e1d3ae15"
     },
     "quality.json": {
-      "bytes": 5865,
-      "sha256": "aaf349b713b1b203d7ee26c7a10db278faac3c76441e18422706c88cd03bd9cf"
+      "bytes": 5891,
+      "sha256": "b45f99011e0a25ce6e97a538b03e82e87e122eda002963698fc6ad498a1d71b4"
     },
     "region_groups.json": {
       "bytes": 6500,
@@ -247,9 +247,9 @@
   },
   "root_page_id": "root-personal-finance-showcase",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-92c16365e97567bf",
+  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-495d87111bd3f4e4",
   "source_commit": null,
-  "source_sha": "uncommitted:8b4b1a5c71c6981712aaa221c11b27f21e271bb89d15310bdd8a3eefaa528af9",
+  "source_sha": "uncommitted:2f187a48a42408100bc12152044bc79b799bb7f95d07e70a503b060cbb538c72",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

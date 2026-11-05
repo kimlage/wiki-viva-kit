@@ -14,6 +14,8 @@ from typing import Any, Iterable
 
 from wiki_core.content_sections import select_section
 from wiki_core.frontmatter import parse_frontmatter
+from wiki_core.git_env import local_git_environment, local_git_executable, local_git_tree
+from wiki_core.git_safety import GitSafetyError
 
 
 class RepositoryReadError(ValueError):
@@ -41,12 +43,18 @@ def _digest(value: Any) -> str:
 
 
 class RepositoryReader:
-    def __init__(self, root: Path | str, revision: str = 'HEAD'):
+    def __init__(self, root: Path | str, revision: str = 'HEAD', *, exact_path: str | None = None, before_tree=None):
         self.root = Path(root).resolve()
         if not isinstance(revision, str) or not revision or revision.startswith('-'):
             raise RepositoryReadError('invalid repository revision')
         self.revision = self._git('rev-parse', '--verify', f'{revision}^{{commit}}').decode().strip()
-        entries = self._git('ls-tree', '-r', '-z', self.revision).split(b'\0')
+        try:
+            if before_tree is not None: before_tree()
+            selection = () if exact_path is None else ('--', ':(literal)' + canonical_path(exact_path))
+            tree = local_git_tree(self.root, 'ls-tree', '-r', '-z', self.revision, *selection)
+        except GitSafetyError as exc:
+            raise RepositoryReadError('repository tree enumeration unavailable or exceeded limit') from exc
+        entries = tree.split(b'\0')
         self._entries = {}
         self._unsupported = []
         self._invalid_paths = []
@@ -69,6 +77,7 @@ class RepositoryReader:
             else:
                 self._unsupported.append(path)
         self._documents: dict[str, dict] = {}
+        self._blob_sizes: dict[str, int] = {}
 
     @property
     def paths(self) -> tuple[str, ...]:
@@ -88,20 +97,27 @@ class RepositoryReader:
         path = canonical_path(path)
         if path not in self._entries:
             raise RepositoryReadError('repository file missing or unsupported')
-        return int(self._git('cat-file', '-s', self._entries[path]))
+        blob = self._entries[path]
+        if blob not in self._blob_sizes:
+            self._blob_sizes[blob] = int(self._git('cat-file', '-s', blob))
+        return self._blob_sizes[blob]
 
     def _git(self, *args: str) -> bytes:
-        result = subprocess.run(['git', '-C', str(self.root), *args], capture_output=True)
+        result = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(self.root), *args], capture_output=True, env=local_git_environment())
         if result.returncode:
             raise RepositoryReadError('repository revision or object unavailable')
         return result.stdout
 
-    def _document(self, path: str) -> dict:
+    def _document(self, path: str, before_blob=None) -> dict:
         path = canonical_path(path)
         if path not in self._entries:
             raise RepositoryReadError(f'repository file missing or unsupported: {path}')
+        if before_blob is not None: before_blob(path)
         blob = self._entries[path]
         if blob not in self._documents:
+            if self.blob_size(path) > 2_000_000:
+                raise RepositoryReadError('repository file too large')
+            if before_blob is not None: before_blob(path)
             raw = self._git('cat-file', 'blob', blob)
             if len(raw) > 2_000_000:
                 raise RepositoryReadError('repository file too large')
@@ -112,6 +128,7 @@ class RepositoryReader:
             fm, body = parse_frontmatter(text)
             self._documents[blob] = {'content': raw, 'text': text,
                 'body': body, 'frontmatter': fm, 'content_sha256': hashlib.sha256(raw).hexdigest()}
+        if before_blob is not None: before_blob(path)
         return deepcopy(self._documents[blob])
 
     def catalogue(self, *, allowed_paths: Iterable[str] | None = None,
@@ -148,7 +165,7 @@ class RepositoryReader:
         return {'revision': self.revision, 'pages': rows,
             'selection_fingerprint': _digest({'filters': filters or {}, 'pages': rows})}
 
-    def read(self, ref: str, section: str | None = None, field: str | None = None) -> dict[str, Any]:
+    def read(self, ref: str, section: str | None = None, field: str | None = None, *, before_blob=None) -> dict[str, Any]:
         if section is not None and field is not None:
             raise RepositoryReadError('section and field selectors are mutually exclusive')
         if ref in self._entries:
@@ -161,7 +178,8 @@ class RepositoryReader:
             if len(matches) != 1:
                 raise RepositoryReadError(f'page identity missing or ambiguous: {ref}')
             path = matches[0]
-        document = self._document(path)
+        document = (self._document(path) if before_blob is None else
+                    self._document(path, before_blob=before_blob))
         result = {**document, 'path': path, 'page_id': document['frontmatter'].get('page_id'),
             'revision': self.revision, 'blob': self._entries[path],
             'content_digest': document['content_sha256'],

@@ -14,6 +14,25 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-11-05] Align source workflow references with folder authority
+
+The [ingestion flow](wiki/ingestion-flow.md), [gates](wiki/gates-and-audit.md)
+and [command reference](wiki/command-reference.md) distinguish host-bound
+folder stages from the shared-cache compatibility route and retired v1 flags.
+This update does not verify or renew any source date.
+
+## [2026-11-04] Make local folder entry discoverable
+
+The [ingestion process](ingestion-process.md) and [meta-wiki](wiki/index.md)
+link the local folder route and distinguish its coverage from the approved v1
+packet. This documentation change did not refresh or verify a source.
+
+## [2026-11-04] Document independent Git reader
+
+The [command reference](wiki/command-reference.md) lists the reader for an
+explicitly selected file and revision in a local independent repository. No
+source verification date was renewed.
+
 ## [2026-11-03] Clarify ingestion command examples
 
 The [command reference](wiki/command-reference.md), [ingestion flow](wiki/ingestion-flow.md)

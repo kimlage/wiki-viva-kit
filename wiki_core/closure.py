@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig
 from wiki_core.events import event_pages as _event_pages
 from wiki_core.events import is_ingestion_event_page as _is_ingestion_event_page
@@ -29,7 +30,7 @@ def _body(path: Path) -> str:
 def _source_pages(paths: WikiPaths) -> list[Path]:
     if not paths.sources_dir.exists():
         return []
-    return sorted(paths.sources_dir.rglob("*.md"))
+    return sorted(wiki_markdown_files(paths.sources_dir, wiki_root=paths.root))
 
 
 def _bullet_count_under_headings(text: str, headings: set[str]) -> int:

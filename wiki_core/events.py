@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.paths import WikiPaths
 
 EVENT_INDEX_FILENAMES = {"readme.md", "index.md"}
@@ -125,7 +126,7 @@ def event_pages(paths: WikiPaths) -> list[Path]:
     """Every Markdown file under the canonical events directory, sorted."""
     if not paths.ingest_events_dir.exists():
         return []
-    return sorted(paths.ingest_events_dir.rglob("*.md"))
+    return sorted(wiki_markdown_files(paths.ingest_events_dir, wiki_root=paths.root))
 
 
 def is_ingestion_event_page(path: Path, values: dict[str, Any]) -> bool:

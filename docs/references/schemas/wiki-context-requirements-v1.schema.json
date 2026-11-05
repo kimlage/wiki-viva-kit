@@ -16,6 +16,10 @@
     "self_input_read"
   ],
   "properties": {
+    "coverage_missing": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
     "schema_version": {
       "const": "wiki.context-requirements/v1"
     },
@@ -183,11 +187,17 @@
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
           },
+          "authority_format": {"const": "folder"},
+          "entry_folder": {"type": "string", "minLength": 1},
+          "entry_index": {"type": "string", "minLength": 1},
           "source_kind": {
             "const": "mandatory"
           }
         },
         "dependentRequired": {
+          "authority_format": ["entry_folder", "entry_index"],
+          "entry_folder": ["authority_format", "entry_index"],
+          "entry_index": ["authority_format", "entry_folder"],
           "query": [
             "members_digest",
             "selected_digest",
@@ -220,6 +230,7 @@
           ]
         },
         "allOf": [
+          {"if": {"required": ["authority_format"]}, "then": {"anyOf": [{"required": ["query"]}, {"required": ["source_kind"]}]}},
           {
             "if": {
               "required": [

@@ -8,6 +8,7 @@ import re
 import subprocess
 from pathlib import Path
 from typing import Any
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.action_state import CANONICAL_ACTION_STATES, legacy_action_state_from_body, resolve_action_state
 from wiki_core.collections import COLLECTION_RELATION_TYPE, CollectionCompilation, compile_collections, member_collection_refs, relation_cycle_diagnostics
 from wiki_core.closure import build_ingestion_closure_report
@@ -521,7 +522,7 @@ def _markdown_pages(root: Path, config: WikiConfig) -> list[Path]:
     memory_root = root / config.paths["memory_root"]
     if not memory_root.exists():
         return []
-    return sorted(path for path in memory_root.rglob("*.md") if path.is_file())
+    return sorted(path for path in wiki_markdown_files(memory_root, wiki_root=root) if path.is_file())
 
 
 def _page_record(
@@ -897,6 +898,7 @@ def _graph_overlay_metrics(
         str(page.get("id") or "") for page in pages if str(page.get("id") or "")
     }
     quality_by_path = _quality_reasons_by_path(quality_payload, pages)
+    quality_unavailable = not isinstance(quality_payload.get("quality_flags"), dict)
     source_freshness = {
         str(source.get("source_id") or ""): str(
             source.get("freshness_state") or "unknown"
@@ -1150,6 +1152,8 @@ def _graph_overlay_metrics(
             if len(quality_reasons) > 1
             else "warning"
             if quality_reasons
+            else "unknown"
+            if quality_unavailable
             else "clear"
         )
 
@@ -1209,10 +1213,12 @@ def _graph_overlay_metrics(
             },
             "quality": {
                 "state": quality_state,
-                "value": len(quality_reasons),
+                "value": None if quality_state == "unknown" else len(quality_reasons),
                 "count": len(quality_reasons),
                 "reasons": (
-                    quality_reasons if quality_reasons else ["deterministic_flags:none"]
+                    [*quality_reasons, "metric_unavailable"]
+                    if quality_unavailable
+                    else quality_reasons if quality_reasons else ["deterministic_flags:none"]
                 ),
                 "refs": [],
             },

@@ -60,6 +60,7 @@ def evaluate_wake(policy, schedule, wake, observation=None):
     The caller is responsible for an authorized, complete, atomically reserved
     scheduler snapshot. Unknown binding never authorizes actual admission.
     """
+    if getattr(policy, 'format_version', None): raise PolicyError('v2 schedules are unavailable; v1 state requires explicit migration')
     _validate({'schedule': schedule, 'wake': wake, 'observation': observation})
     schedule = validate_schedule(schedule)
     now, due, latest = map(_time, (wake['now'], wake['due_at'], wake['latest_due_at']))

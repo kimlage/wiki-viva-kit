@@ -28,15 +28,223 @@ import json
 import re
 from pathlib import Path
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import WikiConfig, freshness_for
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.index.sqlite import sanitize_fts_query, search
+from wiki_core.index.page_collection import current_page_signature
 from wiki_core.llm.context_pass import read_matching_result
 from wiki_core.paths import WikiPaths
 
 REQUEST_SUFFIX = "-llm-context-request.json"
 PACKET_SUFFIX = "-integration-packet.json"
 PACKET_SCHEMA_VERSION = "wiki_integration_packet.v2"
+_SOURCE_V2 = re.compile(r"source-v2-([0-9a-f]{64})-([a-z0-9][a-z0-9-]{0,47})-([0-9a-f]{16})")
+
+
+def _compare_selected_inputs(root, *, source_page, candidates, repo_root, identity,
+                             revision, repo_path, entry_folder, source_file, entry_index):
+    """Validate the complete explicit selection before opening any body."""
+    from wiki_core.context_policy import safe_path
+    from wiki_core.llm.context_pass import validate_local_entry_source
+    from wiki_core.repo_read import contains_access_secrets, remote_identity
+    from wiki_core.repository_reader import canonical_path
+    from wiki_core.traversal import require_wiki_path
+
+    if (not isinstance(candidates, list) or not 1 <= len(candidates) <= 128
+            or any(not isinstance(ref, str) for ref in candidates)
+            or len(candidates) != len(set(candidates))
+            or contains_access_secrets([source_page, candidates, repo_root, identity, revision,
+                                        repo_path, entry_folder, entry_index, source_file])):
+        raise ValueError('comparison unavailable')
+    if (not isinstance(repo_root, str) or not Path(repo_root).is_absolute()
+            or not isinstance(identity, str) or not isinstance(revision, str)
+            or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', revision)
+            or canonical_path(repo_path) != repo_path
+            or remote_identity('https://' + identity)[0] != identity):
+        raise ValueError('comparison unavailable')
+    selected_root = Path(repo_root).resolve(strict=True)
+    if not selected_root.is_dir() or selected_root == root.resolve():
+        raise ValueError('comparison unavailable')
+    folder = safe_path(entry_folder, allow_root=True)
+    if not require_wiki_path(root, folder).is_dir():
+        raise ValueError('comparison unavailable')
+    if entry_index is None:
+        if folder == '.':
+            raise ValueError('comparison unavailable')
+    else:
+        selected_index = safe_path(entry_index)
+        if not require_wiki_path(root, selected_index).is_file():
+            raise ValueError('comparison unavailable')
+    selected_source = validate_local_entry_source(root, source_file)
+    if not Path(selected_source).is_absolute() or Path(selected_source).stat().st_size > 16_000_000:
+        raise ValueError('selected source exceeds comparison limit')
+    refs = [safe_path(source_page), *(safe_path(ref) for ref in candidates)]
+    if len(set(refs)) != len(refs):
+        raise ValueError('comparison unavailable')
+    selected = [require_wiki_path(root, ref) for ref in refs]
+    if any(not item.is_file() or item.suffix.lower() != '.md' for item in selected):
+        raise ValueError('comparison unavailable')
+    if sum(item.stat().st_size for item in selected) > 1_000_000:
+        raise ValueError('comparison unavailable')
+    return refs, selected, selected_source, str(selected_root)
+
+
+def compare_repository_candidates(source_page, candidates, metadata, changed):
+    """Classify only selected page declarations; file consumption remains unknown."""
+    from wiki_core.information_relations import information_requirements
+    result = []
+    for ref, values in zip(candidates, metadata):
+        requirements = information_requirements(values, lambda target: [target])
+        declared = any(item['target'] == source_page and item['temporal'] == 'current' for item in requirements)
+        result.append({'path': ref, 'state': 'review_pending' if changed and declared else 'unknown',
+            'source_page_requirement': 'declared' if declared else 'unknown',
+            'reason': ('operator_selected_page_requirement_file_consumption_unknown'
+                       if changed and declared else 'insufficient_file_consumption_evidence'),
+            'blocking': False, 'file_consumption': 'unknown', 'verification_performed': False})
+    return result
+
+
+def compare_selected_repo(root: Path, paths: WikiPaths, request: dict, *, source_page: str,
+                          candidates: list[str], repo_root: str, identity: str,
+                          revision: str, repo_path: str, entry_folder: str,
+                          source_file: str, entry_index: str | None = None) -> dict:
+    """Compare one explicitly selected Git file for operator-selected candidates.
+
+    This diagnostic records no decision, changes no pages, and does not prove
+    that an interpretation consumed the selected file or grant host access.
+    """
+    from wiki_core.context_selection import _metadata, strict_json_loads
+    from wiki_core.llm.context_pass import is_local_folder_request, _folder_documents, validate_local_entry_source
+    from wiki_core.repo_read import (contains_access_secrets, remote_identity,
+                                    _prepare_repo_read, _read_prepared_repo)
+    from wiki_core.traversal import require_wiki_path
+
+    if not is_local_folder_request(request):
+        raise ValueError('comparison unavailable')
+    refs, selected, selected_source, selected_root = _compare_selected_inputs(root,
+        source_page=source_page, candidates=candidates, repo_root=repo_root, identity=identity,
+        revision=revision, repo_path=repo_path, entry_folder=entry_folder,
+        entry_index=entry_index, source_file=source_file)
+    package = request.get('block_context_package')
+    if not isinstance(package, dict):
+        raise ValueError('comparison unavailable')
+    if (package.get('entry_folder') != entry_folder
+            or (entry_index is not None and package.get('entry_index') != entry_index)):
+        raise ValueError('selected folder context changed')
+    from wiki_core.context_policy import safe_path
+    retained_index = safe_path(package.get('entry_index'))
+    if not require_wiki_path(root, retained_index).is_file():
+        raise ValueError('selected folder context changed')
+    documents = package.get('documents')
+    if not isinstance(documents, list) or any(not isinstance(doc, dict) for doc in documents):
+        raise ValueError('comparison unavailable')
+    limits = request.get('request_limits')
+    if (not isinstance(limits, dict) or type(limits.get('context_max_bytes')) is not int
+            or not 1 <= limits['context_max_bytes'] <= 2_000_000):
+        raise ValueError('comparison unavailable')
+    local = _folder_documents(root, entry_folder, entry_index, limits['context_max_bytes'])
+    if local != [doc for doc in documents if doc.get('origin') == 'working_tree']:
+        raise ValueError('selected folder context changed')
+    if package.get('entry_folder', entry_folder) != entry_folder or package.get('entry_index', local[-1]['path']) != local[-1]['path']:
+        raise ValueError('selected folder context changed')
+    matching = [doc for doc in documents if isinstance(doc, dict) and doc.get('origin') == 'independent_git'
+                and doc.get('repository_root') == selected_root
+                and isinstance(doc.get('repository_read'), dict)
+                and isinstance(doc['repository_read'].get('repository'), dict)
+                and doc['repository_read'].get('repository', {}).get('identity') == identity
+                and doc['repository_read'].get('path') == repo_path]
+    if len(matching) != 1:
+        raise ValueError('comparison unavailable')
+    receipt = matching[0]['repository_read']
+    old_revision = receipt.get('revision')
+    if not isinstance(old_revision, str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', old_revision):
+        raise ValueError('comparison unavailable')
+    rows = request.get('chunks')
+    if not isinstance(rows, list) or not rows or any(not isinstance(row, dict) for row in rows) or any(
+            read_matching_result(paths.llm_cache, request, row, root=root) is None for row in rows):
+        raise ValueError('recorded local result unavailable')
+
+    # The retained source locator must identify the same capture before the
+    # source body is reopened. URLs without observed content remain unknown.
+    from wiki_core.source_manifest import source_id_for
+    source_id, source_hash = request.get('source_id'), request.get('source_hash_sha256')
+    if (not isinstance(source_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id)
+            or not isinstance(source_hash, str) or not re.fullmatch(r'[0-9a-f]{64}', source_hash)):
+        raise ValueError('source capture unavailable')
+    manifest_ref = (paths.source_manifests / f'{source_id}.json').relative_to(root).as_posix()
+    manifest_path = require_wiki_path(root, manifest_ref)
+    with manifest_path.open('rb') as stream:
+        manifest_bytes = stream.read(2_000_001)
+    if len(manifest_bytes) > 2_000_000:
+        raise ValueError('source capture unavailable')
+    manifest = strict_json_loads(manifest_bytes.decode('utf-8'))
+    if not isinstance(manifest, dict) or not isinstance(manifest.get('source_uri'), str):
+        raise ValueError('source capture unavailable')
+    locator = manifest['source_uri']
+    retained_source = Path(locator).expanduser()
+    if not retained_source.is_absolute():
+        retained_source = root.resolve() / retained_source
+    if retained_source != Path(selected_source):
+        raise ValueError('selected source differs')
+    if (manifest.get('source_id') != source_id or manifest.get('hash_sha256') != source_hash
+            or source_id_for(locator, source_hash, root=root) != source_id):
+        raise ValueError('source capture unavailable')
+    # Refuse large/growing inputs without silently hashing a prefix.
+    source_limit = 16_000_000
+    selected_path = Path(selected_source)
+    if selected_path.stat().st_size > source_limit:
+        raise ValueError('selected source exceeds comparison limit')
+    validate_local_entry_source(root, source_file)
+    with selected_path.open('rb') as stream:
+        data = stream.read(source_limit + 1)
+    if len(data) > source_limit:
+        raise ValueError('selected source exceeds comparison limit')
+    import hashlib
+    if hashlib.sha256(data).hexdigest() != source_hash:
+        raise ValueError('selected source changed')
+
+    # Read only explicitly selected wiki pages and bound their aggregate size.
+    metadata = []
+    remaining = 1_000_000
+    for ref, item in zip(refs, selected):
+        require_wiki_path(root, ref)
+        with item.open('rb') as stream:
+            raw = stream.read(remaining + 1)
+        if len(raw) > remaining:
+            raise ValueError('comparison unavailable')
+        remaining -= len(raw)
+        text = raw.decode('utf-8')
+        if contains_access_secrets(text):
+            raise ValueError('comparison unavailable')
+        metadata.append(_metadata({'text': text}))
+    source = metadata[0]
+    locator = source.get('source_locator')
+    if (source.get('page_type') != 'source' or source.get('platform') != 'repo'
+            or not isinstance(locator, str)
+            or remote_identity(locator if '://' in locator or '@' in locator else 'https://' + locator)[0] != identity):
+        raise ValueError('source repository identity unavailable')
+    page_id = source.get('page_id')
+    if not isinstance(page_id, str) or not page_id:
+        raise ValueError('source identity unavailable')
+
+    # Validate both revisions and object sizes before opening either blob.
+    prepared = [_prepare_repo_read(Path(selected_root), identity, rev, repo_path, max_bytes=2_000_000)
+                for rev in (old_revision, revision)]
+    before, after = [_read_prepared_repo(item) for item in prepared]
+    before_text = before.pop('text')
+    after.pop('text')
+    if before != receipt or matching[0].get('text') != before_text:
+        raise ValueError('retained repository receipt differs')
+    changed = before['content_sha256'] != after['content_sha256']
+    result = compare_repository_candidates(source_page, candidates, metadata[1:], changed)
+    return {'repository_comparison': {'identity': identity, 'path': repo_path,
+                'before_revision': old_revision, 'after_revision': revision,
+                'before_digest': before['content_sha256'], 'after_digest': after['content_sha256'],
+                'changed': changed}, 'source_page': source_page, 'candidates': result,
+            'coverage': 'explicit_candidates_only; selected_repository_only; file_consumption_unknown',
+            'effect': 'manual_suggestion_only; no_gate_effect',
+            'review': 'not_performed', 'write': 'not_performed'}
 
 # Output strings per language (generated event; drives config.language).
 CONSOLIDATE_STRINGS: dict[str, dict[str, str]] = {
@@ -142,13 +350,22 @@ def _read_frontmatter(path: Path) -> dict[str, object]:
     return values
 
 
-def load_requests(paths: WikiPaths) -> list[dict[str, object]]:
+def load_requests(paths: WikiPaths, *, root: Path | None = None) -> list[dict[str, object]]:
     """Emitted context requests (skips ad-hoc query- packets)."""
     out: list[dict[str, object]] = []
     events_dir = paths.extraction_events
+    if root is not None:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(root, directories=(events_dir,))
     if not events_dir.is_dir():
         return out
     for req_file in sorted(events_dir.glob(f"*{REQUEST_SUFFIX}")):
+        if root is not None:
+            require_wiki_boundaries(root, files=(req_file,))
+        if re.fullmatch(r'folder-[0-9a-f]{64}-[0-9a-f]{64}-llm-context-request\.json', req_file.name):
+            from wiki_core.llm.context_pass import load_local_request
+            out.append(load_local_request(paths, req_file))
+            continue
         try:
             request = json.loads(req_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -160,13 +377,14 @@ def load_requests(paths: WikiPaths) -> list[dict[str, object]]:
     return out
 
 
-def deep_read_complete(request: dict[str, object], cache_dir: Path) -> bool:
+def deep_read_complete(request: dict[str, object], cache_dir: Path, *, root: Path | None = None) -> bool:
     chunks = request.get("chunks") or []
     if not isinstance(chunks, list) or not chunks:
         return False
     for row in chunks:
         key = str(row.get("cache_key") or "")
-        if not key or read_matching_result(cache_dir, request, row) is None:
+        result = read_matching_result(cache_dir, request, row, root=root) if key else None
+        if result is None or 'protected_historical_review' in result:
             return False
     return True
 
@@ -194,7 +412,8 @@ def _dedup(items: list[object]) -> list[object]:
     return seen
 
 
-def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, object]:
+def aggregate_results(request: dict[str, object], cache_dir: Path, *, root: Path | None = None,
+                      result_reader=None) -> dict[str, object]:
     """Merge the per-chunk deep-read results of one source (order = chunk order)."""
     quadrants: dict[str, list[str]] = {key: [] for key in QUADRANT_KEYS}
     confidence: dict[str, str] = {}
@@ -204,9 +423,12 @@ def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, 
     }
     rank = {"low": 0, "medium": 1, "high": 2}
     for row in request.get("chunks") or []:
-        result = read_matching_result(cache_dir, request, row)
+        result = (result_reader(row) if result_reader is not None
+                  else read_matching_result(cache_dir, request, row, root=root))
         if not result:
-            continue
+            raise ValueError('deep read result disappeared or is invalid')
+        if request.get('protected_request_id') and 'protected_historical_review' in result:
+            raise ValueError('historical review unavailable; artifact preserved')
         q = result.get("quadrants")
         if isinstance(q, dict):
             for key in QUADRANT_KEYS:
@@ -223,8 +445,44 @@ def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, 
             value = result.get(name)
             if isinstance(value, list):
                 lists[name].extend(value)
+    git_sources = []
+    if request.get('folder_request_id'):
+        source_hash = request.get('source_hash_sha256')
+        if not isinstance(source_hash, str) or not re.fullmatch(r'[0-9a-f]{64}', source_hash):
+            raise ValueError('local source hash unavailable')
+        from wiki_core.repo_read import contains_access_secrets, remote_identity
+        from wiki_core.repository_reader import canonical_path
+        package = request.get('block_context_package') or {}
+        documents = package.get('documents') if isinstance(package, dict) else None
+        if not isinstance(documents, list):
+            raise ValueError('local request provenance unavailable')
+        for document in documents:
+            if not isinstance(document, dict):
+                raise ValueError('local request provenance unavailable')
+            if document.get('origin') != 'independent_git':
+                continue
+            try:
+                receipt = document['repository_read']
+                identity = receipt['repository']['identity']
+                selected = {'identity': identity, **{key: receipt[key] for key in
+                    ('revision', 'path', 'blob', 'document_sha256', 'content_sha256')}}
+                if (any(not isinstance(value, str) or not value for value in selected.values())
+                        or remote_identity('https://' + identity)[0] != identity
+                        or canonical_path(selected['path']) != selected['path']
+                        or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', selected['revision'])
+                        or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', selected['blob'])
+                        or not all(re.fullmatch(r'[0-9a-f]{64}', selected[key]) for key in
+                                   ('document_sha256', 'content_sha256'))
+                        or contains_access_secrets(selected)):
+                    raise ValueError('local request provenance unavailable')
+            except (KeyError, TypeError, AttributeError, ValueError):
+                raise ValueError('local request provenance unavailable') from None
+            git_sources.append(selected)
     return {
         "source_id": request.get("source_id"),
+        **({'folder_request_id': request['folder_request_id']} if request.get('folder_request_id') else {}),
+        **({'source_hash_sha256': source_hash} if request.get('folder_request_id') else {}),
+        **({'independent_git_sources': git_sources} if git_sources else {}),
         "prompt_version": request.get("prompt_version"),
         "chunk_count": len(request.get("chunks") or []),
         "root_entity": request.get("root_entity") or {},
@@ -274,6 +532,8 @@ def build_event_markdown(
     event_dir: Path | None = None,
     root: Path | None = None,
     impact: dict[str, object] | None = None,
+    yaml_safe: bool = False,
+    protected_provenance: dict[str, object] | None = None,
 ) -> str:
     """The normalized event, generated from the recorded deep read."""
     source_page = str(source_page or "").strip() or None
@@ -286,7 +546,14 @@ def build_event_markdown(
     s = _strings(config.language)
     source_id = str(aggregated.get("source_id") or "source")
     slug = _source_slug(source_id)
-    name = f"{date.isoformat()}-{slug}"
+    request_id = aggregated.get('folder_request_id')
+    if request_id is not None and (not isinstance(request_id, str) or not re.fullmatch(r'[0-9a-f]{64}', request_id)):
+        raise ValueError('invalid contextual request identity')
+    if request_id:
+        import hashlib
+        name = f"{date.isoformat()}-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}"
+    else:
+        name = f"{date.isoformat()}-{slug}"
     quadrants = aggregated.get("quadrants") or {}
     confidence = aggregated.get("quadrant_confidence") or {}
     impact = impact or {}
@@ -330,16 +597,35 @@ def build_event_markdown(
         import os
 
         href = os.path.relpath(root / source_page, event_dir).replace(os.sep, "/")
-        source_rows.append(s["row_source_page"].format(label=source_page, href=href))
+        label = source_page
+        if yaml_safe:
+            from urllib.parse import quote
+            href = quote(href, safe='/._-')
+            label = label.replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
+        source_rows.append(s["row_source_page"].format(label=label, href=href))
     source_rows.append(s["row_source_id"].format(source_id=source_id))
     source_rows.append(s["row_generated"].format(script=script_href))
+    manifest_ref = None
+    if request_id and root is not None and event_dir is not None:
+        import os
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,511}', source_id):
+            raise ValueError('invalid source identity')
+        manifest = WikiPaths(root, config).source_manifests / f'{source_id}.json'
+        manifest_ref = manifest.relative_to(root).as_posix()
+        href = os.path.relpath(manifest, event_dir).replace(os.sep, '/')
+        source_rows.append(f'- [Source capture manifest]({href}) (consult only with host authorization).')
+    if impact.get('coverage') in ('explicit_candidates_only', 'selected_candidates_only'):
+        source_rows.append('- Impact coverage: only selected candidates; global catalog and FTS were not searched.')
+
+    def scalar(value):
+        return json.dumps(str(value), ensure_ascii=False) if yaml_safe else str(value)
 
     fm: list[str] = [
         "---",
         f"event_id: evt-{name}",
         f"page_id: evento-{name}" if config.language in {"es", "pt"} else f"page_id: event-{name}",
         "page_type: ingestion_event",
-        f"context: {context}",
+        f"context: {scalar(context)}",
         "visibility: private_self",
         f"updated_at: {date.isoformat()}",
         f"stale_after_days: {freshness_for(context, 'ingestion_event', config)}",
@@ -349,7 +635,7 @@ def build_event_markdown(
     # hierarchical parent of every ingestion event. Keep the normalized event
     # under its canonical source so the journey is registry -> source -> event
     # without flattening the event ledger.
-    fm.append(f"moc_parent: {canonical_source_parent}")
+    fm.append(f"moc_parent: {scalar(canonical_source_parent)}")
     fm.extend(
         [
             "gate: github_pr",
@@ -358,12 +644,35 @@ def build_event_markdown(
         ]
     )
     if source_ref:
-        fm.append(f"source_ref: {source_ref}")
+        fm.append(f"source_ref: {scalar(source_ref)}")
+    if protected_provenance is not None:
+        required = {'source_locator', 'policy_revision', 'executor_context', 'integrator_context', 'source_page_association'}
+        limitations = protected_provenance.get('extraction_limitations', [])
+        if (not yaml_safe or not required <= set(protected_provenance)
+                or set(protected_provenance) - (required | {'extraction_limitations', 'csv_delimiter'})
+                or any(not isinstance(protected_provenance[k], str) or not protected_provenance[k] for k in required)
+                or ('csv_delimiter' in protected_provenance and
+                    protected_provenance['csv_delimiter'] not in ('comma', 'semicolon', 'tab'))
+                or not isinstance(limitations, list) or len(limitations) > 16
+                or any(not isinstance(item, str) or not item or len(item) > 1024 for item in limitations)):
+            raise ValueError('protected provenance unavailable')
+        fm.append('protected_provenance: ' + json.dumps(protected_provenance, ensure_ascii=False, sort_keys=True))
+    if request_id:
+        source_hash = aggregated.get('source_hash_sha256')
+        if not isinstance(source_hash, str) or not re.fullmatch(r'[0-9a-f]{64}', source_hash):
+            raise ValueError('local source hash unavailable')
+        fm.append(f"folder_request_id: {request_id}")
+        fm.append(f"source_hash_sha256: {source_hash}")
+        if manifest_ref:
+            fm.append('manifest_ref: ' + json.dumps(manifest_ref, ensure_ascii=False))
+        if aggregated.get('independent_git_sources'):
+            fm.append('independent_git_sources: ' + json.dumps(aggregated['independent_git_sources'], ensure_ascii=False, sort_keys=True))
+    if impact.get('coverage') in ('explicit_candidates_only', 'selected_candidates_only'):
+        fm.append('impact_coverage: ' + impact['coverage'])
     fm.extend(
         [
             f"source_type: {source_type}",
-            f"captured_at: {date.isoformat()}",
-            f"verified_at: {date.isoformat()}",
+            *([] if request_id else [f"captured_at: {date.isoformat()}", f"verified_at: {date.isoformat()}"]),
             "status_epistemologico: proposta",
             f"risk_level: {risk_level}",
             "requires_gate: true",
@@ -375,12 +684,12 @@ def build_event_markdown(
         fm.append("affected_pages:")
         if must_update:
             fm.append("  must_update:")
-            fm.extend(f"    - {page}" for page in must_update)
+            fm.extend(f"    - {scalar(page)}" for page in must_update)
         else:
             fm.append("  must_update: []")
         if should_review:
             fm.append("  should_review:")
-            fm.extend(f"    - {page}" for page in should_review)
+            fm.extend(f"    - {scalar(page)}" for page in should_review)
         else:
             fm.append("  should_review: []")
     else:
@@ -442,17 +751,73 @@ def build_event_markdown(
     return "\n".join(body)
 
 
-def _page_catalog(root: Path, config: WikiConfig) -> dict[str, dict[str, object]]:
-    """page_id -> {rel, title, aliases, page_type, source_refs} for memory pages."""
+def _page_catalog(root: Path, config: WikiConfig, candidates: list[str] | None = None,
+                  *, candidate_documents: dict | None = None) -> dict[str, dict[str, object]]:
+    """Read the legacy catalog or the explicitly selected candidate files."""
     memory_root = root / config.paths["memory_root"]
     catalog: dict[str, dict[str, object]] = {}
-    if not memory_root.is_dir():
-        return catalog
-    for md in sorted(memory_root.rglob("*.md")):
-        fm = _read_frontmatter(md)
+    if candidates is None:
+        if candidate_documents is not None:
+            raise ValueError('candidate documents require explicit candidates')
+        files = sorted(wiki_markdown_files(memory_root, wiki_root=root)) if memory_root.is_dir() else []
+    else:
+        from wiki_core.context_policy import safe_path
+        from wiki_core.repo_read import contains_access_secrets
+        from wiki_core.traversal import require_wiki_path
+        if len(candidates) > 128 or contains_access_secrets(candidates):
+            raise ValueError('candidate limit exceeded')
+        refs = [safe_path(ref) for ref in candidates]
+        if len(refs) != len(set(refs)):
+            raise ValueError('duplicate candidate')
+        if candidate_documents is not None and (not isinstance(candidate_documents, dict)
+                or set(candidate_documents) != set(refs)):
+            raise ValueError('candidate documents unavailable')
+        for ref in refs:
+            require_wiki_path(root, ref)
+        files = [root / ref for ref in refs]
+        if any(path.suffix.lower() != '.md' or (candidate_documents is None and not path.is_file()) for path in files):
+            raise ValueError('candidate unavailable')
+        if candidate_documents is None and sum(path.stat().st_size for path in files) > 1_000_000:
+            raise ValueError('candidate budget exceeded')
+    remaining = 1_000_000
+    for md in files:
+        if candidates is None:
+            fm = _read_frontmatter(md)
+        else:
+            from wiki_core.context_selection import _metadata
+            from wiki_core.repo_read import contains_access_secrets
+            from wiki_core.traversal import require_wiki_path
+            ref = md.relative_to(root).as_posix()
+            require_wiki_path(root, ref)
+            if candidate_documents is None:
+                with md.open('rb') as stream:
+                    raw = stream.read(remaining + 1)
+            else:
+                import hashlib
+                document = candidate_documents[ref]
+                if not isinstance(document, dict) or not isinstance(document.get('text'), str):
+                    raise ValueError('candidate unavailable')
+                raw = document['text'].encode('utf-8')
+                if (document.get('path') != ref or document.get('content_sha256') != hashlib.sha256(raw).hexdigest()
+                        or not isinstance(document.get('revision'), str)
+                        or re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', document['revision']) is None
+                        or not isinstance(document.get('blob'), str)
+                        or re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', document['blob']) is None):
+                    raise ValueError('candidate unavailable')
+            if len(raw) > remaining:
+                raise ValueError('candidate budget exceeded')
+            remaining -= len(raw)
+            text = raw.decode('utf-8')
+            if contains_access_secrets(text):
+                raise ValueError('candidate unavailable')
+            fm = _metadata({'text': text})
         page_id = str(fm.get("page_id") or "")
         if not page_id:
+            if candidates is not None:
+                raise ValueError('candidate identity unavailable')
             continue
+        if candidates is not None and page_id in catalog:
+            raise ValueError('candidate identity ambiguous')
         aliases = fm.get("aliases") if isinstance(fm.get("aliases"), list) else []
         catalog[page_id] = {
             "rel": md.relative_to(root).as_posix(),
@@ -460,6 +825,7 @@ def _page_catalog(root: Path, config: WikiConfig) -> dict[str, dict[str, object]
             "aliases": [str(a) for a in aliases],
             "page_type": str(fm.get("page_type") or ""),
             "source_refs": [str(x) for x in fm.get("source_refs") or []] if isinstance(fm.get("source_refs"), list) else [],
+            "information_requirements": fm.get("information_requirements", []),
         }
     return catalog
 
@@ -469,18 +835,36 @@ def _keywords(text: str) -> set[str]:
 
 
 def build_packet(
-    aggregated: dict[str, object], root: Path, config: WikiConfig, paths: WikiPaths
+    aggregated: dict[str, object], root: Path, config: WikiConfig, paths: WikiPaths,
+    *, candidates: list[str] | None = None, candidate_documents: dict | None = None,
 ) -> dict[str, object]:
-    """Integration packet: candidate targets and overlaps for the agent."""
-    catalog = _page_catalog(root, config)
+    """Build a packet; supplied candidate documents require caller authorization."""
+    catalog = _page_catalog(root, config, candidates, candidate_documents=candidate_documents)
     db_path = paths.indexes / "wiki.sqlite"
-    packet_warnings: list[str] = []
+    packet_warnings: list[str] = ([] if candidates is None else
+        ['Only selected candidates were inspected; global catalog and FTS were not searched.'])
+    initial_signature: str | None = None
+    signature_error: Exception | None = None
 
     def fts(query: str, limit: int = 3) -> list[dict[str, object]]:
-        if not db_path.exists() or not query.strip():
+        nonlocal initial_signature, signature_error
+        if candidates is not None or not query.strip():
             return []
         try:
-            hits = search(db_path, sanitize_fts_query(query), limit=limit)
+            if not db_path.exists():
+                # Check the boundary even for a missing index, without
+                # calculating the page signature for an absent database.
+                return search(db_path, query, limit=limit, wiki_root=paths.root)
+            if signature_error is not None:
+                raise signature_error
+            if initial_signature is None:
+                try:
+                    initial_signature = current_page_signature(paths)
+                except Exception as exc:
+                    signature_error = exc
+                    raise
+            hits = search(db_path, sanitize_fts_query(query), limit=limit,
+                          page_signature=initial_signature, wiki_root=paths.root)
         except Exception as exc:  # noqa: BLE001 - degrade gracefully, but VISIBLY
             note = (
                 f"fts lookup failed ({type(exc).__name__}: {exc}); "
@@ -534,6 +918,18 @@ def build_packet(
             }
         )
 
+    # Validate again before returning: one scan serves all lookups, while a
+    # changed/unreadable wiki cannot leave earlier page excerpts in the packet.
+    if initial_signature is not None:
+        try:
+            stable = current_page_signature(paths) == initial_signature
+        except Exception:  # noqa: BLE001 - fail closed and report coverage
+            stable = False
+        if not stable:
+            for row in claim_rows:
+                row['related'] = []
+            packet_warnings.append('fts lookup failed (wiki page index changed during packet); related excerpts omitted from this packet')
+
     should_review = sorted(
         {
             str(page["rel"])
@@ -548,11 +944,44 @@ def build_packet(
             if isinstance(page, dict) and page.get("rel")
         }
     )
-    target_pages = {
-        str(page)
-        for page in (aggregated.get("target_pages") or [])
-        if str(page).strip()
-    }
+    # These are declared references; matching IDs do not prove capture,
+    # consumption, authorization, or factual change.
+    current = _SOURCE_V2.fullmatch(str(aggregated.get("source_id") or ""))
+    source_page_id = aggregated.get('_selected_source_page_id')
+    source_page_ref = aggregated.get('_selected_source_page_ref')
+    selected_targets = {str(ref) for ref in aggregated.get('target_pages') or [] if str(ref).strip()}
+    if candidates is not None:
+        for page_id, meta in catalog.items():
+            for ref in meta.get("source_refs") or []:
+                previous = _SOURCE_V2.fullmatch(ref)
+                same_origin = (current and previous and previous.group(1, 2) == current.group(1, 2)
+                               and previous.group(3) != current.group(3))
+                same_page = ((isinstance(source_page_id, str) and ref == source_page_id and page_id != source_page_id)
+                             or (isinstance(source_page_ref, str) and ref == source_page_ref
+                                 and meta['rel'] != source_page_ref))
+                if same_origin or same_page:
+                    should_review.append(str(meta["rel"]))
+                    note = 'Source-page association is operator-selected and unverified; references are declared.'
+                    if same_page and note not in packet_warnings:
+                        packet_warnings.append(note)
+            if source_page_ref:
+                from wiki_core.information_relations import information_requirements
+                try:
+                    requirements = information_requirements(meta, lambda target: [target])
+                    if meta['rel'] != source_page_ref and any(item['temporal'] == 'current' and item['target'] in (source_page_ref, source_page_id)
+                           for item in requirements):
+                        should_review.append(str(meta['rel']))
+                    for requirement in requirements:
+                        if (requirement['temporal'] == 'current' and requirement['target'] in selected_targets
+                                and meta['rel'] != requirement['target']):
+                            packet_warnings.append('Candidate ' + str(meta['rel']) + ' declares a current requirement on '
+                                + requirement['target'] + '; reassess after its approved change, if any.')
+                except (ValueError, TypeError):
+                    note = 'A selected candidate has invalid information requirements; dependency coverage is incomplete.'
+                    if note not in packet_warnings:
+                        packet_warnings.append(note)
+        should_review = sorted(set(should_review))
+    target_pages = selected_targets
     must_update = sorted(
         {
             str(meta["rel"])
@@ -568,6 +997,13 @@ def build_packet(
         "kind": "wiki_integration_packet",
         "schema_version": PACKET_SCHEMA_VERSION,
         "source_id": aggregated.get("source_id"),
+        **({'source_hash_sha256': aggregated['source_hash_sha256']}
+           if aggregated.get('source_hash_sha256') else {}),
+        **({'independent_git_sources': aggregated['independent_git_sources']}
+           if aggregated.get('independent_git_sources') else {}),
+        **({'candidate_provenance': [{'path': ref, 'revision': candidate_documents[ref]['revision'],
+              'blob': candidate_documents[ref]['blob'], 'sha256': candidate_documents[ref]['content_sha256']}
+              for ref in candidates]} if candidate_documents is not None else {}),
         "root_impact": {
             "root_entity": root_entity,
             "input_channel": input_channel,
@@ -578,6 +1014,7 @@ def build_packet(
         "impact": {
             "must_update": must_update,
             "should_review": [page for page in should_review if page not in must_update],
+            **({'coverage': 'explicit_candidates_only'} if candidates is not None else {}),
         },
         "claims": claim_rows,
         "entities": entity_matches,
@@ -597,17 +1034,36 @@ def build_packet(
     }
 
 
-def find_event_for_source(paths: WikiPaths, source_id: str) -> Path | None:
+def find_event_for_source(paths: WikiPaths, source_id: str, *, root: Path | None = None,
+                          request_id: str | None = None) -> Path | None:
     events_dir = paths.ingest_events_dir
+    if root is not None:
+        from wiki_core.traversal import require_wiki_boundaries
+        require_wiki_boundaries(root, directories=(events_dir,))
     if not events_dir.is_dir():
         return None
-    for md in sorted(events_dir.glob("*.md")):
+    if request_id is not None:
+        import hashlib
+        if not isinstance(request_id, str) or not re.fullmatch(r'[0-9a-f]{64}', request_id):
+            raise ValueError('invalid contextual request identity')
+        source_digest = hashlib.sha256(source_id.encode()).hexdigest()
+        candidates = events_dir.glob(f'*-{source_digest}-{request_id}.md')
+    else:
+        candidates = events_dir.glob("*.md")
+    found = None
+    for md in sorted(candidates):
         if md.name == "README.md":
             continue
+        if root is not None:
+            require_wiki_boundaries(root, files=(md,))
         fm = _read_frontmatter(md)
-        if str(fm.get("source_id") or "") == source_id:
-            return md
-    return None
+        if str(fm.get("source_id") or "") == source_id and fm.get('folder_request_id') == request_id:
+            if request_id is None:
+                return md  # Preserve the historical source-only lookup.
+            if found is not None:
+                raise ValueError('ambiguous contextual ingestion events')
+            found = md
+    return found
 
 
 def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, object]]:
@@ -619,13 +1075,18 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
     paths = WikiPaths(root, config)
     cache_dir = paths.llm_cache
     out: list[dict[str, object]] = []
-    for request in load_requests(paths):
+    for request in load_requests(paths, root=root):
         source_id = str(request.get("source_id"))
-        if not deep_read_complete(request, cache_dir):
+        from wiki_core.llm.context_pass import is_local_folder_request
+        if is_local_folder_request(request) and not request.get('folder_request_id'):
+            out.append({'source_id': source_id, 'state': 'local_request_requires_reemit'})
+            continue
+        if not deep_read_complete(request, cache_dir, root=root):
             continue  # the context-pass gate already covers incomplete reads
-        event = find_event_for_source(paths, source_id)
+        request_id = request.get('folder_request_id')
+        event = find_event_for_source(paths, source_id, root=root, request_id=request_id)
         if event is None:
-            out.append({"source_id": source_id, "state": "missing_event"})
+            out.append({"source_id": source_id, **({'folder_request_id': request_id} if request_id else {}), "state": "missing_event"})
             continue
         fm = _read_frontmatter(event)
         consolidated = fm.get("consolidated_into")
@@ -633,6 +1094,7 @@ def pending_consolidations(root: Path, config: WikiConfig) -> list[dict[str, obj
             out.append(
                 {
                     "source_id": source_id,
+                    **({'folder_request_id': request_id} if request_id else {}),
                     "state": "missing_consolidated_into",
                     "event": event.relative_to(root).as_posix(),
                 }

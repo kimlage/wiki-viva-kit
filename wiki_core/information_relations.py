@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from wiki_core.config import WikiConfig
+from wiki_core.git_env import local_git_environment, local_git_executable
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, MARKDOWN_LINK_RE
@@ -163,7 +164,7 @@ def authored_graph(root: Path, config: WikiConfig, *, normative_root=None, norma
         if normative_revision is not None and (not isinstance(normative_revision,str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',normative_revision)):
             return []
         args=(['ls-tree','-z',normative_revision,'--',ref] if normative_revision else ['ls-files','--stage','-z','--',ref])
-        try: result=subprocess.run(['git','-C',str(normative_root or root),'--literal-pathspecs',*args],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+        try: result=subprocess.run([local_git_executable(), '--no-lazy-fetch','-C',str(normative_root or root),'--literal-pathspecs',*args],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=local_git_environment())
         except OSError: return []
         if result.returncode: return []
         entries=result.stdout.split(b'\0')
@@ -364,7 +365,7 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None) -
     result = []
     for entry in raw:
         required = {'target', 'fields', 'temporal', 'max_age_days'}
-        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest','source_kind'}):
+        if not isinstance(entry, dict) or not required <= set(entry) or set(entry) - (required | {'consumed_revision','use','classification','query','members_digest','selected_digest','query_policy_revision','authority_digest','authority_format','entry_folder','entry_index','source_kind'}):
             raise ValueError('information requirement needs target, fields, temporal, max_age_days')
         if (not isinstance(entry['target'], str) or not isinstance(entry['fields'], list)
                 or not entry['fields'] or len(entry['fields']) > 32
@@ -378,6 +379,14 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None) -
         if any(k in entry and (not isinstance(entry[k], str) or not entry[k].strip()) for k in ('use','classification')):
             raise ValueError('invalid information use or classification')
         dynamic = {'query','members_digest','selected_digest','query_policy_revision','authority_digest'} & set(entry)
+        if ('authority_format' in entry or 'entry_folder' in entry or 'entry_index' in entry) and (
+                entry.get('authority_format') != 'folder' or not (dynamic or entry.get('source_kind') == 'mandatory') or
+                not isinstance(entry.get('entry_folder'), str) or not isinstance(entry.get('entry_index'), str)):
+            raise ValueError('authority format requires a folder receipt')
+        if 'authority_format' in entry:
+            from wiki_core.context_policy import safe_path
+            safe_path(entry['entry_folder'], allow_root=True)
+            safe_path(entry['entry_index'])
         if 'source_kind' in entry and (entry['source_kind'] != 'mandatory' or entry.get('use') != 'normative' or entry['fields'] != ['*'] or entry['temporal'] != 'current' or 'consumed_revision' not in entry or dynamic):
             raise ValueError('normative requirement needs current whole pinned input')
         if dynamic:

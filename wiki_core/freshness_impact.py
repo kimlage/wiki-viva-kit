@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import json
 import posixpath
 from urllib.parse import unquote, urlsplit
 import re
@@ -16,7 +17,10 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
 
+from wiki_core.traversal import wiki_markdown_files
+from wiki_core.git_env import local_git_environment, local_git_executable
 from wiki_core.config import WikiConfig
+from wiki_core.context_policy import policy_stage_cache
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph.page_graph import FRONTMATTER_REF_FIELDS, MARKDOWN_LINK_RE
@@ -170,7 +174,7 @@ def evaluate_impact(
 
 
 def input_hashes(root: Path, config: WikiConfig, evidence_paths=()) -> dict[str, str | None]:
-    files = sorted((root / str(config.paths["memory_root"])).rglob("*.md"))
+    files = sorted(wiki_markdown_files(root / str(config.paths["memory_root"]), wiki_root=root))
     files.append(root / "wiki.config.yaml")
     result = {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in files}
@@ -188,12 +192,14 @@ def _query_policy_change_marker(root: Path, revisions: tuple[str, str], changed:
     """Treat a changed declared normative input as policy-sensitive, without granting authority."""
     import subprocess
     import yaml
-    from wiki_core.context_policy import UniqueLoader, safe_path
+    from wiki_core.context_policy import UniqueLoader, safe_path, is_context_instruction
     if not changed:
         return set()
+    if any(is_context_instruction(path) for path in changed):
+        return {'context.yaml'}
     normative = set()
     for revision in revisions:
-        listing = subprocess.run(['git', '-C', str(root), 'ls-tree', '-r', '--name-only', '-z', revision], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        listing = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root), 'ls-tree', '-r', '--name-only', '-z', revision], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=local_git_environment())
         if listing.returncode:
             return {'context.yaml'}
         for raw in listing.stdout.split(b'\0'):
@@ -201,7 +207,7 @@ def _query_policy_change_marker(root: Path, revisions: tuple[str, str], changed:
                 continue
             try:
                 path = raw.decode('utf-8')
-                source = subprocess.run(['git', '-C', str(root), 'show', revision + ':' + path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                source = subprocess.run([local_git_executable(), '--no-lazy-fetch', '-C', str(root), 'show', revision + ':' + path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=local_git_environment())
                 if source.returncode:
                     return {'context.yaml'}
                 doc = yaml.load(source.stdout, Loader=UniqueLoader)
@@ -226,6 +232,7 @@ def _merge_pending_fields(included, pending_fields):
     return by_path
 
 
+@policy_stage_cache()
 def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                       today: dt.date | None = None,
                       documentary_only: dict[str, str] | None = None,
@@ -290,7 +297,12 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             raise ValueError("use-scoped impact does not accept per-proposal freshness waivers")
         from wiki_core.information_impact import evaluate_information_impact, typed_information_reach
         has_queries = any('query' in edge.get('requirement', {}) for graph in (base, current) for edge in graph['edges'])
-        impact_changed = changed | (_query_policy_change_marker(root, (base_sha, head), changed) if has_queries else set())
+        has_legacy_queries = any('query' in edge.get('requirement', {}) and edge['requirement'].get('authority_format') != 'folder'
+                                 for graph in (base, current) for edge in graph['edges'])
+        # Historical v1 receipts may still need their original normative
+        # declarations. New folder receipts derive their selected chain from
+        # physical paths and must not scan v1 manifests as authority.
+        impact_changed = changed | (_query_policy_change_marker(root, (base_sha, head), changed) if has_legacy_queries and not query_context else set())
         typed_reasons = typed_information_reach(current, base, impact_changed) if has_queries else {}
         result = evaluate_information_impact(current, base, impact_changed, today=today or dt.date.today(), _typed_reasons=typed_reasons)
         if any((query_context, query_policy_revision, query_head)):
@@ -298,18 +310,62 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 raise ValueError('query audit requires exact context, approved base and HEAD')
             from wiki_core.information_impact import affected_dynamic_queries
             from wiki_core.dynamic_query_audit import revalidate_affected
-            affected = affected_dynamic_queries(current, base, impact_changed, set(typed_reasons))
+            from wiki_core.context_policy import load_policy
+            from wiki_core.context_packet import qualify_folder_context
+            closure_policy = load_policy(root, base_sha, 'wiki.config.yaml')
+            context_index = closure_policy._context_indexes.get(query_context)
+            if context_index is None: raise ValueError('query context requires authorized requalification')
+            try: qualify_folder_context(root, closure_policy, query_context, query_context, context_index, 2_000_000)
+            except (ValueError, KeyError, TypeError, OSError) as exc:
+                raise ValueError('query context requires authorized requalification') from exc
+            def filter_equivalent_config(rows, reached):
+                if 'wiki.config.yaml' not in impact_changed: return rows
+                from wiki_core.dynamic_query_audit import _proposed_folder_authority_equivalent
+                from wiki_core.context_policy import PolicyError
+                def identity(row):
+                    return (row['path'], json.dumps(row['requirement'], sort_keys=True, ensure_ascii=False))
+                otherwise_affected = {identity(row) for row in affected_dynamic_queries(
+                    current, base, impact_changed - {'wiki.config.yaml'}, reached, legacy_authority_unavailable=True)}
+                retained = []
+                for row in rows:
+                    req, path = row['requirement'], row['path']
+                    if req.get('authority_format') == 'folder' and identity(row) not in otherwise_affected:
+                        try:
+                            if (closure_policy.owner_of(path) == query_context and closure_policy.permits(query_context, 'read', path)
+                                    and _proposed_folder_authority_equivalent(root, closure_policy, head, query_context, req)):
+                                continue
+                        except (PolicyError, ValueError, KeyError, TypeError, OSError):
+                            pass
+                    retained.append(row)
+                return retained
+            initial_reached = {path for path, row in typed_reasons.items() if row.get('causes')}
+            affected = affected_dynamic_queries(current, base, impact_changed,
+                                                initial_reached,
+                                                legacy_authority_unavailable=True)
+            affected = filter_equivalent_config(affected, initial_reached)
+            authorized_affected = set()
+            def record_authorized_affected(rows):
+                for row in rows:
+                    try:
+                        path = row['path']
+                        if closure_policy.owner_of(path) == query_context and closure_policy.permits(query_context, 'read', path):
+                            authorized_affected.add((path, json.dumps(row['requirement'], sort_keys=True, ensure_ascii=False)))
+                    except (ValueError, KeyError, TypeError):
+                        continue
+            record_authorized_affected(affected)
             closure_budget = [32_000_000]
             selection_cache = {}  # Local to this exact, fenced audit only.
             outcomes = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
-                                           affected=affected, changed=impact_changed, current=current, read_budget=closure_budget, _selection_cache=selection_cache)
+                                           affected=affected, changed=impact_changed, current=current, read_budget=closure_budget, _selection_cache=selection_cache, policy=closure_policy)
             # Dynamic outcomes are review obligations, not edits to their pages.
             # Feed those obligations into typed dependencies and authorized
             # downstream queries until no new pending fields are discovered.
             from wiki_core.information_impact import propagate_pending_dependencies, authorized_typed_provenance
-            from wiki_core.context_policy import load_policy
-            closure_policy = load_policy(root, base_sha)
-            pending_fields = {r['path']: set(r.get('fields', ['*'])) for r in outcomes if r['state'] == 'review_pending'}
+            urgent_fields = {}; deferred_fields = {}
+            for row in outcomes:
+                if row['state'] != 'review_pending': continue
+                destination = deferred_fields if row.get('priority') == 'on_demand' else urgent_fields
+                destination.setdefault(row['path'], set()).update(row.get('fields', ['*']))
             derived = {}; denied = set(); ordinary_sources = {}
             # The generic graph already propagated ordinary impacts. Use those
             # rows only to discover affected queries, never to rerun ordinary
@@ -336,27 +392,51 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                         denied.add(path)
             if len(ordinary_sources) > 1000: raise ValueError('dynamic impact closure limit exceeded')
             all_outcomes = {(r['path'], r['reason'], r.get('requirement_id')): r for r in outcomes}
-            if pending_fields or ordinary_sources:
+            urgent_derived = set()
+            pending_fields = {}
+            for deferred, seeds in ((False, urgent_fields), (True, deferred_fields)):
+                fields = {path: set(values) for path, values in seeds.items()}
+                sources = {} if deferred else ordinary_sources
+                if not fields and not sources: continue
                 for _ in range(64):
-                    expanded, reached, boundary = propagate_pending_dependencies(current, base, pending_fields, closure_policy, query_context)
-                    denied.update(boundary)
+                    expanded, reached, boundary = propagate_pending_dependencies(current, base, fields, closure_policy, query_context)
+                    if not deferred: denied.update(boundary)
                     for path, causes in reached.items():
+                        if not deferred: urgent_derived.add(path)
                         existing = derived.setdefault(path, [])
                         for cause in causes:
                             if cause not in existing: existing.append(cause)
-                    query_sources = {path: set(fields) for path, fields in expanded.items()}
-                    for path, fields in ordinary_sources.items(): query_sources.setdefault(path, set()).update(fields)
-                    affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources))
+                    query_sources = {path: set(values) for path, values in expanded.items()}
+                    for path, values in sources.items(): query_sources.setdefault(path, set()).update(values)
+                    affected = affected_dynamic_queries(current, base, impact_changed | set(query_sources), set(query_sources),
+                                                        legacy_authority_unavailable=True)
+                    affected = filter_equivalent_config(affected, set(query_sources))
+                    record_authorized_affected(affected)
                     more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
-                        affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache)
-                    for row in more: all_outcomes[(row['path'], row['reason'], row.get('requirement_id'))] = row
-                    new_fields = {p: set(v) for p, v in expanded.items()}
+                        affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache, policy=closure_policy)
                     for row in more:
-                        if row['state'] == 'review_pending': new_fields.setdefault(row['path'], set()).update(row.get('fields', ['*']))
-                    if new_fields == pending_fields: break
-                    pending_fields = new_fields
+                        if (deferred and row['state'] == 'unknown' and
+                                current['nodes'].get(row['path'], {}).get('action_state') not in {'open', 'in_progress'}):
+                            row.update(state='review_pending', priority='on_demand', fields=['*'], causes=[], chain=[],
+                                       verification_performed=False)
+                        if deferred and row['state'] == 'review_pending' and row['reason'] == 'dynamic_query_upstream_pending':
+                            row['priority'] = ('immediate' if current['nodes'].get(row['path'], {}).get('action_state') in {'open', 'in_progress'} else 'on_demand')
+                        key = (row['path'], row['reason'], row.get('requirement_id'))
+                        previous = all_outcomes.get(key)
+                        if previous is None or previous.get('priority') == 'on_demand': all_outcomes[key] = row
+                    new_fields = {path: set(values) for path, values in expanded.items()}
+                    for row in more:
+                        if row['state'] != 'review_pending': continue
+                        if deferred != (row.get('priority') == 'on_demand') and row['reason'] != 'dynamic_query_upstream_pending': continue
+                        new_fields.setdefault(row['path'], set()).update(row.get('fields', ['*']))
+                    if new_fields == fields: break
+                    fields = new_fields
                 else:
                     raise ValueError('dynamic impact closure limit exceeded')
+                for path, values in fields.items(): pending_fields.setdefault(path, set()).update(values)
+            def review_priority(path):
+                return ('immediate' if path in urgent_derived or
+                        current['nodes'].get(path, {}).get('action_state') in {'open', 'in_progress'} else 'on_demand')
             closure_policy.fresh()
             result['integrity_blockers'] = [r for r in result['integrity_blockers'] if r['reason'] != 'dynamic_query_requires_authorized_revalidation']
             result['integrity_blockers'].extend(r for r in all_outcomes.values() if r['state'] == 'unknown')
@@ -367,7 +447,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 if path not in existing_pending:
                     row = {'path':path, 'state':'review_pending', 'reason':'upstream_interpretation_pending',
                         'seed':causes[0]['prerequisite'], 'fields':sorted(pending_fields[path]), 'causes':[], 'chain':[],
-                        'priority':'immediate', 'verification_performed':False}
+                        'priority':review_priority(path), 'verification_performed':False}
                     result['pending_reviews'].append(row); existing_pending[path] = row
                 for cause in causes:
                     if cause not in existing_pending[path].setdefault('causes', []): existing_pending[path]['causes'].append(cause)
@@ -388,7 +468,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                     if cause not in included[path].setdefault('causes', []): included[path]['causes'].append(cause)
             result['ok'] = not result['integrity_blockers'] and not result['relation_errors']
             result['query_revalidation'] = {'context': query_context, 'policy_revision': base_sha, 'head': head,
-                'affected': len(affected), 'fact_freshness': 'not_assessed',
+                'affected': len(authorized_affected), 'fact_freshness': 'not_assessed',
+                'coverage_limit': 'outside_selected_context_not_assessed',
                 'audit_authority': 'global_integrator_caller_trust',
                 'context_scope': 'query_recomputation_only_not_auditor_acl'}
         from wiki_core.information_use import bind_verification_coverage, assess_information_use

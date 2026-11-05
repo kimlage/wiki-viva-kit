@@ -46,6 +46,9 @@ def build_batch_requests(
     include_cached: bool,
 ) -> list[dict[str, object]]:
     """Reads the emitted requests and returns the batch lines (one per chunk)."""
+    from wiki_core.traversal import is_protected_artifact
+    if any(is_protected_artifact(path) for path in request_files):
+        raise ValueError('protected artifacts require bound dispatch')
     requests: list[dict[str, object]] = []
     seen: set[str] = set()
     for path in sorted(request_files):
@@ -93,6 +96,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--out", type=Path, help="output file (default stdout)")
     args = parser.parse_args(argv)
+
+    from wiki_core.traversal import is_protected_artifact
+    if args.out is not None and is_protected_artifact(args.out):
+        parser.error('protected artifacts require bound dispatch')
 
     config = load_config(ROOT)
     paths = WikiPaths(ROOT, config)

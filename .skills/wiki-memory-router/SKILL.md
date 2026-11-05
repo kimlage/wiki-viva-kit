@@ -54,6 +54,10 @@ global maintenance. The integrator retains the applicable final gates.
    when available. Read that root's [AGENTS.md](../../AGENTS.md) and applicable
    scoped instructions before acting. Resolve paths against the checkout,
    not an agent installation or a fixed host directory.
+   For an authorized local folder entry, read the physical instruction chain
+   and context index; see [bounded ingestion](../../docs/references/guides/bounded-ingestion.md)
+   for selection and its limits. Neither the folder nor a link grants access,
+   and local preparation is separate from the approved packet in step 3.
 2. Read [wiki.config.yaml](../../wiki.config.yaml) and the index under configured
    `paths.memory_root`.
 3. Read the consumer's current approval policy, operational contract and

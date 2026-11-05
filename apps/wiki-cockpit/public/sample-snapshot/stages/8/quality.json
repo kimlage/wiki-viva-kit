@@ -1606,6 +1606,7 @@
     "events_without_consolidated_into": 2,
     "events_without_impact_closure": 0,
     "ingestion_events": 5,
+    "interpretation_chunks": 0,
     "low_information_density_pages": 80,
     "orphan_actions": 4,
     "page_types": {

@@ -47,6 +47,7 @@ from wiki_core.frontmatter import (
     parse_frontmatter_flat as parse_frontmatter,
 )
 from wiki_core.paths import WikiPaths
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.score import compute_karma, load_events, record_event, resolve_events_path
 
 # Context hubs are the pages that carry living context per area. Their
@@ -109,6 +110,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "queue_listed": "Identificadores enumerados en [{pending_path}]({pending_path}):",
         "empty_queue": "No hay acciones pendientes registradas.",
         "consolidation_pending": "- Fuentes pendientes de consolidación: {count} — consulte [scripts/wiki_consolidate.py]({script}).",
+        "consolidation_unavailable": "- Fuentes pendientes de consolidación: no disponible — consulte [scripts/wiki_consolidate.py]({script}).",
         "h_alerts": "## Alertas",
         "alert_stale": "- La página de operaciones queda desactualizada después de 1 día.",
         "alert_quadrants": "- Los eventos de ingestión relevantes deben declarar los cuatro cuadrantes o una ausencia explícita.",
@@ -163,6 +165,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "queue_listed": "Identificadores listados em [{pending_path}]({pending_path}):",
         "empty_queue": "Sem acoes pendentes registradas.",
         "consolidation_pending": "- Fontes aguardando consolidacao: {count} — ver [scripts/wiki_consolidate.py]({script}).",
+        "consolidation_unavailable": "- Fontes aguardando consolidacao: indisponivel — ver [scripts/wiki_consolidate.py]({script}).",
         "h_alerts": "## Alertas",
         "alert_stale": "- A pagina de operacao fica stale apos 1 dia.",
         "alert_quadrants": "- Eventos de ingestao relevantes devem declarar quatro quadrantes ou ausencia explicita.",
@@ -213,6 +216,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "queue_listed": "Identifiers listed in [{pending_path}]({pending_path}):",
         "empty_queue": "No pending actions recorded.",
         "consolidation_pending": "- Sources awaiting consolidation: {count} — see [scripts/wiki_consolidate.py]({script}).",
+        "consolidation_unavailable": "- Sources awaiting consolidation: unavailable — see [scripts/wiki_consolidate.py]({script}).",
         "h_alerts": "## Alerts",
         "alert_stale": "- The operations page goes stale after 1 day.",
         "alert_quadrants": "- Relevant ingestion events must declare the four quadrants or explicit absence.",
@@ -580,12 +584,7 @@ def collect_context_vitality(paths: WikiPaths, today: dt.date) -> list[ContextVi
     # explicitly typed context_hub. Never follow directory or file symlinks.
     if any(p.is_symlink() for p in (paths.memory_root, *paths.memory_root.parents)):
         return rows
-    indexes = []
-    for directory, subdirs, files in os.walk(paths.memory_root, followlinks=False):
-        subdirs[:] = sorted(d for d in subdirs if not (Path(directory) / d).is_symlink())
-        index = Path(directory) / "index.md"
-        if "index.md" in files and not index.is_symlink() and index.is_file():
-            indexes.append(index)
+    indexes = [path for path in wiki_markdown_files(paths.memory_root, wiki_root=paths.root) if path.name == "index.md"]
     for index_path in sorted(indexes):
         fm = parse_frontmatter(index_path.read_text(encoding="utf-8"))
         if fm.get("page_type") != CONTEXT_HUB_TYPE:
@@ -793,12 +792,13 @@ def build_page(root: Path, config: WikiConfig, *, generated_at: dt.datetime | No
         lines.append(s["alert_stale_contexts"].format(contexts=rendered))
     # Consolidation backlog (volatile: derived cache is local-only). Keeps the
     # "ingesting = integrating" loop visible on every daily resume.
+    consolidate_script = _rel_to_page_dir(root / "scripts" / "wiki_consolidate.py", paths.operation_page.parent)
     try:
         consolidation_count = len(pending_consolidations(root, config))
     except Exception:
-        consolidation_count = 0
-    consolidate_script = _rel_to_page_dir(root / "scripts" / "wiki_consolidate.py", paths.operation_page.parent)
-    lines.append(s["consolidation_pending"].format(count=consolidation_count, script=consolidate_script))
+        lines.append(s["consolidation_unavailable"].format(script=consolidate_script))
+    else:
+        lines.append(s["consolidation_pending"].format(count=consolidation_count, script=consolidate_script))
 
     # PRIMARY HONEST METRIC (Phase 4.1): ingestion closure. The karma score left
     # the cockpit; closure takes its place. This is DETERMINISTIC — derived from

@@ -84,6 +84,13 @@ page_types:
       stale_after_days: string
       parent_projection: object
       projection_overrides: object
+  context_instructions:
+    template: docs/references/templates/wiki/context-instructions.md
+    section_contract: docs/references/templates/wiki/context-instructions.yaml
+    required_frontmatter:
+      - page_type
+      - title
+      - context
   context_hub:
     template: docs/references/templates/wiki/context-hub.md
     allowed_dirs:

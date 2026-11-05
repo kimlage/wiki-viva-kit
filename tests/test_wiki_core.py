@@ -255,7 +255,7 @@ def test_detailed_search_reports_wal_without_creating_sidecars(tmp_path):
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
 
 
-def test_find_reports_external_catalog_location_without_reading_it(tmp_path):
+def test_find_reports_external_catalog_location_without_reading_it(tmp_path, monkeypatch):
     from dataclasses import replace
     from wiki_core.config import WikiConfig
     from wiki_core.find import find
@@ -263,13 +263,24 @@ def test_find_reports_external_catalog_location_without_reading_it(tmp_path):
     root.mkdir()
     outside = tmp_path / "outside"
     outside.mkdir()
-    (outside / "page.md").write_text("---\npage_id: outside\ncontext: secret\n---\n")
+    outside_page = outside / "page.md"
+    outside_page.write_text("---\npage_id: outside\ncontext: secret\n---\n")
+    original_open = Path.open
+
+    def guarded_open(path, *args, **kwargs):
+        if path == outside_page:
+            pytest.fail("external catalog body must not be opened")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
     cfg = WikiConfig()
     cfg = replace(cfg, paths={**cfg.paths, "memory_root": str(outside)})
     result = find(root, cfg, "query")
     assert result["status"] == "index_missing"
     assert result["scope"]["catalog_issues"] == [
-        {"kind": "page", "reason": "metadata_path_outside_local_catalog"}]
+        {"kind": "page", "reason": "metadata_path_outside_local_catalog"},
+        {"kind": "page", "reason": "page_index_current_state_unavailable"},
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -574,7 +585,21 @@ def test_context_cache_invalid_json_shape_never_counts_as_reading(tmp_path, raw)
     (cache / (request["chunks"][0]["cache_key"] + ".json")).write_text(raw)
     assert _bound_request(tmp_path)["pending_llm_calls"] == 1
     assert not deep_read_complete(request, cache)
-    assert aggregate_results(request, cache)["claims"] == []
+    # Aggregation must fail closed if a result is missing or invalid, including
+    # when it changes after the preliminary deep-read completeness check.
+    with pytest.raises(ValueError, match="deep read result disappeared or is invalid"):
+        aggregate_results(request, cache)
+
+
+def test_context_cache_changed_after_complete_check_cannot_be_aggregated(tmp_path):
+    from wiki_core.consolidate import deep_read_complete, aggregate_results
+    request = _bound_request(tmp_path)
+    _record_bound(tmp_path, request)
+    cache = tmp_path / "cache"
+    assert deep_read_complete(request, cache)
+    (cache / (request["chunks"][0]["cache_key"] + ".json")).write_text("{")
+    with pytest.raises(ValueError, match="deep read result disappeared or is invalid"):
+        aggregate_results(request, cache)
 
 
 @pytest.mark.parametrize("field", ["cache_key", "prompt_version", "schema_version", "model_profile",

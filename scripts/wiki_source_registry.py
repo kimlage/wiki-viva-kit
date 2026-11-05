@@ -25,6 +25,7 @@ CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT))
 from scripts._common import ROOT
 
+from wiki_core.traversal import wiki_markdown_files
 from wiki_core.config import freshness_for, load_config
 from wiki_core.paths import WikiPaths
 from wiki_core.source_recipe import extract_recipe_mapping
@@ -210,7 +211,7 @@ def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str
         if policy:
             raise ValueError("source_registry.nested_sources contains missing or non-source paths: " + ", ".join(sorted(policy)))
         return rows
-    for md in sorted(sources_dir.rglob("*.md")):
+    for md in sorted(wiki_markdown_files(sources_dir, wiki_root=paths.root)):
         if md.name in {"index.md", "README.md"}:
             continue
         fm = read_frontmatter(md)

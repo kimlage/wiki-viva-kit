@@ -5,6 +5,7 @@ import datetime as dt
 import re
 import sqlite3
 from pathlib import Path
+from wiki_core.index.page_collection import page_index_signature, page_rows_signature
 
 _ORIGIN_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -16,6 +17,9 @@ PAGE_SOURCE_PREFIX = "page:"
 
 def _load_chunks(path: Path) -> dict:
     """Validate complete inputs before opening the index write transaction."""
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(path):
+        raise ValueError('protected artifacts require bound dispatch')
     if path.is_symlink():
         raise ValueError("chunk artifact must not be a symbolic link")
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -87,6 +91,9 @@ def _incomplete_ids(documents: list[dict]) -> set[str]:
 
 
 def _connect(path: Path) -> sqlite3.Connection:
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(path):
+        raise ValueError('protected artifacts require bound dispatch')
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.execute(
@@ -189,15 +196,20 @@ def build_index(chunks_dir: Path, db_path: Path) -> dict[str, int]:
 def index_pages(db_path: Path, pages: list[tuple[str, list[dict[str, object]]]]) -> dict[str, int]:
     """(Re)index wiki pages: ``pages`` is [(page_id, chunk dicts)]. Replaces every
     existing page: entry (full page reindex — pages are small)."""
+    if len({page_id for page_id, _ in pages}) != len(pages):
+        raise ValueError("duplicate wiki page_id; cannot build a safe page index")
+    signature = page_index_signature(pages)
     conn = _connect(db_path)
     total = 0
     try:
-        indexed = {row[0] for row in conn.execute("SELECT DISTINCT source_id FROM chunks").fetchall()}
-        for source_id in indexed:
-            if source_id.startswith(PAGE_SOURCE_PREFIX):
-                _delete_source(conn, source_id)
+        # Remove stale/orphaned FTS rows too, even when their chunks row is gone.
+        conn.execute("DELETE FROM chunks WHERE substr(source_id,1,5) = 'page:'")
+        conn.execute("DELETE FROM chunk_fts WHERE substr(source_id,1,5) = 'page:'")
         for page_id, chunks in pages:
             total += _insert_chunks(conn, f"{PAGE_SOURCE_PREFIX}{page_id}", chunks)
+        conn.execute("CREATE TABLE IF NOT EXISTS wiki_page_index_state (signature TEXT NOT NULL)")
+        conn.execute("DELETE FROM wiki_page_index_state")
+        conn.execute("INSERT INTO wiki_page_index_state VALUES (?)", (signature,))
         conn.commit()
     finally:
         conn.close()
@@ -249,8 +261,46 @@ def sanitize_fts_query(query: str) -> str:
     return " ".join(quoted)
 
 
-def search(db_path: Path, query: str, limit: int = 20) -> list[dict[str, object]]:
+def _page_index_matches(conn: sqlite3.Connection, signature: str | None) -> bool:
+    if signature is None:
+        return True  # Low-level caller explicitly did not request wiki validation.
+    try:
+        rows = conn.execute("SELECT signature FROM wiki_page_index_state").fetchall()
+    except sqlite3.OperationalError:
+        # A source-only legacy index is usable for the empty current wiki;
+        # pages now present require a rebuild even if no page rows exist yet.
+        has_pages = (conn.execute("SELECT 1 FROM chunks WHERE substr(source_id,1,5) = 'page:' LIMIT 1").fetchone()
+                     or conn.execute("SELECT 1 FROM chunk_fts WHERE substr(source_id,1,5) = 'page:' LIMIT 1").fetchone())
+        return not has_pages and signature == page_index_signature([])
+    if rows != [(signature,)]:
+        return False
+    indexed = conn.execute(
+        "SELECT source_id, chunk_id, ordinal, hash_sha256, token_estimate, text FROM chunks "
+        "WHERE substr(source_id,1,5) = 'page:' ORDER BY source_id, chunk_id"
+    ).fetchall()
+    if page_rows_signature(indexed) != signature:
+        return False
+    fts = conn.execute(
+        "SELECT source_id, chunk_id, text FROM chunk_fts "
+        "WHERE substr(source_id,1,5) = 'page:' ORDER BY source_id, chunk_id, text"
+    ).fetchall()
+    return fts == [(row[0], row[1], row[5]) for row in indexed]
+
+
+def search(db_path: Path, query: str, limit: int = 20, *, page_signature: str | None = None,
+           wiki_root: Path | None = None) -> list[dict[str, object]]:
     """Search chunks by relevance (BM25). Returns [] for an empty query or missing index."""
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(db_path):
+        raise ValueError('protected artifacts require bound dispatch')
+    if wiki_root is not None:
+        from wiki_core.traversal import is_in_nested_git
+        try:
+            crosses_boundary = is_in_nested_git(db_path, wiki_root=wiki_root)
+        except (OSError, ValueError) as exc:
+            raise ValueError('index_path_crosses_repository_boundary') from exc
+        if crosses_boundary:
+            raise ValueError('index_path_crosses_repository_boundary')
     if not db_path.exists():
         return []
     match = sanitize_fts_query(query)
@@ -258,6 +308,9 @@ def search(db_path: Path, query: str, limit: int = 20) -> list[dict[str, object]
         return []
     conn = sqlite3.connect(db_path)
     try:
+        conn.execute("BEGIN")  # Validate and query the same SQLite snapshot.
+        if not _page_index_matches(conn, page_signature):
+            raise ValueError("wiki_page_index_stale_or_unverified: rebuild the page index")
         rows = conn.execute(
             "SELECT chunk_id, source_id, text, bm25(chunk_fts) AS rank "
             "FROM chunk_fts WHERE chunk_fts MATCH ? ORDER BY rank LIMIT ?",
@@ -273,7 +326,9 @@ def search(db_path: Path, query: str, limit: int = 20) -> list[dict[str, object]
     ]
 
 
-def search_detailed(db_path: Path, query: str, limit: int = 20, *, source_ids=None) -> dict:
+def search_detailed(db_path: Path, query: str, limit: int = 20, *, source_ids=None,
+                    page_signature: str | None = None, source_only: bool = False,
+                    wiki_root: Path | None = None) -> dict:
     """Read the existing FTS index with explicit availability and scope.
 
     This never creates/schema-upgrades a database. The caller can resolve the
@@ -283,11 +338,23 @@ def search_detailed(db_path: Path, query: str, limit: int = 20, *, source_ids=No
     match = sanitize_fts_query(query)
     result = dict(status="invalid_query", query=query, effective_query=match,
                   operator="AND", limit=limit, hits=[], indexed_source_ids=[])
+    from wiki_core.traversal import is_protected_artifact
+    if is_protected_artifact(db_path):
+        return {**result, 'status': 'index_error', 'error': 'protected_artifact_requires_bound_dispatch'}
     if not match or type(limit) is not int or not 1 <= limit <= 1000:
         return result
+    if wiki_root is not None:
+        from wiki_core.traversal import is_in_nested_git
+        try:
+            if is_in_nested_git(db_path, wiki_root=wiki_root):
+                return {**result, "status": "index_error", "error": "index_path_crosses_repository_boundary"}
+        except (OSError, ValueError):
+            return {**result, "status": "index_error", "error": "index_path_crosses_repository_boundary"}
     if not db_path.is_file():
         return {**result, "status": "index_missing"}
     allowed = None if source_ids is None else sorted(set(source_ids))
+    if source_only and (allowed is None or any(sid.startswith(PAGE_SOURCE_PREFIX) for sid in allowed)):
+        return {**result, "status": "index_error", "error": "source_only_scope_invalid"}
     conn = None
     try:
         # SQLite mode=ro can create WAL/SHM sidecars. The kit's index producer
@@ -299,6 +366,8 @@ def search_detailed(db_path: Path, query: str, limit: int = 20, *, source_ids=No
             return {**result, "status": "index_error", "error": "index_journal_mode_unsupported"}
         conn = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True)
         conn.execute("BEGIN")
+        if not source_only and not _page_index_matches(conn, page_signature):
+            return {**result, "status": "index_error", "error": "wiki_page_index_stale_or_unverified_rebuild_required"}
         result["indexed_source_ids"] = [r[0] for r in conn.execute(
             "SELECT DISTINCT source_id FROM chunks ORDER BY source_id")]
         scope, params = "", [match]
