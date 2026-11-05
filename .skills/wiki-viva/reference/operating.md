@@ -76,20 +76,30 @@ the required gates on the final proposal and obtain independent review before
 an authorized integration and readback. Do not mark the source ingested merely
 because a request, result, event or packet exists.
 
-## 5. Move the proposal through the gate
+## 5. Review the applicable proposal
 
-Proposals live flat under the ingestion dir and move through states via
-[wiki_gate.py](../../../scripts/wiki_gate.py):
+The [wiki_gate.py](../../../scripts/wiki_gate.py) list and rebase commands scan
+flat Markdown proposals in the configured ingestion directory. Protected source
+events live in its events directory; they are not listed by `--list` and are
+not automatically advanced as flat proposals. Review and incorporate the event
+and affected pages under the repository's existing PR policy.
+
+For a flat proposal that actually uses the gate, inspect its current state
+first. Voluntary transitions must follow the state machine: for example,
+`ready_for_review` can move to the legacy state `needs_human_gate`, and that
+state can move to `approved`. The legacy state name does not itself impose a
+human reviewer beyond the repository's independent-review policy. Do not assume
+that an arbitrary current state can transition directly to `approved`.
 
 ```sh
 python3 scripts/wiki_gate.py --list
-python3 scripts/wiki_gate.py --transition <proposal>.md --to approved --reason "reviewed"
-python3 scripts/wiki_gate.py --rebase --rebase-key <logical-target>   # supersede older pending proposals
 ```
 
-Resolved proposals/events can be moved to the immutable archive with
-[wiki_archive.py](../../../scripts/wiki_archive.py). The approval cycle is the
-git-approvals page in the meta-wiki (routed from [AGENTS.md](../../../AGENTS.md)).
+The [state machine](../../../wiki_core/gate/state_machine.py) defines valid
+transitions. The existing [wiki_archive.py](../../../scripts/wiki_archive.py)
+handles eligible resolved proposals and associated events; inspect its dry run
+and the applicable policy before any archive operation. The approval cycle is
+the git-approvals page in the meta-wiki (routed from [AGENTS.md](../../../AGENTS.md)).
 
 ## 6. Recompile the cockpit
 

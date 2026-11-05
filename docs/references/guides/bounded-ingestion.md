@@ -22,7 +22,7 @@ change the budget under the task's policy. A failure before persistence does not
 imply that a later failed write was atomic: the host-bound route reports
 possible partial effects that require inspection.
 
-## Working-tree folder entry
+## Folder selection
 
 Without approved-context flags, the existing working-tree adapter remains
 explicitly labelled compatibility. Previously retained envelopes are preserved;
@@ -48,7 +48,7 @@ index is usable within an already recognized context; a folder containing only
 a custom index does not define approved ownership and requires requalification.
 The selected index is not an access grant.
 
-### Host-bound protected source preparation
+## Host-bound protected source preparation
 
 The existing in-process host binding can call
 `wiki_core.coordination_context.protected_source_stage` for `prepare`, `record`,
@@ -208,6 +208,11 @@ and [synthetic tests](../../../tests/test_protected_ingestion.py) for the exact
 JSON fields. A result, event or integration packet is not a reviewed or
 incorporated memory update.
 
+## Working-tree folder entry
+
+The commands and selectors below apply to the separate working-tree
+compatibility route, not to the host-bound protected stages above.
+
 For example, from the wiki root, enter the chosen context and prepare a source
 using paths anchored to that root (replace the example paths and context):
 
@@ -327,11 +332,13 @@ Quality telemetry reports physical chunks once and interpretation calls separate
 
 ## Recoverable blockers
 
-Preparation failures return exit code 2 and structured blockers using the
-[task-result blocker contract](../schemas/wiki-task-result-v1.schema.json):
-action, target, sanitized reason, owner, required action, interface, status and
-resume condition. They contain no denied-path inventory or source excerpts.
-A missing context does not establish that a login is required.
+For the host-bound CLI, a handled `--source-stage` preparation failure returns
+exit code 1 and a JSON blocker; argument parsing errors can return exit code 2
+without that JSON. The separate working-tree `wiki_ingest.py` returns exit code
+2 when it reports a blocked preparation. When present, structured blockers use
+the [task-result contract](../schemas/wiki-task-result-v1.schema.json): action,
+target, sanitized reason, owner, required action, interface, status and resume
+condition. They do not establish that a login is required.
 
 The operating agent follows the [context-reading skill](../../../.skills/wiki-llm-context-agent/SKILL.md):
 use the harness's real native question or approval interface when available,
