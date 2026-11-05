@@ -346,15 +346,14 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                                                 legacy_authority_unavailable=True,
                                                 preservation_reached={row['path'] for row in result['included']})
             affected = filter_equivalent_config(affected, initial_reached)
-            # An unbound historical receipt cannot certify a changed consumer
-            # or its current dependents. The legacy scoped path can only queue
-            # requalification, so retain a blocking obligation for these uses.
+            # Affected unbound historical receipts cannot be requalified by a
+            # folder audit. Keep the blocker rather than clearing it as if a
+            # queued review had established authorized current use.
             legacy_history_blockers = set()
             def remember_unqualified_history(rows):
                 legacy_history_blockers.update(row['path'] for row in rows
                     if row['requirement'].get('temporal') == 'historical'
-                    and row['requirement'].get('authority_format') != 'folder'
-                    and (row.get('dependent_consumers_present') or row['path'] in impact_changed))
+                    and row['requirement'].get('authority_format') != 'folder')
             remember_unqualified_history(affected)
             authorized_affected = set()
             def record_authorized_affected(rows):

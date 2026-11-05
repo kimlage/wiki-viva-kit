@@ -40,6 +40,8 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
     dependent_sources, dependent_scopes = set(), set()
     changed_reader_sources, changed_reader_scopes = set(), set()
     touched = changed | reached | (preservation_reached or set())
+    active = {path for graph in (base, current) for path, values in graph.get('nodes', {}).items()
+              if values.get('action_state') in {'open', 'in_progress'}}
     def scope_prefixes(paths):
         prefixes = set()
         for path in paths:
@@ -100,7 +102,7 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 # exclude a changed path from its old normative inputs.
                 policy_changed = (legacy_policy_changed or (pinned_history and 'wiki.config.yaml' in changed)
                                   or (legacy_authority_unavailable and bool(changed)))
-            if pinned_history and key in unchanged and not direct_change and not dependents:
+            if pinned_history and key in unchanged and not direct_change and not dependents and consumer not in active:
                 # This preserves an unchanged historical receipt only.
                 # Using it still requires current authorized revalidation.
                 if include_preserved and policy_changed:
@@ -109,8 +111,7 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                 continue
             if not (policy_changed or direct_change):
                 continue
-            found[key] = {'path': consumer, 'requirement': req, 'origin': origin,
-                          **({'dependent_consumers_present': True} if dependents else {})}
+            found[key] = {'path': consumer, 'requirement': req, 'origin': origin}
     return [found[key] for key in sorted(found)]
 
 

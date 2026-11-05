@@ -136,6 +136,8 @@ def test_legacy_query_receipt_stays_unqualified_in_folder_audit(query_repo, monk
                                query_policy_revision=base, query_head=head)
     assert any(row.get('path') == 'alpha/consumer.md' and 'requalification' in row['reason']
                for row in output['blockers'] + output['pending_reviews'])
+    assert any(row.get('path') == 'alpha/consumer.md' and 'revalidation' in row['reason']
+               for row in output['blockers'])
 
 
 def test_unchanged_legacy_history_warns_without_replay_in_scoped_audit(query_repo, monkeypatch):
@@ -255,6 +257,43 @@ def test_historical_query_with_current_dependent_blocks_unqualified_policy_chang
                    for row in output['blockers'])
         assert not any(row.get('path') == 'alpha/consumer.md' and row['reason'] == 'historical_query_preserved_unverified'
                        for row in output['pending_reviews'])
+
+
+def test_active_historical_query_blocks_member_and_policy_changes(query_repo):
+    import shutil
+    root, _ = query_repo
+    shutil.rmtree(root / 'alpha/items/clone/.git')
+    prepare_consumer(root)
+    path = root / 'alpha/consumer.md'
+    raw = path.read_text().split('---\n', 2)
+    data = yaml.safe_load(raw[1])
+    receipt = data['information_requirements'][0]
+    for key in ('authority_format', 'entry_folder', 'entry_index'):
+        receipt.pop(key)
+    receipt['temporal'] = 'historical'
+    data['action_state'] = 'open'
+    path.write_text('---\n' + yaml.safe_dump(data) + '---\n' + raw[2])
+    git(root, 'add', 'alpha/consumer.md'); git(root, 'commit', '-qm', 'active historical query')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-qb', 'wiki/active-history')
+    item = root / 'alpha/items/a.md'
+    item.write_text(item.read_text().replace('amount: 5', 'amount: 9'))
+    git(root, 'add', 'alpha/items/a.md'); git(root, 'commit', '-qm', 'change member')
+    for change in ('member', 'policy'):
+        if change == 'policy':
+            git(root, 'checkout', base, '--', 'alpha/items/a.md')
+            config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+            config['context_access']['alpha']['policy']['deny']['read'].append('self/items/a.md')
+            write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+            git(root, 'add', 'wiki.config.yaml', 'alpha/items/a.md'); git(root, 'commit', '-qm', 'revoke member')
+        head = git(root, 'rev-parse', 'HEAD')
+        for options in ({}, {'query_context': 'alpha', 'query_policy_revision': base, 'query_head': head}):
+            output = repository_report(root, load_config(root), base, **options)
+            assert any(row.get('path') == 'alpha/consumer.md' and 'revalidation' in row['reason']
+                       for row in output['blockers']), change
+            assert not any(row.get('path') == 'alpha/consumer.md' and row['reason'] == 'historical_query_preserved_unverified'
+                           for row in output['pending_reviews'])
 
 
 @pytest.mark.parametrize('also_change_selected', [False, True])

@@ -55,14 +55,16 @@ def test_changed_paths_include_committed_worktree_untracked_and_deleted_paths(
     responses = {
         (
             "diff",
+            "--no-renames",
             "--name-only",
             "-z",
             f"{full_sha}..HEAD",
             "--",
         ): "memories/committed.md\0memories/deleted.md\0",
-        ("diff", "--name-only", "-z", "--"): "memories/unstaged.md\0",
+        ("diff", "--no-renames", "--name-only", "-z", "--"): "memories/unstaged.md\0",
         (
             "diff",
+            "--no-renames",
             "--cached",
             "--name-only",
             "-z",
@@ -144,6 +146,23 @@ def test_impact_requires_explicit_base_before_loading_the_wiki(
 
     assert exc_info.value.code == 2
     assert "base=null, base_sha=null" in capsys.readouterr().err
+
+
+def test_staged_rename_of_post_base_page_is_not_a_base_deletion(tmp_path):
+    import subprocess
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=tmp_path, text=True).strip()
+    git('init', '-q'); git('config', 'user.name', 'Synthetic'); git('config', 'user.email', 'fixture@example.invalid')
+    (tmp_path / 'memories').mkdir()
+    (tmp_path / 'memories/index.md').write_text('# Base\n')
+    git('add', '.'); git('commit', '-qm', 'base')
+    base = git('rev-parse', 'HEAD')
+    (tmp_path / 'memories/intermediate.md').write_text('# Intermediate\n')
+    git('add', '.'); git('commit', '-qm', 'add page')
+    git('mv', 'memories/intermediate.md', 'memories/final.md')
+    changes = _load_script().collect_git_changes(base, root=tmp_path)
+    assert {'memories/intermediate.md', 'memories/final.md'} <= changes.paths
+    assert 'memories/intermediate.md' not in changes.deleted_paths
 
 
 def test_impact_rejects_an_unresolvable_explicit_base(monkeypatch, capsys) -> None:

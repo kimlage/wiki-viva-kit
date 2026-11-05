@@ -73,6 +73,9 @@ def test_unchanged_historical_query_is_preserved_without_granting_current_use(mo
     assert affected_dynamic_queries(historical_reader, historical_reader, {'AGENTS.md', 'reader.md'}, set())
     historical_reader['nodes']['reader.md'] = {'page_type': 'action', 'action_state': 'open'}
     assert affected_dynamic_queries(historical_reader, historical_reader, {'AGENTS.md'}, set())
+    active = deepcopy(original)
+    active['nodes']['consumer.md']['action_state'] = 'open'
+    assert affected_dynamic_queries(active, active, {'wiki.config.yaml'}, set())
     prior = deepcopy(original)
     prior['nodes']['other.md'] = {'page_type': 'claim'}
     prior['documents']['other.md'] = 'Historical source.'

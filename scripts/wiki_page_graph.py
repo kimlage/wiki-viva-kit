@@ -123,15 +123,14 @@ def collect_git_changes(base_sha: str, *, root: Path | None = None) -> GitChange
     deleted_commands = (
         [
             "diff",
-            "--no-renames",
             "--name-only",
             "--diff-filter=D",
             "-z",
             f"{base_sha}..HEAD",
             "--",
         ],
-        ["diff", "--no-renames", "--name-only", "--diff-filter=D", "-z", "--"],
-        ["diff", "--no-renames", "--cached", "--name-only", "--diff-filter=D", "-z", "--"],
+        ["diff", "--name-only", "--diff-filter=D", "-z", "--"],
+        ["diff", "--cached", "--name-only", "--diff-filter=D", "-z", "--"],
     )
     kwargs = {"root": root} if root else {}
     untracked = _git_paths(untracked_args, **kwargs)
