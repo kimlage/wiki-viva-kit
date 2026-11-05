@@ -332,7 +332,7 @@ def test_folder_authority_digest_cannot_be_relabelled_as_v1(query_repo, monkeypa
                         expected_authority=folder, authority_format='folder')
 
 
-def test_dynamic_audit_marks_legacy_receipt_unknown_without_read(repo, monkeypatch):
+def test_dynamic_audit_queues_legacy_receipt_without_read(repo, monkeypatch):
     from wiki_core.dynamic_query_audit import revalidate_affected
     from wiki_core.frontmatter import parse_frontmatter
     enable_alpha(repo)
@@ -348,6 +348,9 @@ def test_dynamic_audit_marks_legacy_receipt_unknown_without_read(repo, monkeypat
     affected = [{'path': name, 'requirement': {}, 'origin': 'current'} for name in documents]
     outcomes = revalidate_affected(repo, base=sha, head=sha, context_id='alpha', affected=affected,
                                    changed=set(), current=graph, policy=policy)
-    assert outcomes == [{'path': 'alpha/consumer.md', 'state': 'unknown',
-                         'reason': 'dynamic_query_requalification_required', 'seed': 'alpha/consumer.md'}]
+    assert len(outcomes) == 1
+    assert outcomes[0]['path'] == 'alpha/consumer.md'
+    assert outcomes[0]['state'] == 'review_pending'
+    assert outcomes[0]['priority'] == 'on_demand'
+    assert outcomes[0]['reason'] == 'dynamic_query_requalification_required'
     assert 'beta' not in json.dumps(outcomes)

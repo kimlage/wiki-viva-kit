@@ -1,4 +1,5 @@
 import yaml
+import pytest
 
 from tests.test_folder_query import query_repo, query
 from tests.test_folder_policy_core import repo, git, write, folder_policy
@@ -67,6 +68,29 @@ def test_unrelated_agents_change_does_not_requalify_folder_query(query_repo, mon
     assert not unwanted, (unwanted, calls)
 
 
+@pytest.mark.parametrize('relevant', [False, True])
+def test_config_change_requalifies_only_affected_folder_authority(query_repo, relevant):
+    root, _ = query_repo
+    base = prepare_consumer(root)
+    git(root, 'checkout', '-qb', 'wiki/config-change')
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    if relevant:
+        config['context_access']['alpha']['policy']['deny']['read'].append('self/items/a.md')
+    else:
+        config['presentation'] = {'theme': 'synthetic'}
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'change config')
+    head = git(root, 'rev-parse', 'HEAD')
+    output = repository_report(root, load_config(root), base, query_context='alpha',
+                               query_policy_revision=base, query_head=head)
+    rows = [row for row in output['pending_reviews'] + output['blockers']
+            if row.get('path') == 'alpha/consumer.md' and row['reason'].startswith('dynamic_query')]
+    if relevant:
+        assert any(row['reason'] == 'dynamic_query_requalification_required' for row in rows), rows
+    else:
+        assert not rows, rows
+
+
 def test_legacy_query_receipt_stays_unqualified_in_folder_audit(query_repo, monkeypatch):
     root, _ = query_repo
     prepare_consumer(root)
@@ -91,7 +115,8 @@ def test_legacy_query_receipt_stays_unqualified_in_folder_audit(query_repo, monk
                for row in output['blockers'] + output['pending_reviews'])
 
 
-def test_legacy_query_requalifies_when_unbound_rule_changes(query_repo, monkeypatch):
+@pytest.mark.parametrize('also_change_selected', [False, True])
+def test_legacy_query_requalifies_when_unbound_rule_changes(query_repo, monkeypatch, also_change_selected):
     root, _ = query_repo
     prepare_consumer(root)
     path = root / 'alpha/consumer.md'
@@ -100,15 +125,29 @@ def test_legacy_query_requalifies_when_unbound_rule_changes(query_repo, monkeypa
     folder_data = yaml.safe_load(raw[1])
     folder_data['page_id'] = 'folder-consumer'
     write(root, 'alpha/folder-consumer.md', '---\n' + yaml.safe_dump(folder_data) + '---\n' + raw[2])
+    for name, state in [('idle', None), ('active', 'open')]:
+        dependent = {'page_id': name, 'page_type': 'claim', 'information_requirements': [
+            {'target': 'alpha/consumer.md', 'fields': ['*'], 'temporal': 'current', 'max_age_days': 30}]}
+        if state: dependent['action_state'] = state
+        write(root, f'alpha/{name}.md', '---\n' + yaml.safe_dump(dependent) + '---\nDependent.\n')
+    write(root, 'alpha/other/AGENTS.md', '# Independent instructions\n')
+    write(root, 'alpha/other/index.md', '# Independent index\n')
+    other = {'page_id': 'other', 'page_type': 'claim', 'information_requirements': [
+        {'target': 'alpha/consumer.md', 'fields': ['*'], 'temporal': 'current', 'max_age_days': 30}]}
+    write(root, 'alpha/other/private-dependent.md', '---\n' + yaml.safe_dump(other) + '---\nDependent.\n')
     for key in ('authority_format', 'entry_folder', 'entry_index'):
         data['information_requirements'][0].pop(key)
     path.write_text('---\n' + yaml.safe_dump(data) + '---\n' + raw[2])
     write(root, 'rules.md', '# Historical rule\n')
-    git(root, 'add', 'alpha/consumer.md', 'alpha/folder-consumer.md', 'rules.md'); git(root, 'commit', '-qm', 'legacy receipt and rule')
+    git(root, 'add', 'alpha/consumer.md', 'alpha/folder-consumer.md', 'alpha/idle.md', 'alpha/active.md', 'alpha/other', 'rules.md'); git(root, 'commit', '-qm', 'legacy receipt and rule')
     git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     base = git(root, 'rev-parse', 'HEAD')
     git(root, 'checkout', '-qb', 'wiki/legacy-rule-review')
     write(root, 'rules.md', '# Changed historical rule\n')
+    if also_change_selected:
+        item = root / 'alpha/items/a.md'
+        item.write_text(item.read_text().replace('amount: 5', 'amount: 9'))
+        git(root, 'add', 'alpha/items/a.md')
     git(root, 'add', 'rules.md'); git(root, 'commit', '-qm', 'change legacy rule')
     head = git(root, 'rev-parse', 'HEAD')
     import wiki_core.freshness_impact as module
@@ -118,5 +157,36 @@ def test_legacy_query_requalifies_when_unbound_rule_changes(query_repo, monkeypa
     assert any(row.get('path') == 'alpha/consumer.md' and row['reason'] == 'dynamic_query_requalification_required'
                and row['priority'] == 'on_demand' for row in output['pending_reviews'])
     assert not any(row.get('path') == 'alpha/consumer.md' for row in output['blockers'])
-    assert not any(row.get('path') == 'alpha/folder-consumer.md' and row['reason'].startswith('dynamic_query')
+    folder_rows = [row for row in output['blockers'] + output['pending_reviews']
+                   if row.get('path') == 'alpha/folder-consumer.md' and row['reason'].startswith('dynamic_query')]
+    assert bool(folder_rows) == also_change_selected
+    priorities = {row['path']: row['priority'] for row in output['pending_reviews']
+                  if row['reason'] == 'upstream_interpretation_pending'}
+    assert priorities['alpha/idle.md'] == 'on_demand'
+    assert priorities['alpha/active.md'] == 'immediate'
+    assert output['query_revalidation']['coverage_limit'] == 'outside_selected_context_not_assessed'
+    assert not any(row['reason'] == 'dynamic_impact_authority_boundary' for row in output['blockers'])
+
+
+def test_query_outside_authorized_owner_has_generic_limited_coverage(query_repo):
+    root, _ = query_repo
+    prepare_consumer(root)
+    write(root, 'alpha/other/AGENTS.md', '# Independent instructions\n')
+    write(root, 'alpha/other/index.md', '# Independent index\n')
+    raw = (root / 'alpha/consumer.md').read_text().split('---\n', 2)
+    data = yaml.safe_load(raw[1]); data['page_id'] = 'other-consumer'
+    write(root, 'alpha/other/private-consumer.md', '---\n' + yaml.safe_dump(data) + '---\n' + raw[2])
+    git(root, 'add', 'alpha/other'); git(root, 'commit', '-qm', 'other owner query')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    base = git(root, 'rev-parse', 'HEAD')
+    git(root, 'checkout', '-qb', 'wiki/other-query')
+    item = root / 'alpha/items/a.md'
+    item.write_text(item.read_text().replace('amount: 5', 'amount: 9'))
+    git(root, 'add', 'alpha/items/a.md'); git(root, 'commit', '-qm', 'change selected value')
+    head = git(root, 'rev-parse', 'HEAD')
+    output = repository_report(root, load_config(root), base, query_context='alpha',
+                               query_policy_revision=base, query_head=head)
+    assert output['query_revalidation']['coverage_limit'] == 'outside_selected_context_not_assessed'
+    assert output['query_revalidation']['affected'] == 1
+    assert not any(row.get('path') == 'alpha/other/private-consumer.md' and row['reason'].startswith('dynamic_query')
                    for row in output['blockers'] + output['pending_reviews'])
