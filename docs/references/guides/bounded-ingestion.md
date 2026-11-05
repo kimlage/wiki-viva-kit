@@ -301,6 +301,8 @@ a mismatch. It does not check whether an event was written or a proposal was
 reviewed or incorporated. Results are limited to 2 MB combined; the serialized
 returned object is limited by `max_output_bytes` (default 1 MB, at most 2 MB).
 An unavailable, invalid or over-budget selection fails without partial output.
+These checks bind the result to the request but do not authenticate its author
+or protect its semantic contents against an actor able to edit protected files.
 
 For example, from the wiki root, enter the chosen context and prepare a source
 using paths anchored to that root (replace the example paths and context):
