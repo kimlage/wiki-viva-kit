@@ -39,15 +39,17 @@ in `wiki.config.yaml`. Shared code must not hardcode a consumer path or context.
 
 ### Ingest and read
 
-Use [wiki_ingest.py](../../scripts/wiki_ingest.py) with the route appropriate to
-the task. With `--source SOURCE --context SOURCE_CONTEXT`, the approved v1 route
-also uses `--approved-revision APPROVED_SHA --policy-context CONTEXT_ID` and the
-current trusted approval. Local folder
-preparation uses `--folder FOLDER` or a nested working directory; it is not an
-approved-policy packet and cannot be combined with those approval flags. A
-failure in the approved route never falls back to local preparation. See
+For approved folder-policy work, use the host-bound source stages or the
+trusted-local-operator `--source-stage` interface of
+[wiki_coordination.py](../../scripts/wiki_coordination.py); select the context,
+source, index, approval and any explicitly authorized integrator. Separately
+authorized working-tree preparation uses [wiki_ingest.py](../../scripts/wiki_ingest.py)
+with `--folder FOLDER` or a nested working directory; it is not an approved
+packet and cannot be combined with those approval flags. The older approved
+`wiki_ingest.py` flags remain an operational v1 `context.yaml` route: their
+retirement is not yet complete. Failures do not fall back between routes. See
 [bounded ingestion](../../docs/references/guides/bounded-ingestion.md) for the
-source, recording and consolidation selectors and coverage limits.
+recording, consolidation, format and coverage limits.
 Inspect the generated context request, perform the deep read, persist the
 cache result through the repo's LLM-context skill, then consolidate. Never
 invent provenance or store access credentials.

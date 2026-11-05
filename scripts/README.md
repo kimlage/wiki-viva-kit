@@ -72,9 +72,10 @@ wiki_ingest.py -> wiki_llm_context_pass.py -> wiki_consolidate.py
 
 [wiki_read.py](wiki_read.py) requires `--revision`, `--mode` and exact
 `--allow-path` values; reads require `--section`, `--field` or explicit
-`--whole-body`. [wiki_context.py](wiki_context.py) resolves the approved context
-or builds a bounded v1 packet with `--approved-revision` and a separate
-`--content-revision`. The caller supplies the trust boundary; selecting a
+`--whole-body`. [wiki_context.py](wiki_context.py) resolves a physical context
+or builds a bounded packet under the approved `wiki.config.yaml` access policy
+with `--approved-revision` and a separate `--content-revision`. A `resolve`
+result does not qualify the context. The caller supplies the trust boundary; selecting a
 revision does not grant access. [wiki_coordination.py](wiki_coordination.py)
 has separate approved packet flags (`--context-id`, `--approved-revision`,
 `--revision`, `--packet-request`) while profile reads return a migration response without content.
@@ -94,7 +95,12 @@ included once with every extracted chunk; the complete canonical UTF-8 request
 must fit before persistence, indexing, scoring or cursor advancement. Approved
 failures return structured blockers and never choose compatibility. Record or
 check through [wiki_llm_context_pass.py](wiki_llm_context_pass.py) using the same
-explicit source, approval, context and limits. See [bounded ingestion](../docs/references/guides/bounded-ingestion.md).
+explicit source, approval, context and limits. Those approval flags still use
+the `context.yaml` v1 authority for new operations; they are a migration gap,
+not the folder-policy path. For an approved folder-policy source use the
+existing [wiki_coordination.py](wiki_coordination.py) `--source-stage` interface
+or the in-process host-bound stages; see [bounded ingestion](../docs/references/guides/bounded-ingestion.md)
+for payloads, trusted caller boundary, formats and coverage.
 
 For a separately authorized local entry, `--folder` selects the physical
 instructions and index instead of an approved-policy packet. The guide documents

@@ -1,6 +1,6 @@
 # Protected coordination: local host binding
 
-The protected route prepares the existing `wiki.task-context/v1` packet using an explicitly selected context, approved policy revision, content revision and evidence. It does not dispatch an agent, write a result or merge. [Preflight](../../../wiki_core/context_integration.py) remains a read-only check that ends at independent review required. Profiles in the older coordination configuration do not grant access or select a protected context.
+The protected packet route prepares the existing `wiki.task-context/v1` packet using an explicitly selected context, approved policy revision, content revision and evidence. It does not dispatch an agent, write a result or merge. The separate in-process source stages can retain a request, result and event under the same host binding, with the limits in [bounded ingestion](bounded-ingestion.md). [Preflight](../../../wiki_core/context_integration.py) remains a read-only check that ends at independent review required. Profiles in the older coordination configuration do not grant access or select a protected context.
 
 ## Trusted local startup
 
@@ -12,7 +12,7 @@ WIKI_COORDINATION_TRUSTED_REF=refs/remotes/origin/main \
 python3 scripts/wiki_web_server.py
 ```
 
-The trusted ref defaults to `refs/remotes/origin/main` when the allowlist is supplied. The default v1 binding uses the approved repository-root `context.yaml`. The trusted host can instead set `WIKI_COORDINATION_CONTEXT_MODE=folder` at startup to bind to the approved `wiki.config.yaml` access configuration and exact physical context paths; `.` denotes the root. This selects the corresponding policy reader, not a grant. A payload cannot select or change the policy file, mode, allowlist or trusted ref. The values are validated and pinned on startup; changes require a controlled restart. The ref tip is resolved and the approved policy is revalidated on every request. The host must maintain that reference through an independent approval process; a Git ref alone does not attest review. Missing or invalid binding fails closed. Do not place this host binding in an untrusted proposed branch or expose the operator to untrusted clients.
+The trusted ref defaults to `refs/remotes/origin/main` when the allowlist is supplied. The default v1 binding uses the approved repository-root `context.yaml` and can still create new packets: migration of that host default is not complete. The trusted host can instead set `WIKI_COORDINATION_CONTEXT_MODE=folder` at startup to bind to the approved `wiki.config.yaml` access configuration and exact physical context paths; `.` denotes the root. This selects the corresponding policy reader, not a grant. A payload cannot select or change the policy file, mode, allowlist or trusted ref. The values are validated and pinned on startup; changes require a controlled restart. The ref tip is resolved and the approved policy is revalidated on every request. The host must maintain that reference through an independent approval process; a Git ref alone does not attest review. Missing or invalid binding fails closed. Do not place this host binding in an untrusted proposed branch or expose the operator to untrusted clients.
 
 Every valid local operator session on the same server receives the same configured allowlist. This is a host-level trust boundary, not a per-person or per-agent identity system. A local session authenticates the operator; it is not proof of external access, business permission or sandbox isolation. Strong confidentiality requires separately qualified host/filesystem/service boundaries. Browser-supplied adapter reports and external capabilities are not accepted as evidence by these routes.
 
@@ -29,11 +29,13 @@ The caller must select the task and evidence explicitly and must not insert prot
 With a folder-mode host binding, the packet body also requires `entry_folder`
 and may select `entry_index`. The host allowlist still matches the exact
 canonical context ID; the packet builder verifies the physical selection and
-its current policy before reading the context. Folder-mode query receipts are
-not yet supported; select evidence explicitly. A folder path does not grant
-access. These options do not make ingestion, result recording or consolidation
-protected operations: those stages need their own bound authorization and
-revalidation. Existing v1 receipts are not converted into folder authority.
+its current policy before reading the context. Owner-only folder queries use
+the [anchored query contract](context-dynamic-selection.md); queries with
+additional readers require requalification and are currently refused. A folder
+path does not grant access. The separate in-process `protected_source_stage`
+applies its own bound authorization and revalidation; it is not exposed by
+these HTTP packet/preflight endpoints. Existing v1 receipts are not converted
+into folder authority.
 
 When the complete packet exceeds `max_bytes`, API and CLI return `coordination_budget_exceeded`: reduce the authorized selection or revise the limit and retry. The packet is never truncated, and the blocker exposes no selected path or size. Other unavailable or unauthorized inputs remain opaque.
 
@@ -44,18 +46,26 @@ The operator index `/api/coordination` remains a broad caller-trust projection, 
 
 ## Trusted CLI
 
-The existing coordinator CLI also supports explicit approved v1 mode for a trusted local caller:
+The existing coordinator CLI selects folder authority for a trusted local caller:
 
 ```sh
-python3 scripts/wiki_coordination.py --root REPO --context-id CONTEXT \
-  --approved-revision APPROVED_SHA --revision CONTENT_SHA --packet-request REQUEST.json
+python3 scripts/wiki_coordination.py --root REPO --context-id CONTEXT_FOLDER \
+  --approved-revision APPROVED_SHA --revision CONTENT_SHA --packet-request REQUEST.json \
+  --folder ENTRY_FOLDER --index INDEX_PATH
 ```
 
-`REQUEST.json` is the same `task` object used by the API. The CLI uses the local trusted `refs/remotes/origin/main`, requires a full content SHA in approved history, and does not use profile routes or a global snapshot. This CLI does not select folder-mode binding. It does not provide an operating-system ACL; callers who can read the repository retain their host permissions. Reading with `--profile` now returns the same constant migration response; it no longer prepares task bodies. This is a breaking change for legacy packet consumers.
+`REQUEST.json` is the same `task` object used by the API. The CLI uses the local trusted `refs/remotes/origin/main`, requires a full content SHA in approved history, and does not use profile routes or a global snapshot. If omitted, the folder is the current nested directory when inside the selected repository, otherwise the selected context. The operator chooses the local CLI arguments, so they do not create a security boundary against that operator or an operating-system ACL. Reading with `--profile` returns the same constant migration response without task bodies. A separately configured host binding remains necessary for protected host calls.
+
+For source preparation, recording and consolidation by that trusted local
+operator, `--source-stage prepare|record|consolidate` reads stage JSON from
+stdin. It uses the same context and approval flags and can select an explicitly
+authorized ancestor with `--integrator-context`; the [source guide](bounded-ingestion.md)
+documents its scope and limitations. These operations do not dispatch a model,
+perform independent review or incorporate an event.
 
 ## Upgrading profile consumers
 
-Keep existing profile IDs, `action_ids`, `front_refs`, action page IDs and dialogue history. Do not infer a context or grant from a profile name, alias, account requirement or union of its actions. For each task, select the actual canonical context and an approved evidence selection, then use the CLI above or the protected POST. General mandatory rules belong in the appropriate context's `instructions`, `skills` or `templates`; contextual evidence uses explicit evidence/queries. Cross-context evidence requires matching current import/export rules, including purpose, classification, selector and expiry. Do not copy `common_context` or `context_pages` wholesale into mandatory rules; those legacy fields no longer supply task bodies. Consumer migration must resolve ambiguous ownership explicitly.
+Keep existing profile IDs, `action_ids`, `front_refs`, action page IDs and dialogue history. Do not infer a context or grant from a profile name, alias, account requirement or union of its actions. For each task, select the actual canonical context and an approved evidence selection, then use the CLI above or the protected POST. In folder mode, instructions and the context index follow the physical entry; contextual evidence uses explicit evidence/queries. Cross-context evidence requires matching current import/export rules, including purpose, classification, selector and expiry. Do not copy `common_context` or `context_pages` wholesale into mandatory rules; those legacy fields no longer supply task bodies. Consumer migration must resolve ambiguous ownership explicitly.
 
 The trusted local dialogue writer still uses profile attribution and the existing transition/CAS/idempotency boundary. It now requires the exact repository-relative action path inside the configured actions directory, in addition to the canonical action ID and expected document SHA:
 
