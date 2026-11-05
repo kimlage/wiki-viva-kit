@@ -25,7 +25,7 @@ def changed_fields(previous: str | None, current: str | None) -> set[str]:
     return fields
 
 
-def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str]) -> list[dict]:
+def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reached: set[str], *, legacy_authority_unavailable: bool = False) -> list[dict]:
     """Select query declarations touched by paths or dependency closure, without reading members."""
     from wiki_core.context_policy import within, is_context_instruction
     found = {}
@@ -46,7 +46,9 @@ def affected_dynamic_queries(current: dict, base: dict, changed: set[str], reach
                             and within(entry_folder, directory))
                 policy_changed = any(affects_folder_policy(path) for path in changed)
             else:
-                policy_changed = legacy_policy_changed
+                # A folder audit cannot inspect an unbound legacy manifest to
+                # exclude a changed path from its old normative inputs.
+                policy_changed = legacy_policy_changed or (legacy_authority_unavailable and bool(changed))
             if not (policy_changed or consumer in reached or consumer in changed or anchor in changed or anchor in reached
                     or any(within(p, scope) for p in changed | reached)):
                 continue

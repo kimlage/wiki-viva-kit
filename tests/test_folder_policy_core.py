@@ -205,7 +205,7 @@ def test_additional_reader_only_needs_grants_for_selected_chain(repo):
                   packet=selected, result={})
 
 
-def test_additional_reader_needs_exact_grants_before_context_body(repo, monkeypatch):
+def test_additional_reader_needs_exact_grants_before_context_body_qualification(repo, monkeypatch):
     from wiki_core.context_packet import qualify_folder_context
     from wiki_core.repository_reader import RepositoryReader
     enable_alpha(repo)
@@ -221,7 +221,7 @@ def test_additional_reader_needs_exact_grants_before_context_body(repo, monkeypa
     assert opened == []
 
 
-def test_additional_reader_only_needs_grants_for_selected_chain(repo):
+def test_additional_reader_only_needs_grants_for_selected_chain_qualification(repo):
     from wiki_core.context_packet import qualify_folder_context
     enable_alpha(repo)
     config = yaml.safe_load((repo / 'wiki.config.yaml').read_text())
