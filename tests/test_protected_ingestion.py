@@ -406,7 +406,7 @@ def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
     assert inspected['packet']['source_id'] == prepared['source_id']
     assert inspected['packet']['source_hash_sha256'] == request['source_hash_sha256']
     assert inspected['event_status'] == 'not checked'
-    assert inspected['integration'] == 'pending review and incorporation'
+    assert inspected['integration'] == 'not assessed'
 
 
 def test_cli_packet_uses_folder_authority(prepared_repo, tmp_path):
@@ -720,6 +720,13 @@ def test_inspection_requires_host_and_exact_selected_result(prepared_repo, monke
     ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
     record(root, binding, **args, **ids, results=[result])
     payload = {**args, **ids, 'view': 'results', 'chunk_ids': [result['chunk_id']]}
+    from wiki_core.llm.context_pass import canonical_request_text
+    envelope = protected_source_stage(root, binding, 'inspect', payload)
+    size = len(canonical_request_text(envelope['result']).encode('utf-8'))
+    assert len(canonical_request_text(envelope).encode('utf-8')) > size
+    assert protected_source_stage(root, binding, 'inspect', {**payload, 'max_output_bytes': size})['result'] == envelope['result']
+    with pytest.raises(ProtectedCoordinationError):
+        protected_source_stage(root, binding, 'inspect', {**payload, 'max_output_bytes': size - 1})
     with pytest.raises(ProtectedCoordinationError):
         protected_source_stage(root, binding, 'inspect', {**payload, 'max_output_bytes': 1})
     result_file = next((root / 'data/derived/wiki/.wiki-viva-protected').rglob(result['cache_key'] + '.json'))
@@ -1032,6 +1039,142 @@ def test_prepare_rechecks_cache_boundary_after_read(prepared_repo, monkeypatch):
     with pytest.raises(protected.ProtectedPartialError, match='cache readback unavailable'):
         prepare(root, binding, **args, source_context='system')
     assert cache.is_symlink()
+
+
+def test_prepare_revalidates_once_per_batch(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(1200)))
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    calls = []
+    original = protected._open_bound
+    def count(*a, **kw):
+        calls.append(1)
+        return original(*a, **kw)
+    monkeypatch.setattr(protected, '_open_bound', count)
+    result = prepare(root, binding, **args, source_context='system')
+    assert len(result['request']['chunks']) >= 3
+    assert len(calls) == 2
+
+
+def test_consolidation_rejects_combined_result_budget_before_effects(prepared_repo, monkeypatch):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(1200)))
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    request = prepared['request']
+    assert len(request['chunks']) >= 3
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    sample = _result_for(request)
+    # This fixture exercises byte accounting, not the separate secret detector.
+    detect = protected.contains_access_secrets
+    def synthetic_detection(value):
+        if isinstance(value, dict) and 'synthetic_padding' in value:
+            return False
+        if isinstance(value, list) and value and all(isinstance(x, dict) and 'synthetic_padding' in x for x in value):
+            return False
+        return detect(value)
+    monkeypatch.setattr(protected, 'contains_access_secrets', synthetic_detection)
+    for row in request['chunks'][:2]:
+        result = {**sample, **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
+                  'synthetic_padding': ['.'] * 130_000}
+        record(root, binding, **args, **ids, results=[result])
+    target = ('memories/system/ingestion/events/2026-11-04-' +
+              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    with pytest.raises(ProtectedCoordinationError) as error:
+        protected_source_stage(root, binding, 'consolidate', {**args, **ids,
+            'source_page': 'memories/sources/synthetic.md', 'event_target': target, 'date': '2026-11-04'})
+    assert error.value.code == 'coordination_result_budget_exceeded'
+    assert not (root / target).exists()
+    assert not list((root / 'data/derived/wiki/.wiki-viva-protected').rglob('*integration-packet.json'))
+
+
+def test_consolidation_counts_inspection_envelope_before_effects(prepared_repo, monkeypatch):
+    import wiki_core.consolidate as consolidation
+    from wiki_core.llm.context_pass import canonical_request_text
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
+    record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
+    wrapper = {'view': 'integration', **ids, 'packet': {'padding': ''},
+               'event_status': 'not checked', 'integration': 'not assessed'}
+    padding_size = 2_000_001 - len(canonical_request_text(wrapper).encode('utf-8'))
+    packet = {'padding': '.' * padding_size}
+    assert len(canonical_request_text(packet).encode('utf-8')) < 2_000_000
+    monkeypatch.setattr(consolidation, 'build_packet', lambda *a, **kw: packet)
+    target = ('memories/system/ingestion/events/2026-11-04-' +
+              hashlib.sha256(prepared['source_id'].encode()).hexdigest() + '-' + prepared['request_id'] + '.md')
+    with pytest.raises(ProtectedCoordinationError) as error:
+        protected_source_stage(root, binding, 'consolidate', {**args, **ids,
+            'source_page': 'memories/sources/synthetic.md', 'event_target': target, 'date': '2026-11-04'})
+    assert error.value.code == 'coordination_result_budget_exceeded'
+    assert not (root / target).exists()
+    assert not list((root / 'data/derived/wiki/.wiki-viva-protected').rglob('*integration-packet.json'))
+
+
+@pytest.mark.parametrize('changed', ['source', 'request'])
+def test_prepare_stops_batch_when_source_or_request_changes(prepared_repo, monkeypatch, changed):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(1200)))
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    assert len(first['request']['chunks']) >= 3
+    record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'],
+           results=[_result_for(first['request'])])
+    request_path = next((root / 'data/derived/wiki/.wiki-viva-protected').rglob('*' + first['request_id'] + '-llm-context-request.json'))
+    read = protected._read_json
+    cache_reads = []
+    def mutate(*a, **kw):
+        value = read(*a, **kw)
+        if a[3].parent.name == 'llm-cache':
+            cache_reads.append(a[3])
+            target = root / 'source.txt' if changed == 'source' else request_path
+            with target.open('a') as stream:
+                stream.write(' ')
+        return value
+    monkeypatch.setattr(protected, '_read_json', mutate)
+    with pytest.raises(protected.ProtectedPartialError):
+        prepare(root, binding, **args, source_context='system')
+    assert len(cache_reads) == 1
+
+
+@pytest.mark.parametrize('changed', ['source', 'request'])
+def test_prepare_checks_stamps_after_initial_bound_before_cache(prepared_repo, monkeypatch, changed):
+    from wiki_core.ingest import protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    first = prepare(root, binding, **args, source_context='system')
+    result = _result_for(first['request'])
+    record(root, binding, **args, source_id=first['source_id'], request_id=first['request_id'], results=[result])
+    original_bound = protected._open_bound
+    mutated = []
+    def change(*a, **kw):
+        value = original_bound(*a, **kw)
+        if not mutated:
+            target = (root / 'source.txt' if changed == 'source' else
+                next((root / 'data/derived/wiki/.wiki-viva-protected').rglob('*' + first['request_id'] + '-llm-context-request.json')))
+            target.write_text('Synthetic changed content\n')
+            mutated.append(True)
+        return value
+    original_open = Path.open
+    opened = []
+    def spy(path, *a, **kw):
+        if path.name == result['cache_key'] + '.json':
+            opened.append(path)
+        return original_open(path, *a, **kw)
+    monkeypatch.setattr(protected, '_open_bound', change)
+    monkeypatch.setattr(Path, 'open', spy)
+    with pytest.raises(protected.ProtectedPartialError):
+        prepare(root, binding, **args, source_context='system')
+    assert mutated == [True] and opened == []
 
 
 def test_revocation_after_last_result_write_reports_partial(prepared_repo, monkeypatch):
