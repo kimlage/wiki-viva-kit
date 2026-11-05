@@ -316,15 +316,16 @@ def test_event_cannot_be_instruction_file(prepared_repo):
 
 def test_cli_local_operator_prepare_record_consolidate(prepared_repo):
     from pathlib import Path
-    root, sha = prepared_repo
+    root, _ = prepared_repo
+    sha = _nested_integrator_repo(root)
     script = Path(__file__).resolve().parents[1] / 'scripts/wiki_coordination.py'
     def call(stage, payload):
         completed = subprocess.run([sys.executable, str(script), '--root', str(root),
-            '--context-id', '.', '--approved-revision', sha, '--source-stage', stage],
+            '--context-id', 'alpha', '--integrator-context', '.', '--approved-revision', sha, '--source-stage', stage],
             input=json.dumps(payload), text=True, capture_output=True, check=True)
         return json.loads(completed.stdout)['result']
-    base = {'entry_folder': '.', 'entry_index': 'index.md', 'source_ref': 'source.txt'}
-    prepared = call('prepare', {**base, 'source_context': 'system'})
+    base = {'entry_folder': 'alpha', 'entry_index': 'alpha/index.md', 'source_ref': 'alpha/source.txt'}
+    prepared = call('prepare', {**base, 'source_context': 'alpha'})
     request = prepared['request']; row = request['chunks'][0]
     sample = json.loads((Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
     result = {**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
@@ -448,6 +449,7 @@ def test_nested_context_with_explicit_authorized_integrator(prepared_repo):
     prepared = prepare(root, binding, **args, source_context='alpha')
     assert prepared['request']['block_context_package']['context_id'] == 'alpha'
     assert prepared['request']['block_context_package']['integrator'] == '.'
+    assert prepared['request']['block_context_package']['additional_readers'] == ['.']
     ids = dict(source_id=prepared['source_id'], request_id=prepared['request_id'])
     record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])
     event = ('memories/system/ingestion/events/2026-11-04-' +
@@ -456,6 +458,25 @@ def test_nested_context_with_explicit_authorized_integrator(prepared_repo):
                          event_target=event, date=dt.date(2026, 11, 4))
     assert output['integration'] == 'pending review and incorporation'
     assert (root / event).is_file()
+
+
+def test_nested_result_cannot_drop_integrator_before_read(prepared_repo, monkeypatch):
+    from pathlib import Path
+    from wiki_core.traversal import is_protected_artifact
+    root, _ = prepared_repo
+    sha = _nested_integrator_repo(root)
+    binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='alpha', approved_revision=sha, entry_folder='alpha',
+                entry_index='alpha/index.md', source_ref='alpha/source.txt')
+    prepared = prepare(root, binding, **args, source_context='alpha', artifact_context='.')
+    original = Path.open
+    def sentinel(path, *values, **kwargs):
+        if is_protected_artifact(path):
+            pytest.fail('protected artifact opened after dropping integrator')
+        return original(path, *values, **kwargs)
+    monkeypatch.setattr(Path, 'open', sentinel)
+    with pytest.raises(ValueError):
+        record(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'], results=[])
 
 
 def test_integrator_without_source_connection_is_denied_before_open(prepared_repo, monkeypatch):
