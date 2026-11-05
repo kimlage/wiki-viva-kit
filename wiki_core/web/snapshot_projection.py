@@ -347,8 +347,13 @@ def _source_identity(root: Path, fallback_hash: str) -> tuple[str, str | None]:
     git_scope = _git_source_scope(root)
     if git_scope is not None:
         repo_root, scope = git_scope
-        head_raw = _git_bytes(
-            repo_root, "log", "-1", "--format=%H", "--", scope
+        # Path-limited log simplifies away merge commits. At the repository
+        # root the snapshot represents the whole checkout, so bind it to the
+        # actual HEAD; nested sources retain their path-scoped identity.
+        head_raw = (
+            _git_bytes(repo_root, "rev-parse", "--verify", "HEAD")
+            if scope == "."
+            else _git_bytes(repo_root, "log", "-1", "--format=%H", "--", scope)
         )
         head = (
             head_raw.decode("ascii", errors="replace").strip()

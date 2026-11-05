@@ -579,19 +579,23 @@ class JobRunner:
 
     # -- codex subprocess --------------------------------------------------- #
     def _run_codex(self, job_id: str, argv: list[str], brief_text: str, log_path: Path) -> tuple[int, bool]:
-        try:
-            proc = subprocess.Popen(  # noqa: S603 - fixed argv, no shell
-                argv,
-                cwd=self.root,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-        except (OSError, ValueError) as exc:
-            log_path.write_text(json.dumps({"type": "error", "message": _redact(str(exc))}) + "\n", encoding="utf-8")
-            return 127, False
+        # Cancellation and process registration must be atomic: a claimed job
+        # can be cancelled while its proposal branch is being prepared.
         with self._lock:
+            if job_id in self._cancelled:
+                return 0, True
+            try:
+                proc = subprocess.Popen(  # noqa: S603 - fixed argv, no shell
+                    argv,
+                    cwd=self.root,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+            except (OSError, ValueError) as exc:
+                log_path.write_text(json.dumps({"type": "error", "message": _redact(str(exc))}) + "\n", encoding="utf-8")
+                return 127, False
             self._procs[job_id] = proc
 
         # Feed the whole brief on a SEPARATE thread: a large brief can exceed the
