@@ -163,9 +163,12 @@ OCR. DOCX extraction includes body paragraphs and simple table rows in their
 document order; merged or nested tables and unsupported body elements require
 separate review. Inline revisions and wrappers that the reader cannot preserve
 also require review. Headers, footers, images and embedded objects are not
-interpreted. CSV, TSV and XLSX are represented as JSON lines with row numbers,
-cell boundaries, and sheet names for XLSX; line breaks and separators inside a
-cell stay escaped. Each tabular row remains whole in its chunk: a row exceeding
+interpreted. CSV and TSV are represented as JSON lines with logical record
+ordinals, not physical line numbers; a record can span multiple physical lines.
+XLSX rows are JSON lines with sheet names and row numbers. Cell boundaries, line
+breaks and separators are preserved; XLSX numbers, booleans and strings retain
+their types, while dates, times, durations, decimals and errors are tagged.
+Each tabular row remains whole in its chunk: a row exceeding
 the configured chunk budget or 32,000 UTF-8 bytes is blocked and needs a smaller
 source scope. XLSX formulas are retained with their cached values where present;
 the extractor does not recalculate them and explicitly marks missing caches.

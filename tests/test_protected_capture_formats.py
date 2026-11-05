@@ -68,7 +68,7 @@ def test_captured_reader_matches_existing_reader(tmp_path, suffix, kind, monkeyp
     path.unlink()
     actual = extract_captured(str(path), kind, data)
     if kind == 'table':
-        assert json.loads(actual.text.splitlines()[0]) == {'row': 1, 'cells': ['name', 'value']}
+        assert json.loads(actual.text.splitlines()[0]) == {'record': 1, 'cells': ['name', 'value']}
         assert actual.warnings == expected.warnings == []
     elif kind == 'spreadsheet':
         assert json.loads(actual.text) == {'sheet': 'Sheet', 'row': 1, 'cells': ['Synthetic', '漢字']}
@@ -94,7 +94,8 @@ def test_protected_stage_with_captured_formats(prepared_repo, suffix, kind):
     assert request['chunks']
     if kind in {'table', 'spreadsheet'}:
         captured_rows = [json.loads(line) for chunk in request['chunks'] for line in chunk['text'].split('\n')]
-        assert all(row.get('row') and isinstance(row.get('cells'), list) for row in captured_rows)
+        locator = 'record' if kind == 'table' else 'row'
+        assert all(row.get(locator) and isinstance(row.get('cells'), list) for row in captured_rows)
         if kind == 'spreadsheet':
             assert all(row.get('sheet') for row in captured_rows)
     sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
@@ -186,6 +187,56 @@ def test_captured_docx_rejects_unreadable_inline_wrappers(wrapper, inside_table)
         extract_captured('source.docx', 'document', output.getvalue())
 
 
+@pytest.mark.parametrize('wrapper', ['oMath', 'oMathPara'])
+def test_captured_docx_rejects_equations_missing_from_paragraph_text(wrapper):
+    from docx import Document
+    from docx.oxml import OxmlElement
+
+    document = Document()
+    paragraph = document.add_paragraph('Before equation ')
+    equation = OxmlElement('m:' + wrapper)
+    run = OxmlElement('m:r')
+    text = OxmlElement('m:t')
+    text.text = 'x+y'
+    run.append(text)
+    equation.append(run)
+    paragraph._p.append(equation)
+    output = io.BytesIO()
+    document.save(output)
+    with pytest.raises(ValueError, match='revision or unsupported inline'):
+        extract_captured('source.docx', 'document', output.getvalue())
+
+
+def test_captured_docx_preserves_hyperlink_runs_and_rejects_unknown_text_wrappers():
+    from docx import Document
+    from docx.oxml import OxmlElement
+
+    document = Document()
+    paragraph = document.add_paragraph('Before ')
+    hyperlink = OxmlElement('w:hyperlink')
+    run = OxmlElement('w:r')
+    text = OxmlElement('w:t')
+    text.text = 'linked text'
+    run.append(text)
+    hyperlink.append(run)
+    paragraph._p.append(hyperlink)
+    output = io.BytesIO()
+    document.save(output)
+    assert extract_captured('source.docx', 'document', output.getvalue()).text == 'Before linked text'
+
+    wrapper = OxmlElement('w:unknownTextContainer')
+    run = OxmlElement('w:r')
+    text = OxmlElement('w:t')
+    text.text = 'Hidden by reader'
+    run.append(text)
+    wrapper.append(run)
+    paragraph._p.append(wrapper)
+    output = io.BytesIO()
+    document.save(output)
+    with pytest.raises(ValueError, match='revision or unsupported inline'):
+        extract_captured('source.docx', 'document', output.getvalue())
+
+
 @pytest.mark.parametrize('cached_value', [None, '6'])
 def test_captured_xlsx_keeps_formula_and_cached_value_state(cached_value):
     from openpyxl import Workbook
@@ -210,7 +261,7 @@ def test_captured_xlsx_keeps_formula_and_cached_value_state(cached_value):
 
     extracted = extract_captured('source.xlsx', 'spreadsheet', data)
     assert json.loads(extracted.text) == {'sheet': 'Sheet', 'row': 1, 'cells': [
-        '3', {'formula': '=A1*2', 'cached_value': cached_value}]}
+        3, {'formula': '=A1*2', 'cached_value': None if cached_value is None else 6}]}
     assert extracted.units[0]['text'] == extracted.text
 
 
@@ -226,6 +277,23 @@ def test_captured_xlsx_limits_total_sheet_cells():
         extract_captured('source.xlsx', 'spreadsheet', output.getvalue())
 
 
+def test_captured_xlsx_preserves_scalar_types_and_tags_dates():
+    import datetime
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    workbook.active.append([1, '1', True, 'True', datetime.datetime(2026, 11, 5, 8, 30),
+                            '#DIV/0!', '#DIV/0!'])
+    workbook.active.cell(row=1, column=7).data_type = 's'
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    extracted = extract_captured('source.xlsx', 'spreadsheet', output.getvalue())
+    assert json.loads(extracted.text)['cells'] == [1, '1', True, 'True',
+        {'type': 'datetime', 'value': '2026-11-05T08:30:00'},
+        {'type': 'error', 'value': '#DIV/0!'}, '#DIV/0!']
+
+
 @pytest.mark.parametrize('suffix,delimiter', [('.csv', ','), ('.tsv', '\t')])
 def test_captured_table_rows_keep_cell_boundaries_and_locator_in_chunks(suffix, delimiter):
     import csv
@@ -238,8 +306,8 @@ def test_captured_table_rows_keep_cell_boundaries_and_locator_in_chunks(suffix, 
     extracted = extract_captured('source' + suffix, 'table', target.getvalue().encode())
     chunks = chunk_text('source', extracted.text, target_tokens=100, preserve_lines=True)
     rows = [json.loads(line) for chunk in chunks for line in chunk.text.split('\n')]
-    assert rows == [{'row': 1, 'cells': ['pipe | text', 'line 1\nline 2', 'unicode\u2028separator']},
-                    {'row': 2, 'cells': ['next', 'row']}]
+    assert rows == [{'record': 1, 'cells': ['pipe | text', 'line 1\nline 2', 'unicode\u2028separator']},
+                    {'record': 2, 'cells': ['next', 'row']}]
     assert all(chunk.token_estimate >= (len(chunk.text.encode('utf-8')) + 3) // 4 for chunk in chunks)
 
 
