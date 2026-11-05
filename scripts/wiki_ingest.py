@@ -7,15 +7,17 @@ informative, welcome on a private page) -> input-stage-aware LLM context package
 the manual step-by-step run (each module had its own CLI). The LLM pass stays
 delegated to the agent running the repo.
 
-Approved-context example (replace placeholders with authorized values):
-  python3 scripts/wiki_ingest.py --source SOURCE --context SOURCE_CONTEXT \\
-    --approved-revision APPROVED_SHA --policy-context CONTEXT_ID
+Approved folder-policy preparation (stage JSON is supplied on stdin):
+  python3 scripts/wiki_coordination.py --context-id CONTEXT_FOLDER \\
+    --approved-revision APPROVED_SHA --source-stage prepare < STAGE.json
 
 Working-tree compatibility example (does not establish approved policy or source freshness):
   python3 scripts/wiki_ingest.py --source X.md --context system --dry-run
 
-Approved mode requires both flags and refuses invalid or missing authority without
-falling back to compatibility. See docs/references/guides/bounded-ingestion.md.
+This script's former approved-v1 flags are retired and are refused without
+falling back to compatibility. The source-stage command is for a trusted local
+operator and checks the current folder policy. See
+docs/references/guides/bounded-ingestion.md for stage JSON and limits.
 
 Returns exit 2 for secrets, context or budget blockers, or an incomplete retry
 that would replace a complete capture. A rejected attempt writes no artifacts.

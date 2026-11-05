@@ -8,20 +8,21 @@ This script does NOT call any model. It:
   - acts as a gate (`--check`): fails while there is a pending chunk and
     `required_context_pass` is enabled.
 
-Approved-context examples (use the same authorized source, approval, context and limits):
-  python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \\
-    --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --emit-request
-  python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \\
-    --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --record-result result.json
-  python3 scripts/wiki_llm_context_pass.py --source SOURCE --context SOURCE_CONTEXT \\
-    --approved-revision APPROVED_SHA --policy-context CONTEXT_ID --check
+Approved folder-policy stages (stage JSON is supplied on stdin):
+  python3 scripts/wiki_coordination.py --context-id CONTEXT_FOLDER \\
+    --approved-revision APPROVED_SHA --source-stage prepare < STAGE.json
+  python3 scripts/wiki_coordination.py --context-id CONTEXT_FOLDER \\
+    --approved-revision APPROVED_SHA --source-stage record < STAGE.json
+  python3 scripts/wiki_coordination.py --context-id CONTEXT_FOLDER \\
+    --approved-revision APPROVED_SHA --source-stage inspect < STAGE.json
 
 Working-tree compatibility example (not evidence of approved policy or freshness):
   python3 scripts/wiki_llm_context_pass.py --query "pending decisions" --context system
 
-Approved mode requires an explicit source and refuses query mode, unrequested-result
-bypass and invalid or missing authority; it never falls back to compatibility.
-See docs/references/guides/bounded-ingestion.md.
+This script's former approved-v1 flags are retired and are refused without
+falling back to compatibility. The source-stage commands are for a trusted local
+operator and check the current folder policy. See
+docs/references/guides/bounded-ingestion.md for selectors, stage JSON and limits.
 """
 
 from __future__ import annotations
