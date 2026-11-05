@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import copy
+import datetime as dt
 import hashlib
 import json
-
-from wiki_core.context_policy import within
 
 
 def _packet_digest(packet):
@@ -22,7 +21,11 @@ def _packet_digest(packet):
 
 
 def comparable_request(request):
-    """Remove only revision bookkeeping; retain all selected content and roles."""
+    """Select candidates, while retaining all non-authority content and roles.
+
+    The omitted policy view is compared separately as effective authorization;
+    its textual change is reported to the reviewer, not treated as equivalence.
+    """
     if not isinstance(request, dict) or request.get('context_binding_version') != 1:
         raise ValueError('historical request unavailable')
     out = copy.deepcopy(request)
@@ -33,6 +36,12 @@ def comparable_request(request):
             or packet.get('policy_revision') != packet.get('content_revision')):
         raise ValueError('historical request unavailable')
     revision = packet['policy_revision']
+    context = packet.get('context')
+    if (not isinstance(context, dict) or not isinstance(context.get('owned_scopes'), dict)
+            or not isinstance(context.get('approved_imports'), list)):
+        raise ValueError('historical authority view unavailable')
+    context.pop('owned_scopes')
+    context.pop('approved_imports')
     auth.pop('policy_revision')
     for key in ('policy_revision', 'content_revision', 'packet_digest', 'bytes_used'):
         packet.pop(key, None)
@@ -67,8 +76,21 @@ def comparable_request(request):
     return out
 
 
-def selected_grants(policy, request):
-    """Describe matching read scopes and bilateral grants for selected bodies."""
+def policy_view_changed(previous, current):
+    """Tell a reviewer when authorization metadata shown to the reader changed."""
+    try:
+        old = previous['block_context_package']['context']
+        new = current['block_context_package']['context']
+        return any(old[key] != new[key] for key in ('owned_scopes', 'approved_imports'))
+    except (KeyError, TypeError):
+        raise ValueError('historical authority view unavailable') from None
+
+
+def selected_grants(policy, request, *, today=None):
+    """Describe selected read decisions and current exact-connection validity."""
+    today = dt.date.today() if today is None else today
+    if not isinstance(today, dt.date) or isinstance(today, dt.datetime):
+        raise ValueError('invalid authorization date')
     packet, auth = request['block_context_package'], request['source_authorization']
     context, actor = auth['context_id'], auth['artifact_context']
     readers = {context, actor}
@@ -80,21 +102,22 @@ def selected_grants(policy, request):
     for producer, ref, use, classification, section, field in selections:
         for reader in sorted(readers):
             if (policy.owner_of(ref) != producer or policy._connection(producer, reader, ref, use,
-                    classification, section=section, field=field, qualified=False) != 'approved'):
+                    classification, today=today, section=section, field=field, qualified=False) != 'approved'):
                 raise ValueError('selected grant unavailable')
-            scopes = {}
-            for party in {producer, reader}:
-                scopes[party] = sorted(scope for scope in policy.effective[party]['read'] if within(ref, scope))
-            shared = []
+            valid_through = None
             if producer != reader:
+                shared = []
                 for grant in policy.contexts[producer]['exports']:
                     if (grant in policy.contexts[reader]['imports'] and grant['from_context'] == producer
                             and grant['to_context'] == reader and grant['selector'] == ref
                             and grant['use'] == use and grant['classification'] == classification
-                            and grant.get('section') == section and grant.get('field') == field):
+                            and grant.get('section') == section and grant.get('field') == field
+                            and dt.date.fromisoformat(grant['expires']) >= today):
                         shared.append(grant)
-                shared.sort(key=lambda value: json.dumps(value, sort_keys=True))
+                if not shared:
+                    raise ValueError('selected grant unavailable')
+                valid_through = max(item['expires'] for item in shared)
             evidence.append({'producer': producer, 'reader': reader, 'ref': ref, 'use': use,
                              'classification': classification, 'section': section, 'field': field,
-                             'read_scopes': scopes, 'bilateral': shared})
+                             'decision': 'approved', 'bilateral_valid_through': valid_through})
     return evidence
