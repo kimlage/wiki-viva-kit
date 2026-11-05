@@ -81,11 +81,23 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     try: validate_result(result,packet)
     except (PolicyError,KeyError,TypeError) as exc: raise IntegrationError('invalid task result or packet') from exc
     if packet.get('context_id')!=context_id or packet.get('policy_revision')!=policy.policy_revision or result['status']!='completed': raise IntegrationError('task or policy not current')
+    evidence_inputs = [item for item in packet['inputs'] if item['kind']=='evidence' and 'query_id' not in item]
+    if folder_mode:
+        from wiki_core.context_packet import qualify_folder_context
+        try:
+            _, qualified_refs = qualify_folder_context(root, policy, context_id, packet['entry_folder'], packet['entry_index'], packet['max_bytes'])
+            mandatory_refs = {item['ref'] for item in packet['inputs'] if item['kind'] == 'mandatory'}
+            automatic = [(packet['entry_index'], 'selected context index')]
+            automatic.extend((ref, 'qualified context boundary') for ref in qualified_refs
+                             if ref not in mandatory_refs and ref != packet['entry_index'])
+            actual_automatic = [(item['ref'], item['reason']) for item in evidence_inputs[:len(automatic)]]
+            if actual_automatic != automatic: raise ValueError('automatic context evidence differs')
+            evidence_inputs = evidence_inputs[len(automatic):]
+        except (PolicyError, ValueError, KeyError, TypeError, OSError) as exc:
+            raise IntegrationError('folder authority cannot be requalified') from exc
     evidence=[]
-    for item in packet['inputs']:
+    for item in evidence_inputs:
         if item['kind']!='evidence' or 'query_id' in item: continue
-        if folder_mode and item['reason'] in ('selected context index', 'qualified context boundary'):
-            continue
         entry={k:item[k] for k in ('ref','producer','reason','use','classification')}
         for k in ('section','field'):
             if item[k] is not None: entry[k]=item[k]
@@ -94,11 +106,6 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
         rebuilt=build_packet(root,policy,context_id,packet['content_revision'],evidence,packet['max_bytes'],adapter_report=packet['capability_evidence'],required_capabilities=packet['required_capabilities'],omissions=packet['coverage']['missing'],task_id=packet['task_id'],goal=packet['goal'],output=packet['output'],integrator=packet['integrator'],queries=packet_queries(packet),entry_folder=packet.get('entry_folder'),entry_index=packet.get('entry_index'))
     except (PolicyError, ValueError, KeyError, TypeError) as exc: raise IntegrationError('packet authorization cannot be reproduced') from exc
     if rebuilt!=packet: raise IntegrationError('packet contents cannot be reproduced')
-    if folder_mode:
-        from wiki_core.context_packet import qualify_folder_context
-        try: qualify_folder_context(root, policy, context_id, packet['entry_folder'], packet['entry_index'], packet['max_bytes'])
-        except (PolicyError, ValueError, KeyError, TypeError, OSError) as exc:
-            raise IntegrationError('folder authority cannot be requalified') from exc
     canonical_query_budget=[32_000_000]
     query_reuse = _QueryReuse(root, policy, context_id, canonical_query_budget, base_reader, proposal)
     try: revalidate_packet_queries(policy,packet,RepositoryReader(root,packet['content_revision']),base_reader,read_budget=canonical_query_budget)
@@ -118,18 +125,39 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     # Active normative inputs require the separate policy-review path even if
     # the acting context would otherwise have read/write access to the file.
     normative={ref for c in policy.contexts.values() for k in ('instructions','skills','templates') for ref in c[k]}
+    changes=[]
     for i in range(0,len(raw),2):
         try: status=raw[i].decode(); path=safe_path(raw[i+1].decode())
         except (UnicodeError,PolicyError) as exc: raise IntegrationError('invalid diff path') from exc
         if status not in ('A','M','D') or path.endswith('/context.yaml') or path=='context.yaml' or (folder_mode and path == 'wiki.config.yaml'): raise IntegrationError('unsupported or policy change')
         if is_context_instruction(path): raise IntegrationError('folder instruction change requires separate policy review')
+        folder = str(Path(path).parent).replace('\\', '/')
+        prefix = '' if folder == '.' else folder + '/'
+        context_index = (folder_mode and Path(path).name == 'index.md' and
+                         any(prefix + name in base_reader.paths or prefix + name in proposal.paths
+                             for name in ('AGENTS.override.md', 'AGENTS.md')))
+        if context_index and status in ('A', 'D'):
+            raise IntegrationError('context boundary change requires separate policy review')
         if path in normative: raise IntegrationError('normative input requires separate policy review')
         if policy.owner_of(path)!=context_id or not policy.permits(context_id,'write',path): raise IntegrationError('write outside context')
         if not policy.permits(context_id,'read',path): raise IntegrationError('proposal read denied')
+        changes.append((status, path))
+    if folder_mode:
+        from wiki_core.traversal import require_wiki_boundaries
+        try: require_wiki_boundaries(root, files=tuple(Path(root) / path for _, path in changes))
+        except (ValueError, OSError) as exc: raise IntegrationError('proposal crosses repository boundary') from exc
+    for status, path in changes:
         if status!='D':
             try: proposed_file=proposal.read(path); text=proposed_file['text']
             except ValueError as exc: raise IntegrationError('unsupported or unsafe proposed file') from exc
             if any(x.category=='secret' for x in scan_text(text)): raise IntegrationError('secret detected in proposal')
+            if folder_mode and Path(path).name == 'index.md':
+                folder = str(Path(path).parent).replace('\\', '/')
+                prefix = '' if folder == '.' else folder + '/'
+                if (status == 'M' and any(prefix + name in base_reader.paths or prefix + name in proposal.paths
+                                          for name in ('AGENTS.override.md', 'AGENTS.md'))
+                        and bool(base_reader.read(path)['text'].strip()) != bool(text.strip())):
+                    raise IntegrationError('context boundary change requires separate policy review')
             if path.endswith('.md'):
                 prior=base_reader.read(path)['frontmatter'] if path in base_reader.paths else {}
                 raw_before=prior.get('information_requirements',[])
@@ -204,5 +232,7 @@ def preflight(root, policy, *, context_id, base, head, branch, packet, result):
     policy.fresh()
     if _git(root,'rev-parse','--verify','refs/heads/'+branch+'^{commit}').decode().strip()!=proposal.revision: raise IntegrationError('branch head changed')
     output={'schema_version':'wiki.context-integration/v1','state':'independent_review_required','context_id':context_id,'base':base_reader.revision,'head':proposal.revision,'branch':branch,'task_id':packet['task_id'],'packet_digest':packet['packet_digest'],'changes':actual,'review':'not_performed','gates':'not_performed','merge':'not_performed'}
+    if folder_mode:
+        output['coverage_missing'] = sorted(set(packet['coverage']['missing']) | set(result['read_coverage']['missing']))
     if any(x.category=='secret' for x in scan_text(json.dumps(output,ensure_ascii=False))): raise IntegrationError('secret detected in integration metadata')
     return output
