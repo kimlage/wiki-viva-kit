@@ -108,6 +108,32 @@ def test_host_environment_pins_grants_and_readback_hides_paths(configured):
     with pytest.raises(ValueError): CoordinationBinding.from_environment(env)
 
 
+def test_unselected_missing_repository_does_not_block_host_or_selected_read(configured, monkeypatch):
+    root, external, binding, args = configured
+    grant = binding.repository_grants[0]
+    missing_root = root.parent / (root.name + '-missing')
+    def row(selection_id, path, identity, selected_path):
+        return {'selection_id': selection_id, 'root': str(path), 'identity': identity,
+            'revision': grant.revision, 'path': selected_path, 'executor': '.', 'integrator': '.', 'max_bytes': 10000}
+    env = {'WIKI_COORDINATION_ALLOWED_CONTEXTS': '.', 'WIKI_COORDINATION_CONTEXT_MODE': 'folder',
+           'WIKI_COORDINATION_REPOSITORY_GRANTS': json.dumps([
+               row('guide', external, grant.identity, grant.path),
+               row('missing', missing_root, 'example.test/team/missing', 'missing.md')])}
+    original_stat = Path.stat
+    def guarded(path, *a, **k):
+        if path == missing_root: pytest.fail('unselected repository statted')
+        return original_stat(path, *a, **k)
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, 'stat', guarded)
+        host = CoordinationBinding.from_environment(env)
+        assert prepare(root, host, **args, source_context='system')['request']['repository_context']['selection_id'] == 'guide'
+    import wiki_core.ingest.protected as protected
+    with monkeypatch.context() as patch:
+        patch.setattr(protected, 'selected_repository', lambda *a, **k: pytest.fail('Git opened before all selected storage checked'))
+        with pytest.raises(ValueError):
+            prepare(root, host, **{**args, 'repository_selection': ['guide', 'missing']}, source_context='system')
+
+
 def test_two_explicit_repositories_share_one_bound_request(configured):
     root, external, binding, args = configured
     second = root.parent / (root.name + '-second')
@@ -119,9 +145,18 @@ def test_two_explicit_repositories_share_one_bound_request(configured):
     git(second, 'add', '.'); git(second, 'commit', '-qm', 'selected')
     second_grant = RepositoryGrant('second', second.resolve(), 'example.test/team/second',
         git(second, 'rev-parse', 'HEAD'), 'selected.md', '.', '.', 10000)
+    for name, identity in [('repo1', 'example.test/team/independent'), ('repo2', 'example.test/team/second')]:
+        source = 'memories/sources/' + name + '.md'
+        write(root, source, '---\npage_id: ' + name + '\npage_type: source\nplatform: repo\nsource_locator: ' + identity + '\n---\n# Source\n')
+        write(root, 'memories/' + name + '-candidate.md', '---\npage_id: ' + name + '-candidate\npage_type: note\ninformation_requirements:\n'
+            '- target: ' + source + '\n  fields: [body]\n  temporal: current\n  max_age_days: 30\n---\n# Candidate\n')
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'explicit repository sources')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
     both = CoordinationBinding(binding.contexts, binding.trusted_ref, binding.manifest,
                                (*binding.repository_grants, second_grant))
-    args = {**args, 'repository_selection': ['second', 'guide']}
+    args = {**args, 'approved_revision': git(root, 'rev-parse', 'HEAD'), 'repository_selection': ['second', 'guide'],
+        'context_selection': {'omit_root_entity': True, 'repository_source_pages': {
+            'guide': 'memories/sources/repo1.md', 'second': 'memories/sources/repo2.md'}}}
     prepared = prepare(root, both, **args, source_context='system')
     rows = prepared['request']['repository_context']
     assert [row['selection_id'] for row in rows] == ['guide', 'second']
@@ -137,6 +172,19 @@ def test_two_explicit_repositories_share_one_bound_request(configured):
         event_target=target, date=dt.date(2026, 11, 4))
     event = (root / result['event']).read_text()
     assert 'example.test/team/independent' in event and 'example.test/team/second' in event
+    from wiki_core.ingest.protected import compare_repositories
+    write(external, 'guide.md', '# Changed first\n'); git(external, 'add', '.'); git(external, 'commit', '-qm', 'first update')
+    write(second, 'selected.md', '# Changed second\n'); git(second, 'add', '.'); git(second, 'commit', '-qm', 'second update')
+    current = (replace(binding.repository_grants[0], selection_id='guide-current', revision=git(external, 'rev-parse', 'HEAD')),
+               replace(second_grant, selection_id='second-current', revision=git(second, 'rev-parse', 'HEAD')))
+    comparer = CoordinationBinding(both.contexts, both.trusted_ref, both.manifest, (*both.repository_grants, *current))
+    for old_id, new_id, source, candidate in [('guide', 'guide-current', 'repo1', 'repo1-candidate'),
+                                               ('second', 'second-current', 'repo2', 'repo2-candidate')]:
+        outcome = compare_repositories(root, comparer, **args, **ids, previous_repository_selection=old_id,
+            current_repository_selection=new_id, source_page='memories/sources/' + source + '.md',
+            candidates=['memories/' + candidate + '.md'])
+        assert outcome['repository_comparison']['changed'] and outcome['candidates'][0]['state'] == 'review_pending'
+        assert outcome['candidates'][0]['file_consumption'] == 'unknown'
 
 
 def test_protected_repo_comparison_only_suggests_selected_relevant_changes(configured, monkeypatch):

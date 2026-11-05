@@ -47,3 +47,16 @@ def test_cli_refuses_v1_before_opening_config_source_or_result(tmp_path, monkeyp
     assert exc.value.code == 2
     assert 'wiki_coordination.py --source-stage' in capsys.readouterr().err
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize('mode', ['', 'v1'])
+def test_host_v1_packet_composition_stops_before_policy_or_input_reads(tmp_path, monkeypatch, mode):
+    from wiki_core import coordination_context as coordination
+    env = {'WIKI_COORDINATION_ALLOWED_CONTEXTS': 'root', 'WIKI_COORDINATION_CONTEXT_MODE': mode}
+    binding = coordination.CoordinationBinding.from_environment(env)
+    monkeypatch.setattr(coordination, 'load_policy', lambda *a, **k: pytest.fail('v1 policy opened'))
+    monkeypatch.setattr(coordination, 'build_packet', lambda *a, **k: pytest.fail('v1 packet built'))
+    with pytest.raises(coordination.ProtectedCoordinationError) as error:
+        coordination.prepare_packet(tmp_path, binding, {})
+    assert error.value.code == 'coordination_v1_retired'
+    assert not list(tmp_path.iterdir())

@@ -112,6 +112,24 @@ def test_host_binding_is_required_before_source_open(prepared_repo, monkeypatch)
         protected_source_stage(root, binding, 'prepare', {**payload, 'manifest': 'context.yaml'})
 
 
+def test_physical_index_replaced_before_write_stops_cached_stage(prepared_repo, monkeypatch):
+    import wiki_core.ingest.protected as protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    original = protected._capture_matches
+    def replace_index(*args, **kwargs):
+        result = original(*args, **kwargs)
+        index = root / 'index.md'
+        index.unlink()
+        index.symlink_to(root / 'source.txt')
+        return result
+    monkeypatch.setattr(protected, '_capture_matches', replace_index)
+    with pytest.raises(ValueError):
+        prepare(root, binding, context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md',
+                source_ref='source.txt', source_context='system')
+    assert not list((root / 'data/derived/wiki/.wiki-viva-protected').rglob('*.json'))
+
+
 def test_host_stages_are_revision_bound(prepared_repo):
     root, sha = prepared_repo
     binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
@@ -498,6 +516,91 @@ def test_nested_context_with_explicit_authorized_integrator(prepared_repo):
                          event_target=event, date=dt.date(2026, 11, 4))
     assert output['integration'] == 'pending review and incorporation'
     assert (root / event).is_file()
+
+
+def test_nested_source_packet_preflight_requires_host_bound_additional_reader(prepared_repo):
+    from wiki_core.coordination_context import prepare_preflight
+    root, _ = prepared_repo
+    sha = _nested_integrator_repo(root)
+    config = yaml.safe_load((root / 'wiki.config.yaml').read_text())
+    proposal_grant = {'from_context': 'alpha', 'to_context': '.', 'selector': 'alpha/proposal.md',
+        'use': 'interpretation', 'classification': 'context', 'expires': '2099-01-01'}
+    config['context_access']['alpha']['exports'].append(proposal_grant)
+    config['context_access']['.']['imports'].append(proposal_grant)
+    write(root, 'wiki.config.yaml', yaml.safe_dump(config))
+    git(root, 'add', 'wiki.config.yaml'); git(root, 'commit', '-qm', 'authorize integrator proposal')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    sha = git(root, 'rev-parse', 'HEAD')
+    binding = CoordinationBinding(('alpha', '.'), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    prepared = prepare(root, binding, context_id='alpha', approved_revision=sha, entry_folder='alpha',
+        entry_index='alpha/index.md', source_ref='alpha/source.txt', source_context='alpha', artifact_context='.')
+    packet = prepared['request']['block_context_package']
+    git(root, 'checkout', '-qb', 'wiki/source-preflight')
+    write(root, 'alpha/proposal.md', '# Explicit proposal\n')
+    git(root, 'add', 'alpha/proposal.md'); git(root, 'commit', '-qm', 'proposal')
+    head = git(root, 'rev-parse', 'HEAD')
+    result = {'schema_version': 'wiki.task-result/v1', 'status': 'completed', 'task_id': packet['task_id'],
+        'context_id': 'alpha', 'packet_digest': packet['packet_digest'],
+        'changes': [{'path': 'alpha/proposal.md', 'action': 'created'}], 'blockers': [],
+        'read_coverage': {'observed_refs': packet['declared_read_set'], 'missing': packet['coverage']['missing']}}
+    payload = {'context_id': 'alpha', 'approved_revision': sha, 'base': sha, 'head': head,
+        'branch': 'wiki/source-preflight', 'packet': packet, 'result': result}
+    with pytest.raises(ProtectedCoordinationError): prepare_preflight(root, binding, payload)
+    with pytest.raises(ProtectedCoordinationError):
+        prepare_preflight(root, binding, {**payload, 'additional_readers': ['beta']})
+    out = prepare_preflight(root, binding, {**payload, 'additional_readers': ['.']})
+    assert out['preflight']['state'] == 'independent_review_required'
+
+
+def test_record_multiple_chunks_reports_extraction_count(prepared_repo, monkeypatch):
+    import time
+    import wiki_core.ingest.protected as protected
+    root, sha = prepared_repo
+    (root / 'source.txt').write_text(''.join(f'Synthetic evidence {i} with bounded detail.\n' for i in range(1200)))
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    request = prepared['request']
+    assert len(request['chunks']) >= 3
+    sample = json.loads((__import__('pathlib').Path(__file__).parent / 'fixtures/e2e/context_pass_result.sample.json').read_text())
+    results = [{**sample, **{key: request[key] for key in ('source_id', 'prompt_version', 'schema_version', 'model_profile')},
+        **{key: row[key] for key in ('cache_key', 'chunk_id', 'context_sha256', 'chunk_hash_sha256')},
+        'perspectives_required': [], 'perspectives': {}} for row in request['chunks']]
+    calls = []
+    original = protected.extract_captured
+    def tracked(*a, **kw):
+        calls.append(1)
+        return original(*a, **kw)
+    monkeypatch.setattr(protected, 'extract_captured', tracked)
+    start = time.perf_counter()
+    out = record(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'], results=results)
+    print('record_chunks', len(results), 'extractions', len(calls), 'seconds', round(time.perf_counter() - start, 3))
+    assert out['recorded'] == len(results)
+    assert len(calls) == 1
+
+
+def test_cached_capture_rehashes_after_request_read_before_result_write(prepared_repo, monkeypatch):
+    import wiki_core.ingest.protected as protected
+    root, sha = prepared_repo
+    binding = CoordinationBinding(('.',), 'refs/remotes/origin/main', 'wiki.config.yaml')
+    args = dict(context_id='.', approved_revision=sha, entry_folder='.', entry_index='index.md', source_ref='source.txt')
+    prepared = prepare(root, binding, **args, source_context='system')
+    result = _result_for(prepared['request'])
+    reads = []
+    original = protected._read_json
+    def mutate_after_request(*values, **kwargs):
+        output = original(*values, **kwargs)
+        path = values[3]
+        if path.name.endswith('-llm-context-request.json'):
+            reads.append(1)
+            if len(reads) == 2:
+                (root / 'source.txt').write_text('Changed after request read.\n')
+        return output
+    monkeypatch.setattr(protected, '_read_json', mutate_after_request)
+    with pytest.raises(ValueError):
+        record(root, binding, **args, source_id=prepared['source_id'], request_id=prepared['request_id'], results=[result])
+    assert len(reads) == 2
+    assert not list((root / 'data/derived/wiki/.wiki-viva-protected/llm-cache').glob('*.json'))
 
 
 def test_nested_result_cannot_drop_integrator_before_read(prepared_repo, monkeypatch):

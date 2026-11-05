@@ -171,6 +171,17 @@ def test_skipped_perspective_and_pending_reason_remain_visible(selected_repo):
                for gap in result['context_omissions'])
 
 
+def test_two_files_of_same_repo_may_reference_one_authorized_source_page(selected_repo):
+    repo, config = selected_repo
+    write(repo, 'repo-source.md', '---\npage_id: repo-source\npage_type: source\nplatform: repo\n'
+        'source_locator: example.test/team/repo\n---\n# Repo\n')
+    git(repo, 'add', '.'); git(repo, 'commit', '-qm', 'repository source')
+    git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    selection = {'omit_root_entity': True, 'repository_source_pages': {'first': 'repo-source.md', 'second': 'repo-source.md'}}
+    result = resolve_explicit_ingestion_context(packet_for(repo, selection), selection, config)
+    assert result['repository_sources']['first']['path'] == result['repository_sources']['second']['path']
+
+
 def test_selected_context_is_requalified_across_source_stages(prepared_repo, monkeypatch):
     from wiki_core.coordination_context import CoordinationBinding
     from wiki_core.ingest.protected import prepare, record, consolidate

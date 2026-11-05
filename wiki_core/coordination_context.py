@@ -87,6 +87,7 @@ def capability(root: Path, binding: CoordinationBinding | None) -> dict:
     except (ValueError,OSError): contexts=[]
     if not contexts: return {'ok':True,'schema_version':'wiki.coordination-capability/v1','available':False,'reason':'not_available_or_not_authorized'}
     return {'ok':True,'schema_version':'wiki.coordination-capability/v1','available':True,'contexts':contexts,'policy_revision':sha,
+            'new_packet_mode': 'folder' if binding.manifest == 'wiki.config.yaml' else 'historical_only',
             'repository_selections': [{'selection_id': grant.selection_id, 'executor': grant.executor,
                 'integrator': grant.integrator, 'publication_configured': grant.event_target is not None}
                 for grant in binding.repository_grants]}
@@ -106,6 +107,8 @@ def _policy(root, binding, context_id, approved_revision):
 
 
 def prepare_packet(root, binding, payload):
+    if binding is not None and binding.manifest != 'wiki.config.yaml':
+        raise ProtectedCoordinationError('coordination_v1_retired')
     required_payload={'context_id','approved_revision','content_revision','task'}
     folder_mode = binding is not None and binding.manifest == 'wiki.config.yaml'
     allowed_payload=required_payload | ({'entry_folder','entry_index'} if folder_mode else set())
@@ -152,8 +155,15 @@ def prepare_packet(root, binding, payload):
 
 def prepare_preflight(root,binding,payload):
     required={'context_id','approved_revision','base','head','branch','packet','result'}
-    if not isinstance(payload,dict) or set(payload)!=required: raise ProtectedCoordinationError('coordination_invalid_request')
+    if not isinstance(payload,dict) or not required <= set(payload) or set(payload) - (required | {'additional_readers'}): raise ProtectedCoordinationError('coordination_invalid_request')
     policy=_policy(root,binding,payload['context_id'],payload['approved_revision'])
+    readers = payload.get('additional_readers', [])
+    if (not isinstance(readers, list) or len(readers) > 64
+            or any(not isinstance(reader, str) or reader not in binding.contexts for reader in readers)
+            or len(set(readers)) != len(readers)):
+        raise ProtectedCoordinationError('coordination_not_authorized', 'denied')
+    for reader in readers:
+        _policy(root, binding, reader, payload['approved_revision'])
     if any(not isinstance(payload[k],str) or not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}',payload[k]) for k in ('base','head')): raise ProtectedCoordinationError('coordination_invalid_request')
     packet=payload['packet']
     if not isinstance(packet,dict) or packet.get('capability_evidence') is not None or packet.get('required_capabilities') != []:
@@ -161,7 +171,7 @@ def prepare_preflight(root,binding,payload):
     expected_format = 'folder' if binding.manifest == 'wiki.config.yaml' else None
     if packet.get('authority_format') != expected_format:
         raise ProtectedCoordinationError('coordination_preflight_unavailable')
-    try: out=preflight(root,policy,context_id=payload['context_id'],base=payload['base'],head=payload['head'],branch=payload['branch'],packet=payload['packet'],result=payload['result'])
+    try: out=preflight(root,policy,context_id=payload['context_id'],base=payload['base'],head=payload['head'],branch=payload['branch'],packet=payload['packet'],result=payload['result'],trusted_additional_readers=tuple(readers))
     except (ValueError,KeyError,TypeError,OSError) as exc: raise ProtectedCoordinationError('coordination_preflight_unavailable') from exc
     return {'ok':True,'mode':'approved','preflight':out}
 
@@ -220,6 +230,7 @@ def blocker_response(error: ProtectedCoordinationError):
         'coordination_budget_exceeded': ('The selected task packet exceeds its byte budget.', 'Reduce the authorized selection or revise the packet limit, then retry.', 'The complete packet fits the chosen byte limit.'),
         'coordination_preflight_unavailable': ('The proposal did not satisfy the current preflight.', 'Revalidate the packet, result, branch and current base.', 'The exact proposal satisfies the current preflight.'),
         'coordination_partial_effects': ('Some artifacts may have been retained before the operation stopped.', 'Inspect and reconcile the selected artifacts before retrying.', 'Possible partial effects have been inspected and resolved.'),
+        'coordination_v1_retired': ('New v1 packet composition is retired.', 'Use a host-bound folder context.', 'A current folder binding is available.'),
     }
     reason, action, resume=messages.get(error.code,('The selected input is unavailable or unauthorized.','Verify the selected inputs and current policy.','All required inputs are authorized and available.'))
     interfaces={'coordination_session_required':'Local operator / current cockpit session',
