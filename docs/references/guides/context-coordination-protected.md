@@ -57,7 +57,7 @@ python3 scripts/wiki_coordination.py --root REPO --context-id CONTEXT_FOLDER \
 `REQUEST.json` is the same `task` object used by the API. The CLI uses the local trusted `refs/remotes/origin/main`, requires a full content SHA in approved history, and does not use profile routes or a global snapshot. If omitted, the folder is the current nested directory when inside the selected repository, otherwise the selected context. The operator chooses the local CLI arguments, so they do not create a security boundary against that operator or an operating-system ACL. Reading with `--profile` returns the same constant migration response without task bodies. A separately configured host binding remains necessary for protected host calls.
 
 For source preparation, recording and consolidation by that trusted local
-operator, `--source-stage prepare|record|consolidate` reads stage JSON from
+operator, `--source-stage prepare|record|consolidate|compare|inspect` reads stage JSON from
 stdin. It uses the same context and approval flags and can select an explicitly
 authorized ancestor with `--integrator-context`; the [source guide](bounded-ingestion.md)
 documents its scope and limitations. These operations do not dispatch a model,

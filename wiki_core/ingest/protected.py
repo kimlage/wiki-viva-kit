@@ -1024,8 +1024,108 @@ def consolidate(root, binding, *, context_id, approved_revision, entry_folder, e
             'legacy_coverage': 'shared legacy artifacts not inspected; requalification required'}
 
 
+def inspect(root, binding, *, context_id, approved_revision, entry_folder, entry_index,
+            source_ref, source_id, request_id, view, chunk_ids=None, candidates=None,
+            max_output_bytes=1_000_000, context_max_bytes=100_000, request_max_bytes=1_000_000,
+            artifact_context=None, perspective_refs=None, context_selection=None, repository_selection=None):
+    """Read explicitly selected, requalified protected results or a retained proposal."""
+    from wiki_core.consolidate import aggregate_results, build_packet
+    from wiki_core.llm.context_pass import validate_result
+
+    if (type(max_output_bytes) is not int or not 1 <= max_output_bytes <= 2_000_000
+            or view not in ('results', 'integration')):
+        raise ValueError('inspection unavailable')
+    if view == 'results':
+        if (candidates is not None or not isinstance(chunk_ids, list) or not chunk_ids
+                or len(chunk_ids) > 32 or any(not isinstance(x, str) for x in chunk_ids)
+                or len(set(chunk_ids)) != len(chunk_ids)):
+            raise ValueError('inspection selection unavailable')
+        refs = []
+    else:
+        if (chunk_ids is not None or not isinstance(candidates, list) or len(candidates) > 128
+                or any(not isinstance(x, str) for x in candidates)):
+            raise ValueError('inspection selection unavailable')
+        refs = [safe_path(x) for x in candidates]
+        if len(refs) != len(set(refs)) or contains_access_secrets(refs):
+            raise ValueError('inspection selection unavailable')
+    options = dict(context_id=context_id, approved_revision=approved_revision,
+        entry_folder=entry_folder, entry_index=entry_index, source_ref=source_ref,
+        source_id=source_id, request_id=request_id, context_max_bytes=context_max_bytes,
+        request_max_bytes=request_max_bytes, artifact_context=artifact_context, perspective_refs=perspective_refs,
+        context_selection=context_selection, repository_selection=repository_selection)
+    actor = context_id if artifact_context is None else artifact_context
+    root, policy, config, paths, request, digest = _open_bound(root, binding, **options)
+
+    def refresh():
+        current = _open_bound(root, binding, **options)
+        if current[4] != request or current[5] != digest:
+            raise ValueError('request authority changed')
+        return current
+
+    rows = request['chunks']
+    if view == 'results':
+        by_id = {row['chunk_id']: row for row in rows}
+        if len(by_id) != len(rows) or any(item not in by_id for item in chunk_ids):
+            raise ValueError('inspection selection unavailable')
+        selected = [by_id[item] for item in chunk_ids]
+    else:
+        selected = rows
+        _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
+    for row in selected:
+        _allowed(root, policy, actor, paths.llm_cache / (row['cache_key'] + '.json'), 'read')
+
+    total = 0
+    def read_result(row):
+        nonlocal total
+        current_root, current_policy, _, current_paths, _, _ = refresh()
+        remaining = 2_000_000 - total
+        if remaining <= 0:
+            raise ValueError('inspection budget exceeded')
+        result = _read_json(current_root, current_policy, actor,
+                            current_paths.llm_cache / (row['cache_key'] + '.json'), max_bytes=remaining)
+        if (contains_access_secrets(result) or validate_result(result)
+                or not result_matches_request(result, request, row)):
+            raise ValueError('result unavailable')
+        total += len(_json_text(result).encode('utf-8'))
+        if total > 2_000_000:
+            raise ValueError('inspection budget exceeded')
+        refresh()
+        return result
+
+    if view == 'results':
+        output = {'view': view, 'source_id': source_id, 'request_id': request_id,
+                  'results': [{'chunk_id': row['chunk_id'], 'result': read_result(row)} for row in selected]}
+    else:
+        aggregated = aggregate_results(request, paths.llm_cache, root=root, result_reader=read_result)
+        aggregated['folder_request_id'] = request_id
+        aggregated['source_hash_sha256'] = digest
+        if request.get('repository_context') is not None:
+            selected_repos = request['repository_context']
+            repo_rows = selected_repos if isinstance(selected_repos, list) else [selected_repos]
+            aggregated['independent_git_sources'] = [{key: row[key] for key in
+                ('selection_id', 'repository_identity', 'host_binding_digest', 'revision', 'path', 'blob',
+                 'document_sha256', 'content_sha256')} for row in repo_rows]
+        root, policy, config, paths, _, _ = refresh()
+        documents = _approved_candidate_documents(root, policy, context_id, actor, approved_revision, refs)
+        expected = build_packet(aggregated, root, config, paths, candidates=refs, candidate_documents=documents)
+        root, policy, config, paths, _, _ = refresh()
+        _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
+        packet_path = paths.extraction_events / f'protected-{hashlib.sha256(source_id.encode()).hexdigest()}-{request_id}-integration-packet.json'
+        retained = _read_json(root, policy, actor, packet_path)
+        if retained != expected or contains_access_secrets(retained):
+            raise ValueError('integration packet unavailable')
+        output = {'view': view, 'source_id': source_id, 'request_id': request_id, 'packet': retained,
+                  'event_status': 'not checked', 'integration': 'pending review and incorporation'}
+    if len(canonical_request_text(output).encode('utf-8')) > max_output_bytes:
+        raise ValueError('inspection output budget exceeded')
+    root, policy, _, _, _, _ = refresh()
+    _revalidate_candidate_scopes(root, policy, context_id, actor, refs)
+    return output
+
+
 # Cache is scoped to one operation, never shared across requests or threads.
 prepare = _scoped_stage(prepare)
 record = _scoped_stage(record)
 consolidate = _scoped_stage(consolidate)
 compare_repositories = _scoped_stage(compare_repositories)
+inspect = _scoped_stage(inspect)

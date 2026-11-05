@@ -241,9 +241,10 @@ request is also capped at 2 MB, which may require a smaller source, particularly
 when text needs JSON escaping. Candidates must be explicitly selected.
 The default `context_max_bytes` is 100,000 and `request_max_bytes` is 1,000,000;
 both are configurable and must be repeated consistently for the same request.
-It does not yet inspect linked sources, read independent Git repositories, expose
-an HTTP transport, or incorporate the event in memory. The existing
-`wiki_coordination.py` offers the three `--source-stage` operations to a trusted
+It does not automatically inspect linked sources, expose an HTTP transport,
+or incorporate the event in memory. Explicitly selected independent Git
+evidence has the separate [host binding](protected-independent-git.md). The existing
+`wiki_coordination.py` offers `--source-stage` operations to a trusted
 local operator, with stage JSON on stdin and an explicit context and approved
 revision. Its flags are selected by that operator and are not a security boundary
 against the operator; a separately configured host binding is the protected
@@ -260,7 +261,7 @@ using the existing CLI (replace all placeholders with authorized values):
 ```sh
 python3 scripts/wiki_coordination.py --root REPO --context-id . \
   --approved-revision APPROVED_SHA --source-stage prepare <<'JSON'
-{"entry_folder":".","entry_index":"index.md","source_ref":"source.txt","source_context":"example"}
+{"entry_folder":".","entry_index":"index.md","source_ref":"source.txt","source_context":"example","context_selection":{"omit_root_entity":true}}
 JSON
 ```
 
@@ -280,6 +281,19 @@ integrator as `prepare`. See the [stage dispatch](../../../wiki_core/coordinatio
 and [synthetic tests](../../../tests/test_protected_ingestion.py) for the exact
 JSON fields. A result, event or integration packet is not a reviewed or
 incorporated memory update.
+
+To review retained data, use `--source-stage inspect` with the same selectors,
+limits, context selection, repository selection and integrator as the original
+request. Supply `view: "results"` and an explicit `chunk_ids` array of one to
+32 IDs from that request to retrieve matching recorded results. To inspect the
+retained proposal, supply `view: "integration"` and the exact `candidates` array
+used at consolidation, including `[]` when none were selected. The operation
+revalidates the binding, current policy, source and selected data, reconstructs
+the packet from authorized results and approved candidate revisions, and refuses
+a mismatch. It does not check whether an event was written or a proposal was
+reviewed or incorporated. Results are limited to 2 MB combined; the serialized
+returned object is limited by `max_output_bytes` (default 1 MB, at most 2 MB).
+An unavailable, invalid or over-budget selection fails without partial output.
 
 For example, from the wiki root, enter the chosen context and prepare a source
 using paths anchored to that root (replace the example paths and context):
