@@ -47,7 +47,7 @@ def _evidence_issues(graph: dict, claim: str, *, current: bool = False) -> set[s
         if path not in graph['documents']:
             issues.add('information_evidence_missing');continue
         values=graph['nodes'].get(path,{})
-        if current and values.get('status') in {'superseded', 'archived'}:
+        if current and path != claim and values.get('status') in {'superseded', 'archived'}:
             issues.add('information_superseded_evidence')
         role = factual_unit_role(values)
         if role == 'observation':

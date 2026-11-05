@@ -36,10 +36,11 @@ def test_only_superseded_inactive_legacy_history_can_be_retired():
     result = evaluate_information_impact(new, old, {'consumer.md','AGENTS.md'}, today=TODAY, _retirement_approved=True)
     assert any(row['path']=='claim.md' and row['reason']=='legacy_query_current_consumer_requires_review'
                for row in result['integrity_blockers'])
-    for mutation in ('active', 'open', 'current', 'folder', 'still_live'):
+    for mutation in ('active', 'open', 'blocked', 'waiting_human', 'missing_action_state', 'current', 'folder', 'still_live'):
         old, new = deepcopy(before), deepcopy(after)
         if mutation == 'active': new['nodes']['consumer.md']['status'] = 'active'
-        if mutation == 'open': new['nodes']['consumer.md']['action_state'] = 'open'
+        if mutation in {'open', 'blocked', 'waiting_human'}: new['nodes']['consumer.md'].update(page_type='action', action_state=mutation)
+        if mutation == 'missing_action_state': new['nodes']['consumer.md']['page_type'] = 'action'
         if mutation == 'current': old['edges'][0]['requirement']['temporal'] = 'current'
         if mutation == 'folder': old['edges'][0]['requirement'].update(authority_format='folder',entry_folder='archive',entry_index='archive/index.md')
         if mutation == 'still_live': new['edges'] = deepcopy(old['edges'])

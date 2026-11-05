@@ -68,7 +68,7 @@ def test_proposal_commit_cannot_be_used_as_approved_retirement_base(collection):
     assert any(row['path'] == TASK['output'] and 'revalidation' in row['reason'] for row in report['blockers'])
 
 
-def test_retirement_marks_excluded_query_candidate_for_review(repo):
+def test_retirement_marks_excluded_query_candidate_for_review(repo, monkeypatch):
     from tests import test_context_dynamic_selection as legacy
     from tests import test_dynamic_impact_closure as scoped
     root = legacy.collection.__wrapped__(repo)
@@ -84,10 +84,26 @@ def test_retirement_marks_excluded_query_candidate_for_review(repo):
                       'max_enumerated':30, 'max_matches':10, 'max_scan_bytes':100000}}
     pkt = scoped.build_packet(root, scoped.policy(root), scoped.CONTEXT, git(root,'rev-parse','HEAD'), [], 50000,
                               queries=[query], task_id='query-task', goal='review',
-                              output='finance/costs/query.md', integrator='reviewer')
-    qpath = root / 'finance/costs/query.md'
+                              output='finance/costs/derived/query.md', integrator='reviewer')
+    qpath = root / 'finance/costs/derived/query.md'
+    qpath.parent.mkdir()
     qpath.write_text('---\n' + yaml.safe_dump({'page_id':'query', 'page_type':'claim',
-                     'information_requirements':[scoped.requirement(pkt)]}) + '---\nQuery.\n')
+                     'amount':7, 'information_requirements':[scoped.requirement(pkt)]}) + '---\nQuery.\n')
+    commit(root)
+    downstream_query = {'target':scoped.ANCHOR, 'reason':'synthetic downstream filter', 'use':'interpret', 'classification':'synthetic',
+                        'query':{'scope':'finance/costs/derived', 'filters':{'page_id':'query'}, 'field':'amount',
+                                 'max_enumerated':30, 'max_matches':10, 'max_scan_bytes':100000}}
+    downstream = scoped.build_packet(root, scoped.policy(root), scoped.CONTEXT, git(root,'rev-parse','HEAD'), [], 50000,
+                                     queries=[downstream_query], task_id='downstream-query', goal='review',
+                                     output='finance/costs/consumer.md', integrator='reviewer')
+    (root / 'finance/costs/consumer.md').write_text('---\n' + yaml.safe_dump({'page_id':'consumer', 'page_type':'claim',
+        'information_requirements':[scoped.requirement(downstream)]}) + '---\nConsumer.\n')
+    (root / 'finance/tax/private-query.md').write_text('---\n' + yaml.safe_dump({'page_id':'other-owner', 'page_type':'claim',
+        'information_requirements':[scoped.requirement(downstream)]}) + '---\nOther owner.\n')
+    (root / 'finance/costs/action.md').write_text('---\n' + yaml.safe_dump({'page_id':'action', 'page_type':'action',
+        'action_state':'blocked', 'next_action':'Review', 'blocker_reason':'Needs review',
+        'information_requirements':[{'target':'finance/costs/consumer.md', 'fields':['*'],
+                                     'temporal':'current', 'max_age_days':30}]}) + '---\nAction.\n')
     base = commit(root)
     git(root, 'checkout', '-qb', 'wiki/retire-filter-candidate')
     parts = path.read_text().split('---\n', 2)
@@ -95,7 +111,19 @@ def test_retirement_marks_excluded_query_candidate_for_review(repo):
     path.write_text('---\n' + yaml.safe_dump(values) + '---\n' + parts[2])
     git(root, 'add', TASK['output']); git(root, 'commit', '-qm', 'retire old query')
     head = git(root, 'rev-parse', 'HEAD')
+    from wiki_core.repository_reader import RepositoryReader
+    document = RepositoryReader._document
+    def owner_only(reader, ref, *args, **kwargs):
+        assert not ref.startswith('finance/tax/'), 'query closure must not read another owner'
+        return document(reader, ref, *args, **kwargs)
+    monkeypatch.setattr(RepositoryReader, '_document', owner_only)
     report = repository_report(root, load_config(root), base, query_context=scoped.CONTEXT,
                                query_policy_revision=base, query_head=head)
-    assert any(row['path']=='finance/costs/query.md' and row['reason']=='dynamic_query_upstream_pending'
+    assert any(row['path']=='finance/costs/derived/query.md' and row['reason']=='dynamic_query_upstream_pending'
                and not row['verification_performed'] for row in report['pending_reviews'])
+    assert any(row['path']=='finance/costs/consumer.md' and row['reason']=='dynamic_query_upstream_pending'
+               for row in report['pending_reviews'])
+    assert any(row['path']=='finance/costs/action.md' and row['reason']=='legacy_query_current_consumer_requires_review'
+               for row in report['blockers'])
+    assert any(row['path']=='finance/tax/private-query.md' and row['reason']=='dynamic_query_requires_authorized_revalidation'
+               for row in report['blockers'])

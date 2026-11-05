@@ -41,6 +41,12 @@ def test_current_use_cannot_rely_on_superseded_evidence():
     g['edges'][0]['requirement']['temporal']='historical'
     assert assess_information_use(g,'action',now=NOW)['ready']
 
+def test_current_status_only_can_describe_superseded_claim():
+    g=graph();g['nodes']['claim']['status']='superseded';g['edges'][0]['requirement']['fields']=['status']
+    assert assess_information_use(g,'action',now=NOW)['ready']
+    g['nodes']['evidence']={'page_type':'source','status':'superseded'}
+    assert not assess_information_use(g,'action',now=NOW)['ready']
+
 def test_validity_is_rechecked_when_time_advances():
     g=graph();g['nodes']['claim']['valid_to']='2026-10-30T12:00:05Z'
     assert assess_information_use(g,'action',now=NOW)['ready']

@@ -12,6 +12,7 @@ import json
 from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.information_relations import dependency_edges, semantic_equal
+from wiki_core.action_state import TERMINAL_ACTION_STATES
 
 
 def changed_fields(previous: str | None, current: str | None) -> set[str]:
@@ -45,8 +46,10 @@ def retired_legacy_queries(current: dict, base: dict, changed: set[str], *, appr
         key = (path, json.dumps(req, sort_keys=True, ensure_ascii=False))
         before = base.get('nodes', {}).get(path, {})
         after = current.get('nodes', {}).get(path, {})
+        is_action = (before.get('page_type') == 'action' or after.get('page_type') == 'action'
+                     or after.get('action_state') is not None)
         if (before.get('status') == 'active' and after.get('status') == 'superseded'
-                and after.get('action_state') not in {'open', 'in_progress'} and key not in live):
+                and (not is_action or after.get('action_state') in TERMINAL_ACTION_STATES) and key not in live):
             retired.add(key)
     return retired
 

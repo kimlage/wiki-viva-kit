@@ -370,13 +370,13 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                                 if retired_paths else {})
             retirement_sources = set(retirement_reach)
             retirement_candidates = set()
-            def record_authorized_affected(rows):
+            def record_authorized_affected(rows, pending_retirement_sources=frozenset()):
                 for row in rows:
                     req = row['requirement']
                     key = (row['path'], json.dumps(req, sort_keys=True, ensure_ascii=False))
                     if (req.get('temporal') == 'current' and any(
                             source == req['target'] or within(source, req['query']['scope'])
-                            for source in retirement_sources)):
+                            for source in retirement_sources | pending_retirement_sources)):
                         retirement_candidates.add(key)
                     try:
                         path = row['path']
@@ -398,10 +398,11 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 if row['state'] != 'review_pending': continue
                 destination = deferred_fields if row.get('priority') == 'on_demand' else urgent_fields
                 destination.setdefault(row['path'], set()).update(row.get('fields', ['*']))
+            retirement_fields = {}
             for path in retired_paths:
                 try:
                     if closure_policy.owner_of(path) == query_context and closure_policy.permits(query_context, 'read', path):
-                        deferred_fields.setdefault(path, set()).add('*')
+                        retirement_fields[path] = {'*'}
                 except (ValueError, KeyError, TypeError):
                     pass
             derived = {}; denied = set(); ordinary_sources = {}
@@ -430,16 +431,23 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             if len(ordinary_sources) > 1000: raise ValueError('dynamic impact closure limit exceeded')
             all_outcomes = {(r['path'], r['reason'], r.get('requirement_id')): r for r in outcomes}
             urgent_derived = set()
+            retirement_derived = set()
             pending_fields = {}
-            for deferred, seeds in ((False, urgent_fields), (True, deferred_fields)):
+            from wiki_core.action_state import TERMINAL_ACTION_STATES
+            def nonterminal_action(path):
+                node = current['nodes'].get(path, {})
+                return (node.get('page_type') == 'action' or node.get('action_state') is not None) and node.get('action_state') not in TERMINAL_ACTION_STATES
+            for deferred, seeds, from_retirement in ((False, urgent_fields, False),
+                    (True, deferred_fields, False), (True, retirement_fields, True)):
                 fields = {path: set(values) for path, values in seeds.items()}
                 sources = {} if deferred else ordinary_sources
                 if not fields and not sources: continue
                 for _ in range(64):
                     expanded, reached, boundary = propagate_pending_dependencies(current, base, fields, closure_policy, query_context)
-                    if not deferred: denied.update(boundary)
+                    if not deferred or from_retirement: denied.update(boundary)
                     for path, causes in reached.items():
                         if not deferred: urgent_derived.add(path)
+                        if from_retirement: retirement_derived.add(path)
                         existing = derived.setdefault(path, [])
                         for cause in causes:
                             if cause not in existing: existing.append(cause)
@@ -449,12 +457,13 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                                                         legacy_authority_unavailable=True,
                                                         _retirement_approved=approved_base)
                     affected = filter_equivalent_config(affected, set(query_sources))
-                    record_authorized_affected(affected)
+                    record_authorized_affected(affected, set(query_sources) if from_retirement else frozenset())
                     more = revalidate_affected(root, base=base_sha, head=head, context_id=query_context,
                         affected=affected, changed=impact_changed, current=current, pending_sources=query_sources, read_budget=closure_budget, _selection_cache=selection_cache, policy=closure_policy)
                     for row in more:
                         if (deferred and row['state'] == 'unknown' and
                                 not (row['path'] in impact_changed and any(path == row['path'] for path, _req in retirement_candidates)) and
+                                not (from_retirement and (row['path'] in impact_changed or nonterminal_action(row['path']))) and
                                 current['nodes'].get(row['path'], {}).get('action_state') not in {'open', 'in_progress'}):
                             row.update(state='review_pending', priority='on_demand', fields=['*'], causes=[], chain=[],
                                        verification_performed=False)
@@ -463,6 +472,8 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                         key = (row['path'], row['reason'], row.get('requirement_id'))
                         previous = all_outcomes.get(key)
                         if previous is None or previous.get('priority') == 'on_demand': all_outcomes[key] = row
+                        if from_retirement and row.get('reason') == 'dynamic_query_upstream_pending':
+                            retirement_derived.add(row['path'])
                     new_fields = {path: set(values) for path, values in expanded.items()}
                     for row in more:
                         if row['state'] != 'review_pending': continue
@@ -489,7 +500,10 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             result['integrity_blockers'].extend({'path': row['path'], 'reason': 'legacy_query_current_consumer_requires_review'}
                 for row in all_outcomes.values() if row.get('reason') == 'dynamic_query_upstream_pending'
                 and any(path == row['path'] for path, _req in retirement_candidates)
-                and (row['path'] in impact_changed or current['nodes'].get(row['path'], {}).get('action_state') in {'open', 'in_progress'}))
+                and (row['path'] in impact_changed or nonterminal_action(row['path'])))
+            result['integrity_blockers'].extend({'path': path, 'reason': 'legacy_query_current_consumer_requires_review'}
+                for path in sorted(retirement_derived)
+                if nonterminal_action(path))
             result['integrity_blockers'].extend({'path': p, 'reason': 'dynamic_impact_authority_boundary'} for p in sorted(denied))
             result['pending_reviews'].extend(r for r in all_outcomes.values() if r['state'] == 'review_pending')
             existing_pending = {r['path']: r for r in result['pending_reviews']}
