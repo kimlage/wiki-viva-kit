@@ -151,7 +151,8 @@ def _capture(root, policy, context_id, source_ref, source_context, config, artif
               for c in chunk_text(str(manifest['source_id']), extracted.text,
                   int(config.llm.get('chunk_target_tokens', 1200)),
                   int(config.llm.get('chunk_overlap_tokens', 150)),
-                  preserve_lines=source_type in {'table', 'spreadsheet'})]
+                  preserve_lines=source_type in {'table', 'spreadsheet'},
+                  source_units=extracted.units if source_type == 'document' else None)]
     if any(f.category == 'secret' for f in scan_text(extracted.text)) \
             or contains_access_secrets([extracted.text, extracted.units]):
         raise ValueError('source unavailable')
