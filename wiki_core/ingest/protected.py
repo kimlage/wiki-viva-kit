@@ -446,6 +446,10 @@ def _read_json(root, policy, context_id, path, *, max_bytes=2_000_000):
     return strict_json_loads(data.decode('utf-8'))
 
 
+def _candidate_authorization_day():
+    return dt.date.today()
+
+
 def _requalification_guard(root, policy, current):
     cache = _STAGE_CACHE.get()
     folder = current.get('block_context_package', {}).get('entry_folder')
@@ -453,6 +457,9 @@ def _requalification_guard(root, policy, current):
     if (cache is None or not isinstance(folder, str) or not isinstance(selected, dict)
             or selected.get('request_id') != current.get('protected_request_id')):
         raise ValueError('reuse context unavailable')
+    if (selected.get('grant_check_date') is not None
+            and selected['grant_check_date'] != _candidate_authorization_day()):
+        raise ValueError('historical candidate authorization date changed')
     _check_physical_context(root, folder, cache['context_paths'].get(str(root), (set(), set())))
     auth = current['source_authorization']
     source = _source(root, policy, auth['context_id'], auth['ref'], auth['artifact_context'])
@@ -515,7 +522,8 @@ def _previous_request(root, binding, policy, actor, paths, current, previous_id,
             return None
         previous_revision = previous['source_authorization']['policy_revision']
         historical = historical_policy(policy, previous_revision, authority_format='folder')
-        if selected_grants(historical, previous) != selected_grants(policy, current):
+        checked_on = _candidate_authorization_day()
+        if selected_grants(historical, previous, today=checked_on) != selected_grants(policy, current, today=checked_on):
             return None
         # The retained packet is not itself proof that its selected bodies came
         # from the historical tree. Compare each selected Git blob identity to
@@ -530,6 +538,7 @@ def _previous_request(root, binding, policy, actor, paths, current, previous_id,
         policy.fresh()
         if cache is not None:
             cache['reuse_proofs'][key] = (before, previous, historical)
+            cache['candidate_guard']['grant_check_date'] = checked_on
         return previous, historical
     except (ValueError, KeyError, TypeError, AttributeError):
         policy.fresh()
@@ -586,6 +595,7 @@ def _historical_capture(root, policy, actor, paths, current, previous, historica
 
 def _historical_candidate(root, policy, actor, paths, current, row, previous, historical):
     """Read one exact earlier result as historical review material only."""
+    from wiki_core.ingest.historical_candidates import policy_view_changed
     cache = _STAGE_CACHE.get()
     indexes = cache.setdefault('candidate_rows', {}) if cache is not None else {}
     key = previous['protected_request_id']
@@ -640,6 +650,7 @@ def _historical_candidate(root, policy, actor, paths, current, row, previous, hi
     _check_reuse_dependencies(root, policy, actor, before, current=current)
     origin = {'request_id': previous['protected_request_id'],
               'policy_revision': previous['source_authorization']['policy_revision'],
+              'authority_metadata_changed': policy_view_changed(previous, current),
               'packet_digest': previous['block_context_package']['packet_digest'],
               'source_id': previous['source_id'], 'source_hash_sha256': previous['source_hash_sha256'],
               'chunk_id': old_row['chunk_id'], 'chunk_hash_sha256': old_row['chunk_hash_sha256'],
@@ -890,6 +901,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
     prior_dependencies = []
     if previous_request_id is not None:
         try:
+            from wiki_core.ingest.historical_candidates import selected_grants
             root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
                 entry_folder, entry_index, context_max_bytes, actor)
             source_path = _source(root, policy, context_id, source_ref, actor)
@@ -902,12 +914,16 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             if (current != request or current_digest != source_digest or _artifact_stamp(source_path) != source_stamp
                     or _artifact_stamp(request_path) != request_stamp):
                 raise ValueError('request authority changed')
+            checked_on = _candidate_authorization_day()
+            selected_grants(policy, request, today=checked_on)
+            if _candidate_authorization_day() != checked_on:
+                raise ValueError('current authorization date changed')
             cache = _STAGE_CACHE.get()
             if cache is None:
                 raise ValueError('stage unavailable')
             cache['candidate_guard'] = {'request_id': request_id, 'binding': binding,
                 'source_stamp': source_stamp, 'request_path': request_path, 'request_stamp': request_stamp,
-                'repository_selection': repository_selection}
+                'repository_selection': repository_selection, 'grant_check_date': checked_on}
             prior_review = {'status': 'unavailable', 'previous_request_id': previous_request_id,
                             'selected_chunk_ids': list(candidate_chunk_ids),
                             'coverage': 'explicit historical candidates only; no current result inferred'}
@@ -948,6 +964,7 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
                 root, policy, config, paths, current, current_digest = _open_bound(root, binding, **options)
                 if current != request or current_digest != source_digest:
                     raise ValueError('request authority changed')
+                selected_grants(policy, request, today=_candidate_authorization_day())
             except (ValueError, OSError) as current_exc:
                 raise ProtectedPartialError('current request unavailable; partial effects may exist; inspect before retry') from current_exc
             prior_review = {'status': 'unavailable', 'previous_request_id': previous_request_id,
@@ -1063,6 +1080,9 @@ def prepare(root, binding, *, context_id, approved_revision, entry_folder, entry
             prior_review = {'status': 'unavailable', 'previous_request_id': previous_request_id,
                             'selected_chunk_ids': list(candidate_chunk_ids),
                             'coverage': 'historical candidate changed; current request unchanged'}
+        if previous_request_id is not None:
+            from wiki_core.ingest.historical_candidates import selected_grants
+            selected_grants(policy, request, today=_candidate_authorization_day())
         policy.fresh()
     except (ValueError, OSError, UnicodeError) as exc:
         raise ProtectedPartialError('cache readback unavailable; partial effects may exist; inspect before retry') from exc

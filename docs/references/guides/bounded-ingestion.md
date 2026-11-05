@@ -290,7 +290,13 @@ so the candidate reports `source_proof: retained_capture_not_raw_source`; this
 is not an independent replay of the old extraction.
 
 Returned candidates contain the unchanged historical result, its prior request,
-policy revision and digests, and `status: review_needed`. No candidate is copied
+policy revision and digests, and `status: review_needed`. The origin also reports
+`authority_metadata_changed` when the policy scopes or imports shown to the
+earlier reader differ from those in the current request. Effective read and
+connection decisions are checked separately for each selected path and reader;
+expired connections and redundant read scopes do not alone hide a candidate.
+The validity horizon of a selected live bilateral connection remains part of
+the comparison. No candidate is copied
 to the current cache, marked as a current result or incorporated into memory.
 Reviewing a candidate does not itself satisfy the current contextual-read gate;
 the current request still needs its own result bound to that request.
