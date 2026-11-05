@@ -86,6 +86,20 @@ def test_all_requested_grants_checked_before_any_repository_git(configured, monk
         prepare(root, binding, **{**args, 'repository_selection': ['guide', 'not-granted']}, source_context='system')
 
 
+def test_repository_source_page_identity_mismatch_blocks_before_git(configured, monkeypatch):
+    root, _, binding, args = configured
+    write(root, 'memories/sources/wrong.md', '---\npage_id: wrong\npage_type: source\nplatform: repo\n'
+        'source_locator: example.test/team/other\n---\n# Wrong source\n')
+    git(root, 'add', '.'); git(root, 'commit', '-qm', 'select mismatched source')
+    git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    args = {**args, 'approved_revision': git(root, 'rev-parse', 'HEAD'), 'context_selection': {
+        'omit_root_entity': True, 'repository_source_pages': {'guide': 'memories/sources/wrong.md'}}}
+    import wiki_core.ingest.protected as protected
+    monkeypatch.setattr(protected, 'selected_repository', lambda *a, **k: pytest.fail('Git opened for mismatched source'))
+    with pytest.raises(ValueError):
+        prepare(root, binding, **args, source_context='system')
+
+
 def test_host_environment_pins_grants_and_readback_hides_paths(configured):
     from wiki_core.coordination_context import capability
     root, external, binding, args = configured
@@ -232,6 +246,7 @@ def test_protected_repo_comparison_only_suggests_selected_relevant_changes(confi
     prepared = prepare(root, binding, **args, source_context='system')
     ids = {'source_id': prepared['source_id'], 'request_id': prepared['request_id']}
     assert record(root, binding, **args, **ids, results=[_result_for(prepared['request'])])['recorded'] == 1
+    write(root, 'memories/candidate.md', '# Unapproved working-tree replacement\n')
     write(external, 'unrelated.md', '# unrelated change\n')
     git(external, 'add', '.'); git(external, 'commit', '-qm', 'unrelated')
     new_grant = replace(binding.repository_grants[0], selection_id='current', revision=git(external, 'rev-parse', 'HEAD'))

@@ -732,8 +732,10 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
     """Compare explicitly authorized revisions; report suggestions, never effects or consumption."""
     from wiki_core.consolidate import compare_repository_candidates
     from wiki_core.context_selection import _metadata
+    from wiki_core.context_packet import guarded_context_read, guard_folder_blob
     from wiki_core.llm.context_pass import validate_result
     from wiki_core.repo_read import remote_identity
+    from wiki_core.repository_reader import RepositoryReader
     actor = context_id if artifact_context is None else artifact_context
     root, policy, config, paths = _authority(root, binding, context_id, approved_revision,
         entry_folder, entry_index, context_max_bytes, actor)
@@ -794,15 +796,24 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
     metadata = []
     page_hashes = []
     remaining = 1_000_000
+    reader = RepositoryReader(root, approved_revision)
     for ref in [source_page, *refs]:
-        path = _allowed(root, policy, actor, root / ref, 'read')
-        policy.fresh()
-        with path.open('rb') as stream: raw = stream.read(remaining + 1)
-        policy.fresh()
+        _allowed(root, policy, context_id, root / ref, 'read')
+        _allowed(root, policy, actor, root / ref, 'read')
+        guard_folder_blob(root, policy, ref)
+        size = reader.blob_size(ref)
+        if size > remaining: raise ValueError('repository comparison unavailable')
+        remaining -= size
+    remaining = 1_000_000
+    for ref in [source_page, *refs]:
+        _allowed(root, policy, context_id, root / ref, 'read')
+        _allowed(root, policy, actor, root / ref, 'read')
+        document = guarded_context_read(reader, policy, ref)
+        raw = document['text'].encode('utf-8')
         if len(raw) > remaining: raise ValueError('repository comparison unavailable')
         remaining -= len(raw)
-        page_hashes.append(hashlib.sha256(raw).hexdigest())
-        metadata.append(_metadata({'text': raw.decode('utf-8')}))
+        page_hashes.append(document['content_sha256'])
+        metadata.append(_metadata(document))
     selected_pages = [row for row in request['block_context_package']['inputs']
                       if row.get('ref') == source_page and row.get('reason') == source_reason]
     if len(selected_pages) != 1 or selected_pages[0]['document_sha256'] != page_hashes[0]:
@@ -818,13 +829,10 @@ def compare_repositories(root, binding, *, context_id, approved_revision, entry_
     if (again != request or repeated_digest != digest
             or selected_repository(binding, policy, context_id, actor, current_repository_selection) != current):
         raise ValueError('repository comparison changed')
-    for ref, expected in zip([source_page, *refs], page_hashes):
-        path = _allowed(root, policy, actor, root / ref, 'read')
-        policy.fresh()
-        with path.open('rb') as stream: raw = stream.read(1_000_001)
-        policy.fresh()
-        if len(raw) > 1_000_000 or hashlib.sha256(raw).hexdigest() != expected:
-            raise ValueError('repository comparison changed')
+    for ref in [source_page, *refs]:
+        _allowed(root, policy, context_id, root / ref, 'read')
+        _allowed(root, policy, actor, root / ref, 'read')
+    policy.fresh()
     return {'repository_comparison': {'identity': old['repository_identity'], 'path': old['path'],
         'before_revision': old['revision'], 'after_revision': current['revision'],
         'before_digest': old['content_sha256'], 'after_digest': current['content_sha256'], 'changed': changed},
