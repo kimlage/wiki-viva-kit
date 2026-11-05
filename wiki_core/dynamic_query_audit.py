@@ -69,7 +69,8 @@ def revalidate_affected(root, *, base, head, context_id, affected, changed, curr
     if folder_mode:
         for context in policy.lineage(context_id):
             context_root = context['root']
-            if context_root != '.': selected_indexes.add(context_root + '/index.md')
+            if policy._context_indexes.get(context_root): selected_indexes.add(policy._context_indexes[context_root])
+        selected_indexes.update(value['entry_index'] for value in getattr(policy, '_folder_qualifications', {}).values())
     changed_policy = bool(normative & changed) or any(p == 'context.yaml' or p.endswith('/context.yaml') or is_context_instruction(p) or (folder_mode and (p == 'wiki.config.yaml' or p in selected_indexes)) for p in changed)
     budget = read_budget if read_budget is not None else [32_000_000]
     outcomes = []

@@ -68,7 +68,8 @@ def _folder_context(root, policy, context):
     """Qualify only the requested destination before applying its grants."""
     if getattr(policy, 'format_version', None) != 'folder': return
     from wiki_core.context_packet import qualify_folder_context
-    index = 'index.md' if context == '.' else context + '/index.md'
+    index = policy._context_indexes.get(context)
+    if index is None: raise ImpactError('folder context requires authorized requalification')
     try: qualify_folder_context(root, policy, context, context, index, 2_000_000)
     except (ValueError, KeyError, TypeError, OSError) as exc:
         raise ImpactError('folder context requires authorized requalification') from exc
@@ -130,7 +131,7 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
                     or requirement.get('target') != source or fields != ['*'] or requirement.get('fields') != ['*']
                     or requirement.get('temporal') != 'current' or consumed_revision is None
                     or new.revision != policy.policy_revision
-                    or not normative_history(policy,destination_context,source,consumed_revision)):
+                    or not normative_history(policy,destination_context,source,consumed_revision,authority_format=requirement.get('authority_format'),entry_folder=requirement.get('entry_folder'),entry_index=requirement.get('entry_index'))):
                 raise ImpactError('normative dependency authorization unavailable; review pending')
         query = e.get('requirement', {}).get('query')
         query_before = query_after = None
@@ -165,11 +166,15 @@ def assess_impact(root, policy, graph, *, before, after, destination_context, ma
             rule=str(e.get('type','untyped_reference'))
             target_digest=_selected_digest(new,target,'*',policy=policy)
             key=(target,edge_old.revision,new.revision,rule,source,selector,use,classification,target_digest)
-            if normative: key += ('mandatory',)
+            if normative:
+                key += ('mandatory',)
+                if requirement.get('authority_format'): key += tuple(requirement[k] for k in ('authority_format','entry_folder','entry_index'))
             if query is not None and query_before.get('authority_format'): key += tuple(query_before[k] for k in ('authority_format','entry_folder','entry_index'))
             event_id=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
             cycle=event_id in trace or len(trace)>=max_generation
             candidates[key]={'event_id':event_id, 'trace':list(trace) if cycle else [*trace,event_id], 'generation':len(trace), 'target':target,'destination_context':destination_context,'source':source,'producer_context':source_owner,'selector':selector,'rule':rule,'use':use,'classification':classification,'before_revision':edge_old.revision,'after_revision':new.revision,'before_digest':before_digest,'after_digest':after_digest,'target_digest':target_digest, **({'source_kind':'mandatory'} if normative else {}), 'state':'blocked_cycle_limit' if cycle else ('blocked_missing_target' if target_digest is None else ('blocked_unpinned_dependency' if consumed_revision is None else ('blocked_missing_source' if before_digest is None and after_digest is None else 'review_pending'))),'interpretation':'independent','fact_freshness':'not_assessed'}
+            if normative and requirement.get('authority_format'):
+                candidates[key].update({k:requirement[k] for k in ('authority_format','entry_folder','entry_index')})
             if query is not None:
                 candidates[key].update(query_policy_revision=query_after['policy_revision'], authority_digest=query_after['authority_digest'],query=query, members_digest_before=query_before['members_digest'], members_digest_after=query_after['members_digest'])
                 if query_after.get('authority_format'):
@@ -209,7 +214,7 @@ def report_review(root, policy, candidate, *, disposition, reason, evidence_revi
         expected=hashlib.sha256(json.dumps(key,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
         if expected!=candidate['event_id'] or policy.owner_of(target)!=context or policy.owner_of(source)!=candidate['producer_context'] or not policy.permits(context,'read',target): raise ImpactError('invalid candidate')
         if candidate.get('source_kind')=='mandatory':
-            grant='approved' if candidate['use']=='normative' and selector=='*' and normative_history(policy,context,source,candidate['before_revision']) else 'denied'
+            grant='approved' if candidate['use']=='normative' and selector=='*' and normative_history(policy,context,source,candidate['before_revision'],authority_format=candidate.get('authority_format'),entry_folder=candidate.get('entry_folder'),entry_index=candidate.get('entry_index')) else 'denied'
         else:
             grant=policy.connection(candidate['producer_context'],context,source,candidate['use'],candidate['classification'],section=name if kind=='section' else None,field=name if kind=='field' else None)
             if (getattr(policy, 'format_version', None) == 'folder' and candidate['producer_context'] not in policy._qualified_contexts

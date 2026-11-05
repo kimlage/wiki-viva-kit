@@ -380,9 +380,9 @@ def information_requirements(values: dict, resolve, *, resolve_normative=None) -
             raise ValueError('invalid information use or classification')
         dynamic = {'query','members_digest','selected_digest','query_policy_revision','authority_digest'} & set(entry)
         if ('authority_format' in entry or 'entry_folder' in entry or 'entry_index' in entry) and (
-                entry.get('authority_format') != 'folder' or not dynamic or
+                entry.get('authority_format') != 'folder' or not (dynamic or entry.get('source_kind') == 'mandatory') or
                 not isinstance(entry.get('entry_folder'), str) or not isinstance(entry.get('entry_index'), str)):
-            raise ValueError('query authority format requires a query receipt')
+            raise ValueError('authority format requires a folder receipt')
         if 'authority_format' in entry:
             from wiki_core.context_policy import safe_path
             safe_path(entry['entry_folder'], allow_root=True)
