@@ -29,6 +29,7 @@ CACHE_KEY_RE = re.compile(r"[0-9a-f]{64}")
 
 DEFAULT_CONTEXT_MAX_BYTES = 100_000
 DEFAULT_REQUEST_MAX_BYTES = 256_000
+MAX_LOCAL_REQUEST_BYTES = 2_000_000
 
 
 class ContextRequestBlocked(ValueError):
@@ -74,14 +75,14 @@ def local_request_path(paths, request: dict) -> Path:
     return paths.extraction_events / f'folder-{source}-{identity}-llm-context-request.json'
 
 
-def load_local_request(paths, path: Path, *, max_bytes: int = 2_000_000) -> dict:
+def load_local_request(paths, path: Path, *, max_bytes: int = MAX_LOCAL_REQUEST_BYTES) -> dict:
     """Read one explicitly selected request; its identity does not grant access."""
     import os
     from wiki_core.context_selection import strict_json_loads
     from wiki_core.traversal import require_wiki_path
     if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes <= 0:
         raise ValueError('local request budget unavailable')
-    max_bytes = min(max_bytes, 2_000_000)
+    max_bytes = min(max_bytes, MAX_LOCAL_REQUEST_BYTES)
     candidate = Path(path)
     events = paths.extraction_events
     relative_events = events.relative_to(paths.root)
@@ -108,6 +109,10 @@ def retain_local_request(paths, request: dict) -> Path:
     import os
     import tempfile
     from wiki_core.traversal import require_wiki_path
+    text = canonical_request_text(request)
+    if len(text.encode('utf-8')) > MAX_LOCAL_REQUEST_BYTES:
+        raise ContextRequestBlocked('request_budget_exceeded',
+            'The complete local request exceeds the 2000000 byte retention limit; choose a smaller source or stage. No chunk was truncated.')
     path = local_request_path(paths, request)
     require_wiki_path(paths.root, path.relative_to(paths.root).as_posix())
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -115,7 +120,7 @@ def retain_local_request(paths, request: dict) -> Path:
     fd, temporary = tempfile.mkstemp(prefix='.wiki-retain-', dir=path.parent)
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as stream:
-            stream.write(canonical_request_text(request))
+            stream.write(text)
             stream.flush()
             os.fsync(stream.fileno())
         try:
@@ -154,6 +159,8 @@ def enforce_request_budget(request: dict, *, context_max_bytes=DEFAULT_CONTEXT_M
         request["byte_accounting"]["request_bytes"] = size
     if size > request_max_bytes:
         raise ContextRequestBlocked("request_budget_exceeded", "The complete request exceeds its byte budget; choose a smaller explicit source or stage, or revise the authorized budget. No chunk was truncated.")
+    if is_local_folder_request(request) and size > MAX_LOCAL_REQUEST_BYTES:
+        raise ContextRequestBlocked("request_budget_exceeded", "The complete local request exceeds the 2000000 byte retention limit; choose a smaller source or stage. No chunk was truncated.")
     return request
 
 

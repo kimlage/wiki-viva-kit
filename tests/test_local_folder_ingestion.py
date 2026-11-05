@@ -566,3 +566,37 @@ def test_local_capture_does_not_replace_file_created_after_preflight(approved, m
     assert result.blocked and result.partial_effects == 'unknown'
     captures = list(WikiPaths(root, config).source_manifests.glob('*.json'))
     assert len(captures) == 1 and captures[0].read_bytes() == competitor
+
+
+def test_local_request_over_retention_limit_blocks_before_persistence(approved):
+    from wiki_core.paths import WikiPaths
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area/AGENTS.md').write_text('Guidance')
+    (root / 'area/index.md').write_text('Index')
+    # No pathological encoding: the complete request is over the 2 MB
+    # retention limit while still within the caller's 3 MB request budget.
+    source.write_text('word ' * 410_000)
+    config = load_config(root)
+    result = run(str(source), 'system', root, config, entry_folder='area', record_score=False,
+                 request_max_bytes=3_000_000)
+    assert result.blocked and not result.written and result.request_path is None
+    assert result.context_error_code == 'request_budget_exceeded'
+    assert '2000000' in json.dumps(result.blockers)
+    assert not WikiPaths(root, config).derived_root.exists()
+
+
+def test_local_request_with_larger_budget_is_readable_when_under_retention_limit(approved):
+    from wiki_core.llm.context_pass import load_local_request
+    from wiki_core.paths import WikiPaths
+    root, source, _, _ = approved
+    (root / 'area').mkdir(exist_ok=True)
+    (root / 'area/AGENTS.md').write_text('Guidance')
+    (root / 'area/index.md').write_text('Index')
+    config = load_config(root)
+    result = run(str(source), 'system', root, config, entry_folder='area', record_score=False,
+                 request_max_bytes=3_000_000)
+    assert not result.blocked and result.request_path
+    paths = WikiPaths(root, config)
+    request = load_local_request(paths, root / result.request_path)
+    assert request['request_limits']['request_max_bytes'] == 3_000_000
