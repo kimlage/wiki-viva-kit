@@ -327,7 +327,7 @@ def _policy_at(root, sha, manifest_path):
     return policy
 
 
-def historical_policy(current, fixed_revision, *, authority_format='v1'):
+def historical_policy(current, fixed_revision, *, authority_format='v1', historical_manifest=None):
     """Reconstruct a recorded policy format, never permission to read.
 
     Historical v1 receipts have no format field and remain v1. New folder
@@ -342,7 +342,9 @@ def historical_policy(current, fixed_revision, *, authority_format='v1'):
     root, _, manifest = current._binding
     _git(root, 'merge-base', '--is-ancestor', fixed_revision, current.policy_revision)
     if getattr(current, 'format_version', None) == 'folder':
-        if authority_format == 'v1': return _policy_at(root, fixed_revision, 'context.yaml')
+        if authority_format == 'v1':
+            if historical_manifest is None: raise PolicyError('historical v1 manifest must be selected explicitly')
+            return _policy_at(root, fixed_revision, safe_path(historical_manifest))
         if authority_format == 'folder': return _folder_policy_at(root, fixed_revision)
         raise PolicyError('unknown historical authority format')
     if authority_format != 'v1': raise PolicyError('historical authority format unavailable')
