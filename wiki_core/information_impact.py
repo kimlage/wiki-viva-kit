@@ -111,6 +111,20 @@ def typed_consumption_graph(graph):
     return {**graph, 'edges': [edge for edge in graph['edges'] if explicit_current_consumption(edge)]}
 
 
+def retirement_current_graph(current, retired_paths):
+    """Follow only live uses of retired content, allowing status-only reads."""
+    def consumes_retired_status_only(edge):
+        req = edge.get('requirement')
+        if not isinstance(req, dict): return False
+        fields = req.get('fields')
+        return (edge.get('type') == 'operational_prerequisite' and edge.get('target') in retired_paths
+                and req.get('temporal') == 'current' and 'query' not in req
+                and isinstance(fields, list) and bool(fields)
+                and all(isinstance(field, str) for field in fields)
+                and set(fields) <= {'status', 'field:status'})
+    return {**current, 'edges': [edge for edge in current['edges'] if not consumes_retired_status_only(edge)]}
+
+
 def authorized_pending_edge(edge, policy, context_id):
     """Closure never imports another owner's provenance or a denied path."""
     from wiki_core.context_policy import PolicyError
@@ -276,9 +290,11 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     retired = retired_legacy_queries(current, base, changed, approved_base=_retirement_approved)
     retired_paths = {path for path, _query in retired}
     if retired_paths:
+        retirement_current = retirement_current_graph(current, retired_paths)
         retirement_base = {**base, 'nodes': {path: values for path, values in base['nodes'].items()
-                                             if path in current['nodes'] or path in retired_paths}}
-        retirement_reach = typed_information_reach(current, retirement_base, retired_paths, force_all=retired_paths)
+                                             if path in current['nodes'] or path in retired_paths},
+                           'edges': retirement_current['edges']}
+        retirement_reach = typed_information_reach(retirement_current, retirement_base, retired_paths, force_all=retired_paths)
         _typed_reasons = {**_typed_reasons, **retirement_reach}
     affected = affected_dynamic_queries(current, base, changed, set(_typed_reasons), _retirement_approved=_retirement_approved)
     dynamic_blockers = [{'path':row['path'],'reason':'dynamic_query_requires_authorized_revalidation'} for row in affected]
@@ -289,7 +305,8 @@ def evaluate_information_impact(current: dict, base: dict, changed: set[str], *,
     if retired_paths:
         dynamic_blockers.extend({'path': path, 'reason': 'legacy_query_current_consumer_requires_review'}
             for path, row in sorted(retirement_reach.items()) if row.get('causes')
-            and current['nodes'].get(path, {}).get('page_type') in {'claim', 'action', 'decision'})
+            and (current['nodes'].get(path, {}).get('page_type') in {'claim', 'action', 'decision'}
+                 or current['nodes'].get(path, {}).get('information_role') == 'factual_unit'))
     # A manifest change can revoke or remove an inherited normative input even
     # when neither its body nor its consumer changed. The global caller-trust
     # audit cannot prove the new authority; preserve a visible review obligation.

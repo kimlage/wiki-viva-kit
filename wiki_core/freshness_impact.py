@@ -296,7 +296,7 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
     if information_policy == "use_scoped":
         if documentary_only or freshness_reviews:
             raise ValueError("use-scoped impact does not accept per-proposal freshness waivers")
-        from wiki_core.information_impact import evaluate_information_impact, typed_information_reach, retired_legacy_queries
+        from wiki_core.information_impact import evaluate_information_impact, typed_information_reach, retired_legacy_queries, retirement_current_graph
         has_queries = any('query' in edge.get('requirement', {}) for graph in (base, current) for edge in graph['edges'])
         has_legacy_queries = any('query' in edge.get('requirement', {}) and edge['requirement'].get('authority_format') != 'folder'
                                  for graph in (base, current) for edge in graph['edges'])
@@ -364,9 +364,11 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
             authorized_affected = set()
             from wiki_core.context_policy import within
             retired_paths = {path for path, _query in retired}
+            retirement_current = retirement_current_graph(current, retired_paths)
             retirement_base = {**base, 'nodes': {path: values for path, values in base['nodes'].items()
-                                                 if path in current['nodes'] or path in retired_paths}}
-            retirement_reach = (typed_information_reach(current, retirement_base, retired_paths, force_all=retired_paths)
+                                                 if path in current['nodes'] or path in retired_paths},
+                               'edges': retirement_current['edges']}
+            retirement_reach = (typed_information_reach(retirement_current, retirement_base, retired_paths, force_all=retired_paths)
                                 if retired_paths else {})
             retirement_sources = set(retirement_reach)
             retirement_candidates = set()
@@ -443,7 +445,9 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                 sources = {} if deferred else ordinary_sources
                 if not fields and not sources: continue
                 for _ in range(64):
-                    expanded, reached, boundary = propagate_pending_dependencies(current, base, fields, closure_policy, query_context)
+                    expanded, reached, boundary = propagate_pending_dependencies(
+                        retirement_current if from_retirement else current,
+                        retirement_base if from_retirement else base, fields, closure_policy, query_context)
                     if not deferred or from_retirement: denied.update(boundary)
                     for path, causes in reached.items():
                         if not deferred: urgent_derived.add(path)
@@ -472,12 +476,14 @@ def repository_report(root: Path, config: WikiConfig, base_ref: str, *,
                         key = (row['path'], row['reason'], row.get('requirement_id'))
                         previous = all_outcomes.get(key)
                         if previous is None or previous.get('priority') == 'on_demand': all_outcomes[key] = row
-                        if from_retirement and row.get('reason') == 'dynamic_query_upstream_pending':
+                        if (from_retirement and row['state'] == 'review_pending'
+                                and any(path == row['path'] for path, _req in retirement_candidates)):
                             retirement_derived.add(row['path'])
                     new_fields = {path: set(values) for path, values in expanded.items()}
                     for row in more:
                         if row['state'] != 'review_pending': continue
-                        if deferred != (row.get('priority') == 'on_demand') and row['reason'] != 'dynamic_query_upstream_pending': continue
+                        if from_retirement and not any(path == row['path'] for path, _req in retirement_candidates): continue
+                        if not from_retirement and deferred != (row.get('priority') == 'on_demand') and row['reason'] != 'dynamic_query_upstream_pending': continue
                         new_fields.setdefault(row['path'], set()).update(row.get('fields', ['*']))
                     if new_fields == fields: break
                     fields = new_fields

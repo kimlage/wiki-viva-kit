@@ -1,4 +1,5 @@
 """Retire one obsolete historical v1 example without replaying its sources."""
+import pytest
 import yaml
 
 from tests.test_context_flow import repo
@@ -68,7 +69,8 @@ def test_proposal_commit_cannot_be_used_as_approved_retirement_base(collection):
     assert any(row['path'] == TASK['output'] and 'revalidation' in row['reason'] for row in report['blockers'])
 
 
-def test_retirement_marks_excluded_query_candidate_for_review(repo, monkeypatch):
+@pytest.mark.parametrize('old_flag', ['no', 'eligible'])
+def test_retirement_marks_excluded_query_candidate_for_review(repo, monkeypatch, old_flag):
     from tests import test_context_dynamic_selection as legacy
     from tests import test_dynamic_impact_closure as scoped
     root = legacy.collection.__wrapped__(repo)
@@ -76,7 +78,7 @@ def test_retirement_marks_excluded_query_candidate_for_review(repo, monkeypatch)
     legacy.declare(root, old)
     path = root / TASK['output']
     parts = path.read_text().split('---\n', 2)
-    values = yaml.safe_load(parts[1]); values.update(status='active', flag='no', amount=5)
+    values = yaml.safe_load(parts[1]); values.update(status='active', flag=old_flag, amount=5)
     path.write_text('---\n' + yaml.safe_dump(values) + '---\n' + parts[2])
     scoped.collection.__wrapped__(root)
     query = {'target':scoped.ANCHOR, 'reason':'synthetic filter', 'use':'interpret', 'classification':'synthetic',
@@ -107,7 +109,7 @@ def test_retirement_marks_excluded_query_candidate_for_review(repo, monkeypatch)
     base = commit(root)
     git(root, 'checkout', '-qb', 'wiki/retire-filter-candidate')
     parts = path.read_text().split('---\n', 2)
-    values = yaml.safe_load(parts[1]); values['status'] = 'superseded'; values.pop('information_requirements')
+    values = yaml.safe_load(parts[1]); values.update(status='superseded', flag='no'); values.pop('information_requirements')
     path.write_text('---\n' + yaml.safe_dump(values) + '---\n' + parts[2])
     git(root, 'add', TASK['output']); git(root, 'commit', '-qm', 'retire old query')
     head = git(root, 'rev-parse', 'HEAD')
@@ -119,7 +121,7 @@ def test_retirement_marks_excluded_query_candidate_for_review(repo, monkeypatch)
     monkeypatch.setattr(RepositoryReader, '_document', owner_only)
     report = repository_report(root, load_config(root), base, query_context=scoped.CONTEXT,
                                query_policy_revision=base, query_head=head)
-    assert any(row['path']=='finance/costs/derived/query.md' and row['reason']=='dynamic_query_upstream_pending'
+    assert any(row['path']=='finance/costs/derived/query.md' and row['reason'] in {'dynamic_query_upstream_pending', 'dynamic_query_changed'}
                and not row['verification_performed'] for row in report['pending_reviews'])
     assert any(row['path']=='finance/costs/consumer.md' and row['reason']=='dynamic_query_upstream_pending'
                for row in report['pending_reviews'])

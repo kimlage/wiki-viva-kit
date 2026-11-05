@@ -36,6 +36,26 @@ def test_only_superseded_inactive_legacy_history_can_be_retired():
     result = evaluate_information_impact(new, old, {'consumer.md','AGENTS.md'}, today=TODAY, _retirement_approved=True)
     assert any(row['path']=='claim.md' and row['reason']=='legacy_query_current_consumer_requires_review'
                for row in result['integrity_blockers'])
+    for graph in (old, new):
+        graph['nodes']['claim.md'] = {'page_type':'custom', 'information_role':'factual_unit'}
+    result = evaluate_information_impact(new, old, {'consumer.md','AGENTS.md'}, today=TODAY, _retirement_approved=True)
+    assert any(row['path']=='claim.md' and row['reason']=='legacy_query_current_consumer_requires_review'
+               for row in result['integrity_blockers'])
+    for graph in (old, new):
+        graph['edges'][-1]['requirement']['fields'] = ['status']
+    result = evaluate_information_impact(new, old, {'consumer.md','AGENTS.md'}, today=TODAY, _retirement_approved=True)
+    assert not any(row['path']=='claim.md' and row['reason']=='legacy_query_current_consumer_requires_review'
+                   for row in result['integrity_blockers'])
+    old, new = deepcopy(before), deepcopy(after)
+    old['nodes'].update({'middle.md':{'page_type':'claim'}, 'action.md':{'page_type':'action','action_state':'open'}})
+    old['documents'].update({'middle.md':'Intermediate.', 'action.md':'Action.'})
+    old['edges'].extend([dict(dependent, source='middle.md'), dict(dependent, source='action.md', target='middle.md',
+        requirement={'target':'middle.md','fields':['body'],'temporal':'current','max_age_days':30})])
+    new['nodes']['action.md'] = old['nodes']['action.md']
+    new['documents']['action.md'] = old['documents']['action.md']
+    result = evaluate_information_impact(new, old, {'consumer.md','middle.md','action.md','AGENTS.md'}, today=TODAY, _retirement_approved=True)
+    assert not any(row['path']=='action.md' and row['reason']=='legacy_query_current_consumer_requires_review'
+                   for row in result['integrity_blockers'])
     for mutation in ('active', 'open', 'blocked', 'waiting_human', 'missing_action_state', 'current', 'folder', 'still_live'):
         old, new = deepcopy(before), deepcopy(after)
         if mutation == 'active': new['nodes']['consumer.md']['status'] = 'active'
